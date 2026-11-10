@@ -2471,8 +2471,11 @@ export interface components {
             complex_id: string;
             /** Format: uuid */
             court_id: string;
-            /** Format: uuid */
-            client_id: string;
+            /**
+             * Format: uuid
+             * @description Absent while a storefront booking waits for its payment: its client is created, or matched by phone, only once the payment is approved. client_name and client_phone still carry who it is for.
+             */
+            client_id?: string;
             /** Format: date-time */
             starts_at: string;
             /** Format: date-time */
@@ -3731,6 +3734,8 @@ export interface operations {
                     client_phone: string;
                     client_email?: string;
                     client_notes?: string;
+                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
+                    turnstile_token?: string;
                 };
             };
         };
@@ -5223,7 +5228,7 @@ export interface operations {
                     redirect_uri: string;
                     /** @description The PKCE verifier, sent by clients that kept it in the browser. When present it is used as is, and a `state` sent alongside it is only spent. */
                     code_verifier?: string;
-                    /** @description The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. */
+                    /** @description The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. When MercadoPago cannot be reached, a spent attempt is kept so the same callback can be retried. */
                     state?: string;
                 };
             };
@@ -5302,7 +5307,7 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
-            /** @description The complex has active bookings. */
+            /** @description The complex has upcoming bookings that may still need MercadoPago. Storefront bookings still waiting for their payment do not count: they are cancelled, and their checkout links closed, before the credentials are cleared. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -5313,6 +5318,15 @@ export interface operations {
             };
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
+            /** @description A storefront booking waiting for its payment could not be released because its MercadoPago checkout link could not be closed. Nothing was disconnected; try again. */
+            502: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
         };
     };
     complexesRegisterMercadoPagoOAuthAttempt: {

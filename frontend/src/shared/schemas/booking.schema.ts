@@ -54,7 +54,7 @@ export const bookingSchema = exact<Booking>(
       id: z.string(),
       complex_id: z.string(),
       court_id: z.string(),
-      client_id: z.string(),
+      client_id: z.string().optional(),
       starts_at: z.string(),
       ends_at: z.string(),
       date: z.string(),

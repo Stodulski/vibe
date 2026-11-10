@@ -5381,7 +5381,7 @@ components:
     Booking:
       type: object
       required:
-        [id, complex_id, court_id, client_id, starts_at, ends_at, date, start_time,
+        [id, complex_id, court_id, starts_at, ends_at, date, start_time,
          duration_minutes, price, deposit_amount, status, collection_status, refund_status,
          reminder_sent_2h, created_at, updated_at]
       properties:
@@ -5389,10 +5389,10 @@ components:
         complex_id: {type: string, format: uuid}
         court_id: {type: string, format: uuid}
         client_id:
-          type: [string, "null"]
+          type: string
           format: uuid
           description: >-
-            Null while a storefront booking waits for its payment: its client is
+            Absent while a storefront booking waits for its payment: its client is
             created, or matched by phone, only once the payment is approved.
             client_name and client_phone still carry who it is for.
         starts_at: {type: string, format: date-time}
