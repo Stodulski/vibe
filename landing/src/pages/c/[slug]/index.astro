@@ -8,6 +8,7 @@
  * when the read fails. Indexing follows STOREFRONT_INDEXABLE.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
+import { PUBLIC_TURNSTILE_SITE_KEY } from 'astro:env/client';
 import { ComplexPageEntry } from '@vibe/booking/complex-page';
 import { buildComplexSchema } from '@vibe/booking/complex-schema';
 import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
@@ -59,7 +60,8 @@ Astro.response.headers.set(
 if (status === 503) Astro.response.headers.set('Retry-After', '60');
 
 const robots = storefrontRobots(Astro.url.pathname, status);
-const config = storefrontBookingConfig(PUBLIC_API_URL);
+// The site key runs the invisible Turnstile challenge whose token takes the slot hold.
+const config = storefrontBookingConfig(PUBLIC_API_URL, PUBLIC_TURNSTILE_SITE_KEY);
 
 const head = data
   ? complexHead({

@@ -27,6 +27,7 @@ const VALID_REQUEST: PublicBookingRequest = {
   client_last_name: 'Perez',
   client_phone: '1155550000',
   client_email: 'juan@test.com',
+  hold_token: 'hold-1',
 };
 
 /** Answers `POST /book` with one 409 of the given problem kind. */

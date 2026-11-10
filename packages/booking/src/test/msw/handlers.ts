@@ -32,6 +32,13 @@ export const handlers = [
   ),
   http.get('*/public/complexes/:slug/next-available', () => HttpResponse.json({ date: null })),
   http.post('*/public/complexes/:slug/waitlist', () => new HttpResponse(null, { status: 204 })),
+  http.post('*/book/holds', () =>
+    HttpResponse.json(
+      { hold: { token: 'hold-1', expires_at: new Date(Date.now() + 15 * 60_000).toISOString() } },
+      { status: 201 },
+    ),
+  ),
+  http.post('*/book/holds/:token/release', () => new HttpResponse(null, { status: 204 })),
   http.post('*/book', () =>
     HttpResponse.json({
       booking: {

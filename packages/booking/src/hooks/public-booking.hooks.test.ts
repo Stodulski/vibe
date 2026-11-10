@@ -145,6 +145,7 @@ describe('usePublicBooking', () => {
       client_last_name: 'Perez',
       client_phone: '1155550000',
       client_email: 'juan@test.com',
+      hold_token: 'hold-1',
     });
 
     await waitFor(() => {
@@ -172,6 +173,7 @@ describe('usePublicBooking', () => {
       client_last_name: 'Perez',
       client_phone: '1155550000',
       client_email: 'juan@test.com',
+      hold_token: 'hold-1',
     });
 
     await waitFor(() => {

@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { ComplexHeader } from '../../components/ComplexHeader';
 import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { BackToLandingLink } from '../../components/complex-header/BackToLandingLink';
@@ -16,6 +17,7 @@ import { CourtDirectory } from './CourtDirectory';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
+import { HoldExpiredNotice } from './HoldExpiredNotice';
 import type { EmptyDay } from './emptyDay';
 
 interface ComplexPageContentProps {
@@ -58,6 +60,12 @@ interface ComplexPageContentProps {
   answeredFromUrl: { sport: boolean; duration: boolean };
   /** Why the grid of the selected day is empty, or `null` when it has courts to show. See `useEmptyDay`. */
   emptyDay: EmptyDay | null;
+  /**
+   * The invisible Turnstile widget whose token takes the hold on court pick.
+   * Rendered under the hours, where an interactive challenge, when Cloudflare
+   * asks for one, shows next to the tap that needs it.
+   */
+  challenge?: ReactNode;
 }
 
 /**
@@ -85,6 +93,7 @@ export function ComplexPageContent({
   mpConnected,
   selectedDate,
   onDateSelect,
+  challenge,
   ...flow
 }: ComplexPageContentProps) {
   // A complex that cannot be booked online is not shown the machinery for
@@ -121,8 +130,10 @@ export function ComplexPageContent({
         <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
       </div>
 
-      <div className="mt-6 sm:mt-10">
+      <div className="mt-6 space-y-4 sm:mt-10">
+        <HoldExpiredNotice slug={complex.slug} />
         <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
+        {challenge}
       </div>
 
       {/* The services and the map come after the booking, where a phone shows
@@ -134,7 +145,10 @@ export function ComplexPageContent({
   );
 }
 
-type BookingFlowProps = Omit<ComplexPageContentProps, 'schedules' | 'courts' | 'mpConnected' | 'selectedDate'>;
+type BookingFlowProps = Omit<
+  ComplexPageContentProps,
+  'schedules' | 'courts' | 'mpConnected' | 'selectedDate' | 'challenge'
+>;
 
 /** The questions and the hours. */
 function BookingFlow({

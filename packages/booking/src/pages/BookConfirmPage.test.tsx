@@ -36,6 +36,11 @@ const mockSlotInfo: BookingSlotInfo = {
   sport: 'padel',
 };
 
+/** The draft the complex page leaves after taking a hold on the slot. */
+function heldDraft(slot: Partial<BookingSlotInfo> = mockSlotInfo) {
+  return { ...slot, holdToken: 'hold-1', holdExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString() };
+}
+
 let replaceSpy: MockInstance<Location['replace']> | undefined;
 
 /** Stops the page's redirects from leaving the test document, and records them. */
@@ -54,7 +59,7 @@ function lastRedirect(spy: { mock: { calls: unknown[][] } }): URL {
  * this slug, which is what the page reads on mount. A test can park another value
  * there, raw, to check that the schema rejects it.
  */
-async function renderPage(draft: unknown = mockSlotInfo) {
+async function renderPage(draft: unknown = heldDraft()) {
   const Page = (await import('./BookConfirmPage')).default;
   setBookingUrl('/c/club-norte/book/confirm');
   if (draft !== null) {
@@ -299,7 +304,7 @@ describe('BookConfirmPage back link', () => {
     const replace = spyOnReplace();
     const user = userEvent.setup();
     const { sport: _sport, ...withoutSport } = mockSlotInfo;
-    await renderPage(withoutSport);
+    await renderPage(heldDraft(withoutSport));
     await waitFor(() => {
       expect(screen.getByText('Cancha 1')).toBeInTheDocument();
     });

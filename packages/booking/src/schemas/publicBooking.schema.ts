@@ -13,6 +13,7 @@ import type {
   PublicCancelBookingResponse,
   PublicComplex,
   PublicComplexResponse,
+  PublicHold,
   RefundEnvelope,
   RefundMethod,
   RefundStatus,
@@ -236,3 +237,16 @@ export const publicCancelBookingResponseSchema = z
     refund: refundEnvelopeSchema,
   })
   .loose() satisfies z.ZodType<PublicCancelBookingResponse>;
+
+/**
+ * `POST /book/holds` answers `201 {hold: {token, expires_at}}`. Read into the
+ * camelCase `PublicHold` the storefront keeps in its confirm draft.
+ */
+export const holdResponseSchema = z
+  .object({
+    hold: z.object({
+      token: z.string().min(1),
+      expires_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'expires_at must be an instant'),
+    }),
+  })
+  .transform(({ hold }): PublicHold => ({ token: hold.token, expiresAt: hold.expires_at }));

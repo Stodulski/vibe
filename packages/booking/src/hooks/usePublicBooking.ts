@@ -4,6 +4,7 @@ import { usePublicBookingApi } from '../api/context';
 import { BOOKING_MESSAGES } from '../messages';
 import { getHttpErrorMessage } from '../lib/httpErrors';
 import { getProblem } from '../lib/ApiError';
+import { conflictCopy, HOLD_EXPIRED_KIND, turnstileCopy } from '../lib/bookingRefusals';
 import { useIdempotentMutation, type WithAttemptKey } from '@vibe/ui';
 import type { PublicBookingRequest } from '../api/types';
 
@@ -24,47 +25,12 @@ interface UsePublicBookingOptions {
    * of the generic toast rather than alongside it.
    */
   onPaymentLinkError?: () => void;
-}
-
-/**
- * The text a 409 from `POST /book` should show, chosen by the problem+json
- * `kind` the backend minted it with (`internal/httpx/problem.go`).
- *
- * `slot-unavailable` and `duplicate-booking` are both 409s and mean opposite
- * things to the person reading them: one says somebody else took the hours,
- * the other says they already booked them themselves. Switching on the status
- * alone told everyone the first story.
- */
-function conflictCopy(kind: string | undefined): string {
-  switch (kind) {
-    case 'slot-unavailable':
-      return t.publicBooking.slotConflict;
-    case 'duplicate-booking':
-      return t.publicBooking.duplicateBooking;
-    // `stale-version`, the generic `conflict`, and any kind a later backend
-    // adds: nothing specific can be said, so ask for a retry.
-    default:
-      return t.publicBooking.bookingConflict;
-  }
-}
-
-/**
- * The text for a `turnstile_token` validation error, by the code the backend
- * puts in the message (`required`, `invalid`, `unavailable`, as auth does), or
- * `undefined` when the 422 is about something else. An unknown code reads as
- * a failed check rather than leaking the raw code.
- */
-function turnstileCopy(error: HTTPError): string | undefined {
-  const code = getProblem(error)?.errors.find((e) => e.field === 'turnstile_token')?.message;
-  if (code === undefined) return undefined;
-  switch (code) {
-    case 'required':
-      return t.publicBooking.turnstileRequired;
-    case 'unavailable':
-      return t.publicBooking.turnstileUnavailable;
-    default:
-      return t.publicBooking.turnstileInvalid;
-  }
+  /**
+   * 409 `hold-expired`: the hold this booking converts is gone (expired,
+   * released, or already used). The caller sends the visitor back to the
+   * hours with the expired notice, in place of a toast.
+   */
+  onHoldExpired?: () => void;
 }
 
 export function usePublicBooking(options?: UsePublicBookingOptions) {
@@ -75,6 +41,10 @@ export function usePublicBooking(options?: UsePublicBookingOptions) {
       if (error instanceof HTTPError) {
         if (error.response.status === 409) {
           const kind = getProblem(error)?.kind;
+          if (kind === HOLD_EXPIRED_KIND && options?.onHoldExpired) {
+            options.onHoldExpired();
+            return;
+          }
           toast.error(conflictCopy(kind));
           // Only a genuinely taken slot earns the trip back to the picker.
           // A duplicate would hit the same refusal on the second attempt, and
