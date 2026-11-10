@@ -11,6 +11,9 @@ import (
 )
 
 type Querier interface {
+	// Names the booking's client and drops the snapshot it was held under, so the
+	// person is recorded in one place (clients) once the booking succeeded.
+	AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error)
 	// Whether an owner's blocked slot on the booking's court covers any of the hours
 	// the booking is about to claim. It asks the same generated span column, and the
 	// same half-open range, as the bookings exclusion constraint and SlotTaken, so a
@@ -253,6 +256,10 @@ type Querier interface {
 	// GetCashSessionByIDForUpdate's own comment gives for cash_sessions.
 	GetSaleByIDForUpdate(ctx context.Context, arg GetSaleByIDForUpdateParams) (Sale, error)
 	GetSchedulesByComplex(ctx context.Context, complexID pgtype.UUID) ([]ComplexSchedule, error)
+	// Who a storefront booking is for, while it has no client yet: the snapshot
+	// POST /book stored instead of creating a clients row (024). No row means the
+	// booking already names its client, which is what makes attaching idempotent.
+	GetUnattachedBookingClientSnapshot(ctx context.Context, id pgtype.UUID) (GetUnattachedBookingClientSnapshotRow, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
 	GetUnconfirmedAfterReminder(ctx context.Context) ([]Booking, error)
 	GetUsedRefreshTokenByHash(ctx context.Context, tokenHash []byte) (RefreshToken, error)

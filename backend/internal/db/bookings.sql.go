@@ -11,6 +11,31 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const attachBookingClient = `-- name: AttachBookingClient :one
+UPDATE bookings
+SET client_id = $2,
+    client_first_name = NULL,
+    client_last_name = NULL,
+    client_phone = NULL,
+    client_email = NULL
+WHERE id = $1 AND client_id IS NULL
+RETURNING client_id
+`
+
+type AttachBookingClientParams struct {
+	ID       pgtype.UUID `json:"id"`
+	ClientID pgtype.UUID `json:"client_id"`
+}
+
+// Names the booking's client and drops the snapshot it was held under, so the
+// person is recorded in one place (clients) once the booking succeeded.
+func (q *Queries) AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, attachBookingClient, arg.ID, arg.ClientID)
+	var client_id pgtype.UUID
+	err := row.Scan(&client_id)
+	return client_id, err
+}
+
 const getBookedSlots = `-- name: GetBookedSlots :many
 SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
 FROM bookings b
@@ -92,7 +117,7 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 }
 
 const getBookingByID = `-- name: GetBookingByID :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -139,12 +164,16 @@ func (q *Queries) GetBookingByID(ctx context.Context, arg GetBookingByIDParams) 
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }
 
 const getBookingByIDForUpdate = `-- name: GetBookingByIDForUpdate :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -188,12 +217,16 @@ func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByI
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }
 
 const getBookingsByComplex = `-- name: GetBookingsByComplex :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings
 WHERE complex_id = $1
   AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
@@ -251,6 +284,10 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 			&i.Span,
 			&i.CollectionStatus,
 			&i.RefundStatus,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+			&i.ClientPhone,
+			&i.ClientEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -263,7 +300,7 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 }
 
 const getBookingsByCourt = `-- name: GetBookingsByCourt :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings
 WHERE court_id = $1
   AND date BETWEEN $2 AND $3
 ORDER BY date ASC, start_time ASC
@@ -304,6 +341,10 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 			&i.Span,
 			&i.CollectionStatus,
 			&i.RefundStatus,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+			&i.ClientPhone,
+			&i.ClientEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -316,7 +357,7 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 }
 
 const getBookingsForReminder2h = `-- name: GetBookingsForReminder2h :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings
 WHERE booking_starts_at(date, start_time) > $1::timestamptz
   AND booking_starts_at(date, start_time) <= $1::timestamptz + INTERVAL '2 hours'
   AND status = 'confirmed'
@@ -367,6 +408,10 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 			&i.Span,
 			&i.CollectionStatus,
 			&i.RefundStatus,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+			&i.ClientPhone,
+			&i.ClientEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -379,7 +424,7 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 }
 
 const getNextBookingByClientPhone = `-- name: GetNextBookingByClientPhone :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings WHERE false LIMIT 1
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings WHERE false LIMIT 1
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -406,12 +451,46 @@ func (q *Queries) GetNextBookingByClientPhone(ctx context.Context) (Booking, err
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
+	)
+	return i, err
+}
+
+const getUnattachedBookingClientSnapshot = `-- name: GetUnattachedBookingClientSnapshot :one
+SELECT complex_id, client_first_name, client_last_name, client_phone, client_email
+FROM bookings
+WHERE id = $1 AND client_id IS NULL
+`
+
+type GetUnattachedBookingClientSnapshotRow struct {
+	ComplexID       pgtype.UUID `json:"complex_id"`
+	ClientFirstName pgtype.Text `json:"client_first_name"`
+	ClientLastName  pgtype.Text `json:"client_last_name"`
+	ClientPhone     pgtype.Text `json:"client_phone"`
+	ClientEmail     pgtype.Text `json:"client_email"`
+}
+
+// Who a storefront booking is for, while it has no client yet: the snapshot
+// POST /book stored instead of creating a clients row (024). No row means the
+// booking already names its client, which is what makes attaching idempotent.
+func (q *Queries) GetUnattachedBookingClientSnapshot(ctx context.Context, id pgtype.UUID) (GetUnattachedBookingClientSnapshotRow, error) {
+	row := q.db.QueryRow(ctx, getUnattachedBookingClientSnapshot, id)
+	var i GetUnattachedBookingClientSnapshotRow
+	err := row.Scan(
+		&i.ComplexID,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }
 
 const getUnconfirmedAfterReminder = `-- name: GetUnconfirmedAfterReminder :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status FROM bookings WHERE false
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email FROM bookings WHERE false
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -444,6 +523,10 @@ func (q *Queries) GetUnconfirmedAfterReminder(ctx context.Context) ([]Booking, e
 			&i.Span,
 			&i.CollectionStatus,
 			&i.RefundStatus,
+			&i.ClientFirstName,
+			&i.ClientLastName,
+			&i.ClientPhone,
+			&i.ClientEmail,
 		); err != nil {
 			return nil, err
 		}
@@ -460,10 +543,11 @@ INSERT INTO bookings (
     complex_id, court_id, client_id, date,
     start_time, duration_minutes,
     price, deposit_amount, status, collection_status, refund_status,
-    notes, created_by
+    notes, created_by,
+    client_first_name, client_last_name, client_phone, client_email
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email
 `
 
 type InsertBookingParams struct {
@@ -480,6 +564,10 @@ type InsertBookingParams struct {
 	RefundStatus     string        `json:"refund_status"`
 	Notes            pgtype.Text   `json:"notes"`
 	CreatedBy        pgtype.UUID   `json:"created_by"`
+	ClientFirstName  pgtype.Text   `json:"client_first_name"`
+	ClientLastName   pgtype.Text   `json:"client_last_name"`
+	ClientPhone      pgtype.Text   `json:"client_phone"`
+	ClientEmail      pgtype.Text   `json:"client_email"`
 }
 
 func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error) {
@@ -497,6 +585,10 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 		arg.RefundStatus,
 		arg.Notes,
 		arg.CreatedBy,
+		arg.ClientFirstName,
+		arg.ClientLastName,
+		arg.ClientPhone,
+		arg.ClientEmail,
 	)
 	var i Booking
 	err := row.Scan(
@@ -519,6 +611,10 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }
@@ -562,7 +658,7 @@ SET status = $2,
     deposit_amount = $6,
     refund_intent_at = $7
 WHERE id = $1
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email
 `
 
 type UpdateBookingParams struct {
@@ -610,6 +706,10 @@ func (q *Queries) UpdateBooking(ctx context.Context, arg UpdateBookingParams) (B
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }
@@ -624,7 +724,7 @@ SET status = $2,
     refund_intent_at = $7
 WHERE id = $1
   AND updated_at = $8
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email
 `
 
 type UpdateBookingIfUnchangedParams struct {
@@ -680,6 +780,10 @@ func (q *Queries) UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookin
 		&i.Span,
 		&i.CollectionStatus,
 		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
 	)
 	return i, err
 }

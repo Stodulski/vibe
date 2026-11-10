@@ -424,6 +424,10 @@ type Booking struct {
 	Span             pgtype.Range[pgtype.Timestamptz] `json:"span"`
 	CollectionStatus string                           `json:"collection_status"`
 	RefundStatus     string                           `json:"refund_status"`
+	ClientFirstName  pgtype.Text                      `json:"client_first_name"`
+	ClientLastName   pgtype.Text                      `json:"client_last_name"`
+	ClientPhone      pgtype.Text                      `json:"client_phone"`
+	ClientEmail      pgtype.Text                      `json:"client_email"`
 }
 
 type BookingLinkToken struct {
@@ -433,6 +437,12 @@ type BookingLinkToken struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	ComplexID pgtype.UUID        `json:"complex_id"`
+}
+
+type CampaignClaim struct {
+	Campaign  string             `json:"campaign"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	ClaimedAt pgtype.Timestamptz `json:"claimed_at"`
 }
 
 type CashMovement struct {
@@ -742,6 +752,54 @@ type SlotLock struct {
 	LockedAt  pgtype.Timestamptz `json:"locked_at"`
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	ComplexID pgtype.UUID        `json:"complex_id"`
+}
+
+type SocialPost struct {
+	ID             string             `json:"id"`
+	PublishAt      pgtype.Timestamptz `json:"publish_at"`
+	Networks       []string           `json:"networks"`
+	Type           string             `json:"type"`
+	Caption        string             `json:"caption"`
+	AltText        string             `json:"alt_text"`
+	Media          []byte             `json:"media"`
+	Draft          bool               `json:"draft"`
+	Status         string             `json:"status"`
+	IgMediaID      pgtype.Text        `json:"ig_media_id"`
+	FbPostID       pgtype.Text        `json:"fb_post_id"`
+	Attempts       int32              `json:"attempts"`
+	LastError      pgtype.Text        `json:"last_error"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
+	PublishedAt    pgtype.Timestamptz `json:"published_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	ThreadsMediaID pgtype.Text        `json:"threads_media_id"`
+	ThreadsText    pgtype.Text        `json:"threads_text"`
+	ThreadsTopic   pgtype.Text        `json:"threads_topic"`
+	Cover          []byte             `json:"cover"`
+	StoryItems     []byte             `json:"story_items"`
+	AfterPostID    pgtype.Text        `json:"after_post_id"`
+}
+
+type SocialPostMedium struct {
+	PostID      string             `json:"post_id"`
+	Name        string             `json:"name"`
+	Url         string             `json:"url"`
+	ContentType string             `json:"content_type"`
+	Sha256      string             `json:"sha256"`
+	SizeBytes   int64              `json:"size_bytes"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type SocialThreadsConnection struct {
+	ID                     int16              `json:"id"`
+	UserID                 string             `json:"user_id"`
+	Username               string             `json:"username"`
+	AccessToken            string             `json:"access_token"`
+	ConnectedAt            pgtype.Timestamptz `json:"connected_at"`
+	RefreshedAt            pgtype.Timestamptz `json:"refreshed_at"`
+	ExpiresAt              pgtype.Timestamptz `json:"expires_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	KeywordSearchRequested bool               `json:"keyword_search_requested"`
 }
 
 type StockMovement struct {

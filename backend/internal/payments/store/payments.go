@@ -459,8 +459,25 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 		return fmt.Errorf("update booking: %w", err)
 	}
 
+	if err := attachClient(ctx, tx, qtx, b); err != nil {
+		return err
+	}
+
 	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
 	return nil
+}
+
+// attachClient gives a storefront booking its client in the transaction that
+// records its payment (owner rule 2026-11-10: a client exists only once a
+// booking succeeded). Every payment write runs it — the webhook, the counter,
+// the sales checkout and a late payment on a cancelled booking — so a booking
+// that holds money always names somebody; one that already does is untouched.
+// See bookingstore.AttachClientFromSnapshot.
+func attachClient(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingstore.Booking) error {
+	if b.HasClient() {
+		return nil
+	}
+	return bookingstore.AttachClientFromSnapshot(ctx, tx, qtx, b)
 }
 
 // ConfirmWebhookPayment updates an existing payment and confirms the booking atomically in a transaction.
@@ -519,6 +536,10 @@ func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		})
 		if err != nil {
 			return fmt.Errorf("update booking: %w", err)
+		}
+
+		if err := attachClient(ctx, tx, qtx, b); err != nil {
+			return err
 		}
 
 		b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)

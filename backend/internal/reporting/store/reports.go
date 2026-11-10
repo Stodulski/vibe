@@ -412,8 +412,8 @@ func (m *Store) PaymentDetails(ctx context.Context, complexID uuid.UUID, from, t
 	rows, err := m.DB.Query(ctx, `
 		SELECT p.created_at, lower(b.span), upper(b.span),
 		       COALESCE(co.name, ''),
-		       COALESCE(cl.first_name || ' ' || cl.last_name, ''),
-		       COALESCE(cl.phone, ''),
+		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, ''),
+		       COALESCE(cl.phone, b.client_phone, ''),
 		       b.price, p.amount, p.service_fee, p.refund_amount,
 		       p.method::text, p.status::text, b.status::text
 		FROM payments p
