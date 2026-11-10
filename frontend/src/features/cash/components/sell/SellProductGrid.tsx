@@ -17,6 +17,8 @@ interface SellProductGridProps {
   category: string | null;
   onCategoryChange: (category: string | null) => void;
   onSelect: (product: Product) => void;
+  /** Units in the cart by product id, for the tiles' green "in cart" mark. */
+  cartQuantities: ReadonlyMap<string, number>;
 }
 
 export function SellProductGrid({
@@ -28,6 +30,7 @@ export function SellProductGrid({
   category,
   onCategoryChange,
   onSelect,
+  cartQuantities,
 }: SellProductGridProps) {
   return (
     <div className="space-y-3">
@@ -50,7 +53,12 @@ export function SellProductGrid({
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => (
-            <SellProductTile key={product.id} product={product} onTap={onSelect} />
+            <SellProductTile
+              key={product.id}
+              product={product}
+              quantity={cartQuantities.get(product.id) ?? 0}
+              onTap={onSelect}
+            />
           ))}
         </div>
       )}

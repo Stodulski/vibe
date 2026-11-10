@@ -95,6 +95,7 @@ function SellOpenViewNotices({
 /** Today's booking balances above the catalog grid: the left column on desktop, the full width on mobile. */
 function SellCatalogColumn({ state }: { state: ReturnType<typeof useSellPage> }) {
   const inCartIds = new Set(state.balanceLines.map((line) => line.bookingId));
+  const cartQuantities = new Map(state.lines.map((line) => [line.productId, line.quantity]));
 
   return (
     <div className="min-w-0 space-y-6">
@@ -115,6 +116,7 @@ function SellCatalogColumn({ state }: { state: ReturnType<typeof useSellPage> })
         category={state.category}
         onCategoryChange={state.setCategory}
         onSelect={state.addProduct}
+        cartQuantities={cartQuantities}
       />
     </div>
   );

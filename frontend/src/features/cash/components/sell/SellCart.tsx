@@ -40,9 +40,12 @@ function SellCartFooter({
 }: SellCartFooterProps) {
   return (
     <div className="border-border-subtle mt-3 space-y-3 border-t pt-3">
-      <div className="flex items-center justify-between">
-        <span className="text-text-secondary text-sm font-medium">{t.cash.cartTotal}</span>
-        <span className="score-text text-text-primary text-lg font-bold" data-testid="sell-cart-total">
+      {/* The total is the sale's key figure: a solid green block with the
+          near-black ink, the same treatment as the till card and the
+          dashboard's today card. The controls below keep their own colours. */}
+      <div className="bg-primary-500 flex items-center justify-between rounded-2xl px-4 py-3">
+        <span className="text-text-inverse text-sm font-semibold">{t.cash.cartTotal}</span>
+        <span className="score-text text-text-inverse text-2xl font-bold" data-testid="sell-cart-total">
           {formatPrice(total)}
         </span>
       </div>
