@@ -1,3 +1,4 @@
+import { waitForStorefrontHydration } from '../helpers/landing';
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { TEST_CLIENT } from '../helpers/test-data';
 import { PublicBookingPage } from '../pages/public-booking.page';
@@ -44,7 +45,7 @@ test.describe('Public Booking Form Submission', () => {
 
     // The hours only appear once the duration question is answered; the
     // landing hydrates after it server-renders, so let the scripts settle first.
-    await page.waitForLoadState('networkidle');
+    await waitForStorefrontHydration(page);
     await page.getByRole('button', { name: '90 min' }).click();
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 
@@ -53,8 +54,11 @@ test.describe('Public Booking Form Submission', () => {
     const slotFound = await findAndClickAvailableSlot(dateBtns);
     test.skip(!slotFound, 'No available slots found');
 
-    await publicPage.chooseFirstCourt();
+    const hold = await publicPage.chooseFirstCourt();
+    expect(hold.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
+    // The slot is held from the court pick: the confirm step counts it down.
+    await expect(publicPage.holdCountdown).toContainText(/Te guardamos el turno por \d{2}:\d{2}/);
 
     await publicPage.fillBookingForm({
       firstName: TEST_CLIENT.firstName,
@@ -69,5 +73,29 @@ test.describe('Public Booking Form Submission', () => {
     // MP) and no redirect happens locally: the visitor stays on confirm with
     // the payment-link error (BOOKING_MESSAGES.publicBooking.paymentLinkError).
     await expect(page.getByText('No se pudo generar el link de pago')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('"Cambiar horario" releases the hold and returns to the hours', async ({ page }) => {
+    test.skip(!setupDone, 'Setup failed');
+    const publicPage = new PublicBookingPage(page);
+    await publicPage.goto(SLUG);
+    await waitForStorefrontHydration(page);
+    await page.getByRole('button', { name: '90 min' }).click();
+
+    const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));
+    const slotFound = await findAndClickAvailableSlot(dateBtns);
+    test.skip(!slotFound, 'No available slots found');
+
+    const hold = await publicPage.chooseFirstCourt();
+    expect(hold.status()).toBe(201);
+    await expect(publicPage.holdCountdown).toBeVisible();
+
+    // The release goes out as a beacon to POST /book/holds/{token}/release.
+    const release = page.waitForRequest(
+      (req) => req.method() === 'POST' && /\/book\/holds\/[^/]+\/release$/.test(new URL(req.url()).pathname),
+    );
+    await page.getByRole('button', { name: 'Cambiar horario' }).click();
+    await release;
+    await expect(page).toHaveURL(new RegExp(`${SLUG}\\?.*#horarios$`));
   });
 });

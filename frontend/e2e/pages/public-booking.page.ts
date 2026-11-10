@@ -10,10 +10,22 @@ export class PublicBookingPage {
 
   /**
    * After an hour, the free courts are listed and tapping one continues to
-   * the confirm page; there is no Continue button.
+   * the confirm page; there is no Continue button. The tap first holds the
+   * slot (`POST /book/holds`, with the invisible Turnstile token when the
+   * storefront has a site key), so this waits for that answer.
    */
   async chooseFirstCourt() {
+    const hold = this.page.waitForResponse(
+      (res) => res.request().method() === 'POST' && new URL(res.url()).pathname.endsWith('/book/holds'),
+      { timeout: 30_000 },
+    );
     await this.page.getByRole('group', { name: 'Elegí la cancha' }).getByRole('button').first().click();
+    return hold;
+  }
+
+  /** The hold countdown of the confirm page ("Te guardamos el turno por mm:ss"). */
+  get holdCountdown() {
+    return this.page.getByRole('timer');
   }
 
   get noAvailabilityMessage() {

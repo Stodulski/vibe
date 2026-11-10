@@ -7,7 +7,7 @@ import {
   fakeMercadoPagoConnection,
   waitForOnlineBooking,
 } from '../helpers/public-booking-fixtures';
-import { landingComplexUrl } from '../helpers/landing';
+import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 
 const SLUG = 'complejo-publico-e2e';
 
@@ -96,7 +96,7 @@ test.describe('Public booking flow, keyboard only', () => {
     // (BookingSteps.tsx), so it is answered before any hour exists.
     // Keyboard input is only handled once the landing has hydrated; a Tab and
     // Enter sent before that are lost, so let the scripts settle first.
-    await page.waitForLoadState('networkidle');
+    await waitForStorefrontHydration(page);
     const duration = page.getByRole('button', { name: '90 min' });
     await tabTo(page, duration);
     await page.keyboard.press('Enter');

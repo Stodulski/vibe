@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright';
 import type { Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
-import { landingComplexUrl } from '../helpers/landing';
+import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 
 /**
  * Runs axe against the current page and fails on any `serious` or `critical`
@@ -55,7 +55,8 @@ test.describe('Accessibility — serious/critical axe violations', () => {
     // where its colour is a blend that fails contrast. Production with reduced
     // motion has no contrast violation on this page.
     await page.emulateMedia({ reducedMotion: 'reduce' });
-    await page.goto(landingComplexUrl(complexSlug), { waitUntil: 'networkidle' });
+    await page.goto(landingComplexUrl(complexSlug));
+    await waitForStorefrontHydration(page);
     await expect(page.getByRole('heading', { level: 1 }).first()).toBeVisible({ timeout: 15_000 });
     await expectNoSeriousViolations(page);
   });
