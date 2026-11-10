@@ -322,6 +322,20 @@ describe('CourtSelector — U-06: an hour restored from the confirm page', () =>
     scrollIntoView.mockRestore();
   });
 
+  it('brings the hours into view when the page opens at #horarios ("Cambiar horario")', async () => {
+    window.history.replaceState(null, '', '/c/club-norte?duration=90#horarios');
+    const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined);
+    render(<CourtSelector {...defaultProps} pendingStartTime={null} onPendingStartTimeChange={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(scrollIntoView).toHaveBeenCalledTimes(1);
+    });
+    expect(scrollIntoView.mock.contexts[0]).toBe(screen.getByTestId('time-options'));
+    expect(screen.getByRole('button', { name: /^08:00\b/ })).toBeInTheDocument();
+    scrollIntoView.mockRestore();
+    window.history.replaceState(null, '', '/');
+  });
+
   it('does not scroll when the hours open with nothing chosen', async () => {
     const scrollIntoView = vi.spyOn(Element.prototype, 'scrollIntoView').mockImplementation(() => undefined);
     render(<CourtSelector {...defaultProps} pendingStartTime={null} onPendingStartTimeChange={vi.fn()} />);

@@ -11,6 +11,9 @@ export type { SelectedSlot } from './court-selector/types';
 
 const t = BOOKING_MESSAGES;
 
+/** The URL fragment "Cambiar horario" adds so the hours grid scrolls into view. */
+export const HOURS_ANCHOR = '#horarios';
+
 interface CourtSelectorProps {
   courts: CourtAvailability[];
   selected: SelectedSlot | null;
@@ -76,13 +79,13 @@ export function CourtSelector({
   // (`?time=`) reopens its court question directly.
   const pendingTime = options.find((o) => o.startTime === pendingStartTime) ?? null;
 
-  // An hour that was already chosen when the grid first appeared came from
-  // the URL: "Cambiar horario" on the confirm page, or the browser's back.
-  // The page would otherwise open at the top, a header and a date strip away
-  // from the question it reopened, so it is brought into view once. An hour
-  // tapped on this page is already where the person is looking.
+  // The page opens at the top, a header and a date strip away from the
+  // question, so it is brought into view once when the URL already answered
+  // it: an hour chosen before (the browser's back) reopens its court
+  // question, and `#horarios` ("Cambiar horario" on the confirm page) asks for
+  // the hours. An hour tapped on this page is already where the person looks.
   const questionRef = useRef<HTMLDivElement>(null);
-  const restoredOnMount = useRef(pendingTime !== null);
+  const restoredOnMount = useRef(pendingTime !== null || window.location.hash === HOURS_ANCHOR);
   useEffect(() => {
     if (!restoredOnMount.current) return;
     // Cleared inside the frame, not before it: under StrictMode the effect
@@ -122,7 +125,7 @@ export function CourtSelector({
   }
 
   return (
-    <div className="space-y-6">
+    <div ref={questionRef} data-testid="time-options" className="scroll-mt-6 space-y-6">
       <TimeGroupList
         grouped={grouped}
         typesVary={typesVary}

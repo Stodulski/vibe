@@ -11,6 +11,7 @@ import { publicComplexPath } from '../lib/publicPaths';
 import { useConfirmBookingSubmit } from './book-confirm-page/useConfirmBookingSubmit';
 import { navigateTo } from '../lib/navigation';
 import { clearConfirmDraft, readConfirmDraft } from '../lib/handoff';
+import { HOURS_ANCHOR } from '../components/CourtSelector';
 
 const t = BOOKING_MESSAGES;
 
@@ -31,12 +32,13 @@ export default function BookConfirmPage({ slug }: { slug: string }) {
     return null;
   }
 
-  // Back lands on the last step taken, not the first: the query carries every
-  // answer, and the storefront reopens with the court question at this hour.
+  // "Cambiar horario" lands on the hours: the query keeps the date, duration
+  // and sport already answered, the hour is left out so the grid shows instead
+  // of the court question, and `#horarios` tells the grid to bring itself into
+  // view (`CourtSelector`).
   const back = new URLSearchParams({
     date: slotInfo.date,
     duration: String(slotInfo.durationMinutes),
-    time: slotInfo.startTime,
   });
   if (slotInfo.sport) back.set('sport', slotInfo.sport);
 
@@ -46,7 +48,7 @@ export default function BookConfirmPage({ slug }: { slug: string }) {
       slotInfo={slotInfo}
       onBack={() => {
         clearConfirmDraft(slug);
-        navigateTo(`${publicComplexPath(slug)}?${back.toString()}`, { replace: true });
+        navigateTo(`${publicComplexPath(slug)}?${back.toString()}${HOURS_ANCHOR}`, { replace: true });
       }}
     />
   );

@@ -272,7 +272,7 @@ describe('BookConfirmPage payment link error (503)', () => {
 });
 
 describe('BookConfirmPage back link', () => {
-  it('returns to the complex page with date, duration, time and sport in the query', async () => {
+  it('returns to the hours of the complex page: date, duration and sport in the query, no time', async () => {
     const replace = spyOnReplace();
     const user = userEvent.setup();
     await renderPage();
@@ -290,8 +290,9 @@ describe('BookConfirmPage back link', () => {
     expect(lastRedirect(replace).pathname).toBe('/c/club-norte');
     expect(query.get('date')).toBe(mockSlotInfo.date);
     expect(query.get('duration')).toBe(String(mockSlotInfo.durationMinutes));
-    expect(query.get('time')).toBe(mockSlotInfo.startTime);
+    expect(query.has('time')).toBe(false);
     expect(query.get('sport')).toBe('padel');
+    expect(lastRedirect(replace).hash).toBe('#horarios');
   });
 
   it('leaves the sport key out of the query when the slotInfo has none', async () => {
