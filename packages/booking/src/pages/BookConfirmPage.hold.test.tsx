@@ -108,8 +108,9 @@ describe('BookConfirmPage countdown', () => {
   it('shows the time left on the hold, from the server expiry', async () => {
     await renderHeld(10 * 60 + 5);
 
-    expect(screen.getByRole('timer')).toHaveTextContent('10:05');
-    expect(screen.getByRole('timer')).toHaveTextContent(t.publicBooking.holdCountdownLabel);
+    // Only the time is on screen; the sentence is the timer's accessible name.
+    const timer = screen.getByRole('timer', { name: t.publicBooking.holdCountdownLabel });
+    expect(timer).toHaveTextContent(/^10:05$/);
   });
 
   it('tells the visitor the hold expired and sends them back to the hours when the time is up', async () => {
