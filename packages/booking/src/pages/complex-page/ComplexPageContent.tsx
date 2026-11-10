@@ -1,7 +1,6 @@
 import type { ReactNode } from 'react';
 import { ComplexHeader } from '../../components/ComplexHeader';
 import { ComplexLower } from '../../components/complex-header/ComplexLower';
-import { BackToLandingLink } from '../../components/complex-header/BackToLandingLink';
 import { DateSelector } from '../../components/DateSelector';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import type {
@@ -104,7 +103,6 @@ export function ComplexPageContent({
   if (!mpConnected) {
     return (
       <div className={CONTENT_WIDTH}>
-        <BackToLandingLink />
         <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
         <div className="mt-6 sm:mt-10">
           <PhoneBookingPanel phone={complex.phone} />
@@ -119,7 +117,6 @@ export function ComplexPageContent({
 
   return (
     <div className={CONTENT_WIDTH}>
-      <BackToLandingLink />
       <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
 
       {/* The date frames everything below it: every question in the flow

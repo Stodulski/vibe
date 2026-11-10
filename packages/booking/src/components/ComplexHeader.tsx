@@ -9,6 +9,7 @@ import { ComplexInfoRow } from './complex-header/ComplexInfoRow';
 import { ShareComplexButton } from './complex-header/ShareComplexButton';
 import { ComplexDetails } from './complex-header/ComplexDetails';
 import { CourtSummary } from './complex-header/CourtSummary';
+import { BackToLandingLink } from './complex-header/BackToLandingLink';
 
 const t = BOOKING_MESSAGES;
 
@@ -77,6 +78,10 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
         '[--color-border-subtle:rgb(11_11_11/0.2)]',
       )}
     >
+      {/* "Volver" for a visitor who came from the landing sits on the green,
+          above the cover, so the band still reaches the navbar. */}
+      <BackToLandingLink />
+
       {/* Identity: cover, logo, name, contact — one block, one order. */}
       <div>
         <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
