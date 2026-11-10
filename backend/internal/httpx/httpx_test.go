@@ -633,8 +633,12 @@ func TestClientIP(t *testing.T) {
 				r.Header.Set(k, v)
 			}
 
-			if got := ClientIP(r, tt.trustProxies); got != tt.want {
-				t.Errorf("ClientIP() = %q; want %q", got, tt.want)
+			trusted := TrustedProxies{}
+			if tt.trustProxies {
+				trusted = DefaultTrustedProxies()
+			}
+			if got := ClientIPFrom(r, trusted); got != tt.want {
+				t.Errorf("ClientIPFrom() = %q; want %q", got, tt.want)
 			}
 		})
 	}

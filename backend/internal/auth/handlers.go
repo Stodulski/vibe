@@ -20,7 +20,7 @@ import (
 // side.
 func (h *Handler) actor(r *http.Request) Actor {
 	return Actor{
-		IP:         httpx.ClientIP(r, h.cfg.TrustProxies),
+		IP:         httpx.ClientIPFrom(r, h.cfg.TrustedProxies),
 		RemoteAddr: r.RemoteAddr,
 	}
 }
@@ -56,7 +56,7 @@ func (h *Handler) checkTurnstile(w http.ResponseWriter, r *http.Request, token s
 		return false
 	}
 
-	err := h.svc.VerifyTurnstile(r.Context(), token, httpx.ClientIP(r, h.cfg.TrustProxies))
+	err := h.svc.VerifyTurnstile(r.Context(), token, httpx.ClientIPFrom(r, h.cfg.TrustedProxies))
 	if err == nil {
 		return true
 	}

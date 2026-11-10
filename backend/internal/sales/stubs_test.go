@@ -176,7 +176,7 @@ func newTestService(store *stubStore, recorder *stubRecorder) *Service {
 func newTestHandler(store *stubStore) (*Handler, *stubRecorder) {
 	rec := &stubRecorder{}
 	responder := httpx.NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	return NewHandler(NewService(store, rec), responder, false), rec
+	return NewHandler(NewService(store, rec), responder, httpx.TrustedProxies{}), rec
 }
 
 // ownerRequest builds a request from the complex's authenticated owner, with

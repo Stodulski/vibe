@@ -313,7 +313,9 @@ func (m *Middleware) rateLimitRedis(next http.Handler, fallback *localBuckets) h
 			return
 		}
 
-		ip := m.clientIP(r)
+		// Counted per /64 for IPv6, so one host cannot rotate addresses inside
+		// its own block to get a fresh bucket each request (httpx.RateLimitKey).
+		ip := httpx.RateLimitKey(m.clientIP(r))
 
 		for _, index := range ceilingsFor(r) {
 			c := ceilings[index]
@@ -507,7 +509,9 @@ func (m *Middleware) rateLimitLocal(next http.Handler, buckets *localBuckets) ht
 			return
 		}
 
-		ip := m.clientIP(r)
+		// Counted per /64 for IPv6, so one host cannot rotate addresses inside
+		// its own block to get a fresh bucket each request (httpx.RateLimitKey).
+		ip := httpx.RateLimitKey(m.clientIP(r))
 
 		for _, index := range ceilingsFor(r) {
 			if !buckets.allow(ip, index) {

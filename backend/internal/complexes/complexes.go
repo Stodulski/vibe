@@ -139,8 +139,9 @@ type Recorder interface {
 type Config struct {
 	// FrontendURL is the origin the MercadoPago OAuth redirect returns to.
 	FrontendURL string
-	// TrustProxies decides which address the audit trail records.
-	TrustProxies bool
+	// TrustedProxies decides which address the audit trail records: the same
+	// TRUSTED_PROXIES set the rate limiter reads.
+	TrustedProxies httpx.TrustedProxies
 	// MPAppID is the MercadoPago application the OAuth connect flow runs
 	// against. The client builds the authorize URL, so it must use the same
 	// id the API exchanges the code with; serving it from mp/status keeps one
@@ -199,5 +200,5 @@ func (h *Handler) actor(r *http.Request) Actor {
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.cfg.TrustProxies)}
+	return Actor{UserID: userID, IP: httpx.ClientIPFrom(r, h.cfg.TrustedProxies)}
 }

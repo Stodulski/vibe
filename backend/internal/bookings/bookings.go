@@ -217,8 +217,6 @@ type Config struct {
 	PaymentExpiry time.Duration
 	// SlotLockTTL is how long a slot is held during checkout.
 	SlotLockTTL time.Duration
-	// TrustProxies decides which address the audit trail records.
-	TrustProxies bool
 	// WhatsAppEnabled reflects whether the channel is configured.
 	WhatsAppEnabled bool
 	// LinkTokenBuffer is added to a booking's end time to compute the
@@ -273,10 +271,10 @@ type Handler struct {
 	// whatsapp is held for the two verification calls alone: both are computed
 	// over the request, so they are an HTTP concern and are checked here,
 	// before anything reaches the service.
-	whatsapp     WhatsAppVerifier
-	respond      *httpx.Refuser
-	logger       *slog.Logger
-	trustProxies bool
+	whatsapp       WhatsAppVerifier
+	respond        *httpx.Refuser
+	logger         *slog.Logger
+	trustedProxies httpx.TrustedProxies
 }
 
 // refusals is this module's whole error-to-status table: every domain error of
@@ -303,13 +301,13 @@ var refusals = httpx.Refusals{
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, whatsapp WhatsAppVerifier, respond *httpx.Responder, logger *slog.Logger, trustProxies bool) *Handler {
+func NewHandler(svc *Service, whatsapp WhatsAppVerifier, respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies) *Handler {
 	return &Handler{
-		svc:          svc,
-		whatsapp:     whatsapp,
-		respond:      respond.WithRefusals(refusals),
-		logger:       logger,
-		trustProxies: trustProxies,
+		svc:            svc,
+		whatsapp:       whatsapp,
+		respond:        respond.WithRefusals(refusals),
+		logger:         logger,
+		trustedProxies: trustedProxies,
 	}
 }
 
@@ -319,7 +317,7 @@ func (h *Handler) actor(r *http.Request) Actor {
 	if user, ok := httpx.ContextGetAuthenticatedUser(r); ok {
 		userID = &user.ID
 	}
-	return Actor{UserID: userID, IP: httpx.ClientIP(r, h.trustProxies)}
+	return Actor{UserID: userID, IP: httpx.ClientIPFrom(r, h.trustedProxies)}
 }
 
 // ErrEditConflict reports that a booking moved out from under a read: the row

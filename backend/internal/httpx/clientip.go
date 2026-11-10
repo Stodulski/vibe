@@ -206,21 +206,6 @@ func ClientIPFrom(r *http.Request, trusted TrustedProxies) string {
 	return r.RemoteAddr
 }
 
-// ClientIP returns the address the request came from, trusting the forwarded
-// headers only when trustProxies is set.
-//
-// It is the boolean-shaped entry point the audit-log call sites still use, and
-// it resolves to DefaultTrustedProxies. A deployment whose proxy sits on a
-// public address must therefore configure the set AND move those call sites to
-// ClientIPFrom, or the rate limiter and the audit trail will disagree about
-// who made the request. Prefer ClientIPFrom in new code.
-func ClientIP(r *http.Request, trustProxies bool) string {
-	if trustProxies {
-		return ClientIPFrom(r, DefaultTrustedProxies())
-	}
-	return ClientIPFrom(r, TrustedProxies{})
-}
-
 // forwardedClient walks X-Forwarded-For from the right and returns the first
 // entry whose appending peer is trusted but which is not itself a trusted
 // proxy.

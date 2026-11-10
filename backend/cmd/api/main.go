@@ -273,15 +273,6 @@ func main() {
 		os.Exit(1)
 	}
 	logger.Info("trusted proxies", "set", trustedProxySet.String())
-	// The audit-log call sites in internal/bookings, internal/complexes and
-	// internal/courts still take a bool and resolve it to
-	// httpx.DefaultTrustedProxies. A custom set therefore attributes audit
-	// entries by a different rule than the rate limiter uses, which is worth
-	// saying out loud until those call sites take the set too.
-	if trustedProxySet.Any() && trustedProxySet.String() != httpx.DefaultTrustedProxies().String() {
-		logger.Warn("a custom trusted-proxy set is in use, but the audit-log call sites still resolve " +
-			"the default private ranges; move them to httpx.ClientIPFrom before relying on either")
-	}
 
 	if names := cfg.Features.Names(); len(names) > 0 {
 		logger.Info("feature flags enabled", "flags", strings.Join(names, ","))

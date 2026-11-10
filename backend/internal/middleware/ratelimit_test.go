@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -269,5 +270,57 @@ func TestPostAuthLoginStillHitsTheAuthCeiling(t *testing.T) {
 	if allowed != authCeiling.burst {
 		t.Errorf("POST /auth/login must still be bound by authCeiling's burst of %d; got %d through",
 			authCeiling.burst, allowed)
+	}
+}
+
+// One host is handed a whole IPv6 /64 and can use a fresh address from it for
+// every request. Rotating inside the block must not refill the login bucket:
+// every address in it draws from one budget.
+func TestRotatingAddressesInsideOneIPv6Slash64ShareTheAuthCeiling(t *testing.T) {
+	f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	allowed := 0
+	for i := range authCeiling.burst + 5 {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", nil)
+		r.RemoteAddr = fmt.Sprintf("[2001:db8:1:2::%x]:1000", i+1)
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		if w.Code == http.StatusOK {
+			allowed++
+		}
+	}
+
+	if allowed != authCeiling.burst {
+		t.Errorf("addresses rotated inside one /64 must share authCeiling's burst of %d; got %d through",
+			authCeiling.burst, allowed)
+	}
+}
+
+// The grouping stops at the /64: a neighbouring block is a different site and
+// keeps its own budget.
+func TestADifferentIPv6Slash64KeepsItsOwnAuthBudget(t *testing.T) {
+	f := newFixture(t, Config{RateLimitEnabled: true, RateLimitRPS: 10_000, RateLimitBurst: 10_000})
+	handler := f.mw.RateLimit(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	send := func(addr string) int {
+		r := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/api/v1/auth/login", nil)
+		r.RemoteAddr = addr
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+		return w.Code
+	}
+	for range authCeiling.burst {
+		send("[2001:db8:1:2::1]:1000")
+	}
+	if got := send("[2001:db8:1:2::1]:1000"); got != http.StatusTooManyRequests {
+		t.Fatalf("the exhausted /64 must be refused; got %d", got)
+	}
+	if got := send("[2001:db8:1:3::1]:1000"); got != http.StatusOK {
+		t.Errorf("a different /64 must still be served; got %d", got)
 	}
 }
