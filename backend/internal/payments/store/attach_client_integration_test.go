@@ -200,3 +200,28 @@ func TestConfirmingABookingWithAClientLeavesItAlone(t *testing.T) {
 		t.Errorf("want the owner booking's client unchanged; got %v", clientID)
 	}
 }
+
+// A payment write that read its booking before a concurrent one (a redelivered
+// webhook, the counter at the same moment) attached the client finds no
+// snapshot left; it must still come away carrying the client the other write
+// stored, or its notice and its audit entry would name nobody.
+func TestALaterPaymentWriteOnAStaleCopyCarriesTheAttachedClient(t *testing.T) {
+	f := datatest.Isolated(t)
+	phone := "+5491100" + uuid.NewString()[:6]
+	b := pendingSnapshotBooking(t, f, phone)
+	stale := *b
+	stale.ClientSnapshot = &bookingstore.ClientSnapshot{FirstName: "Ana", LastName: "Perez", Phone: phone, Email: "ana@example.com"}
+
+	if err := f.ConfirmBooking(f.Stores, b); err != nil {
+		t.Fatalf("first confirm: %v", err)
+	}
+	c := assertAttached(t, f, b, phone)
+
+	stale.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+	if err := f.ConfirmBooking(f.Stores, &stale); err != nil {
+		t.Fatalf("second confirm on the stale copy: %v", err)
+	}
+	if stale.ClientID != c.id || stale.ClientSnapshot != nil {
+		t.Errorf("want the stale copy to carry client %s; got %v %+v", c.id, stale.ClientID, stale.ClientSnapshot)
+	}
+}

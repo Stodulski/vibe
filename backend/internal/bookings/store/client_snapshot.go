@@ -92,7 +92,7 @@ func AttachClientFromSnapshot(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b
 	snap, err := qtx.GetUnattachedBookingClientSnapshot(ctx, data.UUIDToPg(b.ID))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
+			return loadAttachedClient(ctx, tx, b)
 		}
 		return fmt.Errorf("bookings: read client snapshot: %w", err)
 	}
@@ -111,6 +111,28 @@ func AttachClientFromSnapshot(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b
 	}
 	b.ClientID = clientID
 	b.ClientSnapshot = nil
+	return nil
+}
+
+// loadAttachedClient fills b's client id when the snapshot is already gone
+// but b was read before that happened: a concurrent payment write (a
+// redelivered webhook, the counter confirming at the same moment) attached the
+// client and committed while this transaction waited on the booking's row
+// lock. Without it the caller would carry no client and skip its notice and
+// audit id. The row is already locked by this transaction, so the value read
+// is the committed one.
+func loadAttachedClient(ctx context.Context, tx pgx.Tx, b *Booking) error {
+	if b.ClientID != uuid.Nil {
+		return nil
+	}
+	var clientID pgtype.UUID
+	if err := tx.QueryRow(ctx, `SELECT client_id FROM bookings WHERE id = $1`, data.UUIDToPg(b.ID)).Scan(&clientID); err != nil {
+		return fmt.Errorf("bookings: read attached client: %w", err)
+	}
+	if clientID.Valid {
+		b.ClientID = data.PgToUUID(clientID)
+		b.ClientSnapshot = nil
+	}
 	return nil
 }
 
