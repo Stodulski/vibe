@@ -34,7 +34,7 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
       size="sm"
       mobile="card"
       className={cn(
-        'border-primary-500 bg-primary-500 text-text-inverse space-y-3 font-medium',
+        'border-primary-500 bg-primary-500 text-text-inverse w-full max-w-md space-y-3 font-medium',
         '[--color-text-primary:var(--color-text-inverse)]',
         '[--color-text-secondary:var(--color-text-inverse)]',
         '[--color-text-tertiary:var(--color-text-inverse)]',
