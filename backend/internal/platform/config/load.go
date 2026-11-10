@@ -161,6 +161,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.Turnstile.SecretKey, "turnstile-secret-key", "",
 		"Cloudflare Turnstile secret key; enables verification on register, login and forgot-password "+
 			"(TURNSTILE_SECRET_KEY)")
+	fs.BoolVar(&cfg.Turnstile.BookingEnforce, "turnstile-booking-enforce", false,
+		"Require a Cloudflare Turnstile token on public bookings; needs TURNSTILE_SECRET_KEY "+
+			"(TURNSTILE_BOOKING_ENFORCE)")
 
 	fs.StringVar(&cfg.Leads.AbandonedWebhookURL, "leads-abandoned-webhook-url", "",
 		"Google Apps Script webhook URL for abandoned-registration email capture (LEADS_ABANDONED_WEBHOOK_URL)")
@@ -284,6 +287,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("SMTP_PASSWORD", &cfg.SMTP.Password)
 
 	env.strVal("TURNSTILE_SECRET_KEY", &cfg.Turnstile.SecretKey)
+	env.boolVal("TURNSTILE_BOOKING_ENFORCE", &cfg.Turnstile.BookingEnforce)
 	env.strVal("LEADS_ABANDONED_WEBHOOK_URL", &cfg.Leads.AbandonedWebhookURL)
 	env.strVal("LEADS_ABANDONED_WEBHOOK_TOKEN", &cfg.Leads.AbandonedWebhookToken)
 

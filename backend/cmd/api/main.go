@@ -494,6 +494,16 @@ func main() {
 		logger.Info("whatsapp notifications disabled (no WHATSAPP_TOKEN/WHATSAPP_PHONE_NUMBER_ID)")
 	}
 
+	switch {
+	case !cfg.Turnstile.BookingEnforce:
+		logger.Info("turnstile booking enforcement off (TURNSTILE_BOOKING_ENFORCE)")
+	case cfg.Turnstile.SecretKey == "":
+		logger.Warn("TURNSTILE_BOOKING_ENFORCE is set but has no effect without TURNSTILE_SECRET_KEY: " +
+			"public bookings are not bot-checked")
+	default:
+		logger.Info("turnstile booking enforcement on: POST /book requires a token")
+	}
+
 	if cfg.Turnstile.SecretKey != "" {
 		logger.Info("turnstile verification enabled")
 	} else {

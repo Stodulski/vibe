@@ -244,6 +244,10 @@ type Turnstile struct {
 	// SecretKey enables verification on register, login and forgot-password
 	// when non-empty. Optional: a self-hoster is not forced to use Turnstile.
 	SecretKey string
+	// BookingEnforce extends the check to the storefront's POST /book. Off by
+	// default, and inert without SecretKey: the storefront has to ship the
+	// widget before the server may require its token.
+	BookingEnforce bool
 }
 
 // Leads is the abandoned-registration capture forwarding.

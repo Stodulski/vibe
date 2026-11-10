@@ -891,7 +891,7 @@ func newFixture(t *testing.T) *fixture {
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
 		WhatsAppEnabled: true, LinkTokenBuffer: 24 * time.Hour,
 	})
-	f.handler = NewHandler(f.service, f.whatsapp, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
+	f.handler = NewHandler(f.service, f.whatsapp, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 	f.store.payments = f.payments
 	return f
 }

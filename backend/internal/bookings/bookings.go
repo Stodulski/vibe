@@ -139,6 +139,19 @@ type WhatsAppVerifier interface {
 	VerifySignature(r *http.Request, body []byte) error
 }
 
+// TurnstileVerifier checks the Cloudflare Turnstile token the storefront
+// sends with a public booking. Declared here, by the consumer, with the same
+// two methods auth.TurnstileVerifier names; internal/turnstile's Client
+// satisfies both.
+type TurnstileVerifier interface {
+	// Enabled reports whether verification is configured at all. When it is
+	// not, Verify must not be called.
+	Enabled() bool
+	// Verify checks token and reports a rejection through the package's
+	// sentinels (turnstile.ErrMissingToken, ErrInvalidToken, ErrUnavailable).
+	Verify(ctx context.Context, token, remoteIP string) error
+}
+
 // Refunder returns a cancelled booking's money and says what became of it.
 //
 // It is declared here, by the consumer, rather than imported from the payments
@@ -271,10 +284,16 @@ type Handler struct {
 	// whatsapp is held for the two verification calls alone: both are computed
 	// over the request, so they are an HTTP concern and are checked here,
 	// before anything reaches the service.
-	whatsapp       WhatsAppVerifier
-	respond        *httpx.Refuser
-	logger         *slog.Logger
-	trustedProxies httpx.TrustedProxies
+	whatsapp WhatsAppVerifier
+	// turnstile and enforceTurnstile guard POST /book against bots. Both
+	// halves are needed: the flag is the operator's opt-in
+	// (TURNSTILE_BOOKING_ENFORCE), and a verifier that is nil or not Enabled
+	// (no TURNSTILE_SECRET_KEY) means no check, whatever the flag says.
+	turnstile        TurnstileVerifier
+	enforceTurnstile bool
+	respond          *httpx.Refuser
+	logger           *slog.Logger
+	trustedProxies   httpx.TrustedProxies
 }
 
 // refusals is this module's whole error-to-status table: every domain error of
@@ -301,13 +320,20 @@ var refusals = httpx.Refusals{
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, whatsapp WhatsAppVerifier, respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies) *Handler {
+//
+// turnstile may be nil: that, like enforceTurnstile false, leaves PublicBook
+// exactly as it was before the storefront bot check existed.
+func NewHandler(svc *Service, whatsapp WhatsAppVerifier, turnstile TurnstileVerifier, enforceTurnstile bool,
+	respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies,
+) *Handler {
 	return &Handler{
-		svc:            svc,
-		whatsapp:       whatsapp,
-		respond:        respond.WithRefusals(refusals),
-		logger:         logger,
-		trustedProxies: trustedProxies,
+		svc:              svc,
+		whatsapp:         whatsapp,
+		turnstile:        turnstile,
+		enforceTurnstile: enforceTurnstile,
+		respond:          respond.WithRefusals(refusals),
+		logger:           logger,
+		trustedProxies:   trustedProxies,
 	}
 }
 
