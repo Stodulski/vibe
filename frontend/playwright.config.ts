@@ -63,14 +63,9 @@ export default defineConfig({
         'reports.spec.ts',
         'confirm-payment.spec.ts',
         'blocked-slots.spec.ts',
-        'cash.spec.ts',
-        'cash-flows.spec.ts',
-        'manual-refund.spec.ts',
         'public-cancel-link.spec.ts',
         'deposit-booking.spec.ts',
         'court-prices.spec.ts',
-        'products.spec.ts',
-        'sell.spec.ts',
         // Four owner specs that were in no project and therefore never ran.
         'blocked-slots-availability.spec.ts',
         'clients-search.spec.ts',
@@ -83,6 +78,31 @@ export default defineConfig({
       ],
     },
     {
+      // Every spec that opens or closes the shared complex's cash till. There
+      // is one till per complex and these all use the same complex, so two of
+      // them running at once close each other's session mid-test (seen in CI,
+      // where the suite runs on 2 workers). One worker here keeps them in
+      // sequence among themselves while the rest of the suite stays parallel.
+      name: 'till',
+      use: {
+        ...devices['Desktop Chrome'],
+      },
+      dependencies: ['setup'],
+      workers: 1,
+      testMatch: ['cash.spec.ts', 'cash-flows.spec.ts', 'manual-refund.spec.ts', 'products.spec.ts', 'sell.spec.ts'],
+    },
+    {
+      // Storefront specs that pick a slot. Picking a court takes a 15-minute
+      // hold that occupies the slot at once, and they all book the first free
+      // slot of the same public complex, so two running at once take the same
+      // slot and one gets 409. One worker keeps them in sequence; a later one
+      // sees the earlier hold as taken and picks the next slot.
+      name: 'storefront',
+      use: { ...devices['Desktop Chrome'] },
+      workers: 1,
+      testMatch: ['public-booking-form.spec.ts', 'public-booking.spec.ts', 'public-booking-keyboard.spec.ts'],
+    },
+    {
       name: 'public',
       use: { ...devices['Desktop Chrome'] },
       testMatch: [
@@ -91,10 +111,8 @@ export default defineConfig({
         // Two unauthenticated specs that were in no project and never ran.
         'auth-navigation.spec.ts',
         // Public pages on the landing (see e2e/helpers/landing.ts). They use
-        // no login, so they share the unauthenticated project.
-        'public-booking-form.spec.ts',
-        'public-booking.spec.ts',
-        'public-booking-keyboard.spec.ts',
+        // no login, so they share the unauthenticated project. The ones that
+        // pick a slot run in 'storefront' below.
         'public-cancel.spec.ts',
         'onboarding.spec.ts',
         // Registers and logs in its own dedicated, disposable owner account
