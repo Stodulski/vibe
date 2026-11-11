@@ -2,6 +2,7 @@ import { TURNSTILE_TEST_TOKEN } from './test-data';
 import type { APIRequestContext, Locator } from '@playwright/test';
 import { typedJson } from './api.helper';
 import type { ApiComplex, ApiCourt } from './api.helper';
+import { E2E_DB_DSN, runE2eSql } from './e2e-db';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
@@ -170,27 +171,8 @@ export async function fakeMercadoPagoConnection(complexId: string): Promise<void
   const { execFileSync } = await import('child_process');
   const path = await import('path');
 
-  const dbHost = process.env.E2E_DB_HOST ?? 'localhost';
-  const dbPort = process.env.E2E_DB_PORT ?? '5433';
-  const dbUser = process.env.E2E_DB_USER ?? 'vibe';
-  const dbName = process.env.E2E_DB_NAME ?? 'vibe_e2e';
-  const dbPassword = process.env.E2E_DB_PASSWORD ?? 'vibe_e2e';
-
-  execFileSync(
-    'psql',
-    [
-      '-h',
-      dbHost,
-      '-p',
-      dbPort,
-      '-U',
-      dbUser,
-      '-d',
-      dbName,
-      '-c',
-      `UPDATE complexes SET mp_user_id = 'fake-e2e-mp-user', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complexId}';`,
-    ],
-    { stdio: 'pipe', env: { ...process.env, PGPASSWORD: dbPassword } },
+  runE2eSql(
+    `UPDATE complexes SET mp_user_id = 'fake-e2e-mp-user', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complexId}';`,
   );
 
   // Same key scripts/e2e-run.sh (backend) passes the isolated API via
@@ -199,9 +181,8 @@ export async function fakeMercadoPagoConnection(complexId: string): Promise<void
   // rather than left unset. E2E-only key, not a real secret.
   const mpCredentialKeys = process.env.MP_CREDENTIAL_KEYS ?? 'e2e:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA=';
   const serverDir = process.env.SERVER_DIR ?? path.resolve(process.cwd(), '../backend');
-  const dsn = `postgres://${dbUser}:${dbPassword}@${dbHost}:${dbPort}/${dbName}?sslmode=disable`;
 
-  const sealArgs = ['seal', `-db-dsn=${dsn}`, `-mp-credential-keys=${mpCredentialKeys}`];
+  const sealArgs = ['seal', `-db-dsn=${E2E_DB_DSN}`, `-mp-credential-keys=${mpCredentialKeys}`];
   const prebuilt = process.env.E2E_MPCREDKEY_BIN;
   if (prebuilt) {
     // `make e2e` builds the tool once (backend/scripts/e2e-run.sh).

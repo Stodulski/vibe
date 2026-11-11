@@ -65,6 +65,10 @@ export default defineConfig({
         'blocked-slots.spec.ts',
         'cash.spec.ts',
         'cash-flows.spec.ts',
+        'manual-refund.spec.ts',
+        'public-cancel-link.spec.ts',
+        'deposit-booking.spec.ts',
+        'court-prices.spec.ts',
         'products.spec.ts',
         'sell.spec.ts',
         // Four owner specs that were in no project and therefore never ran.

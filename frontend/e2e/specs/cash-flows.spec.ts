@@ -1,8 +1,8 @@
 import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../helpers/auth.fixture';
 import { getSharedSetup } from '../helpers/shared-setup';
+import { bookFirstFreeHour } from '../helpers/booking-fixtures';
 import { createApiHelper } from '../helpers/api.helper';
-import type { ApiHelper } from '../helpers/api.helper';
 import { getFutureDate } from '../helpers/test-data';
 
 /**
@@ -55,29 +55,6 @@ async function closeTill(page: Page, pesos: string): Promise<Locator> {
   await dialog.getByRole('button', { name: 'Cerrar caja' }).click();
   expect((await response).ok()).toBe(true);
   return dialog;
-}
-
-/**
- * Books the shared court for today at the first free hour, unpaid, so it shows
- * under "Turnos de hoy". The shared complex keeps every earlier run's bookings,
- * so an hour already taken (409) moves on to the next one.
- */
-async function bookTodayUnpaid(api: ApiHelper, complexId: string, courtId: string, lastName: string) {
-  const today = getFutureDate(0);
-  for (let hour = 8; hour <= 21; hour++) {
-    try {
-      return await api.createBooking(complexId, courtId, {
-        date: today,
-        start_time: `${String(hour).padStart(2, '0')}:00`,
-        client_first_name: 'Caja',
-        client_last_name: lastName,
-        client_phone: `+54911${String(Date.now()).slice(-8)}`,
-      });
-    } catch {
-      // Taken by an earlier run; try the next hour.
-    }
-  }
-  throw new Error('bookTodayUnpaid: no free hour left today on the shared court');
 }
 
 /** Voids the only voidable movement on the page, with a reason, from the "Anular movimiento" confirm. */
@@ -221,7 +198,7 @@ test.describe('Cash flows', () => {
   }) => {
     const api = await createApiHelper();
     const lastName = `Saldo${String(Date.now())}`;
-    await bookTodayUnpaid(api, complexId, courtId, lastName);
+    await bookFirstFreeHour(api, complexId, courtId, getFutureDate(0), { firstName: 'Caja', lastName });
     await api.openCashSession(complexId, OPENING_CENTAVOS);
 
     const remaining = await collectBalance(page, lastName);
