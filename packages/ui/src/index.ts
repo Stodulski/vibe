@@ -27,6 +27,13 @@ export { InstagramIcon } from './components/common/InstagramIcon';
 export { MeshBackdrop } from './components/layout/MeshBackdrop';
 
 export { ConfirmDialog } from './components/common/ConfirmDialog';
+export {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogTitle,
+} from './components/common/AppAlertDialog';
+export { AlertDialogDescription } from './components/ui/alert-dialog';
 export { PhoneInput } from './components/common/PhoneInput';
 
 export { DEFAULT_PHONE_PREFIX } from './lib/constants';
