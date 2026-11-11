@@ -98,13 +98,14 @@ function SellCatalogColumn({ state }: { state: ReturnType<typeof useSellPage> })
   const cartQuantities = new Map(state.lines.map((line) => [line.productId, line.quantity]));
 
   return (
-    <div className="min-w-0 space-y-6">
+    <div className="min-w-0 space-y-8">
       <SellBookingBalances
         bookings={state.balanceDue.bookings}
         inCartIds={inCartIds}
         isLoading={state.balanceDue.isLoading}
         isError={state.balanceDue.isError}
         onAdd={state.addBalance}
+        onRemove={state.removeBalance}
         onRetry={state.balanceDue.refetch}
       />
       <SellProductGrid
@@ -161,7 +162,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
   );
 
   return (
-    <div className="space-y-6 pb-24 lg:pb-0">
+    <div className="space-y-8 pb-24 lg:pb-0">
       <SellOpenViewNotices
         isError={state.productsQuery.isError}
         onRetry={() => {
@@ -173,12 +174,15 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
         onDismissDroppedBalancesNotice={state.dismissDroppedBalancesNotice}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
-        <SellCatalogColumn state={state} />
+      {/* The sales list sits in the left column too, so that column runs the
+          page's full height and the sticky cart beside it has room to stay put. */}
+      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_360px]">
+        <div className="min-w-0 space-y-8">
+          <SellCatalogColumn state={state} />
+          <SalesSection complexId={complexId} sessionId={sessionId} />
+        </div>
         {isDesktop && cartPanel}
       </div>
-
-      <SalesSection complexId={complexId} sessionId={sessionId} />
 
       {!isDesktop && (
         <SellMobileCart

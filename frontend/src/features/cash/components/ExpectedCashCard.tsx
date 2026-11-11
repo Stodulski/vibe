@@ -3,38 +3,72 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { CashDifference } from './CashDifference';
-import type { CashSession, CashSessionSummary } from '@/shared/types/api.types';
+import { cashMovementTotals } from '../lib/movementLedger';
+import type { CashMovement, CashSession, CashSessionSummary } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
 interface ExpectedCashCardProps {
   session: CashSession;
   summary: CashSessionSummary;
+  /** The session's ledger, for the cash income and expense terms. */
+  movements?: CashMovement[];
+}
+
+interface Term {
+  label: string;
+  amount: string;
+  testId?: string;
 }
 
 /**
- * The session header: when it opened (and closed, once it has), the opening
- * float, and — the one figure the person at the counter actually needs,
- * prominent on purpose — the expected cash. For a closed session this also
- * carries the final counted amount and difference (`summary.counted_cash`/
- * `difference` are only ever present once closed).
+ * The terms that add up to expected cash, in the backend's order (opening +
+ * cash income - cash expense + cash booking payments - cash refunds). Booking
+ * payments and refunds only show when the session had any.
  */
-export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
+function expectedCashTerms(session: CashSession, summary: CashSessionSummary, movements: CashMovement[]): Term[] {
+  const { income, expense } = cashMovementTotals(movements);
+  const cashBookingPayments = summary.booking_payments.find((p) => p.method === 'cash')?.amount ?? 0;
+  const terms: Term[] = [
+    { label: t.cash.openingCashLabel, amount: formatPrice(session.opening_cash) },
+    { label: t.cash.incomeTotal, amount: formatPrice(income) },
+    { label: t.cash.expenseTotal, amount: formatPrice(expense) },
+  ];
+  if (cashBookingPayments > 0) {
+    terms.push({ label: t.cash.bookingPaymentsTitle, amount: formatPrice(cashBookingPayments) });
+  }
+  if (summary.cash_manual_refunds > 0) {
+    terms.push({
+      label: t.cash.cashManualRefunds,
+      amount: `-${formatPrice(summary.cash_manual_refunds)}`,
+      testId: 'cash-manual-refunds-row',
+    });
+  }
+  return terms;
+}
+
+/**
+ * The till at a glance: expected cash as the one large figure, and right
+ * under it the terms it is made of, so the person at the counter can check
+ * the number without scanning the page. For a closed session it also carries
+ * the counted amount and the difference.
+ */
+export function ExpectedCashCard({ session, summary, movements = [] }: ExpectedCashCardProps) {
   const closed = !!session.closed_at;
+  const terms = expectedCashTerms(session, summary, movements);
 
   return (
     // `data-testid`: the open-session summary and a closed session's history
     // row can show the same peso figures, and e2e needs to assert this
-    // card's own expected-cash value without matching a history row's (see
-    // cash.spec.ts).
-    // Solid brand green at every width, the till's key figure the way the
-    // dashboard's today card is (owner decision, 2026-11-09). The theme's
-    // text and rule tokens are re-pointed to the near-black ink inside it.
+    // card's own values without matching a history row's (see cash.spec.ts).
+    // Solid brand green, the till's key figure the way the dashboard's today
+    // card is (owner decision, 2026-11-09); theme text tokens are re-pointed
+    // to the near-black ink inside it.
     <Panel
       size="sm"
       mobile="card"
       className={cn(
-        'border-primary-500 bg-primary-500 text-text-inverse w-full max-w-md space-y-3 font-medium',
+        'border-primary-500 bg-primary-500 text-text-inverse w-full space-y-4',
         '[--color-text-primary:var(--color-text-inverse)]',
         '[--color-text-secondary:var(--color-text-inverse)]',
         '[--color-text-tertiary:var(--color-text-inverse)]',
@@ -42,46 +76,35 @@ export function ExpectedCashCard({ session, summary }: ExpectedCashCardProps) {
       )}
       data-testid="cash-expected-card"
     >
-      <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 text-sm">
-        <span className="text-text-tertiary">
-          {t.cash.openedAt}: {formatVenueDayTime(session.opened_at)}
-        </span>
-        {closed && (
-          <span className="text-text-tertiary">
-            {t.cash.closedAt}: {formatVenueDayTime(session.closed_at)}
-          </span>
-        )}
-      </div>
+      <p className="text-sm">
+        {t.cash.openedAt} {formatVenueDayTime(session.opened_at)}
+        {closed && ` · ${t.cash.closedAt} ${formatVenueDayTime(session.closed_at)}`}
+      </p>
 
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-text-tertiary">{t.cash.openingCashLabel}</span>
-        <span className="font-medium">{formatPrice(session.opening_cash)}</span>
-      </div>
-
-      {/* Only shown when the session actually handed cash back by hand — a
-          session with no manual refund never renders this line. */}
-      {summary.cash_manual_refunds > 0 && (
-        <div className="flex items-center justify-between text-sm" data-testid="cash-manual-refunds-row">
-          <span className="text-text-tertiary">{t.cash.cashManualRefunds}</span>
-          <span className="font-medium">-{formatPrice(summary.cash_manual_refunds)}</span>
-        </div>
-      )}
-
-      <div className="border-border-subtle flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t pt-3">
-        <span className="text-text-secondary text-sm font-semibold">{t.cash.expectedCash}</span>
-        <span className="font-display text-text-primary text-lg font-bold tracking-tight tabular-nums sm:text-2xl">
+      <div>
+        <p className="text-sm font-semibold">{t.cash.expectedCash}</p>
+        <p className="font-display text-3xl font-bold tracking-tight tabular-nums sm:text-4xl">
           {formatPrice(summary.expected_cash)}
-        </span>
+        </p>
       </div>
+
+      <dl className="border-border-subtle space-y-2 border-t pt-4">
+        {terms.map((term) => (
+          <div key={term.label} className="flex items-center justify-between gap-4 text-sm" data-testid={term.testId}>
+            <dt>{term.label}</dt>
+            <dd className="font-semibold tabular-nums">{term.amount}</dd>
+          </div>
+        ))}
+      </dl>
 
       {closed && (
-        <>
+        <div className="border-border-subtle space-y-3 border-t pt-4">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-text-tertiary">{t.cash.countedCashLabel}</span>
-            <span className="font-medium">{formatPrice(summary.counted_cash ?? 0)}</span>
+            <span>{t.cash.countedCashLabel}</span>
+            <span className="font-semibold tabular-nums">{formatPrice(summary.counted_cash ?? 0)}</span>
           </div>
           <CashDifference difference={summary.difference ?? 0} />
-        </>
+        </div>
       )}
     </Panel>
   );

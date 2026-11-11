@@ -28,7 +28,7 @@ interface QuantityStepperProps {
 /** The −/quantity/+ stepper — split out of `SellCartLine` so that function stays under this repo's `max-lines-per-function` limit. */
 function QuantityStepper({ name, quantity, onIncrement, onDecrement }: QuantityStepperProps) {
   return (
-    <div className="border-border-subtle flex items-center rounded-lg border">
+    <div className="border-border-subtle flex items-center rounded-full border">
       <Button
         type="button"
         variant="ghost"
@@ -39,7 +39,7 @@ function QuantityStepper({ name, quantity, onIncrement, onDecrement }: QuantityS
       >
         <Minus className="size-3.5" aria-hidden="true" />
       </Button>
-      <span className="score-text w-8 text-center text-sm font-semibold" data-testid="sell-cart-line-quantity">
+      <span className="w-8 text-center text-sm font-semibold tabular-nums" data-testid="sell-cart-line-quantity">
         {quantity}
       </span>
       <Button
@@ -64,7 +64,7 @@ function RemoveLineButton({ name, onRemove }: { name: string; onRemove: () => vo
       type="button"
       variant="ghost"
       size="icon-sm"
-      className="size-11 lg:size-8"
+      className="text-text-tertiary hover:text-text-primary size-11 lg:size-8"
       aria-label={`${t.cash.cartRemove}: ${name}`}
       onClick={onRemove}
     >
@@ -87,21 +87,18 @@ export function SellCartLine({
   const unitPrice = product?.price ?? 0;
 
   return (
-    <div className="border-border-subtle border-b py-3 last:border-b-0">
+    <div className="border-border-subtle space-y-3 border-b py-5 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <p className="text-text-primary truncate text-sm font-medium">{name}</p>
-          <p className="text-text-tertiary text-xs">{formatPrice(unitPrice)}</p>
+        <div className="min-w-0 flex-1 space-y-1">
+          <p className="text-text-primary truncate text-sm font-semibold">{name}</p>
+          <p className="text-text-secondary text-xs">{`${formatPrice(unitPrice)} ${t.cash.cartUnitSuffix}`}</p>
         </div>
-        <RemoveLineButton
-          name={name}
-          onRemove={() => {
-            onRemove(line.productId);
-          }}
-        />
+        <span className="text-text-primary pt-0.5 text-sm font-semibold whitespace-nowrap tabular-nums">
+          {formatPrice(unitPrice * line.quantity)}
+        </span>
       </div>
 
-      <div className="mt-2 flex items-center justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <QuantityStepper
           name={name}
           quantity={line.quantity}
@@ -112,19 +109,22 @@ export function SellCartLine({
             onDecrement(line.productId);
           }}
         />
-        <span className="score-text text-text-primary text-sm font-semibold">
-          {formatPrice(unitPrice * line.quantity)}
-        </span>
+        <RemoveLineButton
+          name={name}
+          onRemove={() => {
+            onRemove(line.productId);
+          }}
+        />
       </div>
 
       {hasStockWarning && !error && (
-        <p className="text-warning-text mt-1.5 flex items-center gap-1 text-xs">
+        <p className="text-warning-text flex items-center gap-1 text-xs">
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
           {t.cash.cartLineStockWarning}
         </p>
       )}
       {error && (
-        <p role="alert" className="text-error-text mt-1.5 flex items-center gap-1 text-xs">
+        <p role="alert" className="text-error-text flex items-center gap-1 text-xs">
           <AlertTriangle className="size-3.5 shrink-0" aria-hidden="true" />
           {error}
         </p>

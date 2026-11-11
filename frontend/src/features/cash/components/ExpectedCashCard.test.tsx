@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ExpectedCashCard } from './ExpectedCashCard';
-import { makeCashSession } from '@/test/factories';
+import { makeCashMovement, makeCashSession } from '@/test/factories';
 import type { CashSessionSummary } from '@/shared/types/api.types';
 
 function makeSummary(overrides: Partial<CashSessionSummary> = {}): CashSessionSummary {
@@ -37,5 +37,21 @@ describe('ExpectedCashCard', () => {
     const row = screen.getByTestId('cash-manual-refunds-row');
     expect(row).toHaveTextContent('Devoluciones en efectivo');
     expect(row).toHaveTextContent('-$200');
+  });
+
+  it('breaks expected cash into its cash terms, leaving out a cancelled movement', () => {
+    const session = makeCashSession({ opening_cash: 500000 });
+    const movements = [
+      makeCashMovement({ id: 'a', kind: 'income', method: 'cash', amount: 300000 }),
+      makeCashMovement({ id: 'b', kind: 'income', method: 'cash', amount: 99900 }),
+      makeCashMovement({ id: 'c', kind: 'expense', method: 'cash', amount: 99900, voids_movement_id: 'b' }),
+    ];
+    render(
+      <ExpectedCashCard session={session} summary={makeSummary({ expected_cash: 800000 })} movements={movements} />,
+    );
+
+    expect(screen.getByText('Ingresos').nextSibling).toHaveTextContent('$3.000');
+    expect(screen.getByText('Egresos').nextSibling).toHaveTextContent('$0');
+    expect(screen.getByText('$8.000')).toBeInTheDocument();
   });
 });

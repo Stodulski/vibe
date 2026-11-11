@@ -47,7 +47,8 @@ describe('SellCart — booking balances', () => {
     renderCart();
 
     const row = screen.getByTestId('sell-balance-line');
-    expect(within(row).getByText('Saldo turno · Cancha 2 19:00 · Juan Pérez')).toBeInTheDocument();
+    expect(within(row).getByText('Saldo del turno')).toBeInTheDocument();
+    expect(within(row).getByText('Cancha 2 · 19:00 · Juan Pérez')).toBeInTheDocument();
     expect(within(row).getByText(formatPrice(350000))).toBeInTheDocument();
     expect(within(row).queryByRole('button', { name: /Sumar/ })).not.toBeInTheDocument();
   });
@@ -75,5 +76,22 @@ describe('SellCart — booking balances', () => {
     renderCart({ balanceChangedNotice: true });
 
     expect(screen.getByRole('alert')).toHaveTextContent('Este turno ya cambió. Actualizamos la lista.');
+  });
+});
+
+describe('SellCart — checkout controls', () => {
+  it('keeps the note hidden behind the "Agregar nota" toggle until asked for', async () => {
+    renderCart();
+    expect(screen.queryByLabelText(/^Nota/)).not.toBeInTheDocument();
+
+    const toggle = screen.getByRole('button', { name: 'Agregar nota' });
+    await userEvent.click(toggle);
+    expect(toggle).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByLabelText(/^Nota/)).toBeInTheDocument();
+  });
+
+  it('opens with the note visible when the cart already carries one', () => {
+    renderCart({ note: 'Paga el lunes' });
+    expect(screen.getByLabelText(/^Nota/)).toHaveValue('Paga el lunes');
   });
 });

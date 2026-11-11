@@ -10,10 +10,14 @@ interface CashActionButtonsProps {
   onClose: () => void;
 }
 
-/** "Ingreso"/"Egreso"/"Cerrar caja" — big touch targets, reachable without horizontal scroll at 360px. */
+/**
+ * Ingreso is the one primary action, Egreso secondary. Cerrar caja happens
+ * once a shift and cannot be undone, so it is tertiary and set apart, never
+ * red: the red belongs to its confirmation dialog.
+ */
 export function CashActionButtons({ onIncome, onExpense, onClose }: CashActionButtonsProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
       <Button size="lg" className="h-12" onClick={onIncome}>
         <ArrowUpCircle className="size-4" aria-hidden="true" />
         {t.cash.incomeAction}
@@ -22,7 +26,7 @@ export function CashActionButtons({ onIncome, onExpense, onClose }: CashActionBu
         <ArrowDownCircle className="size-4" aria-hidden="true" />
         {t.cash.expenseAction}
       </Button>
-      <Button size="lg" variant="destructive" className="col-span-2 h-12 sm:col-span-1" onClick={onClose}>
+      <Button size="lg" variant="ghost" className="col-span-2 h-12 sm:ml-auto" onClick={onClose}>
         <Lock className="size-4" aria-hidden="true" />
         {t.cash.closeAction}
       </Button>

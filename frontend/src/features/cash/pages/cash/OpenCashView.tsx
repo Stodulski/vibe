@@ -3,7 +3,6 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ExpectedCashCard } from '../../components/ExpectedCashCard';
-import { MovementTotalsBreakdown } from '../../components/MovementTotalsBreakdown';
 import { BookingPaymentsBreakdown } from '../../components/BookingPaymentsBreakdown';
 import { MovementList } from '../../components/MovementList';
 import { CashActionButtons } from '../../components/CashActionButtons';
@@ -62,7 +61,7 @@ export function OpenCashView({
   const { cash_session: session, summary, movements } = detailQuery.data;
 
   return (
-    <div className="space-y-4">
+    <div className="max-w-3xl space-y-6">
       {detailQuery.isError && (
         <StaleDataNotice
           onRetry={() => {
@@ -71,7 +70,7 @@ export function OpenCashView({
         />
       )}
 
-      <ExpectedCashCard session={session} summary={summary} />
+      <ExpectedCashCard session={session} summary={summary} movements={movements} />
 
       <CashActionButtons
         onIncome={() => {
@@ -83,9 +82,8 @@ export function OpenCashView({
         onClose={onOpenCloseDialog}
       />
 
-      <MovementTotalsBreakdown movementTotals={summary.movement_totals} />
-      <BookingPaymentsBreakdown bookingPayments={summary.booking_payments} />
       <MovementList movements={movements} onVoid={onVoidTarget} />
+      <BookingPaymentsBreakdown bookingPayments={summary.booking_payments} />
 
       <OpenCashDialogs
         complexId={complexId}

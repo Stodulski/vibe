@@ -116,7 +116,8 @@ html body[data-scroll-locked] {
   scrollbar-color: color-mix(in srgb, var(--color-primary-500) 30%, transparent) transparent;
 }
 
-/* A thin brand-green bar for horizontal chip sliders. Chromium and WebKit
+/* A thin, always-visible brand-green bar for sliders and scrolling panes
+   (chip rows, the sell cart's lines). Chromium and WebKit
    only honour ::-webkit-scrollbar while scrollbar-width/-color are `auto`, so
    the global `* { scrollbar-width: thin }` is reset here; Firefox, which has
    no such pseudo-elements, gets the standard properties instead. */
@@ -125,6 +126,7 @@ html body[data-scroll-locked] {
   scrollbar-color: auto;
 }
 .scrollbar-accent::-webkit-scrollbar {
+  width: 4px;
   height: 4px;
 }
 .scrollbar-accent::-webkit-scrollbar-track {

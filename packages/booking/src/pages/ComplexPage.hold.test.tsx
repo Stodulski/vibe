@@ -288,17 +288,23 @@ describe('ComplexPage slot hold refusals', () => {
     });
   });
 
-  it('tells the visitor their hold expired when the confirm page sent them back for that', async () => {
+  it('tells the visitor their hold expired in a modal they close to pick a time again', async () => {
     saveHoldExpiredNotice('test-club');
     await renderPage(BASE_CONFIG);
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(t.publicBooking.holdExpired);
+    const dialog = await screen.findByRole('alertdialog', { name: t.publicBooking.holdExpiredTitle });
+    expect(dialog).toHaveTextContent(t.publicBooking.holdExpired);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: t.publicBooking.holdExpiredAction }));
+    await waitFor(() => {
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+    });
   });
 
   it('shows the expired notice only once', async () => {
     saveHoldExpiredNotice('test-club');
     const first = await renderPage(BASE_CONFIG);
-    await screen.findByRole('alert');
+    await screen.findByRole('alertdialog');
     first.unmount();
 
     await renderPage(BASE_CONFIG);

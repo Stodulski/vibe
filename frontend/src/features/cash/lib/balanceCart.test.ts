@@ -40,11 +40,14 @@ describe('addBalanceLine', () => {
     expect(addBalanceLine(once, booking)).toBe(once);
   });
 
-  it('refuses a booking past the cap the server accepts (20 per checkout)', () => {
-    const full = Array.from({ length: MAX_BALANCE_LINES }, (_, i) => line(`b${String(i)}`));
+  it('keeps one booking per sale: tapping another replaces the one in the cart', () => {
+    const first = addBalanceLine([], makeBalanceDue({ booking_id: 'b1' }));
 
-    expect(addBalanceLine(full, makeBalanceDue({ booking_id: 'extra' }))).toBe(full);
-    expect(MAX_BALANCE_LINES).toBe(20);
+    const swapped = addBalanceLine(first, makeBalanceDue({ booking_id: 'b2', remaining: 200000 }));
+
+    expect(swapped).toHaveLength(1);
+    expect(swapped[0]).toMatchObject({ bookingId: 'b2', amount: 200000 });
+    expect(MAX_BALANCE_LINES).toBe(1);
   });
 });
 
