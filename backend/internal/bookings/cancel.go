@@ -78,9 +78,9 @@ func refundMessage(result paymentstore.RefundResult, amountCentavos int) string 
 		return "no hay pagos a devolver."
 	case paymentstore.RefundNotEligible:
 		if amountCentavos > 0 {
-			return fmt.Sprintf("fuera de plazo, la seña de %s no se devuelve.", amount)
+			return fmt.Sprintf("fuera de plazo, lo que pagaste (%s) no se devuelve.", amount)
 		}
-		return "fuera de plazo, la seña no se devuelve."
+		return "fuera de plazo, lo que pagaste no se devuelve."
 	case paymentstore.RefundIssued:
 		if amountCentavos > 0 {
 			return fmt.Sprintf("%s enviados, se acreditan en los próximos días hábiles.", amount)

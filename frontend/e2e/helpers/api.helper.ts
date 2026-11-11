@@ -34,6 +34,8 @@ export interface ApiCourt {
 }
 export interface ApiBooking {
   id: string;
+  price: number;
+  status: string;
   collection_status: string;
   refund_status: string;
 }
@@ -164,6 +166,24 @@ export class ApiHelper {
     });
     const body = await this.unwrapOk<{ booking: ApiBooking }>(res, 'createBooking');
     return body.booking;
+  }
+
+  /** Records a counter payment taken by staff (`POST .../confirm-payment`); `amount` in centavos. */
+  async confirmPayment(complexId: string, bookingId: string, amount: number, method = 'cash'): Promise<ApiBooking> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/bookings/${bookingId}/confirm-payment`, {
+      headers: { ...this.headers(), 'Idempotency-Key': randomUUID() },
+      data: { method, amount },
+    });
+    return (await this.unwrapOk<{ booking: ApiBooking }>(res, 'confirmPayment')).booking;
+  }
+
+  /** Staff-cancels a booking (`POST .../cancel`), which refunds whatever was collected. */
+  async cancelBooking(complexId: string, bookingId: string): Promise<ApiBooking> {
+    const res = await this.request.post(`${API}/complexes/${complexId}/bookings/${bookingId}/cancel`, {
+      headers: this.headers(),
+      data: {},
+    });
+    return (await this.unwrapOk<{ booking: ApiBooking }>(res, 'cancelBooking')).booking;
   }
 
   async blockSlot(

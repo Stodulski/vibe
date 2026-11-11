@@ -95,7 +95,7 @@ describe('BookCancelPage cancel flow', () => {
       refunded: false,
       refund: {
         status: 'not_eligible',
-        message: 'La cancelación quedó fuera del plazo de reembolso, así que la seña no se devuelve.',
+        message: 'La cancelación quedó fuera del plazo de reembolso, así que lo que pagaste no se devuelve.',
       },
     });
     const user = userEvent.setup();
