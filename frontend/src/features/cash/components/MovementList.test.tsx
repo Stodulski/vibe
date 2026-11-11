@@ -41,14 +41,24 @@ describe('MovementList', () => {
     expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
   });
 
-  it('badges the voided original as Anulado and labels the void row as an Anulación de <original category>', () => {
+  it('shows a voided movement as one crossed-out row with its reason, instead of a separate reversing row', () => {
     const movements = [
-      makeCashMovement({ id: 'm1', kind: 'expense', category: 'supplies' }),
-      makeCashMovement({ id: 'm2', kind: 'income', category: 'other_income', voids_movement_id: 'm1' }),
+      makeCashMovement({
+        id: 'm2',
+        kind: 'income',
+        category: 'other_income',
+        voids_movement_id: 'm1',
+        note: 'Mal cargado',
+      }),
+      makeCashMovement({ id: 'm1', kind: 'expense', category: 'supplies', amount: 50000 }),
     ];
     render(<MovementList movements={movements} onVoid={vi.fn()} />);
+    expect(screen.getByText('Insumos')).toBeInTheDocument();
     expect(screen.getByText('Anulado')).toBeInTheDocument();
-    expect(screen.getByText(/Anulación de Insumos/)).toBeInTheDocument();
+    expect(screen.getByText('Mal cargado')).toBeInTheDocument();
+    expect(screen.getByText('-$500')).toHaveClass('line-through');
+    expect(screen.queryByText('Otros ingresos')).not.toBeInTheDocument();
+    expect(screen.queryByText(/Anulación de/)).not.toBeInTheDocument();
   });
 
   it('calls onVoid with the movement when Anular is clicked', () => {
@@ -83,13 +93,13 @@ describe('MovementList — system categories (sale, restock)', () => {
 describe('MovementRow — void eligibility in isolation', () => {
   it('never offers Anular on a row that is itself a void, even without its original present', () => {
     const voidRow = makeCashMovement({ id: 'm2', voids_movement_id: 'm1' });
-    render(<MovementRow movement={voidRow} movements={[voidRow]} onVoid={vi.fn()} />);
+    render(<MovementRow row={{ movement: voidRow, voidedBy: undefined }} onVoid={vi.fn()} />);
     expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
   });
 
   it('falls back to "Anulación de un movimiento" when the void\'s original is not in the given ledger', () => {
     const voidRow = makeCashMovement({ id: 'm2', voids_movement_id: 'm1' });
-    render(<MovementRow movement={voidRow} movements={[voidRow]} onVoid={vi.fn()} />);
+    render(<MovementRow row={{ movement: voidRow, voidedBy: undefined }} onVoid={vi.fn()} />);
     expect(screen.getByText(/Anulación de un movimiento/)).toBeInTheDocument();
   });
 });

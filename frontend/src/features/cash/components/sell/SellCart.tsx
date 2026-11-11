@@ -1,17 +1,16 @@
-import { Loader2, ShoppingCart } from 'lucide-react';
+import { useState } from 'react';
+import { Loader2, ShoppingCart, StickyNote } from 'lucide-react';
 import { Panel } from '@/shared/components/common/Panel';
-import { EmptyState } from '@/shared/components/common/EmptyState';
-import { Label } from '@/shared/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Button } from '@/shared/components/ui/button';
 import { formatPrice } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { CounterPaymentMethod } from '@/shared/lib/paymentMethods';
+import { COUNTER_PAYMENT_METHODS, type CounterPaymentMethod } from '@/shared/lib/paymentMethods';
 import { lineHasStockWarning, type CartLine } from '../../lib/cart';
 import type { BalanceLine } from '../../lib/balanceCart';
 import { SellCartLine } from './SellCartLine';
 import { SellBalanceCartLine } from './SellBalanceCartLine';
-import { MovementMethodField } from '../MovementMethodField';
 import type { Product } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -27,7 +26,92 @@ interface SellCartFooterProps {
   chargeDisabled: boolean;
 }
 
-/** Total, method, note and the "Cobrar $X" button — split out of `SellCart` so that function stays under this repo's `max-lines-per-function` limit. */
+/** The payment method, labelled for screen readers; the row has no room for a visible label. */
+function CartMethodSelect({
+  method,
+  onMethodChange,
+}: {
+  method: CounterPaymentMethod;
+  onMethodChange: (method: CounterPaymentMethod) => void;
+}) {
+  return (
+    <Select
+      value={method}
+      onValueChange={(v) => {
+        onMethodChange(v as CounterPaymentMethod);
+      }}
+    >
+      <SelectTrigger aria-label={t.cash.movementMethod} className="h-11 min-w-0 flex-1">
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        {COUNTER_PAYMENT_METHODS.map((m) => (
+          <SelectItem key={m} value={m}>
+            {t.bookings.paymentMethods[m]}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
+  );
+}
+
+/**
+ * Method and note on one compact row: the method as a full-width select, the
+ * note as an icon toggle beside it, since most sales carry none. The open note
+ * field shows below the row.
+ */
+function CartMethodAndNote({
+  method,
+  onMethodChange,
+  note,
+  onNoteChange,
+}: {
+  method: CounterPaymentMethod;
+  onMethodChange: (method: CounterPaymentMethod) => void;
+  note: string;
+  onNoteChange: (note: string) => void;
+}) {
+  const [noteOpen, setNoteOpen] = useState(note !== '');
+
+  return (
+    <>
+      <div className="flex items-center gap-2">
+        <CartMethodSelect method={method} onMethodChange={onMethodChange} />
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-lg"
+          className="size-11 shrink-0"
+          aria-label={t.cash.cartAddNote}
+          aria-pressed={noteOpen}
+          onClick={() => {
+            setNoteOpen((open) => !open);
+          }}
+        >
+          <StickyNote className="size-4" aria-hidden="true" />
+        </Button>
+      </div>
+      {noteOpen && (
+        <Textarea
+          id="sell-cart-note"
+          aria-label={`${t.cash.cartNote} (${t.common.optional})`}
+          placeholder={`${t.cash.cartNote} (${t.common.optional})`}
+          value={note}
+          onChange={(e) => {
+            onNoteChange(e.target.value);
+          }}
+          maxLength={500}
+          className="min-h-[40px] resize-none"
+        />
+      )}
+    </>
+  );
+}
+
+/**
+ * Total, method, note and "Cobrar $X", kept short so the lines above get the
+ * room. The charge button is the one green element of the cart.
+ */
 function SellCartFooter({
   total,
   method,
@@ -39,31 +123,18 @@ function SellCartFooter({
   chargeDisabled,
 }: SellCartFooterProps) {
   return (
-    <div className="border-border-subtle mt-3 space-y-3 border-t pt-3">
-      {/* The total is the sale's key figure: a solid green block with the
-          near-black ink, the same treatment as the till card and the
-          dashboard's today card. The controls below keep their own colours. */}
-      <div className="bg-primary-500 flex items-center justify-between rounded-2xl px-4 py-3">
-        <span className="text-text-inverse text-sm font-semibold">{t.cash.cartTotal}</span>
-        <span className="score-text text-text-inverse text-2xl font-bold" data-testid="sell-cart-total">
+    <div className="border-border-subtle mt-2 shrink-0 space-y-3 border-t pt-4">
+      <div className="flex items-baseline justify-between gap-3">
+        <span className="text-text-secondary text-sm">{t.cash.cartTotal}</span>
+        <span
+          className="font-display text-text-primary text-2xl font-bold tracking-tight tabular-nums"
+          data-testid="sell-cart-total"
+        >
           {formatPrice(total)}
         </span>
       </div>
 
-      <MovementMethodField value={method} onChange={onMethodChange} />
-
-      <div className="space-y-1.5">
-        <Label htmlFor="sell-cart-note">{`${t.cash.cartNote} (${t.common.optional})`}</Label>
-        <Textarea
-          id="sell-cart-note"
-          value={note}
-          onChange={(e) => {
-            onNoteChange(e.target.value);
-          }}
-          maxLength={500}
-          className="min-h-[40px] resize-none"
-        />
-      </div>
+      <CartMethodAndNote method={method} onMethodChange={onMethodChange} note={note} onNoteChange={onNoteChange} />
 
       <Button
         type="button"
@@ -125,7 +196,9 @@ function SellCartLines({
   onRemoveBalance,
 }: SellCartLinesProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    // The list runs into the panel's right padding (-mr/pr) so the scrollbar
+    // sits in that gutter, clear of the amounts, which stay aligned with the total.
+    <div className="scrollbar-accent -mr-4 min-h-0 flex-1 overflow-x-hidden overflow-y-auto pr-4 sm:-mr-5 sm:pr-5">
       {lines.map((line) => {
         const product = products.find((p) => p.id === line.productId);
         return (
@@ -202,11 +275,22 @@ export function SellCart({
   const isEmpty = lines.length === 0 && balanceLines.length === 0;
 
   return (
-    <Panel size="sm" className="flex h-full flex-col" data-testid="sell-cart">
-      <h2 className="text-text-tertiary mb-2 text-sm font-semibold tracking-wider uppercase">{t.cash.cartTitle}</h2>
+    // From `lg` the cart is a fixed-height column pinned under the app header:
+    // the lines scroll inside it and the total and "Cobrar" never leave the screen.
+    // The height leaves a margin below it on purpose: a desktop dock that
+    // overlaps the browser window still counts as viewport.
+    <Panel
+      size="md"
+      className="flex flex-col lg:sticky lg:top-20 lg:h-[calc(100dvh-15rem)] lg:min-h-[24rem]"
+      data-testid="sell-cart"
+    >
+      <h2 className="text-text-primary mb-2 text-lg font-semibold max-lg:sr-only">{t.cash.cartTitle}</h2>
 
       {isEmpty ? (
-        <EmptyState icon={ShoppingCart} title={t.cash.cartEmpty} description="" />
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 py-8 text-center">
+          <ShoppingCart className="text-text-tertiary size-6" aria-hidden="true" />
+          <p className="text-text-secondary text-sm">{t.cash.cartEmpty}</p>
+        </div>
       ) : (
         <>
           <SellCartLines

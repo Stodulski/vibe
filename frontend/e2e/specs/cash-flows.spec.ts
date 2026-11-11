@@ -96,7 +96,7 @@ async function collectBalance(page: Page, lastName: string): Promise<string> {
   expect(remaining).toMatch(/^\$[\d.]+$/);
 
   await tile.click();
-  await expect(tile).toBeDisabled();
+  await expect(tile).toHaveAttribute('aria-pressed', 'true');
   await expect(tile.getByText('En el carrito')).toBeVisible();
   await expect(page.getByTestId('sell-balance-line').filter({ hasText: lastName })).toBeVisible();
   await expect(page.getByTestId('sell-cart-total')).toHaveText(remaining);
@@ -129,10 +129,10 @@ async function closeExactAndCheckHistory(page: Page, sessionId: string) {
   // The detail page is read-only: the ledger and figures, no way to change them.
 }
 
-/** The income is marked, a reversing row names it with the reason, and neither offers "Anular" again. */
+/** The income becomes one crossed-out "Anulado" row carrying the reason, and no longer offers "Anular". */
 async function assertIncomeVoided(page: Page, reason: string) {
   await expect(page.getByText('Anulado', { exact: true })).toBeVisible({ timeout: 5_000 });
-  await expect(page.getByText(/Anulación de Clases/)).toBeVisible();
+  await expect(page.getByText(/Anulación de/)).toHaveCount(0);
   await expect(page.getByText(reason)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Anular', exact: true })).toHaveCount(0);
 }
@@ -177,10 +177,9 @@ test.describe('Cash flows', () => {
     await openCashPage(page);
 
     await recordIncome(page, '5000', 'Transferencia');
-    // Totals per method list the transfer; expected cash does not move.
-    const transferTotal = page.getByText('Transferencia', { exact: true }).locator('..');
-    // exact: the movement row itself reads "+$5.000".
-    await expect(transferTotal.getByText('$5.000', { exact: true })).toBeVisible({ timeout: 5_000 });
+    // The ledger lists the transfer; expected cash and its cash income term do not move.
+    await expect(page.getByText('Ingreso · Transferencia', { exact: true })).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('+$5.000', { exact: true })).toBeVisible();
     await expect(expectedCard(page).getByText('$10.000')).toHaveCount(2);
 
     await closeExactAndCheckHistory(page, session.id);

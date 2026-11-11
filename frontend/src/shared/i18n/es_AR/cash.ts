@@ -16,9 +16,10 @@ export const cash = {
   incomeTotal: 'Ingresos',
   expenseTotal: 'Egresos',
   bookingPaymentsTitle: 'Cobros de reservas',
-  bookingPaymentsOnlineNote:
-    'Solo el efectivo forma parte del efectivo esperado; el resto se muestra a modo informativo.',
-  informational: 'Informativo',
+  // Booking payments by any method other than cash: shown for the full
+  // picture, never part of expected cash.
+  otherMethodPaymentsTitle: 'Cobros de reservas por otros medios',
+  otherMethodPaymentsNote: 'No suman al efectivo esperado.',
   // Cash handed back by hand for a cancelled booking, subtracted from
   // expected cash — shown only when there was at least one during the
   // session's window (cash-manual-refunds).
@@ -119,9 +120,17 @@ export const cash = {
   sellAllCategories: 'Todas',
   sellNoResults: 'Ningún producto coincide con la búsqueda',
   sellEmptyCatalog: 'Todavía no cargaste productos activos',
+  sellProductsTitle: 'Productos',
+  sellAddProducts: 'Cargar productos',
   sellOutOfStock: 'Sin stock',
   sellStockLeftPrefix: 'Quedan',
   cartTitle: 'Carrito',
+  cartAddNote: 'Agregar nota',
+  // After a tile's cart quantity: "2 en el carrito".
+  sellInCartSuffix: 'en el carrito',
+  // After a cart line's unit price: "$1.500 c/u".
+  cartUnitSuffix: 'c/u',
+  balanceLineTitle: 'Saldo del turno',
   cartEmpty: 'El carrito está vacío. Tocá un producto para agregarlo.',
   cartRemove: 'Quitar',
   cartDecreaseAction: 'Restar',
@@ -139,6 +148,8 @@ export const cash = {
   // ─── Turnos de hoy (booking balances at the counter) ───
   bookingsTitle: 'Turnos de hoy',
   bookingsEmpty: 'No hay turnos con saldo pendiente hoy.',
+  bookingsSearchPlaceholder: 'Buscar turno por cliente o cancha...',
+  bookingsNoResults: 'Ningún turno coincide con la búsqueda.',
   bookingsLoadError: 'No pudimos cargar los turnos de hoy',
   bookingRemaining: 'Resta',
   bookingInCart: 'En el carrito',

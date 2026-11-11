@@ -78,11 +78,7 @@ function SalesListBody({
     );
   }
   if (sales.length === 0) {
-    return (
-      <Panel size="sm">
-        <p className="text-text-tertiary py-6 text-center text-sm">{t.cash.noSales}</p>
-      </Panel>
-    );
+    return <p className="text-text-secondary text-sm">{t.cash.noSales}</p>;
   }
   return (
     <Panel size="sm">
@@ -122,7 +118,7 @@ export function SalesSection({ complexId, sessionId }: { complexId: string; sess
 
   return (
     <div data-testid="sell-sales-list">
-      <h2 className="text-text-tertiary mb-2 text-sm font-semibold tracking-wider uppercase">{t.cash.salesTitle}</h2>
+      <h2 className="text-text-primary mb-3 text-base font-semibold">{t.cash.salesTitle}</h2>
       <SalesListBody
         isLoading={isLoading}
         isError={isError}

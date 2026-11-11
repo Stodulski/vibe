@@ -17,19 +17,22 @@ export interface BalanceLine {
   amount: number;
 }
 
-/** The checkout takes at most 20 booking payments (`booking_payments`, `maxItems: 20`). */
-export const MAX_BALANCE_LINES = 20;
+/**
+ * One booking balance per sale (owner decision, 2026-11-11). A sale has one
+ * payment method, and two bookings are almost always two clients paying
+ * apart, so mixing them in one sale makes it unclear who paid what. The
+ * server would accept up to 20; the counter allows one.
+ */
+export const MAX_BALANCE_LINES = 1;
 
 /**
- * Tapping a booking tile: adds its remaining balance, once. A booking already
- * in the cart, or a 21st one, returns the same array so callers can tell
- * nothing changed.
+ * Tapping a booking tile: puts its remaining balance on the cart. The same
+ * booking again returns the same array so callers can tell nothing changed;
+ * a different booking replaces the one already there.
  */
 export function addBalanceLine(lines: BalanceLine[], booking: BalanceDue): BalanceLine[] {
   if (lines.some((line) => line.bookingId === booking.booking_id)) return lines;
-  if (lines.length >= MAX_BALANCE_LINES) return lines;
   return [
-    ...lines,
     {
       bookingId: booking.booking_id,
       courtName: booking.court_name,

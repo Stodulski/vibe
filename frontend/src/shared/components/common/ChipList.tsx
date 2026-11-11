@@ -19,7 +19,7 @@ interface ChipListProps {
  */
 /**
  * Horizontal chip slider. Touch pans natively; a mouse can drag it too
- * (`useDragScroll`), and a thin brand-green bar 5px under the chips shows
+ * (`useDragScroll`), and a thin brand-green bar 12px under the chips shows
  * there is more to scroll. Snapping is off while dragging so it does not
  * fight the pointer.
  */
@@ -31,7 +31,7 @@ export function ChipList({ 'aria-label': ariaLabel, children }: ChipListProps) {
     <div
       ref={ref}
       className={cn(
-        'scrollbar-accent flex gap-1.5 overflow-x-auto pb-[5px] select-none',
+        'scrollbar-accent flex gap-1.5 overflow-x-auto pb-3 select-none',
         dragging ? 'cursor-grabbing snap-none' : 'snap-x',
       )}
       role="group"

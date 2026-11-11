@@ -21,14 +21,22 @@ export function SellBalanceCartLine({ line, error, onRemove }: SellBalanceCartLi
   const label = bookingBalanceLabel(line.courtName, line.startTime, line.clientName);
 
   return (
-    <div data-testid="sell-balance-line" className="border-border-subtle border-b py-3 last:border-b-0">
+    <div data-testid="sell-balance-line" className="border-border-subtle space-y-1 border-b py-5 last:border-b-0">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-text-primary min-w-0 flex-1 text-sm font-medium break-words">{label}</p>
+        <p className="text-text-primary text-sm font-semibold">{t.cash.balanceLineTitle}</p>
+        <span className="text-text-primary text-sm font-semibold whitespace-nowrap tabular-nums">
+          {formatPrice(line.amount)}
+        </span>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-text-secondary min-w-0 text-xs break-words">
+          {`${line.courtName} · ${line.startTime} · ${line.clientName}`}
+        </p>
         <Button
           type="button"
           variant="ghost"
           size="icon-sm"
-          className="size-11 lg:size-8"
+          className="text-text-tertiary hover:text-text-primary size-11 lg:size-8"
           aria-label={`${t.cash.cartRemove}: ${label}`}
           onClick={() => {
             onRemove(line.bookingId);
@@ -37,8 +45,6 @@ export function SellBalanceCartLine({ line, error, onRemove }: SellBalanceCartLi
           <X className="size-4" aria-hidden="true" />
         </Button>
       </div>
-
-      <p className="score-text text-text-primary mt-2 text-right text-sm font-semibold">{formatPrice(line.amount)}</p>
 
       {error && (
         <p role="alert" className="text-error-text mt-1.5 flex items-center gap-1 text-xs">

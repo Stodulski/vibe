@@ -183,14 +183,11 @@ describe('booking balance storage', () => {
     expect(loadBalanceCart('c1')).toEqual([]);
   });
 
-  it('keeps one line per booking and the cap, same as a product cart', () => {
+  it('restores at most the one booking a sale may carry, the first one saved', () => {
     const many = Array.from({ length: 25 }, (_, i) => ({ ...balance, bookingId: `b${String(i)}` }));
     saveBalanceCart('c1', [balance, balance, ...many]);
 
-    const loaded = loadBalanceCart('c1');
-    expect(loaded).toHaveLength(20);
-    expect(loaded[0]).toEqual(balance);
-    expect(new Set(loaded.map((l) => l.bookingId)).size).toBe(loaded.length);
+    expect(loadBalanceCart('c1')).toEqual([balance]);
   });
 
   it('clears the key once the balance cart is cleared', () => {

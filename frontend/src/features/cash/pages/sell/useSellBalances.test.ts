@@ -63,7 +63,7 @@ describe('useSellBalances — restoring the cart', () => {
 });
 
 describe('useSellBalances — adding and removing', () => {
-  it('adds a booking once, tracks the total, and removes it', () => {
+  it('adds a booking once, swaps it for another (one per sale), tracks the total, and removes it', () => {
     const { result, rerender } = renderHook(({ due }) => useSellBalances(COMPLEX, due), {
       initialProps: { due: snapshot([cashier, second]) },
     });
@@ -78,16 +78,16 @@ describe('useSellBalances — adding and removing', () => {
       result.current.add(second);
     });
 
-    expect(result.current.lines.map((l) => l.bookingId)).toEqual(['b1', 'b2']);
-    expect(result.current.total).toBe(550000);
-
-    act(() => {
-      result.current.remove('b1');
-    });
     expect(result.current.lines.map((l) => l.bookingId)).toEqual(['b2']);
+    expect(result.current.total).toBe(200000);
 
     rerender({ due: snapshot([cashier, second]) });
     expect(result.current.lines.map((l) => l.bookingId)).toEqual(['b2']);
+
+    act(() => {
+      result.current.remove('b2');
+    });
+    expect(result.current.lines).toEqual([]);
   });
 
   it('persists the cart for this complex, so a reload brings the balances back', () => {
@@ -109,12 +109,11 @@ describe('useSellBalances — day list refreshes', () => {
     });
     act(() => {
       result.current.add(cashier);
-      result.current.add(second);
     });
 
     rerender({ due: snapshot([makeBalanceDue({ ...cashier, remaining: 0 }), second], 2) });
 
-    expect(result.current.lines.map((l) => l.bookingId)).toEqual(['b2']);
+    expect(result.current.lines).toEqual([]);
     expect(result.current.droppedNotice).toBe(true);
   });
 

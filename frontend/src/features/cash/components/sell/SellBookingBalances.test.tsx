@@ -31,6 +31,7 @@ function renderSection(overrides: Partial<Parameters<typeof SellBookingBalances>
     isLoading: false,
     isError: false,
     onAdd: vi.fn(),
+    onRemove: vi.fn(),
     onRetry: vi.fn(),
     ...overrides,
   };
@@ -65,12 +66,17 @@ describe('SellBookingBalances', () => {
     expect(onAdd).toHaveBeenCalledWith(ana);
   });
 
-  it('disables a booking already in the cart and says so, so it cannot be added twice', () => {
-    renderSection({ inCartIds: new Set(['b1']) });
+  it('marks a booking already in the cart and takes it out on a second tap, never adding it twice', async () => {
+    const user = userEvent.setup();
+    const { onAdd, onRemove } = renderSection({ inCartIds: new Set(['b1']) });
 
     const tile = screen.getByRole('button', { name: /Juan Pérez/ });
-    expect(tile).toBeDisabled();
+    expect(tile).toHaveAttribute('aria-pressed', 'true');
     expect(within(tile).getByText(t.cash.bookingInCart)).toBeInTheDocument();
+
+    await user.click(tile);
+    expect(onRemove).toHaveBeenCalledWith('b1');
+    expect(onAdd).not.toHaveBeenCalled();
   });
 
   it('shows the load error with a retry while there is nothing to show', async () => {
@@ -83,7 +89,7 @@ describe('SellBookingBalances', () => {
   });
 });
 
-describe('SellBookingBalances — the row below lg', () => {
+describe('SellBookingBalances — the slider', () => {
   it('lists the bookings as one named list, so a screen reader reads how many there are', () => {
     renderSection();
 
@@ -103,6 +109,7 @@ describe('SellBookingBalances — the row below lg', () => {
     const user = userEvent.setup();
     renderSection();
 
+    await user.tab(); // the search box comes first
     await user.tab();
     expect(screen.getByRole('button', { name: /Cancha 2/ })).toHaveFocus();
     await user.tab();
@@ -117,6 +124,7 @@ describe('SellBookingBalances — the row below lg', () => {
     try {
       renderSection();
 
+      await user.tab(); // the search box comes first
       await user.tab();
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
@@ -124,5 +132,26 @@ describe('SellBookingBalances — the row below lg', () => {
     } finally {
       Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
     }
+  });
+});
+
+describe('SellBookingBalances — search', () => {
+  it('narrows the bookings by client or court, ignoring case and accents', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.type(screen.getByLabelText(t.cash.bookingsSearchPlaceholder), 'gomez');
+
+    expect(screen.getByRole('button', { name: /Ana Gómez/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Juan Pérez/ })).not.toBeInTheDocument();
+  });
+
+  it('says so when no booking matches', async () => {
+    const user = userEvent.setup();
+    renderSection();
+
+    await user.type(screen.getByLabelText(t.cash.bookingsSearchPlaceholder), 'zzz');
+
+    expect(screen.getByText(t.cash.bookingsNoResults)).toBeInTheDocument();
   });
 });
