@@ -57,7 +57,7 @@ export function HoldCountdown({ expiresAt, onExpire }: HoldCountdownProps) {
         role="timer"
         aria-atomic="true"
         aria-label={t.publicBooking.holdCountdownLabel}
-        className="font-display text-primary-400 text-3xl font-bold tabular-nums"
+        className="font-display text-primary-400 text-center text-3xl font-bold tabular-nums"
       >
         {formatRemaining(clock.remaining)}
       </p>
