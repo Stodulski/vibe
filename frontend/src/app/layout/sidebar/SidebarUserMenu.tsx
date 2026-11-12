@@ -19,7 +19,7 @@ interface UserMenuTriggerProps {
   fullName: string;
 }
 
-/** The account entry reads "Mi perfil" beside a profile icon (owner request); the mobile sheet keeps the overflow dots. */
+/** The account entry reads "Mi cuenta" beside a profile icon (owner request); the mobile sheet keeps the overflow dots. */
 function UserMenuTrigger({ isMobile, fullName }: UserMenuTriggerProps) {
   return (
     <DropdownMenuTrigger asChild>
@@ -28,7 +28,7 @@ function UserMenuTrigger({ isMobile, fullName }: UserMenuTriggerProps) {
         aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
       >
         <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{t.navigation.profile}</span>
+        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{t.navigation.account}</span>
         {isMobile && <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />}
       </button>
     </DropdownMenuTrigger>
@@ -45,7 +45,7 @@ function UserMenuItems({ onProfileClick, onLogoutClick }: UserMenuItemsProps) {
     <DropdownMenuContent align="end" side="top" className="w-56">
       <DropdownMenuItem onClick={onProfileClick}>
         <User aria-hidden="true" />
-        {t.navigation.profile}
+        {t.navigation.accountSettings}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem variant="destructive" onClick={onLogoutClick}>

@@ -7,4 +7,6 @@ export const navigation = {
   reports: 'Reportes',
   settings: 'Configuración',
   profile: 'Mi perfil',
+  account: 'Mi cuenta',
+  accountSettings: 'Ajustes',
 } as const;

@@ -93,10 +93,10 @@ describe('Sidebar', () => {
     expect(screen.queryByText('Club Padel')).not.toBeInTheDocument();
   });
 
-  // Owner request: the account entry reads "Mi perfil" instead of the email.
-  it('labels the account entry "Mi perfil"', () => {
+  // Owner request: the account entry reads "Mi cuenta" instead of the email.
+  it('labels the account entry "Mi cuenta"', () => {
     renderSidebar();
-    expect(screen.getByRole('button', { name: /Juan Garcia/ })).toHaveTextContent('Mi perfil');
+    expect(screen.getByRole('button', { name: /Juan Garcia/ })).toHaveTextContent('Mi cuenta');
     expect(screen.queryByText('juan@test.com')).not.toBeInTheDocument();
   });
 
@@ -137,7 +137,7 @@ describe('Sidebar — labels and icons per width', () => {
     expect(nav.querySelector('svg')).toBeNull();
     // The account entry keeps a profile icon (owner request).
     expect(screen.getByRole('button', { name: /Juan Garcia/ }).querySelector('svg')).not.toBeNull();
-    expect(screen.getByRole('button', { name: /Juan Garcia/ })).toHaveTextContent('Mi perfil');
+    expect(screen.getByRole('button', { name: /Juan Garcia/ })).toHaveTextContent('Mi cuenta');
   });
 
   // Owner request: the mobile sheet drops the nav icons too.
