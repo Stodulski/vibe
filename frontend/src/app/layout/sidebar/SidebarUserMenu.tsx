@@ -20,7 +20,7 @@ interface UserMenuTriggerProps {
   fullName: string;
 }
 
-/** Desktop shows the email alone (no icons, owner request); the mobile sheet keeps the overflow dots. */
+/** A profile icon marks the account entry (owner request); the mobile sheet keeps the overflow dots. */
 function UserMenuTrigger({ user, isMobile, fullName }: UserMenuTriggerProps) {
   return (
     <DropdownMenuTrigger asChild>
@@ -28,6 +28,7 @@ function UserMenuTrigger({ user, isMobile, fullName }: UserMenuTriggerProps) {
         className="hover:bg-bg-elevated/50 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors"
         aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
       >
+        <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
         <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{user?.email}</span>
         {isMobile && <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />}
       </button>
