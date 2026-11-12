@@ -23,20 +23,15 @@ export function SidebarNavLink({ item, isActive, isMobile, onNavigate, onMouseEn
       onMouseEnter={onMouseEnter}
       aria-current={isActive ? 'page' : undefined}
       className={cn(
-        'group press-scale relative flex items-center rounded-lg px-2.5 py-[7px] transition-colors duration-200',
+        'group press-scale flex items-center rounded-lg px-2.5 py-[7px] transition-colors duration-200',
         // The mobile sheet runs a notch smaller than the desktop rail (owner
         // request): 12px labels instead of the 13px `text-nav`.
         isMobile ? 'text-xs' : 'text-nav',
-        isActive
-          ? 'bg-primary-500/10 text-text-primary font-medium'
-          : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-elevated/40',
+        // The selected part changes only its text colour (owner request): no
+        // fill, no side bar, no weight change.
+        isActive ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-elevated/40',
       )}
     >
-      {isActive && (
-        // Glow color reuses the existing --color-primary-500 token (CSS
-        // relative color syntax) instead of hardcoding rgb(29,185,84) again.
-        <span className="bg-primary-500 absolute top-1/2 left-0 h-4 w-[3px] -translate-y-1/2 rounded-r-full shadow-[0_0_8px_rgb(from_var(--color-primary-500)_r_g_b/30%)]" />
-      )}
       <span className="min-w-0 truncate">{item.label}</span>
     </NavLink>
   );
