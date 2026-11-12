@@ -146,7 +146,7 @@ func TestFacebookVideoStoryRunsTheSessionThenPublishesIt(t *testing.T) {
 		return http.StatusNotFound, `{"error":{"message":"no route"}}`
 	})
 
-	id, err := client.PublishFacebook(context.Background(), imagePost(social.TypeStory, "clip.mp4"))
+	id, err := client.PublishFacebook(context.Background(), hostedOn(client, imagePost(social.TypeStory, "clip.mp4")))
 	if err != nil || id != "page-1_777" {
 		t.Fatalf("PublishFacebook() = %q, %v; want page-1_777", id, err)
 	}
@@ -159,9 +159,7 @@ func TestFacebookVideoStoryRunsTheSessionThenPublishesIt(t *testing.T) {
 			finish = c
 		}
 	}
-	if upload.header.Get("file_url") != "https://cdn.test/clip.mp4" || upload.header.Get("Authorization") != "OAuth "+pageToken {
-		t.Fatalf("upload headers = %v, want file_url and an OAuth page token", upload.header)
-	}
+	assertDirectUpload(t, upload)
 	if finish.params.Get("video_id") != "vid-7" {
 		t.Fatalf("finish params = %v, want video_id vid-7", finish.params)
 	}

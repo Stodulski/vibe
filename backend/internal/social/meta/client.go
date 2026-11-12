@@ -3,6 +3,7 @@
 package meta
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -12,6 +13,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -28,6 +30,9 @@ const (
 	defaultPollEvery  = 30 * time.Second
 	defaultPollFor    = 5 * time.Minute
 	maxResponseBytes  = 1 << 20
+	// maxVideoBytes caps a video the server downloads to upload to Meta. Reels
+	// render at a few MB; the cap keeps a wrong file from filling memory.
+	maxVideoBytes = 256 << 20
 	// instagramDailyLimit is Meta's documented number of containers an
 	// account may publish in a rolling 24 hours. It is the fallback when the
 	// quota answer omits its total.
@@ -322,7 +327,7 @@ func (c *Client) facebookCarousel(ctx context.Context, acct account, post social
 	return out.ID, nil
 }
 
-// facebookReel runs the Page reel session: start, upload from the hosted URL,
+// facebookReel runs the Page reel session: start, upload the file's bytes,
 // then finish with PUBLISHED. Each step names itself in its error.
 func (c *Client) facebookReel(ctx context.Context, acct account, post social.Post) (string, error) {
 	var start struct {
@@ -334,7 +339,7 @@ func (c *Client) facebookReel(ctx context.Context, acct account, post social.Pos
 	if start.VideoID == "" {
 		return "", errors.New("reel start: meta returned no video id")
 	}
-	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
+	accepted, err := c.uploadVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
 	if err != nil {
 		return "", fmt.Errorf("reel upload: %w", err)
 	}
@@ -358,15 +363,25 @@ func (c *Client) facebookReel(ctx context.Context, acct account, post social.Pos
 	return start.VideoID, nil
 }
 
-// uploadHostedVideo asks Meta to fetch fileURL into an open video session. The
-// answer is the upload's success flag; a transport or status failure is an error.
-func (c *Client) uploadHostedVideo(ctx context.Context, token, videoID, fileURL string) (bool, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.UploadBase+"/"+videoID, nil)
+// uploadVideo sends the file at fileURL into an open video session as bytes.
+// Meta can fetch a hosted file itself (the file_url header), but its fetcher
+// obeys robots.txt, and the CDN's Cloudflare-managed robots.txt refuses
+// Meta's crawler ("403 Restricted by robots.txt", 2026-11-11), so the server
+// downloads the file and uploads it in one piece. The answer is the upload's
+// success flag; a transport or status failure is an error.
+func (c *Client) uploadVideo(ctx context.Context, token, videoID, fileURL string) (bool, error) {
+	video, err := c.download(ctx, fileURL)
+	if err != nil {
+		return false, err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.cfg.UploadBase+"/"+videoID, bytes.NewReader(video))
 	if err != nil {
 		return false, fmt.Errorf("meta: build video upload: %w", err)
 	}
 	req.Header.Set("Authorization", "OAuth "+token)
-	req.Header.Set("file_url", fileURL)
+	req.Header.Set("offset", "0")
+	req.Header.Set("file_size", strconv.Itoa(len(video)))
+	req.Header.Set("Content-Type", "application/octet-stream")
 	var up struct {
 		Success bool `json:"success"`
 	}
@@ -374,6 +389,37 @@ func (c *Client) uploadHostedVideo(ctx context.Context, token, videoID, fileURL 
 		return false, err
 	}
 	return up.Success, nil
+}
+
+// download reads the media file the post names from its own host, not from
+// Meta, so it bypasses the breaker. A 4xx answer is permanent: the file is
+// missing or refused, and retrying will not bring it back. A file larger than
+// maxVideoBytes is refused before it fills memory.
+func (c *Client) download(ctx context.Context, fileURL string) ([]byte, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, fileURL, nil)
+	if err != nil {
+		return nil, fmt.Errorf("%w: download media: %w", social.ErrPermanent, err)
+	}
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("download media: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		err := fmt.Errorf("download media: %s answered %d", fileURL, resp.StatusCode)
+		if resp.StatusCode >= http.StatusBadRequest && !transient(resp.StatusCode) {
+			return nil, fmt.Errorf("%w: %w", social.ErrPermanent, err)
+		}
+		return nil, err
+	}
+	video, err := io.ReadAll(io.LimitReader(resp.Body, maxVideoBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("download media: read: %w", err)
+	}
+	if len(video) > maxVideoBytes {
+		return nil, fmt.Errorf("%w: download media: %s is larger than %d bytes", social.ErrPermanent, fileURL, maxVideoBytes)
+	}
+	return video, nil
 }
 
 // facebookStory publishes a Page story. A photo is one unpublished upload and a
@@ -415,7 +461,7 @@ func (c *Client) facebookVideoStory(ctx context.Context, acct account, post soci
 	if start.VideoID == "" {
 		return "", errors.New("video story start: meta returned no video id")
 	}
-	accepted, err := c.uploadHostedVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
+	accepted, err := c.uploadVideo(ctx, acct.pageToken, start.VideoID, post.Media[0].URL)
 	if err != nil {
 		return "", fmt.Errorf("video story upload: %w", err)
 	}
