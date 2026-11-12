@@ -16,53 +16,33 @@ const t = ES_AR;
 
 interface UserMenuTriggerProps {
   user: ApiUser | null;
-  collapsed: boolean;
   isMobile: boolean;
   fullName: string;
 }
 
-function UserMenuTrigger({ user, collapsed, isMobile, fullName }: UserMenuTriggerProps) {
+/** Desktop shows the email alone (no icons, owner request); the mobile sheet keeps the overflow dots. */
+function UserMenuTrigger({ user, isMobile, fullName }: UserMenuTriggerProps) {
   return (
     <DropdownMenuTrigger asChild>
       <button
-        className={cn(
-          'hover:bg-bg-elevated/50 flex w-full items-center rounded-lg transition-colors',
-          collapsed && !isMobile ? 'justify-center p-2' : 'gap-2 px-2 py-2 text-left',
-        )}
+        className="hover:bg-bg-elevated/50 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors"
         aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
       >
-        {collapsed && !isMobile ? (
-          /* A person, not an overflow dot column. Collapsed there is no email
-             beside it, so the glyph has to say WHOSE menu this is — and a lone
-             "⋮" on a rail of subject icons says only "more of something". The
-             expanded row keeps the dots, where the email is the subject and
-             the dots are genuinely the overflow beside it. */
-          <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        ) : (
-          <>
-            <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{user?.email}</span>
-            <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-          </>
-        )}
+        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{user?.email}</span>
+        {isMobile && <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />}
       </button>
     </DropdownMenuTrigger>
   );
 }
 
 interface UserMenuItemsProps {
-  collapsed: boolean;
-  isMobile: boolean;
   onProfileClick: () => void;
   onLogoutClick: () => void;
 }
 
-function UserMenuItems({ collapsed, isMobile, onProfileClick, onLogoutClick }: UserMenuItemsProps) {
+function UserMenuItems({ onProfileClick, onLogoutClick }: UserMenuItemsProps) {
   return (
-    <DropdownMenuContent
-      align={collapsed && !isMobile ? 'start' : 'end'}
-      side={collapsed && !isMobile ? 'right' : 'top'}
-      className="w-56"
-    >
+    <DropdownMenuContent align="end" side="top" className="w-56">
       <DropdownMenuItem onClick={onProfileClick}>
         <User aria-hidden="true" />
         {t.navigation.profile}
@@ -78,12 +58,11 @@ function UserMenuItems({ collapsed, isMobile, onProfileClick, onLogoutClick }: U
 
 interface SidebarUserMenuProps {
   user: ApiUser | null;
-  collapsed: boolean;
   isMobile: boolean;
   onNavigate?: (() => void) | undefined;
 }
 
-export function SidebarUserMenu({ user, collapsed, isMobile, onNavigate }: SidebarUserMenuProps) {
+export function SidebarUserMenu({ user, isMobile, onNavigate }: SidebarUserMenuProps) {
   const navigate = useNavigate();
   const logout = useLogout();
 
@@ -93,15 +72,13 @@ export function SidebarUserMenu({ user, collapsed, isMobile, onNavigate }: Sideb
     <div
       className={cn(
         'border-border-subtle shrink-0 border-t',
-        collapsed && !isMobile ? 'p-2' : 'p-3',
+        'p-3',
         isMobile && 'pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]',
       )}
     >
       <DropdownMenu>
-        <UserMenuTrigger user={user} collapsed={collapsed} isMobile={isMobile} fullName={fullName} />
+        <UserMenuTrigger user={user} isMobile={isMobile} fullName={fullName} />
         <UserMenuItems
-          collapsed={collapsed}
-          isMobile={isMobile}
           onProfileClick={() => {
             onNavigate?.();
             void navigate('/profile');

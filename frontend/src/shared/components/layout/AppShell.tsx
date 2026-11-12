@@ -59,11 +59,11 @@ export function AppShell({ brand, sidebar, renderMobileSidebar, header, children
       <MobileNavSheet open={mobileOpen} onOpenChange={setMobileOpen} sidebar={renderMobileSidebar(handleCloseMobile)} />
 
       {/* Offsets, not layout: the fixed chrome is out of flow, so the content
-          reserves its space by hand — `mt-16` for the bar, `md:ml-[68px]` for
+          reserves its space by hand — `mt-16` for the bar, `md:ml-[152px]` for
           the rail, both matching the sizes those components set themselves. */}
       <main
         id="main-content"
-        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[68px] lg:px-10 lg:py-8 xl:px-14"
+        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] lg:px-10 lg:py-8 xl:px-14"
       >
         <PageContentWidth>
           <Outlet />
