@@ -16,7 +16,7 @@ interface SidebarProps {
   isMobile?: boolean;
 }
 
-/** Desktop is permanently icon-only (no expand/collapse toggle); the mobile sheet stays fully expanded. */
+/** Desktop names every part with no icons (owner request, to save space); the mobile sheet keeps its icons. */
 export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
   const { complex } = useSelectedComplex();
   const { user } = useAuth();
@@ -27,8 +27,6 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
     },
     [prefetch],
   );
-
-  const collapsed = !isMobile;
 
   return (
     <aside
@@ -41,19 +39,19 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
         //
         // Desktop only: the mobile sheet already sits on the popover surface
         // (see `sheet.tsx`), so a second fill here would be redundant. The
-        // permanent icon rail needs its own — `bg-bg-sidebar` (odd/tasks/
+        // permanent rail needs its own — `bg-bg-sidebar` (odd/tasks/
         // app-dark-contrast.md T1), the midpoint between the page and the
         // card tier, so it reads as a distinct structural frame rather than
         // one more card sitting flush against the page.
-        isMobile ? 'w-full' : 'bg-bg-sidebar border-border-subtle w-[68px] border-r',
+        isMobile ? 'w-full' : 'bg-bg-sidebar border-border-subtle w-[152px] border-r',
       )}
       aria-label={t.layout.sidebar}
     >
-      {complex && <SidebarComplexHeader complex={complex} collapsed={collapsed} isMobile={isMobile} />}
+      {complex && <SidebarComplexHeader complex={complex} isMobile={isMobile} />}
 
-      <SidebarNav collapsed={collapsed} isMobile={isMobile} onNavigate={onNavigate} onPrefetch={handlePrefetch} />
+      <SidebarNav isMobile={isMobile} onNavigate={onNavigate} onPrefetch={handlePrefetch} />
 
-      <SidebarUserMenu user={user} collapsed={collapsed} isMobile={isMobile} onNavigate={onNavigate} />
+      <SidebarUserMenu user={user} isMobile={isMobile} onNavigate={onNavigate} />
     </aside>
   );
 }

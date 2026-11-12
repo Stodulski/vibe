@@ -6,7 +6,6 @@ import { SidebarNavLink } from './SidebarNavLink';
 const t = ES_AR;
 
 interface SidebarNavProps {
-  collapsed: boolean;
   isMobile: boolean;
   onNavigate?: (() => void) | undefined;
   onPrefetch: (to: string) => () => void;
@@ -19,7 +18,7 @@ interface SidebarNavProps {
 // them). Every other item matches its own path exactly.
 const PREFIX_MATCHED_ROOTS = ['/settings', '/cash'];
 
-export function SidebarNav({ collapsed, isMobile, onNavigate, onPrefetch }: SidebarNavProps) {
+export function SidebarNav({ isMobile, onNavigate, onPrefetch }: SidebarNavProps) {
   const location = useLocation();
 
   // A plain `startsWith` would also match an unrelated sibling route that
@@ -39,7 +38,6 @@ export function SidebarNav({ collapsed, isMobile, onNavigate, onPrefetch }: Side
             key={item.to}
             item={item}
             isActive={isItemActive(item.to)}
-            collapsed={collapsed}
             isMobile={isMobile}
             onNavigate={onNavigate}
             onMouseEnter={onPrefetch(item.to)}

@@ -6,7 +6,7 @@ import { SidebarNav } from './SidebarNav';
 function renderAt(path: string) {
   return render(
     <MemoryRouter initialEntries={[path]}>
-      <SidebarNav collapsed={false} isMobile={false} onPrefetch={() => () => undefined} />
+      <SidebarNav isMobile={false} onPrefetch={() => () => undefined} />
     </MemoryRouter>,
   );
 }

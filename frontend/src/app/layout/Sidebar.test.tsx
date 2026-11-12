@@ -117,3 +117,30 @@ describe('Sidebar', () => {
     }
   });
 });
+
+describe('Sidebar — labels and icons per width', () => {
+  // Owner request: the desktop rail names every part and drops the icons to
+  // save space, instead of an icon-only rail with tooltips.
+  it('names every part on desktop and draws no icons', () => {
+    render(
+      <MemoryRouter>
+        <Sidebar />
+      </MemoryRouter>,
+    );
+    const nav = screen.getByLabelText('Navegación principal');
+    for (const label of ['Dashboard', 'Reservas', 'Caja', 'Canchas', 'Clientes', 'Reportes', 'Configuración']) {
+      expect(within(nav).getByRole('link', { name: label })).toHaveTextContent(label);
+    }
+    expect(nav.querySelector('svg')).toBeNull();
+    expect(screen.getByText('Club Padel').parentElement?.querySelector('svg')).toBeNull();
+    // The popup menu items keep their icons; only the rail row loses them.
+    expect(screen.getByRole('button', { name: /Juan Garcia/ }).querySelector('svg')).toBeNull();
+    expect(screen.getByText('juan@test.com')).toBeInTheDocument();
+  });
+
+  it('keeps the icons in the mobile sheet', () => {
+    renderSidebar();
+    expect(screen.getByRole('link', { name: 'Dashboard' }).querySelector('svg')).not.toBeNull();
+    expect(screen.getByText('Club Padel').parentElement?.querySelector('svg')).not.toBeNull();
+  });
+});
