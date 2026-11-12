@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { EllipsisVertical, LogOut, User } from 'lucide-react';
+import { EllipsisVertical, LogOut, Settings, User } from 'lucide-react';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 import {
   DropdownMenu,
@@ -44,7 +44,7 @@ function UserMenuItems({ onProfileClick, onLogoutClick }: UserMenuItemsProps) {
   return (
     <DropdownMenuContent align="end" side="top" className="w-56">
       <DropdownMenuItem onClick={onProfileClick}>
-        <User aria-hidden="true" />
+        <Settings aria-hidden="true" />
         {t.navigation.accountSettings}
       </DropdownMenuItem>
       <DropdownMenuSeparator />
