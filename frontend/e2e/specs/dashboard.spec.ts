@@ -30,7 +30,7 @@ test.describe('Dashboard', () => {
     await expect(page.getByText('Reservas hoy', { exact: true })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByText('Ingresos de hoy', { exact: true })).toBeVisible();
     await expect(page.getByText('Ocupación', { exact: true })).toBeVisible();
-    await expect(page.getByText('Estado de cobro', { exact: true })).toBeVisible();
+    await expect(page.getByText('Cobro de los turnos de hoy', { exact: true })).toBeVisible();
   });
 
   test('displays revenue section', async ({ authenticatedPage: page }) => {

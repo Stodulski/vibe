@@ -28,7 +28,9 @@ export const dashboard = {
   todayIncomeBookings: 'Turnos',
   todayIncomeBar: 'Bar',
   todayIncomeOther: 'Otros',
-  paymentStatus: 'Estado de cobro',
+  // Names what the rows count: today's bookings, by how much of each is paid
+  // (owner, 2026-11-11: "Estado de cobro / Pagado (1)" did not say of what).
+  paymentStatus: 'Cobro de los turnos de hoy',
   noBookingsToday: 'Sin reservas hoy',
   paymentMethodLabel: 'Método de pago',
   // Keyed by the booking's collection_status, which is what
@@ -38,9 +40,10 @@ export const dashboard = {
   // cancelled, so a refund bucket here only ever held collected money filed
   // under a refund name.
   paymentStatusLabels: {
-    fully_paid: 'Pagado',
-    deposit_paid: 'Señado',
-    unpaid: 'Pendiente',
+    fully_paid: (count: number) =>
+      count === 1 ? '1 turno pagado completo' : `${String(count)} turnos pagados completos`,
+    deposit_paid: (count: number) => (count === 1 ? '1 turno con seña' : `${String(count)} turnos con seña`),
+    unpaid: (count: number) => (count === 1 ? '1 turno sin pagar' : `${String(count)} turnos sin pagar`),
   },
   clientsTitle: 'Clientes',
   newClients: 'Nuevos',
