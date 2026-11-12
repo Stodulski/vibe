@@ -418,7 +418,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	clientsHandler := clients.NewHandler(clientsService, respond)
 	// The stream re-authorizes through the same chain that admitted it: see
 	// streamAuthorizer. Its cadence and lifetime are the package's defaults.
-	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw}, respond, d.logger,
+	realtimeHandler := realtime.NewHandler(events, streamAuthorizer{mw: mw, tokens: tokens}, respond, d.logger,
 		app.shutdown, realtime.Config{})
 	leadsHandler := leads.NewHandler(respond, leads.Config{
 		WebhookURL: cfg.Leads.AbandonedWebhookURL,

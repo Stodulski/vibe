@@ -68,6 +68,14 @@ const recheckTimeout = 3 * time.Second
 // could not be completed, which is treated differently — see maxRecheckFailures.
 var ErrStreamUnauthorized = errors.New("realtime: stream no longer authorized")
 
+// ErrStreamCredentialExpired is what an Authorizer returns when the access
+// token the stream was opened with has expired. It is not a verdict on the
+// caller: the browser refreshes its token on its own requests, but a stream
+// keeps the cookie it connected with. The stream ends as "expired", the client
+// refreshes and reconnects, and that reconnect is a full authorization. A
+// session that was really ended fails the refresh and does not come back.
+var ErrStreamCredentialExpired = errors.New("realtime: stream credential expired")
+
 // Authorizer re-decides, while a stream is open, whether the caller may still
 // receive a complex's events.
 //
@@ -205,6 +213,9 @@ func (h *Handler) Stream(w http.ResponseWriter, r *http.Request) {
 			switch {
 			case err == nil:
 				failures = 0
+			case errors.Is(err, ErrStreamCredentialExpired):
+				h.end(w, flusher, "expired", "the access token the stream was opened with has expired")
+				return
 			case errors.Is(err, ErrStreamUnauthorized):
 				h.logger.Info("realtime: closing stream, caller is no longer authorized",
 					"complex_id", complex.ID, "error", err)
