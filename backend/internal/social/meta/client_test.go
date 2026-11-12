@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -29,6 +30,20 @@ type exchange struct {
 	path   string
 	params url.Values
 	header http.Header
+	body   []byte
+}
+
+// mediaBytes is what the fake serves under /media/, standing in for a file on
+// the CDN that the client downloads before uploading it to Meta.
+const mediaBytes = "fake-mp4-bytes"
+
+// hostedOn points every media URL of post at the fake's /media/ path.
+func hostedOn(client *Client, post social.Post) social.Post {
+	base := strings.TrimSuffix(client.cfg.APIBase, "/v25.0")
+	for i := range post.Media {
+		post.Media[i].URL = base + "/media/" + post.Media[i].Name
+	}
+	return post
 }
 
 // fakeGraph records every request and answers from a script.
@@ -50,6 +65,17 @@ func (f *fakeGraph) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	e := exchange{method: r.Method, path: r.URL.Path, params: params, header: r.Header.Clone()}
+	if r.Method == http.MethodPost && r.PostForm == nil {
+		e.body, _ = io.ReadAll(r.Body)
+	}
+	if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/media/") {
+		f.mu.Lock()
+		f.seen = append(f.seen, e)
+		f.mu.Unlock()
+		w.Header().Set("Content-Type", "video/mp4")
+		_, _ = io.WriteString(w, mediaBytes)
+		return
+	}
 
 	f.mu.Lock()
 	f.seen = append(f.seen, e)
@@ -348,7 +374,7 @@ func TestFacebookReelRunsTheThreeStepSession(t *testing.T) {
 		return http.StatusNotFound, `{"error":{"message":"no route"}}`
 	})
 
-	id, err := client.PublishFacebook(context.Background(), imagePost(social.TypeReel, "clip.mp4"))
+	id, err := client.PublishFacebook(context.Background(), hostedOn(client, imagePost(social.TypeReel, "clip.mp4")))
 	if err != nil || id != "vid-9" {
 		t.Fatalf("PublishFacebook() = %q, %v; want vid-9", id, err)
 	}
@@ -361,9 +387,7 @@ func TestFacebookReelRunsTheThreeStepSession(t *testing.T) {
 			finish = c
 		}
 	}
-	if upload.header.Get("file_url") != "https://cdn.test/clip.mp4" || upload.header.Get("Authorization") != "OAuth "+pageToken {
-		t.Fatalf("upload headers = %v, want file_url and an OAuth page token", upload.header)
-	}
+	assertDirectUpload(t, upload)
 	if finish.params.Get("video_state") != "PUBLISHED" || finish.params.Get("description") != "Caja de turnos" {
 		t.Fatalf("finish params = %v, want PUBLISHED with the caption", finish.params)
 	}
@@ -616,7 +640,7 @@ func TestEachPublishStepNamesItselfInItsError(t *testing.T) {
 				return http.StatusNotFound, `{"error":{"message":"no route"}}`
 			})
 
-			_, err := client.PublishFacebook(context.Background(), imagePost(tc.kind, "clip.mp4"))
+			_, err := client.PublishFacebook(context.Background(), hostedOn(client, imagePost(tc.kind, "clip.mp4")))
 			if err == nil || !strings.HasPrefix(err.Error(), tc.step+": ") {
 				t.Fatalf("PublishFacebook() = %v, want an error starting with %q", err, tc.step+": ")
 			}
@@ -645,7 +669,7 @@ func TestMissingVideoIDStopsBeforeTheUpload(t *testing.T) {
 			return http.StatusOK, `{"success":true}`
 		})
 
-		_, err := client.PublishFacebook(context.Background(), imagePost(tc.kind, "clip.mp4"))
+		_, err := client.PublishFacebook(context.Background(), hostedOn(client, imagePost(tc.kind, "clip.mp4")))
 		if err == nil || err.Error() != tc.want {
 			t.Fatalf("PublishFacebook(%s) = %v, want %q", tc.kind, err, tc.want)
 		}
@@ -766,7 +790,7 @@ func TestTheTokenIsRedactedOnTheUploadStep(t *testing.T) {
 		return http.StatusNotFound, `{"error":{"message":"no route"}}`
 	})
 
-	_, err := client.PublishFacebook(context.Background(), imagePost(social.TypeReel, "clip.mp4"))
+	_, err := client.PublishFacebook(context.Background(), hostedOn(client, imagePost(social.TypeReel, "clip.mp4")))
 	assertTokenHidden(t, err, "EAABpage-secret")
 	if err != nil && !strings.HasPrefix(err.Error(), "reel upload: ") {
 		t.Fatalf("PublishFacebook() = %v, want the upload step named", err)
@@ -836,5 +860,52 @@ func TestResourceDoesNotExistIsRetryableAndKeepsItsSubcode(t *testing.T) {
 	const want = "meta answered 400 (code 24, subcode 2207006): The requested resource does not exist"
 	if !strings.HasSuffix(err.Error(), want) {
 		t.Fatalf("error %q, want it to end %q", err, want)
+	}
+}
+
+// assertDirectUpload checks that the video went to Meta as bytes, not as a URL
+// for Meta to fetch: Meta's fetcher obeys robots.txt, and the CDN's robots.txt
+// refuses it (owner, 2026-11-11: "403 Restricted by robots.txt").
+func assertDirectUpload(t *testing.T, upload exchange) {
+	t.Helper()
+	if upload.header.Get("Authorization") != "OAuth "+pageToken {
+		t.Fatalf("upload Authorization = %q, want an OAuth page token", upload.header.Get("Authorization"))
+	}
+	if upload.header.Get("file_url") != "" {
+		t.Fatalf("upload sent file_url %q; Meta must not fetch the file itself", upload.header.Get("file_url"))
+	}
+	if upload.header.Get("offset") != "0" || upload.header.Get("file_size") != strconv.Itoa(len(mediaBytes)) {
+		t.Fatalf("upload offset/file_size = %q/%q, want 0/%d", upload.header.Get("offset"), upload.header.Get("file_size"), len(mediaBytes))
+	}
+	if string(upload.body) != mediaBytes {
+		t.Fatalf("upload body = %q, want the file's bytes", upload.body)
+	}
+}
+
+func TestFacebookReelFailsWhenTheFileCannotBeDownloaded(t *testing.T) {
+	t.Parallel()
+	fake, client := newFake(t, func(e exchange) (int, string) {
+		if code, body, ok := standardAccount(e); ok {
+			return code, body
+		}
+		if e.path == "/v25.0/page-1/video_reels" {
+			return http.StatusOK, `{"video_id":"vid-9"}`
+		}
+		return http.StatusNotFound, `{"error":{"message":"no route"}}`
+	})
+	post := hostedOn(client, imagePost(social.TypeReel, "clip.mp4"))
+	post.Media[0].URL = strings.Replace(post.Media[0].URL, "/media/", "/missing/", 1)
+
+	_, err := client.PublishFacebook(context.Background(), post)
+	if err == nil || !strings.Contains(err.Error(), "reel upload") || !strings.Contains(err.Error(), "404") {
+		t.Fatalf("PublishFacebook() error = %v, want a reel upload error naming the 404", err)
+	}
+	if !errors.Is(err, social.ErrPermanent) {
+		t.Fatalf("a missing file is not fixed by retrying: %v", err)
+	}
+	for _, c := range fake.calls() {
+		if strings.HasPrefix(c.path, "/upload/") {
+			t.Fatal("nothing may be uploaded when the file could not be downloaded")
+		}
 	}
 }
