@@ -10,7 +10,7 @@ const t = ES_AR;
 // by the money-in axis). Three keys, exhaustively; the `?? key` fallback below
 // stays as the guard for a server ahead of this build.
 interface StatusDisplay {
-  label: string;
+  label: (count: number) => string;
   color: string;
 }
 
@@ -35,13 +35,15 @@ export function PaymentStatusBreakdown({
         // while the lookup itself admits that `key` is whatever the server
         // sent and may match nothing.
         const cfg: StatusDisplay | undefined = (STATUS_CONFIG as Partial<Record<string, StatusDisplay>>)[key];
-        const { label, color } = cfg ?? { label: key, color: 'bg-text-disabled' };
+        const { label, color } = cfg ?? {
+          label: (count: number) => `${key} (${String(count)})`,
+          color: 'bg-text-disabled',
+        };
         return (
           <div key={key} className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1.5">
               <div className={cn('size-2 rounded-full', color)} />
-              <span className="text-text-secondary">{label}</span>
-              <span className="text-text-tertiary">({val.count})</span>
+              <span className="text-text-secondary whitespace-nowrap">{label(val.count)}</span>
             </div>
             {/* A status only ever has money against it when a real payment
                 was collected today (GetPaymentSummary sums payments.amount,
