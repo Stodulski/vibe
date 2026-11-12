@@ -29,7 +29,7 @@ export function SidebarNavLink({ item, isActive, isMobile, onNavigate, onMouseEn
         isMobile ? 'text-xs' : 'text-nav',
         // The selected part changes only its text colour (owner request): no
         // fill, no side bar, no weight change.
-        isActive ? 'text-text-primary' : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-elevated/40',
+        isActive ? 'text-primary-500' : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-elevated/40',
       )}
     >
       <span className="min-w-0 truncate">{item.label}</span>
