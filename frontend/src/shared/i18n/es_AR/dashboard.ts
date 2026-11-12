@@ -30,7 +30,7 @@ export const dashboard = {
   todayIncomeOther: 'Otros',
   // Names what the rows count: today's bookings, by how much of each is paid
   // (owner, 2026-11-11: "Estado de cobro / Pagado (1)" did not say of what).
-  paymentStatus: 'Cobro de los turnos de hoy',
+  paymentStatus: 'Cobro de turnos de hoy',
   noBookingsToday: 'Sin reservas hoy',
   paymentMethodLabel: 'Método de pago',
   // Keyed by the booking's collection_status, which is what
@@ -39,11 +39,12 @@ export const dashboard = {
   // card sums payments that are NOT refunded over bookings that are NOT
   // cancelled, so a refund bucket here only ever held collected money filed
   // under a refund name.
+  // Short so each row fits one line at 320px beside its amount; the heading
+  // already says they are today's bookings.
   paymentStatusLabels: {
-    fully_paid: (count: number) =>
-      count === 1 ? '1 turno pagado completo' : `${String(count)} turnos pagados completos`,
-    deposit_paid: (count: number) => (count === 1 ? '1 turno con seña' : `${String(count)} turnos con seña`),
-    unpaid: (count: number) => (count === 1 ? '1 turno sin pagar' : `${String(count)} turnos sin pagar`),
+    fully_paid: (count: number) => (count === 1 ? '1 pagado' : `${String(count)} pagados`),
+    deposit_paid: (count: number) => `${String(count)} con seña`,
+    unpaid: (count: number) => `${String(count)} sin pagar`,
   },
   clientsTitle: 'Clientes',
   newClients: 'Nuevos',

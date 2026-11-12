@@ -43,7 +43,7 @@ export function PaymentStatusBreakdown({
           <div key={key} className="flex items-center justify-between text-sm">
             <div className="flex items-center gap-1.5">
               <div className={cn('size-2 rounded-full', color)} />
-              <span className="text-text-secondary">{label(val.count)}</span>
+              <span className="text-text-secondary whitespace-nowrap">{label(val.count)}</span>
             </div>
             {/* A status only ever has money against it when a real payment
                 was collected today (GetPaymentSummary sums payments.amount,
