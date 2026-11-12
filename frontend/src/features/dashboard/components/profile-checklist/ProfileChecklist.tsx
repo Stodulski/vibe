@@ -160,20 +160,20 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
 
       {hasMany && (
         <div className="border-border-subtle -mb-2 border-t pt-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="-ml-2 w-fit"
-          aria-expanded={expanded}
-          aria-controls={LIST_ID}
-          onClick={toggle}
-        >
-          {expanded
-            ? t.dashboard.profileChecklist.hidePending
-            : t.dashboard.profileChecklist.showPending(pending.length)}
-          <ChevronDown aria-hidden="true" className={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
-        </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="-ml-2 w-fit"
+            aria-expanded={expanded}
+            aria-controls={LIST_ID}
+            onClick={toggle}
+          >
+            {expanded
+              ? t.dashboard.profileChecklist.hidePending
+              : t.dashboard.profileChecklist.showPending(pending.length)}
+            <ChevronDown aria-hidden="true" className={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
+          </Button>
         </div>
       )}
 
