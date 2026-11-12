@@ -3,12 +3,12 @@ import { Link } from 'react-router-dom';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { CashSectionTabs } from '@/shared/components/common/CashSectionTabs';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { Button } from '@/shared/components/ui/button';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSellPage } from './sell/useSellPage';
 import { SellOpenView } from './sell/SellOpenView';
+import { CashSellSkeleton } from '../components/skeletons/CashSellSkeleton';
 import { SaleConfirmationDialog } from '../components/sell/SaleConfirmationDialog';
 
 const t = ES_AR;
@@ -36,7 +36,7 @@ export default function CashSellPage() {
 function SellPageBody({ complexId, state }: { complexId: string; state: ReturnType<typeof useSellPage> }) {
   const { cashSession } = state;
 
-  if (cashSession.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
+  if (cashSession.isLoading) return <CashSellSkeleton />;
 
   if (cashSession.isRealError && !cashSession.data) {
     return (

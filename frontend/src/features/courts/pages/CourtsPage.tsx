@@ -4,6 +4,7 @@ import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { SkeletonCourtCard } from '@/shared/components/common/Skeletons';
 import { CourtGrid, CourtForm, PriceConfig, useCourts } from '@/features/courts';
+import { CourtTableSkeleton } from '@/features/courts/components/skeletons/CourtTableSkeleton';
 import { useSelectedComplex } from '@/features/complex';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -11,13 +12,21 @@ import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
+// Same breakpoint as `CourtGrid`: cards below `xl` (two columns from `lg`),
+// the dense table from `xl` up. CSS-only, so nothing is mounted twice.
 function CourtCardSkeletons() {
   return (
-    <div className="grid w-full grid-cols-1 gap-3 lg:grid-cols-2 2xl:grid-cols-3">
-      <SkeletonCourtCard />
-      <SkeletonCourtCard />
-      <SkeletonCourtCard />
-    </div>
+    <>
+      <div className="grid w-full grid-cols-1 gap-3 lg:grid-cols-2 xl:hidden">
+        <SkeletonCourtCard />
+        <SkeletonCourtCard />
+        <SkeletonCourtCard />
+        <SkeletonCourtCard />
+      </div>
+      <div className="hidden xl:block">
+        <CourtTableSkeleton />
+      </div>
+    </>
   );
 }
 

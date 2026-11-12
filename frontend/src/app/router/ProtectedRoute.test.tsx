@@ -72,6 +72,19 @@ describe('ProtectedRoute', () => {
     expect(screen.getByRole('status')).toBeInTheDocument();
   });
 
+  it('renders the loadingFallback instead of the spinner while auth is loading', () => {
+    setAuth(null, true);
+    render(
+      <MemoryRouter>
+        <ProtectedRoute loadingFallback={<div>Shell Loader</div>}>
+          <div>Protected Content</div>
+        </ProtectedRoute>
+      </MemoryRouter>,
+    );
+    expect(screen.getByText('Shell Loader')).toBeInTheDocument();
+    expect(screen.queryByText('Protected Content')).not.toBeInTheDocument();
+  });
+
   it('renders children when user role is in allowedRoles', () => {
     setAuth(mockUser);
     renderProtected(['owner', 'superadmin']);

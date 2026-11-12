@@ -2,13 +2,13 @@ import { useParams, Link } from 'react-router-dom';
 import { ArrowLeft, AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { useCashSessionDetail } from '../hooks/useCashSessionDetail';
 import { ExpectedCashCard } from '../components/ExpectedCashCard';
 import { BookingPaymentsBreakdown } from '../components/BookingPaymentsBreakdown';
+import { CashSummarySkeleton } from '../components/skeletons/CashSummarySkeleton';
 import { MovementList } from '../components/MovementList';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 
@@ -36,7 +36,7 @@ export default function CashSessionDetailPage() {
       <PageHeader title={t.cash.sessionDetailTitle} />
 
       {query.isLoading ? (
-        <SkeletonTable rows={4} mobile="flat" />
+        <CashSummarySkeleton showActions={false} />
       ) : !query.data ? (
         // Only the full-screen error when there is nothing cached — a
         // background refetch failure with `data` still around keeps

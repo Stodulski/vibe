@@ -1,9 +1,9 @@
 import { AlertTriangle } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ExpectedCashCard } from '../../components/ExpectedCashCard';
 import { BookingPaymentsBreakdown } from '../../components/BookingPaymentsBreakdown';
+import { CashSummarySkeleton } from '../../components/skeletons/CashSummarySkeleton';
 import { MovementList } from '../../components/MovementList';
 import { CashActionButtons } from '../../components/CashActionButtons';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
@@ -38,7 +38,7 @@ export function OpenCashView({
   onVoidTarget,
   onClearVoidTarget,
 }: OpenCashViewProps) {
-  if (detailQuery.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
+  if (detailQuery.isLoading) return <CashSummarySkeleton />;
 
   // Only the full-screen error when there is nothing cached to show — a
   // background refetch failure with `data` still around keeps rendering the

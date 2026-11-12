@@ -7,13 +7,16 @@ import { ForbiddenPage } from './ForbiddenPage';
 interface ProtectedRouteProps {
   children: React.ReactNode;
   allowedRoles?: UserRole[] | undefined;
+  /** What to render while the session resolves. Defaults to a centred spinner. */
+  loadingFallback?: React.ReactNode;
 }
 
-export function ProtectedRoute({ children, allowedRoles }: ProtectedRouteProps) {
+export function ProtectedRoute({ children, allowedRoles, loadingFallback }: ProtectedRouteProps) {
   const { user, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
+    if (loadingFallback) return loadingFallback;
     return (
       <div className="bg-bg-base flex min-h-dvh items-center justify-center">
         <LoadingSpinner size="lg" />

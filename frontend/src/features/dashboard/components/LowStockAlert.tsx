@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom';
 import { AlertTriangle } from 'lucide-react';
 import { Panel } from '@/shared/components/common/Panel';
-import { Skeleton } from '@/shared/components/ui/skeleton';
 import { Button } from '@/shared/components/ui/button';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -14,24 +13,6 @@ const MAX_LOW_STOCK_ITEMS = 5;
 
 interface LowStockAlertProps {
   complexId: string;
-}
-
-function LowStockAlertSkeleton() {
-  return (
-    <Panel
-      as="section"
-      size="sm"
-      className="flex h-full flex-col gap-2 p-4"
-      aria-label={t.dashboard.lowStockTitle}
-      role="status"
-      aria-busy="true"
-    >
-      <Skeleton className="mb-1 h-4 w-24" />
-      {[0, 1, 2].map((i) => (
-        <Skeleton key={i} className="h-4 w-full" />
-      ))}
-    </Panel>
-  );
 }
 
 /** Negative stock first, then lowest stock — the alert's own ordering before the 5-item cap. */
@@ -59,7 +40,9 @@ export function LowStockAlert({ complexId }: LowStockAlertProps) {
     void query.refetch();
   };
 
-  if (query.isLoading) return <LowStockAlertSkeleton />;
+  // The alert is conditional, so a placeholder would collapse to nothing for most
+  // owners and shift the page; render nothing until there is something to show.
+  if (query.isLoading) return null;
 
   if (query.isError && !query.data) {
     return (

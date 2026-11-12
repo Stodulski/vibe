@@ -4,7 +4,7 @@ import { SidebarBrand } from '@/shared/components/layout/sidebar/SidebarBrand';
 import { Header } from '@/shared/components/layout/Header';
 import { AppShell } from '@/shared/components/layout/AppShell';
 import { PageHeadingProvider } from '@/shared/components/layout/page-heading/PageHeadingProvider';
-import { LoadingSpinner } from '@/shared/components/common/LoadingSpinner';
+import { AppShellLoader } from './AppShellLoader';
 import { ComplexLoadError } from '@/shared/components/common/ComplexLoadError';
 import { useDashboardLayoutState } from './dashboard-layout/useDashboardLayoutState';
 import { useNoIndex } from '@/shared/hooks/useNoIndex';
@@ -14,11 +14,7 @@ export function DashboardLayout() {
   const state = useDashboardLayoutState();
 
   if (state.isLoading) {
-    return (
-      <div className="bg-bg-base flex min-h-dvh items-center justify-center">
-        <LoadingSpinner size="lg" />
-      </div>
-    );
+    return <AppShellLoader />;
   }
 
   // The complexes query failed rather than succeeding with an empty list —

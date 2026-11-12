@@ -8,7 +8,6 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 // `isError`/`refetch` without touching `features/complex`; TanStack Query
 // dedupes both hooks' identical query key into a single request.
 import { useSelectedComplex, useComplexes } from '@/features/complex';
-import { SkeletonSettings } from '@/shared/components/common/Skeletons';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { SectionNav } from '@/shared/components/common/section-nav/SectionNav';
 import { SectionTabs } from '@/shared/components/common/section-nav/SectionTabs';
@@ -20,7 +19,7 @@ const t = ES_AR;
 
 export default function SettingsPage() {
   usePageTitle(t.complex.settings);
-  const { complex, isLoading } = useSelectedComplex();
+  const { complex } = useSelectedComplex();
   const { isError, refetch } = useComplexes();
   const { activeTab, handleTabChange } = useSettingsTabs(complex);
 
@@ -40,13 +39,9 @@ export default function SettingsPage() {
     );
   }
 
-  if (isLoading || !complex) {
-    return (
-      <div className="animate-fade-in">
-        <SkeletonSettings />
-      </div>
-    );
-  }
+  // `DashboardLayout` holds the shell until the complex has loaded and sends
+  // owners without one to onboarding, so this only narrows the type.
+  if (!complex) return null;
 
   return (
     <div className="animate-fade-in">

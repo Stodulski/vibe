@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ClientsContent } from './ClientsContent';
 import { makeClient } from '@/test/factories';
+import { ES_AR } from '@/shared/i18n/es_AR';
 
 const baseProps = {
   isLoading: false,
@@ -56,6 +57,16 @@ describe('ClientsContent', () => {
 
     rerender(<ClientsContent {...baseProps} clients={[makeClient({ id: 'c1' })]} />);
     expect(container.querySelector('[aria-live="polite"]')).toHaveTextContent('1 resultado');
+  });
+
+  // The loading placeholder follows the loaded list's breakpoint: five cards
+  // below xl, the table from xl up (both in the tree, switched by CSS).
+  it('shows five card placeholders below xl and the table placeholder from xl while loading', () => {
+    render(<ClientsContent {...baseProps} isLoading={true} />);
+
+    const status = screen.getByRole('status', { name: ES_AR.common.loading });
+    expect(status.querySelector('.xl\\:hidden')?.children).toHaveLength(5);
+    expect(status.querySelector('.hidden.xl\\:block')).toBeInTheDocument();
   });
 
   it('shows the error state instead of the empty state when the query fails', () => {

@@ -1,6 +1,6 @@
 import { AlertTriangle, Package } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
+import { ProductListSkeleton } from '../../components/skeletons/ProductListSkeleton';
 import { ProductGrid } from '../../components/ProductGrid';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Product } from '@/shared/types/api.types';
@@ -34,7 +34,7 @@ export function ProductsContent({
   onAdjust,
   onToggleActive,
 }: ProductsContentProps) {
-  if (isLoading) return <SkeletonTable />;
+  if (isLoading) return <ProductListSkeleton />;
 
   if (isError) {
     return (

@@ -24,98 +24,186 @@ export function SkeletonPage() {
   );
 }
 
-/**
- * Matches `DashboardContent`'s own structure and surfaces exactly
- * (odd/tasks/app-dark-contrast.md T2 follow-up — this used to depict a
- * top stat-tile row and a "live courts" grid that no longer exist on the
- * page, and boxed both mobile sections that `Panel` keeps flat below `sm`):
- * a low-stock placeholder, the payment/today-bookings grid (both `Panel`,
- * flat below `sm`), then the `hidden md:flex` trends block (always boxed,
- * since it never renders below `md`).
- */
-export function SkeletonDashboard() {
+/** The unboxed, `max-w-xl` "complete your profile" checklist: progress header and bar, next step, disclosure. */
+function ProfileChecklistSkeleton() {
   return (
-    <div className="animate-fade-in flex flex-col gap-4 md:gap-6" role="status" aria-label={messages.loading}>
-      {/* Low-stock alert */}
-      <Panel as="section" size="sm" className="flex flex-col gap-2 py-4 sm:p-4">
-        <Skeleton className="h-4 w-24 rounded-lg" />
-        <Skeleton className="h-4 w-full rounded-lg" />
-      </Panel>
-
-      {/* Payment overview + Today bookings */}
-      <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
-        <Panel as="section" size="sm" className="flex h-full flex-col gap-3 py-4 sm:p-4">
-          <Skeleton className="h-8 w-28 rounded-lg" />
-          <Skeleton className="h-20 w-full rounded-xl" />
-        </Panel>
-        <Panel as="section" size="sm" className="flex h-full flex-col gap-2 py-4 sm:p-4">
-          <Skeleton className="mb-1 h-5 w-40 rounded-lg" />
-          {Array.from({ length: 3 }, (_, i) => (
-            <Skeleton key={i} className="h-14 w-full rounded-xl" />
-          ))}
-        </Panel>
+    <div className="flex max-w-xl flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <div className="flex items-baseline justify-between gap-2">
+          <Skeleton className="h-4 w-36 rounded-lg" />
+          <Skeleton className="h-4 w-16 rounded-lg" />
+        </div>
+        <Skeleton className="h-1.5 w-full rounded-full" />
       </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+        <div className="flex flex-col gap-1.5">
+          <Skeleton className="h-4 w-40 rounded-lg" />
+          <Skeleton className="h-4 w-56 rounded-lg" />
+        </div>
+        <Skeleton className="h-8 w-full rounded-lg sm:w-28" />
+      </div>
+      <Skeleton className="-mt-2 h-8 w-32 rounded-lg" />
+    </div>
+  );
+}
 
-      {/* Trends — desktop only, mirrors DashboardContent's `hidden md:flex` block */}
-      <div className="mt-8 hidden md:flex md:flex-col md:gap-4 lg:gap-6">
-        <Skeleton className="h-4 w-20 rounded-lg" />
-        <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-5">
-          <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-5 xl:col-span-3">
-            <Skeleton className="h-72 w-full rounded-xl" />
-          </div>
-          <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-5 xl:col-span-2">
-            <Skeleton className="h-72 w-full rounded-xl" />
-          </div>
+/**
+ * Desktop-only trends block, mirrors DashboardContent's `hidden md:flex` block.
+ * Heights are the measured loaded ones at `xl` (revenue + insights row ~610px,
+ * occupancy heatmap ~714px); below `xl` the row stacks, so each card keeps a
+ * chart-sized floor instead.
+ */
+function TrendsSkeleton() {
+  return (
+    <div className="mt-8 hidden md:flex md:flex-col md:gap-4 lg:gap-6">
+      <Skeleton className="h-4 w-20 rounded-lg" />
+      <div className="grid grid-cols-1 gap-4 md:gap-6 xl:grid-cols-5">
+        <div className="border-border-subtle bg-bg-subtle flex rounded-2xl border p-4 sm:p-5 xl:col-span-3 xl:min-h-[600px]">
+          <Skeleton className="min-h-72 w-full flex-1 rounded-xl" />
         </div>
-        <div className="border-border-subtle bg-bg-subtle rounded-2xl border p-4 sm:p-5">
-          <Skeleton className="h-[300px] w-full rounded-xl" />
+        <div className="border-border-subtle bg-bg-subtle flex rounded-2xl border p-4 sm:p-5 xl:col-span-2 xl:min-h-[600px]">
+          <Skeleton className="min-h-72 w-full flex-1 rounded-xl" />
         </div>
+      </div>
+      <div className="border-border-subtle bg-bg-subtle flex min-h-[420px] rounded-2xl border p-4 sm:p-5 xl:min-h-[700px]">
+        <Skeleton className="min-h-[300px] w-full flex-1 rounded-xl" />
       </div>
     </div>
   );
 }
 
-/** Settings page skeleton with sidebar tabs + content area */
+/**
+ * Payment overview next to the today-bookings panel. Floors are the measured
+ * loaded heights: payment card ~328px stacked, both panels ~368px side by side.
+ */
+function OperationsSkeleton() {
+  return (
+    <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+      <Panel
+        as="section"
+        size="sm"
+        mobile="card"
+        className="flex h-full min-h-[328px] flex-col gap-4 p-4 lg:min-h-[368px]"
+      >
+        <Skeleton className="h-8 w-40 rounded-lg" />
+        <Skeleton className="h-16 w-full rounded-xl" />
+        <Skeleton className="h-4 w-full rounded-lg" />
+        <Skeleton className="h-4 w-3/4 rounded-lg" />
+      </Panel>
+      <Panel as="section" size="sm" className="flex h-full min-h-[22rem] flex-col gap-2 py-4 sm:p-4 lg:min-h-[368px]">
+        <Skeleton className="mb-1 h-5 w-40 rounded-lg" />
+        {Array.from({ length: 4 }, (_, i) => (
+          <Skeleton key={i} className="h-14 w-full rounded-xl" />
+        ))}
+      </Panel>
+    </div>
+  );
+}
+
+/**
+ * Matches `DashboardPage` + `DashboardContent` in the order and approximate
+ * height of what loads: the mobile-only page title and the public-link bar,
+ * the unboxed `max-w-xl` profile checklist (low-stock renders nothing while
+ * loading, so it has no placeholder), the solid payment card next to the
+ * today-bookings panel, then the `hidden md:flex` trends block.
+ */
+export function SkeletonDashboard() {
+  return (
+    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
+      {/* Page header: title is mobile-only (the masthead carries it from `md`), then the public-link bar */}
+      <Skeleton className="mb-3 h-7 w-40 rounded-lg sm:mb-5 md:hidden" />
+      <div className="mb-3 flex items-center gap-2 sm:mb-4">
+        <Skeleton className="h-4 w-48 rounded-lg" />
+        <Skeleton className="h-8 w-9 rounded-full sm:w-28" />
+      </div>
+
+      <div className="flex flex-col gap-4 md:gap-6">
+        <ProfileChecklistSkeleton />
+
+        <OperationsSkeleton />
+
+        <TrendsSkeleton />
+      </div>
+    </div>
+  );
+}
+
+/** One labelled input: label line, then the control. */
+function FieldSkeleton({ tall = false }: { tall?: boolean }) {
+  return (
+    <div className="space-y-2">
+      <Skeleton className="h-4 w-28 rounded-lg" />
+      <Skeleton className={tall ? 'h-24 w-full rounded-lg' : 'h-10 w-full rounded-lg'} />
+    </div>
+  );
+}
+
+/**
+ * Stand-in for the General tab's form (name, slug, description, address,
+ * contact, amenities, schedule). The floor is the measured loaded height:
+ * ~1650px at 320 (single column) and a little less in the 39rem card.
+ */
+function SettingsFormSkeleton() {
+  return (
+    <div className="lg:border-border-subtle lg:bg-bg-subtle flex min-h-[1650px] flex-col lg:min-h-[1500px] lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
+      <Skeleton className="mb-1 h-4 w-24 rounded-lg" />
+      <Skeleton className="mb-6 h-3 w-48 rounded-lg" />
+      <div className="space-y-6">
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <FieldSkeleton tall />
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <FieldSkeleton />
+        <div className="flex flex-wrap gap-2">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} className="h-9 w-24 rounded-full" />
+          ))}
+        </div>
+        {Array.from({ length: 7 }, (_, i) => (
+          <Skeleton key={i} className="h-12 w-full rounded-lg" />
+        ))}
+        <Skeleton className="h-10 w-32 rounded-lg" />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Settings route skeleton. Mirrors `SettingsPage`: the page title is
+ * mobile-only (the masthead carries it from `md`), three section tabs as a
+ * `SectionNav` list from `lg` and an underlined `SectionTabs` strip below it,
+ * and a content panel that is a card from `lg` and bare below.
+ */
 export function SkeletonSettings() {
   return (
     <div className="animate-fade-in" role="status" aria-label={messages.loading}>
-      <div className="mb-4 sm:mb-6">
-        <Skeleton className="h-7 w-36 rounded-lg" />
-      </div>
+      <Skeleton className="mb-3 h-7 w-36 rounded-lg sm:mb-5 md:hidden" />
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">
-        {/* Sidebar — desktop */}
-        <nav className="hidden w-56 shrink-0 lg:block">
+        {/* Section list — desktop */}
+        <nav className="hidden w-52 shrink-0 lg:block">
           <div className="space-y-1">
-            {Array.from({ length: 4 }, (_, i) => (
-              <div key={i} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
-                <Skeleton className="size-8 rounded-lg" />
-                <div className="min-w-0 flex-1">
-                  <Skeleton className="mb-1 h-4 w-20 rounded-lg" />
-                  <Skeleton className="h-3 w-28 rounded-lg" />
-                </div>
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex h-12 items-center gap-3 rounded-xl px-3">
+                <Skeleton className="size-4 rounded" />
+                <Skeleton className="h-4 w-24 rounded-lg" />
               </div>
             ))}
           </div>
         </nav>
-        {/* Mobile tabs */}
-        <div className="grid grid-cols-4 gap-1.5 lg:hidden">
-          {Array.from({ length: 4 }, (_, i) => (
-            <Skeleton key={i} className="h-14 rounded-lg" />
-          ))}
-        </div>
-        {/* Content — a card from `lg`, bare below it, matching `SettingsPage`'s own content wrapper exactly (odd/tasks/app-dark-contrast.md T2 follow-up). */}
-        <div className="min-w-0 flex-1">
-          <div className="lg:border-border-subtle lg:bg-bg-subtle lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
-            <Skeleton className="mb-1 h-4 w-24 rounded-lg" />
-            <Skeleton className="mb-6 h-3 w-48 rounded-lg" />
-            <div className="space-y-4">
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-10 w-full rounded-lg" />
-              <Skeleton className="h-24 w-full rounded-lg" />
-              <Skeleton className="h-10 w-32 rounded-lg" />
-            </div>
+        {/* Section tabs — mobile: full-bleed underline strip, like `SectionTabs` */}
+        <div className="-mx-3 px-3 sm:-mx-6 sm:px-6 lg:hidden">
+          <div className="flex">
+            {Array.from({ length: 3 }, (_, i) => (
+              <div key={i} className="flex h-12 flex-1 items-center justify-center border-b-2 border-transparent px-2">
+                <Skeleton className="h-4 w-16 rounded-lg" />
+              </div>
+            ))}
           </div>
+        </div>
+        {/* Content — a card from `lg`, bare below it, matching `SettingsPage`'s own content wrapper. */}
+        <div className="min-w-0 flex-1">
+          <SettingsFormSkeleton />
         </div>
       </div>
     </div>

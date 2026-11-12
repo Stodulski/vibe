@@ -44,10 +44,6 @@ vi.mock('@/shared/components/common/VisuallyHidden', () => ({
   VisuallyHidden: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
 }));
 
-vi.mock('@/shared/components/common/LoadingSpinner', () => ({
-  LoadingSpinner: () => <div role="status">Loading</div>,
-}));
-
 vi.mock('@/shared/components/common/ComplexLoadError', () => ({
   ComplexLoadError: ({ onRetry }: { onRetry: () => void }) => (
     <div data-testid="complex-load-error">
@@ -111,11 +107,13 @@ describe('DashboardLayout', () => {
     expect(skipLink).toHaveAttribute('href', '#main-content');
   });
 
-  it('shows loading spinner when isLoading is true', async () => {
+  it('shows the shell-shaped loader (not the page) while isLoading is true', async () => {
     mockSelectedComplex({ isLoading: true });
     const { DashboardLayout } = await import('./DashboardLayout');
     render(<DashboardLayout />);
     expect(screen.getByRole('status')).toBeInTheDocument();
+    expect(screen.queryByTestId('outlet')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('navigate')).not.toBeInTheDocument();
   });
 
   it('redirects to /onboarding when needsOnboarding is true', async () => {

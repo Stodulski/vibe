@@ -24,7 +24,7 @@ const config = storefrontBookingConfig(PUBLIC_API_URL);
   homeHref={`/c/${encodeURIComponent(slug)}`}
 >
   <BookConfirmEntry client:only="react" slug={slug} config={config} initialSearch={Astro.url.search}>
-    <div slot="fallback" aria-busy="true">
+    <div slot="fallback" class="w-full" aria-busy="true">
       <SkeletonBookConfirm />
     </div>
   </BookConfirmEntry>
