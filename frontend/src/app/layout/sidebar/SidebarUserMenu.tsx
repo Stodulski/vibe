@@ -15,13 +15,12 @@ import type { User as ApiUser } from '@/shared/types/api.types';
 const t = ES_AR;
 
 interface UserMenuTriggerProps {
-  user: ApiUser | null;
   isMobile: boolean;
   fullName: string;
 }
 
-/** A profile icon marks the account entry (owner request); the mobile sheet keeps the overflow dots. */
-function UserMenuTrigger({ user, isMobile, fullName }: UserMenuTriggerProps) {
+/** The account entry reads "Mi perfil" beside a profile icon (owner request); the mobile sheet keeps the overflow dots. */
+function UserMenuTrigger({ isMobile, fullName }: UserMenuTriggerProps) {
   return (
     <DropdownMenuTrigger asChild>
       <button
@@ -29,7 +28,7 @@ function UserMenuTrigger({ user, isMobile, fullName }: UserMenuTriggerProps) {
         aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
       >
         <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{user?.email}</span>
+        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{t.navigation.profile}</span>
         {isMobile && <EllipsisVertical className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />}
       </button>
     </DropdownMenuTrigger>
@@ -78,7 +77,7 @@ export function SidebarUserMenu({ user, isMobile, onNavigate }: SidebarUserMenuP
       )}
     >
       <DropdownMenu>
-        <UserMenuTrigger user={user} isMobile={isMobile} fullName={fullName} />
+        <UserMenuTrigger isMobile={isMobile} fullName={fullName} />
         <UserMenuItems
           onProfileClick={() => {
             onNavigate?.();
