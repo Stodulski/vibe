@@ -8,6 +8,9 @@ const t = BOOKING_MESSAGES;
 // A typical day at `lg:` (8 columns): one row of morning hours, two each for
 // the afternoon and the evening, so the page does not jump when they arrive.
 const TILES_PER_GROUP: Record<TimeGroup, number> = { morning: 8, afternoon: 16, evening: 16 };
+// Below `sm:` (3 columns) the same day fills fewer tiles per row's worth of
+// height: about ten rows in all, so the extra tiles are hidden there.
+const MOBILE_TILES_PER_GROUP: Record<TimeGroup, number> = { morning: 6, afternoon: 12, evening: 12 };
 
 /**
  * Mirrors `CourtSelector`'s hour-major grid, not the court-major layout it
@@ -37,7 +40,10 @@ export function SkeletonSlotGrid() {
           </div>
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
             {Array.from({ length: TILES_PER_GROUP[key] }, (_, slotIdx) => (
-              <Skeleton key={slotIdx} className="h-11 rounded-xl" />
+              <Skeleton
+                key={slotIdx}
+                className={slotIdx < MOBILE_TILES_PER_GROUP[key] ? 'h-11 rounded-xl' : 'hidden h-11 rounded-xl sm:block'}
+              />
             ))}
           </div>
         </div>

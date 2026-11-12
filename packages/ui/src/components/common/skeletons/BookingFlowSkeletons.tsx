@@ -76,6 +76,42 @@ function SkeletonSummaryCard() {
  * same order: step indicator, back link, hold countdown, then `BookingForm`'s
  * column of summary card and fields.
  */
+/** One labelled `h-12` input, as `BookingForm`'s fields render it. */
+function SkeletonField() {
+  return (
+    <div className="space-y-1.5">
+      <Skeleton className="h-5 w-20 rounded-md" />
+      <Skeleton className="h-12 w-full rounded-lg" />
+    </div>
+  );
+}
+
+/**
+ * `FullFormView`: name fields (one column, two from `sm:`), phone and email,
+ * the 44px notes toggle, then `SubmitFooter` (total row, `h-14` button,
+ * terms line).
+ */
+function SkeletonFormFields() {
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <SkeletonField />
+        <SkeletonField />
+      </div>
+      <SkeletonField />
+      <SkeletonField />
+      <div className="flex min-h-11 items-center">
+        <Skeleton className="h-4 w-28 rounded-md" />
+      </div>
+      <div className="space-y-2 pt-1">
+        <Skeleton className="h-5 w-full rounded-md" />
+        <Skeleton className="h-14 w-full rounded-xl" />
+      </div>
+      <Skeleton className="mx-auto h-3 w-56 rounded-md" />
+    </div>
+  );
+}
+
 export function SkeletonBookConfirm() {
   return (
     <div className="animate-fade-in w-full space-y-6 sm:space-y-8" role="status" aria-label={messages.loading}>
@@ -104,17 +140,7 @@ export function SkeletonBookConfirm() {
       {/* `BookingForm`'s column: the summary card, then the fields. */}
       <div className="space-y-5">
         <SkeletonSummaryCard />
-        {/* Form fields */}
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <Skeleton className="h-10 rounded-lg" />
-            <Skeleton className="h-10 rounded-lg" />
-          </div>
-          <Skeleton className="h-10 w-full rounded-lg" />
-          <Skeleton className="h-10 w-full rounded-lg" />
-          <Skeleton className="h-20 w-full rounded-lg" />
-          <Skeleton className="h-12 w-full rounded-xl" />
-        </div>
+        <SkeletonFormFields />
       </div>
     </div>
   );
