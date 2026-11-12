@@ -87,9 +87,10 @@ describe('Sidebar', () => {
     expect(screen.getByText('Configuración')).toBeInTheDocument();
   });
 
-  it('renders complex name', () => {
+  // Owner request: each account has one complex, so its name label was dropped.
+  it('does not render the complex name', () => {
     renderSidebar();
-    expect(screen.getByText('Club Padel')).toBeInTheDocument();
+    expect(screen.queryByText('Club Padel')).not.toBeInTheDocument();
   });
 
   it('renders the user email', () => {
@@ -132,15 +133,14 @@ describe('Sidebar — labels and icons per width', () => {
       expect(within(nav).getByRole('link', { name: label })).toHaveTextContent(label);
     }
     expect(nav.querySelector('svg')).toBeNull();
-    expect(screen.getByText('Club Padel').parentElement?.querySelector('svg')).toBeNull();
-    // The popup menu items keep their icons; only the rail row loses them.
-    expect(screen.getByRole('button', { name: /Juan Garcia/ }).querySelector('svg')).toBeNull();
+    // The account entry keeps a profile icon (owner request).
+    expect(screen.getByRole('button', { name: /Juan Garcia/ }).querySelector('svg')).not.toBeNull();
     expect(screen.getByText('juan@test.com')).toBeInTheDocument();
   });
 
-  it('keeps the icons in the mobile sheet', () => {
+  // Owner request: the mobile sheet drops the nav icons too.
+  it('draws no nav icons in the mobile sheet', () => {
     renderSidebar();
-    expect(screen.getByRole('link', { name: 'Dashboard' }).querySelector('svg')).not.toBeNull();
-    expect(screen.getByText('Club Padel').parentElement?.querySelector('svg')).not.toBeNull();
+    expect(screen.getByLabelText('Navegación principal').querySelector('svg')).toBeNull();
   });
 });

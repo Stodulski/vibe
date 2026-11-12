@@ -4,7 +4,6 @@ import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex'
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { usePrefetch } from './usePrefetch';
 import { cn } from '@/shared/lib/utils';
-import { SidebarComplexHeader } from '@/shared/components/layout/sidebar/SidebarComplexHeader';
 import { SidebarNav } from '@/shared/components/layout/sidebar/SidebarNav';
 import { SidebarUserMenu } from './sidebar/SidebarUserMenu';
 
@@ -16,7 +15,7 @@ interface SidebarProps {
   isMobile?: boolean;
 }
 
-/** Desktop names every part with no icons (owner request, to save space); the mobile sheet keeps its icons. */
+/** Every part is named with no icons, desktop and mobile alike (owner request). */
 export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
   const { complex } = useSelectedComplex();
   const { user } = useAuth();
@@ -47,8 +46,6 @@ export function Sidebar({ onNavigate, isMobile = false }: SidebarProps) {
       )}
       aria-label={t.layout.sidebar}
     >
-      {complex && <SidebarComplexHeader complex={complex} isMobile={isMobile} />}
-
       <SidebarNav isMobile={isMobile} onNavigate={onNavigate} onPrefetch={handlePrefetch} />
 
       <SidebarUserMenu user={user} isMobile={isMobile} onNavigate={onNavigate} />
