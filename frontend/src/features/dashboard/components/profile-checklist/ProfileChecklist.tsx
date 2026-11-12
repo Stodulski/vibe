@@ -147,19 +147,16 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
   };
 
   return (
-    // A card like the dashboard's others (owner, 2026-11-11: the loose block
-    // looked unfinished). Inside, spacing groups it: header and bar 8px apart,
-    // 16px to the next step, and the disclosure set off below a rule.
-    <section
-      className="border-border-subtle bg-bg-subtle flex flex-col gap-4 rounded-2xl border p-4 sm:p-5"
-      aria-labelledby="profile-checklist-title"
-    >
+    // No card and capped in width (owner, 2026-11-11: not full width, no
+    // card). Spacing does the grouping instead: header and bar 8px apart, 16px
+    // to the next step and to the disclosure.
+    <section className="flex max-w-xl flex-col gap-4" aria-labelledby="profile-checklist-title">
       <ProgressHeader done={items.length - pending.length} total={items.length} />
 
       {!showList && nextId && <NextItem id={nextId} />}
 
       {hasMany && (
-        <div className="border-border-subtle -mb-2 border-t pt-2">
+        <div className="-mt-2">
           <Button
             type="button"
             variant="ghost"
