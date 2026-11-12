@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"expvar"
 	"fmt"
 	"log/slog"
@@ -12,7 +13,9 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
+	"github.com/stodulski/vibe-server/internal/auth"
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -372,7 +375,10 @@ func jobOf(key string) string { return strings.TrimPrefix(key, "cron:") }
 // anywhere else: a second copy of the authorization rules would be the copy
 // nobody updates, and it would be the one deciding whether a revoked session
 // keeps a live feed of a venue's bookings.
-type streamAuthorizer struct{ mw *middleware.Middleware }
+type streamAuthorizer struct {
+	mw     *middleware.Middleware
+	tokens *auth.TokenService
+}
 
 // Authorize builds a request that carries the caller's credentials and nothing
 // else, and reports whether the chain still lets it through.
@@ -409,6 +415,15 @@ type streamAuthorizer struct{ mw *middleware.Middleware }
 // built from r still carries the original request's path, not this
 // authorizer's complexID argument.
 func (a streamAuthorizer) Authorize(ctx context.Context, r *http.Request, complexID uuid.UUID) error {
+	// The stream keeps the cookie it connected with, and that access token
+	// lives 15 minutes, so it expires while the browser holds a newer one. An
+	// expired token says nothing about the caller's access; it sends the client
+	// to refresh and reconnect instead of reading as a revocation.
+	if cookie, err := r.Cookie("access_token"); err == nil {
+		if _, err := a.tokens.ValidateAccessToken(cookie.Value); errors.Is(err, jwt.ErrTokenExpired) {
+			return fmt.Errorf("%w: %w", realtime.ErrStreamCredentialExpired, err)
+		}
+	}
 	probeCtx := context.Background()
 	if deadline, ok := ctx.Deadline(); ok {
 		var cancel context.CancelFunc

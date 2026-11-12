@@ -399,3 +399,22 @@ func onlyComplex(t *testing.T, h *Hub) uuid.UUID {
 	}
 	return uuid.Nil
 }
+
+// The access token that opened the stream expired. That is not a revocation:
+// the dashboard is told to refresh and reconnect, and the reconnect is a
+// fresh, full authorization. Reported as "unauthorized" it showed the owner a
+// "Se dejaron de recibir actualizaciones en vivo" toast every few minutes.
+func TestStreamWhoseCredentialExpiredEndsAsAnExpiry(t *testing.T) {
+	auth := &recordingAuthorizer{verdicts: []error{ErrStreamCredentialExpired}}
+
+	f := startStream(t, auth, Config{RecheckInterval: 20 * time.Millisecond, MaxLifetime: time.Hour})
+	f.waitForClose(t)
+
+	body := f.received()
+	if !strings.Contains(body, "event: expired") {
+		t.Errorf("want an expiry frame telling the client to refresh and reconnect; got %q", body)
+	}
+	if strings.Contains(body, "event: unauthorized") {
+		t.Errorf("an expired credential must not read as a revocation; got %q", body)
+	}
+}

@@ -7,7 +7,9 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
@@ -97,7 +99,7 @@ func newStreamAuthzFixture(t *testing.T) *streamAuthzFixture {
 // that does not.
 func (f *streamAuthzFixture) authorize(t *testing.T, complexID uuid.UUID) error {
 	t.Helper()
-	return streamAuthorizer{mw: f.app.middleware}.Authorize(f.req.Context(), f.req, complexID)
+	return streamAuthorizer{mw: f.app.middleware, tokens: f.app.tokens}.Authorize(f.req.Context(), f.req, complexID)
 }
 
 func TestStreamAuthorizerAllowsTheOwnerWhoOpenedTheStream(t *testing.T) {
@@ -191,5 +193,51 @@ func TestStreamAuthorizerReportsAnUnverifiableCheckSeparately(t *testing.T) {
 	}
 	if errors.Is(err, realtime.ErrStreamUnauthorized) {
 		t.Errorf("an unreachable store was reported as a revoked caller: %v", err)
+	}
+}
+
+// expiredAccessToken is the fixture owner's access token with its expiry moved
+// into the past, signed the way the harness's token service signs.
+func (f *streamAuthzFixture) expiredAccessToken(t *testing.T) string {
+	t.Helper()
+	live, err := f.app.tokens.GenerateAccessToken(f.owner.ID, f.owner.Role)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parsed, _, err := jwt.NewParser().ParseUnverified(live, jwt.MapClaims{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, ok := parsed.Claims.(jwt.MapClaims)
+	if !ok {
+		t.Fatalf("claims are %T", parsed.Claims)
+	}
+	claims["iat"] = time.Now().Add(-20 * time.Minute).Unix()
+	claims["exp"] = time.Now().Add(-5 * time.Minute).Unix()
+	expired := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	expired.Header["kid"] = parsed.Header["kid"]
+	signed, err := expired.SignedString([]byte(testJWTSecret))
+	if err != nil {
+		t.Fatal(err)
+	}
+	return signed
+}
+
+// The stream outlived the access token that opened it: the browser has since
+// refreshed, but the stream still carries the old cookie. That asks the client
+// to refresh and reconnect; it is not a revocation, which would show the owner
+// a "Se dejaron de recibir actualizaciones en vivo" toast.
+func TestStreamAuthorizerSendsAnExpiredTokenBackToReconnect(t *testing.T) {
+	f := newStreamAuthzFixture(t)
+	req := f.req.Clone(f.req.Context())
+	req.Header.Del("Cookie")
+	req.AddCookie(&http.Cookie{Name: "access_token", Value: f.expiredAccessToken(t)})
+
+	err := streamAuthorizer{mw: f.app.middleware, tokens: f.app.tokens}.Authorize(req.Context(), req, f.complex.ID)
+	if !errors.Is(err, realtime.ErrStreamCredentialExpired) {
+		t.Errorf("want an expired token sent back to reconnect; got %v", err)
+	}
+	if errors.Is(err, realtime.ErrStreamUnauthorized) {
+		t.Errorf("an expired token is not a revocation; got %v", err)
 	}
 }
