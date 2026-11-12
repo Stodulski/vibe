@@ -45,12 +45,14 @@ function writeExpanded(expanded: boolean) {
 function NextItem({ id }: { id: ProfileItemId }) {
   const copy = t.dashboard.profileChecklist.items[id];
   return (
-    <div className="flex flex-col gap-2">
+    // The action sits beside what it fixes from `sm` up, so the step reads as
+    // one row instead of a label with a button dangling under it.
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
       <div className="min-w-0">
         <p className="text-text-primary text-sm font-medium">{copy.label}</p>
-        <p className="text-text-tertiary text-sm">{copy.why}</p>
+        <p className="text-text-secondary text-sm">{copy.why}</p>
       </div>
-      <Button asChild size="sm" variant="outline" className="w-full sm:w-fit sm:self-start">
+      <Button asChild size="sm" variant="outline" className="w-full shrink-0 sm:w-fit">
         <Link to={FIX_TARGET[id]}>{copy.action}</Link>
       </Button>
     </div>
@@ -61,7 +63,7 @@ function NextItem({ id }: { id: ProfileItemId }) {
 function ProgressHeader({ done, total }: { done: number; total: number }) {
   const percent = Math.round((done / total) * 100);
   return (
-    <>
+    <div className="flex flex-col gap-2">
       <div className="flex items-baseline justify-between gap-2">
         <h3 id="profile-checklist-title" className="text-text-primary text-sm font-semibold">
           {t.dashboard.profileChecklist.title}
@@ -76,11 +78,11 @@ function ProgressHeader({ done, total }: { done: number; total: number }) {
         aria-valuemin={0}
         aria-valuemax={total}
         aria-valuenow={done}
-        className="bg-bg-subtle h-1.5 w-full overflow-hidden rounded-full"
+        className="bg-bg-highlight h-1.5 w-full overflow-hidden rounded-full"
       >
         <div className="bg-primary h-full rounded-full" style={{ width: `${String(percent)}%` }} />
       </div>
-    </>
+    </div>
   );
 }
 
@@ -145,14 +147,19 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
   };
 
   return (
-    // No card: a short block on the page, capped in width so the progress
-    // bar and the next step do not stretch across the whole dashboard.
-    <section className="flex max-w-xl flex-col gap-2" aria-labelledby="profile-checklist-title">
+    // A card like the dashboard's others (owner, 2026-11-11: the loose block
+    // looked unfinished). Inside, spacing groups it: header and bar 8px apart,
+    // 16px to the next step, and the disclosure set off below a rule.
+    <section
+      className="border-border-subtle bg-bg-subtle flex flex-col gap-4 rounded-2xl border p-4 sm:p-5"
+      aria-labelledby="profile-checklist-title"
+    >
       <ProgressHeader done={items.length - pending.length} total={items.length} />
 
       {!showList && nextId && <NextItem id={nextId} />}
 
       {hasMany && (
+        <div className="border-border-subtle -mb-2 border-t pt-2">
         <Button
           type="button"
           variant="ghost"
@@ -167,6 +174,7 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
             : t.dashboard.profileChecklist.showPending(pending.length)}
           <ChevronDown aria-hidden="true" className={`size-4 transition-transform ${expanded ? 'rotate-180' : ''}`} />
         </Button>
+        </div>
       )}
 
       {showList && <PendingList ids={pending} />}
