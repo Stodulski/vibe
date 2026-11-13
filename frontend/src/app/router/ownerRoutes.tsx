@@ -1,16 +1,7 @@
 import { Outlet, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
-import { SkeletonDashboard, SkeletonSettings, SkeletonBookings } from '@/shared/components/common/Skeletons';
-import {
-  cashFallback,
-  cashSellFallback,
-  cashSessionFallback,
-  lazyPage,
-  lazyShell,
-  ownerPage,
-  productDetailFallback,
-  productsFallback,
-} from './routeHelpers';
+import { lazyPage, lazyShell, ownerPage } from './routeHelpers';
+import { routeSkeleton } from './routeSkeletons';
 import { PageLoader } from './loaders';
 import { AppShellLoader } from '@/app/layout/AppShellLoader';
 
@@ -50,51 +41,57 @@ export const ownerDashboardRoutes: RouteObject[] = [
     children: [
       {
         path: '/dashboard',
-        element: ownerPage(() => import('@/features/dashboard/pages/DashboardPage'), <SkeletonDashboard />),
+        element: ownerPage(() => import('@/features/dashboard/pages/DashboardPage'), routeSkeleton('/dashboard')),
       },
       {
         path: '/bookings',
-        element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), <SkeletonBookings />),
+        element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), routeSkeleton('/bookings')),
       },
       {
         path: '/cash',
-        element: ownerPage(() => import('@/features/cash/pages/CashPage'), cashFallback()),
+        element: ownerPage(() => import('@/features/cash/pages/CashPage'), routeSkeleton('/cash')),
       },
       {
         path: '/cash/sell',
-        element: ownerPage(() => import('@/features/cash/pages/CashSellPage'), cashSellFallback()),
+        element: ownerPage(() => import('@/features/cash/pages/CashSellPage'), routeSkeleton('/cash/sell')),
       },
       {
         path: '/cash/sessions/:sessionId',
-        element: ownerPage(() => import('@/features/cash/pages/CashSessionDetailPage'), cashSessionFallback()),
+        element: ownerPage(
+          () => import('@/features/cash/pages/CashSessionDetailPage'),
+          routeSkeleton('/cash/sessions/:sessionId'),
+        ),
       },
       {
         path: '/cash/products',
-        element: ownerPage(() => import('@/features/products/pages/ProductsPage'), productsFallback()),
+        element: ownerPage(() => import('@/features/products/pages/ProductsPage'), routeSkeleton('/cash/products')),
       },
       {
         path: '/cash/products/:productId',
-        element: ownerPage(() => import('@/features/products/pages/ProductDetailPage'), productDetailFallback()),
+        element: ownerPage(
+          () => import('@/features/products/pages/ProductDetailPage'),
+          routeSkeleton('/cash/products/:productId'),
+        ),
       },
       {
         path: '/courts',
-        element: ownerPage(() => import('@/features/courts/pages/CourtsPage')),
+        element: ownerPage(() => import('@/features/courts/pages/CourtsPage'), routeSkeleton('/courts')),
       },
       {
         path: '/clients',
-        element: ownerPage(() => import('@/features/clients/pages/ClientsPage')),
+        element: ownerPage(() => import('@/features/clients/pages/ClientsPage'), routeSkeleton('/clients')),
       },
       {
         path: '/reports',
-        element: ownerPage(() => import('@/features/dashboard/pages/ReportsPage')),
+        element: ownerPage(() => import('@/features/dashboard/pages/ReportsPage'), routeSkeleton('/reports')),
       },
       {
         path: '/settings',
-        element: ownerPage(() => import('@/features/complex/pages/SettingsPage'), <SkeletonSettings />),
+        element: ownerPage(() => import('@/features/complex/pages/SettingsPage'), routeSkeleton('/settings')),
       },
       {
         path: '/profile',
-        element: ownerPage(() => import('@/features/auth/pages/ProfilePage')),
+        element: ownerPage(() => import('@/features/auth/pages/ProfilePage'), routeSkeleton('/profile')),
       },
     ],
   },
