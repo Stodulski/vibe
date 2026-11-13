@@ -1,6 +1,7 @@
 import { ArrowDownCircle, ArrowUpCircle, Lock } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { CASH_ACTION_LAST_CLASS, CASH_ACTIONS_CLASS } from './cashLayout';
 
 const t = ES_AR;
 
@@ -17,7 +18,7 @@ interface CashActionButtonsProps {
  */
 export function CashActionButtons({ onIncome, onExpense, onClose }: CashActionButtonsProps) {
   return (
-    <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center">
+    <div className={CASH_ACTIONS_CLASS}>
       <Button size="lg" className="h-12" onClick={onIncome}>
         <ArrowUpCircle className="size-4" aria-hidden="true" />
         {t.cash.incomeAction}
@@ -26,7 +27,7 @@ export function CashActionButtons({ onIncome, onExpense, onClose }: CashActionBu
         <ArrowDownCircle className="size-4" aria-hidden="true" />
         {t.cash.expenseAction}
       </Button>
-      <Button size="lg" variant="ghost" className="col-span-2 h-12 sm:ml-auto" onClick={onClose}>
+      <Button size="lg" variant="ghost" className={`${CASH_ACTION_LAST_CLASS} h-12`} onClick={onClose}>
         <Lock className="size-4" aria-hidden="true" />
         {t.cash.closeAction}
       </Button>

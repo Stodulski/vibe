@@ -1,8 +1,8 @@
-import { Panel } from '@/shared/components/common/Panel';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatVenueDayTime } from '@/shared/lib/formatVenueDayTime';
 import { CashDifference } from './CashDifference';
+import { ExpectedCashCardShell } from './ExpectedCashCardShell';
 import { cashMovementTotals } from '../lib/movementLedger';
 import type { CashMovement, CashSession, CashSessionSummary } from '@/shared/types/api.types';
 
@@ -64,11 +64,9 @@ export function ExpectedCashCard({ session, summary, movements = [] }: ExpectedC
     // Solid brand green, the till's key figure the way the dashboard's today
     // card is (owner decision, 2026-11-09); theme text tokens are re-pointed
     // to the near-black ink inside it.
-    <Panel
-      size="sm"
-      mobile="card"
+    <ExpectedCashCardShell
       className={cn(
-        'border-primary-500 bg-primary-500 text-text-inverse w-full space-y-4',
+        'border-primary-500 bg-primary-500 text-text-inverse',
         '[--color-text-primary:var(--color-text-inverse)]',
         '[--color-text-secondary:var(--color-text-inverse)]',
         '[--color-text-tertiary:var(--color-text-inverse)]',
@@ -106,6 +104,6 @@ export function ExpectedCashCard({ session, summary, movements = [] }: ExpectedC
           <CashDifference difference={summary.difference ?? 0} />
         </div>
       )}
-    </Panel>
+    </ExpectedCashCardShell>
   );
 }

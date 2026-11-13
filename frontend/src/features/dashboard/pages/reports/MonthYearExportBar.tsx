@@ -3,6 +3,14 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import {
+  EXPORT_BUTTON_CLASS,
+  MONTH_FIELD_CLASS,
+  MONTH_TRIGGER_CLASS,
+  REPORTS_BAR_CLASS,
+  YEAR_FIELD_CLASS,
+  YEAR_TRIGGER_CLASS,
+} from './reportsLayout';
 
 const t = ES_AR;
 interface MonthOption {
@@ -33,7 +41,7 @@ function ExportButton({ exporting, disabled, statusLabel, onExport }: ExportButt
       // Full width on a phone. The two pickers fit side by side at 320px and
       // the button wraps below them, where its natural width leaves it looking
       // like a stray third picker rather than the action the row builds to.
-      className="w-full sm:w-auto"
+      className={EXPORT_BUTTON_CLASS}
       onClick={onExport}
       disabled={disabled}
       aria-busy={exporting}
@@ -58,7 +66,7 @@ function MonthPicker({
   onMonthChange: (month: number) => void;
 }) {
   return (
-    <div className="flex-[2] space-y-1 sm:flex-none">
+    <div className={MONTH_FIELD_CLASS}>
       <Label htmlFor="report-month">{t.reports.month}</Label>
       <Select
         value={String(month)}
@@ -66,7 +74,7 @@ function MonthPicker({
           onMonthChange(Number(v));
         }}
       >
-        <SelectTrigger id="report-month" className="w-full sm:w-36">
+        <SelectTrigger id="report-month" className={MONTH_TRIGGER_CLASS}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -93,7 +101,7 @@ function YearPicker({
   onYearChange: (year: number) => void;
 }) {
   return (
-    <div className="flex-1 space-y-1 sm:flex-none">
+    <div className={YEAR_FIELD_CLASS}>
       <Label htmlFor="report-year">{t.reports.year}</Label>
       <Select
         value={String(year)}
@@ -101,7 +109,7 @@ function YearPicker({
           onYearChange(Number(v));
         }}
       >
-        <SelectTrigger id="report-year" className="w-full sm:w-28">
+        <SelectTrigger id="report-year" className={YEAR_TRIGGER_CLASS}>
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -144,7 +152,7 @@ export function MonthYearExportBar({
   onExport,
 }: MonthYearExportBarProps) {
   return (
-    <div className="mb-4 flex flex-wrap items-end gap-3 sm:mb-6">
+    <div className={REPORTS_BAR_CLASS}>
       {/* The app's Select, not the browser's. These were native <select>
           elements with hand-written Tailwind, so they rendered as the
           operating system's dropdown — a different shape, a different

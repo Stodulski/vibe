@@ -1,5 +1,6 @@
 import type { LucideIcon } from 'lucide-react';
 import { cn } from '@/shared/lib/utils';
+import { SECTION_NAV_CLASS, SECTION_NAV_ITEM_CLASS } from './sectionNavLayout';
 
 export interface SectionNavItem<V extends string> {
   value: V;
@@ -27,7 +28,7 @@ interface SectionNavProps<V extends string> {
  */
 export function SectionNav<V extends string>({ items, active, onChange }: SectionNavProps<V>) {
   return (
-    <nav className="hidden w-52 shrink-0 lg:block">
+    <nav className={SECTION_NAV_CLASS}>
       {/* 5.5rem = the masthead's 64px plus 24px of air. It stuck at `top-6`,
           which is 24px from the VIEWPORT — and the masthead is `fixed` and
           64px tall, so the nav slid underneath it on scroll. Sticky offsets
@@ -45,7 +46,8 @@ export function SectionNav<V extends string>({ items, active, onChange }: Sectio
                 onChange(item.value);
               }}
               className={cn(
-                'flex h-12 w-full items-center gap-3 rounded-xl px-3 text-left text-sm font-medium transition-colors',
+                SECTION_NAV_ITEM_CLASS,
+                'text-left text-sm font-medium transition-colors',
                 isActive
                   ? 'bg-primary-500/10 text-primary-400'
                   : 'text-text-secondary hover:bg-bg-highlight hover:text-text-primary',

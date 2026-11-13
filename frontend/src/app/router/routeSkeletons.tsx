@@ -1,36 +1,39 @@
 import type { ReactNode } from 'react';
 import { matchPath } from 'react-router-dom';
-import { SkeletonBookings, SkeletonDashboard, SkeletonSettings } from '@/shared/components/common/Skeletons';
-import { ClientsPageSkeleton } from '@/features/clients/components/skeletons/ClientsPageSkeleton';
-import { CourtsPageSkeleton } from '@/features/courts/components/skeletons/CourtsPageSkeleton';
-import { ReportsPageSkeleton } from '@/features/dashboard/components/skeletons/ReportsPageSkeleton';
-import {
-  cashFallback,
-  cashSellFallback,
-  cashSessionFallback,
-  productDetailFallback,
-  productsFallback,
-} from './routeHelpers';
-import { ProfilePageSkeleton } from './skeletons/ProfilePageSkeleton';
+import { ProfilePageSkeleton } from '@/features/auth/pages/ProfilePageSkeleton';
+import { BookingsPageSkeleton } from '@/features/bookings/pages/BookingsPageSkeleton';
+import { CashPageSkeleton } from '@/features/cash/pages/CashPageSkeleton';
+import { CashSellPageSkeleton } from '@/features/cash/pages/CashSellPageSkeleton';
+import { CashSessionDetailPageSkeleton } from '@/features/cash/pages/CashSessionDetailPageSkeleton';
+import { ClientsPageSkeleton } from '@/features/clients/pages/ClientsPageSkeleton';
+import { SettingsPageSkeleton } from '@/features/complex/pages/SettingsPageSkeleton';
+import { CourtsPageSkeleton } from '@/features/courts/pages/CourtsPageSkeleton';
+import { DashboardPageSkeleton } from '@/features/dashboard/pages/DashboardPageSkeleton';
+import { ReportsPageSkeleton } from '@/features/dashboard/pages/ReportsPageSkeleton';
+import { ProductDetailPageSkeleton } from '@/features/products/pages/ProductDetailPageSkeleton';
+import { ProductsPageSkeleton } from '@/features/products/pages/ProductsPageSkeleton';
 
 /**
  * The one table from owner route pattern to the skeleton its page shows while
  * it loads. `ownerRoutes` takes its `ownerPage` fallbacks from here and
  * `AppShellLoader` picks by pathname, so the shell's placeholder and the route
  * fallback are the same node and the swap between them is invisible.
+ *
+ * Each page skeleton lives in the feature that owns the page and is composed
+ * of the component skeletons next to the components it mirrors.
  */
 const OWNER_ROUTE_SKELETONS = {
-  '/dashboard': () => <SkeletonDashboard />,
-  '/bookings': () => <SkeletonBookings />,
-  '/cash': cashFallback,
-  '/cash/sell': cashSellFallback,
-  '/cash/sessions/:sessionId': cashSessionFallback,
-  '/cash/products': productsFallback,
-  '/cash/products/:productId': productDetailFallback,
+  '/dashboard': () => <DashboardPageSkeleton />,
+  '/bookings': () => <BookingsPageSkeleton />,
+  '/cash': () => <CashPageSkeleton />,
+  '/cash/sell': () => <CashSellPageSkeleton />,
+  '/cash/sessions/:sessionId': () => <CashSessionDetailPageSkeleton />,
+  '/cash/products': () => <ProductsPageSkeleton />,
+  '/cash/products/:productId': () => <ProductDetailPageSkeleton />,
   '/courts': () => <CourtsPageSkeleton />,
   '/clients': () => <ClientsPageSkeleton />,
   '/reports': () => <ReportsPageSkeleton />,
-  '/settings': () => <SkeletonSettings />,
+  '/settings': () => <SettingsPageSkeleton />,
   '/profile': () => <ProfilePageSkeleton />,
 } satisfies Record<string, () => ReactNode>;
 

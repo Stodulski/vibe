@@ -5,6 +5,7 @@ import { ClientDetail, BlockClientModal } from '@/features/clients';
 import { ClientsSearchBar } from './clients/ClientsSearchBar';
 import { ClientsContent } from './clients/ClientsContent';
 import { useClientsPage } from './clients/useClientsPage';
+import { CLIENTS_BODY_CLASS } from './clients/clientsSearchBarLayout';
 
 const t = ES_AR;
 
@@ -18,7 +19,7 @@ export default function ClientsPage() {
     <div>
       <PageHeader title={t.clients.title} />
 
-      <div className="space-y-2.5 sm:space-y-4">
+      <div className={CLIENTS_BODY_CLASS}>
         <ClientsSearchBar
           searchInput={state.searchInput}
           onSearchChange={state.setSearchInput}

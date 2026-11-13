@@ -1,5 +1,6 @@
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
+import { BackLink } from '@/shared/components/common/BackLink';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
@@ -8,7 +9,8 @@ import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex'
 import { useCashSessionDetail } from '../hooks/useCashSessionDetail';
 import { ExpectedCashCard } from '../components/ExpectedCashCard';
 import { BookingPaymentsBreakdown } from '../components/BookingPaymentsBreakdown';
-import { CashSummarySkeleton } from '../components/skeletons/CashSummarySkeleton';
+import { CashSummarySkeleton } from '../components/CashSummarySkeleton';
+import { CASH_STACK_CLASS } from '../components/cashLayout';
 import { MovementList } from '../components/MovementList';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 
@@ -24,14 +26,8 @@ export default function CashSessionDetailPage() {
   if (!selectedComplexId) return null;
 
   return (
-    <div className="max-w-3xl space-y-6">
-      <Link
-        to="/cash"
-        className="text-text-tertiary hover:text-text-secondary flex items-center gap-1.5 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {t.cash.backToCash}
-      </Link>
+    <div className={CASH_STACK_CLASS}>
+      <BackLink to="/cash">{t.cash.backToCash}</BackLink>
 
       <PageHeader title={t.cash.sessionDetailTitle} />
 

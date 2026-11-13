@@ -1,7 +1,7 @@
 import { FileSpreadsheet } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { Panel } from '@/shared/components/common/Panel';
 import { MONTH_NAMES } from './constants';
+import { ReportCardShell } from './ReportCardShell';
 import { ReportMobileSummary } from './ReportMobileSummary';
 import { ReportDesktopTable } from './ReportDesktopTable';
 import { ReportHeadline } from './ReportHeadline';
@@ -20,14 +20,14 @@ interface ReportCardProps {
 
 export function ReportCard({ month, year, state }: ReportCardProps) {
   return (
-    <Panel as="section" size="md">
+    <ReportCardShell>
       <h2 className="text-text-primary mb-1 text-sm font-semibold">{t.reports.monthlyTitle}</h2>
       <p className="text-text-tertiary mb-4 text-xs">
         {MONTH_NAMES[month - 1]} {year}
       </p>
 
       <ReportCardBody month={month} year={year} state={state} />
-    </Panel>
+    </ReportCardShell>
   );
 }
 

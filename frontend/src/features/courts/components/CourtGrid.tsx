@@ -3,6 +3,7 @@ import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { CourtCard } from './CourtCard';
 import { CourtTable } from './CourtTable';
 import { CourtForm } from './CourtForm';
+import { COURT_GRID_CLASS } from './courtLayout';
 import { PriceConfig } from './PriceConfig';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
@@ -55,7 +56,7 @@ export function CourtGrid({ courts, complexId }: CourtGridProps) {
         // Two columns from `lg`, held back from `sm` because a card narrower
         // than about 400px starts truncating the price ranges — which are
         // the reason the card exists.
-        <div className="grid w-full grid-cols-1 gap-3 lg:grid-cols-2">
+        <div className={COURT_GRID_CLASS}>
           {courts.map((court) => (
             <CourtCard
               key={court.id}

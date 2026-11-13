@@ -1,5 +1,6 @@
 import { Copy, Check } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { PUBLIC_LINK_BAR_CLASS } from '../../components/dashboardLayout';
 
 const t = ES_AR;
 
@@ -16,7 +17,7 @@ export function PublicLinkBar({ publicUrl, copied, onCopy }: PublicLinkBarProps)
   const displayUrl = publicUrl.replace(/^https?:\/\//, '');
 
   return (
-    <div className="mb-3 flex items-center gap-2 sm:mb-4">
+    <div className={PUBLIC_LINK_BAR_CLASS}>
       <span className="text-primary-400 min-w-0 truncate text-sm" title={publicUrl}>
         {displayUrl}
       </span>

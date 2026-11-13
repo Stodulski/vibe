@@ -5,6 +5,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { ProductBadges } from './ProductBadges';
 import { ProductActionsMenuFor } from './ProductActionsMenuFor';
 import { StockOnHand } from './StockOnHand';
+import { PRODUCT_CARD_CLASS } from './productLayout';
 import type { Product } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -53,8 +54,8 @@ export const ProductCard = memo(function ProductCard({
         />
       }
       buttonClassName={cn(
-        'focus-self flex w-full flex-col items-stretch rounded-2xl border border-border-subtle',
-        'bg-bg-subtle p-4 text-left transition-colors hover:border-border-default hover:bg-bg-elevated',
+        PRODUCT_CARD_CLASS,
+        'focus-self text-left transition-colors hover:border-border-default hover:bg-bg-elevated',
         'focus-visible:border-primary-400 focus-visible:bg-bg-elevated',
       )}
     >

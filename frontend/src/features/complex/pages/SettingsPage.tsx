@@ -11,6 +11,7 @@ import { useSelectedComplex, useComplexes } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { SectionNav } from '@/shared/components/common/section-nav/SectionNav';
 import { SectionTabs } from '@/shared/components/common/section-nav/SectionTabs';
+import { SECTION_LAYOUT_CLASS, SECTION_PANEL_CLASS } from '@/shared/components/common/section-nav/sectionNavLayout';
 import { TABS } from './settings/tabs';
 import { SettingsTabContent } from './settings/SettingsTabContent';
 import { useSettingsTabs } from './settings/useSettingsTabs';
@@ -47,7 +48,7 @@ export default function SettingsPage() {
     <div>
       <PageHeader title={t.complex.settings} />
 
-      <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">
+      <div className={SECTION_LAYOUT_CLASS}>
         <SectionNav items={TABS} active={activeTab} onChange={handleTabChange} />
         <SectionTabs items={TABS} active={activeTab} onChange={handleTabChange} />
 
@@ -60,7 +61,7 @@ export default function SettingsPage() {
             that fills the width anyway, so it spent 32px of a 320px screen
             saying nothing. On a wide screen it earns its keep: it is what marks
             the section off from the space beside it. */}
-        <div className="lg:border-border-subtle lg:bg-bg-subtle min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
+        <div className={SECTION_PANEL_CLASS}>
           <SettingsTabContent activeTab={activeTab} complex={complex} />
         </div>
       </div>

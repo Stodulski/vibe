@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { COURT_CARD_BODY_CLASS, COURT_CARD_CLASS } from './courtLayout';
 import { CardHeader } from './court-card/CardHeader';
 import { PriceSummary } from './court-card/PriceSummary';
 import { CardActions } from './court-card/CardActions';
@@ -31,11 +32,12 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
           // the app sits on; this one had no background at all and was reading
           // as an outline drawn on the page. The price chips are `bg-elevated`,
           // one step up, so they still read as sitting on the card.
-          'group bg-bg-subtle relative flex h-full flex-col overflow-hidden rounded-2xl border transition-colors',
+          COURT_CARD_CLASS,
+          'group transition-colors',
           court.is_active ? 'border-border-subtle' : 'border-border-subtle/50 opacity-60',
         )}
       >
-        <div className="flex-1 p-4 sm:p-5">
+        <div className={COURT_CARD_BODY_CLASS}>
           <CardHeader court={court} onToggleActive={handleToggleActive} isTogglePending={isTogglePending} />
           <div className="mt-4">
             <PriceSummary {...priceRange} />

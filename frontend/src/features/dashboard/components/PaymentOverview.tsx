@@ -3,7 +3,7 @@ import { TodayRevenueHeader } from './payment-overview/TodayRevenueHeader';
 import { TodayMetrics } from './payment-overview/TodayMetrics';
 import { PaymentStatusBreakdown } from './payment-overview/PaymentStatusBreakdown';
 import { PaymentMethodBreakdown } from './payment-overview/PaymentMethodBreakdown';
-import { Panel } from '@/shared/components/common/Panel';
+import { PaymentOverviewShell } from './PaymentOverviewShell';
 import { cn } from '@/shared/lib/utils';
 
 interface PaymentOverviewProps {
@@ -34,12 +34,9 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
     // 2026-11-09), not just the key-figures block. The theme's text tokens are
     // re-pointed to the near-black ink inside it, so the status and method
     // breakdowns below follow without their own variants.
-    <Panel
-      as="section"
-      size="sm"
-      mobile="card"
+    <PaymentOverviewShell
       className={cn(
-        'border-primary-500 bg-primary-500 text-text-inverse flex h-full flex-col p-4',
+        'border-primary-500 bg-primary-500 text-text-inverse',
         '[--color-text-primary:var(--color-text-inverse)]',
         '[--color-text-secondary:var(--color-text-inverse)]',
         '[--color-text-tertiary:var(--color-text-inverse)]',
@@ -55,6 +52,6 @@ export function PaymentOverview({ stats }: PaymentOverviewProps) {
       </div>
       <PaymentStatusBreakdown statusEntries={statusEntries} />
       <PaymentMethodBreakdown methodEntries={methodEntries} />
-    </Panel>
+    </PaymentOverviewShell>
   );
 }

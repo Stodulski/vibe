@@ -26,8 +26,8 @@ vi.mock('@/shared/components/common/EmptyState', () => ({
     </div>
   ),
 }));
-vi.mock('@/shared/components/common/Skeletons', () => ({
-  SkeletonCourtCard: () => <div data-testid="skeleton-court">Loading...</div>,
+vi.mock('@/features/courts/components/CourtGridSkeleton', () => ({
+  CourtGridSkeleton: () => <div data-testid="skeleton-court">Loading...</div>,
 }));
 vi.mock('@/features/courts/components/CourtGrid', () => ({
   CourtGrid: () => <div data-testid="court-grid">CourtGrid</div>,

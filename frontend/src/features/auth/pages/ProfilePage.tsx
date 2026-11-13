@@ -4,6 +4,7 @@ import { PersonalInfoForm, SecurityForm } from '@/features/auth';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { SectionNav } from '@/shared/components/common/section-nav/SectionNav';
 import { SectionTabs } from '@/shared/components/common/section-nav/SectionTabs';
+import { SECTION_LAYOUT_CLASS, SECTION_PANEL_CLASS } from '@/shared/components/common/section-nav/sectionNavLayout';
 import { TABS } from './profile/tabs';
 import { useProfileTabs } from './profile/useProfileTabs';
 
@@ -18,7 +19,7 @@ export default function ProfilePage() {
       <PageHeader title={t.navigation.profile} />
 
       <div>
-        <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">
+        <div className={SECTION_LAYOUT_CLASS}>
           <SectionNav items={TABS} active={activeTab} onChange={handleTabChange} />
           <SectionTabs items={TABS} active={activeTab} onChange={handleTabChange} />
 
@@ -26,7 +27,7 @@ export default function ProfilePage() {
           {/* A card from lg, bare below it — the same treatment settings has.
               On a phone the border sat just inside the screen's own edge around
               content that fills the width anyway. */}
-          <div className="lg:border-border-subtle lg:bg-bg-subtle min-w-0 flex-1 lg:max-w-[39rem] lg:rounded-2xl lg:border lg:p-6">
+          <div className={SECTION_PANEL_CLASS}>
             {activeTab === 'personal' && <PersonalInfoForm />}
             {activeTab === 'security' && <SecurityForm />}
           </div>

@@ -9,6 +9,7 @@ import { SellBookingBalances } from '../../components/sell/SellBookingBalances';
 import { SellCart } from '../../components/sell/SellCart';
 import { SellMobileCartBar } from '../../components/sell/SellMobileCartBar';
 import { SalesSection } from '../../components/sell/SalesSection';
+import { SELL_LAYOUT_CLASS } from '../../components/sell/sellLayout';
 import type { useSellPage } from './useSellPage';
 
 const t = ES_AR;
@@ -176,7 +177,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
 
       {/* The sales list sits in the left column too, so that column runs the
           page's full height and the sticky cart beside it has room to stay put. */}
-      <div className="grid grid-cols-1 items-start gap-8 lg:grid-cols-[1fr_360px]">
+      <div className={SELL_LAYOUT_CLASS}>
         <div className="min-w-0 space-y-8">
           <SellCatalogColumn state={state} />
           <SalesSection complexId={complexId} sessionId={sessionId} />

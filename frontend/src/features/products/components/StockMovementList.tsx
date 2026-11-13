@@ -2,13 +2,13 @@ import { useCallback, useMemo, type RefObject } from 'react';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { Panel } from '@/shared/components/common/Panel';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { Button } from '@/shared/components/ui/button';
 import { useIntersectionObserver } from '@/shared/hooks/useIntersectionObserver';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useProductStockMovements } from '../hooks/useProductStockMovements';
 import { StockMovementRow } from './StockMovementRow';
+import { StockMovementListSkeleton } from './StockMovementListSkeleton';
 import type { StockMovement } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -110,7 +110,7 @@ export function StockMovementList({ complexId, productId }: { complexId: string;
         {t.products.historyTitle}
       </h2>
       {isLoading ? (
-        <SkeletonTable rows={3} mobile="flat" />
+        <StockMovementListSkeleton />
       ) : isError && !data ? (
         <EmptyState
           icon={AlertTriangle}

@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatPrice, formatDateShort } from '@/shared/lib/utils';
+import { cn, formatPrice, formatDateShort } from '@/shared/lib/utils';
+import { TREND_CARD_CLASS } from './dashboardLayout';
 import { useRevenueChart } from '../hooks/useRevenueChart';
 import { PeriodToggle, type RevenuePeriod } from './revenue-chart/PeriodToggle';
 import { ChartBody } from './revenue-chart/ChartBody';
@@ -39,10 +40,7 @@ function RevenueChart({ complexId }: RevenueChartProps) {
       : { status: 'ready', chartData };
 
   return (
-    <section
-      className="border-border-subtle bg-bg-subtle flex h-72 flex-col rounded-2xl border p-4 sm:p-5 xl:h-full"
-      aria-label={t.dashboard.revenue}
-    >
+    <section className={cn(TREND_CARD_CLASS, 'flex h-72 flex-col xl:h-full')} aria-label={t.dashboard.revenue}>
       <div className="mb-4 flex items-start justify-between gap-3 sm:mb-5">
         <div className="min-w-0">
           <h3 className="text-text-primary text-sm font-semibold whitespace-nowrap">{t.dashboard.revenue}</h3>

@@ -83,6 +83,17 @@ Defined in `.env.example`:
 
 Vercel, with a `vercel.json` SPA rewrite and one `X-Robots-Tag: noindex` rule on `/(.*)`. The app serves no public pages, so there is no crawler prerender function and no API rewrite for them. PWA via vite-plugin-pwa with workbox: cache-first for fonts, and no API response is cached.
 
+### Loading skeletons
+
+Every component that renders loaded data (card, table, panel, summary) has its loading version in the same folder, so a layout change touches both.
+
+- **Co-location**: `X.tsx` gets `XSkeleton.tsx` next to it. Never put the skeleton in `X.tsx`: route skeletons are imported eagerly by `routeSkeletons.tsx`, and importing `X.tsx` would drag the real component and its hooks into the main bundle.
+- **Shared shell**: whatever the component and its skeleton have in common (card/panel container, padding, grid columns and breakpoints, header row) lives in one light file both import: a shell component (`XShell.tsx`, e.g. `PaymentOverviewShell`) or class constants (`xLayout.ts`, e.g. `courtLayout.ts`). Share the container and the grid, not every inner line. Generic building blocks stay in `@vibe/ui` (`Skeleton`, `SkeletonTable`) and `shared/components/common` (`PageHeaderSkeleton`, `TableFrameSkeleton`, `BackLinkSkeleton`, the section-nav and cash-tabs skeletons).
+- **Page skeletons compose component skeletons**: `FooPageSkeleton` lives in the feature that owns the page (`features/foo/pages/`), is built from the component skeletons plus the shared header skeletons, and is registered in `src/app/router/routeSkeletons.tsx`, the single route-to-skeleton table (`ownerRoutes` fallbacks and `AppShellLoader` both read it). A page body that loads in place gets its own `FooContentSkeleton`/`XSkeleton` and is not duplicated in the page skeleton.
+- **No `animate-fade-in`** on a skeleton or a page root: it blinks when the skeleton remounts across loading phases.
+- **Keep `role="status"` and `aria-label={ES_AR.common.loading}`** on the root of a page or body skeleton (exactly one per rendered tree); nested placeholders are `aria-hidden`.
+- **Check at 1280 and 320 px** against the real page: same heights, no layout shift when the data arrives.
+
 ## Code Principles
 
 ### DRY (Don't Repeat Yourself)

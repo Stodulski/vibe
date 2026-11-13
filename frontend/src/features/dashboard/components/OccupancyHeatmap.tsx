@@ -10,7 +10,7 @@ import { HeatmapSummary } from './occupancy-heatmap/HeatmapSummary';
 import { DesktopHeatmap } from './occupancy-heatmap/DesktopHeatmap';
 import { MobileHeatmap } from './occupancy-heatmap/MobileHeatmap';
 import { HeatmapLegend } from './occupancy-heatmap/HeatmapLegend';
-import { Panel } from '@/shared/components/common/Panel';
+import { OccupancyHeatmapPanel } from './OccupancyHeatmapPanel';
 
 const t = ES_AR;
 
@@ -25,10 +25,8 @@ function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
 
   if (isError) {
     return (
-      <Panel
-        as="section"
-        size="md"
-        className="flex flex-col items-center justify-center gap-2 text-center sm:p-5"
+      <OccupancyHeatmapPanel
+        className="flex flex-col items-center justify-center gap-2 text-center"
         aria-label={t.dashboard.occupancy}
       >
         <AlertTriangle className="text-error-icon size-5" aria-hidden="true" />
@@ -42,12 +40,12 @@ function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
         >
           {t.layout.retry}
         </Button>
-      </Panel>
+      </OccupancyHeatmapPanel>
     );
   }
 
   return (
-    <Panel as="section" size="md" className="sm:p-5" aria-label={t.dashboard.occupancy}>
+    <OccupancyHeatmapPanel aria-label={t.dashboard.occupancy}>
       <HeatmapSummary
         isLoading={isLoading}
         avgOccupancy={avgOccupancy}
@@ -73,7 +71,7 @@ function OccupancyHeatmap({ complexId }: OccupancyHeatmapProps) {
           )}
         </div>
       )}
-    </Panel>
+    </OccupancyHeatmapPanel>
   );
 }
 
