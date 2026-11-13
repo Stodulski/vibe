@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen } from '@/test/test-utils';
+import { makeCourt } from '@/test/factories';
 import { CourtForm } from './CourtForm';
 
 const mockCreateMutate = vi.fn();
@@ -36,17 +37,7 @@ describe('CourtForm', () => {
   });
 
   it('renders edit title when court is provided', () => {
-    const court = {
-      id: 'ct1',
-      complex_id: 'c1',
-      name: 'Cancha 1',
-      sport: 'padel' as const,
-      court_type: 'outdoor' as const,
-      is_active: true,
-      created_at: '2026-01-01T00:00:00Z',
-      updated_at: '2026-01-01T00:00:00Z',
-      prices: [],
-    };
+    const court = { ...makeCourt(), prices: [] };
     renderWithProviders(<CourtForm {...defaultProps} court={court} />);
     expect(screen.getByText(/editar cancha/i)).toBeInTheDocument();
   });

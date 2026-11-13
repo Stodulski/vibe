@@ -98,6 +98,13 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	v.Check(validator.PermittedValue(body.Sport, "padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"), "sport", "must be one of: padel, tennis, soccer, basketball, volleyball, hockey, pickleball")
 	v.Check(validator.PermittedValue(body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
 	v.Check(body.Description == nil || len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
+	var surface string
+	if body.Surface != nil {
+		surface = string(*body.Surface)
+	}
+	if msg := checkSurface(string(body.Sport), surface); msg != "" {
+		v.AddError("surface", msg)
+	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -108,6 +115,8 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Sport:       string(body.Sport),
 		CourtType:   string(body.CourtType),
 		Description: body.Description,
+		HasLighting: body.HasLighting != nil && *body.HasLighting,
+		Surface:     &surface,
 	})
 	if err != nil {
 		if errors.Is(err, courtstore.ErrDuplicateCourtName) {
@@ -170,6 +179,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if body.Description != nil {
 		v.Check(len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	}
+	var surface *string
+	if body.Surface != nil {
+		s := string(*body.Surface)
+		surface = &s
+		// "" clears the surface; anything else must be a known value. Whether it
+		// suits the sport is the service's call, against the resulting sport.
+		if s != "" && !knownSurface(s) {
+			v.AddError("surface", surfaceUnknownMessage)
+		}
+	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -197,10 +216,15 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		CourtType:       courtType,
 		IsActive:        body.IsActive,
 		Description:     body.Description,
+		HasLighting:     body.HasLighting,
+		Surface:         surface,
 		ExpectedVersion: expectedVersion,
 	})
 	if err != nil {
+		var surfaceErr *SurfaceError
 		switch {
+		case errors.As(err, &surfaceErr):
+			h.respond.FailedValidation(w, r, map[string]string{"surface": surfaceErr.Message})
 		case errors.Is(err, courtstore.ErrDuplicateCourtName):
 			// Same collision Create can hit, and the same shape: courts_active_name_unique
 			// is partial over active courts, so this fires both for renaming

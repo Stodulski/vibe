@@ -8,6 +8,7 @@ function court(available: boolean[]): CourtAvailability {
     court_name: 'Cancha 1',
     sport: 'padel',
     court_type: 'outdoor',
+    has_lighting: false,
     slots: available.map((free, index) => ({
       start_time: `${String(10 + index)}:00`,
       end_time: `${String(11 + index)}:30`,

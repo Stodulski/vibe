@@ -6,6 +6,7 @@ import { formatPrice } from '@vibe/ui';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../../api/types';
 import { orderedAmenities } from '../../lib/amenities';
 import { priceRange } from '../../lib/courtPrices';
+import { courtFeatureNames } from '../../lib/courtFacts';
 import { instagramProfileUrl } from '../../lib/instagram';
 import { todayInVenueTz } from '../../lib/venueDate';
 
@@ -89,12 +90,14 @@ export function buildComplexSchema(
       prices.min === prices.max ? formatPrice(prices.min) : `${formatPrice(prices.min)} - ${formatPrice(prices.max)}`;
   }
 
-  // Each listed service as a feature the place has, by the label the page shows.
-  const services = orderedAmenities(complex.amenities);
-  if (services.length > 0) {
-    schema.amenityFeature = services.map(({ label }) => ({
+  // Each listed service as a feature the place has, by the label the page shows, then what
+  // its active courts have: roof types, surfaces and lighting. schema.org has no court type
+  // or surface on a `SportsActivityLocation`, so these are features of the place as a whole.
+  const features = [...orderedAmenities(complex.amenities).map(({ label }) => label), ...courtFeatureNames(courts)];
+  if (features.length > 0) {
+    schema.amenityFeature = features.map((name) => ({
       '@type': 'LocationFeatureSpecification',
-      name: label,
+      name,
       value: true,
     }));
   }

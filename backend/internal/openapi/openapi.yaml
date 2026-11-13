@@ -1990,6 +1990,13 @@ paths:
                       - tournaments
                       - accessible
                       - match_recording
+                      - birthdays
+                      - grill
+                      - quincho
+                      - medical_aid
+                      - sports_school
+                      - kiosk
+                      - kids_area
 
   /api/v1/complexes/{id}:
     get:
@@ -2087,6 +2094,13 @@ paths:
                       - tournaments
                       - accessible
                       - match_recording
+                      - birthdays
+                      - grill
+                      - quincho
+                      - medical_aid
+                      - sports_school
+                      - kiosk
+                      - kids_area
     delete:
       tags: [complexes]
       operationId: complexesDelete
@@ -2634,6 +2648,8 @@ paths:
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
                 description: {type: string, maxLength: 200}
+                has_lighting: {type: boolean, description: "Defaults to false when omitted."}
+                surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: "Optional. Must be allowed for the court's sport."}
 
   /api/v1/complexes/{id}/courts/{courtID}:
     put:
@@ -2679,6 +2695,13 @@ paths:
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
                 description: {type: string, maxLength: 200}
                 is_active: {type: boolean}
+                has_lighting: {type: boolean}
+                surface:
+                  type: string
+                  enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber, ""]
+                  description: >-
+                    Omitted keeps the stored value; an empty string clears it. Checked against the
+                    court's resulting sport (the one sent, else the stored one).
     delete:
       tags: [courts]
       operationId: courtsDelete
@@ -5110,7 +5133,7 @@ components:
 
     Court:
       type: object
-      required: [id, complex_id, name, sport, court_type, is_active, created_at, updated_at]
+      required: [id, complex_id, name, sport, court_type, is_active, has_lighting, created_at, updated_at]
       properties:
         id: {type: string, format: uuid}
         complex_id: {type: string, format: uuid}
@@ -5119,6 +5142,10 @@ components:
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         is_active: {type: boolean}
         description: {type: [string, "null"]}
+        has_lighting: {type: boolean}
+        surface:
+          oneOf: [{$ref: "#/components/schemas/CourtSurface"}, {type: "null"}]
+          description: Playing surface; null when the owner has not said.
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
         version:
@@ -5128,6 +5155,10 @@ components:
             Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as
             `If-Match: "<version>"` or as a `version` body field — and the write is refused with
             409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
+
+    CourtSurface:
+      type: string
+      enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber]
 
     CourtWithPrices:
       allOf:
@@ -5693,13 +5724,15 @@ components:
 
     AvailabilityCourt:
       type: object
-      required: [court_id, court_name, sport, court_type, slots]
+      required: [court_id, court_name, sport, court_type, has_lighting, slots]
       properties:
         court_id: {type: string, format: uuid}
         court_name: {type: string}
         sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         description: {type: string}
+        has_lighting: {type: boolean}
+        surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: Omitted when the owner has not said.}
         slots:
           type: array
           items: {$ref: "#/components/schemas/AvailabilitySlot"}

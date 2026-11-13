@@ -26,6 +26,17 @@ export const sportSchema = z.enum([
 
 export const courtTypeSchema = z.enum(['indoor', 'outdoor', 'semi_covered']) satisfies z.ZodType<CourtType>;
 
+export const courtSurfaceSchema = z.enum([
+  'synthetic_grass',
+  'natural_grass',
+  'clay',
+  'concrete',
+  'parquet',
+  'synthetic_floor',
+  'sand',
+  'rubber',
+]);
+
 const dayTypeSchema = z.enum([
   'monday',
   'tuesday',
@@ -55,6 +66,9 @@ const courtShape = z
     is_active: z.boolean(),
     // Absent when the owner has never written one, null when it was cleared.
     description: z.string().nullable().optional(),
+    has_lighting: z.boolean(),
+    // Absent when the owner has not said.
+    surface: courtSurfaceSchema.nullable().optional(),
     created_at: z.string(),
     updated_at: z.string(),
   })

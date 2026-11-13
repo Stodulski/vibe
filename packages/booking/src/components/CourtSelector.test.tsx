@@ -71,6 +71,7 @@ function court(
     court_name: name,
     sport: 'padel',
     court_type: type,
+    has_lighting: false,
     slots,
   };
 }

@@ -18,7 +18,7 @@ WHERE id = $1
   AND deleted_at IS NULL
   AND ($2::int IS NULL
        OR version = $2::int)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version
+RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
 `
 
 type BumpCourtVersionParams struct {
@@ -52,12 +52,14 @@ func (q *Queries) BumpCourtVersion(ctx context.Context, arg BumpCourtVersionPara
 		&i.UpdatedAt,
 		&i.Description,
 		&i.Version,
+		&i.HasLighting,
+		&i.Surface,
 	)
 	return i, err
 }
 
 const getCourtByID = `-- name: GetCourtByID :one
-SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version FROM active_courts
+SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface FROM active_courts
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -88,12 +90,14 @@ func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (Act
 		&i.UpdatedAt,
 		&i.Description,
 		&i.Version,
+		&i.HasLighting,
+		&i.Surface,
 	)
 	return i, err
 }
 
 const getCourtsByComplex = `-- name: GetCourtsByComplex :many
-SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version FROM active_courts
+SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface FROM active_courts
 WHERE complex_id = $1
 ORDER BY NULLIF(regexp_replace(name, '\D', '', 'g'), '')::int NULLS LAST, name
 `
@@ -125,6 +129,8 @@ func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID)
 			&i.UpdatedAt,
 			&i.Description,
 			&i.Version,
+			&i.HasLighting,
+			&i.Surface,
 		); err != nil {
 			return nil, err
 		}
@@ -137,9 +143,9 @@ func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID)
 }
 
 const insertCourt = `-- name: InsertCourt :one
-INSERT INTO courts (complex_id, name, sport, court_type, description)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version
+INSERT INTO courts (complex_id, name, sport, court_type, description, has_lighting, surface)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
 `
 
 type InsertCourtParams struct {
@@ -148,6 +154,8 @@ type InsertCourtParams struct {
 	Sport       SportType   `json:"sport"`
 	CourtType   CourtType   `json:"court_type"`
 	Description pgtype.Text `json:"description"`
+	HasLighting bool        `json:"has_lighting"`
+	Surface     pgtype.Text `json:"surface"`
 }
 
 func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error) {
@@ -157,6 +165,8 @@ func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court
 		arg.Sport,
 		arg.CourtType,
 		arg.Description,
+		arg.HasLighting,
+		arg.Surface,
 	)
 	var i Court
 	err := row.Scan(
@@ -171,6 +181,8 @@ func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court
 		&i.UpdatedAt,
 		&i.Description,
 		&i.Version,
+		&i.HasLighting,
+		&i.Surface,
 	)
 	return i, err
 }
@@ -194,12 +206,14 @@ SET name = $1,
     sport = $2,
     court_type = $3,
     is_active = $4,
-    description = $5
-WHERE id = $6
+    description = $5,
+    has_lighting = $6,
+    surface = $7
+WHERE id = $8
   AND deleted_at IS NULL
-  AND ($7::int IS NULL
-       OR version = $7::int)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version
+  AND ($9::int IS NULL
+       OR version = $9::int)
+RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
 `
 
 type UpdateCourtParams struct {
@@ -208,6 +222,8 @@ type UpdateCourtParams struct {
 	CourtType       CourtType   `json:"court_type"`
 	IsActive        bool        `json:"is_active"`
 	Description     pgtype.Text `json:"description"`
+	HasLighting     bool        `json:"has_lighting"`
+	Surface         pgtype.Text `json:"surface"`
 	ID              pgtype.UUID `json:"id"`
 	ExpectedVersion pgtype.Int4 `json:"expected_version"`
 }
@@ -223,6 +239,8 @@ func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court
 		arg.CourtType,
 		arg.IsActive,
 		arg.Description,
+		arg.HasLighting,
+		arg.Surface,
 		arg.ID,
 		arg.ExpectedVersion,
 	)
@@ -239,6 +257,8 @@ func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court
 		&i.UpdatedAt,
 		&i.Description,
 		&i.Version,
+		&i.HasLighting,
+		&i.Surface,
 	)
 	return i, err
 }

@@ -150,6 +150,10 @@ type CreateInput struct {
 	Sport       string
 	CourtType   string
 	Description *string
+	HasLighting bool
+	// Surface is validated against the court's sport by the handler; "" is no
+	// surface.
+	Surface *string
 }
 
 // Create adds a court to the complex and records it. A description of "" is
@@ -162,6 +166,8 @@ func (s *Service) Create(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		Sport:       in.Sport,
 		CourtType:   in.CourtType,
 		Description: emptyToNil(in.Description),
+		HasLighting: in.HasLighting,
+		Surface:     emptyToNil(in.Surface),
 	}
 
 	if err := s.courts.Insert(ctx, court); err != nil {
@@ -173,6 +179,12 @@ func (s *Service) Create(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	return court, nil
 }
 
+// SurfaceError is a surface the court's sport cannot take. The handler answers
+// it as a 422 on the surface field.
+type SurfaceError struct{ Message string }
+
+func (e *SurfaceError) Error() string { return "surface " + e.Message }
+
 // UpdateInput is a validated partial update. A nil field keeps its current
 // value.
 type UpdateInput struct {
@@ -181,6 +193,9 @@ type UpdateInput struct {
 	CourtType   *string
 	IsActive    *bool
 	Description *string
+	HasLighting *bool
+	// Surface: nil keeps the stored value, "" clears it, anything else sets it.
+	Surface *string
 	// ExpectedVersion is the version the client read before it filled in the
 	// form, from If-Match or the body. Nil means it sent none, and the write
 	// stays the last-write-wins it always was (API-08).
@@ -213,6 +228,20 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		// An empty string is how a client clears a description, so it lands as
 		// NULL rather than as a row holding "". Same fact, one representation.
 		court.Description = emptyToNil(in.Description)
+	}
+	if in.HasLighting != nil {
+		court.HasLighting = *in.HasLighting
+	}
+	if in.Surface != nil {
+		court.Surface = emptyToNil(in.Surface)
+	}
+	// The pair is judged after both are applied, so the sport a request sends
+	// (or the stored one) decides: a sport change that strands the stored
+	// surface is refused here, on the surface field.
+	if (in.Sport != nil || in.Surface != nil) && court.Surface != nil {
+		if msg := checkSurface(court.Sport, *court.Surface); msg != "" {
+			return nil, &SurfaceError{Message: msg}
+		}
 	}
 
 	err = s.courts.Update(ctx, court, in.ExpectedVersion)
@@ -459,7 +488,11 @@ type CourtAvailability struct {
 	// What the court is like, when the owner has said. Omitted rather than
 	// sent empty so the storefront renders nothing at all for a court that
 	// has never been described, instead of an empty line where text goes.
-	Description *string            `json:"description,omitempty"`
+	Description *string `json:"description,omitempty"`
+	// HasLighting and Surface are what a player weighs between two courts of
+	// the same sport; Surface is omitted when the owner has not said.
+	HasLighting bool               `json:"has_lighting"`
+	Surface     *string            `json:"surface,omitempty"`
 	Slots       []AvailabilitySlot `json:"slots"`
 }
 
@@ -692,6 +725,8 @@ func buildGrid(
 			Sport:       court.Sport,
 			CourtType:   court.CourtType,
 			Description: court.Description,
+			HasLighting: court.HasLighting,
+			Surface:     court.Surface,
 			Slots:       courtSlots,
 		})
 	}

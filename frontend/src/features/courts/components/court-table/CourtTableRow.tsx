@@ -4,6 +4,7 @@ import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useCourtRowActions } from '../court-card/useCourtRowActions';
+import { courtDetailsLine } from '../../lib/courtDetails';
 import { CourtDescriptionCell } from './CourtDescriptionCell';
 import { CourtPriceCell } from './CourtPriceCell';
 import { CourtRowActionsMenu } from './CourtRowActionsMenu';
@@ -31,12 +32,7 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
   return (
     <>
       <TableRow className={cn('border-border-subtle hover:bg-transparent', !court.is_active && 'opacity-60')}>
-        <TableCell className="max-w-56">
-          <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>
-            {court.name}
-          </p>
-          <p className="text-text-tertiary truncate text-xs">{t.courts.sportTypes[court.sport]}</p>
-        </TableCell>
+        <CourtNameCell court={court} />
 
         <TableCell className="text-text-secondary text-sm whitespace-nowrap">
           {t.courts.courtTypes[court.court_type]}
@@ -88,5 +84,22 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
         isLoading={isDeleting}
       />
     </>
+  );
+}
+
+function CourtNameCell({ court }: { court: CourtWithPrices }) {
+  const details = courtDetailsLine(court);
+  return (
+    <TableCell className="max-w-56">
+      <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>
+        {court.name}
+      </p>
+      <p className="text-text-tertiary truncate text-xs">{t.courts.sportTypes[court.sport]}</p>
+      {details && (
+        <p className="text-text-tertiary truncate text-xs" title={details}>
+          {details}
+        </p>
+      )}
+    </TableCell>
   );
 }

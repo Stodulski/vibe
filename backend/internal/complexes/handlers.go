@@ -790,6 +790,13 @@ var knownAmenities = map[string]bool{
 	"tournaments":     true,
 	"accessible":      true,
 	"match_recording": true,
+	"birthdays":       true,
+	"grill":           true,
+	"quincho":         true,
+	"medical_aid":     true,
+	"sports_school":   true,
+	"kiosk":           true,
+	"kids_area":       true,
 }
 
 // cleanAmenities drops duplicates and preserves the caller's order, returning

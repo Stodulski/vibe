@@ -1,6 +1,6 @@
 -- name: InsertCourt :one
-INSERT INTO courts (complex_id, name, sport, court_type, description)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO courts (complex_id, name, sport, court_type, description, has_lighting, surface)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetCourtByID :one
@@ -35,8 +35,10 @@ SET name = $1,
     sport = $2,
     court_type = $3,
     is_active = $4,
-    description = $5
-WHERE id = $6
+    description = $5,
+    has_lighting = $6,
+    surface = $7
+WHERE id = $8
   AND deleted_at IS NULL
   AND (sqlc.narg('expected_version')::int IS NULL
        OR version = sqlc.narg('expected_version')::int)

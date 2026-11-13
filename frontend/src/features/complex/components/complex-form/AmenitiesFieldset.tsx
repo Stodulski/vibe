@@ -13,7 +13,7 @@ const t = ES_AR;
  * The services a venue offers, as a group of checkboxes inside the complex
  * form.
  *
- * Checkboxes rather than a multi-select: there are twelve, they all fit, and
+ * Checkboxes rather than a multi-select: there are nineteen, they all fit, and
  * the question being answered is "which of these do I have" — faster to answer
  * from a visible list than from one hidden behind an interaction.
  *
@@ -47,7 +47,7 @@ export function AmenitiesFieldset({ control }: { control: Control<CreateComplexD
             </legend>
             {/* Two columns once the container can seat them, one below.
                 Stacked checkboxes give a single downward path, which is the
-                safer default — but twelve of them is 530px of scroll, and the
+                safer default — but nineteen of them is 800px of scroll, and the
                 save button ends up somewhere nobody has reached.
 
                 The threshold is the container's, not the viewport's, and it is
@@ -101,7 +101,7 @@ function AmenityCheckbox({
         className={cn('size-4 shrink-0', checked ? 'text-primary-400' : 'text-text-tertiary')}
         aria-hidden="true"
       />
-      <span className={cn('truncate text-sm', checked ? 'text-text-primary' : 'text-text-secondary')}>
+      <span className={cn('line-clamp-2 text-sm leading-tight', checked ? 'text-text-primary' : 'text-text-secondary')}>
         {amenity.label}
       </span>
     </label>

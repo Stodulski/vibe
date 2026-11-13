@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { timeToMinutes } from '@/shared/lib/time';
 import { hasAtMostTwoDecimals } from '@/shared/lib/money';
+import { COURT_SURFACES } from '../lib/surfaces';
 
 const t = ES_AR;
 
@@ -22,6 +23,11 @@ export const createCourtSchema = z.object({
   // not have to send "" to say so. The form does send a string, and an empty
   // one is folded back to null by the server.
   description: z.string().trim().max(200, t.validation.maxChars200).optional(),
+  has_lighting: z.boolean().optional(),
+  // '' is "no surface": on edit it is sent as-is and clears the stored one, on
+  // create it is dropped before the request. Whether a surface suits the sport
+  // is the server's call (422 on `surface`); the form only offers valid ones.
+  surface: z.enum(['', ...COURT_SURFACES]).optional(),
 });
 
 const priceItemSchema = z

@@ -11,6 +11,13 @@ import {
   Trophy,
   Accessibility,
   Video,
+  Cake,
+  Flame,
+  Home,
+  HeartPulse,
+  School,
+  Store,
+  Baby,
   type LucideIcon,
 } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -43,4 +50,11 @@ export const AMENITIES: { value: Amenity; label: string; icon: LucideIcon }[] = 
   { value: 'tournaments', label: t.complex.amenities.tournaments, icon: Trophy },
   { value: 'accessible', label: t.complex.amenities.accessible, icon: Accessibility },
   { value: 'match_recording', label: t.complex.amenities.match_recording, icon: Video },
+  { value: 'birthdays', label: t.complex.amenities.birthdays, icon: Cake },
+  { value: 'grill', label: t.complex.amenities.grill, icon: Flame },
+  { value: 'quincho', label: t.complex.amenities.quincho, icon: Home },
+  { value: 'medical_aid', label: t.complex.amenities.medical_aid, icon: HeartPulse },
+  { value: 'sports_school', label: t.complex.amenities.sports_school, icon: School },
+  { value: 'kiosk', label: t.complex.amenities.kiosk, icon: Store },
+  { value: 'kids_area', label: t.complex.amenities.kids_area, icon: Baby },
 ];

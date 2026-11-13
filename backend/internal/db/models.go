@@ -375,6 +375,8 @@ type ActiveCourt struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	Description pgtype.Text        `json:"description"`
 	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
 }
 
 type AuditLog struct {
@@ -558,6 +560,8 @@ type Court struct {
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
 	Description pgtype.Text        `json:"description"`
 	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
 }
 
 type CourtPrice struct {

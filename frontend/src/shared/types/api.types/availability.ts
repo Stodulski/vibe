@@ -13,13 +13,14 @@ import type { Open, Spec } from './spec';
 export type AvailabilitySlot = Spec<'AvailabilitySlot'>;
 
 /**
- * `sport` and `court_type` are read through {@link Open}. This is the public
+ * `sport`, `court_type` and `surface` are read through {@link Open}. This is the public
  * slot grid: a venue that adds a court in a sport this build predates must
  * cost that one court its label, not the whole day's availability.
  */
-export type CourtAvailability = Omit<Spec<'AvailabilityCourt'>, 'sport' | 'court_type'> & {
+export type CourtAvailability = Omit<Spec<'AvailabilityCourt'>, 'sport' | 'court_type' | 'surface'> & {
   sport: Open<Spec<'AvailabilityCourt'>['sport']>;
   court_type: Open<Spec<'AvailabilityCourt'>['court_type']>;
+  surface?: Open<NonNullable<Spec<'AvailabilityCourt'>['surface']>>;
 };
 
 export type AvailabilityData = Omit<Spec<'Availability'>, 'day' | 'courts'> & {

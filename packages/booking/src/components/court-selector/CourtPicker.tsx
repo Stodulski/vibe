@@ -1,7 +1,7 @@
 import { cn } from '@vibe/ui';
 import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import { COURT_TYPE_LABELS } from './constants';
+import { courtFactsLine } from '../../lib/courtFacts';
 import type { CourtAtTime, TimeOption } from './timeOptions';
 
 const t = BOOKING_MESSAGES;
@@ -47,8 +47,8 @@ function CourtCard({ entry, isSelected, onSelect }: CourtCardProps) {
       <span className={cn('w-full truncate text-sm font-semibold', emphasis)} title={court.court_name}>
         {court.court_name}
       </span>
-      <span className="text-text-tertiary text-xs">
-        {SPORT_LABELS[court.sport] ?? court.sport} · {COURT_TYPE_LABELS[court.court_type] ?? court.court_type}
+      <span className="text-text-tertiary w-full truncate text-xs" title={courtFactsLine(court)}>
+        {SPORT_LABELS[court.sport] ?? court.sport} · {courtFactsLine(court)}
       </span>
       <span className={cn('text-base font-semibold tabular-nums', emphasis)}>{formatPrice(slot.price)}</span>
       <span className={cn('text-xs', court.description ? 'text-text-secondary' : 'text-text-tertiary italic')}>

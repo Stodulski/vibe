@@ -29,6 +29,7 @@ function court(
     court_name: `Cancha ${id}`,
     sport: 'padel',
     court_type: type,
+    has_lighting: false,
     ...(description !== undefined ? { description } : {}),
     slots: [slot('20:00', price)],
   };
@@ -103,5 +104,20 @@ describe('CourtPicker — a single free court', () => {
     render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
 
     expect(screen.getAllByRole('button')).toHaveLength(1);
+  });
+});
+
+describe('CourtPicker — the facts line', () => {
+  it('shows the roof type always, the surface when set, and the lighting when true', () => {
+    const [option] = buildTimeOptions([
+      { ...court('1', 'indoor', 5000), surface: 'synthetic_grass', has_lighting: true },
+      court('2', 'outdoor', 5000),
+    ]);
+    if (!option) throw new Error('fixture must produce one time option');
+    render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
+
+    expect(screen.getByText('Pádel · Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
+    const plain = screen.getByText('Pádel · Descubierta');
+    expect(plain).toHaveClass('truncate');
   });
 });

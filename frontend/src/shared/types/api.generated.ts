@@ -2148,6 +2148,9 @@ export interface components {
             court_type: "indoor" | "outdoor" | "semi_covered";
             is_active: boolean;
             description?: string | null;
+            has_lighting: boolean;
+            /** @description Playing surface; null when the owner has not said. */
+            surface?: components["schemas"]["CourtSurface"] | null;
             /** Format: date-time */
             created_at: string;
             /** Format: date-time */
@@ -2155,6 +2158,8 @@ export interface components {
             /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
             version?: number;
         };
+        /** @enum {string} */
+        CourtSurface: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
         CourtWithPrices: components["schemas"]["Court"] & {
             prices: components["schemas"]["CourtPrice"][];
         };
@@ -2724,6 +2729,12 @@ export interface components {
             /** @enum {string} */
             court_type: "indoor" | "outdoor" | "semi_covered";
             description?: string;
+            has_lighting: boolean;
+            /**
+             * @description Omitted when the owner has not said.
+             * @enum {string}
+             */
+            surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
             slots: components["schemas"]["AvailabilitySlot"][];
         };
         AvailabilitySlot: {
@@ -5019,7 +5030,7 @@ export interface operations {
                     /** Format: double */
                     longitude?: number;
                     /** @description What the venue offers, from a closed vocabulary. Omitted or `[]` both mean none. */
-                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording")[];
+                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording" | "birthdays" | "grill" | "quincho" | "medical_aid" | "sports_school" | "kiosk" | "kids_area")[];
                 };
             };
         };
@@ -5118,7 +5129,7 @@ export interface operations {
                     latitude?: number;
                     /** Format: double */
                     longitude?: number;
-                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording")[];
+                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording" | "birthdays" | "grill" | "quincho" | "medical_aid" | "sports_school" | "kiosk" | "kids_area")[];
                 };
             };
         };
@@ -5742,6 +5753,13 @@ export interface operations {
                     /** @enum {string} */
                     court_type: "indoor" | "outdoor" | "semi_covered";
                     description?: string;
+                    /** @description Defaults to false when omitted. */
+                    has_lighting?: boolean;
+                    /**
+                     * @description Optional. Must be allowed for the court's sport.
+                     * @enum {string}
+                     */
+                    surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
                 };
             };
         };
@@ -5790,6 +5808,12 @@ export interface operations {
                     court_type?: "indoor" | "outdoor" | "semi_covered";
                     description?: string;
                     is_active?: boolean;
+                    has_lighting?: boolean;
+                    /**
+                     * @description Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
+                     * @enum {string}
+                     */
+                    surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber" | "";
                 };
             };
         };
