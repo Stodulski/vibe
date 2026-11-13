@@ -40,10 +40,11 @@ describe('LowStockAlert', () => {
     vi.clearAllMocks();
   });
 
-  it('shows a loading skeleton while the products query is in flight', () => {
+  it('renders nothing while the products query is in flight', () => {
     mockLoading();
-    renderWithProviders(<LowStockAlert complexId="c1" />);
-    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
+    const { container } = renderWithProviders(<LowStockAlert complexId="c1" />);
+    expect(container).toBeEmptyDOMElement();
+    expect(screen.queryByRole('status')).not.toBeInTheDocument();
   });
 
   it('renders nothing when there are no low-stock products', () => {

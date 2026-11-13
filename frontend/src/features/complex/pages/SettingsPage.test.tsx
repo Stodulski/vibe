@@ -7,9 +7,6 @@ vi.mock('@/shared/tour/useTourReady', () => ({ useTourReady: vi.fn() }));
 vi.mock('@/shared/components/common/PageHeader', () => ({
   PageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }));
-vi.mock('@/shared/components/common/Skeletons', () => ({
-  SkeletonSettings: () => <div data-testid="skeleton">Loading...</div>,
-}));
 vi.mock('@/shared/components/common/ConfirmDialog', () => ({ ConfirmDialog: () => null }));
 vi.mock('@/shared/components/ui/button', async () => {
   const { passthrough } = await import('@/test/ui-mocks');
@@ -48,7 +45,7 @@ describe('SettingsPage', () => {
     expect(screen.getByText('Configuración')).toBeInTheDocument();
   });
 
-  it('shows skeleton when loading', async () => {
+  it('renders nothing when there is no complex (the layout holds the shell until it loads)', async () => {
     vi.mocked(useSelectedComplex).mockReturnValue({
       complex: null,
       complexes: [],
@@ -61,8 +58,8 @@ describe('SettingsPage', () => {
       refetch: vi.fn(),
     });
     const SettingsPage = (await import('./SettingsPage')).default;
-    render(<SettingsPage />, { wrapper: createWrapper() });
-    expect(screen.getByTestId('skeleton')).toBeInTheDocument();
+    const { container } = render(<SettingsPage />, { wrapper: createWrapper() });
+    expect(container).toBeEmptyDOMElement();
   });
 
   it('shows general tab by default', async () => {
@@ -109,7 +106,6 @@ describe('SettingsPage error state', () => {
     render(<SettingsPage />, { wrapper: createWrapper() });
     expect(screen.getByText('No pudimos cargar los datos.')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Reintentar' })).toBeInTheDocument();
-    expect(screen.queryByTestId('skeleton')).not.toBeInTheDocument();
     expect(screen.queryByTestId('complex-form')).not.toBeInTheDocument();
   });
 

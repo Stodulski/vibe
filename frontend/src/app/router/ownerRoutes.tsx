@@ -1,8 +1,18 @@
 import { Outlet, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { SkeletonDashboard, SkeletonSettings, SkeletonBookings } from '@/shared/components/common/Skeletons';
-import { lazyPage, lazyShell, ownerPage } from './routeHelpers';
+import {
+  cashFallback,
+  cashSellFallback,
+  cashSessionFallback,
+  lazyPage,
+  lazyShell,
+  ownerPage,
+  productDetailFallback,
+  productsFallback,
+} from './routeHelpers';
 import { PageLoader } from './loaders';
+import { AppShellLoader } from '@/app/layout/AppShellLoader';
 
 // One pathless guard instead of a `<ProtectedRoute>` per element: the three
 // pages below share exactly the same guard, and repeating it remounted the
@@ -30,8 +40,11 @@ export const ownerStandaloneRoutes: RouteObject[] = [
 export const ownerDashboardRoutes: RouteObject[] = [
   {
     element: (
-      <ProtectedRoute>
-        {lazyShell(() => import('@/app/layout/DashboardLayout').then((m) => ({ default: m.DashboardLayout })))}
+      <ProtectedRoute loadingFallback={<AppShellLoader />}>
+        {lazyShell(
+          () => import('@/app/layout/DashboardLayout').then((m) => ({ default: m.DashboardLayout })),
+          <AppShellLoader />,
+        )}
       </ProtectedRoute>
     ),
     children: [
@@ -45,23 +58,23 @@ export const ownerDashboardRoutes: RouteObject[] = [
       },
       {
         path: '/cash',
-        element: ownerPage(() => import('@/features/cash/pages/CashPage')),
+        element: ownerPage(() => import('@/features/cash/pages/CashPage'), cashFallback()),
       },
       {
         path: '/cash/sell',
-        element: ownerPage(() => import('@/features/cash/pages/CashSellPage')),
+        element: ownerPage(() => import('@/features/cash/pages/CashSellPage'), cashSellFallback()),
       },
       {
         path: '/cash/sessions/:sessionId',
-        element: ownerPage(() => import('@/features/cash/pages/CashSessionDetailPage')),
+        element: ownerPage(() => import('@/features/cash/pages/CashSessionDetailPage'), cashSessionFallback()),
       },
       {
         path: '/cash/products',
-        element: ownerPage(() => import('@/features/products/pages/ProductsPage')),
+        element: ownerPage(() => import('@/features/products/pages/ProductsPage'), productsFallback()),
       },
       {
         path: '/cash/products/:productId',
-        element: ownerPage(() => import('@/features/products/pages/ProductDetailPage')),
+        element: ownerPage(() => import('@/features/products/pages/ProductDetailPage'), productDetailFallback()),
       },
       {
         path: '/courts',

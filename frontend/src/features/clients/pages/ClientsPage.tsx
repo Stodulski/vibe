@@ -23,6 +23,7 @@ export default function ClientsPage() {
           searchInput={state.searchInput}
           onSearchChange={state.setSearchInput}
           clientCount={state.clients.length}
+          isLoading={state.isLoading}
         />
 
         <ClientsContent

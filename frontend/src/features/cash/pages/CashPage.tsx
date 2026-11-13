@@ -1,13 +1,13 @@
 import { AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { SkeletonTable } from '@/shared/components/common/Skeletons';
 import { CashSectionTabs } from '@/shared/components/common/CashSectionTabs';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useCashPage } from './cash/useCashPage';
 import { ClosedCashView } from './cash/ClosedCashView';
 import { OpenCashView } from './cash/OpenCashView';
+import { CashSummarySkeleton } from '../components/skeletons/CashSummarySkeleton';
 import { CloseCashSessionDialog } from '../components/CloseCashSessionDialog';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 
@@ -72,7 +72,7 @@ function onOpenCloseDialog(state: ReturnType<typeof useCashPage>) {
 function CashPageBody({ complexId, state }: { complexId: string; state: ReturnType<typeof useCashPage> }) {
   const { sessionQuery } = state;
 
-  if (sessionQuery.isLoading) return <SkeletonTable rows={4} mobile="flat" />;
+  if (sessionQuery.isLoading) return <CashSummarySkeleton />;
 
   // Only the full-screen error when there is nothing cached to fall back on —
   // a background refetch failure (window focus, reconnect) with `data` still

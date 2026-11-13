@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
 import { MPConnectCard } from './MPConnectCard';
+import { ES_AR } from '@/shared/i18n/es_AR';
 
 const buildMPAuthUrl = vi.fn((..._args: unknown[]) => 'https://mp.test/auth?code=test');
 vi.mock('@/shared/lib/mpAuth', () => ({
@@ -14,6 +15,7 @@ let mockMpStatus: { connected: boolean; mp_user_id: string | null; app_id?: stri
   mp_user_id: null,
 };
 let mockMpStatusIsError = false;
+let mockMpStatusIsLoading = false;
 const mockRefetch = vi.fn();
 
 vi.mock('@tanstack/react-query', async () => {
@@ -22,6 +24,9 @@ vi.mock('@tanstack/react-query', async () => {
     ...actual,
     useQuery: (opts: { queryKey: string[] }) => {
       if (opts.queryKey.some((k) => typeof k === 'string' && k.includes('mp-status'))) {
+        if (mockMpStatusIsLoading) {
+          return { data: undefined, isLoading: true, isError: false, refetch: mockRefetch };
+        }
         if (mockMpStatusIsError) {
           return { data: undefined, isLoading: false, isError: true, refetch: mockRefetch };
         }
@@ -41,6 +46,7 @@ describe('MPConnectCard', () => {
     vi.clearAllMocks();
     mockMpStatus = { connected: false, mp_user_id: null };
     mockMpStatusIsError = false;
+    mockMpStatusIsLoading = false;
     sessionStorage.clear();
   });
 
@@ -119,6 +125,7 @@ describe('MPConnectCard OAuth attempt', () => {
     vi.clearAllMocks();
     mockMpStatus = { connected: false, mp_user_id: null };
     mockMpStatusIsError = false;
+    mockMpStatusIsLoading = false;
     sessionStorage.clear();
   });
 
@@ -130,5 +137,22 @@ describe('MPConnectCard OAuth attempt', () => {
       expect(screen.getByRole('link', { name: /conectar/i })).toBeInTheDocument();
     });
     expect(sessionStorage.length).toBe(0);
+  });
+});
+
+describe('MPConnectCard loading', () => {
+  beforeEach(() => {
+    mockMpStatusIsLoading = false;
+  });
+
+  // While mp/status loads, the card shows a labelled placeholder rather than a
+  // spinner, and no connect control yet.
+  it('shows a labelled loading placeholder, not a spinner, while mp/status loads', () => {
+    mockMpStatusIsLoading = true;
+    const { container } = renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
+
+    expect(screen.getByRole('status', { name: ES_AR.common.loading })).toBeInTheDocument();
+    expect(container.querySelector('.animate-spin')).toBeNull();
+    expect(screen.queryByRole('link', { name: /conectar/i })).not.toBeInTheDocument();
   });
 });
