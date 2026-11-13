@@ -19,22 +19,11 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
     // the logo reads as falling off the photo rather than resting on it.
     <div className="-mt-10 mb-4 ml-4 sm:-mt-12">
       {logoUrl ? (
-        // Same treatment as the cover: an opaque tile, the logo blurred and
-        // dimmed behind, the logo whole on top. A transparent logo otherwise
-        // shows the cover through its top half and the page through its
-        // bottom half, and a non-square one loses its edges to the crop.
+        // The upload flow crops logos to a square, so the image fills the tile.
+        // Eager on purpose: this is above the fold on the storefront. The
+        // intrinsic size is the square the upload pipeline crops logos to, so
+        // the box is reserved before the file arrives (PERF-08).
         <div className="border-bg-subtle bg-bg-elevated relative size-20 overflow-hidden rounded-2xl border-2 shadow-md sm:size-24">
-          {/* Decorative: empty alt, hidden from assistive tech, same URL so no extra request. */}
-          <img
-            src={logoUrl}
-            alt=""
-            aria-hidden="true"
-            decoding="async"
-            className="absolute inset-0 h-full w-full scale-125 object-cover opacity-50 blur-md"
-          />
-          {/* Eager on purpose: this is above the fold on the storefront. The
-              intrinsic size is the square the upload pipeline caps logos to,
-              so the box is reserved before the file arrives (PERF-08). */}
           <img
             src={logoUrl}
             alt={complexLogoAlt(name)}
@@ -42,7 +31,7 @@ export function ComplexLogo({ logoUrl, name }: ComplexLogoProps) {
             decoding="async"
             width={512}
             height={512}
-            className="relative h-full w-full object-contain p-1.5"
+            className="h-full w-full object-cover"
           />
         </div>
       ) : (

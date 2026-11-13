@@ -4,6 +4,7 @@ import { ImageUpload } from './ImageUpload';
 import type { Complex } from '@/shared/types/api.types';
 
 vi.mock('../hooks/useUploadImage', () => ({
+  validateImageFile: () => null,
   useUploadImage: () => ({
     mutate: vi.fn(),
     isPending: false,

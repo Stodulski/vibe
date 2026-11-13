@@ -25,10 +25,10 @@ vi.mock('../api/complex.api', () => ({
   },
 }));
 
-vi.mock('../utils/compressImage', () => ({
-  compressImage: vi.fn().mockResolvedValue(new Blob(['x'], { type: 'image/webp' })),
-  LOGO_OPTIONS: {},
-  COVER_OPTIONS: {},
+vi.mock('../lib/cropImage', () => ({
+  cropImage: vi.fn().mockResolvedValue(new Blob(['x'], { type: 'image/webp' })),
+  LOGO_TARGET: {},
+  COVER_TARGET: {},
 }));
 
 vi.mock('sonner', () => ({ toast: { success: vi.fn(), error: vi.fn() } }));
@@ -57,6 +57,7 @@ describe('useUploadImage', () => {
     result.current.mutate({
       file: new File(['x'], 'logo.png', { type: 'image/png' }),
       type: 'logo',
+      crop: { x: 0, y: 0, width: 1, height: 1 },
     });
 
     await waitFor(() => {
@@ -68,17 +69,18 @@ describe('useUploadImage', () => {
   });
 
   // ERR-02: a raw, untranslated error from outside the app's own validation
-  // (here standing in for `compressImage`'s `createImageBitmap` throwing a
+  // (here standing in for `cropImage`'s `createImageBitmap` throwing a
   // browser-internal DOMException) must not reach the toast verbatim.
   it('reports the generic i18n upload error, not a raw technical message, for an unexpected failure', async () => {
-    const { compressImage } = await import('../utils/compressImage');
-    vi.mocked(compressImage).mockRejectedValueOnce(new Error('The source image could not be decoded'));
+    const { cropImage } = await import('../lib/cropImage');
+    vi.mocked(cropImage).mockRejectedValueOnce(new Error('The source image could not be decoded'));
     const { toast } = await import('sonner');
 
     const { result } = renderHook(() => useUploadImage('c1'), { wrapper: createQueryWrapper() });
     result.current.mutate({
       file: new File(['x'], 'logo.png', { type: 'image/png' }),
       type: 'logo',
+      crop: { x: 0, y: 0, width: 1, height: 1 },
     });
 
     await waitFor(() => {
@@ -99,6 +101,7 @@ describe('useUploadImage', () => {
     result.current.mutate({
       file: new File(['x'], 'logo.gif', { type: 'image/gif' }),
       type: 'logo',
+      crop: { x: 0, y: 0, width: 1, height: 1 },
     });
 
     await waitFor(() => {

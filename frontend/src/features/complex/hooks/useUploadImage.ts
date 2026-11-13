@@ -3,7 +3,7 @@ import { toast } from 'sonner';
 import { captureException } from '@/shared/lib/observability';
 import { uploadApi } from '../api/upload.api';
 import { complexApi } from '../api/complex.api';
-import { compressImage, LOGO_OPTIONS, COVER_OPTIONS } from '../utils/compressImage';
+import { cropImage, LOGO_TARGET, COVER_TARGET, type CropArea } from '../lib/cropImage';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
@@ -26,24 +26,28 @@ const KNOWN_VALIDATION_MESSAGES = new Set<string>([t.complex.imageInvalidType, t
 interface UploadParams {
   file: File;
   type: 'logo' | 'cover';
+  /** The part of `file` the owner chose, in the file's own pixels. */
+  crop: CropArea;
+}
+
+/** The message for a file the upload would reject, or null when it is acceptable. */
+export function validateImageFile(file: File): string | null {
+  if (!ACCEPTED_TYPES.includes(file.type)) return t.complex.imageInvalidType;
+  if (file.size > MAX_INPUT_SIZE) return t.complex.imageTooLarge;
+  return null;
 }
 
 export function useUploadImage(complexId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: async ({ file, type }: UploadParams) => {
-      // Validate input
-      if (!ACCEPTED_TYPES.includes(file.type)) {
-        throw new Error(t.complex.imageInvalidType);
-      }
-      if (file.size > MAX_INPUT_SIZE) {
-        throw new Error(t.complex.imageTooLarge);
-      }
+    mutationFn: async ({ file, type, crop }: UploadParams) => {
+      const invalid = validateImageFile(file);
+      if (invalid) throw new Error(invalid);
 
-      // Compress to WebP
-      const options = type === 'logo' ? LOGO_OPTIONS : COVER_OPTIONS;
-      const compressed = await compressImage(file, options);
+      // Crop to the exact size and encode as WebP
+      const target = type === 'logo' ? LOGO_TARGET : COVER_TARGET;
+      const compressed = await cropImage(file, crop, target);
 
       // Get presigned URL
       const { upload_url, public_url } = await uploadApi.presign(complexId, {
