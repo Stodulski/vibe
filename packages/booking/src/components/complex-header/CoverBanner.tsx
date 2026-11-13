@@ -7,14 +7,15 @@ interface CoverBannerProps {
 }
 
 /**
- * The club's cover, always present and always 16:9, shown whole: an image
- * of another shape sits centred over a blurred copy of itself.
+ * The club's cover, always present and always 16:9, filled edge to edge.
  *
- * 16:9 is the ratio owners are asked to upload, so it is the ratio the page
- * owes them: capping a photo would centre-crop the frame they chose. The
- * placeholder keeps the same box on purpose. A club without a photo yet must
- * not look like a different page than a club with one, and the box must not
- * jump in height the day the owner uploads a picture.
+ * The upload flow crops every cover to exactly 16:9 (the owner picks the
+ * framing), so the photo fills the box. Covers uploaded before the cropper
+ * existed may have another ratio; those are centre-cropped by `object-cover`
+ * until the owner uploads again. The placeholder keeps the same box on
+ * purpose. A club without a photo yet must not look like a different page
+ * than a club with one, and the box must not jump in height the day the
+ * owner uploads a picture.
  *
  * The cost is known: on a 1023×768 laptop the stacked placeholder is 608×342,
  * 45% of the screen's height, and the first bookable hour lands nearly two
@@ -27,36 +28,21 @@ export function CoverBanner({ coverUrl, alt }: CoverBannerProps) {
   return (
     <div className="bg-bg-subtle relative aspect-[16/9] w-full overflow-hidden rounded-xl">
       {coverUrl ? (
-        <>
-          {/* The same file, blurred and dimmed, fills the box behind the
-              photo. Owners upload logos, square or vertical shots and
-              transparent PNGs as covers; cropping them to 16:9 cut them
-              apart. A 16:9 photo covers this layer entirely. Decorative:
-              empty alt, hidden from assistive tech, same URL so no extra
-              request. */}
-          <img
-            src={coverUrl}
-            alt=""
-            aria-hidden="true"
-            decoding="async"
-            className="absolute inset-0 h-full w-full scale-110 object-cover opacity-50 blur-2xl"
-          />
-          {/* width/height are the bounds the upload pipeline compresses covers
-              to; the 16:9 box above already prevents the shift, this just makes
-              the ratio explicit to the browser (PERF-08). The alt is descriptive
-              rather than empty: the photo is content, and Google Images indexes
-              a complex's cover through its <img> and alt text. */}
-          <img
-            src={coverUrl}
-            alt={alt}
-            loading="eager"
-            fetchPriority="high"
-            decoding="async"
-            width={1280}
-            height={720}
-            className="relative h-full w-full object-contain"
-          />
-        </>
+        // width/height are the size the upload pipeline crops covers to; the
+        // 16:9 box above already prevents the shift, this just makes the ratio
+        // explicit to the browser (PERF-08). The alt is descriptive rather than
+        // empty: the photo is content, and Google Images indexes a complex's
+        // cover through its <img> and alt text.
+        <img
+          src={coverUrl}
+          alt={alt}
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          width={1280}
+          height={720}
+          className="h-full w-full object-cover"
+        />
       ) : (
         <CoverPlaceholder />
       )}

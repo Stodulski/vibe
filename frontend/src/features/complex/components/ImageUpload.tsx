@@ -4,14 +4,15 @@ import { cn } from '@/shared/lib/utils';
 import type { Complex } from '@/shared/types/api.types';
 import { useImageSlot } from './useImageSlot';
 import { ImageDeleteConfirm } from './ImageDeleteConfirm';
+import { ImageCropDialog } from './image-upload/ImageCropDialog';
 
 const t = ES_AR;
 
 const ACCEPTED = 'image/jpeg,image/png,image/webp';
 
 /**
- * The bounds `compressImage` caps each kind of upload to
- * (LOGO_OPTIONS/COVER_OPTIONS), which is what a preview's intrinsic size
+ * The exact size each kind of upload is cropped to
+ * (LOGO_TARGET/COVER_TARGET), which is what a preview's intrinsic size
  * is: it tells the browser the ratio to reserve before the file loads
  * (PERF-08).
  */
@@ -114,7 +115,10 @@ function Slot({
   rounded?: boolean;
   empty: React.ReactNode;
 }) {
-  const { fileRef, isLoading, handleFileChange, deleteMutation } = useImageSlot(complexId, type);
+  const { fileRef, isLoading, handleFileChange, deleteMutation, pending, cancelCrop, confirmCrop } = useImageSlot(
+    complexId,
+    type,
+  );
 
   return (
     <div className={cn('group/slot relative overflow-hidden', className)}>
@@ -132,29 +136,66 @@ function Slot({
           rounded && 'rounded-2xl',
         )}
       >
-        {isLoading ? (
-          <div className="border-primary-500/30 border-t-primary-500 size-5 animate-spin rounded-full border-2" />
-        ) : url ? (
-          <SlotPreview url={url} label={label} type={type} />
-        ) : (
-          empty
-        )}
-        {!isLoading && url && (
-          <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-[background-color,opacity] group-hover/slot:bg-black/40 group-hover/slot:opacity-100">
-            <Upload className="size-4 text-white" />
-          </span>
-        )}
+        <SlotFace isLoading={isLoading} url={url} label={label} type={type} empty={empty} />
       </button>
+      {pending && (
+        <ImageCropDialog
+          src={pending.url}
+          aspect={type === 'logo' ? 1 : 16 / 9}
+          small={pending.small}
+          onCancel={cancelCrop}
+          onConfirm={confirmCrop}
+        />
+      )}
       {url && (
-        <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
-          <ImageDeleteConfirm
-            disabled={isLoading}
-            onConfirm={() => {
-              deleteMutation.mutate({ type, currentUrl: url });
-            }}
-          />
-        </div>
+        <SlotDelete
+          disabled={isLoading}
+          onConfirm={() => {
+            deleteMutation.mutate({ type, currentUrl: url });
+          }}
+        />
       )}
     </div>
+  );
+}
+
+/** The delete control, revealed on hover or focus over the slot. */
+function SlotDelete({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+  return (
+    <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
+      <ImageDeleteConfirm disabled={disabled} onConfirm={onConfirm} />
+    </div>
+  );
+}
+
+/** What the slot button shows: a spinner while busy, the image, or the empty state. */
+function SlotFace({
+  isLoading,
+  url,
+  label,
+  type,
+  empty,
+}: {
+  isLoading: boolean;
+  url: string | null | undefined;
+  label: string;
+  type: 'logo' | 'cover';
+  empty: React.ReactNode;
+}) {
+  return (
+    <>
+      {isLoading ? (
+        <div className="border-primary-500/30 border-t-primary-500 size-5 animate-spin rounded-full border-2" />
+      ) : url ? (
+        <SlotPreview url={url} label={label} type={type} />
+      ) : (
+        empty
+      )}
+      {!isLoading && url && (
+        <span className="absolute inset-0 flex items-center justify-center bg-black/0 opacity-0 transition-[background-color,opacity] group-hover/slot:bg-black/40 group-hover/slot:opacity-100">
+          <Upload className="size-4 text-white" />
+        </span>
+      )}
+    </>
   );
 }

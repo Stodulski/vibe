@@ -24,10 +24,10 @@ vi.mock('../api/upload.api', () => ({
   },
 }));
 
-vi.mock('../utils/compressImage', () => ({
-  compressImage: vi.fn().mockResolvedValue(new Blob()),
-  LOGO_OPTIONS: {},
-  COVER_OPTIONS: {},
+vi.mock('../lib/cropImage', () => ({
+  cropImage: vi.fn().mockResolvedValue(new Blob()),
+  LOGO_TARGET: {},
+  COVER_TARGET: {},
 }));
 
 vi.mock('@/shared/lib/queryKeys', () => ({
