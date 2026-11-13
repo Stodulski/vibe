@@ -20,7 +20,7 @@ export const COURT_SURFACES: readonly CourtSurface[] = [
  * surface outside its sport's list with a 422. This copy only keeps the form
  * from offering a choice the server would reject.
  */
-export const SURFACES_BY_SPORT: Record<Sport, readonly CourtSurface[]> = {
+const SURFACES_BY_SPORT: Record<Sport, readonly CourtSurface[]> = {
   soccer: ['synthetic_grass', 'natural_grass', 'concrete', 'parquet', 'synthetic_floor', 'sand', 'rubber'],
   padel: ['synthetic_grass', 'concrete'],
   tennis: ['synthetic_grass', 'natural_grass', 'clay', 'concrete', 'synthetic_floor'],

@@ -26,7 +26,7 @@ export const sportSchema = z.enum([
 
 export const courtTypeSchema = z.enum(['indoor', 'outdoor', 'semi_covered']) satisfies z.ZodType<CourtType>;
 
-export const courtSurfaceSchema = z.enum([
+const courtSurfaceSchema = z.enum([
   'synthetic_grass',
   'natural_grass',
   'clay',
