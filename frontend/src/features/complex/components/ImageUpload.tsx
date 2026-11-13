@@ -142,6 +142,7 @@ function Slot({
         <ImageCropDialog
           src={pending.url}
           aspect={type === 'logo' ? 1 : 16 / 9}
+          small={pending.small}
           onCancel={cancelCrop}
           onConfirm={confirmCrop}
         />

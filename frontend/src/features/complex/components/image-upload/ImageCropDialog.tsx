@@ -36,6 +36,17 @@ function ZoomSlider({ zoom, onChange }: { zoom: number; onChange: (zoom: number)
   );
 }
 
+/** Title, hint, and a warning when the source will be enlarged. */
+function CropHeader({ small }: { small: boolean }) {
+  return (
+    <DialogHeader>
+      <DialogTitle>{t.complex.cropTitle}</DialogTitle>
+      <DialogDescription>{t.complex.cropHint}</DialogDescription>
+      {small && <p className="text-warning-text text-xs">{t.complex.cropSmallImage}</p>}
+    </DialogHeader>
+  );
+}
+
 /**
  * Lets the owner decide which part of the picked image is kept, at the fixed
  * ratio the image is shown at (16:9 cover, square logo). The crop is only
@@ -44,11 +55,14 @@ function ZoomSlider({ zoom, onChange }: { zoom: number; onChange: (zoom: number)
 export function ImageCropDialog({
   src,
   aspect,
+  small = false,
   onCancel,
   onConfirm,
 }: {
   src: string;
   aspect: number;
+  /** The source is smaller than the uploaded size, so it will be enlarged. */
+  small?: boolean;
   onCancel: () => void;
   onConfirm: (area: CropArea) => void;
 }) {
@@ -64,10 +78,7 @@ export function ImageCropDialog({
       }}
     >
       <DialogContent showCloseButton={false}>
-        <DialogHeader>
-          <DialogTitle>{t.complex.cropTitle}</DialogTitle>
-          <DialogDescription>{t.complex.cropHint}</DialogDescription>
-        </DialogHeader>
+        <CropHeader small={small} />
         <div className="bg-bg-base relative min-h-64 flex-1 overflow-hidden rounded-lg sm:h-80 sm:flex-none">
           <Cropper
             image={src}

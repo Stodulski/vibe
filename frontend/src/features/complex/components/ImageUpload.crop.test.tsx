@@ -6,6 +6,33 @@ import { ImageUpload } from './ImageUpload';
 import type { Complex } from '@/shared/types/api.types';
 
 const mockUpload = vi.hoisted(() => vi.fn());
+const mockToastError = vi.hoisted(() => vi.fn());
+
+vi.mock('sonner', () => ({ toast: { error: mockToastError, success: vi.fn() } }));
+
+/**
+ * happy-dom does not decode images. This stand-in "decodes" a file by its
+ * name: `broken.*` fails, `small.*` is 300x300, anything else is 3000x2000.
+ */
+let decodeAs: 'ok' | 'small' | 'broken' = 'ok';
+class FakeImage {
+  naturalWidth = 0;
+  naturalHeight = 0;
+  onload: (() => void) | null = null;
+  onerror: (() => void) | null = null;
+  set src(_url: string) {
+    queueMicrotask(() => {
+      if (decodeAs === 'broken') {
+        this.onerror?.();
+        return;
+      }
+      const side = decodeAs === 'small' ? 300 : 3000;
+      this.naturalWidth = side;
+      this.naturalHeight = decodeAs === 'small' ? 300 : 2000;
+      this.onload?.();
+    });
+  }
+}
 
 const CROP_AREA = { x: 10, y: 20, width: 160, height: 90 };
 
@@ -60,7 +87,11 @@ describe('crop dialog', () => {
   const png = new File(['x'], 'a.png', { type: 'image/png' });
 
   beforeEach(() => {
+    decodeAs = 'ok';
+    mockUpload.mockClear();
+    mockToastError.mockClear();
     vi.stubGlobal('URL', Object.assign(URL, { createObjectURL: () => 'blob:x', revokeObjectURL: vi.fn() }));
+    vi.stubGlobal('Image', FakeImage);
   });
 
   it('opens on file select instead of uploading', async () => {
@@ -96,5 +127,32 @@ describe('crop dialog', () => {
 
     expect(screen.queryByText('Recortá la imagen')).not.toBeInTheDocument();
     expect(mockUpload).not.toHaveBeenCalled();
+  });
+
+  it('shows an error and no dialog when the file is not a readable image', async () => {
+    decodeAs = 'broken';
+    render(<ImageUpload complex={mockComplex} />);
+    pick('Portada', png);
+
+    await vi.waitFor(() => {
+      expect(mockToastError).toHaveBeenCalledWith('No pudimos abrir la imagen. Probá con otro archivo.');
+    });
+    expect(screen.queryByText('Recortá la imagen')).not.toBeInTheDocument();
+  });
+
+  it('warns that an image smaller than the upload size may look blurry', async () => {
+    decodeAs = 'small';
+    render(<ImageUpload complex={mockComplex} />);
+    pick('Portada', png);
+
+    expect(await screen.findByText(/puede verse borrosa/)).toBeInTheDocument();
+  });
+
+  it('does not warn for an image at least as large as the upload size', async () => {
+    render(<ImageUpload complex={mockComplex} />);
+    pick('Portada', png);
+
+    await screen.findByText('Recortá la imagen');
+    expect(screen.queryByText(/puede verse borrosa/)).not.toBeInTheDocument();
   });
 });
