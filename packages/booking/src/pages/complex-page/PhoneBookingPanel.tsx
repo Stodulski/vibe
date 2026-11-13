@@ -26,8 +26,14 @@ export function PhoneBookingPanel({ phone }: { phone: string }) {
   // rather than shown with a heading and no way to act on it.
   if (!href) return null;
 
+  // `data-nosnippet`: this panel depends on whether the complex takes online
+  // payments, which changes, so search engines must not quote it as the
+  // page's description (owner rule: no "Reservá por WhatsApp" in results).
   return (
-    <section className="lg:border-border-subtle lg:bg-bg-subtle flex flex-col items-start gap-4 py-10 text-left lg:rounded-2xl lg:border lg:px-6">
+    <section
+      data-nosnippet
+      className="lg:border-border-subtle lg:bg-bg-subtle flex flex-col items-start gap-4 py-10 text-left lg:rounded-2xl lg:border lg:px-6"
+    >
       <div className="space-y-2">
         <h2 className="text-text-primary text-lg font-semibold">{t.publicBooking.phoneOnlyTitle}</h2>
         <p className="text-text-secondary max-w-sm text-sm">{t.publicBooking.phoneOnlyDescription}</p>

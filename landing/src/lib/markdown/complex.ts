@@ -23,12 +23,11 @@ export function complexMarkdown(facts: ComplexFacts, origin: string = SITE): str
     const sports = joinSpanish(facts.sports.map((sport) => sport.label.toLowerCase()));
     faq.push([`¿Qué deportes se juegan en ${facts.name}?`, `En ${facts.name} hay canchas de ${sports}.`]);
   }
-  faq.push([
-    `¿Cómo reservo en ${facts.name}?`,
-    facts.online
-      ? `Reservá online en ${booking}: elegí fecha, deporte y horario.`
-      : `Reservá por WhatsApp${wa ? `: ${wa}` : '.'}`,
-  ]);
+  // Only when the complex books online: a "por WhatsApp" answer would go stale
+  // the day it connects payments (owner rule: never "Reservá por WhatsApp").
+  if (facts.online) {
+    faq.push([`¿Cómo reservo en ${facts.name}?`, `Reservá online en ${booking}: elegí fecha, deporte y horario.`]);
+  }
   if (facts.amenities.length > 0) {
     faq.push([`¿Qué servicios tiene ${facts.name}?`, `${joinSpanish(facts.amenities)}.`]);
   }

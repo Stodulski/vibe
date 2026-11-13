@@ -227,13 +227,13 @@ test('a complex page gives its WhatsApp link from the phone digits, as the booki
   assert.ok(md.includes('https://wa.me/5491124638281'));
 });
 
-test('a complex that takes payments online says so, and one that does not says WhatsApp', () => {
+test('a complex that takes payments online says so, and one that does not never says "Reservá por WhatsApp"', () => {
   const online = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
   assert.ok(online.includes('Reservá online'));
   const offline = complexMarkdown(
     complexFactsOf('la-zona-f5', { ...complexPayload, complex: { ...complexPayload.complex, payments_enabled: false } }, labels),
   );
-  assert.ok(offline.includes('Reservá por WhatsApp'));
+  assert.equal(offline.includes('Reservá por WhatsApp'), false);
   assert.equal(offline.includes('Reservá online'), false);
 });
 
@@ -254,10 +254,9 @@ test('the complex description comes from the complex, or from the page copy when
     slug: 'la-zona-f5',
     name: 'La Zona F5',
     city: 'Rosario',
-    online: true,
+    address: complexPayload.complex.address,
     sports: ['Pádel'],
     services: ['Estacionamiento', 'Bar'],
-    courtCount: 2,
     ownImage: null,
   }).description;
   assert.ok(bare.includes(pageCopy), 'the page meta description is the fallback');
