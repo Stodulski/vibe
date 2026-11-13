@@ -7,7 +7,7 @@ import { Skeleton } from '@/shared/components/ui/skeleton';
  */
 export function ProfilePageSkeleton() {
   return (
-    <div className="animate-fade-in">
+    <div>
       <Skeleton className="mb-3 h-7 w-32 rounded-lg sm:mb-5 md:hidden" />
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">
         <Skeleton className="h-11 w-full rounded-xl lg:hidden" />

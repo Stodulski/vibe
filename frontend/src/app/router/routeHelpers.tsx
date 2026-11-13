@@ -124,7 +124,7 @@ function backLinkPlaceholder() {
 /** Cold-load fallback for `/cash`: title, tabs, then the shift summary. */
 export function cashFallback() {
   return (
-    <div className="animate-fade-in">
+    <div>
       {titlePlaceholder()}
       {cashTabsPlaceholder()}
       <CashSummarySkeleton />
@@ -135,7 +135,7 @@ export function cashFallback() {
 /** Cold-load fallback for `/cash/sell`. */
 export function cashSellFallback() {
   return (
-    <div className="animate-fade-in">
+    <div>
       {titlePlaceholder()}
       {cashTabsPlaceholder()}
       <CashSellSkeleton />
@@ -146,7 +146,7 @@ export function cashSellFallback() {
 /** Cold-load fallback for `/cash/sessions/:id`: back link, title, closed-session summary. */
 export function cashSessionFallback() {
   return (
-    <div className="animate-fade-in max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       {backLinkPlaceholder()}
       {titlePlaceholder('w-40')}
       <CashSummarySkeleton showActions={false} />
@@ -157,7 +157,7 @@ export function cashSessionFallback() {
 /** Cold-load fallback for `/cash/products`: title + create button, tabs, search row, catalog. */
 export function productsFallback() {
   return (
-    <div className="animate-fade-in">
+    <div>
       <div className="mb-3 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-7 w-32 rounded-lg md:hidden" />
         <Skeleton className="h-10 w-full rounded-xl sm:w-40 md:ml-auto" />
@@ -174,7 +174,7 @@ export function productsFallback() {
 /** Cold-load fallback for `/cash/products/:id`: back link, title, detail. */
 export function productDetailFallback() {
   return (
-    <div className="animate-fade-in space-y-4">
+    <div className="space-y-4">
       {backLinkPlaceholder()}
       {titlePlaceholder('w-40')}
       <ProductDetailSkeleton />

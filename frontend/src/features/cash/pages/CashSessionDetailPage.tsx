@@ -24,7 +24,7 @@ export default function CashSessionDetailPage() {
   if (!selectedComplexId) return null;
 
   return (
-    <div className="animate-fade-in max-w-3xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <Link
         to="/cash"
         className="text-text-tertiary hover:text-text-secondary flex items-center gap-1.5 text-sm transition-colors"

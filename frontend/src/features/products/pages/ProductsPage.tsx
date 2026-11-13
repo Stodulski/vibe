@@ -17,7 +17,7 @@ export default function ProductsPage() {
   if (!state.complexId) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader
         title={t.products.title}
         action={{

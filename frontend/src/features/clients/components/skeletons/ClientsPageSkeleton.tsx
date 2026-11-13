@@ -7,7 +7,7 @@ import { ClientsListSkeleton } from './ClientsListSkeleton';
  */
 export function ClientsPageSkeleton() {
   return (
-    <div className="animate-fade-in">
+    <div>
       <Skeleton className="mb-3 h-7 w-32 rounded-lg sm:mb-5 md:hidden" />
       <div className="space-y-2.5 sm:space-y-4">
         <div className="flex items-center gap-3">

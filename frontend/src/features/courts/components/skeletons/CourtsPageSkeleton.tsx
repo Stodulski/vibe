@@ -7,7 +7,7 @@ import { CourtListSkeleton } from './CourtListSkeleton';
  */
 export function CourtsPageSkeleton() {
   return (
-    <div className="animate-fade-in">
+    <div>
       <div className="mb-3 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-7 w-32 rounded-lg md:hidden" />
         <Skeleton className="h-9 w-full rounded-xl sm:w-40 md:ml-auto" />

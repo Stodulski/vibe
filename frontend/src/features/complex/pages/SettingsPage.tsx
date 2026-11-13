@@ -25,7 +25,7 @@ export default function SettingsPage() {
 
   if (isError) {
     return (
-      <div className="animate-fade-in">
+      <div>
         <EmptyState
           icon={AlertTriangle}
           title={t.common.loadError}
@@ -44,7 +44,7 @@ export default function SettingsPage() {
   if (!complex) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.complex.settings} />
 
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">

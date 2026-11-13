@@ -15,7 +15,7 @@ export default function ClientsPage() {
   if (!state.selectedComplexId) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.clients.title} />
 
       <div className="space-y-2.5 sm:space-y-4">

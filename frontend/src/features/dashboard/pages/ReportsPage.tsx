@@ -32,7 +32,7 @@ function ReportsPageContent({ complexId, createdAt }: { complexId: string; creat
   const { exporting, exportError, statusLabel, handleExport } = useReportExport(complexId, month, year);
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.navigation.reports} />
 
       <MonthYearExportBar

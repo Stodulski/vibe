@@ -122,7 +122,7 @@ export default function CourtsPage() {
   // they're mounted.
   if (!selectedComplexId) {
     return (
-      <div className="animate-fade-in">
+      <div>
         <PageHeader title={t.courts.title} description={t.courts.pageDescription} />
         <CourtListSkeleton />
       </div>
@@ -130,7 +130,7 @@ export default function CourtsPage() {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <CourtsPageContent complexId={selectedComplexId} />
     </div>
   );

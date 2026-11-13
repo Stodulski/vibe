@@ -5,7 +5,7 @@ import { SkeletonStat, SkeletonTable } from './SkeletonPrimitives';
 
 export function SkeletonPage() {
   return (
-    <div className="animate-fade-in flex flex-col gap-12" role="status" aria-label={messages.loading}>
+    <div className="flex flex-col gap-12" role="status" aria-label={messages.loading}>
       <div className="flex items-center justify-between">
         <div>
           <Skeleton className="mb-4 h-7 w-40 rounded-lg" />
@@ -109,7 +109,7 @@ function OperationsSkeleton() {
  */
 export function SkeletonDashboard() {
   return (
-    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
+    <div role="status" aria-label={messages.loading}>
       {/* Page header: title is mobile-only (the masthead carries it from `md`), then the public-link bar */}
       <Skeleton className="mb-3 h-7 w-40 rounded-lg sm:mb-5 md:hidden" />
       <div className="mb-3 flex items-center gap-2 sm:mb-4">
@@ -177,7 +177,7 @@ function SettingsFormSkeleton() {
  */
 export function SkeletonSettings() {
   return (
-    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
+    <div role="status" aria-label={messages.loading}>
       <Skeleton className="mb-3 h-7 w-36 rounded-lg sm:mb-5 md:hidden" />
       <div className="flex flex-col gap-3 sm:gap-4 lg:flex-row">
         {/* Section list — desktop */}
@@ -219,7 +219,7 @@ export function SkeletonSettings() {
  */
 export function SkeletonBookings() {
   return (
-    <div className="animate-fade-in" role="status" aria-label={messages.loading}>
+    <div role="status" aria-label={messages.loading}>
       {/* Page header: title + create/block buttons */}
       <div className="mb-3 flex flex-col gap-2.5 sm:mb-5 sm:flex-row sm:items-center sm:justify-between">
         <Skeleton className="h-7 w-28 rounded-lg md:hidden" />

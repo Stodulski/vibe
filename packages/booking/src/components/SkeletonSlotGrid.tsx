@@ -31,7 +31,7 @@ const MOBILE_TILES_PER_GROUP: Record<TimeGroup, number> = { morning: 6, afternoo
  */
 export function SkeletonSlotGrid() {
   return (
-    <div className="animate-fade-in space-y-6" role="status" aria-label={t.publicBooking.checkingAvailability}>
+    <div className="space-y-6" role="status" aria-label={t.publicBooking.checkingAvailability}>
       {TIME_GROUPS.map(({ key, icon: Icon }) => (
         <div key={key}>
           <div className="mb-2 flex items-center gap-1.5">

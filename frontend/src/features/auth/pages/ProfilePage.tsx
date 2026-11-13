@@ -14,7 +14,7 @@ export default function ProfilePage() {
   const { activeTab, handleTabChange } = useProfileTabs();
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.navigation.profile} />
 
       <div>

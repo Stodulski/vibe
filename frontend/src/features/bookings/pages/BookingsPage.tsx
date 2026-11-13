@@ -28,7 +28,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
   const blockSlot = useBlockSlotSection(complexId);
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <BookingsPageHeader
         isPast={state.isPast}
         hasCourts={state.courts.length > 0}

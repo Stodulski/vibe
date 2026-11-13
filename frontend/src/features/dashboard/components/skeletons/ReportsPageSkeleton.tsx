@@ -18,7 +18,7 @@ function pickerPlaceholder(className: string) {
  */
 export function ReportsPageSkeleton() {
   return (
-    <div className="animate-fade-in">
+    <div>
       <Skeleton className="mb-3 h-7 w-32 rounded-lg sm:mb-5 md:hidden" />
       <div className="mb-4 flex flex-wrap items-end gap-3 sm:mb-6">
         {pickerPlaceholder('flex-[2] sm:w-36 sm:flex-none')}

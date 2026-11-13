@@ -20,7 +20,7 @@ export default function CashSellPage() {
   if (!state.complexId) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.cash.sellTitle} />
       <CashSectionTabs />
       <SellPageBody complexId={state.complexId} state={state} />

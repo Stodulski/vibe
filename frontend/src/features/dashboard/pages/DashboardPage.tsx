@@ -55,7 +55,7 @@ export default function DashboardPage() {
   if (!selectedComplexId) return null;
 
   return (
-    <div className="animate-fade-in">
+    <div>
       <PageHeader title={t.dashboard.title} />
 
       {publicUrl && <PublicLinkBar publicUrl={publicUrl} copied={copied} onCopy={handleCopy} />}

@@ -5,7 +5,7 @@ import { messages } from '../../../messages';
 export function SkeletonCancelInfo() {
   return (
     <div
-      className="animate-fade-in mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16"
+      className="mx-auto flex w-full max-w-md flex-col items-center gap-4 px-4 py-16"
       role="status"
       aria-label={messages.loading}
     >
@@ -114,7 +114,7 @@ function SkeletonFormFields() {
 
 export function SkeletonBookConfirm() {
   return (
-    <div className="animate-fade-in w-full space-y-6 sm:space-y-8" role="status" aria-label={messages.loading}>
+    <div className="w-full space-y-6 sm:space-y-8" role="status" aria-label={messages.loading}>
       {/* Step indicator, as `StepIndicator` draws it: 28px circles, a step label
           from `sm:` up, and the "Paso N de 3" line below them on mobile only. */}
       <div className="flex flex-col items-center gap-1.5">
@@ -149,7 +149,7 @@ export function SkeletonBookConfirm() {
 /** Public booking success page skeleton */
 export function SkeletonBookSuccess() {
   return (
-    <div className="animate-fade-in flex flex-col items-center gap-5 py-16" role="status" aria-label={messages.loading}>
+    <div className="flex flex-col items-center gap-5 py-16" role="status" aria-label={messages.loading}>
       <Skeleton className="size-20 rounded-full sm:size-24" />
       <Skeleton className="h-7 w-52 rounded-lg" />
       <Skeleton className="h-4 w-36 rounded-lg" />

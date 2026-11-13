@@ -75,7 +75,7 @@ export default function ProductDetailPage() {
   if (!selectedComplexId) return null;
 
   return (
-    <div className="animate-fade-in space-y-4">
+    <div className="space-y-4">
       <Link
         to="/cash/products"
         className="text-text-tertiary hover:text-text-secondary flex items-center gap-1.5 text-sm transition-colors"
