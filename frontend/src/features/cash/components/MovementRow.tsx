@@ -2,6 +2,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Badge } from '@/shared/components/ui/badge';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatInstantTime, formatPrice } from '@/shared/lib/utils';
+import { MOVEMENT_ROW_CLASS } from './cashLayout';
 import type { LedgerRow } from '../lib/movementLedger';
 import type { CashMovement } from '@/shared/types/api.types';
 
@@ -55,7 +56,7 @@ export function MovementRow({ row, onVoid }: MovementRowProps) {
   const canVoid = !!onVoid && !isVoid && !voidedBy && movement.category !== 'sale';
 
   return (
-    <div className="border-border-subtle flex items-start justify-between gap-4 border-b py-4 last:border-b-0">
+    <div className={MOVEMENT_ROW_CLASS}>
       <MovementDetails row={row} />
 
       {/* The amount leads; Anular sits under it, small and muted, because

@@ -6,6 +6,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { useCourts } from '@/features/courts';
 import type { Complex } from '@/shared/types/api.types';
 import { buildProfileChecklist, type ProfileItemId } from './profileChecklist';
+import { PROFILE_CHECKLIST_CLASS } from './profileChecklistLayout';
 
 const t = ES_AR;
 
@@ -150,7 +151,7 @@ export function ProfileChecklist({ complex }: ProfileChecklistProps) {
     // No card and capped in width (owner, 2026-11-11: not full width, no
     // card). Spacing does the grouping instead: header and bar 8px apart, 16px
     // to the next step and to the disclosure.
-    <section className="flex max-w-xl flex-col gap-4" aria-labelledby="profile-checklist-title">
+    <section className={PROFILE_CHECKLIST_CLASS} aria-labelledby="profile-checklist-title">
       <ProgressHeader done={items.length - pending.length} total={items.length} />
 
       {!showList && nextId && <NextItem id={nextId} />}

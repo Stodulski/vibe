@@ -1,5 +1,6 @@
 import { cn } from '@/shared/lib/utils';
 import type { SectionNavItem } from './SectionNav';
+import { SECTION_TAB_CLASS, SECTION_TABS_CLASS } from './sectionNavLayout';
 
 interface SectionTabsProps<V extends string> {
   items: readonly SectionNavItem<V>[];
@@ -27,7 +28,7 @@ export function SectionTabs<V extends string>({ items, active, onChange }: Secti
     // (16px) against the base tier's actual 12px left the strip 4px wider
     // than the viewport, which showed up as page-level horizontal scroll on
     // /profile and /settings at 320px.
-    <div className="-mx-3 px-3 sm:-mx-6 sm:px-6 lg:hidden">
+    <div className={SECTION_TABS_CLASS}>
       <div className="flex">
         {items.map((item) => {
           const isActive = active === item.value;
@@ -40,7 +41,8 @@ export function SectionTabs<V extends string>({ items, active, onChange }: Secti
                 onChange(item.value);
               }}
               className={cn(
-                'flex h-12 flex-1 items-center justify-center gap-2 border-b-2 px-2 text-sm font-medium transition-colors',
+                SECTION_TAB_CLASS,
+                'gap-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'border-primary-500 text-primary-400'
                   : 'text-text-secondary border-transparent active:scale-[0.97]',

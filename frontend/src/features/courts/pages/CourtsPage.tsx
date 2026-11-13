@@ -3,7 +3,7 @@ import { AlertTriangle, Plus, Trophy } from 'lucide-react';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { CourtGrid, CourtForm, PriceConfig, useCourts } from '@/features/courts';
-import { CourtListSkeleton } from '@/features/courts/components/skeletons/CourtListSkeleton';
+import { CourtGridSkeleton } from '../components/CourtGridSkeleton';
 import { useSelectedComplex } from '@/features/complex';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -33,7 +33,7 @@ function CourtsPageList({ complexId, courts, isLoading, isError, refetch, onCrea
     );
   }
 
-  if (isLoading) return <CourtListSkeleton />;
+  if (isLoading) return <CourtGridSkeleton />;
 
   if (!courts || courts.length === 0) {
     return (
@@ -124,7 +124,7 @@ export default function CourtsPage() {
     return (
       <div>
         <PageHeader title={t.courts.title} description={t.courts.pageDescription} />
-        <CourtListSkeleton />
+        <CourtGridSkeleton />
       </div>
     );
   }

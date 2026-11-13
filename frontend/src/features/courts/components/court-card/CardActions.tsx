@@ -7,6 +7,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { COURT_CARD_ACTIONS_CLASS } from '../courtLayout';
 
 const t = ES_AR;
 
@@ -33,7 +34,7 @@ interface CardActionsProps {
  */
 export function CardActions({ courtName, onEdit, onPrices, onDelete }: CardActionsProps) {
   return (
-    <div className="border-border-subtle flex items-center gap-2 border-t px-4 py-3 sm:px-5">
+    <div className={COURT_CARD_ACTIONS_CLASS}>
       <Button variant="outline" size="sm" className="flex-1 sm:flex-none" onClick={onEdit}>
         <Pencil className="size-3.5 shrink-0" />
         {t.common.edit}

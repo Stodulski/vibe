@@ -1,5 +1,5 @@
-export { SkeletonCourtCard, SkeletonTable, SkeletonStat } from './skeletons/SkeletonPrimitives';
+export { SkeletonTable, SkeletonStat } from './skeletons/SkeletonPrimitives';
 
-export { SkeletonPage, SkeletonDashboard, SkeletonSettings, SkeletonBookings } from './skeletons/PageSkeletons';
+export { SkeletonPage } from './skeletons/PageSkeletons';
 
 export { SkeletonCancelInfo, SkeletonBookConfirm, SkeletonBookSuccess } from './skeletons/BookingFlowSkeletons';

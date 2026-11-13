@@ -7,7 +7,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { useCashPage } from './cash/useCashPage';
 import { ClosedCashView } from './cash/ClosedCashView';
 import { OpenCashView } from './cash/OpenCashView';
-import { CashSummarySkeleton } from '../components/skeletons/CashSummarySkeleton';
+import { CashSummarySkeleton } from '../components/CashSummarySkeleton';
 import { CloseCashSessionDialog } from '../components/CloseCashSessionDialog';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 

@@ -2,7 +2,7 @@ import { AlertTriangle } from 'lucide-react';
 import { BookingCalendar } from '@/features/bookings';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { BookingLoadingSkeleton } from './booking-content/BookingLoadingSkeleton';
+import { BookingCalendarSkeleton } from '../../components/booking-calendar/BookingCalendarSkeleton';
 import { NoBookingsEmptyState } from './booking-content/BookingEmptyStates';
 import type { Booking, BlockedSlot, CourtWithPrices, Schedule } from '@/shared/types/api.types';
 
@@ -39,7 +39,7 @@ export function BookingContent({
   onOpenCreate,
   onSelectBlockedSlot,
 }: BookingContentProps) {
-  if (isLoading) return <BookingLoadingSkeleton />;
+  if (isLoading) return <BookingCalendarSkeleton />;
 
   if (isError) {
     return (

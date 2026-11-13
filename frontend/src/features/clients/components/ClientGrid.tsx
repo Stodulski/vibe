@@ -1,6 +1,7 @@
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { ClientCard } from './client-card/ClientCard';
 import { ClientTable } from './ClientTable';
+import { CLIENT_GRID_CLASS } from './clientLayout';
 import type { Client } from '@/shared/types/api.types';
 
 /**
@@ -36,7 +37,7 @@ export function ClientGrid({
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className={CLIENT_GRID_CLASS}>
       {clients.map((client) => (
         <ClientCard key={client.id} client={client} onSelect={onSelectClient} onBlock={onBlockClient} />
       ))}

@@ -11,8 +11,8 @@ vi.mock('@/shared/components/common/PageHeader', () => ({
 vi.mock('@/shared/components/common/EmptyState', () => ({
   EmptyState: ({ title }: { title: string }) => <div data-testid="empty">{title}</div>,
 }));
-vi.mock('@/shared/components/common/Skeletons', () => ({
-  SkeletonTable: () => <div data-testid="skeleton">Loading...</div>,
+vi.mock('@/features/clients/components/ClientGridSkeleton', () => ({
+  ClientGridSkeleton: () => <div data-testid="skeleton">Loading...</div>,
 }));
 vi.mock('@/shared/components/ui/input', async () => {
   const { passthrough } = await import('@/test/ui-mocks');

@@ -2,6 +2,7 @@ import { Search } from 'lucide-react';
 import { IconInput } from '@/shared/components/common/IconInput';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { PRODUCTS_SEARCH_BAR_CLASS } from './productsPageLayout';
 import type { ProductStatusFilter } from './useProductsPage';
 
 const t = ES_AR;
@@ -15,7 +16,7 @@ interface ProductsSearchBarProps {
 
 export function ProductsSearchBar({ search, onSearchChange, filter, onFilterChange }: ProductsSearchBarProps) {
   return (
-    <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
+    <div className={PRODUCTS_SEARCH_BAR_CLASS}>
       <IconInput
         icon={Search}
         value={search}

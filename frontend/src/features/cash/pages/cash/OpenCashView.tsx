@@ -1,9 +1,10 @@
 import { AlertTriangle } from 'lucide-react';
+import { CASH_STACK_CLASS } from '../../components/cashLayout';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { ExpectedCashCard } from '../../components/ExpectedCashCard';
 import { BookingPaymentsBreakdown } from '../../components/BookingPaymentsBreakdown';
-import { CashSummarySkeleton } from '../../components/skeletons/CashSummarySkeleton';
+import { CashSummarySkeleton } from '../../components/CashSummarySkeleton';
 import { MovementList } from '../../components/MovementList';
 import { CashActionButtons } from '../../components/CashActionButtons';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
@@ -61,7 +62,7 @@ export function OpenCashView({
   const { cash_session: session, summary, movements } = detailQuery.data;
 
   return (
-    <div className="max-w-3xl space-y-6">
+    <div className={CASH_STACK_CLASS}>
       {detailQuery.isError && (
         <StaleDataNotice
           onRetry={() => {

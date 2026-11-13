@@ -7,6 +7,7 @@ import { BookingsPageHeader } from './bookings/BookingsPageHeader';
 import { DateNavStrip } from './bookings/DateNavStrip';
 import { BookingsPageModals } from './bookings/BookingsPageModals';
 import { useBlockSlotSection } from './bookings/useBlockSlotSection';
+import { DATE_NAV_SECTION_CLASS } from './bookings/bookingsLayout';
 
 const t = ES_AR;
 
@@ -41,7 +42,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
       {/* A rule does what the strip's card used to: mark where picking a day
           ends and reading that day begins. Padding above it and margin below
           keep the same air on both sides of the line. */}
-      <div className="border-border-subtle mb-6 border-b pb-6 sm:mb-8 sm:pb-8">
+      <div className={DATE_NAV_SECTION_CLASS}>
         <DateNavStrip
           selectedDate={state.selectedDate}
           dateLabel={state.dateLabel}

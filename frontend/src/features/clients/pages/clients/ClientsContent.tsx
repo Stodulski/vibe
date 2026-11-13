@@ -2,7 +2,7 @@ import type { RefObject } from 'react';
 import { AlertTriangle, Users, Loader2 } from 'lucide-react';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ResultCountAnnouncer } from '@/shared/components/common/ResultCountAnnouncer';
-import { ClientsListSkeleton } from '@/features/clients/components/skeletons/ClientsListSkeleton';
+import { ClientGridSkeleton } from '../../components/ClientGridSkeleton';
 import { ClientGrid } from '@/features/clients';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Client } from '@/shared/types/api.types';
@@ -49,7 +49,7 @@ function ClientsBody({
   onSelectClient,
   onBlockClient,
 }: ClientsContentProps) {
-  if (isLoading) return <ClientsListSkeleton />;
+  if (isLoading) return <ClientGridSkeleton />;
 
   if (isError) {
     return (

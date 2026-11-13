@@ -4,12 +4,13 @@ import { Panel } from '@/shared/components/common/Panel';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { Button } from '@/shared/components/ui/button';
-import { formatPrice } from '@/shared/lib/utils';
+import { cn, formatPrice } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { COUNTER_PAYMENT_METHODS, type CounterPaymentMethod } from '@/shared/lib/paymentMethods';
 import { lineHasStockWarning, type CartLine } from '../../lib/cart';
 import type { BalanceLine } from '../../lib/balanceCart';
 import { SellCartLine } from './SellCartLine';
+import { SELL_CART_PANEL_CLASS } from './sellLayout';
 import { SellBalanceCartLine } from './SellBalanceCartLine';
 import type { Product } from '@/shared/types/api.types';
 
@@ -279,11 +280,7 @@ export function SellCart({
     // the lines scroll inside it and the total and "Cobrar" never leave the screen.
     // The height leaves a margin below it on purpose: a desktop dock that
     // overlaps the browser window still counts as viewport.
-    <Panel
-      size="md"
-      className="flex flex-col lg:sticky lg:top-20 lg:h-[calc(100dvh-15rem)] lg:min-h-[24rem]"
-      data-testid="sell-cart"
-    >
+    <Panel size="md" className={cn('flex flex-col', SELL_CART_PANEL_CLASS)} data-testid="sell-cart">
       <h2 className="text-text-primary mb-2 text-lg font-semibold max-lg:sr-only">{t.cash.cartTitle}</h2>
 
       {isEmpty ? (

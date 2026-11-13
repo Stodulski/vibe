@@ -3,8 +3,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
-vi.mock('@/shared/components/common/Skeletons', () => ({
-  SkeletonDashboard: () => <div data-testid="skeleton-dashboard">Loading...</div>,
+vi.mock('@/features/dashboard/pages/dashboard/DashboardContentSkeleton', () => ({
+  DashboardContentSkeleton: () => <div data-testid="skeleton-dashboard">Loading...</div>,
 }));
 vi.mock('@/shared/components/common/EmptyState', () => ({
   EmptyState: ({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) => (

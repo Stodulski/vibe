@@ -1,8 +1,1 @@
-export {
-  SkeletonCourtCard,
-  SkeletonTable,
-  SkeletonPage,
-  SkeletonDashboard,
-  SkeletonSettings,
-  SkeletonBookings,
-} from '@vibe/ui/components/common/Skeletons.tsx';
+export { SkeletonTable, SkeletonPage } from '@vibe/ui/components/common/Skeletons.tsx';

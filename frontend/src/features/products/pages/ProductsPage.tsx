@@ -6,6 +6,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { useProductsPage } from './products/useProductsPage';
 import { ProductsSearchBar } from './products/ProductsSearchBar';
 import { ProductsContent } from './products/ProductsContent';
+import { PRODUCTS_BODY_CLASS } from './products/productsPageLayout';
 import { ProductsPageDialogs } from './products/ProductsPageDialogs';
 
 const t = ES_AR;
@@ -30,7 +31,7 @@ export default function ProductsPage() {
       />
       <CashSectionTabs />
 
-      <div className="space-y-2.5 sm:space-y-4">
+      <div className={PRODUCTS_BODY_CLASS}>
         <ProductsSearchBar
           search={state.search}
           onSearchChange={state.setSearch}

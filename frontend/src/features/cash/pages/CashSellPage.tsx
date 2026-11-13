@@ -8,7 +8,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSellPage } from './sell/useSellPage';
 import { SellOpenView } from './sell/SellOpenView';
-import { CashSellSkeleton } from '../components/skeletons/CashSellSkeleton';
+import { SellOpenViewSkeleton } from './sell/SellOpenViewSkeleton';
 import { SaleConfirmationDialog } from '../components/sell/SaleConfirmationDialog';
 
 const t = ES_AR;
@@ -36,7 +36,7 @@ export default function CashSellPage() {
 function SellPageBody({ complexId, state }: { complexId: string; state: ReturnType<typeof useSellPage> }) {
   const { cashSession } = state;
 
-  if (cashSession.isLoading) return <CashSellSkeleton />;
+  if (cashSession.isLoading) return <SellOpenViewSkeleton />;
 
   if (cashSession.isRealError && !cashSession.data) {
     return (

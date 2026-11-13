@@ -1,10 +1,12 @@
 import { AlertTriangle, Users } from 'lucide-react';
-import { Skeleton } from '@/shared/components/ui/skeleton';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { cn } from '@/shared/lib/utils';
 import type { ClientInsights } from '@/shared/types/api.types';
 import { useDashboardClientDetail } from '../hooks/useDashboardClientDetail';
+import { ClientInsightsCardSkeleton } from './ClientInsightsCardSkeleton';
+import { TREND_CARD_FILL_CLASS } from './dashboardLayout';
 import { ClientMetricsRow } from './client-insights/ClientMetricsRow';
 import { TopClientsList } from './client-insights/TopClientsList';
 import { ClientInsightsDetailModals } from './client-insights/ClientInsightsDetailModals';
@@ -19,45 +21,12 @@ interface ClientInsightsCardProps {
   complexId: string;
 }
 
-function ClientInsightsSkeleton() {
-  return (
-    <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
-      <Skeleton className="mb-4 h-4 w-24" />
-
-      <div className="mb-4 grid grid-cols-3 gap-2">
-        {[0, 1, 2].map((i) => (
-          <div key={i} className="bg-bg-base/40 rounded-lg px-2.5 py-2">
-            <Skeleton className="mx-auto h-5 w-8" />
-            <Skeleton className="mx-auto mt-1.5 h-3 w-12" />
-          </div>
-        ))}
-      </div>
-
-      <Skeleton className="mb-2 h-3 w-28" />
-      <div className="space-y-1">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <div key={i} className="flex items-center justify-between gap-2 px-2 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <Skeleton className="size-5 shrink-0 rounded-full" />
-              <Skeleton className="h-3 w-24" />
-            </div>
-            <div className="flex shrink-0 items-center gap-3">
-              <Skeleton className="h-3 w-10" />
-              <Skeleton className="h-3 w-12" />
-            </div>
-          </div>
-        ))}
-      </div>
-    </section>
-  );
-}
-
 function ClientInsightsCard({ data, isLoading, isError, onRetry, complexId }: ClientInsightsCardProps) {
   const detail = useDashboardClientDetail(complexId);
 
   if (isError) {
     return (
-      <section className="border-border-subtle bg-bg-subtle flex h-full flex-col items-center justify-center gap-2 rounded-2xl border p-4 text-center sm:p-5">
+      <section className={cn(TREND_CARD_FILL_CLASS, 'items-center justify-center gap-2 text-center')}>
         <AlertTriangle className="text-error-icon size-5" aria-hidden="true" />
         <p className="text-text-tertiary text-sm">{t.common.loadError}</p>
         <Button variant="outline" size="sm" onClick={onRetry}>
@@ -67,11 +36,11 @@ function ClientInsightsCard({ data, isLoading, isError, onRetry, complexId }: Cl
     );
   }
 
-  if (isLoading) return <ClientInsightsSkeleton />;
+  if (isLoading) return <ClientInsightsCardSkeleton />;
 
   if (!data) {
     return (
-      <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
+      <section className={TREND_CARD_FILL_CLASS}>
         <h3 className="text-text-primary mb-4 text-sm font-semibold">{t.dashboard.clientsTitle}</h3>
         <div className="flex flex-1 items-center justify-center">
           <EmptyState icon={Users} title={t.dashboard.noClientData} description="" />
@@ -81,7 +50,7 @@ function ClientInsightsCard({ data, isLoading, isError, onRetry, complexId }: Cl
   }
 
   return (
-    <section className="border-border-subtle bg-bg-subtle flex h-full flex-col rounded-2xl border p-4 sm:p-5">
+    <section className={TREND_CARD_FILL_CLASS}>
       <h3 className="text-text-primary mb-4 text-sm font-semibold">{t.dashboard.clientsTitle}</h3>
       <ClientMetricsRow data={data} />
       <TopClientsList top={data.top} onSelect={detail.handleSelectTopClient} />

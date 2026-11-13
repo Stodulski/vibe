@@ -1,13 +1,15 @@
-import { useParams, Link } from 'react-router-dom';
-import { ArrowLeft, AlertTriangle } from 'lucide-react';
+import { useParams } from 'react-router-dom';
+import { AlertTriangle } from 'lucide-react';
 import { PageHeader } from '@/shared/components/common/PageHeader';
+import { BackLink } from '@/shared/components/common/BackLink';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSelectedComplex } from '@/features/complex/hooks/useSelectedComplex';
 import { useProduct } from '../hooks/useProduct';
 import { ProductDetailHeader } from '../components/ProductDetailHeader';
-import { ProductDetailSkeleton } from '../components/skeletons/ProductDetailSkeleton';
+import { ProductDetailBodySkeleton } from '../components/ProductDetailBodySkeleton';
+import { PRODUCT_DETAIL_PAGE_CLASS } from '../components/productLayout';
 import { StockMovementList } from '../components/StockMovementList';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { ProductDetailDialogs } from '../components/ProductDetailDialogs';
@@ -75,19 +77,13 @@ export default function ProductDetailPage() {
   if (!selectedComplexId) return null;
 
   return (
-    <div className="space-y-4">
-      <Link
-        to="/cash/products"
-        className="text-text-tertiary hover:text-text-secondary flex items-center gap-1.5 text-sm transition-colors"
-      >
-        <ArrowLeft className="size-4" aria-hidden="true" />
-        {t.products.backToProducts}
-      </Link>
+    <div className={PRODUCT_DETAIL_PAGE_CLASS}>
+      <BackLink to="/cash/products">{t.products.backToProducts}</BackLink>
 
       <PageHeader title={t.products.detailTitle} />
 
       {query.isLoading ? (
-        <ProductDetailSkeleton />
+        <ProductDetailBodySkeleton />
       ) : !query.data ? (
         // Only the full-screen error when there is nothing cached — a
         // background refetch failure with `data` still around keeps

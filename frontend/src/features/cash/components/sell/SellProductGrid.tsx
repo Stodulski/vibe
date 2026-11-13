@@ -6,6 +6,7 @@ import { IconInput } from '@/shared/components/common/IconInput';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { SellCategoryChips } from './SellCategoryChips';
 import { SellProductTile } from './SellProductTile';
+import { SELL_TILE_GRID_CLASS } from './sellLayout';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Product } from '@/shared/types/api.types';
 
@@ -144,7 +145,7 @@ export function SellProductGrid({
       {products.length === 0 ? (
         <EmptyState icon={PackageSearch} title={t.cash.sellNoResults} description="" />
       ) : (
-        <div className="grid grid-cols-1 gap-2 sm:grid-cols-3 sm:gap-3 lg:grid-cols-4">
+        <div className={SELL_TILE_GRID_CLASS}>
           {products.map((product) => (
             <SellProductTile
               key={product.id}

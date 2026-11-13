@@ -1,8 +1,9 @@
 import { Search } from 'lucide-react';
 import { IconInput } from '@/shared/components/common/IconInput';
 import { Tag } from '@/shared/components/common/Tag';
-import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { ClientCountSkeleton } from './ClientsSearchBarSkeleton';
+import { CLIENTS_SEARCH_BAR_CLASS } from './clientsSearchBarLayout';
 
 const t = ES_AR;
 
@@ -21,7 +22,7 @@ export function ClientsSearchBar({
   isLoading = false,
 }: ClientsSearchBarProps) {
   return (
-    <div className="flex items-center gap-3">
+    <div className={CLIENTS_SEARCH_BAR_CLASS}>
       <IconInput
         icon={Search}
         value={searchInput}
@@ -31,7 +32,7 @@ export function ClientsSearchBar({
         placeholder={t.common.search}
         aria-label={`${t.common.search} clientes`}
       />
-      {isLoading && <Skeleton className="h-7 w-24 shrink-0 rounded-full" aria-hidden="true" />}
+      {isLoading && <ClientCountSkeleton />}
       {!isLoading && clientCount > 0 && (
         <Tag className="px-2.5 py-1">
           {clientCount} {t.clients.clientCount}

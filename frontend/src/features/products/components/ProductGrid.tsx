@@ -1,6 +1,7 @@
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 import { ProductCard } from './ProductCard';
 import { ProductTable } from './ProductTable';
+import { PRODUCT_GRID_CLASS } from './productLayout';
 import type { Product } from '@/shared/types/api.types';
 
 interface ProductGridProps {
@@ -30,7 +31,7 @@ export function ProductGrid({ products, onSelect, onEdit, onRestock, onAdjust, o
   }
 
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className={PRODUCT_GRID_CLASS}>
       {products.map((product) => (
         <ProductCard
           key={product.id}

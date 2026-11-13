@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { CASH_TAB_CLASS, CASH_TABS_NAV_CLASS, CASH_TABS_STRIP_CLASS } from './cashSectionTabsLayout';
 
 const t = ES_AR;
 
@@ -29,8 +30,8 @@ export function CashSectionTabs() {
   return (
     // Bleeds exactly the layout's own gutter (px-3, sm:px-6 on <main>) so the
     // underline reaches the edges without widening the page on phones.
-    <nav className="-mx-3 mb-3 px-3 sm:-mx-4 sm:mb-4 sm:px-4" aria-label={t.cash.title}>
-      <div className="border-border-subtle flex gap-1 border-b">
+    <nav className={CASH_TABS_NAV_CLASS} aria-label={t.cash.title}>
+      <div className={CASH_TABS_STRIP_CLASS}>
         {TABS.map((tab) => (
           <NavLink
             key={tab.to}
@@ -38,7 +39,8 @@ export function CashSectionTabs() {
             end={tab.to === '/cash'}
             className={({ isActive }) =>
               cn(
-                'flex h-11 flex-1 items-center justify-center border-b-2 px-3 text-sm font-medium transition-colors sm:flex-none',
+                CASH_TAB_CLASS,
+                'border-b-2 text-sm font-medium transition-colors',
                 isActive
                   ? 'border-primary-500 text-primary-400'
                   : 'text-text-secondary hover:text-text-primary border-transparent',

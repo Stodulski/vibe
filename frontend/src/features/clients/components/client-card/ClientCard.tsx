@@ -4,6 +4,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { TappableCard } from '@/shared/components/common/TappableCard';
 import { ClientActionsMenu } from '../ClientActionsMenu';
+import { CLIENT_CARD_CLASS, CLIENT_CARD_STATS_CLASS } from '../clientLayout';
 import { AttendanceMeter } from './AttendanceMeter';
 import { attendancePct, attendanceTone } from './attendance';
 import type { Client } from '@/shared/types/api.types';
@@ -47,8 +48,8 @@ export const ClientCard = memo(function ClientCard({
       actionClassName="absolute right-3 top-3"
       action={<ClientActionsMenu client={client} onBlock={onBlock} />}
       buttonClassName={cn(
-        'focus-self flex w-full flex-col items-stretch rounded-2xl border border-border-subtle',
-        'bg-bg-subtle p-4 text-left transition-colors hover:border-border-default hover:bg-bg-elevated',
+        CLIENT_CARD_CLASS,
+        'focus-self text-left transition-colors hover:border-border-default hover:bg-bg-elevated',
         'focus-visible:border-primary-400 focus-visible:bg-bg-elevated',
       )}
     >
@@ -63,7 +64,7 @@ export const ClientCard = memo(function ClientCard({
 
       {/* Two figures, each under its own label. The numbers line up across the
           grid so a column of cards can be read down rather than one at a time. */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className={CLIENT_CARD_STATS_CLASS}>
         <Figure label={t.clients.bookingsLabel}>
           <span className="score-text text-text-primary text-lg font-bold">{client.total_bookings}</span>
         </Figure>

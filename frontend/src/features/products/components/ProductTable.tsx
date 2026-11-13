@@ -1,5 +1,7 @@
 import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/shared/components/ui/table';
+import { TABLE_CELL_PADDING_CLASS, TABLE_FRAME_CLASS } from '@/shared/components/common/tableFrameLayout';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { cn } from '@/shared/lib/utils';
 import { ProductTableRow } from './product-table/ProductTableRow';
 import type { Product } from '@/shared/types/api.types';
 
@@ -19,7 +21,7 @@ interface ProductTableProps {
 /** The catalog as a dense table — the `lg`-and-up reading of `ProductGrid`'s cards. Same shape as `ClientTable`. */
 export function ProductTable({ products, onSelect, onEdit, onRestock, onAdjust, onToggleActive }: ProductTableProps) {
   return (
-    <div className="border-border-default bg-bg-subtle w-full overflow-hidden rounded-2xl border [&_td]:px-4 [&_td:first-child]:pl-6 [&_td:last-child]:pr-6 [&_th]:px-4 [&_th:first-child]:pl-6 [&_th:last-child]:pr-6">
+    <div className={cn(TABLE_FRAME_CLASS, TABLE_CELL_PADDING_CLASS)}>
       <Table>
         <TableHeader className="bg-bg-elevated">
           <TableRow className="border-border-subtle hover:bg-transparent">

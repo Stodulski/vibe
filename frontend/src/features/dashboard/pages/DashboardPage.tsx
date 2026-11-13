@@ -2,7 +2,6 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '@/shared/components/common/PageHeader';
-import { SkeletonDashboard } from '@/shared/components/common/Skeletons';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -11,6 +10,7 @@ import { useSelectedComplex } from '@/features/complex';
 import { useDashboardStats, useClientInsights } from '@/features/dashboard';
 import { PublicLinkBar } from './dashboard/PublicLinkBar';
 import { DashboardContent } from './dashboard/DashboardContent';
+import { DashboardContentSkeleton } from './dashboard/DashboardContentSkeleton';
 
 const t = ES_AR;
 
@@ -71,7 +71,7 @@ export default function DashboardPage() {
           }}
         />
       ) : isLoading || !stats ? (
-        <SkeletonDashboard />
+        <DashboardContentSkeleton />
       ) : (
         <DashboardContent
           stats={stats}
