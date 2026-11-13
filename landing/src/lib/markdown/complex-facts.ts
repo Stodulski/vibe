@@ -84,11 +84,10 @@ export function complexFactsOf(slug: string, payload: ComplexPayload, labels: Co
     slug,
     name: complex.name,
     city: complex.city,
+    address: complex.address,
     province: complex.province,
-    online: complex.payments_enabled,
     sports: [...new Set(sportLabels)],
     services: complex.amenities.map((amenity) => labels.amenity(amenity)).filter((label) => label !== ''),
-    courtCount: active.length,
     ownImage: complex.cover_url || complex.logo_url || null,
   });
 

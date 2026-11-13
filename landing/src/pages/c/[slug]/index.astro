@@ -68,13 +68,12 @@ const head = data
       slug,
       name: data.complex.name,
       city: data.complex.city,
+      address: data.complex.address,
       province: data.complex.province,
-      online: data.complex.payments_enabled,
       sports: activeSportLabels(data.courts, t.courts.sportTypes),
       services: data.complex.amenities
         .map((amenity) => t.complex.amenities[amenity] ?? '')
         .filter((label) => label !== ''),
-      courtCount: data.courts.filter((court) => court.is_active).length,
       ownImage: data.complex.cover_url || data.complex.logo_url || null,
     })
   : null;

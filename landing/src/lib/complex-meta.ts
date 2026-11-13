@@ -23,16 +23,14 @@ export interface ComplexHeadInput {
   slug: string;
   name: string;
   city: string;
+  /** Street address; the description names it so address searches match. */
+  address?: string | null | undefined;
   /** The province, which the generated share image draws next to the city. */
   province?: string | null | undefined;
-  /** Online payments on: the description says "online"; otherwise "por WhatsApp". */
-  online: boolean;
   /** Spanish labels of the active courts' sports, unique, in order. */
   sports: readonly string[];
   /** Spanish labels of the complex's known amenities, in order. */
   services: readonly string[];
-  /** Active courts. Zero or absent leaves the count out of the description. */
-  courtCount?: number | null | undefined;
   /** The complex's own picture: its cover, else its logo. */
   ownImage?: string | null | undefined;
 }
@@ -83,6 +81,7 @@ export function complexHead(raw: ComplexHeadInput): ComplexHead {
     ...raw,
     name: normalizeText(raw.name),
     city: normalizeText(raw.city),
+    address: normalizeText(raw.address ?? ''),
     province: normalizeText(raw.province ?? ''),
     sports: raw.sports.map(normalizeText).filter((sport) => sport !== ''),
     services: raw.services.map(normalizeText).filter((service) => service !== ''),
@@ -90,21 +89,17 @@ export function complexHead(raw: ComplexHeadInput): ComplexHead {
   const ownImage = raw.ownImage || null;
   const generated = ownImage === null;
   const sports = input.sports.slice(0, MAX_DESCRIPTION_SPORTS).map((sport) => sport.toLowerCase());
-  const courts = input.courtCount && input.courtCount > 0 ? input.courtCount : null;
-  const noun = courts === null ? 'canchas' : `${courts} ${courts === 1 ? 'cancha' : 'canchas'}`;
-  const subject =
-    sports.length > 0
-      ? `Reservá ${noun} de ${joinSpanish(sports)} en `
-      : courts === null
-        ? 'Reservá tu cancha en '
-        : `Reservá ${noun} en `;
-  const where = input.city ? `${input.name}, ${input.city}` : input.name;
-  const channel = input.online ? ' online' : ' por WhatsApp';
+  // Only facts that hold for months: what is played, the place and its
+  // services. No booking channel (online or WhatsApp flips when payments are
+  // connected) and no court count: a search snippet lags the page by weeks,
+  // so a volatile fact there reads as wrong (owner rule).
+  const subject = sports.length > 0 ? `Canchas de ${joinSpanish(sports)} en ` : 'Canchas en ';
+  const where = [input.name, input.address, input.city].filter((part) => part !== '').join(', ');
   const services = input.services.slice(0, MAX_DESCRIPTION_SERVICES);
   const detail = services.length > 0 ? `${services.join(', ')}.` : 'Horarios y ubicación.';
 
   // The services are the first thing dropped when the sentence is too long for the limit.
-  const place = `${subject}${where}${channel}.`;
+  const place = `${subject}${where}.`;
   const withDetail = `${place} ${detail}`;
   const description = withDetail.length <= DESCRIPTION_MAX ? withDetail : cutAtWord(place, DESCRIPTION_MAX);
 
