@@ -28,6 +28,16 @@ export type Sport = 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' 
 
 export type CourtType = 'indoor' | 'outdoor' | 'semi_covered';
 
+export type CourtSurface =
+  | 'synthetic_grass'
+  | 'natural_grass'
+  | 'clay'
+  | 'concrete'
+  | 'parquet'
+  | 'synthetic_floor'
+  | 'sand'
+  | 'rubber';
+
 /** The durations the slot picker offers and the price bands are keyed on. */
 export type DurationMinutes = 60 | 90 | 120;
 
@@ -43,7 +53,14 @@ export type Amenity =
   | 'lessons'
   | 'tournaments'
   | 'accessible'
-  | 'match_recording';
+  | 'match_recording'
+  | 'birthdays'
+  | 'grill'
+  | 'quincho'
+  | 'medical_aid'
+  | 'sports_school'
+  | 'kiosk'
+  | 'kids_area';
 
 /**
  * A closed vocabulary reopened for reading. The server can add a member in a
@@ -98,6 +115,9 @@ export interface Court {
   court_type: CourtType;
   is_active: boolean;
   description?: string | null;
+  has_lighting: boolean;
+  /** Absent when the owner has not said. */
+  surface?: CourtSurface | null;
   created_at: string;
   updated_at: string;
   version?: number;
@@ -147,6 +167,9 @@ export interface CourtAvailability {
   sport: Open<Sport>;
   court_type: Open<CourtType>;
   description?: string;
+  has_lighting: boolean;
+  /** Absent when the owner has not said. Open like `sport`: a surface this build predates still renders. */
+  surface?: Open<CourtSurface>;
   slots: AvailabilitySlot[];
 }
 

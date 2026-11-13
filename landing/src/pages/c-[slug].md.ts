@@ -25,6 +25,9 @@ const labels: ComplexLabels = {
   sport: (key) => (BOOKING_MESSAGES.courts.sportTypes as Record<string, string>)[key] ?? key,
   weekday: (key) => (BOOKING_MESSAGES.complex.days as Record<string, string>)[key] ?? key,
   amenity: (key) => (BOOKING_MESSAGES.complex.amenities as Record<string, string>)[key] ?? key,
+  courtType: (key) => (BOOKING_MESSAGES.courts.courtTypes as Record<string, string>)[key] ?? key,
+  surface: (key) => (BOOKING_MESSAGES.courts.surfaces as Record<string, string>)[key] ?? key,
+  lighting: BOOKING_MESSAGES.courts.withLighting,
   price: (cents) => formatPrice(cents),
 };
 

@@ -140,6 +140,7 @@ describe('ComplexHeader cover alt text', () => {
       name: 'Cancha 1',
       sport: 'padel',
       court_type: 'indoor',
+      has_lighting: false,
       is_active: true,
       created_at: '2026-01-01T00:00:00Z',
       updated_at: '2026-01-01T00:00:00Z',

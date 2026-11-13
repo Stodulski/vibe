@@ -40,6 +40,7 @@ const mockCourts: CourtWithPrices[] = [
     sport: 'padel',
     court_type: 'outdoor',
     is_active: true,
+    has_lighting: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     prices: [
@@ -60,6 +61,7 @@ const mockCourts: CourtWithPrices[] = [
     sport: 'tennis',
     court_type: 'indoor',
     is_active: false,
+    has_lighting: false,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
     prices: [],

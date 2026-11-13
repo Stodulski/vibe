@@ -19,6 +19,13 @@ export const amenitySchema = z.enum([
   'tournaments',
   'accessible',
   'match_recording',
+  'birthdays',
+  'grill',
+  'quincho',
+  'medical_aid',
+  'sports_school',
+  'kiosk',
+  'kids_area',
 ]) satisfies z.ZodType<Amenity>;
 
 const weekdaySchema = z.enum([

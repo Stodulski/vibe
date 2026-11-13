@@ -25,6 +25,13 @@ const AMENITY_VALUES = [
   'tournaments',
   'accessible',
   'match_recording',
+  'birthdays',
+  'grill',
+  'quincho',
+  'medical_aid',
+  'sports_school',
+  'kiosk',
+  'kids_area',
 ] as const;
 
 const complexShape = {

@@ -99,6 +99,7 @@ function availability(): AvailabilityData {
         court_name: 'Cancha 1',
         sport: 'padel',
         court_type: 'indoor',
+        has_lighting: false,
         slots: [
           { start_time: '10:00', end_time: '11:00', start_min: 600, duration_minutes: 60, price: 5000, available: true },
         ],

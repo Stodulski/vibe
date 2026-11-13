@@ -12,6 +12,8 @@ const validAvailability = {
       court_name: 'Cancha 1',
       sport: 'padel',
       court_type: 'outdoor',
+      has_lighting: true,
+      surface: 'synthetic_grass',
       duration_minutes: 60,
       slots: [
         { start_time: '10:00', end_time: '11:00', start_min: 600, duration_minutes: 60, price: 5000, available: true },

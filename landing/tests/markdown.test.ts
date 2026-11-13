@@ -163,6 +163,9 @@ const complexPayload: ComplexPayload = {
       name: 'Cancha 1',
       sport: 'padel',
       is_active: true,
+      court_type: 'indoor',
+      surface: 'synthetic_grass',
+      has_lighting: true,
       prices: [
         { price: 1500000, day_type: 'monday', time_from: '08:00:00', time_to: '12:00:00' },
         { price: 1500000, day_type: 'tuesday', time_from: '08:00:00', time_to: '12:00:00' },
@@ -172,6 +175,8 @@ const complexPayload: ComplexPayload = {
       name: 'Cancha 2',
       sport: 'padel',
       is_active: true,
+      court_type: 'outdoor',
+      has_lighting: false,
       prices: [{ price: 1500000, day_type: 'monday', time_from: '08:00:00', time_to: '12:00:00' }],
     },
     { name: 'Cancha 3', sport: 'tennis', is_active: false, prices: [] },
@@ -186,6 +191,9 @@ const labels: ComplexLabels = {
   sport: (key) => ({ padel: 'Pádel', tennis: 'Tenis' })[key] ?? key,
   weekday: (key) => ({ monday: 'lunes', tuesday: 'martes', sunday: 'domingo' })[key] ?? key,
   amenity: (key) => ({ parking: 'Estacionamiento', bar: 'Bar' })[key] ?? key,
+  courtType: (key) => ({ indoor: 'Techada', outdoor: 'Descubierta' })[key] ?? key,
+  surface: (key) => ({ synthetic_grass: 'Césped sintético' })[key] ?? key,
+  lighting: 'Con iluminación',
   price: (cents) => `$ ${cents / 100}`,
 };
 
@@ -207,6 +215,12 @@ test('a complex page lists active courts by sport and leaves out inactive ones',
   const md = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
   assert.ok(md.includes('- Pádel: 2 canchas'));
   assert.equal(md.includes('Tenis'), false, 'the inactive tennis court is not listed');
+});
+
+test('a complex page states each court roof type always, its surface when set, and its lighting when true', () => {
+  const md = complexMarkdown(complexFactsOf('la-zona-f5', complexPayload, labels));
+  assert.ok(md.includes('- Cancha 1 (Pádel): Techada · Césped sintético · Con iluminación'));
+  assert.ok(md.includes('- Cancha 2 (Pádel): Descubierta\n'));
 });
 
 test('a complex page lists its hours per day, and a closed day as closed', () => {

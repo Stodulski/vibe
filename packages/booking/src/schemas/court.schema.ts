@@ -1,6 +1,6 @@
 import '../lib/zodConfig';
 import { z } from 'zod';
-import type { CourtPrice, CourtType, CourtWithPrices, DurationMinutes, Sport, Weekday } from '../api/types';
+import type { CourtPrice, CourtSurface, CourtType, CourtWithPrices, DurationMinutes, Sport, Weekday } from '../api/types';
 import { exact } from '../lib/apiParse';
 
 // The court pieces the storefront payloads use. The app keeps the full
@@ -17,6 +17,17 @@ export const sportSchema = z.enum([
 ]) satisfies z.ZodType<Sport>;
 
 export const courtTypeSchema = z.enum(['indoor', 'outdoor', 'semi_covered']) satisfies z.ZodType<CourtType>;
+
+export const courtSurfaceSchema = z.enum([
+  'synthetic_grass',
+  'natural_grass',
+  'clay',
+  'concrete',
+  'parquet',
+  'synthetic_floor',
+  'sand',
+  'rubber',
+]) satisfies z.ZodType<CourtSurface>;
 
 const dayTypeSchema = z.enum([
   'monday',
@@ -45,6 +56,9 @@ const courtShape = z
     is_active: z.boolean(),
     // Absent when the owner has never written one, null when it was cleared.
     description: z.string().nullable().optional(),
+    has_lighting: z.boolean(),
+    // Absent when the owner has not said.
+    surface: courtSurfaceSchema.nullable().optional(),
     created_at: z.string(),
     updated_at: z.string(),
   })

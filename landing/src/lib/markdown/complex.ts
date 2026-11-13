@@ -41,6 +41,9 @@ export function complexMarkdown(facts: ComplexFacts, origin: string = SITE): str
     facts.sports.length > 0
       ? bullets(facts.sports.map((sport) => `${escapeInline(sport.label)}: ${plural(sport.courts)}`))
       : 'Este complejo todavía no tiene canchas activas publicadas.',
+    facts.courts.length > 0
+      ? bullets(facts.courts.map((court) => `${escapeInline(court.name)} (${escapeInline(court.sport)}): ${escapeInline(court.facts)}`))
+      : null,
     heading(2, 'Horarios'),
     facts.hours.length > 0 ? bullets(facts.hours.map((hour) => `${escapeInline(hour.day)}: ${hour.text}`)) : null,
     facts.prices.length > 0 ? heading(2, 'Tarifas de referencia') : null,

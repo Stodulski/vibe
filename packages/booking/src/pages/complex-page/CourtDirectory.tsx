@@ -1,11 +1,12 @@
 import { useId } from 'react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { Court } from '../../api/types';
+import { courtFactParts } from '../../lib/courtFacts';
 
 const t = BOOKING_MESSAGES;
 
 /** What the directory shows of a court. Nothing priced: the page cannot take a booking yet. */
-type DirectoryCourt = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'description'>;
+type DirectoryCourt = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'description' | 'surface' | 'has_lighting'>;
 
 /**
  * The complex's courts, listed for a visitor who cannot book them online.
@@ -36,9 +37,14 @@ export function CourtDirectory({ courts }: { courts: DirectoryCourt[] }) {
                 <span className="bg-primary-500/15 text-primary-300 rounded-full px-2.5 py-0.5 text-xs font-medium">
                   {t.courts.sportTypes[court.sport]}
                 </span>
-                <span className="border-border-subtle text-text-secondary rounded-full border px-2.5 py-0.5 text-xs">
-                  {t.courts.courtTypes[court.court_type]}
-                </span>
+                {courtFactParts(court).map((fact) => (
+                  <span
+                    key={fact}
+                    className="border-border-subtle text-text-secondary rounded-full border px-2.5 py-0.5 text-xs"
+                  >
+                    {fact}
+                  </span>
+                ))}
               </div>
               <p
                 className={

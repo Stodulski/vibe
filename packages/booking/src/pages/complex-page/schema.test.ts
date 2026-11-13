@@ -114,6 +114,7 @@ function pricedCourt(id: string, prices: number[]): CourtWithPrices {
     name: `Cancha ${id}`,
     sport: 'padel',
     court_type: 'indoor',
+    has_lighting: false,
     is_active: true,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',
@@ -173,6 +174,31 @@ describe('buildComplexSchema, facts from the payload', () => {
 
   it('leaves sameAs out when the club has no Instagram', () => {
     expect(buildComplexSchema(complex, schedules, url).sameAs).toBeUndefined();
+  });
+
+  it('adds the roof types, surfaces and lighting of the active courts to amenityFeature', () => {
+    const courts = [
+      { ...pricedCourt('a', []), surface: 'synthetic_grass' as const, has_lighting: true },
+      { ...pricedCourt('b', []), court_type: 'outdoor' as const, surface: 'synthetic_grass' as const },
+      { ...pricedCourt('c', []), court_type: 'semi_covered' as const, is_active: false },
+    ];
+    const schema = buildComplexSchema({ ...complex, amenities: ['parking', 'grill'] }, schedules, url, courts);
+    const names = (schema.amenityFeature as { name: string; value: boolean }[]).map((f) => f.name);
+    expect(names).toEqual([
+      'Estacionamiento',
+      'Parrilla',
+      'Cancha techada',
+      'Cancha descubierta',
+      'Césped sintético',
+      'Iluminación',
+    ]);
+  });
+
+  it('leaves court features out when no court states a surface or lighting and amenities are empty', () => {
+    const schema = buildComplexSchema(complex, schedules, url, [pricedCourt('a', [])]);
+    expect(schema.amenityFeature).toEqual([
+      { '@type': 'LocationFeatureSpecification', name: 'Cancha techada', value: true },
+    ]);
   });
 });
 

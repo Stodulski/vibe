@@ -825,3 +825,179 @@ func TestBlockSlotDateIsJudgedOnTheArgentineCalendar(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateValidatesSurfaceAgainstSport(t *testing.T) {
+	tests := []struct {
+		name    string
+		body    string
+		wantOK  bool
+		message string
+	}{
+		{"valid surface", `{"name":"C1","sport":"padel","court_type":"indoor","surface":"synthetic_grass"}`, true, ""},
+		{"no surface", `{"name":"C1","sport":"padel","court_type":"indoor"}`, true, ""},
+		{"unknown surface", `{"name":"C1","sport":"padel","court_type":"indoor","surface":"ice"}`, false, "must be one of"},
+		{"surface of another sport", `{"name":"C1","sport":"padel","court_type":"indoor","surface":"clay"}`, false, "not available for this sport"},
+		{"soccer sand", `{"name":"C1","sport":"soccer","court_type":"outdoor","surface":"sand"}`, true, ""},
+		{"hockey only grass", `{"name":"C1","sport":"hockey","court_type":"outdoor","surface":"parquet"}`, false, "not available for this sport"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &stubStore{}
+			h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+			w := httptest.NewRecorder()
+			h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, tt.body))
+
+			if tt.wantOK {
+				if w.Code != http.StatusCreated {
+					t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+				}
+				return
+			}
+			if w.Code != http.StatusUnprocessableEntity {
+				t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
+			}
+			if !strings.Contains(w.Body.String(), `"surface"`) || !strings.Contains(w.Body.String(), tt.message) {
+				t.Errorf("want a surface field error containing %q; got %s", tt.message, w.Body.String())
+			}
+			if store.inserted != nil {
+				t.Error("a refused court must not be persisted")
+			}
+		})
+	}
+}
+
+func TestCreateRoundTripsLightingAndSurface(t *testing.T) {
+	store := &stubStore{}
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil,
+		`{"name":"C1","sport":"tennis","court_type":"outdoor","has_lighting":true,"surface":"clay"}`))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !store.inserted.HasLighting || store.inserted.Surface == nil || *store.inserted.Surface != "clay" {
+		t.Errorf("stored court lost the fields: %+v", store.inserted)
+	}
+	var out struct {
+		Court struct {
+			HasLighting bool    `json:"has_lighting"`
+			Surface     *string `json:"surface"`
+		} `json:"court"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &out); err != nil {
+		t.Fatal(err)
+	}
+	if !out.Court.HasLighting || out.Court.Surface == nil || *out.Court.Surface != "clay" {
+		t.Errorf("response lost the fields: %s", w.Body.String())
+	}
+}
+
+func TestCreateDefaultsLightingToFalse(t *testing.T) {
+	store := &stubStore{}
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil,
+		`{"name":"C1","sport":"padel","court_type":"indoor"}`))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+	if store.inserted.HasLighting || store.inserted.Surface != nil {
+		t.Errorf("want lighting off and no surface; got %+v", store.inserted)
+	}
+	if !strings.Contains(w.Body.String(), `"has_lighting":false`) {
+		t.Errorf("has_lighting is required on the wire; got %s", w.Body.String())
+	}
+}
+
+func updateWith(t *testing.T, court *courtstore.Court, body string) (*stubStore, *httptest.ResponseRecorder) {
+	t.Helper()
+	store := &stubStore{court: court}
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.Update(w, ownerRequest(t, http.MethodPut, "/", court.ComplexID,
+		map[string]string{"courtID": court.ID.String()}, body))
+	return store, w
+}
+
+func strPtr(s string) *string { return &s }
+
+func TestUpdateLightingAndSurfacePartial(t *testing.T) {
+	newCourt := func() *courtstore.Court {
+		return &courtstore.Court{ID: uuid.New(), ComplexID: uuid.New(), Name: "C1", Sport: "tennis",
+			CourtType: "outdoor", HasLighting: true, Surface: strPtr("clay")}
+	}
+
+	t.Run("absent fields stay unchanged", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"name":"C2"}`)
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		}
+		if !store.updated.HasLighting || store.updated.Surface == nil || *store.updated.Surface != "clay" {
+			t.Errorf("fields changed: %+v", store.updated)
+		}
+	})
+	t.Run("lighting can be turned off", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"has_lighting":false}`)
+		if w.Code != http.StatusOK || store.updated.HasLighting {
+			t.Fatalf("want 200 and lighting off; got %d %+v", w.Code, store.updated)
+		}
+	})
+	t.Run("empty string clears the surface", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"surface":""}`)
+		if w.Code != http.StatusOK || store.updated.Surface != nil {
+			t.Fatalf("want 200 and nil surface; got %d %+v", w.Code, store.updated)
+		}
+	})
+	t.Run("surface valid for the stored sport", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"surface":"natural_grass"}`)
+		if w.Code != http.StatusOK || *store.updated.Surface != "natural_grass" {
+			t.Fatalf("want 200; got %d %s", w.Code, w.Body.String())
+		}
+	})
+	t.Run("surface wrong for the stored sport", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"surface":"parquet"}`)
+		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), `"surface"`) {
+			t.Fatalf("want 422 on surface; got %d %s", w.Code, w.Body.String())
+		}
+		if store.updated != nil {
+			t.Error("a refused update must not be persisted")
+		}
+	})
+	t.Run("unknown surface", func(t *testing.T) {
+		_, w := updateWith(t, newCourt(), `{"surface":"ice"}`)
+		if w.Code != http.StatusUnprocessableEntity {
+			t.Fatalf("want 422; got %d", w.Code)
+		}
+	})
+	t.Run("sport and surface sent together are judged together", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"sport":"basketball","surface":"parquet"}`)
+		if w.Code != http.StatusOK || *store.updated.Surface != "parquet" {
+			t.Fatalf("want 200; got %d %s", w.Code, w.Body.String())
+		}
+	})
+	t.Run("sport change stranding the stored surface is refused on surface", func(t *testing.T) {
+		store, w := updateWith(t, newCourt(), `{"sport":"padel"}`)
+		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), `"surface"`) {
+			t.Fatalf("want 422 on surface; got %d %s", w.Code, w.Body.String())
+		}
+		if store.updated != nil {
+			t.Error("a refused update must not be persisted")
+		}
+	})
+	t.Run("sport change that keeps the surface valid", func(t *testing.T) {
+		court := newCourt()
+		court.Surface = strPtr("concrete")
+		store, w := updateWith(t, court, `{"sport":"padel"}`)
+		if w.Code != http.StatusOK || store.updated.Sport != "padel" {
+			t.Fatalf("want 200; got %d %s", w.Code, w.Body.String())
+		}
+	})
+	t.Run("sport change with no surface stored", func(t *testing.T) {
+		court := newCourt()
+		court.Surface = nil
+		_, w := updateWith(t, court, `{"sport":"hockey"}`)
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d %s", w.Code, w.Body.String())
+		}
+	})
+}

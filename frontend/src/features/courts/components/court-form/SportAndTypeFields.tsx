@@ -1,9 +1,11 @@
-import type { Control, FieldErrors } from 'react-hook-form';
+import type { Control, FieldErrors, UseFormSetValue, UseFormGetValues } from 'react-hook-form';
 import { Controller } from 'react-hook-form';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { isSurfaceAllowed } from '../../lib/surfaces';
 import { SPORTS, COURT_TYPES } from './options';
+import type { Sport } from '@/shared/types/api.types';
 import type { CreateCourtDto } from '../../schemas/courts.schema';
 
 const t = ES_AR;
@@ -11,9 +13,11 @@ const t = ES_AR;
 interface SportAndTypeFieldsProps {
   control: Control<CreateCourtDto>;
   errors: FieldErrors<CreateCourtDto>;
+  setValue: UseFormSetValue<CreateCourtDto>;
+  getValues: UseFormGetValues<CreateCourtDto>;
 }
 
-export function SportAndTypeFields({ control, errors }: SportAndTypeFieldsProps) {
+export function SportAndTypeFields({ control, errors, setValue, getValues }: SportAndTypeFieldsProps) {
   return (
     // One field per row, at every width. Two dropdowns sharing a row read as
     // one compound question — "deporte y tipo" — when they are two separate
@@ -26,7 +30,18 @@ export function SportAndTypeFields({ control, errors }: SportAndTypeFieldsProps)
           name="sport"
           control={control}
           render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
+            <Select
+              value={field.value}
+              onValueChange={(sport) => {
+                field.onChange(sport);
+                // A surface the new sport does not offer would be refused by
+                // the server, so it is cleared rather than left selected.
+                const surface = getValues('surface');
+                if (surface && !isSurfaceAllowed(sport as Sport, surface)) {
+                  setValue('surface', '', { shouldDirty: true });
+                }
+              }}
+            >
               <SelectTrigger id="court-sport">
                 <SelectValue />
               </SelectTrigger>

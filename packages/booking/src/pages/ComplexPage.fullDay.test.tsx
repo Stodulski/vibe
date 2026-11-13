@@ -24,6 +24,7 @@ function court(sport: string, free: boolean): CourtAvailability {
     court_name: `Cancha de ${sport}`,
     sport,
     court_type: 'outdoor',
+    has_lighting: false,
     slots: [
       {
         start_time: '18:00',

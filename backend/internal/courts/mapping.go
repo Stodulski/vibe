@@ -19,10 +19,12 @@ func toGenCourt(c *courtstore.Court) gen.Court {
 		CourtType:   gen.CourtCourtType(c.CourtType),
 		CreatedAt:   c.CreatedAt,
 		Description: c.Description,
+		HasLighting: c.HasLighting,
 		Id:          c.ID,
 		IsActive:    c.IsActive,
 		Name:        c.Name,
 		Sport:       gen.CourtSport(c.Sport),
+		Surface:     toGenSurface[gen.CourtSurface](c.Surface),
 		UpdatedAt:   c.UpdatedAt,
 		// gen.Court.Version is *int with omitempty, but the store's Version is
 		// always set (never the client-supplied kind of "absent"), so taking
@@ -30,6 +32,16 @@ func toGenCourt(c *courtstore.Court) gen.Court {
 		// omitempty on a pointer only ever hides a nil pointer.
 		Version: &version,
 	}
+}
+
+// toGenSurface maps an optional stored surface onto a generated surface enum.
+// nil stays nil, which the wire omits (the same way a missing description is).
+func toGenSurface[T ~string](s *string) *T {
+	if s == nil {
+		return nil
+	}
+	v := T(*s)
+	return &v
 }
 
 // toGenCourtPrice maps a store price band onto the generated wire type.
@@ -61,11 +73,13 @@ func toGenCourtWithPrices(c CourtWithPrices) gen.CourtWithPrices {
 		CourtType:   gen.CourtWithPricesCourtType(c.CourtType),
 		CreatedAt:   c.CreatedAt,
 		Description: c.Description,
+		HasLighting: c.HasLighting,
 		Id:          c.ID,
 		IsActive:    c.IsActive,
 		Name:        c.Name,
 		Prices:      prices,
 		Sport:       gen.CourtWithPricesSport(c.Sport),
+		Surface:     toGenSurface[gen.CourtSurface](c.Surface),
 		UpdatedAt:   c.UpdatedAt,
 		Version:     &version,
 	}
@@ -105,8 +119,10 @@ func toGenAvailabilityCourt(c CourtAvailability) gen.AvailabilityCourt {
 		CourtName:   c.CourtName,
 		CourtType:   gen.AvailabilityCourtCourtType(c.CourtType),
 		Description: c.Description,
+		HasLighting: c.HasLighting,
 		Slots:       slotsOut,
 		Sport:       gen.AvailabilityCourtSport(c.Sport),
+		Surface:     toGenSurface[gen.AvailabilityCourtSurface](c.Surface),
 	}
 }
 

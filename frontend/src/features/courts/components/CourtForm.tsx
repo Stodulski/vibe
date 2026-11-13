@@ -8,6 +8,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { NameField } from './court-form/NameField';
 import { SportAndTypeFields } from './court-form/SportAndTypeFields';
+import { SurfaceAndLightingFields } from './court-form/SurfaceAndLightingFields';
 import { DescriptionField } from './court-form/DescriptionField';
 import { useCourtFormSubmit, courtDefaultValues } from './court-form/useCourtFormSubmit';
 import type { CourtWithPrices } from '@/shared/types/api.types';
@@ -71,6 +72,8 @@ function CourtFormBody({
     register,
     handleSubmit,
     control,
+    setValue,
+    getValues,
     formState: { errors, isDirty },
   } = useAppForm<CreateCourtDto>({
     resolver: zodResolver(createCourtSchema),
@@ -89,7 +92,9 @@ function CourtFormBody({
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
         <NameField register={register} errors={errors} />
 
-        <SportAndTypeFields control={control} errors={errors} />
+        <SportAndTypeFields control={control} errors={errors} setValue={setValue} getValues={getValues} />
+
+        <SurfaceAndLightingFields control={control} errors={errors} />
 
         <DescriptionField register={register} errors={errors} />
 

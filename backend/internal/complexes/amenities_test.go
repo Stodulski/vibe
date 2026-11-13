@@ -23,6 +23,16 @@ func TestCleanAmenities(t *testing.T) {
 			wantOut: []string{"bar", "parking", "wifi"},
 		},
 		{
+			name:    "accepts the seven amenities added with court surfaces",
+			in:      []string{"birthdays", "grill", "quincho", "medical_aid", "sports_school", "kiosk", "kids_area", "racket_rental", "pro_shop"},
+			wantOut: []string{"birthdays", "grill", "quincho", "medical_aid", "sports_school", "kiosk", "kids_area", "racket_rental", "pro_shop"},
+		},
+		{
+			name:        "still rejects an unknown id next to new ones",
+			in:          []string{"grill", "sauna"},
+			wantUnknown: "sauna",
+		},
+		{
 			name:    "drops a repeat and keeps the first occurrence's position",
 			in:      []string{"bar", "parking", "bar"},
 			wantOut: []string{"bar", "parking"},
@@ -71,11 +81,13 @@ func TestCleanAmenities(t *testing.T) {
 // accepts. If these drift, a value the API happily takes is refused by the
 // database with a 500 that names no field.
 func TestKnownAmenitiesMatchesMigration(t *testing.T) {
-	// The exact list in complexes_amenities_known, db/migrations/001_init.sql.
+	// The exact list in complexes_amenities_known, db/migrations/001_init.sql, widened by 026_court_surface_lighting.sql.
 	migration := []string{
 		"parking", "changing_rooms", "showers", "bar",
 		"racket_rental", "pro_shop", "wifi", "lockers",
 		"lessons", "tournaments", "accessible", "match_recording",
+		"birthdays", "grill", "quincho", "medical_aid",
+		"sports_school", "kiosk", "kids_area",
 	}
 
 	if len(knownAmenities) != len(migration) {

@@ -70,6 +70,42 @@ func (e AvailabilityCourtSport) Valid() bool {
 	}
 }
 
+// Defines values for AvailabilityCourtSurface.
+const (
+	AvailabilityCourtSurfaceClay           AvailabilityCourtSurface = "clay"
+	AvailabilityCourtSurfaceConcrete       AvailabilityCourtSurface = "concrete"
+	AvailabilityCourtSurfaceNaturalGrass   AvailabilityCourtSurface = "natural_grass"
+	AvailabilityCourtSurfaceParquet        AvailabilityCourtSurface = "parquet"
+	AvailabilityCourtSurfaceRubber         AvailabilityCourtSurface = "rubber"
+	AvailabilityCourtSurfaceSand           AvailabilityCourtSurface = "sand"
+	AvailabilityCourtSurfaceSyntheticFloor AvailabilityCourtSurface = "synthetic_floor"
+	AvailabilityCourtSurfaceSyntheticGrass AvailabilityCourtSurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the AvailabilityCourtSurface enum.
+func (e AvailabilityCourtSurface) Valid() bool {
+	switch e {
+	case AvailabilityCourtSurfaceClay:
+		return true
+	case AvailabilityCourtSurfaceConcrete:
+		return true
+	case AvailabilityCourtSurfaceNaturalGrass:
+		return true
+	case AvailabilityCourtSurfaceParquet:
+		return true
+	case AvailabilityCourtSurfaceRubber:
+		return true
+	case AvailabilityCourtSurfaceSand:
+		return true
+	case AvailabilityCourtSurfaceSyntheticFloor:
+		return true
+	case AvailabilityCourtSurfaceSyntheticGrass:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BookingStatus.
 const (
 	BookingStatusCancelled BookingStatus = "cancelled"
@@ -391,6 +427,42 @@ func (e CourtSport) Valid() bool {
 	case CourtSportTennis:
 		return true
 	case CourtSportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CourtSurface.
+const (
+	CourtSurfaceClay           CourtSurface = "clay"
+	CourtSurfaceConcrete       CourtSurface = "concrete"
+	CourtSurfaceNaturalGrass   CourtSurface = "natural_grass"
+	CourtSurfaceParquet        CourtSurface = "parquet"
+	CourtSurfaceRubber         CourtSurface = "rubber"
+	CourtSurfaceSand           CourtSurface = "sand"
+	CourtSurfaceSyntheticFloor CourtSurface = "synthetic_floor"
+	CourtSurfaceSyntheticGrass CourtSurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the CourtSurface enum.
+func (e CourtSurface) Valid() bool {
+	switch e {
+	case CourtSurfaceClay:
+		return true
+	case CourtSurfaceConcrete:
+		return true
+	case CourtSurfaceNaturalGrass:
+		return true
+	case CourtSurfaceParquet:
+		return true
+	case CourtSurfaceRubber:
+		return true
+	case CourtSurfaceSand:
+		return true
+	case CourtSurfaceSyntheticFloor:
+		return true
+	case CourtSurfaceSyntheticGrass:
 		return true
 	default:
 		return false
@@ -947,14 +1019,21 @@ func (e AuthUpdateCurrentUser200JSONResponseBodyEmailChange) Valid() bool {
 const (
 	ComplexesCreateJSONBodyAmenitiesAccessible     ComplexesCreateJSONBodyAmenities = "accessible"
 	ComplexesCreateJSONBodyAmenitiesBar            ComplexesCreateJSONBodyAmenities = "bar"
+	ComplexesCreateJSONBodyAmenitiesBirthdays      ComplexesCreateJSONBodyAmenities = "birthdays"
 	ComplexesCreateJSONBodyAmenitiesChangingRooms  ComplexesCreateJSONBodyAmenities = "changing_rooms"
+	ComplexesCreateJSONBodyAmenitiesGrill          ComplexesCreateJSONBodyAmenities = "grill"
+	ComplexesCreateJSONBodyAmenitiesKidsArea       ComplexesCreateJSONBodyAmenities = "kids_area"
+	ComplexesCreateJSONBodyAmenitiesKiosk          ComplexesCreateJSONBodyAmenities = "kiosk"
 	ComplexesCreateJSONBodyAmenitiesLessons        ComplexesCreateJSONBodyAmenities = "lessons"
 	ComplexesCreateJSONBodyAmenitiesLockers        ComplexesCreateJSONBodyAmenities = "lockers"
 	ComplexesCreateJSONBodyAmenitiesMatchRecording ComplexesCreateJSONBodyAmenities = "match_recording"
+	ComplexesCreateJSONBodyAmenitiesMedicalAid     ComplexesCreateJSONBodyAmenities = "medical_aid"
 	ComplexesCreateJSONBodyAmenitiesParking        ComplexesCreateJSONBodyAmenities = "parking"
 	ComplexesCreateJSONBodyAmenitiesProShop        ComplexesCreateJSONBodyAmenities = "pro_shop"
+	ComplexesCreateJSONBodyAmenitiesQuincho        ComplexesCreateJSONBodyAmenities = "quincho"
 	ComplexesCreateJSONBodyAmenitiesRacketRental   ComplexesCreateJSONBodyAmenities = "racket_rental"
 	ComplexesCreateJSONBodyAmenitiesShowers        ComplexesCreateJSONBodyAmenities = "showers"
+	ComplexesCreateJSONBodyAmenitiesSportsSchool   ComplexesCreateJSONBodyAmenities = "sports_school"
 	ComplexesCreateJSONBodyAmenitiesTournaments    ComplexesCreateJSONBodyAmenities = "tournaments"
 	ComplexesCreateJSONBodyAmenitiesWifi           ComplexesCreateJSONBodyAmenities = "wifi"
 )
@@ -966,7 +1045,15 @@ func (e ComplexesCreateJSONBodyAmenities) Valid() bool {
 		return true
 	case ComplexesCreateJSONBodyAmenitiesBar:
 		return true
+	case ComplexesCreateJSONBodyAmenitiesBirthdays:
+		return true
 	case ComplexesCreateJSONBodyAmenitiesChangingRooms:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesGrill:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesKidsArea:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesKiosk:
 		return true
 	case ComplexesCreateJSONBodyAmenitiesLessons:
 		return true
@@ -974,13 +1061,19 @@ func (e ComplexesCreateJSONBodyAmenities) Valid() bool {
 		return true
 	case ComplexesCreateJSONBodyAmenitiesMatchRecording:
 		return true
+	case ComplexesCreateJSONBodyAmenitiesMedicalAid:
+		return true
 	case ComplexesCreateJSONBodyAmenitiesParking:
 		return true
 	case ComplexesCreateJSONBodyAmenitiesProShop:
 		return true
+	case ComplexesCreateJSONBodyAmenitiesQuincho:
+		return true
 	case ComplexesCreateJSONBodyAmenitiesRacketRental:
 		return true
 	case ComplexesCreateJSONBodyAmenitiesShowers:
+		return true
+	case ComplexesCreateJSONBodyAmenitiesSportsSchool:
 		return true
 	case ComplexesCreateJSONBodyAmenitiesTournaments:
 		return true
@@ -995,14 +1088,21 @@ func (e ComplexesCreateJSONBodyAmenities) Valid() bool {
 const (
 	ComplexesUpdateJSONBodyAmenitiesAccessible     ComplexesUpdateJSONBodyAmenities = "accessible"
 	ComplexesUpdateJSONBodyAmenitiesBar            ComplexesUpdateJSONBodyAmenities = "bar"
+	ComplexesUpdateJSONBodyAmenitiesBirthdays      ComplexesUpdateJSONBodyAmenities = "birthdays"
 	ComplexesUpdateJSONBodyAmenitiesChangingRooms  ComplexesUpdateJSONBodyAmenities = "changing_rooms"
+	ComplexesUpdateJSONBodyAmenitiesGrill          ComplexesUpdateJSONBodyAmenities = "grill"
+	ComplexesUpdateJSONBodyAmenitiesKidsArea       ComplexesUpdateJSONBodyAmenities = "kids_area"
+	ComplexesUpdateJSONBodyAmenitiesKiosk          ComplexesUpdateJSONBodyAmenities = "kiosk"
 	ComplexesUpdateJSONBodyAmenitiesLessons        ComplexesUpdateJSONBodyAmenities = "lessons"
 	ComplexesUpdateJSONBodyAmenitiesLockers        ComplexesUpdateJSONBodyAmenities = "lockers"
 	ComplexesUpdateJSONBodyAmenitiesMatchRecording ComplexesUpdateJSONBodyAmenities = "match_recording"
+	ComplexesUpdateJSONBodyAmenitiesMedicalAid     ComplexesUpdateJSONBodyAmenities = "medical_aid"
 	ComplexesUpdateJSONBodyAmenitiesParking        ComplexesUpdateJSONBodyAmenities = "parking"
 	ComplexesUpdateJSONBodyAmenitiesProShop        ComplexesUpdateJSONBodyAmenities = "pro_shop"
+	ComplexesUpdateJSONBodyAmenitiesQuincho        ComplexesUpdateJSONBodyAmenities = "quincho"
 	ComplexesUpdateJSONBodyAmenitiesRacketRental   ComplexesUpdateJSONBodyAmenities = "racket_rental"
 	ComplexesUpdateJSONBodyAmenitiesShowers        ComplexesUpdateJSONBodyAmenities = "showers"
+	ComplexesUpdateJSONBodyAmenitiesSportsSchool   ComplexesUpdateJSONBodyAmenities = "sports_school"
 	ComplexesUpdateJSONBodyAmenitiesTournaments    ComplexesUpdateJSONBodyAmenities = "tournaments"
 	ComplexesUpdateJSONBodyAmenitiesWifi           ComplexesUpdateJSONBodyAmenities = "wifi"
 )
@@ -1014,7 +1114,15 @@ func (e ComplexesUpdateJSONBodyAmenities) Valid() bool {
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesBar:
 		return true
+	case ComplexesUpdateJSONBodyAmenitiesBirthdays:
+		return true
 	case ComplexesUpdateJSONBodyAmenitiesChangingRooms:
+		return true
+	case ComplexesUpdateJSONBodyAmenitiesGrill:
+		return true
+	case ComplexesUpdateJSONBodyAmenitiesKidsArea:
+		return true
+	case ComplexesUpdateJSONBodyAmenitiesKiosk:
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesLessons:
 		return true
@@ -1022,13 +1130,19 @@ func (e ComplexesUpdateJSONBodyAmenities) Valid() bool {
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesMatchRecording:
 		return true
+	case ComplexesUpdateJSONBodyAmenitiesMedicalAid:
+		return true
 	case ComplexesUpdateJSONBodyAmenitiesParking:
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesProShop:
 		return true
+	case ComplexesUpdateJSONBodyAmenitiesQuincho:
+		return true
 	case ComplexesUpdateJSONBodyAmenitiesRacketRental:
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesShowers:
+		return true
+	case ComplexesUpdateJSONBodyAmenitiesSportsSchool:
 		return true
 	case ComplexesUpdateJSONBodyAmenitiesTournaments:
 		return true
@@ -1288,6 +1402,42 @@ func (e CourtsCreateJSONBodySport) Valid() bool {
 	}
 }
 
+// Defines values for CourtsCreateJSONBodySurface.
+const (
+	CourtsCreateJSONBodySurfaceClay           CourtsCreateJSONBodySurface = "clay"
+	CourtsCreateJSONBodySurfaceConcrete       CourtsCreateJSONBodySurface = "concrete"
+	CourtsCreateJSONBodySurfaceNaturalGrass   CourtsCreateJSONBodySurface = "natural_grass"
+	CourtsCreateJSONBodySurfaceParquet        CourtsCreateJSONBodySurface = "parquet"
+	CourtsCreateJSONBodySurfaceRubber         CourtsCreateJSONBodySurface = "rubber"
+	CourtsCreateJSONBodySurfaceSand           CourtsCreateJSONBodySurface = "sand"
+	CourtsCreateJSONBodySurfaceSyntheticFloor CourtsCreateJSONBodySurface = "synthetic_floor"
+	CourtsCreateJSONBodySurfaceSyntheticGrass CourtsCreateJSONBodySurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the CourtsCreateJSONBodySurface enum.
+func (e CourtsCreateJSONBodySurface) Valid() bool {
+	switch e {
+	case CourtsCreateJSONBodySurfaceClay:
+		return true
+	case CourtsCreateJSONBodySurfaceConcrete:
+		return true
+	case CourtsCreateJSONBodySurfaceNaturalGrass:
+		return true
+	case CourtsCreateJSONBodySurfaceParquet:
+		return true
+	case CourtsCreateJSONBodySurfaceRubber:
+		return true
+	case CourtsCreateJSONBodySurfaceSand:
+		return true
+	case CourtsCreateJSONBodySurfaceSyntheticFloor:
+		return true
+	case CourtsCreateJSONBodySurfaceSyntheticGrass:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for CourtsUpdateJSONBodyCourtType.
 const (
 	CourtsUpdateJSONBodyCourtTypeIndoor      CourtsUpdateJSONBodyCourtType = "indoor"
@@ -1336,6 +1486,45 @@ func (e CourtsUpdateJSONBodySport) Valid() bool {
 	case CourtsUpdateJSONBodySportTennis:
 		return true
 	case CourtsUpdateJSONBodySportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CourtsUpdateJSONBodySurface.
+const (
+	CourtsUpdateJSONBodySurfaceClay           CourtsUpdateJSONBodySurface = "clay"
+	CourtsUpdateJSONBodySurfaceConcrete       CourtsUpdateJSONBodySurface = "concrete"
+	CourtsUpdateJSONBodySurfaceEmpty          CourtsUpdateJSONBodySurface = ""
+	CourtsUpdateJSONBodySurfaceNaturalGrass   CourtsUpdateJSONBodySurface = "natural_grass"
+	CourtsUpdateJSONBodySurfaceParquet        CourtsUpdateJSONBodySurface = "parquet"
+	CourtsUpdateJSONBodySurfaceRubber         CourtsUpdateJSONBodySurface = "rubber"
+	CourtsUpdateJSONBodySurfaceSand           CourtsUpdateJSONBodySurface = "sand"
+	CourtsUpdateJSONBodySurfaceSyntheticFloor CourtsUpdateJSONBodySurface = "synthetic_floor"
+	CourtsUpdateJSONBodySurfaceSyntheticGrass CourtsUpdateJSONBodySurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the CourtsUpdateJSONBodySurface enum.
+func (e CourtsUpdateJSONBodySurface) Valid() bool {
+	switch e {
+	case CourtsUpdateJSONBodySurfaceClay:
+		return true
+	case CourtsUpdateJSONBodySurfaceConcrete:
+		return true
+	case CourtsUpdateJSONBodySurfaceEmpty:
+		return true
+	case CourtsUpdateJSONBodySurfaceNaturalGrass:
+		return true
+	case CourtsUpdateJSONBodySurfaceParquet:
+		return true
+	case CourtsUpdateJSONBodySurfaceRubber:
+		return true
+	case CourtsUpdateJSONBodySurfaceSand:
+		return true
+	case CourtsUpdateJSONBodySurfaceSyntheticFloor:
+		return true
+	case CourtsUpdateJSONBodySurfaceSyntheticGrass:
 		return true
 	default:
 		return false
@@ -1657,8 +1846,12 @@ type AvailabilityCourt struct {
 	CourtName   string                     `json:"court_name"`
 	CourtType   AvailabilityCourtCourtType `json:"court_type"`
 	Description *string                    `json:"description,omitempty"`
+	HasLighting bool                       `json:"has_lighting"`
 	Slots       []AvailabilitySlot         `json:"slots"`
 	Sport       AvailabilityCourtSport     `json:"sport"`
+
+	// Surface Omitted when the owner has not said.
+	Surface *AvailabilityCourtSurface `json:"surface,omitempty"`
 }
 
 // AvailabilityCourtCourtType defines model for AvailabilityCourt.CourtType.
@@ -1666,6 +1859,9 @@ type AvailabilityCourtCourtType string
 
 // AvailabilityCourtSport defines model for AvailabilityCourt.Sport.
 type AvailabilityCourtSport string
+
+// AvailabilityCourtSurface Omitted when the owner has not said.
+type AvailabilityCourtSurface string
 
 // AvailabilitySlot defines model for AvailabilitySlot.
 type AvailabilitySlot struct {
@@ -1966,11 +2162,15 @@ type Court struct {
 	CourtType   CourtCourtType     `json:"court_type"`
 	CreatedAt   time.Time          `json:"created_at"`
 	Description *string            `json:"description,omitempty"`
+	HasLighting bool               `json:"has_lighting"`
 	Id          openapi_types.UUID `json:"id"`
 	IsActive    bool               `json:"is_active"`
 	Name        string             `json:"name"`
 	Sport       CourtSport         `json:"sport"`
-	UpdatedAt   time.Time          `json:"updated_at"`
+
+	// Surface Playing surface; null when the owner has not said.
+	Surface   *CourtSurface `json:"surface,omitempty"`
+	UpdatedAt time.Time     `json:"updated_at"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -2005,18 +2205,25 @@ type CourtPrice struct {
 	Version *int `json:"version,omitempty"`
 }
 
+// CourtSurface defines model for CourtSurface.
+type CourtSurface string
+
 // CourtWithPrices defines model for CourtWithPrices.
 type CourtWithPrices struct {
 	ComplexId   openapi_types.UUID       `json:"complex_id"`
 	CourtType   CourtWithPricesCourtType `json:"court_type"`
 	CreatedAt   time.Time                `json:"created_at"`
 	Description *string                  `json:"description,omitempty"`
+	HasLighting bool                     `json:"has_lighting"`
 	Id          openapi_types.UUID       `json:"id"`
 	IsActive    bool                     `json:"is_active"`
 	Name        string                   `json:"name"`
 	Prices      []CourtPrice             `json:"prices"`
 	Sport       CourtWithPricesSport     `json:"sport"`
-	UpdatedAt   time.Time                `json:"updated_at"`
+
+	// Surface Playing surface; null when the owner has not said.
+	Surface   *CourtSurface `json:"surface,omitempty"`
+	UpdatedAt time.Time     `json:"updated_at"`
 
 	// Version Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -3286,8 +3493,14 @@ type ClientsUpdateJSONBody struct {
 type CourtsCreateJSONBody struct {
 	CourtType   CourtsCreateJSONBodyCourtType `json:"court_type"`
 	Description *string                       `json:"description,omitempty"`
-	Name        string                        `json:"name"`
-	Sport       CourtsCreateJSONBodySport     `json:"sport"`
+
+	// HasLighting Defaults to false when omitted.
+	HasLighting *bool                     `json:"has_lighting,omitempty"`
+	Name        string                    `json:"name"`
+	Sport       CourtsCreateJSONBodySport `json:"sport"`
+
+	// Surface Optional. Must be allowed for the court's sport.
+	Surface *CourtsCreateJSONBodySurface `json:"surface,omitempty"`
 }
 
 // CourtsCreateJSONBodyCourtType defines parameters for CourtsCreate.
@@ -3296,13 +3509,20 @@ type CourtsCreateJSONBodyCourtType string
 // CourtsCreateJSONBodySport defines parameters for CourtsCreate.
 type CourtsCreateJSONBodySport string
 
+// CourtsCreateJSONBodySurface defines parameters for CourtsCreate.
+type CourtsCreateJSONBodySurface string
+
 // CourtsUpdateJSONBody defines parameters for CourtsUpdate.
 type CourtsUpdateJSONBody struct {
 	CourtType   *CourtsUpdateJSONBodyCourtType `json:"court_type,omitempty"`
 	Description *string                        `json:"description,omitempty"`
+	HasLighting *bool                          `json:"has_lighting,omitempty"`
 	IsActive    *bool                          `json:"is_active,omitempty"`
 	Name        *string                        `json:"name,omitempty"`
 	Sport       *CourtsUpdateJSONBodySport     `json:"sport,omitempty"`
+
+	// Surface Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
+	Surface *CourtsUpdateJSONBodySurface `json:"surface,omitempty"`
 
 	// Version The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins.
 	Version *int `json:"version,omitempty"`
@@ -3319,6 +3539,9 @@ type CourtsUpdateJSONBodyCourtType string
 
 // CourtsUpdateJSONBodySport defines parameters for CourtsUpdate.
 type CourtsUpdateJSONBodySport string
+
+// CourtsUpdateJSONBodySurface defines parameters for CourtsUpdate.
+type CourtsUpdateJSONBodySurface string
 
 // CourtsBlockSlotJSONBody defines parameters for CourtsBlockSlot.
 type CourtsBlockSlotJSONBody struct {

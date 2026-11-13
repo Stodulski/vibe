@@ -22,6 +22,7 @@ function court(id: string, sport: Sport, prices: CourtPrice[], isActive = true):
     name: `Cancha ${id}`,
     sport,
     court_type: 'indoor',
+    has_lighting: false,
     is_active: isActive,
     created_at: '2026-01-01T00:00:00Z',
     updated_at: '2026-01-01T00:00:00Z',

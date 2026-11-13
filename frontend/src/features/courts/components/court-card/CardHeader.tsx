@@ -1,5 +1,6 @@
 import { Switch } from '@/shared/components/ui/switch';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { courtDetailsLine } from '../../lib/courtDetails';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -11,6 +12,7 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeaderProps) {
+  const details = courtDetailsLine(court);
   return (
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
@@ -51,6 +53,9 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
           {' · '}
           <span className="text-primary-400 font-medium">{t.courts.courtTypes[court.court_type]}</span>
         </p>
+        {/* Surface and lighting, only when known. Truncated like the lines
+            around it so a long pair never wraps at 320px. */}
+        {details && <p className="text-text-tertiary mt-1 truncate text-xs">{details}</p>}
         {/* One line, always — including for a court that has none, which says
             so instead of collapsing. A card that grows or shrinks with the
             length of its description makes a grid of them ragged, and the row

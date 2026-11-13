@@ -36,6 +36,7 @@ function availabilityWith(available: boolean): AvailabilityData {
         court_name: 'Cancha 1',
         sport: 'padel',
         court_type: 'indoor',
+        has_lighting: false,
         slots: [
           {
             start_time: '10:00',

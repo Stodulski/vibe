@@ -27,6 +27,10 @@ export interface ComplexPayload {
     name: string;
     sport: string;
     is_active: boolean;
+    /** Roof type, surface and lighting; absent from a payload that predates them. */
+    court_type?: string;
+    surface?: string | null;
+    has_lighting?: boolean;
     prices: Array<{ price: number; day_type: string; time_from: string; time_to: string }>;
   }>;
   schedules: Array<{ day: string; open_time: string; close_time: string; is_closed: boolean }>;
@@ -36,6 +40,10 @@ export interface ComplexLabels {
   sport(key: string): string;
   weekday(key: string): string;
   amenity(key: string): string;
+  courtType(key: string): string;
+  surface(key: string): string;
+  /** The lighting fact as the booking page words it, "Con iluminación". */
+  lighting: string;
   /** Formats an amount in cents, as the booking page does. */
   price(cents: number): string;
 }
@@ -59,6 +67,8 @@ export interface ComplexFacts {
   sports: Array<{ label: string; courts: number }>;
   hours: Array<{ day: string; text: string }>;
   prices: string[];
+  /** One entry per active court: its name and sport, and its facts line ("Techada · Césped sintético · Con iluminación"). */
+  courts: Array<{ name: string; sport: string; facts: string }>;
   amenities: string[];
 }
 
@@ -116,8 +126,21 @@ export function complexFactsOf(slug: string, payload: ComplexPayload, labels: Co
         text: schedule.is_closed ? 'cerrado' : `${hhmm(schedule.open_time)} a ${hhmm(schedule.close_time)}`,
       })),
     prices: priceLines(active, labels),
+    courts: active.flatMap((court) => {
+      const facts = courtFacts(court, labels);
+      return facts === '' ? [] : [{ name: court.name, sport: labels.sport(court.sport), facts }];
+    }),
     amenities: complex.amenities.map((amenity) => labels.amenity(amenity)).filter((label) => label !== ''),
   };
+}
+
+/** The roof type always (when the payload has one), the surface when set, the lighting when true. */
+function courtFacts(court: ComplexPayload['courts'][number], labels: ComplexLabels): string {
+  const parts: string[] = [];
+  if (court.court_type) parts.push(labels.courtType(court.court_type));
+  if (court.surface) parts.push(labels.surface(court.surface));
+  if (court.has_lighting) parts.push(labels.lighting);
+  return parts.filter((part) => part !== '').join(' · ');
 }
 
 /**

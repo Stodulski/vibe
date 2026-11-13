@@ -25,6 +25,7 @@ function court(id: string, type: CourtAvailability['court_type'], slots: Availab
     court_name: `Cancha ${id}`,
     sport: 'padel',
     court_type: type,
+    has_lighting: false,
     slots,
   };
 }

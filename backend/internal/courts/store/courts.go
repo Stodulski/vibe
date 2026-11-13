@@ -27,7 +27,12 @@ type Court struct {
 	// What this court is like — floor, walls, lighting. Free text the owner
 	// writes for a player choosing between two courts that the other columns
 	// describe identically. Nil when never written, matching Complex.
-	Description *string   `json:"description,omitempty"`
+	Description *string `json:"description,omitempty"`
+	// HasLighting is whether the court can be played after dark. Surface is the
+	// playing floor, one of the values of courts_surface_known; nil when the
+	// owner has not said.
+	HasLighting bool      `json:"has_lighting"`
+	Surface     *string   `json:"surface,omitempty"`
 	CreatedAt   time.Time `json:"created_at"`
 	UpdatedAt   time.Time `json:"updated_at"`
 	// Version is the row's optimistic-concurrency counter, bumped by a trigger
@@ -162,6 +167,8 @@ func (m *Store) Insert(ctx context.Context, c *Court) error {
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
 		Description: data.TextToPg(c.Description),
+		HasLighting: c.HasLighting,
+		Surface:     data.TextToPg(c.Surface),
 	})
 	if err != nil {
 		return translateCourtWrite(err)
@@ -229,6 +236,8 @@ func (m *Store) Update(ctx context.Context, c *Court, expectedVersion *int) erro
 		CourtType:       db.CourtType(c.CourtType),
 		IsActive:        c.IsActive,
 		Description:     data.TextToPg(c.Description),
+		HasLighting:     c.HasLighting,
+		Surface:         data.TextToPg(c.Surface),
 		ID:              data.UUIDToPg(c.ID),
 	})
 	if err != nil {
@@ -872,6 +881,8 @@ func courtFromDB(c db.Court) *Court {
 		CourtType:   string(c.CourtType),
 		IsActive:    c.IsActive,
 		Description: data.PgToTextPtr(c.Description),
+		HasLighting: c.HasLighting,
+		Surface:     data.PgToTextPtr(c.Surface),
 		CreatedAt:   data.PgToTime(c.CreatedAt),
 		UpdatedAt:   data.PgToTime(c.UpdatedAt),
 		Version:     int(c.Version),
