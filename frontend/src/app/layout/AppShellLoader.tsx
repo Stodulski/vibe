@@ -1,5 +1,7 @@
+import { useLocation } from 'react-router-dom';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { skeletonForPath } from '@/app/router/routeSkeletons';
 import { mainNavItems, secondaryNavItems } from '@/shared/components/layout/sidebar/navItems';
 
 const NAV_ITEM_COUNT = mainNavItems.length + secondaryNavItems.length;
@@ -15,6 +17,8 @@ const NAV_ITEM_COUNT = mainNavItems.length + secondaryNavItems.length;
  * `md`, and `<main>` offset by the same margins and padding.
  */
 export function AppShellLoader() {
+  const { pathname } = useLocation();
+
   return (
     <div className="bg-bg-base relative min-h-dvh" role="status" aria-label={ES_AR.common.loading}>
       <div className="fixed inset-x-0 top-0 z-30" aria-hidden="true">
@@ -52,18 +56,25 @@ export function AppShellLoader() {
         className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] lg:px-10 lg:py-8 xl:px-14"
         aria-hidden="true"
       >
-        <div className="mx-auto w-full max-w-[1600px]">
-          {/* Page title: mobile only, the masthead carries it from `md` */}
-          <Skeleton className="mb-3 h-7 w-40 rounded-lg sm:mb-5 md:hidden" />
-          <div className="flex flex-col gap-4 md:gap-6">
-            <Skeleton className="h-24 w-full max-w-xl rounded-xl" />
-            <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
-              <Skeleton className="h-56 w-full rounded-3xl" />
-              <Skeleton className="h-56 w-full rounded-3xl" />
-            </div>
-          </div>
-        </div>
+        <div className="mx-auto w-full max-w-[1600px]">{skeletonForPath(pathname) ?? <NeutralContent />}</div>
       </main>
     </div>
+  );
+}
+
+/** Unmatched paths: a generic title bar, a short block and two cards. */
+function NeutralContent() {
+  return (
+    <>
+      {/* Page title: mobile only, the masthead carries it from `md` */}
+      <Skeleton className="mb-3 h-7 w-40 rounded-lg sm:mb-5 md:hidden" />
+      <div className="flex flex-col gap-4 md:gap-6">
+        <Skeleton className="h-24 w-full max-w-xl rounded-xl" />
+        <div className="grid grid-cols-1 gap-4 md:gap-6 lg:grid-cols-2">
+          <Skeleton className="h-56 w-full rounded-3xl" />
+          <Skeleton className="h-56 w-full rounded-3xl" />
+        </div>
+      </div>
+    </>
   );
 }

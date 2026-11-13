@@ -62,7 +62,10 @@ vi.mock('@/shared/components/ui/alert-dialog', () => ({
   AlertDialogAction: ({ children }: { children: React.ReactNode }) => <button>{children}</button>,
 }));
 
-vi.mock('react-router-dom', () => ({
+vi.mock('react-router-dom', async (importOriginal) => ({
+  // `AppShellLoader` reads the pathname and matches it against the owner routes.
+  useLocation: () => ({ pathname: '/dashboard' }),
+  matchPath: (await importOriginal<typeof import('react-router-dom')>()).matchPath,
   Outlet: () => <div data-testid="outlet">Outlet Content</div>,
   Navigate: ({ to }: { to: string }) => <div data-testid="navigate">{to}</div>,
   Link: ({ children, to }: { children: React.ReactNode; to: string }) => <a href={to}>{children}</a>,
