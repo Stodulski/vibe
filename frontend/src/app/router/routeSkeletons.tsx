@@ -10,6 +10,7 @@ import { SettingsPageSkeleton } from '@/features/complex/pages/SettingsPageSkele
 import { CourtsPageSkeleton } from '@/features/courts/pages/CourtsPageSkeleton';
 import { DashboardPageSkeleton } from '@/features/dashboard/pages/DashboardPageSkeleton';
 import { ReportsPageSkeleton } from '@/features/dashboard/pages/ReportsPageSkeleton';
+import { EventsPageSkeleton } from '@/features/events/pages/EventsPageSkeleton';
 import { ProductDetailPageSkeleton } from '@/features/products/pages/ProductDetailPageSkeleton';
 import { ProductsPageSkeleton } from '@/features/products/pages/ProductsPageSkeleton';
 
@@ -25,6 +26,7 @@ import { ProductsPageSkeleton } from '@/features/products/pages/ProductsPageSkel
 const OWNER_ROUTE_SKELETONS = {
   '/dashboard': () => <DashboardPageSkeleton />,
   '/bookings': () => <BookingsPageSkeleton />,
+  '/open-play': () => <EventsPageSkeleton />,
   '/cash': () => <CashPageSkeleton />,
   '/cash/sell': () => <CashSellPageSkeleton />,
   '/cash/sessions/:sessionId': () => <CashSessionDetailPageSkeleton />,

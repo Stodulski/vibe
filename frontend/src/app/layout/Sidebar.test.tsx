@@ -131,7 +131,16 @@ describe('Sidebar — labels and icons per width', () => {
       </MemoryRouter>,
     );
     const nav = screen.getByLabelText('Navegación principal');
-    for (const label of ['Dashboard', 'Reservas', 'Caja', 'Canchas', 'Clientes', 'Reportes', 'Configuración']) {
+    for (const label of [
+      'Dashboard',
+      'Reservas',
+      'Canchas libres',
+      'Caja',
+      'Canchas',
+      'Clientes',
+      'Reportes',
+      'Configuración',
+    ]) {
       expect(within(nav).getByRole('link', { name: label })).toHaveTextContent(label);
     }
     expect(nav.querySelector('svg')).toBeNull();

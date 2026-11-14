@@ -48,6 +48,10 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), routeSkeleton('/bookings')),
       },
       {
+        path: '/open-play',
+        element: ownerPage(() => import('@/features/events/pages/EventsPage'), routeSkeleton('/open-play')),
+      },
+      {
         path: '/cash',
         element: ownerPage(() => import('@/features/cash/pages/CashPage'), routeSkeleton('/cash')),
       },
