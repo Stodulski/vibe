@@ -52,3 +52,33 @@ describe('EventsSection', () => {
     expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
   });
 });
+
+describe('EventsSection — events that offer no sign-up', () => {
+  it('says Cancelado, not Completo, on a cancelled event even when it is also full', async () => {
+    server.use(
+      http.get('*/public/complexes/:slug/events', () =>
+        HttpResponse.json({ events: [{ ...EVENT, status: 'cancelled', spots_left: 0 }] }),
+      ),
+    );
+    renderBooking(<EventsSection slug="test-club" />);
+
+    expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText(t.cancelledBadge)).toBeInTheDocument();
+    expect(screen.queryByText(t.full)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
+  });
+
+  it('says the sign-up is closed, not Completo, on an event that already started', async () => {
+    server.use(
+      http.get('*/public/complexes/:slug/events', () =>
+        HttpResponse.json({ events: [{ ...EVENT, date: '2000-01-01', spots_left: 0 }] }),
+      ),
+    );
+    renderBooking(<EventsSection slug="test-club" />);
+
+    expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText(t.closedBadge)).toBeInTheDocument();
+    expect(screen.queryByText(t.full)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
+  });
+});

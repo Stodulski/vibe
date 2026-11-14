@@ -16,6 +16,13 @@ interface EventCardProps {
   paid?: number;
 }
 
+/** Why a card offers no sign-up: cancelled beats started, which beats full. */
+function closedLabel(event: PublicOpenPlayEvent): string {
+  if (event.status === 'cancelled') return t.cancelledBadge;
+  if (eventHasStarted(event)) return t.closedBadge;
+  return t.full;
+}
+
 /** One open-play event: what it is, when, where, what it costs and how many spots are left. */
 export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardProps) {
   const Heading = headingLevel;
@@ -60,7 +67,7 @@ export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardP
             <a href={publicEventPath(slug, event.id)}>{t.signUp}</a>
           </Button>
         ) : (
-          <p className="text-text-secondary text-sm font-medium">{t.full}</p>
+          <p className="text-text-secondary text-sm font-medium">{closedLabel(event)}</p>
         ))}
     </article>
   );

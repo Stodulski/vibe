@@ -11,6 +11,8 @@ export const EVENT_MESSAGES = {
   spotsLeftPrefix: 'Quedan',
   spotsLeftSuffix: 'lugares',
   full: 'Completo',
+  cancelledBadge: 'Cancelado',
+  closedBadge: 'Inscripción cerrada',
   fullDescription: 'Se agotaron los lugares de este evento.',
   cancelledTitle: 'Este evento fue cancelado',
   cancelledDescription: 'Si pagaste tu lugar, te devolvemos lo que pagaste.',
