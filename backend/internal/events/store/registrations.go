@@ -118,14 +118,8 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 	if err := data.AssertTenant(ctx, data.PgToUUID(event.ComplexID)); err != nil {
 		return db.OpenPlayRegistration{}, err
 	}
-	// A category's sign-up closes with its draw (Admit), not at a start time.
-	if event.Status != EventActive || (!event.TournamentID.Valid && !eventFromDB(event).StartsAt().After(time.Now())) {
-		return db.OpenPlayRegistration{}, ErrEventClosed
-	}
-	if in.Hooks != nil && in.Hooks.Admit != nil {
-		if err := in.Hooks.Admit(ctx, q, event); err != nil {
-			return db.OpenPlayRegistration{}, err
-		}
+	if err := admitSignUp(ctx, q, event, in); err != nil {
+		return db.OpenPlayRegistration{}, err
 	}
 	if err := m.checkHoldLimit(ctx, tx, in); err != nil {
 		return db.OpenPlayRegistration{}, err
@@ -168,6 +162,19 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 		}
 	}
 	return row, nil
+}
+
+// admitSignUp refuses a sign-up for an event that is cancelled or closed. A
+// tournament category closes with its draw (the hook's Admit), not at a start
+// time.
+func admitSignUp(ctx context.Context, q *db.Queries, event db.OpenPlayEvent, in SignUpInput) error {
+	if event.Status != EventActive || (!event.TournamentID.Valid && !eventFromDB(event).StartsAt().After(time.Now())) {
+		return ErrEventClosed
+	}
+	if in.Hooks != nil && in.Hooks.Admit != nil {
+		return in.Hooks.Admit(ctx, q, event)
+	}
+	return nil
 }
 
 // checkNotRegistered refuses a phone that already holds a live spot of the

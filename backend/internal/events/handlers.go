@@ -107,7 +107,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
 		return
 	}
-	from, to, err := parseDateRange(r.URL.Query())
+	from, to, err := ParseDateRange(r.URL.Query())
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
@@ -120,9 +120,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"events": toGenEvents(events)})
 }
 
-// parseDateRange reads date_from and date_to, both required, at most 366 days
+// ParseDateRange reads date_from and date_to, both required, at most 366 days
 // apart: the same range rule the blocked-slot calendar applies.
-func parseDateRange(qs url.Values) (from, to time.Time, err error) {
+func ParseDateRange(qs url.Values) (from, to time.Time, err error) {
 	fromStr, toStr := httpx.ReadString(qs, "date_from", ""), httpx.ReadString(qs, "date_to", "")
 	if fromStr == "" || toStr == "" {
 		return from, to, fmt.Errorf("date_from and date_to query parameters are required")

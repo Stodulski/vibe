@@ -49,6 +49,7 @@ import (
 	socialthreads "github.com/stodulski/vibe-server/internal/social/threads"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
+	"github.com/stodulski/vibe-server/internal/tournaments"
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
@@ -107,6 +108,7 @@ func validateDeps(d deps) error {
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
 		{"models.Events", d.models.Events != nil},
+		{"models.Tournaments", d.models.Tournaments != nil},
 		{"models.Waitlist", d.models.Waitlist != nil},
 		{"models.Leads", d.models.Leads != nil},
 		{"models.Lifecycle", d.models.Lifecycle != nil},
@@ -871,6 +873,20 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	})
 	openPlayHandler := openplay.NewHandler(openPlayService, respond, d.trustedProxies)
 
+	// Tournaments: built on the events service above (a category's sign-up is an
+	// event registration, money included), which asks the tournaments service back
+	// for a pair's withdrawal rules once the draw exists.
+	tournamentsService := tournaments.NewService(tournaments.Dependencies{
+		Store:    d.models.Tournaments,
+		Events:   openPlayService,
+		Courts:   courtsService,
+		Realtime: events,
+		Audit:    auditor,
+		Logger:   d.logger,
+	})
+	openPlayService.SetTournaments(tournamentsService)
+	tournamentsHandler := tournaments.NewHandler(tournamentsService, respond, d.trustedProxies)
+
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
 	// multi-instance deployment the instances that skipped were silent.
@@ -910,6 +926,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.bookingsService = bookingsService
 	app.openPlay = openPlayHandler
 	app.openPlayService = openPlayService
+	app.tournaments = tournamentsHandler
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
 	app.scheduler = sched

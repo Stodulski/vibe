@@ -327,3 +327,45 @@ func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {
 		t.Errorf("event_blocks must be an empty array, never null; got %s", w.Body.String())
 	}
 }
+
+// A scheduled tournament match is not an event: the calendar gets it under
+// match_blocks, with its tournament, and event_blocks stays free of it.
+func TestListBlockedSlotsReturnsScheduledMatchesAsMatchBlocks(t *testing.T) {
+	complexID, courtID, matchID, tournamentID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	day := mustParseDate(t, "2026-03-05")
+	bookings := &stubBookings{events: []bookingstore.EventOccupancy{{
+		EventID: matchID, ComplexID: complexID, CourtID: courtID, Date: day, Name: "Torneo · 6ta",
+		Kind: bookingstore.OccupancyMatch, ParentID: &tournamentID,
+		StartsAt: slots.At(timezone.Day(day), "18:00"), EndsAt: slots.At(timezone.Day(day), "19:30"),
+	}}}
+
+	h, _ := newTestHandler(&stubStore{}, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-01&date_to=2026-03-31", complexID, nil, ""))
+	var resp struct {
+		EventBlocks []json.RawMessage `json:"event_blocks"`
+		MatchBlocks []struct {
+			MatchID         uuid.UUID `json:"match_id"`
+			TournamentID    uuid.UUID `json:"tournament_id"`
+			CourtID         uuid.UUID `json:"court_id"`
+			StartTime       string    `json:"start_time"`
+			EndTime         string    `json:"end_time"`
+			DurationMinutes int       `json:"duration_minutes"`
+			Name            string    `json:"name"`
+		} `json:"match_blocks"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.EventBlocks) != 0 || len(resp.MatchBlocks) != 1 {
+		t.Fatalf("want the match under match_blocks only; got %s", w.Body.String())
+	}
+	mb := resp.MatchBlocks[0]
+	if mb.MatchID != matchID || mb.TournamentID != tournamentID || mb.CourtID != courtID || mb.StartTime != "18:00" ||
+		mb.EndTime != "19:30" || mb.DurationMinutes != 90 || mb.Name != "Torneo · 6ta" {
+		t.Errorf("match block = %+v", mb)
+	}
+	if !strings.Contains(w.Body.String(), `"event_blocks":[]`) {
+		t.Errorf("event_blocks must stay an empty array; got %s", w.Body.String())
+	}
+}

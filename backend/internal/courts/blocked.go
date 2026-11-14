@@ -100,7 +100,8 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 }
 
 // heldBlocks is the part of the calendar that no blocked-slot row stands for:
-// the weekly fixed bookings and the open-play events holding courts in range.
+// the weekly fixed bookings, the open-play events and the scheduled tournament
+// matches holding courts in range.
 func (h *Handler) heldBlocks(r *http.Request, complexID uuid.UUID, dateFrom, dateTo time.Time) (httpx.Envelope, error) {
 	fixed, err := h.svc.ListFixedBlocks(r.Context(), complexID, dateFrom, dateTo)
 	if err != nil {
@@ -113,6 +114,7 @@ func (h *Handler) heldBlocks(r *http.Request, complexID uuid.UUID, dateFrom, dat
 	return httpx.Envelope{
 		"fixed_blocks": toFixedBlocksWire(fixed),
 		"event_blocks": toEventBlocksWire(events),
+		"match_blocks": toMatchBlocksWire(events),
 	}, nil
 }
 

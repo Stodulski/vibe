@@ -61,6 +61,8 @@ tags:
     description: Courts, price bands, blocked slots and the public availability grid.
   - name: events
     description: Open-play events (canchas libres) that hold courts for a window, and the per-person paid sign-up to them.
+  - name: tournaments
+    description: Tournaments in categories - paid pair sign-up, draws (elimination, groups then knockout), match scheduling on courts and results.
   - name: health
     description: Liveness and readiness probes.
   - name: leads
@@ -2885,6 +2887,655 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /api/v1/complexes/{id}/tournaments:
+    get:
+      tags: [tournaments]
+      operationId: tournamentsList
+      summary: List a complex's tournaments in a date range
+      description: >-
+        Tournaments whose days overlap the range, cancelled ones included, soonest first, each with
+        its categories. At most 200; not paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: date_from
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: date_to
+          in: query
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        "200":
+          description: Tournaments in range, never `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tournaments]
+                properties:
+                  tournaments:
+                    type: array
+                    items: {$ref: "#/components/schemas/TournamentSummary"}
+        "400":
+          description: Missing or malformed dates, or a range over 366 days.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [tournaments]
+      operationId: tournamentsCreate
+      summary: Create a tournament with its categories
+      description: >-
+        Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and
+        format: `elimination` is a single-elimination bracket sized to the next power of two with byes
+        for the top seeds; `groups` is round-robin groups followed by a knockout of the best
+        `qualifiers_per_group` of each. For `groups`, `group_size` (the most pairs per group,
+        default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the
+        owner's to set per category. A category's sign-up is paid by one person for the whole pair and
+        works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60
+        characters for the tournament and 30 for a category.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, start_date, end_date, categories]
+              properties:
+                name: {type: string}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball], default: padel}
+                start_date: {type: string, format: date}
+                end_date: {type: string, format: date, description: "On or after start_date, at most 60 days later."}
+                categories:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items:
+                    type: object
+                    required: [name, format, capacity, price]
+                    properties:
+                      name: {type: string}
+                      format: {type: string, enum: [elimination, groups]}
+                      capacity: {type: integer, minimum: 2, maximum: 128, description: Pairs.}
+                      price: {type: integer, description: "Centavos per pair."}
+                      group_size: {type: integer, minimum: 2, maximum: 12}
+                      qualifiers_per_group: {type: integer, minimum: 1}
+      responses:
+        "201":
+          description: The created tournament.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: Malformed body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}:
+    get:
+      tags: [tournaments]
+      operationId: tournamentsGet
+      summary: Get a tournament with its pairs, groups and matches
+      description: >-
+        Everything under the tournament: categories, every pair that held a spot with its payer,
+        partner and payment (as `eventsGet`'s participants), the groups with their standings, and
+        every match with its schedule and result. Income lands in the complex cash like an online
+        deposit.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+      responses:
+        "200":
+          description: The tournament.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/cancel:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsCancel
+      summary: Cancel a tournament
+      description: >-
+        Cancels every category (each paid pair is refunded through MercadoPago, service fee included,
+        and told by email when they gave one) and releases every court its matches held. A refund
+        MercadoPago cannot complete now stays queued and is retried. A second cancel is `400`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 500}
+      responses:
+        "200":
+          description: The cancelled tournament and the refund of each paid pair.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tournament, refunds]
+                properties:
+                  tournament: {$ref: "#/components/schemas/Tournament"}
+                  refunds: {$ref: "#/components/schemas/TournamentRefunds"}
+        "400":
+          description: The tournament is already cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsCategoryCancel
+      summary: Cancel one category of a tournament
+      description: >-
+        Refunds and tells every paid pair of the category as `tournamentsCancel` does, and releases
+        the courts its scheduled matches held. The rest of the tournament goes on.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 500}
+      responses:
+        "200":
+          description: The refund of each paid pair.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [refunds]
+                properties:
+                  refunds: {$ref: "#/components/schemas/TournamentRefunds"}
+        "400":
+          description: The category is already cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsDrawGenerate
+      summary: Generate (or regenerate) a category's draw
+      description: >-
+        Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes
+        to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into as
+        few groups of at most `group_size` as hold them, sizes differing by at most one, deals them
+        snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play
+        (group winners as top seeds, groupmates apart in the first round where possible, byes when the
+        qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest
+        follow in random order. Generating closes the category's sign-up. It can be repeated while no
+        result is loaded (`409` after); pairs still paying are not drawn and their late payment is
+        refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold
+        the pairs.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seed_order:
+                  type: array
+                  items: {type: string, format: uuid}
+      responses:
+        "200":
+          description: The tournament with the new draw.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: Fewer than two paid pairs, or the tournament or category is cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: A result was already loaded.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsDrawMove
+      summary: Swap two pairs of a drawn category
+      description: >-
+        Moves pairs by hand: the two pairs trade places in the bracket's first round, or trade
+        groups (they must be in different groups). Allowed only before any result (`409` after).
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [pair_id, with_pair_id]
+              properties:
+                pair_id: {type: string, format: uuid}
+                with_pair_id: {type: string, format: uuid}
+      responses:
+        "200":
+          description: The tournament with the changed draw.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: The draw does not exist yet, or the tournament or category is cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: A result was already loaded.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule:
+    put:
+      tags: [tournaments]
+      operationId: tournamentsMatchSchedule
+      summary: Give a match a court, a day and a time
+      description: >-
+        From then on the match holds that court for `duration_minutes` (default 90) everywhere
+        availability is decided, as an event does: public availability, bookings, blocked slots,
+        fixed bookings and events all see it (in `match_blocks` of `courtsListBlockedSlots`).
+        Refused with `409` when a booking, blocked slot, fixed booking, event or another match
+        already holds the hours on that court; `422` for a day outside the tournament's, an unknown
+        court or a bye. Scheduling again moves the match.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/MatchID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [court_id, date, start_time]
+              properties:
+                court_id: {type: string, format: uuid}
+                date: {type: string, format: date}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                duration_minutes: {type: integer, minimum: 30, maximum: 480}
+      responses:
+        "200":
+          description: The scheduled match.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [match]
+                properties:
+                  match: {$ref: "#/components/schemas/TournamentMatch"}
+        "400":
+          description: The match is a bye, or the tournament or category is cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: Something already holds those hours on the court.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    delete:
+      tags: [tournaments]
+      operationId: tournamentsMatchUnschedule
+      summary: Take a match off its court
+      description: Releases the hours the match held.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/MatchID"}
+      responses:
+        "200":
+          description: The unscheduled match.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [match]
+                properties:
+                  match: {$ref: "#/components/schemas/TournamentMatch"}
+        "400":
+          description: The tournament or category is cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result:
+    put:
+      tags: [tournaments]
+      operationId: tournamentsMatchResult
+      summary: Load or correct a match's result
+      description: >-
+        Best of three sets: a set is 6-0 to 6-4, 7-5 or 7-6, and a third set may be a match
+        tiebreak (`super: true`, points to 10 with a two point lead), e.g. `6-4 6-3` or
+        `6-4 3-6 10-7`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no
+        sets; it counts as 6-0 6-0 for the other side. The winner advances to the next match by
+        itself; group standings update (matches won, then set difference, game difference, head to
+        head), and when a group finishes its qualifiers fill their bracket slots. Loading a result
+        again corrects it, allowed while the next match has no result (for a group match: while none
+        of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid
+        score; `400` when the match does not have both pairs yet or is a bye. The response is the
+        whole tournament, since a result moves other matches.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/MatchID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sets:
+                  type: array
+                  minItems: 2
+                  maxItems: 3
+                  items: {$ref: "#/components/schemas/TournamentSet"}
+                walkover_loser: {type: integer, enum: [1, 2]}
+      responses:
+        "200":
+          description: The tournament after the result.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: The match is not ready (a pair is missing) or is a bye, or the tournament or category is cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The next match already has a result, so this one can no longer change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/complexes/{slug}/tournaments:
+    get:
+      tags: [tournaments]
+      operationId: tournamentsPublicList
+      summary: The tournaments a visitor can follow or sign up for
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Active tournaments that are not over, soonest
+        first, each with its categories (with `service_fee` and `total_price` per pair).
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      responses:
+        "200":
+          description: Tournaments, never `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [tournaments]
+                properties:
+                  tournaments:
+                    type: array
+                    items: {$ref: "#/components/schemas/TournamentSummary"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/complexes/{slug}/tournaments/{tournamentID}:
+    get:
+      tags: [tournaments]
+      operationId: tournamentsPublicGet
+      summary: One tournament with its groups, standings, bracket and schedule
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. A cancelled tournament is still shown, as
+        `cancelled`. `pairs` lists the pairs that paid, by player names only; `groups` carry their
+        standings; `matches` are the group matches and the bracket (`stage`, `round`, `position`)
+        with results and schedule. A bracket slot waiting for a group is a `source` (the Nth of a
+        group) until it fills.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - {$ref: "#/components/parameters/TournamentID"}
+      responses:
+        "200":
+          description: The tournament.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicTournamentDetail"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsPublicSignUp
+      summary: Sign up a pair for a category and pay online
+      description: >-
+        Public. Rate limited under the `hold` ceiling like `eventsPublicSignUp`, which it shares its
+        hold, capacity, checkout and refund behaviour with. Cross-tenant bypass reason `resolves`.
+        One person signs up both players and pays the whole entry (`total_price`) through
+        MercadoPago (`mp_init_point`); the spot is held while paying and confirmed when the payment
+        is approved. Phone is required for both players, email optional (without the payer's email
+        no confirmation email is sent). The same problem kinds as events: `409` `event-full`,
+        `event-closed` (the draw exists, or cancelled) or `already-registered` (either player is
+        already in the category, as payer or partner); `429` `rate-limited` over the unpaid-hold
+        cap. The returned `token` is the credential for the status and cancel routes below.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name, phone, partner]
+              properties:
+                first_name: {type: string}
+                last_name: {type: string}
+                phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
+                email: {type: string, description: Optional.}
+                partner:
+                  type: object
+                  required: [first_name, last_name, phone]
+                  properties:
+                    first_name: {type: string}
+                    last_name: {type: string}
+                    phone: {type: string, description: "Must differ from the payer's."}
+                    email: {type: string, description: Optional.}
+      responses:
+        "201":
+          description: The pair's spot is held; pay at `mp_init_point`.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicPairSignUp"}
+        "400":
+          description: Malformed body, or the complex has no MercadoPago connected.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "403":
+          description: The complex blocked the payer's phone.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: Problem kind `event-full`, `event-closed` or `already-registered`.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503":
+          description: MercadoPago would not create the checkout. The held spot was released.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/tournament-registrations/status:
+    get:
+      tags: [tournaments]
+      operationId: tournamentsPublicRegistrationStatus
+      summary: A pair's own spot in a tournament category
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the
+        sign-up returned. Before the draw, `cancellation` follows the complex's policy as an event
+        does; after it (`walkover: true`) leaving forfeits the pair's matches and the payment is
+        kept.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/BookingToken"}
+      responses:
+        "200":
+          description: The pair's spot.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicPairRegistration"}
+        "400":
+          description: Missing token.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/tournament-registrations/cancel:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsPublicRegistrationCancel
+      summary: Withdraw a pair from a tournament category
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Before the draw it follows the complex's
+        cancellation policy as an event does: within the window the payment is refunded through
+        MercadoPago, outside it the spot is released and the payment kept. After the draw the pair
+        leaves as a walkover: its unplayed matches are lost to the opponents, who advance, and the
+        payment is kept.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string}
+      responses:
+        "200":
+          description: Cancelled, with the resulting refund outcome.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registration, refunded, refund]
+                properties:
+                  registration: {$ref: "#/components/schemas/PublicPairRegistration"}
+                  refunded: {type: boolean}
+                  refund: {$ref: "#/components/schemas/RefundOutcome"}
+        "400":
+          description: The spot is already cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
   /api/v1/public/complexes/{slug}/events:
     get:
       tags: [events]
@@ -3439,7 +4090,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [blocked_slots, fixed_blocks, event_blocks]
+                required: [blocked_slots, fixed_blocks, event_blocks, match_blocks]
                 properties:
                   blocked_slots:
                     type: array
@@ -3459,6 +4110,14 @@ paths:
                       court. They block like a blocked slot but are not one: they cannot be deleted
                       from here and are freed by cancelling the event (`eventsCancel`). Not paginated.
                     items: {$ref: "#/components/schemas/EventBlock"}
+                  match_blocks:
+                    type: array
+                    description: >-
+                      The hours scheduled tournament matches hold in the range, one entry per match.
+                      They block like a blocked slot but are not one: they cannot be deleted from here
+                      and are freed by unscheduling the match (`tournamentsMatchUnschedule`) or
+                      cancelling the tournament or category. Not paginated.
+                    items: {$ref: "#/components/schemas/MatchBlock"}
         "400":
           description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
           content:
@@ -5241,6 +5900,21 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    TournamentID:
+      name: tournamentID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    CategoryID:
+      name: categoryID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
+    MatchID:
+      name: matchID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     SeriesID:
       name: seriesID
       in: path
@@ -6323,6 +6997,304 @@ components:
         end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
         duration_minutes: {type: integer}
         name: {type: string}
+
+    MatchBlock:
+      type: object
+      description: >-
+        Hours a scheduled tournament match holds on one court, as the owner's calendar draws them
+        ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run
+        past midnight.
+      required: [match_id, tournament_id, court_id, date, start_time, end_time, duration_minutes, name]
+      properties:
+        match_id: {type: string, format: uuid}
+        tournament_id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        date: {type: string, format: date, description: "The local day the hours start on."}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        name: {type: string}
+
+    Tournament:
+      type: object
+      required: [id, name, sport, start_date, end_date, status, cancel_reason, cancelled_at, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        sport: {type: string}
+        start_date: {type: string, format: date}
+        end_date: {type: string, format: date}
+        status: {type: string, enum: [active, cancelled]}
+        cancel_reason: {type: [string, "null"]}
+        cancelled_at: {type: [string, "null"], format: date-time}
+        created_at: {type: string, format: date-time}
+
+    TournamentCategory:
+      type: object
+      description: >-
+        `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or
+        `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+      required: [id, tournament_id, name, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, status, draw_generated]
+      properties:
+        id: {type: string, format: uuid}
+        tournament_id: {type: string, format: uuid}
+        name: {type: string}
+        format: {type: string, enum: [elimination, groups]}
+        capacity: {type: integer, description: Pairs.}
+        price: {type: integer, description: "Centavos per pair."}
+        service_fee: {type: integer}
+        total_price: {type: integer}
+        spots_left: {type: integer}
+        confirmed_count: {type: integer}
+        held_count: {type: integer}
+        group_size: {type: integer, description: "Most pairs per group (groups format)."}
+        qualifiers_per_group: {type: integer}
+        status: {type: string, enum: [open, closed, cancelled]}
+        draw_generated: {type: boolean}
+
+    TournamentSummary:
+      allOf:
+        - {$ref: "#/components/schemas/Tournament"}
+        - type: object
+          required: [categories]
+          properties:
+            categories:
+              type: array
+              items: {$ref: "#/components/schemas/TournamentCategory"}
+
+    TournamentPlayer:
+      type: object
+      required: [first_name, last_name]
+      properties:
+        first_name: {type: string}
+        last_name: {type: string}
+
+    TournamentOwnerPlayer:
+      type: object
+      required: [first_name, last_name, phone, email]
+      properties:
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string}
+        email: {type: [string, "null"]}
+
+    TournamentPair:
+      type: object
+      description: >-
+        `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status`
+        is `withdrawn` for a pair that left after the draw.
+      required: [id, category_id, players, seed, group_id, status]
+      properties:
+        id: {type: string, format: uuid}
+        category_id: {type: string, format: uuid}
+        players:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentPlayer"}
+        seed: {type: [integer, "null"]}
+        group_id: {type: [string, "null"], format: uuid}
+        status: {type: string, enum: [active, withdrawn]}
+
+    TournamentOwnerPair:
+      allOf:
+        - {$ref: "#/components/schemas/TournamentPair"}
+        - type: object
+          required: [payer, partner, registration, payment]
+          properties:
+            payer: {$ref: "#/components/schemas/TournamentOwnerPlayer"}
+            partner: {$ref: "#/components/schemas/TournamentOwnerPlayer"}
+            registration:
+              type: object
+              description: The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`).
+              required: [status, price, service_fee, held_until, confirmed_at, cancelled_by, signed_up_at]
+              properties:
+                status: {type: string, enum: [held, confirmed, cancelled, expired]}
+                price: {type: integer}
+                service_fee: {type: integer}
+                held_until: {type: string, format: date-time}
+                confirmed_at: {type: [string, "null"], format: date-time}
+                cancelled_by: {type: [string, "null"], enum: [participant, owner, null]}
+                signed_up_at: {type: string, format: date-time}
+            payment:
+              type: [object, "null"]
+              required: [status, amount, service_fee, refund_amount]
+              properties:
+                status: {type: string}
+                amount: {type: integer}
+                service_fee: {type: integer}
+                refund_amount: {type: integer}
+
+    TournamentStanding:
+      type: object
+      description: One pair's line of a group table, best first (`rank` 1 is the group winner).
+      required: [pair_id, rank, played, won, lost, sets_for, sets_against, games_for, games_against]
+      properties:
+        pair_id: {type: string, format: uuid}
+        rank: {type: integer}
+        played: {type: integer}
+        won: {type: integer}
+        lost: {type: integer}
+        sets_for: {type: integer}
+        sets_against: {type: integer}
+        games_for: {type: integer}
+        games_against: {type: integer}
+
+    TournamentGroup:
+      type: object
+      required: [id, category_id, name, position, standings]
+      properties:
+        id: {type: string, format: uuid}
+        category_id: {type: string, format: uuid}
+        name: {type: string, example: A}
+        position: {type: integer}
+        standings:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentStanding"}
+
+    TournamentSet:
+      type: object
+      description: >-
+        One set: games each side won (`a` is the match's first pair), or, with `super`, the points of
+        the match tiebreak that is the third set.
+      required: [a, b]
+      properties:
+        a: {type: integer}
+        b: {type: integer}
+        super: {type: boolean, default: false}
+
+    TournamentMatch:
+      type: object
+      description: >-
+        A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`,
+        `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` /
+        `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2`
+        meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as
+        winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise.
+      required: [id, category_id, stage, group_id, round, position, pair1_id, pair2_id, source1, source2, bye, status, winner_pair_id, sets, walkover_loser, schedule]
+      properties:
+        id: {type: string, format: uuid}
+        category_id: {type: string, format: uuid}
+        stage: {type: string, enum: [group, bracket]}
+        group_id: {type: [string, "null"], format: uuid}
+        round: {type: integer}
+        position: {type: integer}
+        pair1_id: {type: [string, "null"], format: uuid}
+        pair2_id: {type: [string, "null"], format: uuid}
+        source1: {$ref: "#/components/schemas/TournamentSource"}
+        source2: {$ref: "#/components/schemas/TournamentSource"}
+        bye: {type: boolean}
+        status: {type: string, enum: [pending, completed]}
+        winner_pair_id: {type: [string, "null"], format: uuid}
+        sets:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentSet"}
+        walkover_loser: {type: integer, enum: [0, 1, 2]}
+        schedule:
+          type: [object, "null"]
+          required: [court_id, court_name, date, start_time, end_time, duration_minutes]
+          properties:
+            court_id: {type: string, format: uuid}
+            court_name: {type: string}
+            date: {type: string, format: date}
+            start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+            end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+            duration_minutes: {type: integer}
+
+    TournamentSource:
+      type: [object, "null"]
+      description: "Where a bracket slot's pair comes from: the Nth of a group."
+      required: [group_id, rank]
+      properties:
+        group_id: {type: string, format: uuid}
+        rank: {type: integer}
+
+    TournamentDetail:
+      type: object
+      required: [tournament, categories, pairs, groups, matches]
+      properties:
+        tournament: {$ref: "#/components/schemas/Tournament"}
+        categories:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentCategory"}
+        pairs:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentOwnerPair"}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentGroup"}
+        matches:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentMatch"}
+
+    PublicTournamentDetail:
+      type: object
+      required: [tournament, categories, pairs, groups, matches, complex_name, cancellation_hours]
+      properties:
+        tournament: {$ref: "#/components/schemas/Tournament"}
+        categories:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentCategory"}
+        pairs:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentPair"}
+        groups:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentGroup"}
+        matches:
+          type: array
+          items: {$ref: "#/components/schemas/TournamentMatch"}
+        complex_name: {type: string}
+        cancellation_hours: {type: integer}
+
+    TournamentRefunds:
+      type: array
+      items:
+        type: object
+        required: [registration_id, refund]
+        properties:
+          registration_id: {type: string, format: uuid}
+          refund: {$ref: "#/components/schemas/RefundOutcome"}
+
+    PublicPairSignUp:
+      type: object
+      required: [registration, token, tournament, category, mp_init_point, mp_preference_id, service_fee, total_price]
+      properties:
+        registration:
+          type: object
+          required: [status, held_until]
+          properties:
+            status: {type: string, enum: [held]}
+            held_until: {type: string, format: date-time}
+        token: {type: string}
+        tournament: {$ref: "#/components/schemas/Tournament"}
+        category: {$ref: "#/components/schemas/TournamentCategory"}
+        mp_init_point: {type: string}
+        mp_preference_id: {type: string}
+        service_fee: {type: integer}
+        total_price: {type: integer}
+
+    PublicPairRegistration:
+      type: object
+      required: [status, pair_status, held_until, payer, partner, price, service_fee, tournament, category, complex_name, complex_address, cancellation]
+      properties:
+        status: {type: string, enum: [held, confirmed, cancelled, expired]}
+        pair_status: {type: string, enum: [active, withdrawn]}
+        held_until: {type: string, format: date-time}
+        payer: {$ref: "#/components/schemas/TournamentPlayer"}
+        partner: {$ref: "#/components/schemas/TournamentPlayer"}
+        price: {type: integer}
+        service_fee: {type: integer}
+        tournament: {$ref: "#/components/schemas/Tournament"}
+        category: {$ref: "#/components/schemas/TournamentCategory"}
+        complex_name: {type: string}
+        complex_address: {type: string}
+        cancellation:
+          type: object
+          required: [can_cancel, within_window, deadline, walkover]
+          properties:
+            can_cancel: {type: boolean}
+            within_window: {type: boolean, description: "Whether cancelling now earns the payment back."}
+            deadline: {type: string, format: date-time}
+            walkover: {type: boolean, description: "True after the draw: leaving forfeits the matches and keeps the payment."}
 
     FixedBlock:
       type: object

@@ -1078,6 +1078,63 @@ func (e PublicOpenPlayEventStatus) Valid() bool {
 	}
 }
 
+// Defines values for PublicPairRegistrationPairStatus.
+const (
+	PublicPairRegistrationPairStatusActive    PublicPairRegistrationPairStatus = "active"
+	PublicPairRegistrationPairStatusWithdrawn PublicPairRegistrationPairStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the PublicPairRegistrationPairStatus enum.
+func (e PublicPairRegistrationPairStatus) Valid() bool {
+	switch e {
+	case PublicPairRegistrationPairStatusActive:
+		return true
+	case PublicPairRegistrationPairStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicPairRegistrationStatus.
+const (
+	PublicPairRegistrationStatusCancelled PublicPairRegistrationStatus = "cancelled"
+	PublicPairRegistrationStatusConfirmed PublicPairRegistrationStatus = "confirmed"
+	PublicPairRegistrationStatusExpired   PublicPairRegistrationStatus = "expired"
+	PublicPairRegistrationStatusHeld      PublicPairRegistrationStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the PublicPairRegistrationStatus enum.
+func (e PublicPairRegistrationStatus) Valid() bool {
+	switch e {
+	case PublicPairRegistrationStatusCancelled:
+		return true
+	case PublicPairRegistrationStatusConfirmed:
+		return true
+	case PublicPairRegistrationStatusExpired:
+		return true
+	case PublicPairRegistrationStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicPairSignUpRegistrationStatus.
+const (
+	PublicPairSignUpRegistrationStatusHeld PublicPairSignUpRegistrationStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the PublicPairSignUpRegistrationStatus enum.
+func (e PublicPairSignUpRegistrationStatus) Valid() bool {
+	switch e {
+	case PublicPairSignUpRegistrationStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RefundOutcomeStatus.
 const (
 	RefundOutcomeStatusAlreadyIssued RefundOutcomeStatus = "already_issued"
@@ -1207,6 +1264,219 @@ func (e StockMovementReason) Valid() bool {
 	case StockMovementReasonOther:
 		return true
 	case StockMovementReasonOwnConsumption:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentStatus.
+const (
+	TournamentStatusActive    TournamentStatus = "active"
+	TournamentStatusCancelled TournamentStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the TournamentStatus enum.
+func (e TournamentStatus) Valid() bool {
+	switch e {
+	case TournamentStatusActive:
+		return true
+	case TournamentStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentCategoryFormat.
+const (
+	TournamentCategoryFormatElimination TournamentCategoryFormat = "elimination"
+	TournamentCategoryFormatGroups      TournamentCategoryFormat = "groups"
+)
+
+// Valid indicates whether the value is a known member of the TournamentCategoryFormat enum.
+func (e TournamentCategoryFormat) Valid() bool {
+	switch e {
+	case TournamentCategoryFormatElimination:
+		return true
+	case TournamentCategoryFormatGroups:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentCategoryStatus.
+const (
+	TournamentCategoryStatusCancelled TournamentCategoryStatus = "cancelled"
+	TournamentCategoryStatusClosed    TournamentCategoryStatus = "closed"
+	TournamentCategoryStatusOpen      TournamentCategoryStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the TournamentCategoryStatus enum.
+func (e TournamentCategoryStatus) Valid() bool {
+	switch e {
+	case TournamentCategoryStatusCancelled:
+		return true
+	case TournamentCategoryStatusClosed:
+		return true
+	case TournamentCategoryStatusOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentMatchStage.
+const (
+	Bracket TournamentMatchStage = "bracket"
+	Group   TournamentMatchStage = "group"
+)
+
+// Valid indicates whether the value is a known member of the TournamentMatchStage enum.
+func (e TournamentMatchStage) Valid() bool {
+	switch e {
+	case Bracket:
+		return true
+	case Group:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentMatchStatus.
+const (
+	TournamentMatchStatusCompleted TournamentMatchStatus = "completed"
+	TournamentMatchStatusPending   TournamentMatchStatus = "pending"
+)
+
+// Valid indicates whether the value is a known member of the TournamentMatchStatus enum.
+func (e TournamentMatchStatus) Valid() bool {
+	switch e {
+	case TournamentMatchStatusCompleted:
+		return true
+	case TournamentMatchStatusPending:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentMatchWalkoverLoser.
+const (
+	TournamentMatchWalkoverLoserN0 TournamentMatchWalkoverLoser = 0
+	TournamentMatchWalkoverLoserN1 TournamentMatchWalkoverLoser = 1
+	TournamentMatchWalkoverLoserN2 TournamentMatchWalkoverLoser = 2
+)
+
+// Valid indicates whether the value is a known member of the TournamentMatchWalkoverLoser enum.
+func (e TournamentMatchWalkoverLoser) Valid() bool {
+	switch e {
+	case TournamentMatchWalkoverLoserN0:
+		return true
+	case TournamentMatchWalkoverLoserN1:
+		return true
+	case TournamentMatchWalkoverLoserN2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentOwnerPairRegistrationCancelledBy.
+const (
+	TournamentOwnerPairRegistrationCancelledByLessThannil TournamentOwnerPairRegistrationCancelledBy = "<nil>"
+	TournamentOwnerPairRegistrationCancelledByOwner       TournamentOwnerPairRegistrationCancelledBy = "owner"
+	TournamentOwnerPairRegistrationCancelledByParticipant TournamentOwnerPairRegistrationCancelledBy = "participant"
+)
+
+// Valid indicates whether the value is a known member of the TournamentOwnerPairRegistrationCancelledBy enum.
+func (e TournamentOwnerPairRegistrationCancelledBy) Valid() bool {
+	switch e {
+	case TournamentOwnerPairRegistrationCancelledByLessThannil:
+		return true
+	case TournamentOwnerPairRegistrationCancelledByOwner:
+		return true
+	case TournamentOwnerPairRegistrationCancelledByParticipant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentOwnerPairRegistrationStatus.
+const (
+	TournamentOwnerPairRegistrationStatusCancelled TournamentOwnerPairRegistrationStatus = "cancelled"
+	TournamentOwnerPairRegistrationStatusConfirmed TournamentOwnerPairRegistrationStatus = "confirmed"
+	TournamentOwnerPairRegistrationStatusExpired   TournamentOwnerPairRegistrationStatus = "expired"
+	TournamentOwnerPairRegistrationStatusHeld      TournamentOwnerPairRegistrationStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the TournamentOwnerPairRegistrationStatus enum.
+func (e TournamentOwnerPairRegistrationStatus) Valid() bool {
+	switch e {
+	case TournamentOwnerPairRegistrationStatusCancelled:
+		return true
+	case TournamentOwnerPairRegistrationStatusConfirmed:
+		return true
+	case TournamentOwnerPairRegistrationStatusExpired:
+		return true
+	case TournamentOwnerPairRegistrationStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentOwnerPairStatus.
+const (
+	TournamentOwnerPairStatusActive    TournamentOwnerPairStatus = "active"
+	TournamentOwnerPairStatusWithdrawn TournamentOwnerPairStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the TournamentOwnerPairStatus enum.
+func (e TournamentOwnerPairStatus) Valid() bool {
+	switch e {
+	case TournamentOwnerPairStatusActive:
+		return true
+	case TournamentOwnerPairStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentPairStatus.
+const (
+	TournamentPairStatusActive    TournamentPairStatus = "active"
+	TournamentPairStatusWithdrawn TournamentPairStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the TournamentPairStatus enum.
+func (e TournamentPairStatus) Valid() bool {
+	switch e {
+	case TournamentPairStatusActive:
+		return true
+	case TournamentPairStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentSummaryStatus.
+const (
+	TournamentSummaryStatusActive    TournamentSummaryStatus = "active"
+	TournamentSummaryStatusCancelled TournamentSummaryStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the TournamentSummaryStatus enum.
+func (e TournamentSummaryStatus) Valid() bool {
+	switch e {
+	case TournamentSummaryStatusActive:
+		return true
+	case TournamentSummaryStatusCancelled:
 		return true
 	default:
 		return false
@@ -1990,6 +2260,75 @@ func (e ReportingGetRevenueChartParamsPeriod) Valid() bool {
 	}
 }
 
+// Defines values for TournamentsCreateJSONBodyCategoriesFormat.
+const (
+	TournamentsCreateJSONBodyCategoriesFormatElimination TournamentsCreateJSONBodyCategoriesFormat = "elimination"
+	TournamentsCreateJSONBodyCategoriesFormatGroups      TournamentsCreateJSONBodyCategoriesFormat = "groups"
+)
+
+// Valid indicates whether the value is a known member of the TournamentsCreateJSONBodyCategoriesFormat enum.
+func (e TournamentsCreateJSONBodyCategoriesFormat) Valid() bool {
+	switch e {
+	case TournamentsCreateJSONBodyCategoriesFormatElimination:
+		return true
+	case TournamentsCreateJSONBodyCategoriesFormatGroups:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsCreateJSONBodySport.
+const (
+	TournamentsCreateJSONBodySportBasketball TournamentsCreateJSONBodySport = "basketball"
+	TournamentsCreateJSONBodySportHockey     TournamentsCreateJSONBodySport = "hockey"
+	TournamentsCreateJSONBodySportPadel      TournamentsCreateJSONBodySport = "padel"
+	TournamentsCreateJSONBodySportPickleball TournamentsCreateJSONBodySport = "pickleball"
+	TournamentsCreateJSONBodySportSoccer     TournamentsCreateJSONBodySport = "soccer"
+	TournamentsCreateJSONBodySportTennis     TournamentsCreateJSONBodySport = "tennis"
+	TournamentsCreateJSONBodySportVolleyball TournamentsCreateJSONBodySport = "volleyball"
+)
+
+// Valid indicates whether the value is a known member of the TournamentsCreateJSONBodySport enum.
+func (e TournamentsCreateJSONBodySport) Valid() bool {
+	switch e {
+	case TournamentsCreateJSONBodySportBasketball:
+		return true
+	case TournamentsCreateJSONBodySportHockey:
+		return true
+	case TournamentsCreateJSONBodySportPadel:
+		return true
+	case TournamentsCreateJSONBodySportPickleball:
+		return true
+	case TournamentsCreateJSONBodySportSoccer:
+		return true
+	case TournamentsCreateJSONBodySportTennis:
+		return true
+	case TournamentsCreateJSONBodySportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsMatchResultJSONBodyWalkoverLoser.
+const (
+	TournamentsMatchResultJSONBodyWalkoverLoserN1 TournamentsMatchResultJSONBodyWalkoverLoser = 1
+	TournamentsMatchResultJSONBodyWalkoverLoserN2 TournamentsMatchResultJSONBodyWalkoverLoser = 2
+)
+
+// Valid indicates whether the value is a known member of the TournamentsMatchResultJSONBodyWalkoverLoser enum.
+func (e TournamentsMatchResultJSONBodyWalkoverLoser) Valid() bool {
+	switch e {
+	case TournamentsMatchResultJSONBodyWalkoverLoserN1:
+		return true
+	case TournamentsMatchResultJSONBodyWalkoverLoserN2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplexesPresignUploadJSONBodyContentType.
 const (
 	Imagejpeg ComplexesPresignUploadJSONBodyContentType = "image/jpeg"
@@ -2727,6 +3066,20 @@ type HealthStatusImpaired string
 // HealthStatusStatus defines model for HealthStatus.Status.
 type HealthStatusStatus string
 
+// MatchBlock Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight.
+type MatchBlock struct {
+	CourtId openapi_types.UUID `json:"court_id"`
+
+	// Date The local day the hours start on.
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+	EndTime         string             `json:"end_time"`
+	MatchId         openapi_types.UUID `json:"match_id"`
+	Name            string             `json:"name"`
+	StartTime       string             `json:"start_time"`
+	TournamentId    openapi_types.UUID `json:"tournament_id"`
+}
+
 // Metadata defines model for Metadata.
 type Metadata struct {
 	HasMore    bool    `json:"has_more"`
@@ -3355,6 +3708,69 @@ type PublicOpenPlayEventSport string
 // PublicOpenPlayEventStatus defines model for PublicOpenPlayEvent.Status.
 type PublicOpenPlayEventStatus string
 
+// PublicPairRegistration defines model for PublicPairRegistration.
+type PublicPairRegistration struct {
+	Cancellation struct {
+		CanCancel bool      `json:"can_cancel"`
+		Deadline  time.Time `json:"deadline"`
+
+		// Walkover True after the draw: leaving forfeits the matches and keeps the payment.
+		Walkover bool `json:"walkover"`
+
+		// WithinWindow Whether cancelling now earns the payment back.
+		WithinWindow bool `json:"within_window"`
+	} `json:"cancellation"`
+
+	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+	Category       TournamentCategory               `json:"category"`
+	ComplexAddress string                           `json:"complex_address"`
+	ComplexName    string                           `json:"complex_name"`
+	HeldUntil      time.Time                        `json:"held_until"`
+	PairStatus     PublicPairRegistrationPairStatus `json:"pair_status"`
+	Partner        TournamentPlayer                 `json:"partner"`
+	Payer          TournamentPlayer                 `json:"payer"`
+	Price          int                              `json:"price"`
+	ServiceFee     int                              `json:"service_fee"`
+	Status         PublicPairRegistrationStatus     `json:"status"`
+	Tournament     Tournament                       `json:"tournament"`
+}
+
+// PublicPairRegistrationPairStatus defines model for PublicPairRegistration.PairStatus.
+type PublicPairRegistrationPairStatus string
+
+// PublicPairRegistrationStatus defines model for PublicPairRegistration.Status.
+type PublicPairRegistrationStatus string
+
+// PublicPairSignUp defines model for PublicPairSignUp.
+type PublicPairSignUp struct {
+	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+	Category       TournamentCategory `json:"category"`
+	MpInitPoint    string             `json:"mp_init_point"`
+	MpPreferenceId string             `json:"mp_preference_id"`
+	Registration   struct {
+		HeldUntil time.Time                          `json:"held_until"`
+		Status    PublicPairSignUpRegistrationStatus `json:"status"`
+	} `json:"registration"`
+	ServiceFee int        `json:"service_fee"`
+	Token      string     `json:"token"`
+	TotalPrice int        `json:"total_price"`
+	Tournament Tournament `json:"tournament"`
+}
+
+// PublicPairSignUpRegistrationStatus defines model for PublicPairSignUp.Registration.Status.
+type PublicPairSignUpRegistrationStatus string
+
+// PublicTournamentDetail defines model for PublicTournamentDetail.
+type PublicTournamentDetail struct {
+	CancellationHours int                  `json:"cancellation_hours"`
+	Categories        []TournamentCategory `json:"categories"`
+	ComplexName       string               `json:"complex_name"`
+	Groups            []TournamentGroup    `json:"groups"`
+	Matches           []TournamentMatch    `json:"matches"`
+	Pairs             []TournamentPair     `json:"pairs"`
+	Tournament        Tournament           `json:"tournament"`
+}
+
 // RefundOutcome defines model for RefundOutcome.
 type RefundOutcome struct {
 	// Amount Centavos ARS. Present only when greater than zero, the automatic-refund half.
@@ -3518,6 +3934,224 @@ type TopClient struct {
 	TotalSpent int `json:"total_spent"`
 }
 
+// Tournament defines model for Tournament.
+type Tournament struct {
+	CancelReason *string            `json:"cancel_reason"`
+	CancelledAt  *time.Time         `json:"cancelled_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+	EndDate      openapi_types.Date `json:"end_date"`
+	Id           openapi_types.UUID `json:"id"`
+	Name         string             `json:"name"`
+	Sport        string             `json:"sport"`
+	StartDate    openapi_types.Date `json:"start_date"`
+	Status       TournamentStatus   `json:"status"`
+}
+
+// TournamentStatus defines model for Tournament.Status.
+type TournamentStatus string
+
+// TournamentCategory `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+type TournamentCategory struct {
+	// Capacity Pairs.
+	Capacity       int                      `json:"capacity"`
+	ConfirmedCount int                      `json:"confirmed_count"`
+	DrawGenerated  bool                     `json:"draw_generated"`
+	Format         TournamentCategoryFormat `json:"format"`
+
+	// GroupSize Most pairs per group (groups format).
+	GroupSize int                `json:"group_size"`
+	HeldCount int                `json:"held_count"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+
+	// Price Centavos per pair.
+	Price              int                      `json:"price"`
+	QualifiersPerGroup int                      `json:"qualifiers_per_group"`
+	ServiceFee         *int                     `json:"service_fee,omitempty"`
+	SpotsLeft          int                      `json:"spots_left"`
+	Status             TournamentCategoryStatus `json:"status"`
+	TotalPrice         *int                     `json:"total_price,omitempty"`
+	TournamentId       openapi_types.UUID       `json:"tournament_id"`
+}
+
+// TournamentCategoryFormat defines model for TournamentCategory.Format.
+type TournamentCategoryFormat string
+
+// TournamentCategoryStatus defines model for TournamentCategory.Status.
+type TournamentCategoryStatus string
+
+// TournamentDetail defines model for TournamentDetail.
+type TournamentDetail struct {
+	Categories []TournamentCategory  `json:"categories"`
+	Groups     []TournamentGroup     `json:"groups"`
+	Matches    []TournamentMatch     `json:"matches"`
+	Pairs      []TournamentOwnerPair `json:"pairs"`
+	Tournament Tournament            `json:"tournament"`
+}
+
+// TournamentGroup defines model for TournamentGroup.
+type TournamentGroup struct {
+	CategoryId openapi_types.UUID   `json:"category_id"`
+	Id         openapi_types.UUID   `json:"id"`
+	Name       string               `json:"name"`
+	Position   int                  `json:"position"`
+	Standings  []TournamentStanding `json:"standings"`
+}
+
+// TournamentMatch A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise.
+type TournamentMatch struct {
+	Bye        bool                `json:"bye"`
+	CategoryId openapi_types.UUID  `json:"category_id"`
+	GroupId    *openapi_types.UUID `json:"group_id"`
+	Id         openapi_types.UUID  `json:"id"`
+	Pair1Id    *openapi_types.UUID `json:"pair1_id"`
+	Pair2Id    *openapi_types.UUID `json:"pair2_id"`
+	Position   int                 `json:"position"`
+	Round      int                 `json:"round"`
+	Schedule   *struct {
+		CourtId         openapi_types.UUID `json:"court_id"`
+		CourtName       string             `json:"court_name"`
+		Date            openapi_types.Date `json:"date"`
+		DurationMinutes int                `json:"duration_minutes"`
+		EndTime         string             `json:"end_time"`
+		StartTime       string             `json:"start_time"`
+	} `json:"schedule"`
+	Sets []TournamentSet `json:"sets"`
+
+	// Source1 Where a bracket slot's pair comes from: the Nth of a group.
+	Source1 *TournamentSource `json:"source1"`
+
+	// Source2 Where a bracket slot's pair comes from: the Nth of a group.
+	Source2       *TournamentSource            `json:"source2"`
+	Stage         TournamentMatchStage         `json:"stage"`
+	Status        TournamentMatchStatus        `json:"status"`
+	WalkoverLoser TournamentMatchWalkoverLoser `json:"walkover_loser"`
+	WinnerPairId  *openapi_types.UUID          `json:"winner_pair_id"`
+}
+
+// TournamentMatchStage defines model for TournamentMatch.Stage.
+type TournamentMatchStage string
+
+// TournamentMatchStatus defines model for TournamentMatch.Status.
+type TournamentMatchStatus string
+
+// TournamentMatchWalkoverLoser defines model for TournamentMatch.WalkoverLoser.
+type TournamentMatchWalkoverLoser int
+
+// TournamentOwnerPair defines model for TournamentOwnerPair.
+type TournamentOwnerPair struct {
+	CategoryId openapi_types.UUID    `json:"category_id"`
+	GroupId    *openapi_types.UUID   `json:"group_id"`
+	Id         openapi_types.UUID    `json:"id"`
+	Partner    TournamentOwnerPlayer `json:"partner"`
+	Payer      TournamentOwnerPlayer `json:"payer"`
+	Payment    *struct {
+		Amount       int    `json:"amount"`
+		RefundAmount int    `json:"refund_amount"`
+		ServiceFee   int    `json:"service_fee"`
+		Status       string `json:"status"`
+	} `json:"payment"`
+	Players []TournamentPlayer `json:"players"`
+
+	// Registration The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`).
+	Registration struct {
+		CancelledBy *TournamentOwnerPairRegistrationCancelledBy `json:"cancelled_by"`
+		ConfirmedAt *time.Time                                  `json:"confirmed_at"`
+		HeldUntil   time.Time                                   `json:"held_until"`
+		Price       int                                         `json:"price"`
+		ServiceFee  int                                         `json:"service_fee"`
+		SignedUpAt  time.Time                                   `json:"signed_up_at"`
+		Status      TournamentOwnerPairRegistrationStatus       `json:"status"`
+	} `json:"registration"`
+	Seed   *int                      `json:"seed"`
+	Status TournamentOwnerPairStatus `json:"status"`
+}
+
+// TournamentOwnerPairRegistrationCancelledBy defines model for TournamentOwnerPair.Registration.CancelledBy.
+type TournamentOwnerPairRegistrationCancelledBy string
+
+// TournamentOwnerPairRegistrationStatus defines model for TournamentOwnerPair.Registration.Status.
+type TournamentOwnerPairRegistrationStatus string
+
+// TournamentOwnerPairStatus defines model for TournamentOwnerPair.Status.
+type TournamentOwnerPairStatus string
+
+// TournamentOwnerPlayer defines model for TournamentOwnerPlayer.
+type TournamentOwnerPlayer struct {
+	Email     *string `json:"email"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+	Phone     string  `json:"phone"`
+}
+
+// TournamentPair `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status` is `withdrawn` for a pair that left after the draw.
+type TournamentPair struct {
+	CategoryId openapi_types.UUID   `json:"category_id"`
+	GroupId    *openapi_types.UUID  `json:"group_id"`
+	Id         openapi_types.UUID   `json:"id"`
+	Players    []TournamentPlayer   `json:"players"`
+	Seed       *int                 `json:"seed"`
+	Status     TournamentPairStatus `json:"status"`
+}
+
+// TournamentPairStatus defines model for TournamentPair.Status.
+type TournamentPairStatus string
+
+// TournamentPlayer defines model for TournamentPlayer.
+type TournamentPlayer struct {
+	FirstName string `json:"first_name"`
+	LastName  string `json:"last_name"`
+}
+
+// TournamentRefunds defines model for TournamentRefunds.
+type TournamentRefunds = []struct {
+	Refund         RefundOutcome      `json:"refund"`
+	RegistrationId openapi_types.UUID `json:"registration_id"`
+}
+
+// TournamentSet One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that is the third set.
+type TournamentSet struct {
+	A     int   `json:"a"`
+	B     int   `json:"b"`
+	Super *bool `json:"super,omitempty"`
+}
+
+// TournamentSource Where a bracket slot's pair comes from: the Nth of a group.
+type TournamentSource struct {
+	GroupId openapi_types.UUID `json:"group_id"`
+	Rank    int                `json:"rank"`
+}
+
+// TournamentStanding One pair's line of a group table, best first (`rank` 1 is the group winner).
+type TournamentStanding struct {
+	GamesAgainst int                `json:"games_against"`
+	GamesFor     int                `json:"games_for"`
+	Lost         int                `json:"lost"`
+	PairId       openapi_types.UUID `json:"pair_id"`
+	Played       int                `json:"played"`
+	Rank         int                `json:"rank"`
+	SetsAgainst  int                `json:"sets_against"`
+	SetsFor      int                `json:"sets_for"`
+	Won          int                `json:"won"`
+}
+
+// TournamentSummary defines model for TournamentSummary.
+type TournamentSummary struct {
+	CancelReason *string                 `json:"cancel_reason"`
+	CancelledAt  *time.Time              `json:"cancelled_at"`
+	Categories   []TournamentCategory    `json:"categories"`
+	CreatedAt    time.Time               `json:"created_at"`
+	EndDate      openapi_types.Date      `json:"end_date"`
+	Id           openapi_types.UUID      `json:"id"`
+	Name         string                  `json:"name"`
+	Sport        string                  `json:"sport"`
+	StartDate    openapi_types.Date      `json:"start_date"`
+	Status       TournamentSummaryStatus `json:"status"`
+}
+
+// TournamentSummaryStatus defines model for TournamentSummary.Status.
+type TournamentSummaryStatus string
+
 // User defines model for User.
 type User struct {
 	CreatedAt     time.Time          `json:"created_at"`
@@ -3547,6 +4181,9 @@ type BookingID = openapi_types.UUID
 // BookingToken defines model for BookingToken.
 type BookingToken = string
 
+// CategoryID defines model for CategoryID.
+type CategoryID = openapi_types.UUID
+
 // ClientID defines model for ClientID.
 type ClientID = openapi_types.UUID
 
@@ -3570,6 +4207,9 @@ type IfMatchVersion = string
 
 // Limit defines model for Limit.
 type Limit = int
+
+// MatchID defines model for MatchID.
+type MatchID = openapi_types.UUID
 
 // MovementID defines model for MovementID.
 type MovementID = openapi_types.UUID
@@ -3603,6 +4243,9 @@ type SocialMediaName = string
 
 // SocialPostID defines model for SocialPostID.
 type SocialPostID = string
+
+// TournamentID defines model for TournamentID.
+type TournamentID = openapi_types.UUID
 
 // EditConflict An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type EditConflict = Problem
@@ -4466,6 +5109,77 @@ type ReportingGetRevenueChartParams struct {
 // ReportingGetRevenueChartParamsPeriod defines parameters for ReportingGetRevenueChart.
 type ReportingGetRevenueChartParamsPeriod string
 
+// TournamentsListParams defines parameters for TournamentsList.
+type TournamentsListParams struct {
+	DateFrom openapi_types.Date `form:"date_from" json:"date_from"`
+	DateTo   openapi_types.Date `form:"date_to" json:"date_to"`
+}
+
+// TournamentsCreateJSONBody defines parameters for TournamentsCreate.
+type TournamentsCreateJSONBody struct {
+	Categories []struct {
+		// Capacity Pairs.
+		Capacity  int                                       `json:"capacity"`
+		Format    TournamentsCreateJSONBodyCategoriesFormat `json:"format"`
+		GroupSize *int                                      `json:"group_size,omitempty"`
+		Name      string                                    `json:"name"`
+
+		// Price Centavos per pair.
+		Price              int  `json:"price"`
+		QualifiersPerGroup *int `json:"qualifiers_per_group,omitempty"`
+	} `json:"categories"`
+
+	// EndDate On or after start_date, at most 60 days later.
+	EndDate   openapi_types.Date              `json:"end_date"`
+	Name      string                          `json:"name"`
+	Sport     *TournamentsCreateJSONBodySport `json:"sport,omitempty"`
+	StartDate openapi_types.Date              `json:"start_date"`
+}
+
+// TournamentsCreateJSONBodyCategoriesFormat defines parameters for TournamentsCreate.
+type TournamentsCreateJSONBodyCategoriesFormat string
+
+// TournamentsCreateJSONBodySport defines parameters for TournamentsCreate.
+type TournamentsCreateJSONBodySport string
+
+// TournamentsCancelJSONBody defines parameters for TournamentsCancel.
+type TournamentsCancelJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// TournamentsCategoryCancelJSONBody defines parameters for TournamentsCategoryCancel.
+type TournamentsCategoryCancelJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
+// TournamentsDrawGenerateJSONBody defines parameters for TournamentsDrawGenerate.
+type TournamentsDrawGenerateJSONBody struct {
+	SeedOrder *[]openapi_types.UUID `json:"seed_order,omitempty"`
+}
+
+// TournamentsDrawMoveJSONBody defines parameters for TournamentsDrawMove.
+type TournamentsDrawMoveJSONBody struct {
+	PairId     openapi_types.UUID `json:"pair_id"`
+	WithPairId openapi_types.UUID `json:"with_pair_id"`
+}
+
+// TournamentsMatchResultJSONBody defines parameters for TournamentsMatchResult.
+type TournamentsMatchResultJSONBody struct {
+	Sets          *[]TournamentSet                             `json:"sets,omitempty"`
+	WalkoverLoser *TournamentsMatchResultJSONBodyWalkoverLoser `json:"walkover_loser,omitempty"`
+}
+
+// TournamentsMatchResultJSONBodyWalkoverLoser defines parameters for TournamentsMatchResult.
+type TournamentsMatchResultJSONBodyWalkoverLoser int
+
+// TournamentsMatchScheduleJSONBody defines parameters for TournamentsMatchSchedule.
+type TournamentsMatchScheduleJSONBody struct {
+	CourtId         openapi_types.UUID `json:"court_id"`
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes *int               `json:"duration_minutes,omitempty"`
+	StartTime       string             `json:"start_time"`
+}
+
 // ComplexesDeleteUploadJSONBody defines parameters for ComplexesDeleteUpload.
 type ComplexesDeleteUploadJSONBody struct {
 	Url string `json:"url"`
@@ -4524,6 +5238,26 @@ type CourtsPublicNextAvailableParams struct {
 
 	// Duration Defaults to the platform's default slot duration. Must be one of the permitted durations.
 	Duration *int `form:"duration,omitempty" json:"duration,omitempty"`
+}
+
+// TournamentsPublicSignUpJSONBody defines parameters for TournamentsPublicSignUp.
+type TournamentsPublicSignUpJSONBody struct {
+	// Email Optional.
+	Email     *string `json:"email,omitempty"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+	Partner   struct {
+		// Email Optional.
+		Email     *string `json:"email,omitempty"`
+		FirstName string  `json:"first_name"`
+		LastName  string  `json:"last_name"`
+
+		// Phone Must differ from the payer's.
+		Phone string `json:"phone"`
+	} `json:"partner"`
+
+	// Phone Normalized to E.164.
+	Phone string `json:"phone"`
 }
 
 // WaitlistJoinJSONBody defines parameters for WaitlistJoin.
@@ -4586,6 +5320,17 @@ type LeadsCaptureAbandonedRegistrationJSONBody struct {
 
 // LeadsCaptureAbandonedRegistrationJSONBodySource defines parameters for LeadsCaptureAbandonedRegistration.
 type LeadsCaptureAbandonedRegistrationJSONBodySource string
+
+// TournamentsPublicRegistrationCancelJSONBody defines parameters for TournamentsPublicRegistrationCancel.
+type TournamentsPublicRegistrationCancelJSONBody struct {
+	Token string `json:"token"`
+}
+
+// TournamentsPublicRegistrationStatusParams defines parameters for TournamentsPublicRegistrationStatus.
+type TournamentsPublicRegistrationStatusParams struct {
+	// Token The opaque booking-link token, never the booking's primary key.
+	Token BookingToken `form:"token" json:"token"`
+}
 
 // ComplexesSlugAvailableParams defines parameters for ComplexesSlugAvailable.
 type ComplexesSlugAvailableParams struct {
@@ -4815,6 +5560,27 @@ type SalesVoidJSONRequestBody SalesVoidJSONBody
 // ComplexesUpdateSchedulesJSONRequestBody defines body for ComplexesUpdateSchedules for application/json ContentType.
 type ComplexesUpdateSchedulesJSONRequestBody ComplexesUpdateSchedulesJSONBody
 
+// TournamentsCreateJSONRequestBody defines body for TournamentsCreate for application/json ContentType.
+type TournamentsCreateJSONRequestBody TournamentsCreateJSONBody
+
+// TournamentsCancelJSONRequestBody defines body for TournamentsCancel for application/json ContentType.
+type TournamentsCancelJSONRequestBody TournamentsCancelJSONBody
+
+// TournamentsCategoryCancelJSONRequestBody defines body for TournamentsCategoryCancel for application/json ContentType.
+type TournamentsCategoryCancelJSONRequestBody TournamentsCategoryCancelJSONBody
+
+// TournamentsDrawGenerateJSONRequestBody defines body for TournamentsDrawGenerate for application/json ContentType.
+type TournamentsDrawGenerateJSONRequestBody TournamentsDrawGenerateJSONBody
+
+// TournamentsDrawMoveJSONRequestBody defines body for TournamentsDrawMove for application/json ContentType.
+type TournamentsDrawMoveJSONRequestBody TournamentsDrawMoveJSONBody
+
+// TournamentsMatchResultJSONRequestBody defines body for TournamentsMatchResult for application/json ContentType.
+type TournamentsMatchResultJSONRequestBody TournamentsMatchResultJSONBody
+
+// TournamentsMatchScheduleJSONRequestBody defines body for TournamentsMatchSchedule for application/json ContentType.
+type TournamentsMatchScheduleJSONRequestBody TournamentsMatchScheduleJSONBody
+
 // ComplexesDeleteUploadJSONRequestBody defines body for ComplexesDeleteUpload for application/json ContentType.
 type ComplexesDeleteUploadJSONRequestBody ComplexesDeleteUploadJSONBody
 
@@ -4823,6 +5589,9 @@ type ComplexesPresignUploadJSONRequestBody ComplexesPresignUploadJSONBody
 
 // EventsPublicSignUpJSONRequestBody defines body for EventsPublicSignUp for application/json ContentType.
 type EventsPublicSignUpJSONRequestBody EventsPublicSignUpJSONBody
+
+// TournamentsPublicSignUpJSONRequestBody defines body for TournamentsPublicSignUp for application/json ContentType.
+type TournamentsPublicSignUpJSONRequestBody TournamentsPublicSignUpJSONBody
 
 // WaitlistJoinJSONRequestBody defines body for WaitlistJoin for application/json ContentType.
 type WaitlistJoinJSONRequestBody WaitlistJoinJSONBody
@@ -4838,6 +5607,9 @@ type EventsPublicRegistrationCancelJSONRequestBody EventsPublicRegistrationCance
 
 // LeadsCaptureAbandonedRegistrationJSONRequestBody defines body for LeadsCaptureAbandonedRegistration for application/json ContentType.
 type LeadsCaptureAbandonedRegistrationJSONRequestBody LeadsCaptureAbandonedRegistrationJSONBody
+
+// TournamentsPublicRegistrationCancelJSONRequestBody defines body for TournamentsPublicRegistrationCancel for application/json ContentType.
+type TournamentsPublicRegistrationCancelJSONRequestBody TournamentsPublicRegistrationCancelJSONBody
 
 // SocialPutPostJSONRequestBody defines body for SocialPutPost for application/json ContentType.
 type SocialPutPostJSONRequestBody SocialPutPostJSONBody
@@ -5187,6 +5959,36 @@ type ServerInterface interface {
 	// ReportingGetRevenueChart Daily revenue chart
 	// (GET /api/v1/complexes/{id}/stats/revenue)
 	ReportingGetRevenueChart(w http.ResponseWriter, r *http.Request, id PathID, params ReportingGetRevenueChartParams)
+	// TournamentsList List a complex's tournaments in a date range
+	// (GET /api/v1/complexes/{id}/tournaments)
+	TournamentsList(w http.ResponseWriter, r *http.Request, id PathID, params TournamentsListParams)
+	// TournamentsCreate Create a tournament with its categories
+	// (POST /api/v1/complexes/{id}/tournaments)
+	TournamentsCreate(w http.ResponseWriter, r *http.Request, id PathID)
+	// TournamentsGet Get a tournament with its pairs, groups and matches
+	// (GET /api/v1/complexes/{id}/tournaments/{tournamentID})
+	TournamentsGet(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID)
+	// TournamentsCancel Cancel a tournament
+	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/cancel)
+	TournamentsCancel(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID)
+	// TournamentsCategoryCancel Cancel one category of a tournament
+	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel)
+	TournamentsCategoryCancel(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, categoryID CategoryID)
+	// TournamentsDrawGenerate Generate (or regenerate) a category's draw
+	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw)
+	TournamentsDrawGenerate(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, categoryID CategoryID)
+	// TournamentsDrawMove Swap two pairs of a drawn category
+	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move)
+	TournamentsDrawMove(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, categoryID CategoryID)
+	// TournamentsMatchResult Load or correct a match's result
+	// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result)
+	TournamentsMatchResult(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, matchID MatchID)
+	// TournamentsMatchUnschedule Take a match off its court
+	// (DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule)
+	TournamentsMatchUnschedule(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, matchID MatchID)
+	// TournamentsMatchSchedule Give a match a court, a day and a time
+	// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule)
+	TournamentsMatchSchedule(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, matchID MatchID)
 	// ComplexesDeleteUpload Delete a previously uploaded logo or cover image
 	// (DELETE /api/v1/complexes/{id}/uploads)
 	ComplexesDeleteUpload(w http.ResponseWriter, r *http.Request, id PathID)
@@ -5232,6 +6034,15 @@ type ServerInterface interface {
 	// CourtsPublicNextAvailable The first day after a given date with a bookable slot
 	// (GET /api/v1/public/complexes/{slug}/next-available)
 	CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicNextAvailableParams)
+	// TournamentsPublicList The tournaments a visitor can follow or sign up for
+	// (GET /api/v1/public/complexes/{slug}/tournaments)
+	TournamentsPublicList(w http.ResponseWriter, r *http.Request, slug PathSlug)
+	// TournamentsPublicGet One tournament with its groups, standings, bracket and schedule
+	// (GET /api/v1/public/complexes/{slug}/tournaments/{tournamentID})
+	TournamentsPublicGet(w http.ResponseWriter, r *http.Request, slug PathSlug, tournamentID TournamentID)
+	// TournamentsPublicSignUp Sign up a pair for a category and pay online
+	// (POST /api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs)
+	TournamentsPublicSignUp(w http.ResponseWriter, r *http.Request, slug PathSlug, tournamentID TournamentID, categoryID CategoryID)
 	// WaitlistJoin Ask to be emailed when a slot on a fully booked day frees up again
 	// (POST /api/v1/public/complexes/{slug}/waitlist)
 	WaitlistJoin(w http.ResponseWriter, r *http.Request, slug PathSlug)
@@ -5253,6 +6064,12 @@ type ServerInterface interface {
 	// LeadsCaptureAbandonedRegistration Capture an email from a registration that was started but never finished
 	// (POST /api/v1/public/leads/abandoned-registration)
 	LeadsCaptureAbandonedRegistration(w http.ResponseWriter, r *http.Request)
+	// TournamentsPublicRegistrationCancel Withdraw a pair from a tournament category
+	// (POST /api/v1/public/tournament-registrations/cancel)
+	TournamentsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request)
+	// TournamentsPublicRegistrationStatus A pair's own spot in a tournament category
+	// (GET /api/v1/public/tournament-registrations/status)
+	TournamentsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request, params TournamentsPublicRegistrationStatusParams)
 	// PublicsiteSitemap Platform sitemap
 	// (GET /api/v1/sitemap.xml)
 	PublicsiteSitemap(w http.ResponseWriter, r *http.Request)
@@ -8478,6 +9295,421 @@ func (siw *ServerInterfaceWrapper) ReportingGetRevenueChart(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// TournamentsList operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TournamentsListParams
+
+	// ------------- Required query parameter "date_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "date_from", r.URL.Query(), &params.DateFrom, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "date_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "date_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "date_to", r.URL.Query(), &params.DateTo, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "date_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date_to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsList(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsCreate operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsCreate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsCreate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsGet operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsGet(w, r, id, tournamentID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsCancel operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsCancel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsCancel(w, r, id, tournamentID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsCategoryCancel operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsCategoryCancel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryID" -------------
+	var categoryID CategoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryID", r.PathValue("categoryID"), &categoryID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsCategoryCancel(w, r, id, tournamentID, categoryID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsDrawGenerate operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsDrawGenerate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryID" -------------
+	var categoryID CategoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryID", r.PathValue("categoryID"), &categoryID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsDrawGenerate(w, r, id, tournamentID, categoryID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsDrawMove operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsDrawMove(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryID" -------------
+	var categoryID CategoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryID", r.PathValue("categoryID"), &categoryID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsDrawMove(w, r, id, tournamentID, categoryID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsMatchResult operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsMatchResult(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "matchID" -------------
+	var matchID MatchID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "matchID", r.PathValue("matchID"), &matchID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "matchID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsMatchResult(w, r, id, tournamentID, matchID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsMatchUnschedule operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsMatchUnschedule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "matchID" -------------
+	var matchID MatchID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "matchID", r.PathValue("matchID"), &matchID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "matchID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsMatchUnschedule(w, r, id, tournamentID, matchID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsMatchSchedule operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsMatchSchedule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "matchID" -------------
+	var matchID MatchID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "matchID", r.PathValue("matchID"), &matchID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "matchID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsMatchSchedule(w, r, id, tournamentID, matchID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ComplexesDeleteUpload operation middleware
 func (siw *ServerInterfaceWrapper) ComplexesDeleteUpload(w http.ResponseWriter, r *http.Request) {
 
@@ -8924,6 +10156,111 @@ func (siw *ServerInterfaceWrapper) CourtsPublicNextAvailable(w http.ResponseWrit
 	handler.ServeHTTP(w, r)
 }
 
+// TournamentsPublicList operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPublicList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPublicList(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsPublicGet operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPublicGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPublicGet(w, r, slug, tournamentID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsPublicSignUp operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPublicSignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryID" -------------
+	var categoryID CategoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryID", r.PathValue("categoryID"), &categoryID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPublicSignUp(w, r, slug, tournamentID, categoryID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // WaitlistJoin operation middleware
 func (siw *ServerInterfaceWrapper) WaitlistJoin(w http.ResponseWriter, r *http.Request) {
 
@@ -9075,6 +10412,53 @@ func (siw *ServerInterfaceWrapper) LeadsCaptureAbandonedRegistration(w http.Resp
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.LeadsCaptureAbandonedRegistration(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsPublicRegistrationCancel operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPublicRegistrationCancel(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsPublicRegistrationStatus operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params TournamentsPublicRegistrationStatusParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPublicRegistrationStatus(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -9645,6 +11029,21 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/oauth-attempts", wrapper.ComplexesRegisterMercadoPagoOAuthAttempt)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments", wrapper.TournamentsList)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments", wrapper.TournamentsCreate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}", wrapper.TournamentsGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/cancel", wrapper.TournamentsCancel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel", wrapper.TournamentsCategoryCancel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw", wrapper.TournamentsDrawGenerate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move", wrapper.TournamentsDrawMove)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule", wrapper.TournamentsMatchUnschedule)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule", wrapper.TournamentsMatchSchedule)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result", wrapper.TournamentsMatchResult)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/tournaments", wrapper.TournamentsPublicList)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/tournaments/{tournamentID}", wrapper.TournamentsPublicGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs", wrapper.TournamentsPublicSignUp)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/tournament-registrations/status", wrapper.TournamentsPublicRegistrationStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/tournament-registrations/cancel", wrapper.TournamentsPublicRegistrationCancel)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events", wrapper.EventsPublicList)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events/{eventID}", wrapper.EventsPublicGet)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events/{eventID}/registrations", wrapper.EventsPublicSignUp)

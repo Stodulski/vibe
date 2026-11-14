@@ -212,12 +212,16 @@ func toFixedBlocksWire(occs []bookingstore.SeriesOccurrence) []gen.FixedBlock {
 }
 
 // toEventBlocksWire maps the hours open-play events hold onto the wire's event
-// blocks, never nil. The times are the venue's wall-clock: end_time is earlier
+// blocks, never nil; the tournament matches among the occupancies are
+// toMatchBlocksWire's. The times are the venue's wall-clock: end_time is earlier
 // than start_time when the hours run past midnight.
 func toEventBlocksWire(occs []bookingstore.EventOccupancy) []gen.EventBlock {
-	out := make([]gen.EventBlock, len(occs))
-	for i, o := range occs {
-		out[i] = gen.EventBlock{
+	out := make([]gen.EventBlock, 0, len(occs))
+	for _, o := range occs {
+		if o.Kind == bookingstore.OccupancyMatch {
+			continue
+		}
+		out = append(out, gen.EventBlock{
 			EventId:         o.EventID,
 			CourtId:         o.CourtID,
 			Date:            openapi_types.Date{Time: o.Date},
@@ -225,7 +229,29 @@ func toEventBlocksWire(occs []bookingstore.EventOccupancy) []gen.EventBlock {
 			EndTime:         o.EndsAt.In(timezone.Argentina).Format("15:04"),
 			DurationMinutes: int(o.EndsAt.Sub(o.StartsAt) / time.Minute),
 			Name:            o.Name,
+		})
+	}
+	return out
+}
+
+// toMatchBlocksWire maps the hours scheduled tournament matches hold onto the
+// wire's match blocks, never nil.
+func toMatchBlocksWire(occs []bookingstore.EventOccupancy) []gen.MatchBlock {
+	out := make([]gen.MatchBlock, 0, len(occs))
+	for _, o := range occs {
+		if o.Kind != bookingstore.OccupancyMatch || o.ParentID == nil {
+			continue
 		}
+		out = append(out, gen.MatchBlock{
+			MatchId:         o.EventID,
+			TournamentId:    *o.ParentID,
+			CourtId:         o.CourtID,
+			Date:            openapi_types.Date{Time: o.Date},
+			StartTime:       o.StartsAt.In(timezone.Argentina).Format("15:04"),
+			EndTime:         o.EndsAt.In(timezone.Argentina).Format("15:04"),
+			DurationMinutes: int(o.EndsAt.Sub(o.StartsAt) / time.Minute),
+			Name:            o.Name,
+		})
 	}
 	return out
 }
