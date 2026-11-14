@@ -1,8 +1,9 @@
 import type {
-  TournamentCategory,
+  TournamentCourtFee,
   TournamentDetailResponse,
   TournamentGroup,
-  TournamentMatch,
+  TournamentOwnerCategory,
+  TournamentOwnerMatch,
   TournamentOwnerPair,
   TournamentSet,
 } from '@/shared/types/api.types';
@@ -59,15 +60,17 @@ export function makeMatch(opts: {
   position?: number;
   pair1Id?: string | null;
   pair2Id?: string | null;
-  source1?: TournamentMatch['source1'];
-  source2?: TournamentMatch['source2'];
+  source1?: TournamentOwnerMatch['source1'];
+  source2?: TournamentOwnerMatch['source2'];
   bye?: boolean;
   status?: 'pending' | 'completed';
   winnerPairId?: string | null;
   sets?: TournamentSet[];
   walkoverLoser?: 0 | 1 | 2;
-  schedule?: TournamentMatch['schedule'];
-}): TournamentMatch {
+  schedule?: TournamentOwnerMatch['schedule'];
+  /** The category's current court fee (centavos) and the sides already charged. */
+  courtFee?: { due: number; charged?: Partial<Record<1 | 2, { amount: number; method: 'cash' | 'transfer' }>> };
+}): TournamentOwnerMatch {
   return {
     id: opts.id,
     category_id: opts.categoryId ?? 'cat1',
@@ -85,11 +88,41 @@ export function makeMatch(opts: {
     sets: opts.sets ?? [],
     walkover_loser: opts.walkoverLoser ?? 0,
     schedule: opts.schedule ?? null,
+    court_fee: [1, 2].map((side) => courtFeeSide(opts, side === 1 ? 1 : 2)),
   };
 }
 
-export function makeCategory(overrides: Partial<TournamentCategory> = {}): TournamentCategory {
+/** One side's court fee: charged at its own amount, or owed at the current fee while the pair is known and the match is played. */
+function courtFeeSide(opts: Parameters<typeof makeMatch>[0], side: 1 | 2): TournamentCourtFee {
+  const due = opts.courtFee?.due ?? 0;
+  const charged = opts.courtFee?.charged?.[side];
+  if (charged) {
+    return {
+      side,
+      chargeable: false,
+      amount: charged.amount,
+      charged: true,
+      method: charged.method,
+      charged_at: '2099-01-03T15:00:00Z',
+      charged_by: 'u1',
+    };
+  }
+  const known = !!(side === 1 ? opts.pair1Id : opts.pair2Id);
+  const played = !opts.bye && (opts.walkoverLoser ?? 0) === 0;
   return {
+    side,
+    chargeable: due > 0 && known && played,
+    amount: due,
+    charged: false,
+    method: null,
+    charged_at: null,
+    charged_by: null,
+  };
+}
+
+export function makeCategory(overrides: Partial<TournamentOwnerCategory> = {}): TournamentOwnerCategory {
+  return {
+    court_fee: 0,
     id: 'cat1',
     tournament_id: 't1',
     name: '6ta',

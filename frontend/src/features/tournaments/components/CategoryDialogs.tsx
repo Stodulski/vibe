@@ -1,16 +1,17 @@
 import { useCourts } from '@/features/courts';
 import type { CategoryView } from '../lib/categoryView';
 import { CancelCategoryDialog } from './CancelDialogs';
+import { CourtFeeDialogs } from './CourtFeeDialogs';
 import { ResultDialog } from './ResultDialog';
 import { ScheduleMatchDialog } from './ScheduleMatchDialog';
 import { SwapPairDialog } from './SwapPairDialog';
 import type { CategoryDialogs } from './useCategoryDialogs';
-import type { Tournament, TournamentCategory } from '@/shared/types/api.types';
+import type { Tournament, TournamentOwnerCategory } from '@/shared/types/api.types';
 
 interface CategoryDialogsHostProps {
   complexId: string;
   tournament: Tournament;
-  category: TournamentCategory;
+  category: TournamentOwnerCategory;
   view: CategoryView;
   dialogs: CategoryDialogs;
 }
@@ -55,6 +56,13 @@ export function CategoryDialogsHost({ complexId, tournament, category, view, dia
         pair={dialogs.swapPairId ? (view.pairsById.get(dialogs.swapPairId) ?? null) : null}
         pairs={view.pairs}
         needsOtherGroup={category.format === 'groups'}
+      />
+      <CourtFeeDialogs
+        complexId={complexId}
+        tournamentId={tournament.id}
+        category={category}
+        view={view}
+        dialogs={dialogs}
       />
       <CancelCategoryDialog
         open={dialogs.cancelOpen}

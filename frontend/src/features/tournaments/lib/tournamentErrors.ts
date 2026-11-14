@@ -64,3 +64,22 @@ export function drawErrorMessage(error: unknown): string {
       return e.unknown;
   }
 }
+
+/**
+ * Why a court fee charge or undo failed, in Spanish, or `undefined` when the
+ * reason is not one the owner can act on. The API words its 409s in English
+ * prose with no code, so each is told apart by its text, as the schedule
+ * conflicts are; the shared table has already translated the closed cash.
+ */
+export function courtFeeErrorMessage(error: unknown, action: 'charge' | 'undo'): string | undefined {
+  const e = t.courtFee.errors;
+  const status = getHttpStatus(error);
+  if (status === 409) {
+    // The shared server-error table already words a closed cash.
+    if (getHttpErrorMessage(error, '') === ES_AR.validation.server.cashClosed)
+      return ES_AR.validation.server.cashClosed;
+    return action === 'charge' ? e.alreadyCharged : e.notCharged;
+  }
+  if (status === 400 && action === 'charge') return e.notChargeable;
+  return undefined;
+}

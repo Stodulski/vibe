@@ -4,12 +4,12 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { TOURNAMENT_LIST_CLASS } from '../lib/tournamentLayout';
 import { TournamentCard } from './TournamentCard';
 import { TournamentListSkeleton } from './TournamentListSkeleton';
-import type { TournamentSummary } from '@/shared/types/api.types';
+import type { TournamentOwnerSummary } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
 interface TournamentListProps {
-  tournaments: TournamentSummary[];
+  tournaments: TournamentOwnerSummary[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;

@@ -119,4 +119,17 @@ describe('CreateTournamentModal: match format and submit', () => {
       expect(onClose).toHaveBeenCalled();
     });
   });
+
+  it('sends the court fee per pair in centavos when the owner sets one, and leaves it out otherwise', async () => {
+    const { tournamentsApi, user } = await renderModal();
+    await fillBasics(user);
+    await user.type(screen.getByLabelText(t.form.courtFee), '1500');
+
+    await user.click(screen.getByRole('button', { name: t.form.submit }));
+
+    await waitFor(() => {
+      expect(tournamentsApi.create).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(tournamentsApi.create).mock.calls[0]?.[1].categories[0]).toMatchObject({ court_fee: 150000 });
+  });
 });

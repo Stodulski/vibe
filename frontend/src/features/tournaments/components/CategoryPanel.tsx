@@ -3,6 +3,7 @@ import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useUnscheduleMatch } from '../hooks/useScheduleMatch';
 import { categoryView, type CategoryView } from '../lib/categoryView';
+import { courtFeeSummary } from '../lib/courtFee';
 import { BracketSection } from './BracketSection';
 import { CategoryDialogsHost } from './CategoryDialogs';
 import { CategoryFacts } from './CategoryFacts';
@@ -12,7 +13,7 @@ import { MatchesSection } from './MatchesSection';
 import { PairsSection } from './PairsSection';
 import { SegmentedTabs } from './SegmentedTabs';
 import { useCategoryDialogs, type CategoryDialogs } from './useCategoryDialogs';
-import type { TournamentCategory, TournamentDetailResponse } from '@/shared/types/api.types';
+import type { TournamentOwnerCategory, TournamentDetailResponse } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
 
@@ -20,13 +21,13 @@ type Section = 'pairs' | 'groups' | 'bracket' | 'matches';
 
 interface CategoryPanelProps {
   detail: TournamentDetailResponse;
-  category: TournamentCategory;
+  category: TournamentOwnerCategory;
   complexId: string;
   /** False when the tournament is cancelled or over: nothing left to draw, schedule or cancel. */
   live: boolean;
 }
 
-function sectionItems(category: TournamentCategory): { value: Section; label: string }[] {
+function sectionItems(category: TournamentOwnerCategory): { value: Section; label: string }[] {
   const s = t.detail.sections;
   return [
     { value: 'pairs', label: s.pairs },
@@ -34,6 +35,34 @@ function sectionItems(category: TournamentCategory): { value: Section; label: st
     { value: 'bracket', label: s.bracket },
     { value: 'matches', label: s.matches },
   ];
+}
+
+/** What the owner can do to the category itself: change its court fee or cancel it. */
+function CategoryActions({ dialogs }: { dialogs: CategoryDialogs }) {
+  return (
+    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+      <Button
+        type="button"
+        variant="outline"
+        className="w-full rounded-xl sm:w-auto"
+        onClick={() => {
+          dialogs.setFeeOpen(true);
+        }}
+      >
+        {t.courtFee.edit}
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        className="text-error-text w-full rounded-xl sm:w-auto"
+        onClick={() => {
+          dialogs.setCancelOpen(true);
+        }}
+      >
+        {t.cancel.categoryAction}
+      </Button>
+    </div>
+  );
 }
 
 /** One category: its facts, the draw, and the sections for pairs, groups, bracket and matches. */
@@ -47,7 +76,7 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
 
   return (
     <div className="space-y-4">
-      <CategoryFacts category={category} />
+      <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
       {open && (
         <DrawControls
           complexId={complexId}
@@ -57,18 +86,7 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           view={view}
         />
       )}
-      {open && (
-        <Button
-          type="button"
-          variant="outline"
-          className="text-error-text w-full rounded-xl sm:w-auto"
-          onClick={() => {
-            dialogs.setCancelOpen(true);
-          }}
-        >
-          {t.cancel.categoryAction}
-        </Button>
-      )}
+      {open && <CategoryActions dialogs={dialogs} />}
       <SegmentedTabs
         items={sectionItems(category)}
         active={section}
@@ -96,7 +114,7 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
 
 interface CategorySectionProps {
   section: Section;
-  category: TournamentCategory;
+  category: TournamentOwnerCategory;
   view: CategoryView;
   /** The category can still change: not cancelled and the tournament is live. */
   open: boolean;
@@ -132,6 +150,10 @@ function CategorySection({ section, category, view, open, dialogs, onUnschedule 
       groupNames={view.groupNames}
       editable={open}
       actions={{ onSchedule: dialogs.setScheduleMatchId, onUnschedule, onResult: dialogs.setResultMatchId }}
+      courtFee={{
+        fee: category.court_fee,
+        actions: { onCharge: dialogs.setChargeTarget, onUndo: dialogs.setUndoTarget },
+      }}
     />
   );
 }

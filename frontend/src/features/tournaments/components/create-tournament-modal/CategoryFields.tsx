@@ -81,11 +81,22 @@ function CapacityAndPrice({ form, index }: Pick<Props, 'form' | 'index'>) {
         placeholder="0"
       />
       <p className="text-text-tertiary text-xs sm:col-span-2">{t.form.priceHint}</p>
+      <MoneyPesosField
+        id={`category-${String(index)}-court-fee`}
+        label={t.form.courtFee}
+        value={form.watch(categoryField(index, 'court_fee'))}
+        onChange={(pesos) => {
+          form.setValue(categoryField(index, 'court_fee'), pesos, { shouldValidate: true });
+        }}
+        error={errors?.court_fee?.message}
+        placeholder="0"
+      />
+      <p className="text-text-tertiary text-xs sm:col-span-2">{t.form.courtFeeHint}</p>
     </div>
   );
 }
 
-/** One category of the create form: name, format, capacity, price per pair, group settings and match format. */
+/** One category of the create form: name, format, capacity, price per pair, court fee, group settings and match format. */
 export function CategoryFields({ form, index, canRemove, onRemove }: Props) {
   const isGroups = form.watch(categoryField(index, 'format')) === 'groups';
   return (

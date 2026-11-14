@@ -1,8 +1,9 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
+import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
 import { bracketRounds, roundName, scoreText, slotLabel } from '../lib/tournamentView';
-import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
+import type { TournamentOwnerMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.matches;
 
@@ -17,13 +18,21 @@ interface MatchActions {
   onResult: (matchId: string) => void;
 }
 
-function whenText(match: TournamentMatch): string {
+function whenText(match: TournamentOwnerMatch): string {
   const schedule = match.schedule;
   if (!schedule) return t.unscheduled;
   return t.scheduledAt(schedule.court_name, formatDateShort(schedule.date), formatTime(schedule.start_time));
 }
 
-function MatchButtons({ match, actions, ready }: { match: TournamentMatch; actions: MatchActions; ready: boolean }) {
+function MatchButtons({
+  match,
+  actions,
+  ready,
+}: {
+  match: TournamentOwnerMatch;
+  actions: MatchActions;
+  ready: boolean;
+}) {
   const done = match.status === 'completed';
   return (
     <div className="flex flex-wrap gap-2">
@@ -75,11 +84,13 @@ function MatchRow({
   match,
   lookups,
   actions,
+  courtFee,
   editable,
 }: {
-  match: TournamentMatch;
+  match: TournamentOwnerMatch;
   lookups: Lookups;
   actions: MatchActions;
+  courtFee: { fee: number; actions: CourtFeeActions };
   editable: boolean;
 }) {
   const score = scoreText(match);
@@ -107,6 +118,14 @@ function MatchRow({
       </p>
       {score && <p className="text-text-primary score-text text-sm font-medium">{score}</p>}
       <p className="text-text-tertiary score-text text-xs break-words">{whenText(match)}</p>
+      <MatchCourtFee
+        match={match}
+        fee={courtFee.fee}
+        pairs={lookups.pairs}
+        groupNames={lookups.groupNames}
+        actions={courtFee.actions}
+        editable={editable}
+      />
       {editable && <MatchButtons match={match} actions={actions} ready={ready} />}
     </li>
   );
@@ -115,11 +134,11 @@ function MatchRow({
 interface Block {
   key: string;
   title: string;
-  matches: TournamentMatch[];
+  matches: TournamentOwnerMatch[];
 }
 
 /** The matches in the order they are played: each group's matchdays, then the bracket round by round. Byes are left out. */
-function blocksOf(matches: TournamentMatch[], groupNames: Map<string, string>): Block[] {
+function blocksOf(matches: TournamentOwnerMatch[], groupNames: Map<string, string>): Block[] {
   const real = matches.filter((match) => !match.bye);
   const groupBlocks = [...groupNames.entries()].map(([id, name]) => ({
     key: `group-${id}`,
@@ -138,14 +157,16 @@ function blocksOf(matches: TournamentMatch[], groupNames: Map<string, string>): 
 }
 
 interface MatchesSectionProps extends Lookups {
-  matches: TournamentMatch[];
+  matches: TournamentOwnerMatch[];
   actions: MatchActions;
+  /** The category's current court fee per pair (centavos) and the actions to charge or undo it. */
+  courtFee: { fee: number; actions: CourtFeeActions };
   /** False once the tournament or category is cancelled: matches are read only. */
   editable: boolean;
 }
 
 /** Every match with its court and time, and the actions to schedule it and load its result. */
-export function MatchesSection({ matches, pairs, groupNames, actions, editable }: MatchesSectionProps) {
+export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, editable }: MatchesSectionProps) {
   const blocks = blocksOf(matches, groupNames);
   if (blocks.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
   return (
@@ -160,6 +181,7 @@ export function MatchesSection({ matches, pairs, groupNames, actions, editable }
                 match={match}
                 lookups={{ pairs, groupNames }}
                 actions={actions}
+                courtFee={courtFee}
                 editable={editable}
               />
             ))}

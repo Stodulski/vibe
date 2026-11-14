@@ -1,3 +1,5 @@
+import { courtFee } from './tournamentsCourtFee';
+
 const plural = (count: number, one: string, many: string) => (count === 1 ? `1 ${one}` : `${String(count)} ${many}`);
 
 export const tournaments = {
@@ -52,6 +54,8 @@ export const tournaments = {
     gamesPerSet: 'Games por set',
     superTiebreak: 'El tercer set es un súper tie-break a 10 puntos',
     matchDuration: 'Duración de cada partido (minutos)',
+    courtFee: 'Cancha por partido (por pareja)',
+    courtFeeHint: 'Opcional. Se cobra en el complejo el día del partido, no online.',
     addCategory: 'Agregar categoría',
     removeCategory: 'Quitar categoría',
     submit: 'Crear torneo',
@@ -74,6 +78,7 @@ export const tournaments = {
     qualifiersRange: 'Tienen que pasar menos parejas que las que tiene la zona, y al menos una',
     gamesRange: 'Los sets van de 4 a 9 games',
     durationRange: 'Cada partido dura entre 30 y 480 minutos',
+    courtFeeRange: 'El monto de la cancha va de $0 a $1.000.000',
   },
 
   // Detail
@@ -205,6 +210,8 @@ export const tournaments = {
     versus: 'vs',
     walkoverNote: (name: string) => `W.O.: ${name} no se presentó`,
   },
+
+  courtFee,
 
   // Schedule
   schedule: {

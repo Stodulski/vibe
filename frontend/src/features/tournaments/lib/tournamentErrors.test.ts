@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import {
+  courtFeeErrorMessage,
   drawErrorMessage,
   resultErrorMessage,
   scheduleConflictMessage,
@@ -57,5 +58,30 @@ describe('drawErrorMessage', () => {
     expect(drawErrorMessage(await http(400, 'fewer than two'))).toBe(t.draw.errors.notEnough);
     expect(drawErrorMessage(await http(422, 'groups'))).toBe(t.draw.errors.settings);
     expect(drawErrorMessage(new Error('boom'))).toBe(t.draw.errors.unknown);
+  });
+});
+
+describe('courtFeeErrorMessage', () => {
+  const e = t.courtFee.errors;
+
+  it('tells a closed cash apart from a pair that was already charged', async () => {
+    expect(courtFeeErrorMessage(await http(409, 'no cash session is open'), 'charge')).toBe(
+      ES_AR.validation.server.cashClosed,
+    );
+    expect(courtFeeErrorMessage(await http(409, 'no cash session is open'), 'undo')).toBe(
+      ES_AR.validation.server.cashClosed,
+    );
+    expect(
+      courtFeeErrorMessage(await http(409, 'the court fee was already charged for this pair and match'), 'charge'),
+    ).toBe(e.alreadyCharged);
+    expect(courtFeeErrorMessage(await http(409, 'the court fee is not charged for this pair and match'), 'undo')).toBe(
+      e.notCharged,
+    );
+  });
+
+  it('says a pair that owes nothing, and leaves any other failure to the general line', async () => {
+    expect(courtFeeErrorMessage(await http(400, 'a bye'), 'charge')).toBe(e.notChargeable);
+    expect(courtFeeErrorMessage(await http(500, 'boom'), 'charge')).toBeUndefined();
+    expect(courtFeeErrorMessage(new Error('boom'), 'undo')).toBeUndefined();
   });
 });

@@ -6,11 +6,14 @@ import type { EventBlock } from './events';
 /** A tournament: its days and state. The categories come with it (`TournamentSummary`, `TournamentDetail`). */
 export type Tournament = Spec<'Tournament'>;
 
-/** A tournament in the list, with its categories. */
-export type TournamentSummary = Spec<'TournamentSummary'>;
+/** A tournament in the owner's list, with its categories. */
+export type TournamentOwnerSummary = Spec<'TournamentOwnerSummary'>;
 
-/** One category: its own capacity (pairs), price per pair, format and group settings. */
+/** One category as a visitor reads it: its capacity (pairs), price per pair, format and match format. */
 export type TournamentCategory = Spec<'TournamentCategory'>;
+
+/** The same as its owner reads it, with the court fee each pair pays per match at the complex (centavos, 0 is none). */
+export type TournamentOwnerCategory = Spec<'TournamentOwnerCategory'>;
 
 /** A pair with both players' contacts, its spot and the payment behind it. */
 export type TournamentOwnerPair = Spec<'TournamentOwnerPair'>;
@@ -24,6 +27,12 @@ export type TournamentGroup = Spec<'TournamentGroup'>;
 export type TournamentSet = Spec<'TournamentSet'>;
 
 export type TournamentMatch = Spec<'TournamentMatch'>;
+
+/** What the pair on one side of a match owes or paid for the court, at the complex. */
+export type TournamentCourtFee = Spec<'TournamentCourtFee'>;
+
+/** A match as its owner reads it: `court_fee` has side 1 then side 2. */
+export type TournamentOwnerMatch = Spec<'TournamentOwnerMatch'>;
 
 /** Everything under a tournament, as every owner read and draw/result change answers. */
 export type TournamentDetailResponse = Ok<'tournamentsGet'>;
@@ -43,6 +52,10 @@ export type DrawMoveRequest = Body<'tournamentsDrawMove'>;
 export type ScheduleMatchRequest = Body<'tournamentsMatchSchedule'>;
 
 export type MatchResultRequest = Body<'tournamentsMatchResult'>;
+
+export type SetCourtFeeRequest = Body<'tournamentsCategoryCourtFee'>;
+
+export type ChargeCourtFeeRequest = Body<'tournamentsMatchCourtFeeCharge'>;
 
 /** The match `schedule`/`unschedule` answer with. */
 export type TournamentMatchResponse = Ok<'tournamentsMatchSchedule'>;
@@ -105,7 +118,10 @@ export type PublicTournamentMatch = Omit<TournamentMatch, 'stage' | 'status' | '
   status: Open<TournamentMatch['status']>;
 };
 
-export type PublicTournamentDetail = Omit<Spec<'PublicTournamentDetail'>, 'tournament' | 'categories' | 'pairs' | 'matches'> & {
+export type PublicTournamentDetail = Omit<
+  Spec<'PublicTournamentDetail'>,
+  'tournament' | 'categories' | 'pairs' | 'matches'
+> & {
   tournament: PublicTournament;
   categories: PublicTournamentCategory[];
   pairs: PublicTournamentPair[];

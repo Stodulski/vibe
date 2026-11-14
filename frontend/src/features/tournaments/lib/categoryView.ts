@@ -2,14 +2,14 @@ import { hasResults } from './tournamentView';
 import type {
   TournamentDetailResponse,
   TournamentGroup,
-  TournamentMatch,
+  TournamentOwnerMatch,
   TournamentOwnerPair,
 } from '@/shared/types/api.types';
 
 export interface CategoryView {
   pairs: TournamentOwnerPair[];
   groups: TournamentGroup[];
-  matches: TournamentMatch[];
+  matches: TournamentOwnerMatch[];
   pairsById: Map<string, TournamentOwnerPair>;
   groupNames: Map<string, string>;
   /** A played match exists: the draw can no longer be repeated and pairs can no longer be moved. */

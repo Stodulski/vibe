@@ -1232,6 +1232,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the court fee of a category
+         * @description The fixed amount each of the two pairs of a match pays for the court, charged at the complex on match day and not online (`0` is no fee). It can change at any time while the tournament is active: a charge already recorded keeps the amount it was made at (`match.court_fee[].amount`), every match not charged yet uses the new one. Responds with the whole tournament.
+         */
+        put: operations["tournamentsCategoryCourtFee"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Collect a pair's court fee for a match
+         * @description Records that the pair on `side` (1 is `pair1_id`, 2 is `pair2_id`) paid its court fee at the complex, by `cash` or `transfer` like a booking charged at the venue. The amount is the category's current `court_fee` and is kept. The money lands in the complex's open cash session as an income movement of the `tournaments` category, so it is in the session totals and the monthly report. A pair is charged once per match (`409` otherwise), and `409` when no cash session is open. `400` when the category has no fee, the match is a bye or a walkover, or the pair is not known yet. Responds with the whole tournament.
+         */
+        put: operations["tournamentsMatchCourtFeeCharge"];
+        post?: never;
+        /**
+         * Undo a court fee charge recorded by mistake
+         * @description Voids the charge's income movement in the complex's open cash session, the way voiding a sale does, so the pair can be charged again. `409` when no charge stands for the pair, or when no cash session is open (the void needs one). Works on a cancelled tournament too. Responds with the whole tournament.
+         */
+        delete: operations["tournamentsMatchCourtFeeUndo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/complexes/{slug}/tournaments": {
         parameters: {
             query?: never;
@@ -3311,6 +3355,13 @@ export interface components {
             status: "open" | "closed" | "cancelled";
             draw_generated: boolean;
         };
+        /** @description A category as its owner reads it: `court_fee` is centavos each pair pays per match at the complex (0 is none). A visitor's category never carries it. */
+        TournamentOwnerCategory: components["schemas"]["TournamentCategory"] & {
+            court_fee: number;
+        };
+        TournamentOwnerSummary: components["schemas"]["Tournament"] & {
+            categories: components["schemas"]["TournamentOwnerCategory"][];
+        };
         TournamentSummary: components["schemas"]["Tournament"] & {
             categories: components["schemas"]["TournamentCategory"][];
         };
@@ -3429,6 +3480,29 @@ export interface components {
                 duration_minutes: number;
             } | null;
         };
+        /** @description What the pair on one side of a match owes or paid for the court, at the complex. While not `charged`, `amount` is the category's current `court_fee`; once `charged` it is what the charge was made at and never changes. `chargeable` is true while the pair is known, the match is played (not a bye, not a walkover), the category has a fee, nothing was cancelled and the pair was not charged yet. */
+        TournamentCourtFee: {
+            /** @enum {integer} */
+            side: 1 | 2;
+            chargeable: boolean;
+            /** @description Centavos. */
+            amount: number;
+            charged: boolean;
+            /** @description `cash` or `transfer` once charged. */
+            method: string | null;
+            /** Format: date-time */
+            charged_at: string | null;
+            /**
+             * Format: uuid
+             * @description The user who collected it.
+             */
+            charged_by: string | null;
+        };
+        /** @description A match as its owner reads it, with the court fee of each of its two pairs. */
+        TournamentOwnerMatch: components["schemas"]["TournamentMatch"] & {
+            /** @description Side 1 then side 2. */
+            court_fee: components["schemas"]["TournamentCourtFee"][];
+        };
         /** @description Where a bracket slot's pair comes from: the Nth of a group. */
         TournamentSource: {
             /** Format: uuid */
@@ -3437,10 +3511,10 @@ export interface components {
         } | null;
         TournamentDetail: {
             tournament: components["schemas"]["Tournament"];
-            categories: components["schemas"]["TournamentCategory"][];
+            categories: components["schemas"]["TournamentOwnerCategory"][];
             pairs: components["schemas"]["TournamentOwnerPair"][];
             groups: components["schemas"]["TournamentGroup"][];
-            matches: components["schemas"]["TournamentMatch"][];
+            matches: components["schemas"]["TournamentOwnerMatch"][];
         };
         PublicTournamentDetail: {
             tournament: components["schemas"]["Tournament"];
@@ -4010,6 +4084,8 @@ export interface components {
         TournamentID: string;
         CategoryID: string;
         MatchID: string;
+        /** @description 1 is the match's pair1, 2 its pair2. */
+        CourtFeeSide: 1 | 2;
         SeriesID: string;
         CourtID: string;
         /** @description Cash session id. */
@@ -7033,7 +7109,7 @@ export interface operations {
                 };
                 content: {
                     "application/json": {
-                        tournaments: components["schemas"]["TournamentSummary"][];
+                        tournaments: components["schemas"]["TournamentOwnerSummary"][];
                     };
                 };
             };
@@ -7106,6 +7182,11 @@ export interface operations {
                          * @default 90
                          */
                         match_duration_minutes?: number;
+                        /**
+                         * @description Centavos each pair pays per match, charged at the complex on match day (not online); 0 is no fee. Changed later with `tournamentsCategoryCourtFee`.
+                         * @default 0
+                         */
+                        court_fee?: number;
                     }[];
                 };
             };
@@ -7522,6 +7603,153 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             /** @description The next match already has a result, so this one can no longer change. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsCategoryCourtFee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Centavos per pair per match; 0 is none. */
+                    court_fee: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the new fee. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description Malformed body, or the tournament or category was cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchCourtFeeCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+                /** @description 1 is the match's pair1, 2 its pair2. */
+                side: components["parameters"]["CourtFeeSide"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    method: "cash" | "transfer";
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the charge recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description No court fee, a bye or walkover, a pair not known yet, or the tournament or category was cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The pair was already charged for the match, or no cash session is open. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchCourtFeeUndo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+                /** @description 1 is the match's pair1, 2 its pair2. */
+                side: components["parameters"]["CourtFeeSide"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament without the charge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description No charge stands for the pair, or no cash session is open. */
             409: {
                 headers: {
                     [name: string]: unknown;

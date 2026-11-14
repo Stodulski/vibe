@@ -4,14 +4,16 @@ import type {
   CancelTournamentCategoryResponse,
   CancelTournamentResponse,
   Tournament,
-  TournamentCategory,
+  TournamentCourtFee,
   TournamentDetailResponse,
   TournamentGroup,
   TournamentMatch,
   TournamentMatchResponse,
+  TournamentOwnerCategory,
+  TournamentOwnerMatch,
   TournamentOwnerPair,
+  TournamentOwnerSummary,
   TournamentStanding,
-  TournamentSummary,
   TournamentsListResponse,
 } from '@/shared/types/api.types';
 
@@ -31,9 +33,10 @@ const tournamentShape = {
 
 const tournamentSchema = exact<Tournament>(z.object(tournamentShape).loose());
 
-const categorySchema = exact<TournamentCategory>(
+const categorySchema = exact<TournamentOwnerCategory>(
   z
     .object({
+      court_fee: z.number(),
       id: z.string(),
       tournament_id: z.string(),
       name: z.string(),
@@ -125,40 +128,57 @@ const groupSchema = exact<TournamentGroup>(
 
 const sourceSchema = z.object({ group_id: z.string(), rank: z.number() }).loose().nullable();
 
-const matchSchema = exact<TournamentMatch>(
+const matchShape = {
+  id: z.string(),
+  category_id: z.string(),
+  stage: z.enum(['group', 'bracket']),
+  group_id: nullableString,
+  round: z.number(),
+  position: z.number(),
+  pair1_id: nullableString,
+  pair2_id: nullableString,
+  source1: sourceSchema,
+  source2: sourceSchema,
+  bye: z.boolean(),
+  status: z.enum(['pending', 'completed']),
+  winner_pair_id: nullableString,
+  sets: z.array(z.object({ a: z.number(), b: z.number(), super: z.boolean() }).loose()),
+  walkover_loser: z.union([z.literal(0), z.literal(1), z.literal(2)]),
+  schedule: z
+    .object({
+      court_id: z.string(),
+      court_name: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      duration_minutes: z.number(),
+    })
+    .loose()
+    .nullable(),
+};
+
+/** What `schedule` and `unschedule` answer with: the match as a visitor would read it. */
+const matchSchema = exact<TournamentMatch>(z.object(matchShape).loose());
+
+const courtFeeSchema = exact<TournamentCourtFee>(
   z
     .object({
-      id: z.string(),
-      category_id: z.string(),
-      stage: z.enum(['group', 'bracket']),
-      group_id: nullableString,
-      round: z.number(),
-      position: z.number(),
-      pair1_id: nullableString,
-      pair2_id: nullableString,
-      source1: sourceSchema,
-      source2: sourceSchema,
-      bye: z.boolean(),
-      status: z.enum(['pending', 'completed']),
-      winner_pair_id: nullableString,
-      sets: z.array(z.object({ a: z.number(), b: z.number(), super: z.boolean() }).loose()),
-      walkover_loser: z.union([z.literal(0), z.literal(1), z.literal(2)]),
-      schedule: z
-        .object({
-          court_id: z.string(),
-          court_name: z.string(),
-          date: z.string(),
-          start_time: z.string(),
-          end_time: z.string(),
-          duration_minutes: z.number(),
-        })
-        .loose()
-        .nullable(),
+      side: z.union([z.literal(1), z.literal(2)]),
+      chargeable: z.boolean(),
+      amount: z.number(),
+      charged: z.boolean(),
+      method: nullableString,
+      charged_at: nullableString,
+      charged_by: nullableString,
     })
     .loose(),
 );
 
-const summarySchema = exact<TournamentSummary>(
+const ownerMatchSchema = exact<TournamentOwnerMatch>(
+  z.object({ ...matchShape, court_fee: z.array(courtFeeSchema) }).loose(),
+);
+
+const summarySchema = exact<TournamentOwnerSummary>(
   z.object({ ...tournamentShape, categories: z.array(categorySchema) }).loose(),
 );
 
@@ -190,7 +210,7 @@ export const tournamentDetailSchema = exact<TournamentDetailResponse>(
       categories: z.array(categorySchema),
       pairs: z.array(pairSchema),
       groups: z.array(groupSchema),
-      matches: z.array(matchSchema),
+      matches: z.array(ownerMatchSchema),
     })
     .loose(),
 );

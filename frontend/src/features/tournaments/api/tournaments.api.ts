@@ -10,11 +10,13 @@ import {
 import type {
   CancelTournamentCategoryResponse,
   CancelTournamentResponse,
+  ChargeCourtFeeRequest,
   CreateTournamentRequest,
   DrawGenerateRequest,
   DrawMoveRequest,
   MatchResultRequest,
   ScheduleMatchRequest,
+  SetCourtFeeRequest,
   TournamentDetailResponse,
   TournamentMatchResponse,
   TournamentsListResponse,
@@ -107,4 +109,38 @@ export const tournamentsApi = {
       .put(`${match(complexId, tournamentId, matchId)}/result`, { json: data })
       .json()
       .then(parseWith(tournamentDetailSchema, 'tournamentsApi.setResult')),
+
+  setCourtFee: (
+    complexId: string,
+    tournamentId: string,
+    categoryId: string,
+    data: SetCourtFeeRequest,
+  ): Promise<TournamentDetailResponse> =>
+    api
+      .put(`${category(complexId, tournamentId, categoryId)}/court-fee`, { json: data })
+      .json()
+      .then(parseWith(tournamentDetailSchema, 'tournamentsApi.setCourtFee')),
+
+  chargeCourtFee: (
+    complexId: string,
+    tournamentId: string,
+    matchId: string,
+    side: 1 | 2,
+    data: ChargeCourtFeeRequest,
+  ): Promise<TournamentDetailResponse> =>
+    api
+      .put(`${match(complexId, tournamentId, matchId)}/court-fee/${String(side)}`, { json: data })
+      .json()
+      .then(parseWith(tournamentDetailSchema, 'tournamentsApi.chargeCourtFee')),
+
+  undoCourtFee: (
+    complexId: string,
+    tournamentId: string,
+    matchId: string,
+    side: 1 | 2,
+  ): Promise<TournamentDetailResponse> =>
+    api
+      .delete(`${match(complexId, tournamentId, matchId)}/court-fee/${String(side)}`)
+      .json()
+      .then(parseWith(tournamentDetailSchema, 'tournamentsApi.undoCourtFee')),
 };

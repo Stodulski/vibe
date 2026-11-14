@@ -30,8 +30,8 @@ export function roundName(round: number, rounds: number): string {
 }
 
 /** The bracket matches by round, first round first, each top to bottom. Group matches are left out. */
-export function bracketRounds(matches: TournamentMatch[]): TournamentMatch[][] {
-  const rounds = new Map<number, TournamentMatch[]>();
+export function bracketRounds<M extends TournamentMatch>(matches: M[]): M[][] {
+  const rounds = new Map<number, M[]>();
   for (const match of matches) {
     if (match.stage !== 'bracket') continue;
     rounds.set(match.round, [...(rounds.get(match.round) ?? []), match]);

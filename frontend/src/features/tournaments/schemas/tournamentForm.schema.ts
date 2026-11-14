@@ -9,6 +9,9 @@ const t = ES_AR.tournaments.validation;
 
 const MAX_DAYS = 60;
 
+/** The most a pair can be asked per match, in pesos; the API's own ceiling. */
+export const MAX_COURT_FEE = 1_000_000;
+
 const categoryFormSchema = z
   .object({
     name: z.string().trim().min(1, t.categoryNameRequired).max(30, t.categoryNameMax),
@@ -19,6 +22,11 @@ const categoryFormSchema = z
       .min(2, t.capacityRange)
       .max(128, t.capacityRange),
     price: z.number({ error: t.priceRequired }).positive(t.pricePositive),
+    court_fee: z
+      .number({ error: t.courtFeeRange })
+      .min(0, t.courtFeeRange)
+      .max(MAX_COURT_FEE, t.courtFeeRange)
+      .optional(),
     group_size: z.number({ error: t.groupSizeRange }),
     qualifiers_per_group: z.number({ error: t.qualifiersRange }),
     sets_to_win: z.union([z.literal(1), z.literal(2)]),
@@ -46,7 +54,7 @@ const categoryFormSchema = z
 /**
  * The create-tournament form's own shape, not the wire shape
  * (`CreateTournamentRequest`, built from it by `toCreateRequest`). Prices are
- * pesos here, centavos on the wire. Group settings only count for a `groups`
+ * pesos here, centavos on the wire. The court fee is optional: blank or 0 sends none. Group settings only count for a `groups`
  * category, and the match tiebreak only for best of three.
  */
 export const tournamentFormSchema = z
@@ -96,6 +104,7 @@ function categoryRequest(category: CategoryFormValues): CategoryRequest {
     games_per_set: category.games_per_set,
     ...(category.sets_to_win === 2 ? { super_tiebreak_decider: category.super_tiebreak_decider } : {}),
     match_duration_minutes: category.match_duration_minutes,
+    ...(category.court_fee ? { court_fee: pesosToCentavos(category.court_fee) } : {}),
   };
 }
 
