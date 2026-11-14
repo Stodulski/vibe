@@ -68,7 +68,7 @@ function BracketMatchCard({
         <BracketSlot match={match} side={2} lookups={lookups} />
         {(score || when) && (
           <p className="text-text-tertiary px-2.5 py-1 text-xs break-words">
-            {score && <span className="score-text">{score}</span>}
+            {score && <span className="tabular-nums">{score}</span>}
             {score && when && ' · '}
             {when && <span className="first-letter:uppercase">{when}</span>}
           </p>
@@ -130,7 +130,9 @@ export function BracketSection({ matches, pairs, groupNames }: BracketSectionPro
         <div className="flex min-w-max gap-4">
           {rounds.map((round, index) => (
             <section key={index} className="flex w-56 shrink-0 flex-col gap-2">
-              <h3 className="text-text-secondary text-xs font-semibold">{roundName(index + 1, rounds.length)}</h3>
+              <h3 className="text-text-secondary text-xs font-semibold">
+                {roundName(index + 1, rounds.length, round.length)}
+              </h3>
               <ul className="flex flex-1 flex-col">
                 {round.map((match, position) => (
                   <BracketMatchCard

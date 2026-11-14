@@ -222,7 +222,7 @@ test('drawing the groups category builds zones with standings and a bracket', as
     await expect(table.getByText('Clasifica')).toHaveCount(2);
   }
   await chooseSection('Cuadro');
-  await expect(page.getByText('Semifinal')).toBeVisible();
+  await expect(page.getByText('Semifinales')).toBeVisible();
   await expect(page.getByText('Final', { exact: true })).toBeVisible();
   await expect(page.getByText('1º de la zona A').first()).toBeVisible();
 

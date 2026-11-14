@@ -132,8 +132,9 @@ export function CategoryFields({ form, index, canRemove, onRemove }: Props) {
         <CapacityAndPrice form={form} index={index} />
         {isGroups && <CategoryGroupFields form={form} index={index} />}
         <CategoryMatchFormatFields form={form} index={index} />
+        {/* The ghost button insets its text by its own padding: pull it back so the text lines up with the fields. */}
         {canRemove && (
-          <Button type="button" variant="ghost" size="sm" className="rounded-lg" onClick={onRemove}>
+          <Button type="button" variant="ghost" size="sm" className="-ml-3 rounded-lg" onClick={onRemove}>
             {t.form.removeCategory}
           </Button>
         )}

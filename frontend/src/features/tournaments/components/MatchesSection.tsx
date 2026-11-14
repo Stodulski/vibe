@@ -154,7 +154,7 @@ function MatchRow({
           {name(2)}
         </span>
       </p>
-      {score && <p className="text-text-primary score-text text-sm font-medium">{score}</p>}
+      {score && <p className="text-text-primary text-sm font-semibold tabular-nums">{score}</p>}
       <p className="text-text-tertiary text-xs break-words first-letter:uppercase">{whenText(match)}</p>
       <MatchCourtFee
         match={match}
@@ -188,7 +188,7 @@ function blocksOf(matches: TournamentOwnerMatch[], groupNames: Map<string, strin
   const rounds = bracketRounds(real);
   const bracketBlocks = rounds.map((round, index) => ({
     key: `round-${String(index)}`,
-    title: roundName(index + 1, bracketRounds(matches).length),
+    title: roundName(index + 1, bracketRounds(matches).length, round.length),
     matches: round,
   }));
   return [...groupBlocks, ...bracketBlocks].filter((block) => block.matches.length > 0);

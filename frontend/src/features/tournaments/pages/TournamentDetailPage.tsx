@@ -83,6 +83,7 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
         items={categories.map((c) => ({
           value: c.id,
           label: c.status === 'cancelled' ? `${c.name} · ${t.tournaments.categoryStatus.cancelled}` : c.name,
+          muted: c.status === 'cancelled',
         }))}
         active={category?.id ?? ''}
         onChange={setChosen}

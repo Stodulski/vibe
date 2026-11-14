@@ -9,7 +9,7 @@ const t = ES_AR.tournaments;
 /**
  * What the category is, as a compact grid so the section tabs stay near the top:
  * capacity and status, price per pair, court fee and what is collected of it,
- * format and how its matches are played. Monospace only on the numbers.
+ * format and how its matches are played. Money is proportional with tabular figures.
  */
 export function CategoryFacts({
   category,
@@ -19,19 +19,18 @@ export function CategoryFacts({
   courtFee: CourtFeeSummary;
 }) {
   return (
-    <div className="space-y-2">
-      {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
+    <div>
       <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
         <InfoRow label={t.detail.capacity}>
           {t.pairsTaken(category.confirmed_count, category.capacity)} · {t.categoryStatus[category.status]}
         </InfoRow>
         <InfoRow label={t.detail.price}>
-          <span className="score-text font-medium">{formatPrice(category.price)}</span>
+          <span className="font-medium tabular-nums">{formatPrice(category.price)}</span>
         </InfoRow>
         <InfoRow label={t.courtFee.factLabel}>
           {category.court_fee > 0 ? (
             <>
-              <span className="score-text font-medium">{formatPrice(category.court_fee)}</span>{' '}
+              <span className="font-medium tabular-nums">{formatPrice(category.court_fee)}</span>{' '}
               {t.courtFee.perPairSuffix}
             </>
           ) : (
@@ -40,7 +39,9 @@ export function CategoryFacts({
         </InfoRow>
         {(courtFee.collected > 0 || courtFee.pending > 0) && (
           <InfoRow label={t.courtFee.summaryLabel}>
-            {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
+            <span className="tabular-nums">
+              {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
+            </span>
           </InfoRow>
         )}
         <div className="col-span-2">

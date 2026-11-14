@@ -8,6 +8,9 @@ import type { TournamentCourtFee, TournamentOwnerMatch, TournamentOwnerPair } fr
 
 const t = ES_AR.tournaments.courtFee;
 
+/** Charging and undoing are the same kind of action on the same row: one look for both. */
+const FEE_BUTTON = 'rounded-lg';
+
 export interface CourtFeeActions {
   onCharge: (target: CourtFeeTarget) => void;
   onUndo: (target: CourtFeeTarget) => void;
@@ -44,18 +47,18 @@ function FeeRow({
 }) {
   const target = { matchId: match.id, side: side.side };
   return (
-    <li className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+    <li className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-center gap-x-3 gap-y-1 text-sm">
       <span className="text-text-secondary min-w-0 break-words">{name}</span>
       {side.charged ? (
-        <>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span className="text-text-primary font-medium">{t.paid(formatPrice(side.amount))}</span>
           {side.method && <span className="text-text-tertiary text-xs">{methodLabel(side.method)}</span>}
           {editable && (
             <Button
               type="button"
-              variant="ghost"
+              variant="outline"
               size="sm"
-              className="rounded-lg"
+              className={FEE_BUTTON}
               aria-label={t.undoAria(name)}
               onClick={() => {
                 actions.onUndo(target);
@@ -64,21 +67,23 @@ function FeeRow({
               {t.undo}
             </Button>
           )}
-        </>
+        </div>
       ) : (
         editable && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            className="rounded-lg underline underline-offset-4"
-            aria-label={t.chargeAria(name)}
-            onClick={() => {
-              actions.onCharge(target);
-            }}
-          >
-            {t.charge}
-          </Button>
+          <div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className={FEE_BUTTON}
+              aria-label={t.chargeAria(name)}
+              onClick={() => {
+                actions.onCharge(target);
+              }}
+            >
+              {t.charge}
+            </Button>
+          </div>
         )
       )}
     </li>

@@ -96,9 +96,8 @@ export const tournaments = {
       setsToWin === 1
         ? `Un set de ${String(games)} games`
         : `Mejor de tres sets de ${String(games)} games${superTiebreak ? ', súper tie-break como tercero' : ''}`,
-    more: 'Más',
-    moreTournament: 'Más acciones del torneo',
-    moreCategory: 'Más acciones de la categoría',
+    moreTournament: 'Opciones del torneo',
+    moreCategory: 'Opciones de la categoría',
     cancelledNote: 'Este torneo está cancelado. Las canchas ya están libres.',
     categoryCancelledNote: 'Esta categoría está cancelada.',
   },
@@ -138,6 +137,7 @@ export const tournaments = {
     generate: 'Sortear',
     regenerate: 'Sortear de nuevo',
     generateHint: 'Arma las zonas y el cuadro con las parejas que ya pagaron. Se cierra la inscripción.',
+    generateHintElimination: 'Arma el cuadro con las parejas que ya pagaron. Se cierra la inscripción.',
     regenerateHint: 'Se puede repetir mientras no haya resultados cargados.',
     seedOrder: 'Orden de cabezas de serie',
     seedOrderHint: 'Subí o bajá las parejas: la de arriba es la mejor cabeza de serie. Las que no ordenes van al azar.',
@@ -187,6 +187,7 @@ export const tournaments = {
     round: (round: number) => `Ronda ${String(round)}`,
     final: 'Final',
     semifinal: 'Semifinal',
+    semifinals: 'Semifinales',
     quarterfinal: 'Cuartos de final',
     roundOf16: 'Octavos de final',
     toBeDefined: 'A definir',

@@ -14,13 +14,13 @@ export function pairFullName(pair: Pick<TournamentOwnerPair, 'players'>): string
   return pair.players.map((player) => `${player.first_name} ${player.last_name}`).join(' / ');
 }
 
-/** "Final", "Semifinal"…: a round is named by how far it is from the final. */
-export function roundName(round: number, rounds: number): string {
+/** "Final", "Semifinales"…: a round is named by how far it is from the final, in the plural when it has several matches. */
+export function roundName(round: number, rounds: number, matches: number): string {
   switch (rounds - round) {
     case 0:
       return t.bracket.final;
     case 1:
-      return t.bracket.semifinal;
+      return matches > 1 ? t.bracket.semifinals : t.bracket.semifinal;
     case 2:
       return t.bracket.quarterfinal;
     case 3:

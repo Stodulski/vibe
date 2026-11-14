@@ -1,8 +1,10 @@
 import { Button } from '@/shared/components/ui/button';
+import { cn } from '@/shared/lib/utils';
 import { SEGMENTED_TABS_CLASS } from '../lib/tournamentLayout';
 
 interface SegmentedTabsProps<T extends string> {
-  items: { value: T; label: string }[];
+  /** A muted item belongs to something cancelled: it stays pickable but never reads as the live, green choice. */
+  items: { value: T; label: string; muted?: boolean }[];
   active: T;
   onChange: (value: T) => void;
   ariaLabel: string;
@@ -20,9 +22,14 @@ export function SegmentedTabs<T extends string>({ items, active, onChange, ariaL
           key={item.value}
           type="button"
           size="sm"
-          variant={active === item.value ? 'default' : 'outline'}
+          variant={active === item.value && !item.muted ? 'default' : 'outline'}
           aria-pressed={active === item.value}
-          className="shrink-0 rounded-xl px-4"
+          {...(item.muted ? { 'data-cancelled': 'true' } : {})}
+          className={cn(
+            'shrink-0 rounded-xl px-4',
+            item.muted && 'text-text-tertiary',
+            item.muted && active === item.value && 'border-border-default bg-bg-subtle',
+          )}
           onClick={() => {
             onChange(item.value);
           }}

@@ -7,6 +7,7 @@ export const courtFee = {
   summaryLabel: 'Cancha cobrada',
   summary: (collected: string, pending: string) => `Cobrado ${collected} · Pendiente ${pending}`,
   edit: 'Editar monto de cancha',
+  add: 'Agregar monto de cancha',
   editTitle: 'Monto de cancha',
   editDescription: (category: string) =>
     `Lo que paga cada pareja de ${category} por partido, en el complejo. Los cobros ya registrados no cambian.`,

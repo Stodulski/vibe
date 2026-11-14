@@ -25,13 +25,13 @@ export function TournamentFacts({ tournament, complexId, paidCount, canCancel }:
       {tournament.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.cancelledNote}</p>}
       <div className="flex items-start justify-between gap-3">
         <InfoRow label={ES_AR.events.detail.when}>
-          <span className="font-medium first-letter:uppercase">
+          <span className="block font-medium first-letter:uppercase">
             {tournamentDays(tournament.start_date, tournament.end_date)}
           </span>
         </InfoRow>
         {canCancel && (
           <MoreMenu
-            ariaLabel={t.detail.moreTournament}
+            label={t.detail.moreTournament}
             items={[
               {
                 label: t.cancel.action,

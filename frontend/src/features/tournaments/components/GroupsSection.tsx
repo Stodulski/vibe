@@ -9,21 +9,39 @@ const HEAD_CELL = 'text-text-tertiary px-2 py-2 text-xs font-medium';
 
 const COLUMNS = ['position', 'pair', 'played', 'won', 'lost', 'sets', 'games'] as const;
 
+/** Fixed widths so every zone lines its columns up with the others, whatever its pairs are called. */
+const COLUMN_WIDTHS: Record<(typeof COLUMNS)[number], string> = {
+  position: 'w-12',
+  pair: '',
+  played: 'w-12',
+  won: 'w-12',
+  lost: 'w-12',
+  sets: 'w-16',
+  games: 'w-20',
+};
+
 function GroupHead() {
   return (
-    <thead>
-      <tr className="border-border-subtle border-b text-left">
+    <>
+      <colgroup>
         {COLUMNS.map((column) => (
-          <th
-            key={column}
-            scope="col"
-            className={cn(HEAD_CELL, column !== 'position' && column !== 'pair' && 'text-center')}
-          >
-            {t.columns[column]}
-          </th>
+          <col key={column} className={COLUMN_WIDTHS[column]} />
         ))}
-      </tr>
-    </thead>
+      </colgroup>
+      <thead>
+        <tr className="border-border-subtle border-b text-left">
+          {COLUMNS.map((column) => (
+            <th
+              key={column}
+              scope="col"
+              className={cn(HEAD_CELL, column !== 'position' && column !== 'pair' && 'text-center')}
+            >
+              {t.columns[column]}
+            </th>
+          ))}
+        </tr>
+      </thead>
+    </>
   );
 }
 
@@ -66,7 +84,7 @@ function GroupTable({
     <section className="space-y-2">
       <h3 className="text-text-primary text-sm font-semibold">{t.zone(group.name)}</h3>
       <div className="border-border-subtle overflow-x-auto rounded-xl border">
-        <table aria-label={t.table(group.name)} className="w-full min-w-[22rem] text-sm">
+        <table aria-label={t.table(group.name)} className="w-full min-w-[26rem] table-fixed text-sm">
           <GroupHead />
           <tbody>
             {group.standings.map((row) => {

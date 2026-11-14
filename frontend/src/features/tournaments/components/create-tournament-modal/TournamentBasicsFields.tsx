@@ -13,9 +13,6 @@ const SPORTS = Object.keys(ES_AR.courts.sportTypes) as Sport[];
 
 type Form = UseFormReturn<TournamentFormValues>;
 
-/** The date picker takes its label as plain text, so its "(requerido)" mark is plain text too. */
-const requiredText = (label: string) => `${label} (${ES_AR.common.requiredMarker})`;
-
 function NameAndSport({ form }: { form: Form }) {
   const { register, watch, setValue, formState } = form;
   return (
@@ -59,7 +56,7 @@ export function TournamentBasicsFields({ form }: { form: Form }) {
       <NameAndSport form={form} />
       <DatePickerField
         id="tournament-start"
-        label={requiredText(t.startDate)}
+        label={<FieldLabel text={t.startDate} required />}
         value={start}
         placeholder={t.selectDate}
         error={formState.errors.start_date?.message}
@@ -70,7 +67,7 @@ export function TournamentBasicsFields({ form }: { form: Form }) {
       />
       <DatePickerField
         id="tournament-end"
-        label={requiredText(t.endDate)}
+        label={<FieldLabel text={t.endDate} required />}
         value={end}
         placeholder={t.selectDate}
         error={formState.errors.end_date?.message}

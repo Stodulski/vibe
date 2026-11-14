@@ -171,14 +171,14 @@ describe('CreateTournamentModal: layout', () => {
 });
 
 describe('CreateTournamentModal: required and optional', () => {
-  it('marks every field required or optional in its label, with the hint above the field', async () => {
+  it('marks every field required or optional in its label, with the hint below the field', async () => {
     await renderModal();
 
     expect(screen.getByLabelText(`${t.form.name} (${ES_AR.common.requiredMarker})`)).toBeInTheDocument();
     expect(screen.getByLabelText(`${t.form.courtFee} (${ES_AR.common.optional})`)).toBeInTheDocument();
     const hint = screen.getByText(t.form.courtFeeHint);
     const input = screen.getByLabelText(`${t.form.courtFee} (${ES_AR.common.optional})`);
-    expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(input.compareDocumentPosition(hint) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
     expect(hint).not.toHaveTextContent(/^Opcional/);
   });
 });

@@ -38,8 +38,8 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
   ];
 }
 
-/** What the owner can do to the category itself: change its court fee, or cancel it from the "Más" menu. */
-function CategoryActions({ dialogs }: { dialogs: CategoryDialogs }) {
+/** What the owner can do to the category itself: change its court fee, or cancel it from its options menu. */
+function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
   return (
     <div className="flex shrink-0 gap-2">
       <Button
@@ -51,10 +51,10 @@ function CategoryActions({ dialogs }: { dialogs: CategoryDialogs }) {
           dialogs.setFeeOpen(true);
         }}
       >
-        {t.courtFee.edit}
+        {courtFee > 0 ? t.courtFee.edit : t.courtFee.add}
       </Button>
       <MoreMenu
-        ariaLabel={t.detail.moreCategory}
+        label={t.detail.moreCategory}
         items={[
           {
             label: t.cancel.categoryAction,
@@ -80,11 +80,15 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-        <div className="min-w-0 flex-1">
+      {/* The facts keep one width whether or not the actions are there; a cancelled category puts its note where they were. */}
+      <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,36rem)_auto] sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
         </div>
-        {open && <CategoryActions dialogs={dialogs} />}
+        {open && <CategoryActions dialogs={dialogs} courtFee={category.court_fee} />}
+        {category.status === 'cancelled' && (
+          <p className="text-error-text text-sm sm:max-w-56">{t.detail.categoryCancelledNote}</p>
+        )}
       </div>
       <SegmentedTabs
         items={sectionItems(category)}

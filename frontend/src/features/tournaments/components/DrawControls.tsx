@@ -35,6 +35,13 @@ function moved(order: TournamentOwnerPair[], pairId: string, direction: -1 | 1):
   return next;
 }
 
+/** What the draw does now: locked, repeatable, or its first run, which names the zones only when the category has them. */
+function drawHint(category: TournamentOwnerCategory, drawn: boolean, locked: boolean): string {
+  if (locked) return t.locked;
+  if (drawn) return t.regenerateHint;
+  return category.format === 'groups' ? t.generateHint : t.generateHintElimination;
+}
+
 /**
  * The draw: how many pairs paid, an optional seed order, and the button that
  * generates (or regenerates, until a result is loaded) the groups and bracket.
@@ -49,7 +56,7 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
   return (
     <div className="border-border-subtle space-y-3 rounded-2xl border p-3.5">
       <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
-      <p className="text-text-tertiary text-xs">{view.locked ? t.locked : drawn ? t.regenerateHint : t.generateHint}</p>
+      <p className="text-text-tertiary text-xs">{drawHint(category, drawn, view.locked)}</p>
       {order && (
         <SeedOrderEditor
           order={order}

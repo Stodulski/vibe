@@ -22,7 +22,7 @@ function PhoneLink({ name, phone }: { name: string; phone: string }) {
     <a
       href={`tel:${phone}`}
       aria-label={`${t.call} ${name}`}
-      className="text-text-tertiary score-text text-xs break-all hover:underline"
+      className="inline-link text-text-tertiary score-text text-xs break-all hover:underline"
     >
       {phone}
     </a>
@@ -46,7 +46,7 @@ function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; group
   ].filter(Boolean);
 
   return (
-    <li className="border-border-subtle flex items-start justify-between gap-3 border-b py-3 last:border-b-0">
+    <li className="border-border-subtle flex items-baseline justify-between gap-3 border-b py-3 last:border-b-0">
       <div className="min-w-0 space-y-0.5">
         <p className="text-text-primary text-sm font-medium break-words">{pairFullName(pair)}</p>
         <div className="flex flex-wrap gap-x-3 gap-y-0.5">

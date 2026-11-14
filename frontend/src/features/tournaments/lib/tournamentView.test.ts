@@ -24,11 +24,12 @@ describe('pairName', () => {
 
 describe('roundName', () => {
   it('names the last rounds from the final back and numbers the earlier ones', () => {
-    expect(roundName(3, 3)).toBe(t.bracket.final);
-    expect(roundName(2, 3)).toBe(t.bracket.semifinal);
-    expect(roundName(1, 3)).toBe(t.bracket.quarterfinal);
-    expect(roundName(1, 4)).toBe(t.bracket.roundOf16);
-    expect(roundName(1, 5)).toBe(t.bracket.round(1));
+    expect(roundName(3, 3, 1)).toBe(t.bracket.final);
+    expect(roundName(2, 3, 2)).toBe(t.bracket.semifinals);
+    expect(roundName(2, 3, 1)).toBe(t.bracket.semifinal);
+    expect(roundName(1, 3, 4)).toBe(t.bracket.quarterfinal);
+    expect(roundName(1, 4, 8)).toBe(t.bracket.roundOf16);
+    expect(roundName(1, 5, 16)).toBe(t.bracket.round(1));
   });
 });
 
