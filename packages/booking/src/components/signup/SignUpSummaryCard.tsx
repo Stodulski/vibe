@@ -2,6 +2,7 @@ import { PriceBreakdown } from '../booking-form/PriceBreakdown';
 import type { BookingPricing } from '../booking-form/pricing';
 import { cancellationWindowText } from '../booking-confirmed/cancellationCopy';
 import { TicketCourt, TicketPriceRow, TicketStub } from '../ticket/TicketParts';
+import { TicketCourtList, type TicketCourtRow } from './TicketCourtList';
 
 
 interface SignUpSummaryCardProps {
@@ -16,8 +17,11 @@ interface SignUpSummaryCardProps {
   title: string;
   /** Chips under the title (sport, category, format). */
   tags: string[];
-  /** Free lines under the chips (courts, how it is played). */
+  /** Free lines under the chips (how it is played). */
   details?: string[];
+  /** The courts, one per row under `courtsLabel`: the name, then what a player compares ("Techada · Césped sintético"). */
+  courts?: TicketCourtRow[];
+  courtsLabel?: string;
   /** What the entry is called on the first money row: "Lugar", "Inscripción de la pareja". */
   priceLabel: string;
   /** Centavos ARS. */
@@ -44,6 +48,8 @@ export function SignUpSummaryCard({
   title,
   tags,
   details = [],
+  courts = [],
+  courtsLabel,
   priceLabel,
   price,
   serviceFee,
@@ -76,6 +82,7 @@ export function SignUpSummaryCard({
               {line}
             </p>
           ))}
+          <TicketCourtList courts={courts} label={courtsLabel} />
         </div>
       </div>
       <TicketStub />

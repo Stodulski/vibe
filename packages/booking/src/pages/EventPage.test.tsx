@@ -277,7 +277,8 @@ describe('EventPage checkout parity with a booking', () => {
     expect(within(ticket).getByRole('heading', { level: 1, name: EVENT.name })).toBeInTheDocument();
     expect(within(ticket).getByText('Club Norte')).toBeInTheDocument();
     expect(within(ticket).getByText('19:00 a 22:00')).toBeInTheDocument();
-    expect(within(ticket).getByText(/Cancha 1, Cancha 2/)).toBeInTheDocument();
+    expect(within(ticket).getAllByRole('listitem')).toHaveLength(2);
+    expect(within(ticket).getByText('Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();
     expect(within(ticket).getByText(/24h/)).toBeInTheDocument();

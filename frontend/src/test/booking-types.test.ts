@@ -42,6 +42,7 @@ export type BookingTypeChecks = [
   Assert<Mutual<Booking.RefundStatus, App.RefundStatus>>,
   Assert<Mutual<Booking.RefundEnvelope, App.RefundEnvelope>>,
   Assert<Mutual<Booking.PublicCancelBookingResponse, App.PublicCancelBookingResponse>>,
+  Assert<Mutual<Booking.PublicEventCourt, App.PublicEventCourt>>,
   Assert<Mutual<Booking.PublicOpenPlayEvent, App.PublicOpenPlayEvent>>,
   Assert<Mutual<Booking.PublicEventSignUpRequest, App.PublicEventSignUpRequest>>,
   Assert<Mutual<Booking.PublicEventSignUp, App.PublicEventSignUp>>,

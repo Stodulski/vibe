@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor } from '@testing-library/react';
+import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
@@ -66,6 +66,28 @@ function resetTurnstile() {
   turnstile.mounts.count = 0;
   vi.mocked(toast.info).mockClear();
 }
+
+describe('EventSignUpForm courts', () => {
+  it('lists the event courts one per row, each with its roof, surface and lighting', () => {
+    renderBooking(<EventSignUpForm slug="test-club" event={EVENT} />);
+
+    const ticket = screen.getByRole('region', { name: BOOKING_MESSAGES.events.summaryLabel });
+    const rows = within(ticket).getAllByRole('listitem');
+    expect(rows).toHaveLength(2);
+    const [first, second] = rows.map((row) => row.textContent);
+    expect(first).toContain('Cancha\u00A01');
+    expect(first).toContain('Techada · Césped sintético · Con iluminación');
+    expect(second).toContain('Cancha\u00A02');
+    expect(second).toContain('Descubierta');
+    expect(second).not.toContain('iluminación');
+    expect(within(ticket).queryByText(/Cancha.1, Cancha.2/)).not.toBeInTheDocument();
+  });
+
+  it('shows no court list when the event has none', () => {
+    renderBooking(<EventSignUpForm slug="test-club" event={{ ...EVENT, courts: [], court_names: [] }} />);
+    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
+  });
+});
 
 describe('EventSignUpForm Turnstile', () => {
   beforeEach(resetTurnstile);

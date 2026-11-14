@@ -3212,6 +3212,17 @@ export interface components {
                 method: "mercadopago";
             };
         };
+        /** @description A court of a public event, with the facts the booking flow shows for a court. */
+        PublicEventCourt: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            court_type: "indoor" | "outdoor" | "semi_covered";
+            has_lighting: boolean;
+            /** @description Playing surface; null when the owner has not said. */
+            surface?: components["schemas"]["CourtSurface"] | null;
+        };
         /** @description An event as a visitor sees it on the complex's page. */
         PublicOpenPlayEvent: {
             /** Format: uuid */
@@ -3236,6 +3247,8 @@ export interface components {
             /** @enum {string} */
             status: "active" | "cancelled";
             court_names: string[];
+            /** @description The event's courts with what a player compares, in the order of `court_names`. */
+            courts: components["schemas"]["PublicEventCourt"][];
             complex_name?: string;
             /** @description The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead. */
             cancellation_hours?: number;

@@ -6,6 +6,7 @@ import { es } from 'date-fns/locale/es';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
 import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
 import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
+import { courtFactsLine } from '../../lib/courtFacts';
 import { keepTogether } from '../../lib/keepTogether';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
@@ -26,8 +27,12 @@ interface EventSignUpFormProps {
 }
 
 function eventDetails(event: PublicOpenPlayEvent): string[] {
-  const courts = event.court_names.length > 0 ? [`${t.events.courtsLabel}: ${event.court_names.map(keepTogether).join(', ')}`] : [];
-  return endsNextDay(event) ? [...courts, t.events.nextDayNote] : courts;
+  return endsNextDay(event) ? [t.events.nextDayNote] : [];
+}
+
+/** One row per court: its name kept together, then roof, surface and lighting the way the booking flow words them. */
+function eventCourts(event: PublicOpenPlayEvent) {
+  return event.courts.map((court) => ({ id: court.id, name: keepTogether(court.name), facts: courtFactsLine(court) }));
 }
 
 /**
@@ -72,6 +77,8 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
         title={event.name}
         tags={[sportLabel(event.sport)]}
         details={eventDetails(event)}
+        courts={eventCourts(event)}
+        courtsLabel={t.events.courtsLabel}
         priceLabel={t.events.priceLabel}
         price={event.price}
         serviceFee={event.service_fee}

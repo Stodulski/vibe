@@ -34,6 +34,21 @@ export const publicOpenPlayEventSchema = exact<PublicOpenPlayEvent>(
         .array(z.string())
         .nullable()
         .transform((v) => v ?? []),
+      // Open vocabularies like the availability grid; surface is absent when the owner has not said.
+      courts: z
+        .array(
+          z
+            .object({
+              id: z.string(),
+              name: z.string(),
+              court_type: z.string(),
+              has_lighting: z.boolean(),
+              surface: z.string().nullish(),
+            })
+            .loose(),
+        )
+        .nullable()
+        .transform((v) => v ?? []),
       complex_name: z.string().optional(),
       cancellation_hours: z.number().optional(),
     })
