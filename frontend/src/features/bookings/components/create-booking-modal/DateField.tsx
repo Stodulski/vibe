@@ -14,10 +14,19 @@ import { todayInArgentina } from '../../lib/today';
 
 const t = ES_AR;
 
-function DateFieldTrigger({ date, hasError }: { date: string | undefined; hasError: boolean }) {
+/** The button that opens a calendar popover, showing the chosen date. Also used by the series end date. */
+export function DateFieldTrigger({
+  date,
+  hasError,
+  id = 'booking-date',
+}: {
+  date: string | undefined;
+  hasError: boolean;
+  id?: string;
+}) {
   return (
     <button
-      id="booking-date"
+      id={id}
       type="button"
       className={cn(
         'border-border-subtle bg-bg-base/60 transition-input flex h-10 w-full items-center gap-2.5 rounded-xl border px-3.5 text-sm shadow-xs outline-none',

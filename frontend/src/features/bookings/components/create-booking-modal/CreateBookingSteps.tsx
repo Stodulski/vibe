@@ -3,6 +3,7 @@ import { StepIndicator } from '@/shared/components/common/StepIndicator';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';
 import { CreateBookingFormBody } from './CreateBookingFormBody';
+import { SeriesConflictsPanel } from './SeriesConflictsPanel';
 import type { CreateBookingStep } from './CreateBookingFormBody';
 import type { useCreateBookingForm } from './useCreateBookingForm';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
@@ -19,6 +20,32 @@ const STEP_FIELDS = {
   1: ['date', 'court_id', 'duration_minutes', 'start_time', 'price'],
   2: ['client_first_name', 'client_last_name', 'client_phone', 'client_email'],
 } as const satisfies Record<1 | 2, (keyof CreateBookingDto)[]>;
+
+/** The dates a weekly series could not take, with the two ways out (see `SeriesConflictsPanel`). */
+function SeriesConflictsView({
+  form,
+  onClose,
+  onRestart,
+}: {
+  form: ReturnType<typeof useCreateBookingForm>;
+  onClose: () => void;
+  onRestart: () => void;
+}) {
+  const { seriesSubmit } = form;
+  return (
+    <SeriesConflictsPanel
+      conflicts={seriesSubmit.conflicts}
+      pending={seriesSubmit.createSeries.isPending}
+      onSkip={() => {
+        seriesSubmit.submitSkippingConflicts(onClose);
+      }}
+      onBack={() => {
+        seriesSubmit.dismissConflicts();
+        onRestart();
+      }}
+    />
+  );
+}
 
 /**
  * Owns the step cursor and renders the indicator + stepped body. Mounted
@@ -47,6 +74,9 @@ export function CreateBookingSteps({
       return;
     }
 
+    // The end choice of a weekly series is not a schema field either.
+    if (fromStep === 1 && !form.series.validate(form.date)) return;
+
     setStep((fromStep + 1) as CreateBookingStep);
   };
 
@@ -63,22 +93,32 @@ export function CreateBookingSteps({
         ariaLabel={t.bookings.createBookingStepProgress}
       />
 
-      <form
-        onSubmit={submitHandler(form.handleSubmit, (data) => {
-          form.onSubmit(data, onClose);
-        })}
-        className="space-y-5"
-      >
-        <CreateBookingFormBody
-          step={step}
+      {form.seriesSubmit.conflicts.length > 0 ? (
+        <SeriesConflictsView
           form={form}
           onClose={onClose}
-          onNext={(fromStep) => {
-            void goNext(fromStep);
+          onRestart={() => {
+            setStep(1);
           }}
-          onBack={goBack}
         />
-      </form>
+      ) : (
+        <form
+          onSubmit={submitHandler(form.handleSubmit, (data) => {
+            form.onSubmit(data, onClose);
+          })}
+          className="space-y-5"
+        >
+          <CreateBookingFormBody
+            step={step}
+            form={form}
+            onClose={onClose}
+            onNext={(fromStep) => {
+              void goNext(fromStep);
+            }}
+            onBack={goBack}
+          />
+        </form>
+      )}
     </>
   );
 }

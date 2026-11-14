@@ -1,6 +1,7 @@
 import { DateField } from './DateField';
 import { CourtAndTimeFields } from './CourtAndTimeFields';
 import { PriceOrManualPriceField } from './PriceOrManualPriceField';
+import { SeriesRepeatFields } from './SeriesRepeatFields';
 import type { useCreateBookingForm } from './useCreateBookingForm';
 
 /** Date, court, time, and price fields — the "when/where/how much" of a booking. */
@@ -32,6 +33,7 @@ export function BookingScheduleFields({ form }: { form: ReturnType<typeof useCre
         setValue={form.setValue}
         errors={form.errors}
       />
+      <SeriesRepeatFields firstDate={form.date} series={form.series} />
     </>
   );
 }

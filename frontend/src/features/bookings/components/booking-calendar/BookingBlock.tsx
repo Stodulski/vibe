@@ -1,3 +1,4 @@
+import { Repeat } from 'lucide-react';
 import { minutesInto, toSpan } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
 import { cn, endsOnALaterDay, formatHourRange } from '@/shared/lib/utils';
@@ -56,8 +57,13 @@ function bookingAriaLabel(booking: Booking, courtName: string): string {
     booking.client_name,
     `${t.bookings.status}: ${t.bookings.statuses[booking.status]}`,
     `${t.bookings.paymentStatus}: ${t.bookings.paymentStatuses[paymentDisplayStatus(booking)]}`,
+    ...(booking.series_id ? [t.bookings.fixedBooking] : []),
   ].join(', ');
 }
+
+// Below this the block holds a single line (the name) and nothing else fits
+// beside it, so the series marker is dropped; the accessible name still says it.
+const SERIES_ICON_MIN_HEIGHT_PX = 28;
 
 interface BookingBlockProps {
   booking: Booking;
@@ -136,7 +142,12 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
           {formatHourRange(booking.starts_at, booking.ends_at)}
         </span>
       )}
-      <p className="text-text-primary truncate text-xs font-medium">{booking.client_name}</p>
+      <div className="flex min-w-0 items-center gap-1">
+        {booking.series_id && heightPx >= SERIES_ICON_MIN_HEIGHT_PX && (
+          <Repeat role="img" aria-label={t.bookings.fixedBooking} className="text-text-primary/80 size-3 shrink-0" />
+        )}
+        <p className="text-text-primary truncate text-xs font-medium">{booking.client_name}</p>
+      </div>
     </button>
   );
 }

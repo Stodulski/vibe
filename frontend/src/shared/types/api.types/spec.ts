@@ -45,14 +45,15 @@ export type Open<T extends string> = T | (string & {});
  * rather than replacing either: an operation that never declares a `202`
  * response still resolves through the first two branches exactly as before.
  */
-export type Ok<K extends keyof operations> =
-  operations[K]['responses'] extends { 200: { content: { 'application/json': infer B } } }
+export type Ok<K extends keyof operations> = operations[K]['responses'] extends {
+  200: { content: { 'application/json': infer B } };
+}
+  ? B
+  : operations[K]['responses'] extends { 201: { content: { 'application/json': infer B } } }
     ? B
-    : operations[K]['responses'] extends { 201: { content: { 'application/json': infer B } } }
+    : operations[K]['responses'] extends { 202: { content: { 'application/json': infer B } } }
       ? B
-      : operations[K]['responses'] extends { 202: { content: { 'application/json': infer B } } }
-        ? B
-        : never;
+      : never;
 
 /**
  * The `application/json` body an operation accepts, with its optional fields
