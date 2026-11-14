@@ -1,9 +1,7 @@
-import { Banknote } from 'lucide-react';
 import { useState } from 'react';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
-import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
-import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
+import { MoneyInput } from '@/shared/components/common/MoneyInput';
 import { pesosToCentavos } from '@/shared/lib/money';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { ConfirmPaymentDto } from '../../schemas/booking.schema';
@@ -43,20 +41,17 @@ export function DepositAmountInput({
 }) {
   const maxPesos = booking ? booking.price / 100 : Infinity;
   const [pesos, setPesos] = useState<number | undefined>(undefined);
-  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
-    value: pesos,
-    onChange: (v) => {
-      setPesos(v);
-      if (v === undefined || v <= 0) {
-        setValue('amount', 0);
-      } else {
-        // `pesosToCentavos` (Math.round), not a plain `* 100` — a decimal
-        // amount (e.g. 1500.5) truncated instead of rounded would drop
-        // centavos rather than reporting the exact amount typed.
-        setValue('amount', pesosToCentavos(Math.min(v, maxPesos)));
-      }
-    },
-  });
+  const handlePesosChange = (v: number | undefined) => {
+    setPesos(v);
+    if (v === undefined || v <= 0) {
+      setValue('amount', 0);
+    } else {
+      // `pesosToCentavos` (Math.round), not a plain `* 100` — a decimal
+      // amount (e.g. 1500.5) truncated instead of rounded would drop
+      // centavos rather than reporting the exact amount typed.
+      setValue('amount', pesosToCentavos(Math.min(v, maxPesos)));
+    }
+  };
 
   return (
     <FormField
@@ -65,21 +60,12 @@ export function DepositAmountInput({
       htmlFor="deposit-input"
       error={errors.amount?.message}
     >
-      <div className="relative">
-        <Banknote className="text-text-tertiary absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-        <Input
-          id="deposit-input"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          className="pl-9"
-          ref={inputRef}
-          value={displayValue}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          placeholder={t.placeholders.depositAmount}
-        />
-      </div>
+      <MoneyInput
+        id="deposit-input"
+        value={pesos}
+        onChange={handlePesosChange}
+        placeholder={t.placeholders.depositAmount}
+      />
     </FormField>
   );
 }

@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import { Trash2 } from 'lucide-react';
 import { useWatch, type Control, type UseFormSetValue } from 'react-hook-form';
 import { TimeSelect } from '@/shared/components/common/TimeSelect';
-import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { PriceField } from './PriceRow';
@@ -64,20 +63,14 @@ interface BandRowProps {
  *                delete button. `[desde a hasta]` reads on the left, a gap,
  *                then `[precio][🗑]` together on the right.
  *
- * `PriceField`'s and `TimeSelect`'s own `compact` prop still narrows their
- * padding and text only below `sm`, in both shapes.
+ * `TimeSelect`'s own `compact` prop still narrows its padding and text only
+ * below `sm`; `PriceField`'s `compact` only picks the width shape above.
  */
 export function BandRow({ day, dayLabel, index, control, setValue, onRemove, errors }: BandRowProps) {
   const timeFrom = useWatch({ control, name: bandField(day, index, 'time_from') });
   const timeTo = useWatch({ control, name: bandField(day, index, 'time_to') });
   const price = useWatch({ control, name: bandField(day, index, 'price') });
   const isNextDay = endsNextDay({ time_from: timeFrom, time_to: timeTo });
-  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
-    value: Number.isNaN(price) ? undefined : price,
-    onChange: (v) => {
-      setValue(bandField(day, index, 'price'), v ?? Number.NaN, { shouldValidate: true });
-    },
-  });
 
   // Stable identities so a row's re-render does not churn its two selects.
   // `setValue` is stable across renders, and `day`/`index` are the row.
@@ -118,7 +111,7 @@ export function BandRow({ day, dayLabel, index, control, setValue, onRemove, err
     // it. The plain-text connector span opts back into `self-center` for
     // exactly that reason — it has no input to line up with, only a middle
     // to sit in.
-    <div className="flex flex-nowrap items-start gap-1 py-1.5 sm:gap-2">
+    <div className="flex flex-nowrap items-start gap-0.5 py-1.5 sm:gap-2">
       <TimeSelect
         value={timeFrom}
         aria-label={`${bandName}: ${t.courts.bandFrom}`}
@@ -145,10 +138,10 @@ export function BandRow({ day, dayLabel, index, control, setValue, onRemove, err
         error={errors.time_from ?? errors.time_to ?? errors.price}
         aria-label={`${bandName}: ${t.courts.price}`}
         compact
-        ref={inputRef}
-        value={displayValue}
-        onChange={handleChange}
-        onBlur={handleBlur}
+        value={Number.isNaN(price) ? undefined : price}
+        onChange={(v) => {
+          setValue(bandField(day, index, 'price'), v ?? Number.NaN, { shouldValidate: true });
+        }}
       />
       {/* `ml-auto` only below `sm` — the safety net if the two time selects
           and the price field ever hit their caps before using the whole

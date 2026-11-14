@@ -9,7 +9,6 @@ import {
   type UseFormGetValues,
 } from 'react-hook-form';
 import { toast } from 'sonner';
-import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { ApplyToAllButton } from './ApplyToAllButton';
@@ -96,7 +95,7 @@ export function DayRow(props: DayRowProps) {
     <div className="border-border-subtle border-b py-1.5 last:border-0">
       <BaseRow {...props} bandCount={fields.length} expanded={isExpanded} onToggle={toggle} panelId={panelId} />
       {isExpanded && (
-        <div id={panelId} className="space-y-0.5 px-2 pb-1">
+        <div id={panelId} className="space-y-0.5 pb-1 sm:px-2">
           {fields.map((field, index) => (
             <BandRow
               key={field.id}
@@ -147,12 +146,6 @@ function BaseRow({
 }: DayRowProps & { bandCount: number; expanded: boolean; onToggle: () => void; panelId: string }) {
   const price = useWatch({ control, name: dayPriceField(day) });
   const dayError = errors[day]?.price;
-  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
-    value: Number.isNaN(price) ? undefined : price,
-    onChange: (v) => {
-      setValue(dayPriceField(day), v ?? Number.NaN, { shouldValidate: true });
-    },
-  });
 
   return (
     <PriceRow label={label} shortLabel={shortLabel}>
@@ -161,10 +154,10 @@ function BaseRow({
           placeholder=""
           error={dayError?.message}
           aria-label={`${t.courts.price} ${label}`}
-          ref={inputRef}
-          value={displayValue}
-          onChange={handleChange}
-          onBlur={handleBlur}
+          value={Number.isNaN(price) ? undefined : price}
+          onChange={(v) => {
+            setValue(dayPriceField(day), v ?? Number.NaN, { shouldValidate: true });
+          }}
         />
         {price > 0 && <ApplyToAllButton onClick={applyToAll(day, getValues, setValue)} />}
         <DisclosureButton dayLabel={label} expanded={expanded} count={bandCount} panelId={panelId} onClick={onToggle} />

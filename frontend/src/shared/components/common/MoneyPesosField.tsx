@@ -1,7 +1,5 @@
-import { Banknote } from 'lucide-react';
-import { Input } from '@/shared/components/ui/input';
-import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
 import { FormField } from './FormField';
+import { MoneyInput } from './MoneyInput';
 
 interface MoneyPesosFieldProps {
   id: string;
@@ -10,12 +8,10 @@ interface MoneyPesosFieldProps {
   onChange: (pesos: number | undefined) => void;
   error?: string | undefined;
   placeholder?: string | undefined;
-  /** Match the shared `Input` height, for a form whose other fields are plain inputs. */
-  compact?: boolean;
 }
 
 /**
- * A pesos money input, shared by every cashbox form (open/close/movement) and
+ * A labelled pesos money field (FormField + `MoneyInput`), shared by every cashbox form (open/close/movement) and
  * the product catalog's own forms (price, restock total cost).
  *
  * Moved here from `features/cash/components/` (pos-products-screen T5a):
@@ -32,11 +28,6 @@ interface MoneyPesosFieldProps {
  * under `register`'s default coercion, while this field's own parsing (see
  * `useMoneyInput`) reports a blank field as `undefined` so a Zod schema
  * reports "ingresá un monto" instead of a value silently reset to 0.
- *
- * `h-12` (taller than the shared `Input`'s default `h-10`) and `text-base`:
- * the counter workflow this feature exists for is used on a phone, one-handed,
- * mid-transaction — a bigger touch target and a bigger digit size than the
- * desktop-first forms elsewhere in the app.
  *
  * `type="text"`, not `type="number"` — `useMoneyInput` formats the amount
  * with es-AR thousands separators as the person types ("150000" renders
@@ -56,34 +47,10 @@ interface MoneyPesosFieldProps {
  * always: the caller's own Zod schema is what reports a validation problem,
  * never a browser-native block before React runs.
  */
-export function MoneyPesosField({
-  id,
-  label,
-  value,
-  onChange,
-  error,
-  placeholder,
-  compact = false,
-}: MoneyPesosFieldProps) {
-  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({ value, onChange });
-
+export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
   return (
     <FormField label={label} htmlFor={id} error={error}>
-      <div className="relative">
-        <Banknote className="text-text-tertiary absolute top-1/2 left-3 size-4 -translate-y-1/2" aria-hidden="true" />
-        <Input
-          id={id}
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          className={compact ? 'pl-9' : 'h-12 pl-9 text-base'}
-          ref={inputRef}
-          value={displayValue}
-          placeholder={placeholder}
-          onChange={handleChange}
-          onBlur={handleBlur}
-        />
-      </div>
+      <MoneyInput id={id} value={value} onChange={onChange} placeholder={placeholder} />
     </FormField>
   );
 }

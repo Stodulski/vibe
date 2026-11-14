@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { useId } from 'react';
-import { Input } from '@/shared/components/ui/input';
+import { MoneyInput } from '@/shared/components/common/MoneyInput';
 import { cn } from '@/shared/lib/utils';
 
 /**
@@ -43,7 +43,7 @@ export function PriceRow({
 }
 
 /**
- * The price field itself: fixed `$`, and a width sized for the five or six
+ * The price field itself: the shared `MoneyInput` (same icon and height as every money field), and a width sized for the five or six
  * digits that go in it rather than for whatever the row has left over.
  *
  * `error`, when present, renders below the field rather than above it —
@@ -63,81 +63,39 @@ export function PriceRow({
  * running on one `nowrap` line past it — it belongs to this field alone, not
  * the row, so it stays exactly as wide as the field does.
  *
- * `compact` narrows the padding, the `$` and the text size below `sm`,
- * restoring all three exactly at `sm:` and up — for `BandRow`, the one
- * caller that sets this prop; `PriceConfig`'s day-level field (which already
- * fits, unchanged) never does. The WIDTH half of `compact` is two different
- * shapes, not one fill rule at every size:
- *
- *   below `sm`   the box fills whatever share of the row `BandRow` gives it
- *                — `min-w-0 grow-[1.15] shrink basis-0`, capped at `max-w-36`
- *                (144px: a "999999"-sized number plus this field's own
- *                padding, with room to spare) so it cannot stretch past what
- *                a wide dialog would otherwise let it. `grow-[1.15]` rather
- *                than plain `flex-1`: the two time selects beside it claim
- *                `flex-1` each, and this one claims a slightly bigger share,
- *                because its number reads longer than either time does.
- *   `sm:` and up  fixed at `sm:w-24` — the same 96px the day-level field has
- *                always been — and `sm:ml-auto` instead of growing: the row's
- *                spare width collects as a gap BEFORE this field rather than
- *                stretching it, so it sits immediately left of the delete
- *                button rather than in the middle of the row.
+ * Width is fixed, not fluid, because `MoneyInput`'s icon and padding leave only
+ * about 52px of the box unusable for digits: "1.500.000" needs ~65px of text.
+ * `w-32` (128px) for the day-level field; `compact`, set only by `BandRow`,
+ * uses `w-[7.5rem]` (120px) below `sm` so the two time selects keep the ~60px
+ * they need on a 320px line, and `sm:w-32` with `sm:ml-auto` above, so the
+ * row's spare width collects as a gap before it, next to the delete button.
  */
 export function PriceField({
-  className,
   error,
   compact,
+  value,
+  onChange,
+  placeholder,
   'aria-label': ariaLabel,
-  ...props
-}: React.ComponentProps<typeof Input> & { error?: string | undefined; compact?: boolean }) {
+}: {
+  value: number | undefined;
+  onChange: (pesos: number | undefined) => void;
+  placeholder?: string;
+  'aria-label'?: string;
+  error?: string | undefined;
+  compact?: boolean;
+}) {
   const errorId = useId();
   return (
-    <div
-      className={cn(
-        compact
-          ? 'max-w-36 min-w-0 shrink grow-[1.15] basis-0 sm:ml-auto sm:w-24 sm:max-w-none sm:flex-none'
-          : 'w-24 shrink-0',
-      )}
-    >
-      <div className="relative">
-        <span
-          className={cn(
-            'text-text-tertiary absolute top-1/2 left-2.5 -translate-y-1/2 text-xs font-medium',
-            compact && 'left-1.5 sm:left-2.5',
-          )}
-        >
-          $
-        </span>
-        {/* `type="text"`, formatted by `useMoneyInput` in every caller (`DayRow`,
-            `BandRow`) so a rate types with live thousands separators, same as
-            every other money field in the app. This used to be a native
-            `type="number"` with `step="any"`/`inputMode="decimal"`, which let a
-            rate carry cents — no caller and no test ever exercised that, and
-            the rest of the app's money fields are whole pesos only, so the
-            switch to digit-only formatting standardizes this field onto the
-            same convention rather than trying to preserve unused decimal
-            precision. */}
-        <Input
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          aria-invalid={!!error}
-          aria-label={ariaLabel}
-          aria-describedby={error ? errorId : undefined}
-          className={cn(
-            // `h-10`, not the `h-8` this used to be: that was a deliberate
-            // shrink for a denser row, and it is exactly what made this
-            // field visibly shorter than `TimeSelect` beside it — `h-10` is
-            // TimeSelect's own height AND the shared `Input` component's own
-            // default (see `ui/input.tsx`), so this now matches by using the
-            // same shared value rather than a new one picked to fit.
-            'h-10 pl-5 text-sm font-semibold',
-            compact && 'pr-1 pl-4 text-xs sm:pr-3.5 sm:pl-5 sm:text-sm',
-            className,
-          )}
-          {...props}
-        />
-      </div>
+    <div className={cn(compact ? 'w-[7.5rem] shrink-0 sm:ml-auto sm:w-32' : 'w-32 shrink-0')}>
+      <MoneyInput
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        aria-invalid={!!error}
+        aria-describedby={error ? errorId : undefined}
+      />
       {error && (
         <p id={errorId} role="alert" className="text-error-text mt-0.5 text-[10px] break-words">
           {error}

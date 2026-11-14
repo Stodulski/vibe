@@ -1,8 +1,6 @@
-import { DollarSign } from 'lucide-react';
-import { Input } from '@/shared/components/ui/input';
 import { FormField } from '@/shared/components/common/FormField';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
-import { useMoneyInput } from '@/shared/hooks/useMoneyInput';
+import { MoneyInput } from '@/shared/components/common/MoneyInput';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
@@ -25,13 +23,6 @@ export function ManualPriceField({
   setValue: UseFormSetValue<CreateBookingDto>;
   errors: FieldErrors<CreateBookingDto>;
 }) {
-  const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({
-    value: price,
-    onChange: (v) => {
-      setValue('price', v);
-    },
-  });
-
   return (
     <FormField
       label={
@@ -44,21 +35,14 @@ export function ManualPriceField({
       labelSuffix={<span className="text-micro text-text-tertiary">{t.bookings.manualPriceHint}</span>}
       error={errors.price?.message}
     >
-      <div className="relative">
-        <DollarSign className="text-text-tertiary absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-        <Input
-          id="manual-price"
-          type="text"
-          inputMode="numeric"
-          autoComplete="off"
-          className="pl-9"
-          ref={inputRef}
-          value={displayValue}
-          onChange={handleChange}
-          onBlur={handleBlur}
-          placeholder={t.placeholders.amount}
-        />
-      </div>
+      <MoneyInput
+        id="manual-price"
+        value={price}
+        onChange={(v) => {
+          setValue('price', v);
+        }}
+        placeholder={t.placeholders.amount}
+      />
     </FormField>
   );
 }
