@@ -7,7 +7,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { CreateEventModal } from '../components/CreateEventModal';
 import { EventDetail } from '../components/EventDetail';
 import { EventList } from '../components/EventList';
-import { EventsTabs } from '../components/EventsTabs';
+import { UpcomingPastSwitch } from '@/shared/components/common/UpcomingPastSwitch';
 import { useEventsPage } from './events/useEventsPage';
 import { EVENTS_PAGE_CLASS } from '../lib/eventLayout';
 
@@ -40,7 +40,7 @@ function EventsPageContent({ complexId }: { complexId: string }) {
       <EventsSectionTabs />
 
       <div className={EVENTS_PAGE_CLASS}>
-        <EventsTabs active={state.tab} onChange={state.setTab} />
+        <UpcomingPastSwitch value={state.tab} onChange={state.setTab} />
         <EventList
           events={state.events}
           isLoading={state.isLoading}

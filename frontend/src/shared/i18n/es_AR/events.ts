@@ -92,12 +92,12 @@ export const events = {
     action: 'Cancelar evento',
     confirmTitle: 'Cancelar el evento',
     confirmDescription:
-      'Las canchas quedan libres y se cancelan todas las inscripciones. A cada persona que ya pagó le devolvemos el pago completo por Mercado Pago, servicio incluido, y le avisamos por email si dejó uno.',
+      'Las canchas quedan libres y se cancelan todas las inscripciones. Si alguien ya pagó, le devolvemos todo por Mercado Pago y le avisamos por email si dejó uno.',
     confirmDescriptionPaid: (paid: number) =>
       `Las canchas quedan libres y se cancelan todas las inscripciones. ${
         paid === 1 ? 'A la persona que ya pagó' : `A las ${String(paid)} personas que ya pagaron`
-      } les devolvemos el pago completo por Mercado Pago, servicio incluido, y les avisamos por email si dejaron uno.`,
-    confirmLabel: 'Cancelar evento',
+      } les devolvemos todo por Mercado Pago, servicio incluido, y les avisamos por email si dejaron uno.`,
+    confirmLabel: 'Sí, cancelar evento',
     back: 'Volver',
     success: (refunded: number) =>
       refunded === 0

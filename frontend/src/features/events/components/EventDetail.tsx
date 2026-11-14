@@ -6,7 +6,8 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateFull, formatDateShort, formatPrice, formatTime, getHttpErrorMessage } from '@/shared/lib/utils';
+import { formatDateShort, formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
+import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { todayInArgentina } from '@/shared/lib/today';
 import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
@@ -36,11 +37,9 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
         </p>
       )}
       <InfoRow label={t.detail.when}>
-        <span className="first-letter:uppercase">{formatDateFull(event.date)}</span>
+        <span className="first-letter:uppercase">{formatEventDay(event.date)}</span>
         {' · '}
-        <span className="score-text font-medium">
-          {formatTime(event.start_time)} – {formatTime(event.end_time)}
-        </span>
+        <span className="score-text font-medium">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </InfoRow>
       <InfoRow label={t.detail.courts}>{event.courts.map((court) => court.name).join(', ')}</InfoRow>
       <InfoRow label={t.detail.capacity}>{t.spotsTaken(event.confirmed_count, event.capacity)}</InfoRow>
@@ -103,10 +102,10 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           )}
           {event && <EventBody event={event} participants={participants} />}
           {canCancel && (
-            <SheetFooter>
+            <SheetFooter className="sm:px-6">
               <Button
                 variant="destructive"
-                className="w-full rounded-lg"
+                className="self-start rounded-lg"
                 onClick={() => {
                   setCancelOpen(true);
                 }}

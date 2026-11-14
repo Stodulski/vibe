@@ -1,9 +1,13 @@
+import type { ReactNode } from 'react';
 import { FormField } from './FormField';
 import { MoneyInput } from './MoneyInput';
 
 interface MoneyPesosFieldProps {
   id: string;
-  label: string;
+  /** Accepts JSX so a caller can append the "(requerido)" marker. */
+  label: ReactNode;
+  /** Hint shown between the label and the input. */
+  helpText?: ReactNode;
   value: number | undefined;
   onChange: (pesos: number | undefined) => void;
   error?: string | undefined;
@@ -47,9 +51,9 @@ interface MoneyPesosFieldProps {
  * always: the caller's own Zod schema is what reports a validation problem,
  * never a browser-native block before React runs.
  */
-export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
+export function MoneyPesosField({ id, label, helpText, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
   return (
-    <FormField label={label} htmlFor={id} error={error}>
+    <FormField label={label} htmlFor={id} error={error} helpText={helpText}>
       <MoneyInput id={id} value={value} onChange={onChange} placeholder={placeholder} />
     </FormField>
   );

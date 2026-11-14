@@ -130,6 +130,32 @@ describe('EventDetail', () => {
   });
 });
 
+describe('EventDetail cancel dialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('says it in two short sentences, and confirms with "Sí, cancelar evento"', async () => {
+    const { user } = await renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: t.cancel.action }));
+    const dialog = await screen.findByRole('alertdialog');
+
+    const sentences = t.cancel.confirmDescriptionPaid(3).split(/(?<=\.)\s+/);
+    expect(sentences).toHaveLength(2);
+    for (const sentence of sentences) expect(sentence.split(/\s+/).length).toBeLessThanOrEqual(25);
+    expect(within(dialog).getByRole('button', { name: 'Sí, cancelar evento' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Volver' })).toBeInTheDocument();
+  });
+
+  it('keeps the cancel button as wide as its text, not the whole sheet', async () => {
+    await renderDetail();
+
+    const button = await screen.findByRole('button', { name: t.cancel.action });
+    expect(button).not.toHaveClass('w-full');
+  });
+});
+
 describe('EventDetail cancel', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -152,7 +178,7 @@ describe('EventDetail cancel', () => {
 
     await user.click(await screen.findByRole('button', { name: t.cancel.action }));
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.confirmLabel }));
+    await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
     await waitFor(() => {
       expect(eventsApi.cancel).toHaveBeenCalledWith('c1', 'ev1');
@@ -171,7 +197,7 @@ describe('EventDetail cancel', () => {
 
     await user.click(await screen.findByRole('button', { name: t.cancel.action }));
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.confirmLabel }));
+    await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(t.cancel.error, { description: 'el evento ya está cancelado' });

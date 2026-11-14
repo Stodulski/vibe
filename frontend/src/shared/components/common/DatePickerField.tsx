@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
@@ -12,7 +12,8 @@ import { cn } from '@/shared/lib/utils';
 
 interface DatePickerFieldProps {
   id: string;
-  label: string;
+  /** Accepts JSX so a caller can append the "(requerido)" marker. */
+  label: ReactNode;
   /** `YYYY-MM-DD`, or empty while nothing is picked. */
   value: string;
   placeholder: string;
@@ -23,6 +24,13 @@ interface DatePickerFieldProps {
   /** `YYYY-MM-DD` limits: days before `minDate` or after `maxDate` are not offered. */
   minDate?: string;
   maxDate?: string;
+  /**
+   * Which side of the field the calendar opens on. Inside a dialog the default
+   * (below) lands on the footer's buttons: pass 'top' for a field low in a
+   * form. Radix still flips it when the chosen side has no room.
+   */
+  side?: 'top' | 'bottom';
+  helpText?: ReactNode;
 }
 
 /**
@@ -39,6 +47,8 @@ export function DatePickerField({
   disablePast = true,
   minDate,
   maxDate,
+  side = 'bottom',
+  helpText,
 }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
   const disabled: Matcher[] = [];
@@ -49,7 +59,7 @@ export function DatePickerField({
   const defaultMonth = selected ?? (minDate ? parseISO(minDate) : undefined);
 
   return (
-    <FormField label={label} htmlFor={id} error={error}>
+    <FormField label={label} htmlFor={id} error={error} helpText={helpText}>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <button
@@ -68,8 +78,10 @@ export function DatePickerField({
             </span>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start">
+        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start" side={side} collisionPadding={16}>
           <Calendar
+            // 36px days on a phone (seven of them still fit the 288px popover at 320px), 40px from sm.
+            className="[--cell-size:--spacing(9)] sm:[--cell-size:--spacing(10)]"
             mode="single"
             selected={selected}
             {...(defaultMonth ? { defaultMonth } : {})}

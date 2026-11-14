@@ -8,7 +8,8 @@ import type { OpenPlayEvent } from '@/shared/types/api.types';
 
 vi.mock('../api/events.api', () => ({ eventsApi: { list: vi.fn(), get: vi.fn(), cancel: vi.fn(), create: vi.fn() } }));
 vi.mock('@/features/complex', () => ({
-  useSelectedComplex: () => ({ selectedComplexId: 'c1' }),
+  useSelectedComplex: () => ({ selectedComplexId: 'c1', complex: { id: 'c1', slug: 'club' } }),
+  useSchedules: () => ({ data: [] }),
 }));
 vi.mock('@/features/courts', () => ({ useCourts: () => ({ data: [] }) }));
 

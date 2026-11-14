@@ -1,5 +1,6 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { cn, formatDateFull, formatPrice, formatTime } from '@/shared/lib/utils';
+import { cn, formatPrice } from '@/shared/lib/utils';
+import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { EVENT_CARD_BOTTOM_ROW_CLASS, EVENT_CARD_CLASS, EVENT_CARD_TOP_ROW_CLASS } from '../lib/eventLayout';
 import type { OpenPlayEvent } from '@/shared/types/api.types';
 
@@ -33,11 +34,9 @@ export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect:
         <EventStateText event={event} />
       </div>
       <p className="text-text-secondary text-sm">
-        <span className="first-letter:uppercase">{formatDateFull(event.date)}</span>
+        <span className="first-letter:uppercase">{formatEventDay(event.date)}</span>
         {' · '}
-        <span className="score-text">
-          {formatTime(event.start_time)} – {formatTime(event.end_time)}
-        </span>
+        <span className="score-text">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </p>
       <p className="text-text-tertiary truncate text-xs" title={courtNames}>
         {t.courtsCount(event.courts.length)} · {courtNames}

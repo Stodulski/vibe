@@ -3,27 +3,38 @@ import { FormField } from '@/shared/components/common/FormField';
 import { DatePickerField } from '@/shared/components/common/DatePickerField';
 import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
 import { Input } from '@/shared/components/ui/input';
+import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
+import { TimeSelectField } from '@/shared/components/common/TimeSelectField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { generateTimeSlots } from '@/shared/lib/time';
+import { useEventTimeOptions } from '../../hooks/useEventTimeOptions';
 import { eventDurationMinutes, type EventFormValues } from '../../schemas/eventForm.schema';
 import { EventCourtsField } from './EventCourtsField';
 import type { CourtWithPrices, Sport } from '@/shared/types/api.types';
 
 const t = ES_AR;
-const TIME_OPTIONS = generateTimeSlots();
 const SPORTS = Object.keys(t.courts.sportTypes) as Sport[];
 
 type Form = UseFormReturn<EventFormValues>;
+
+/** A label with its "(requerido)": every field of this form is, and saying so beats a legend. */
+function required(label: string) {
+  return (
+    <>
+      {label}
+      <FieldRequirement required />
+    </>
+  );
+}
 
 function NameAndSportFields({ form }: { form: Form }) {
   const { register, watch, setValue, formState } = form;
   return (
     <>
-      <FormField label={t.events.form.name} htmlFor="event-name" error={formState.errors.name?.message}>
+      <FormField label={required(t.events.form.name)} htmlFor="event-name" error={formState.errors.name?.message}>
         <Input id="event-name" maxLength={100} placeholder={t.events.form.namePlaceholder} {...register('name')} />
       </FormField>
-      <FormField label={t.events.form.sport} htmlFor="event-sport">
+      <FormField label={required(t.events.form.sport)} htmlFor="event-sport">
         <Select
           value={watch('sport')}
           onValueChange={(sport) => {
@@ -46,49 +57,20 @@ function NameAndSportFields({ form }: { form: Form }) {
   );
 }
 
-function TimeSelect({
-  id,
-  label,
-  value,
-  error,
-  onChange,
-}: {
-  id: string;
-  label: string;
-  value: string;
-  error?: string | undefined;
-  onChange: (time: string) => void;
-}) {
-  return (
-    <FormField label={label} htmlFor={id} error={error}>
-      <Select value={value} onValueChange={onChange}>
-        <SelectTrigger id={id}>
-          <SelectValue placeholder="--:--" />
-        </SelectTrigger>
-        <SelectContent>
-          {TIME_OPTIONS.map((time) => (
-            <SelectItem key={time} value={time}>
-              {time}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </FormField>
-  );
-}
-
 function WhenFields({ form }: { form: Form }) {
   const { watch, setValue, formState } = form;
   const { errors } = formState;
   const [date, start, end] = watch(['date', 'start_time', 'end_time']);
   // An end at or before the start is read as the next day, so say it.
   const pastMidnight = !!start && !!end && eventDurationMinutes(start, end) > 0 && end <= start;
+  const timeOptions = useEventTimeOptions([start, end]);
 
   return (
     <>
       <DatePickerField
         id="event-date"
-        label={t.events.form.date}
+        label={required(t.events.form.date)}
+        side="top"
         value={date}
         placeholder={t.events.form.selectDate}
         error={errors.date?.message}
@@ -97,9 +79,10 @@ function WhenFields({ form }: { form: Form }) {
         }}
       />
       <div className="grid grid-cols-2 gap-3">
-        <TimeSelect
+        <TimeSelectField
           id="event-start"
-          label={t.events.form.startTime}
+          label={required(t.events.form.startTime)}
+          options={timeOptions}
           value={start}
           error={errors.start_time?.message}
           onChange={(time) => {
@@ -107,9 +90,10 @@ function WhenFields({ form }: { form: Form }) {
             if (end) void form.trigger('end_time');
           }}
         />
-        <TimeSelect
+        <TimeSelectField
           id="event-end"
-          label={t.events.form.endTime}
+          label={required(t.events.form.endTime)}
+          options={timeOptions}
           value={end}
           error={errors.end_time?.message}
           onChange={(time) => {
@@ -126,7 +110,12 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
   const { register, watch, setValue, formState } = form;
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-      <FormField label={t.events.form.capacity} htmlFor="event-capacity" error={formState.errors.capacity?.message}>
+      <FormField
+        label={required(t.events.form.capacity)}
+        htmlFor="event-capacity"
+        helpText={t.events.form.capacityHint}
+        error={formState.errors.capacity?.message}
+      >
         <Input
           id="event-capacity"
           type="number"
@@ -138,7 +127,8 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
       </FormField>
       <MoneyPesosField
         id="event-price"
-        label={t.events.form.price}
+        label={required(t.events.form.price)}
+        helpText={t.events.form.priceHint}
         value={watch('price')}
         onChange={(pesos) => {
           setValue('price', pesos ?? Number.NaN, { shouldValidate: true });
@@ -146,7 +136,6 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
         error={formState.errors.price?.message}
         placeholder="0"
       />
-      <p className="text-text-tertiary text-xs sm:col-span-2">{t.events.form.priceHint}</p>
     </div>
   );
 }

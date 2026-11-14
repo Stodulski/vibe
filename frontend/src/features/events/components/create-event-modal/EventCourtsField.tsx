@@ -1,4 +1,5 @@
 import { type UseFormReturn } from 'react-hook-form';
+import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Label } from '@/shared/components/ui/label';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -30,7 +31,11 @@ export function EventCourtsField({
 
   return (
     <fieldset className="space-y-2.5">
-      <legend className="text-text-primary text-sm font-medium">{t.courts}</legend>
+      <legend className="text-text-primary text-sm font-medium">
+        {t.courts}
+        <FieldRequirement required />
+      </legend>
+      <p className="text-text-tertiary text-xs">{t.courtsHint}</p>
       <div className="flex items-center gap-2.5">
         <Checkbox
           id="event-all-courts"
