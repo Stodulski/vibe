@@ -100,6 +100,12 @@ describe('Sidebar', () => {
     expect(screen.queryByText('juan@test.com')).not.toBeInTheDocument();
   });
 
+  // WCAG 2.5.3 label in name: the visible text has to be part of the accessible name.
+  it('names the account button after its visible text, then the person', () => {
+    renderSidebar();
+    expect(screen.getByRole('button', { name: 'Mi cuenta: Juan Garcia' })).toBeInTheDocument();
+  });
+
   it('has sidebar aria-label', () => {
     renderSidebar();
     expect(screen.getByLabelText('Barra lateral')).toBeInTheDocument();
