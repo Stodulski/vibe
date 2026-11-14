@@ -368,6 +368,9 @@ func (m *Store) softDeleteCascade(
 	if rows == 0 {
 		return data.ErrRecordNotFound
 	}
+	if err := refuseActiveSeries(ctx, tx, id); err != nil {
+		return err
+	}
 
 	// The verification the trigger exists to make unnecessary, asserted anyway:
 	// this is the one place that knows a cascade was supposed to happen, so it
@@ -382,6 +385,33 @@ func (m *Store) softDeleteCascade(
 	}
 	if stillLive != 0 {
 		return fmt.Errorf("soft-deleting complex %s left %d live court(s): the cascade trigger did not run", id, stillLive)
+	}
+	return nil
+}
+
+// refuseActiveSeries answers ErrActiveSeries when an active fixed weekly series
+// of the complex has not ended: status active and no end, or an end that is
+// today (venue day) or later. A series holds its dates as a rule, with no
+// booking row, so the active-bookings check cannot see it. It runs after the
+// complex UPDATE, which holds the complex row and, through the cascade trigger,
+// every live court row; InsertSeries takes the court lock, so a series created
+// concurrently is either seen here or waits for this transaction. Returning the
+// error rolls the delete back.
+func refuseActiveSeries(ctx context.Context, tx pgx.Tx, complexID uuid.UUID) error {
+	var held bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+		  SELECT 1 FROM booking_series
+		  WHERE complex_id = $1
+		    AND status = 'active'
+		    AND (ends_on IS NULL
+		         OR ends_on >= (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date)
+		)`, data.UUIDToPg(complexID)).Scan(&held)
+	if err != nil {
+		return fmt.Errorf("check active series: %w", err)
+	}
+	if held {
+		return ErrActiveSeries
 	}
 	return nil
 }

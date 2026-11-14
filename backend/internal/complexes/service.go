@@ -40,6 +40,10 @@ var (
 	// store's sentinel, re-exported, because the two MercadoPago refusals come
 	// out of the store's own transaction.
 	ErrActiveBookings = complexstore.ErrActiveBookings
+	// ErrActiveSeries reports that deleting the venue was refused because a
+	// fixed weekly booking (turno fijo) of it has not ended. It comes out of the
+	// store's delete transaction, like the MercadoPago refusals above.
+	ErrActiveSeries = complexstore.ErrActiveSeries
 	// ErrUnpaidHoldsNotReleased reports that disconnecting MercadoPago stopped
 	// because a storefront booking still waiting for its payment could not be
 	// released: its checkout link may still be paid, and once the credentials

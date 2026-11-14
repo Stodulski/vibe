@@ -171,6 +171,8 @@ func refusals() httpx.Refusals {
 		ErrAlreadyOwnsComplex: httpx.Forbidden("the account already owns a complex"),
 		ErrActiveBookings: httpx.Conflict(
 			"cannot delete complex while it has active bookings, cancel them first"),
+		ErrActiveSeries: httpx.Conflict(
+			"cannot delete the complex while it has fixed weekly bookings (turnos fijos), cancel them first"),
 		ErrUploadsNotConfigured: httpx.NotImplemented("image uploads are not configured"),
 		ErrForeignObject:        httpx.BadRequest("URL does not belong to this storage"),
 		// The MercadoPago connect exchange. Neither message carries what

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { complexApi } from '../api/complex.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
-import { getHttpErrorMessage } from '@/shared/lib/utils';
+import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 export function useDeleteComplex() {
@@ -28,7 +28,14 @@ export function useDeleteComplex() {
       void navigate('/onboarding', { replace: true });
     },
     onError: (error: unknown) => {
-      toast.error(getHttpErrorMessage(error, t.complex.deleteError));
+      // The API names the refusal only in English prose with no code; the
+      // Spanish term in parentheses is its one stable fragment.
+      const message = getHttpErrorMessage(error, '');
+      if (getHttpStatus(error) === 409 && message.includes('(turnos fijos)')) {
+        toast.error(t.complex.deleteHasFixedBookings);
+        return;
+      }
+      toast.error(message || t.complex.deleteError);
     },
   });
 }

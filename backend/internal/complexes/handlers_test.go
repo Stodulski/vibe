@@ -601,6 +601,28 @@ func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 	}
 }
 
+// A fixed weekly booking has no booking row for dates not booked yet, so the
+// live-bookings check cannot see it; the store refuses inside the delete
+// transaction and the message must say why.
+func TestDeleteIsRefusedWhileAFixedWeeklyBookingHoldsTheComplex(t *testing.T) {
+	f := newFixture(t)
+	f.store.softDeleteErr = complexstore.ErrActiveSeries
+	complex := &complexstore.Complex{ID: uuid.New()}
+
+	w := httptest.NewRecorder()
+	f.handler.Delete(w, ownerRequest(t, http.MethodDelete, "/", uuid.New(), complex, nil, ""))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "turnos fijos") {
+		t.Errorf("the refusal must name the fixed weekly bookings; got %s", w.Body.String())
+	}
+	if f.bookings.cancelled != nil || len(f.audit.entries) != 0 {
+		t.Error("a refused delete must neither cancel bookings nor audit")
+	}
+}
+
 func TestDeleteCascadesToCourtsAndFutureBookings(t *testing.T) {
 	f := newFixture(t)
 	f.store.courtsDeactivated = 3
