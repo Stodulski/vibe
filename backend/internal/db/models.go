@@ -673,6 +673,52 @@ type JobLock struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 }
 
+type OpenPlayEvent struct {
+	ID              pgtype.UUID        `json:"id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	Name            string             `json:"name"`
+	Sport           SportType          `json:"sport"`
+	Date            pgtype.Date        `json:"date"`
+	StartTime       pgtype.Time        `json:"start_time"`
+	DurationMinutes int32              `json:"duration_minutes"`
+	Capacity        int32              `json:"capacity"`
+	Price           int32              `json:"price"`
+	Status          string             `json:"status"`
+	CancelReason    pgtype.Text        `json:"cancel_reason"`
+	CancelledAt     pgtype.Timestamptz `json:"cancelled_at"`
+	CancelledBy     pgtype.UUID        `json:"cancelled_by"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type OpenPlayEventCourt struct {
+	EventID   pgtype.UUID `json:"event_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+	CourtID   pgtype.UUID `json:"court_id"`
+}
+
+type OpenPlayRegistration struct {
+	ID              pgtype.UUID        `json:"id"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	FirstName       string             `json:"first_name"`
+	LastName        string             `json:"last_name"`
+	Phone           string             `json:"phone"`
+	Email           pgtype.Text        `json:"email"`
+	Status          string             `json:"status"`
+	Price           int32              `json:"price"`
+	ServiceFee      int32              `json:"service_fee"`
+	HeldUntil       pgtype.Timestamptz `json:"held_until"`
+	AccessTokenHash []byte             `json:"access_token_hash"`
+	HoldIp          pgtype.Text        `json:"hold_ip"`
+	ConfirmedAt     pgtype.Timestamptz `json:"confirmed_at"`
+	CancelledAt     pgtype.Timestamptz `json:"cancelled_at"`
+	CancelledBy     pgtype.Text        `json:"cancelled_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 type OwnerNudge struct {
 	UserID pgtype.UUID        `json:"user_id"`
 	Kind   string             `json:"kind"`
@@ -703,6 +749,7 @@ type Payment struct {
 	StatusDetail       pgtype.Text        `json:"status_detail"`
 	ManualRefundAmount pgtype.Int4        `json:"manual_refund_amount"`
 	ManualRefundedAt   pgtype.Timestamptz `json:"manual_refunded_at"`
+	RegistrationID     pgtype.UUID        `json:"registration_id"`
 }
 
 type Product struct {

@@ -23,6 +23,7 @@ type FacadeStore interface {
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
 	BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.BookedSpan, error)
 	SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
+	EventOccupancies(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
@@ -112,6 +113,12 @@ func (f *Facade) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.U
 // draws them as blocks for the owner.
 func (f *Facade) ComplexSeriesOccurrences(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error) {
 	return f.store.SeriesOccurrences(ctx, &complexID, nil, from, to)
+}
+
+// ComplexEventOccupancies returns the hours open-play events hold between two
+// dates. Exported for courts, whose calendar draws them as blocks for the owner.
+func (f *Facade) ComplexEventOccupancies(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error) {
+	return f.store.EventOccupancies(ctx, &complexID, nil, from, to)
 }
 
 // HasActiveBookings reports whether a complex still has live bookings. Exported

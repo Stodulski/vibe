@@ -628,6 +628,15 @@ func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Compl
 	if held {
 		return nil, &ConflictError{Message: fixedBookingMessage}
 	}
+	// So are the hours an open-play event holds: the owner cancels the event to
+	// free its courts.
+	heldByEvent, err := s.heldByEvent(ctx, court.ID, in.Date, startAt, endAt)
+	if err != nil {
+		return nil, err
+	}
+	if heldByEvent {
+		return nil, &ConflictError{Message: eventBookingMessage}
+	}
 
 	// An explicit price overrides the computed one outright — the owner's
 	// dashboard may book hours no price rule covers, and this is the only way

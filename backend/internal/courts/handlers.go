@@ -68,6 +68,10 @@ const blockedSlotHasBookingMessage = "this time range overlaps with an existing 
 // date of the series, so the sentence says what it is.
 const blockedSlotHeldByFixedBookingMessage = "this time range belongs to a fixed weekly booking (turno fijo)"
 
+// blockedSlotHeldByEventMessage is the same refusal when an open-play event
+// holds the hours: the way out is cancelling the event.
+const blockedSlotHeldByEventMessage = "this time range belongs to an open-play event (canchas libres), cancel the event to free it"
+
 // emptyToNil folds a description of "" into no description at all.
 //
 // A client that clears the field sends an empty string, and a court that was

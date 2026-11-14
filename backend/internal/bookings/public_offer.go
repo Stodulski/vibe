@@ -197,6 +197,14 @@ func (s *Service) publicOffer(ctx context.Context, complex *complexstore.Complex
 	if held {
 		return publicOffer{}, &ConflictError{Message: blockedSlotMessage}
 	}
+	// An open-play event takes its courts off sale for its window the same way.
+	heldByEvent, err := s.heldByEvent(ctx, court.ID, startDate, startAt, endAt)
+	if err != nil {
+		return publicOffer{}, err
+	}
+	if heldByEvent {
+		return publicOffer{}, &ConflictError{Message: blockedSlotMessage}
+	}
 
 	// Reject slots that have already begun. Compared as instants: an after-
 	// midnight slot of today's grid is tomorrow's, and is not in the past.

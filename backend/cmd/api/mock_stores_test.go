@@ -828,6 +828,10 @@ func (m *mockBookingStore) SeriesOccurrences(ctx context.Context, complexID *uui
 	return nil, nil
 }
 
+func (m *mockBookingStore) EventOccupancies(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error) {
+	return nil, nil
+}
+
 func (m *mockBookingStore) GetForReminder2h(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error) {
 	if m.GetForReminder2hFn != nil {
 		return m.GetForReminder2hFn(ctx, now)

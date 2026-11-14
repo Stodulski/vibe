@@ -56,6 +56,8 @@ type stubStore struct {
 	// booked is what GetBookedSlotsByCourtIDs answers: the spans other
 	// bookings already hold, whatever day is asked about.
 	booked []bookingstore.BookedSpan
+	// eventsFn is what EventOccupancies answers; nil means no event holds anything.
+	eventsFn func(complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) []bookingstore.EventOccupancy
 	// occurrencesFn is what SeriesOccurrences answers; the series fixture wires
 	// it to the stub series store, which expands the rule the way the SQL
 	// function does.
@@ -297,6 +299,15 @@ func (s *stubStore) SeriesOccurrences(_ context.Context, complexID *uuid.UUID, c
 		return nil, nil
 	}
 	return s.occurrencesFn(complexID, courtIDs, from, to), nil
+}
+
+// EventOccupancies answers from eventsFn, which an open-play event test wires;
+// without one nothing is held by an event.
+func (s *stubStore) EventOccupancies(_ context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error) {
+	if s.eventsFn == nil {
+		return nil, nil
+	}
+	return s.eventsFn(complexID, courtIDs, from, to), nil
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }

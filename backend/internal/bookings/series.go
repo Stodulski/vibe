@@ -249,6 +249,27 @@ func (s *Service) heldByFixedBooking(
 	return false, nil
 }
 
+// eventBookingMessage is what the owner's write guards answer with when an
+// open-play event holds the hours.
+const eventBookingMessage = "the selected time belongs to an open-play event (canchas libres)"
+
+// heldByEvent reports whether an active open-play event holds any of the
+// candidate's hours on its court. Like heldByFixedBooking, it is the read-only
+// pre-check; the insert-time guard (store.SlotTaken) asks the same question in
+// SQL under the court-day lock.
+func (s *Service) heldByEvent(ctx context.Context, courtID uuid.UUID, date time.Time, startAt, endAt time.Time) (bool, error) {
+	occs, err := s.store.EventOccupancies(ctx, nil, []uuid.UUID{courtID}, date.AddDate(0, 0, -1), date.AddDate(0, 0, 1))
+	if err != nil {
+		return false, err
+	}
+	for _, o := range occs {
+		if slots.OverlapAt(startAt, endAt, o.StartsAt, o.EndsAt) {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
 // occurrenceConflict maps what writing an occurrence refused to the reason a
 // date becomes an exception. ok is false for any other failure, which is a fault
 // to retry rather than a date to give up on.
@@ -260,7 +281,7 @@ func occurrenceConflict(err error) (reason string, ok bool) {
 		return ReasonOverlap, true
 	case errors.As(err, &conflict):
 		switch conflict.Message {
-		case fixedBookingMessage:
+		case fixedBookingMessage, eventBookingMessage:
 			return ReasonOverlap, true
 		case blockedSlotMessage:
 			return ReasonBlocked, true

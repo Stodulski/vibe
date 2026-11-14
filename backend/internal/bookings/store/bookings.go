@@ -253,6 +253,9 @@ type BookedSpan struct {
 	// covers yet (SeriesOccurrence): as taken as a booking, but there is no
 	// booking to open, and an owner refused over them is told so.
 	Fixed bool
+	// Event is true for hours an open-play event is holding (EventOccupancy):
+	// as taken as a booking, and the owner is told it is an event to cancel.
+	Event bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's
@@ -917,7 +920,7 @@ func (m *Store) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, fr
 		return nil, err
 	}
 
-	result := make([]BookedSpan, len(dbSlots), len(dbSlots)+1)
+	result := make([]BookedSpan, len(dbSlots))
 	for i, s := range dbSlots {
 		result[i] = BookedSpan{
 			CourtID:  data.PgToUUID(s.CourtID),
@@ -934,8 +937,13 @@ func (m *Store) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, fr
 	}
 	windowStart := timezone.Day(from)
 	windowEnd := timezone.Day(to).AddDate(0, 0, 1)
-	if fixed := fixedSpans(occs, windowStart, windowEnd); len(fixed) > 0 {
-		result = append(result, fixed...)
+	events, err := m.EventOccupancies(ctx, nil, courtIDs, from.AddDate(0, 0, -1), to)
+	if err != nil {
+		return nil, err
+	}
+	held := append(fixedSpans(occs, windowStart, windowEnd), eventSpans(events, windowStart, windowEnd)...)
+	if len(held) > 0 {
+		result = append(result, held...)
 		sortSpans(result)
 	}
 	return result, nil

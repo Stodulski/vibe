@@ -183,11 +183,16 @@ type stubBookings struct {
 	booked    []bookingstore.BookedSpan
 	fixed     []bookingstore.SeriesOccurrence
 	hasActive bool
+	events    []bookingstore.EventOccupancy
 	err       error
 }
 
 func (b *stubBookings) ComplexSeriesOccurrences(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.SeriesOccurrence, error) {
 	return b.fixed, b.err
+}
+
+func (b *stubBookings) ComplexEventOccupancies(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.EventOccupancy, error) {
+	return b.events, b.err
 }
 
 func (b *stubBookings) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
