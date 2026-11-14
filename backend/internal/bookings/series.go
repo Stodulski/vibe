@@ -714,6 +714,21 @@ func (s *Service) settledDateRefusal(ctx context.Context, ser *Series, day time.
 // Cancelling the individual bookings is quiet and involves no refund, since only
 // unpaid ones are touched; the client gets one notice for the whole series
 // instead (notifySeriesCancelled).
+// statusEndingOn is a series' status once its last day is endsOn: still
+// active while a date of it is left from today on, since those dates keep
+// holding their court and the job still books them on their day; ended when
+// none is (the materialization job ends the rest once their last day passes).
+func (s *Service) statusEndingOn(ser *bookingstore.Series, endsOn time.Time) string {
+	first := s.today()
+	if starts := seriesDay(ser.StartsOn); starts.After(first) {
+		first = starts
+	}
+	if endsOn.Before(first) {
+		return bookingstore.SeriesStatusEnded
+	}
+	return bookingstore.SeriesStatusActive
+}
+
 func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, actor Actor, seriesID uuid.UUID, from time.Time) (*SeriesEndResult, error) {
 	ser, err := s.ownedSeries(ctx, complex.ID, seriesID)
 	if err != nil {
@@ -751,7 +766,7 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 	if floor := seriesDay(ser.StartsOn).AddDate(0, 0, -1); endsOn.Before(floor) {
 		endsOn = floor
 	}
-	result.Series, err = s.series.EndSeries(ctx, ser.ID, &endsOn, bookingstore.SeriesStatusEnded)
+	result.Series, err = s.series.EndSeries(ctx, ser.ID, &endsOn, s.statusEndingOn(ser, endsOn))
 	if err != nil {
 		return nil, err
 	}
