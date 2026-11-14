@@ -79,9 +79,11 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           onOpenCreate={state.handleOpenCreate}
           onSelectBlockedSlot={blockSlot.setSelectedSlot}
           onSelectFixedBlock={blockSlot.setSelectedFixedBlock}
-          // Cancelling or reading an event is the events page's job: the block opens it there.
+          // Cancelling or reading an event or a tournament is their pages' job: the block opens it there.
           onSelectEventBlock={(block) => {
-            void navigate(`/open-play?event=${block.event_id}`);
+            void navigate(
+              'match_id' in block ? `/tournaments/${block.tournament_id}` : `/open-play?event=${block.event_id}`,
+            );
           }}
         />
       </div>

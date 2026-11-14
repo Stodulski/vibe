@@ -32,7 +32,12 @@ describe('stockMovementSchema', () => {
   });
 
   it('validates an adjustment movement with a reason', () => {
-    const movement = makeStockMovement({ kind: 'adjustment', reason: 'breakage', quantity: -2, cash_movement_id: null });
+    const movement = makeStockMovement({
+      kind: 'adjustment',
+      reason: 'breakage',
+      quantity: -2,
+      cash_movement_id: null,
+    });
     expect(stockMovementSchema.safeParse(movement).success).toBe(true);
   });
 

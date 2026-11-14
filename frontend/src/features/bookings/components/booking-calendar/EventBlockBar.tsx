@@ -8,7 +8,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { barPosition } from './timelineGeometry';
 import { fixedBlockEndMin } from './fixedBlocks';
 import { DAY_START_MIN, DAY_END_MIN, SLOT_HEIGHT_PX, SLOT_MINUTES } from './gridLayout';
-import type { EventBlock } from '@/shared/types/api.types';
+import type { CourtEventBlock } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -27,7 +27,7 @@ export function EventBlockBar({
   courtName,
   onSelect,
 }: {
-  block: EventBlock;
+  block: CourtEventBlock;
   courtName: string;
   onSelect: () => void;
 }) {
@@ -43,7 +43,11 @@ export function EventBlockBar({
   // Hours that run into the next day are drawn square on the edge they cross.
   const runsOnPastToday = timeToMinutes(block.end_time) <= startMin;
   const weekday = format(parseISO(block.date), 'EEEE', { locale: es });
-  const label = t.events.blockLabel(weekday, formatTime(block.start_time));
+  const isMatch = 'match_id' in block;
+  const label = isMatch
+    ? t.tournaments.blockLabel(block.name)
+    : t.events.blockLabel(weekday, formatTime(block.start_time));
+  const compactLabel = isMatch ? t.tournaments.blockLabelCompact : t.events.blockLabelCompact;
   const ariaLabel = `${courtName}, ${formatTime(block.start_time)}–${formatTime(block.end_time)}, ${label}, ${block.name}`;
 
   return (
@@ -64,12 +68,12 @@ export function EventBlockBar({
             <CalendarDays className="text-text-primary mt-0.5 size-3 shrink-0" aria-hidden="true" />
             <span className="text-text-primary min-w-0 text-xs leading-tight font-medium break-words">{label}</span>
           </span>
-          <span className="text-text-primary/80 truncate text-xs">{block.name}</span>
+          {!isMatch && <span className="text-text-primary/80 truncate text-xs">{block.name}</span>}
         </>
       ) : (
         <span className="flex min-w-0 items-center gap-1">
           <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />
-          <span className="text-text-primary truncate text-xs font-medium">{t.events.blockLabelCompact}</span>
+          <span className="text-text-primary truncate text-xs font-medium">{compactLabel}</span>
         </span>
       )}
     </button>

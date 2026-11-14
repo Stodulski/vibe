@@ -10,7 +10,7 @@ import { GridBody } from './GridBody';
 import { GridHourGutter } from './GridHourGutter';
 import { GUTTER_CLASS, HEADER_HEIGHT_PX } from './gridLayout';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 
 /**
@@ -29,7 +29,7 @@ interface CourtTimeGridProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
-  eventBlocks: EventBlock[];
+  eventBlocks: CourtEventBlock[];
   activeCourts: CourtWithPrices[];
   date: string;
   slots: string[];
@@ -37,7 +37,7 @@ interface CourtTimeGridProps {
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 /**

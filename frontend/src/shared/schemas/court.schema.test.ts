@@ -58,6 +58,7 @@ describe('courtsApi response envelopes', () => {
       blocked_slots: [validBlockedSlot],
       fixed_blocks: [],
       event_blocks: [],
+      match_blocks: [],
     });
     expect(result.success).toBe(true);
   });
@@ -76,11 +77,40 @@ describe('courtsApi response envelopes', () => {
       blocked_slots: [],
       fixed_blocks: [],
       event_blocks: [eventBlock],
+      match_blocks: [],
     });
     expect(result.success && result.data.event_blocks).toEqual([eventBlock]);
   });
 
+  it('reads the hours scheduled tournament matches hold from match_blocks', () => {
+    const matchBlock = {
+      match_id: 'm1',
+      tournament_id: 't1',
+      court_id: 'ct1',
+      date: '2026-11-20',
+      start_time: '19:00',
+      end_time: '20:30',
+      duration_minutes: 90,
+      name: 'Copa Vibe · 6ta',
+    };
+    const result = blockedSlotsEnvelopeSchema.safeParse({
+      blocked_slots: [],
+      fixed_blocks: [],
+      event_blocks: [],
+      match_blocks: [matchBlock],
+    });
+    expect(result.success && result.data.match_blocks).toEqual([matchBlock]);
+  });
+
+  it('refuses a response with no match_blocks list', () => {
+    expect(
+      blockedSlotsEnvelopeSchema.safeParse({ blocked_slots: [], fixed_blocks: [], event_blocks: [] }).success,
+    ).toBe(false);
+  });
+
   it('refuses a response with no event_blocks list', () => {
-    expect(blockedSlotsEnvelopeSchema.safeParse({ blocked_slots: [], fixed_blocks: [] }).success).toBe(false);
+    expect(
+      blockedSlotsEnvelopeSchema.safeParse({ blocked_slots: [], fixed_blocks: [], match_blocks: [] }).success,
+    ).toBe(false);
   });
 });

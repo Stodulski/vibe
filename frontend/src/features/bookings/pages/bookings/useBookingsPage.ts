@@ -1,7 +1,9 @@
+import { useMemo } from 'react';
 import { useSelectedComplex, useSchedules } from '@/features/complex';
-import { useCourts, useBlockedSlots, useFixedBlocks, useEventBlocks } from '@/features/courts';
+import { useCourts, useBlockedSlots, useFixedBlocks, useEventBlocks, useMatchBlocks } from '@/features/courts';
 import { useBookings, useBookingModals, useBookingActions } from '@/features/bookings';
 import { useDateNav } from './use-bookings-page/useDateNav';
+import type { CourtEventBlock } from '@/shared/types/api.types';
 
 // Takes a resolved `complexId` rather than resolving it itself — the page
 // only ever mounts this hook once `useSelectedComplex` has a real id (see
@@ -18,7 +20,13 @@ export function useBookingsPage(complexId: string) {
   const { data: bookings = [], isLoading, isError, refetch } = useBookings(complexId, selectedDate);
   const { data: blockedSlots = [] } = useBlockedSlots(complexId, selectedDate, selectedDate);
   const { data: fixedBlocks = [] } = useFixedBlocks(complexId, selectedDate, selectedDate);
-  const { data: eventBlocks = [] } = useEventBlocks(complexId, selectedDate, selectedDate);
+  const { data: openPlayBlocks = [] } = useEventBlocks(complexId, selectedDate, selectedDate);
+  const { data: matchBlocks = [] } = useMatchBlocks(complexId, selectedDate, selectedDate);
+  // Events and tournament matches are drawn the same way; one stable list keeps the grid's memoised columns.
+  const eventBlocks = useMemo<CourtEventBlock[]>(
+    () => [...openPlayBlocks, ...matchBlocks],
+    [openPlayBlocks, matchBlocks],
+  );
 
   const modals = useBookingModals(selectedDate, complexId);
   const actions = useBookingActions({

@@ -3,6 +3,7 @@ export const navigation = {
   bookings: 'Reservas',
   cash: 'Caja',
   openPlay: 'Canchas libres',
+  tournaments: 'Torneos',
   courts: 'Canchas',
   clients: 'Clientes',
   reports: 'Reportes',

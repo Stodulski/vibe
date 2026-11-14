@@ -8,7 +8,7 @@ import { EventBlockBar } from './EventBlockBar';
 import { fixedBlockSpans, type HeldBlock } from './fixedBlocks';
 import { BookingBlock } from './BookingBlock';
 import { DAY_START_MIN, DAY_END_MIN } from './gridLayout';
-import type { Booking, BlockedSlot, DurationMinutes, EventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, DurationMinutes, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
 /**
@@ -47,7 +47,7 @@ interface CourtColumnProps {
   previewMin: number | null;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 /**
@@ -64,7 +64,7 @@ function ColumnHeldBlocks({
   /** Pressed fixed weekly booking. */
   onFixed?: ((block: FixedBlock) => void) | undefined;
   /** Pressed open-play event. */
-  onEvent?: ((block: EventBlock) => void) | undefined;
+  onEvent?: ((block: CourtEventBlock) => void) | undefined;
 }) {
   return (
     <>
@@ -80,7 +80,7 @@ function ColumnHeldBlocks({
       ))}
       {events.map((block) => (
         <EventBlockBar
-          key={`${block.event_id}-${block.date}`}
+          key={`${'match_id' in block ? block.match_id : block.event_id}-${block.date}`}
           block={block}
           courtName={courtName}
           onSelect={() => {

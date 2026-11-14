@@ -5,7 +5,15 @@ import { BookingCalendar } from './BookingCalendar';
 import { makeBooking } from '@/test/factories';
 import { venueInstant } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
-import type { Booking, CourtWithPrices, Schedule, BlockedSlot, FixedBlock, EventBlock } from '@/shared/types/api.types';
+import type {
+  Booking,
+  CourtWithPrices,
+  Schedule,
+  BlockedSlot,
+  FixedBlock,
+  EventBlock,
+  MatchBlock,
+} from '@/shared/types/api.types';
 
 const futureDate = '2027-03-20';
 
@@ -291,5 +299,42 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
   it('draws nothing on a court the event does not hold', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...eventBlock, court_id: 'other' }]} />);
     expect(screen.queryByRole('button', { name: /Canchas libres/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingCalendar — tournament matches', () => {
+  const matchBlock: MatchBlock = {
+    match_id: 'm1',
+    tournament_id: 't1',
+    court_id: 'ct1',
+    date: futureDate,
+    start_time: '19:00',
+    end_time: '20:30',
+    duration_minutes: 90,
+    name: 'Copa Vibe · 6ta',
+  };
+
+  it('draws the match as "Torneo · {nombre}" and hands it over on click', async () => {
+    const user = userEvent.setup();
+    const onSelectEventBlock = vi.fn();
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        eventBlocks={[matchBlock]}
+        onSelectEventBlock={onSelectEventBlock}
+      />,
+    );
+
+    const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
+    expect(block).toHaveTextContent('Torneo · Copa Vibe · 6ta');
+    await user.click(block);
+
+    expect(onSelectEventBlock).toHaveBeenCalledWith(matchBlock);
+  });
+
+  it('offers no free slot under the match', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[matchBlock]} />);
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
   });
 });

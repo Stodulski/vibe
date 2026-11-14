@@ -2,13 +2,20 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { CourtTimeGrid } from './booking-calendar/CourtTimeGrid';
 import { useBookingCalendarData } from './booking-calendar/useBookingCalendarData';
 import type { ReactNode } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock, Schedule } from '@/shared/types/api.types';
+import type {
+  Booking,
+  BlockedSlot,
+  CourtWithPrices,
+  CourtEventBlock,
+  FixedBlock,
+  Schedule,
+} from '@/shared/types/api.types';
 
 const t = ES_AR;
 
 // A stable empty list: a fresh `[]` per render would defeat the grid's memoised columns.
 const NO_FIXED_BLOCKS: FixedBlock[] = [];
-const NO_EVENT_BLOCKS: EventBlock[] = [];
+const NO_EVENT_BLOCKS: CourtEventBlock[] = [];
 
 interface BookingCalendarProps {
   bookings: Booking[];
@@ -16,7 +23,7 @@ interface BookingCalendarProps {
   /** Defaults to none: callers that do not draw fixed weekly bookings need not pass it. */
   fixedBlocks?: FixedBlock[] | undefined;
   /** Defaults to none: the hours open-play events ("canchas libres") hold. */
-  eventBlocks?: EventBlock[] | undefined;
+  eventBlocks?: CourtEventBlock[] | undefined;
   courts: CourtWithPrices[];
   date: string;
   schedules: Schedule[];
@@ -30,7 +37,7 @@ interface BookingCalendarProps {
   onCreateBooking: (prefill: { court_id: string; date: string; start_time: string }) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 export function BookingCalendar({

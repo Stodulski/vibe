@@ -9,6 +9,7 @@ import type {
   BlockedSlot,
   FixedBlock,
   EventBlock,
+  MatchBlock,
   BlockSlotRequest,
 } from '@/shared/types/api.types';
 import { parseWith } from '@/shared/lib/apiParse';
@@ -63,7 +64,12 @@ export const courtsApi = {
     dateFrom: string,
     dateTo: string,
     signal?: AbortSignal,
-  ): Promise<{ blocked_slots: BlockedSlot[]; fixed_blocks: FixedBlock[]; event_blocks: EventBlock[] }> =>
+  ): Promise<{
+    blocked_slots: BlockedSlot[];
+    fixed_blocks: FixedBlock[];
+    event_blocks: EventBlock[];
+    match_blocks: MatchBlock[];
+  }> =>
     api
       .get(`complexes/${complexId}/blocked-slots`, {
         searchParams: { date_from: dateFrom, date_to: dateTo },
