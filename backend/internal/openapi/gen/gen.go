@@ -2553,14 +2553,23 @@ func (e TournamentsMatchCourtFeeChargeParamsSide) Valid() bool {
 
 // Defines values for TournamentsMatchCourtFeeChargeJSONBodyMethod.
 const (
-	TournamentsMatchCourtFeeChargeJSONBodyMethodCash     TournamentsMatchCourtFeeChargeJSONBodyMethod = "cash"
-	TournamentsMatchCourtFeeChargeJSONBodyMethodTransfer TournamentsMatchCourtFeeChargeJSONBodyMethod = "transfer"
+	TournamentsMatchCourtFeeChargeJSONBodyMethodCash       TournamentsMatchCourtFeeChargeJSONBodyMethod = "cash"
+	TournamentsMatchCourtFeeChargeJSONBodyMethodCreditCard TournamentsMatchCourtFeeChargeJSONBodyMethod = "credit_card"
+	TournamentsMatchCourtFeeChargeJSONBodyMethodDebitCard  TournamentsMatchCourtFeeChargeJSONBodyMethod = "debit_card"
+	TournamentsMatchCourtFeeChargeJSONBodyMethodQrWallet   TournamentsMatchCourtFeeChargeJSONBodyMethod = "qr_wallet"
+	TournamentsMatchCourtFeeChargeJSONBodyMethodTransfer   TournamentsMatchCourtFeeChargeJSONBodyMethod = "transfer"
 )
 
 // Valid indicates whether the value is a known member of the TournamentsMatchCourtFeeChargeJSONBodyMethod enum.
 func (e TournamentsMatchCourtFeeChargeJSONBodyMethod) Valid() bool {
 	switch e {
 	case TournamentsMatchCourtFeeChargeJSONBodyMethodCash:
+		return true
+	case TournamentsMatchCourtFeeChargeJSONBodyMethodCreditCard:
+		return true
+	case TournamentsMatchCourtFeeChargeJSONBodyMethodDebitCard:
+		return true
+	case TournamentsMatchCourtFeeChargeJSONBodyMethodQrWallet:
 		return true
 	case TournamentsMatchCourtFeeChargeJSONBodyMethodTransfer:
 		return true
@@ -4264,7 +4273,7 @@ type TournamentCourtFee struct {
 	// ChargedBy The user who collected it.
 	ChargedBy *openapi_types.UUID `json:"charged_by"`
 
-	// Method `cash` or `transfer` once charged.
+	// Method The counter payment method it was charged with, once charged.
 	Method *string                `json:"method"`
 	Side   TournamentCourtFeeSide `json:"side"`
 }

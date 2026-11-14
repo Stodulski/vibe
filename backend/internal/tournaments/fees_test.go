@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/paymentmethod"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -66,7 +67,7 @@ func TestChargingValidatesTheMethodAndTheSideAndMapsTheRefusals(t *testing.T) {
 	f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New()}}
 	mid, tid := f.store.detail.Matches[0].ID, f.store.detail.Tournament.ID
 
-	for _, method := range []string{"", "mercadopago", "debit_card", "CASH"} {
+	for _, method := range []string{"", "mercadopago", "CASH", "cheque"} {
 		_, err := f.svc.ChargeCourtFee(t.Context(), f.complex, f.actor(), tid, mid, 1, method)
 		if fieldErrors(t, err)["method"] == "" {
 			t.Errorf("method %q must be refused", method)
@@ -100,6 +101,24 @@ func TestChargingValidatesTheMethodAndTheSideAndMapsTheRefusals(t *testing.T) {
 		if tc.conflict && !errors.As(err, &conflict) || !tc.conflict && !errors.As(err, &state) {
 			t.Errorf("%v mapped to %T %v", tc.err, err, err)
 		}
+	}
+}
+
+// The court fee is collected at the venue like a counter sale, so it takes every
+// method the counter takes and records the one chosen.
+func TestEveryCounterMethodChargesAndIsRecordedWithThatMethod(t *testing.T) {
+	for _, method := range paymentmethod.CounterMethods() {
+		t.Run(method, func(t *testing.T) {
+			f := newFixture(t)
+			f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New()}}
+			mid, tid := f.store.detail.Matches[0].ID, f.store.detail.Tournament.ID
+			if _, err := f.svc.ChargeCourtFee(t.Context(), f.complex, f.actor(), tid, mid, 1, method); err != nil {
+				t.Fatalf("%s must be accepted: %v", method, err)
+			}
+			if got := f.store.charges; len(got) != 1 || got[0].Method != method {
+				t.Errorf("charges = %+v, want one with method %s", got, method)
+			}
+		})
 	}
 }
 

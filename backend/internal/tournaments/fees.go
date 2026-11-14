@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	"github.com/stodulski/vibe-server/internal/paymentmethod"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -15,13 +16,6 @@ import (
 // snapshots it and writes the money into the open cash session like a counter
 // sale (see the store), so everything the cash and the reports already do with
 // income applies to it.
-
-// Methods a court fee can be collected with: the counter's own, never the online
-// checkout's.
-const (
-	MethodCash     = "cash"
-	MethodTransfer = "transfer"
-)
 
 func validCourtFee(fee int) map[string]string {
 	if fee < 0 || fee > MaxPrice {
@@ -56,14 +50,16 @@ func (s *Service) categoryOf(ctx context.Context, complexID, tournamentID, categ
 }
 
 // ChargeCourtFee records that the pair on a side (1 or 2) of a match paid its
-// court fee at the complex, by cash or transfer, at the category's current fee.
+// court fee at the complex, with a counter payment method, at the category's current fee.
 func (s *Service) ChargeCourtFee(ctx context.Context, complex *complexstore.Complex, actor Actor, tournamentID, matchID uuid.UUID, side int, method string) (*tournamentstore.Detail, error) {
 	if actor.UserID == nil {
 		return nil, ErrNoActor
 	}
 	errs := map[string]string{}
-	if method != MethodCash && method != MethodTransfer {
-		errs["method"] = "must be cash or transfer"
+	// Collected at the venue like a counter sale: every counter method, never the
+	// online checkout's.
+	if !paymentmethod.IsCounter(method) {
+		errs["method"] = paymentmethod.Message
 	}
 	if side != 1 && side != 2 {
 		errs["side"] = "must be 1 or 2"

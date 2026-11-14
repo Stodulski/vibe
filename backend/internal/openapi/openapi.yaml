@@ -3427,7 +3427,7 @@ paths:
               type: object
               required: [method]
               properties:
-                method: {type: string, enum: [cash, transfer]}
+                method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
       responses:
         "200":
           description: The tournament with the charge recorded.
@@ -7385,7 +7385,7 @@ components:
         chargeable: {type: boolean}
         amount: {type: integer, description: Centavos.}
         charged: {type: boolean}
-        method: {type: [string, "null"], description: "`cash` or `transfer` once charged."}
+        method: {type: [string, "null"], description: "The counter payment method it was charged with, once charged."}
         charged_at: {type: [string, "null"], format: date-time}
         charged_by: {type: [string, "null"], format: uuid, description: The user who collected it.}
 

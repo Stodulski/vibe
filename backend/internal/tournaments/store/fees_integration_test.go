@@ -99,6 +99,40 @@ func TestACourtFeeChargeKeepsItsAmountWhenTheFeeChanges(t *testing.T) {
 	}
 }
 
+// S6c: every counter method collects a court fee and the movement and the
+// session totals carry the method chosen.
+func TestACourtFeeCanBeChargedWithEveryCounterMethod(t *testing.T) {
+	f := newCourtFeeFixture(t, 150_000)
+	slots := []struct {
+		match  *tournamentstore.Match
+		side   int
+		method string
+	}{
+		{f.first[0], 1, "debit_card"}, {f.first[0], 2, "credit_card"}, {f.first[1], 1, "qr_wallet"},
+	}
+	for _, s := range slots {
+		fee, err := f.charge(s.match, s.side, s.method)
+		if err != nil || fee.Method != s.method {
+			t.Fatalf("%s: %+v %v", s.method, fee, err)
+		}
+	}
+	totals, err := f.Stores.Cashbox.SumBySession(f.ctx, f.ComplexID, f.session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byMethod := map[string]int{}
+	for _, tot := range totals {
+		if tot.Kind == "income" && tot.Category == "tournaments" {
+			byMethod[tot.Method] += tot.Total
+		}
+	}
+	for _, s := range slots {
+		if byMethod[s.method] != 150_000 {
+			t.Errorf("the session totals must carry %s: %v", s.method, byMethod)
+		}
+	}
+}
+
 // S6c: the money lands in the complex cash exactly like a venue charge: an income
 // movement of the open session, counted by the session's totals and the
 // monthly report.
