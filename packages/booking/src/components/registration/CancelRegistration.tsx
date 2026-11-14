@@ -66,8 +66,8 @@ export function CancelRegistration({ withinWindow, deadline, walkover = false, c
     <div className="flex flex-col gap-3">
       {note && <p className="text-text-secondary text-center text-sm">{note}</p>}
       <Button
-        variant="destructive"
-        className="min-h-12 w-full"
+        variant="outline"
+        className="border-destructive/50 text-destructive hover:border-destructive hover:bg-destructive/10 hover:text-destructive min-h-12 w-full"
         onClick={() => {
           setConfirmOpen(true);
         }}

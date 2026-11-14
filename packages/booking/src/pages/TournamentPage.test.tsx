@@ -70,7 +70,8 @@ describe('TournamentPage detail', () => {
     expect(await screen.findByRole('heading', { name: 'Zona A' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Zona B' })).toBeInTheDocument();
     expect(screen.getAllByRole('region', { name: t.tournaments.bracketTitle })).toHaveLength(2);
-    expect(screen.getByRole('heading', { name: t.tournaments.scheduleTitle })).toBeInTheDocument();
+    // Nothing in the knockout is scheduled yet: group matches are listed in their zone only.
+    expect(screen.queryByRole('heading', { name: t.tournaments.scheduleTitle })).not.toBeInTheDocument();
   });
 
   it('offers the sign-up only on the category that is open, with its price', async () => {
@@ -233,6 +234,17 @@ describe('TournamentPage checkout return', () => {
     expect(screen.getByText(new RegExp(t.events.refundUntilPrefix))).toBeInTheDocument();
   });
 
+});
+
+describe('TournamentPage checkout return, summary', () => {
+  it('shows what the pair paid instead of the availability, and a secondary cancel button', async () => {
+    serveRegistration(pairRegistration());
+    open('?token=tok-1&registered=1');
+
+    expect(await screen.findByText(`${t.tournaments.paidPrefix} $22.000`)).toBeInTheDocument();
+    const cancel = screen.getByRole('button', { name: t.tournaments.cancelPair });
+    expect(cancel.className).not.toMatch(/(^|\s)bg-destructive/);
+  });
 });
 
 describe('TournamentPage checkout return, cancelling', () => {

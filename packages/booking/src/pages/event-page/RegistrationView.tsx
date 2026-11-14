@@ -54,7 +54,11 @@ export function RegistrationView({
           descriptionClassName="max-w-sm"
         >
           <div className="flex w-full max-w-sm flex-col gap-6">
-            <EventCard event={registration.event} headingLevel="h2" />
+            <EventCard
+              event={registration.event}
+              headingLevel="h2"
+              paid={registration.price + registration.service_fee}
+            />
             {registration.cancellation.can_cancel && (
               <CancelRegistration
                 withinWindow={registration.cancellation.within_window}

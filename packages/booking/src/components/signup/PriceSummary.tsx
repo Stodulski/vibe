@@ -15,7 +15,7 @@ interface PriceSummaryProps {
 /** The entry, the service fee on top and the total the person pays online. */
 export function PriceSummary({ label, price, serviceFee, total }: PriceSummaryProps) {
   return (
-    <dl className="text-sm">
+    <dl className="border-border-subtle border-t pt-3 text-sm">
       <div className="flex items-baseline justify-between">
         <dt className="text-text-secondary">{label}</dt>
         <dd className="text-text-primary tabular-nums">{formatPrice(price)}</dd>

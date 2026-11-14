@@ -86,6 +86,7 @@ function TournamentDetailPage({
 }) {
   const [, setParams] = useQueryParams();
   const [showFailure, setShowFailure] = useState(paymentFailed);
+  const [openFormId, setOpenFormId] = useState<string | null>(null);
   const { data: detail, isLoading, error, refetch } = useTournament(slug, tournamentId);
   const { pending, retry } = usePaymentRetry(tournamentId, () => {
     setShowFailure(false);
@@ -118,7 +119,14 @@ function TournamentDetailPage({
       </header>
       {tournament.status === 'cancelled' && <CancelledTournamentNotice />}
       {detail.categories.map((category) => (
-        <CategorySection key={category.id} slug={slug} detail={detail} category={category} />
+        <CategorySection
+          key={category.id}
+          slug={slug}
+          detail={detail}
+          category={category}
+          openFormId={openFormId}
+          onOpenFormChange={setOpenFormId}
+        />
       ))}
       <BackToComplexButton slug={slug} />
     </>

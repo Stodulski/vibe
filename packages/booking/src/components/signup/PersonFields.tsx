@@ -105,7 +105,7 @@ function PhoneField<T extends FieldValues>({ access, labels }: { access: FieldAc
         </>
       }
       htmlFor={id('phone')}
-      {...(labels.phoneHelp ? { helpText: labels.phoneHelp } : {})}
+      {...(labels.phoneHelp ? { helpText: <span className="text-xs">{labels.phoneHelp}</span> } : {})}
       error={errorOf('phone')}
     >
       <Controller

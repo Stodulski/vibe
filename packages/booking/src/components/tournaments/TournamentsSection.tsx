@@ -14,14 +14,14 @@ export function TournamentsSection({ slug }: { slug: string }) {
   if (!tournaments || tournaments.length === 0) return null;
 
   return (
-    <section aria-labelledby="tournaments-title" className="mt-6 flex flex-col gap-4 sm:mt-10">
+    <section aria-labelledby="tournaments-title" className="mt-8 flex flex-col gap-4 sm:mt-12">
       <div className="flex flex-col gap-1">
         <h2 id="tournaments-title" className="text-text-primary text-xl font-bold">
           {t.sectionTitle}
         </h2>
         <p className="text-text-secondary text-sm">{t.sectionDescription}</p>
       </div>
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <ul className={`grid grid-cols-1 gap-3 ${tournaments.length > 1 ? 'md:grid-cols-2' : ''}`}>
         {tournaments.map((tournament) => (
           <li key={tournament.id} className="flex">
             <TournamentCard tournament={tournament} slug={slug} />

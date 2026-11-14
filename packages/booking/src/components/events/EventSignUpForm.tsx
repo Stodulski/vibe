@@ -48,7 +48,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
       <EventSignUpFields register={register} control={control} errors={errors} />
 
-      <div className="space-y-2 pt-1">
+      <div className="space-y-4 pt-2">
         <PriceSummary
           label={t.events.priceLabel}
           price={event.price}
@@ -77,7 +77,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
           href={privacyUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-primary-400 underline underline-offset-2"
+          className="text-primary-400 whitespace-nowrap underline underline-offset-2"
         >
           {t.publicBooking.privacyNoticeLink}
         </a>

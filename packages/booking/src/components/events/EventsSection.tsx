@@ -14,14 +14,14 @@ export function EventsSection({ slug }: { slug: string }) {
   if (!events || events.length === 0) return null;
 
   return (
-    <section aria-labelledby="open-play-events-title" className="mt-6 flex flex-col gap-4 sm:mt-10">
+    <section aria-labelledby="open-play-events-title" className="mt-8 flex flex-col gap-4 sm:mt-12">
       <div className="flex flex-col gap-1">
         <h2 id="open-play-events-title" className="text-text-primary text-xl font-bold">
           {t.sectionTitle}
         </h2>
         <p className="text-text-secondary text-sm">{t.sectionDescription}</p>
       </div>
-      <ul className="grid grid-cols-1 gap-3 md:grid-cols-2">
+      <ul className={`grid grid-cols-1 gap-3 ${events.length > 1 ? 'md:grid-cols-2' : ''}`}>
         {events.map((event) => (
           <li key={event.id} className="flex">
             <EventCard event={event} slug={slug} />

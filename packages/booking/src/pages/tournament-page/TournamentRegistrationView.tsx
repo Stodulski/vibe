@@ -1,9 +1,9 @@
 import { CheckCircle2, LogOut } from 'lucide-react';
-import { Button, StatusHero, formatDateFull } from '@vibe/ui';
+import { Button, StatusHero, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useCancelTournamentRegistration } from '../../hooks/useTournamentRegistration';
 import { CancelRegistration, CancelledResult, type CancelCopy } from '../../components/registration/CancelRegistration';
-import { formatLabel } from '../../components/tournaments/tournamentModel';
+import { formatLabel, tournamentDates } from '../../components/tournaments/tournamentModel';
 import { BackToComplexButton, ExpiredState, ProcessingState } from '../event-page/EventPageStates';
 import type { PublicPairRegistration } from '../../api/types';
 
@@ -22,8 +22,8 @@ function PairSummary({ registration }: { registration: PublicPairRegistration })
   const { tournament, category, payer, partner } = registration;
   return (
     <div className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-2 rounded-2xl border p-4 text-left">
-      <h2 className="text-text-primary text-lg font-bold">{tournament.name}</h2>
-      <p className="text-text-secondary text-sm first-letter:uppercase">{formatDateFull(tournament.start_date)}</p>
+      <h2 className="text-text-primary text-2xl leading-tight font-bold">{tournament.name}</h2>
+      <p className="text-text-primary text-base font-bold">{tournamentDates(tournament)}</p>
       <p className="text-text-secondary text-sm">
         <span className="text-text-tertiary">{t.tournaments.categoryName}: </span>
         {category.name} <span className="text-text-tertiary">{formatLabel(category.format)}</span>
@@ -33,6 +33,9 @@ function PairSummary({ registration }: { registration: PublicPairRegistration })
         <p>{`${payer.first_name} ${payer.last_name}`}</p>
         <p>{`${partner.first_name} ${partner.last_name}`}</p>
       </div>
+      <p className="text-text-primary text-base font-semibold tabular-nums">
+        {`${t.tournaments.paidPrefix} ${formatPrice(registration.price + registration.service_fee)}`}
+      </p>
     </div>
   );
 }

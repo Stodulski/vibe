@@ -186,6 +186,17 @@ describe('EventPage checkout return', () => {
     expect(screen.getByText(new RegExp(t.events.refundUntilPrefix))).toBeInTheDocument();
   });
 
+  it('shows what the person paid instead of the availability, and a secondary cancel button', async () => {
+    serveRegistration(registration());
+    open('?token=tok-1&registered=1');
+
+    expect(await screen.findByText(`${t.events.paidPrefix} $11.000`)).toBeInTheDocument();
+    expect(screen.queryByText(/Quedan/)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.events.perPerson)).not.toBeInTheDocument();
+    const cancel = screen.getByRole('button', { name: t.events.cancelSpot });
+    expect(cancel.className).not.toMatch(/(^|\s)bg-destructive/);
+  });
+
   it('says the refund window passed when cancelling would keep the payment', async () => {
     serveRegistration(
       registration({ cancellation: { can_cancel: true, within_window: false, deadline: '2026-12-04T19:00:00-03:00' } }),

@@ -12,10 +12,12 @@ interface EventCardProps {
   /** Set on the complex page: the card links to the event's own page. Unset on that page itself. */
   slug?: string;
   headingLevel?: 'h1' | 'h2' | 'h3';
+  /** Centavos ARS the person paid, on their own registration: shown in place of the price and the spots left. */
+  paid?: number;
 }
 
 /** One open-play event: what it is, when, where, what it costs and how many spots are left. */
-export function EventCard({ event, slug, headingLevel = 'h3' }: EventCardProps) {
+export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardProps) {
   const Heading = headingLevel;
   // A full, cancelled or started event says so once, in the button or in the page state below the card.
   const open = isOpenForSignUp(event) && !eventHasStarted(event);
@@ -23,11 +25,11 @@ export function EventCard({ event, slug, headingLevel = 'h3' }: EventCardProps) 
   return (
     <article className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-3 rounded-2xl border p-4 text-left sm:p-5">
       <div className="flex flex-col gap-1">
-        <Heading className="text-text-primary text-lg font-bold">{event.name}</Heading>
+        <Heading className="text-text-primary text-2xl leading-tight font-bold">{event.name}</Heading>
         <p className="text-text-secondary text-sm first-letter:uppercase">
           {formatDateFull(`${event.date}T12:00:00`)}
         </p>
-        <p className="text-text-primary text-2xl font-bold tabular-nums">{eventTimeRange(event)}</p>
+        <p className="text-text-primary text-base font-bold tabular-nums">{eventTimeRange(event)}</p>
         <p className="text-text-secondary text-sm">{sportLabel(event.sport)}</p>
       </div>
 
@@ -38,15 +40,19 @@ export function EventCard({ event, slug, headingLevel = 'h3' }: EventCardProps) 
         </p>
       )}
 
-      <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-        <p className="text-text-primary text-base font-semibold tabular-nums">
-          {formatPrice(event.total_price)} <span className="text-text-secondary text-sm font-normal">{t.perPerson}</span>
-        </p>
-        {open && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(event.spots_left)}</p>}
-      </div>
+      {paid !== undefined ? (
+        <p className="text-text-primary text-base font-semibold tabular-nums">{`${t.paidPrefix} ${formatPrice(paid)}`}</p>
+      ) : (
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <p className="text-text-primary text-base font-semibold tabular-nums">
+            {formatPrice(event.total_price)} <span className="text-text-secondary text-sm font-normal">{t.perPerson}</span>
+          </p>
+          {open && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(event.spots_left)}</p>}
+        </div>
+      )}
 
       {slug !== undefined && (
-        <Button asChild={open} disabled={!open} size="lg" className="min-h-12 w-full">
+        <Button asChild={open} disabled={!open} size="lg" className="min-h-12 w-full sm:w-auto sm:self-start">
           {open ? <a href={publicEventPath(slug, event.id)}>{t.signUp}</a> : <span>{t.full}</span>}
         </Button>
       )}

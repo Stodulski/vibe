@@ -54,7 +54,7 @@ function PrivacyNotice() {
         href={privacyUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="text-primary-400 underline underline-offset-2"
+        className="text-primary-400 whitespace-nowrap underline underline-offset-2"
       >
         {t.publicBooking.privacyNoticeLink}
       </a>
@@ -96,7 +96,7 @@ export function PairSignUpForm({ slug, tournamentId, category }: PairSignUpFormP
     <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-5" noValidate>
       <p className="text-text-secondary text-sm">{t.tournaments.formDescription}</p>
       <PlayersFieldsets register={register} control={control} errors={errors} categoryId={category.id} />
-      <div className="space-y-2 pt-1">
+      <div className="space-y-4 pt-2">
         <PriceSummary
           label={t.tournaments.priceLabel}
           price={category.price}
