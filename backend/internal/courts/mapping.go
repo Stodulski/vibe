@@ -251,6 +251,8 @@ func toMatchBlocksWire(occs []bookingstore.EventOccupancy) []gen.MatchBlock {
 			EndTime:         o.EndsAt.In(timezone.Argentina).Format("15:04"),
 			DurationMinutes: int(o.EndsAt.Sub(o.StartsAt) / time.Minute),
 			Name:            o.Name,
+			Pair1:           o.Pair1,
+			Pair2:           o.Pair2,
 		})
 	}
 	return out

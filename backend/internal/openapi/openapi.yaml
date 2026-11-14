@@ -7161,8 +7161,9 @@ components:
       description: >-
         Hours a scheduled tournament match holds on one court, as the owner's calendar draws them
         ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run
-        past midnight.
-      required: [match_id, tournament_id, court_id, date, start_time, end_time, duration_minutes, name]
+        past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null
+        while no pair fills that slot of the match.
+      required: [match_id, tournament_id, court_id, date, start_time, end_time, duration_minutes, name, pair1, pair2]
       properties:
         match_id: {type: string, format: uuid}
         tournament_id: {type: string, format: uuid}
@@ -7172,6 +7173,8 @@ components:
         end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
         duration_minutes: {type: integer}
         name: {type: string}
+        pair1: {type: [string, "null"]}
+        pair2: {type: [string, "null"]}
 
     Tournament:
       type: object

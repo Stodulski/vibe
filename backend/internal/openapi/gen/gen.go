@@ -3381,7 +3381,7 @@ type HealthStatusImpaired string
 // HealthStatusStatus defines model for HealthStatus.Status.
 type HealthStatusStatus string
 
-// MatchBlock Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight.
+// MatchBlock Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null while no pair fills that slot of the match.
 type MatchBlock struct {
 	CourtId openapi_types.UUID `json:"court_id"`
 
@@ -3391,6 +3391,8 @@ type MatchBlock struct {
 	EndTime         string             `json:"end_time"`
 	MatchId         openapi_types.UUID `json:"match_id"`
 	Name            string             `json:"name"`
+	Pair1           *string            `json:"pair1"`
+	Pair2           *string            `json:"pair2"`
 	StartTime       string             `json:"start_time"`
 	TournamentId    openapi_types.UUID `json:"tournament_id"`
 }

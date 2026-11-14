@@ -360,9 +360,10 @@ func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {
 func TestListBlockedSlotsReturnsScheduledMatchesAsMatchBlocks(t *testing.T) {
 	complexID, courtID, matchID, tournamentID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	day := mustParseDate(t, "2026-03-05")
+	pair1 := "Pérez / Gómez"
 	bookings := &stubBookings{events: []bookingstore.EventOccupancy{{
 		EventID: matchID, ComplexID: complexID, CourtID: courtID, Date: day, Name: "Torneo · 6ta",
-		Kind: bookingstore.OccupancyMatch, ParentID: &tournamentID,
+		Kind: bookingstore.OccupancyMatch, ParentID: &tournamentID, Pair1: &pair1,
 		StartsAt: slots.At(timezone.Day(day), "18:00"), EndsAt: slots.At(timezone.Day(day), "19:30"),
 	}}}
 
@@ -379,6 +380,8 @@ func TestListBlockedSlotsReturnsScheduledMatchesAsMatchBlocks(t *testing.T) {
 			EndTime         string    `json:"end_time"`
 			DurationMinutes int       `json:"duration_minutes"`
 			Name            string    `json:"name"`
+			Pair1           *string   `json:"pair1"`
+			Pair2           *string   `json:"pair2"`
 		} `json:"match_blocks"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
@@ -391,6 +394,12 @@ func TestListBlockedSlotsReturnsScheduledMatchesAsMatchBlocks(t *testing.T) {
 	if mb.MatchID != matchID || mb.TournamentID != tournamentID || mb.CourtID != courtID || mb.StartTime != "18:00" ||
 		mb.EndTime != "19:30" || mb.DurationMinutes != 90 || mb.Name != "Torneo · 6ta" {
 		t.Errorf("match block = %+v", mb)
+	}
+	if mb.Pair1 == nil || *mb.Pair1 != "Pérez / Gómez" {
+		t.Errorf("pair1 = %v; want the pair's surnames", mb.Pair1)
+	}
+	if !strings.Contains(w.Body.String(), `"pair2":null`) {
+		t.Errorf("pair2 must be present and null while no pair fills the slot; got %s", w.Body.String())
 	}
 	if !strings.Contains(w.Body.String(), `"event_blocks":[]`) {
 		t.Errorf("event_blocks must stay an empty array; got %s", w.Body.String())

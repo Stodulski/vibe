@@ -31,6 +31,10 @@ type EventOccupancy struct {
 	Kind string
 	// ParentID is the tournament of a match; nil for an event.
 	ParentID *uuid.UUID
+	// Pair1 and Pair2 label the two pairs of a match by surname, "Payer /
+	// Partner", the way the owner's pair list reads. Nil for an event and for
+	// a slot of a match no pair fills yet.
+	Pair1, Pair2 *string
 }
 
 // What holds the hours of an EventOccupancy.
@@ -61,8 +65,15 @@ func (m *Store) EventOccupancies(
 	}
 	rows, err := m.DB.Query(ctx, `
 		SELECT o.event_id, o.complex_id, o.court_id, o.occurs_on,
-		       lower(o.span)::timestamptz, upper(o.span)::timestamptz, o.label, o.kind, o.parent_id
+		       lower(o.span)::timestamptz, upper(o.span)::timestamptz, o.label, o.kind, o.parent_id,
+		       r1.last_name || ' / ' || p1.partner_last_name,
+		       r2.last_name || ' / ' || p2.partner_last_name
 		FROM court_event_occupancy($1::uuid, $2::uuid[], $3::date, $4::date) o
+		LEFT JOIN tournament_matches m ON o.kind = 'match' AND m.id = o.event_id
+		LEFT JOIN tournament_pairs p1 ON p1.id = m.pair1_id
+		LEFT JOIN open_play_registrations r1 ON r1.id = p1.registration_id
+		LEFT JOIN tournament_pairs p2 ON p2.id = m.pair2_id
+		LEFT JOIN open_play_registrations r2 ON r2.id = p2.registration_id
 		ORDER BY o.occurs_on, o.court_id, lower(o.span)`,
 		data.UUIDPtrToPg(complexID), courts, data.DateToPg(from), data.DateToPg(to))
 	if err != nil {
@@ -78,8 +89,9 @@ func (m *Store) EventOccupancies(
 			startsAt, endsAt              pgtype.Timestamptz
 			name, kind                    string
 			parent                        pgtype.UUID
+			pair1, pair2                  pgtype.Text
 		)
-		if err := rows.Scan(&eventID, &complexUUID, &courtID, &day, &startsAt, &endsAt, &name, &kind, &parent); err != nil {
+		if err := rows.Scan(&eventID, &complexUUID, &courtID, &day, &startsAt, &endsAt, &name, &kind, &parent, &pair1, &pair2); err != nil {
 			return nil, fmt.Errorf("bookings: scan event occupancy: %w", err)
 		}
 		out = append(out, EventOccupancy{
@@ -92,6 +104,8 @@ func (m *Store) EventOccupancies(
 			Name:      name,
 			Kind:      kind,
 			ParentID:  data.PgToUUIDPtr(parent),
+			Pair1:     data.PgToTextPtr(pair1),
+			Pair2:     data.PgToTextPtr(pair2),
 		})
 	}
 	if err := rows.Err(); err != nil {

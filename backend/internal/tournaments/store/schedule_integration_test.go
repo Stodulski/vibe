@@ -37,7 +37,7 @@ func (f *fixture) schedule(m *tournamentstore.Match, court uuid.UUID, startTime 
 // availability is decided, like an event does.
 func TestAScheduledMatchHoldsItsCourt(t *testing.T) {
 	f := newFixture(t)
-	_, _, first := drawn(t, f)
+	tr, _, first := drawn(t, f)
 	if err := f.schedule(first[0], f.CourtID, "18:00"); err != nil {
 		t.Fatalf("Schedule: %v", err)
 	}
@@ -68,6 +68,15 @@ func TestAScheduledMatchHoldsItsCourt(t *testing.T) {
 	occs, err := f.Stores.Bookings.EventOccupancies(f.ctx, &f.ComplexID, nil, start(), start())
 	if err != nil || len(occs) != 1 || occs[0].Kind != bookingstore.OccupancyMatch || occs[0].Name != "Torneo · 6ta" || occs[0].ParentID == nil {
 		t.Fatalf("calendar read = %+v (%v)", occs, err)
+	}
+	// ...and names its two pairs by surname, payer first.
+	want := map[uuid.UUID]string{}
+	for _, p := range f.detail(t, tr).Pairs {
+		want[p.ID] = p.Payer.LastName + " / " + p.Partner.LastName
+	}
+	if occs[0].Pair1 == nil || *occs[0].Pair1 != want[*first[0].Pair1ID] ||
+		occs[0].Pair2 == nil || *occs[0].Pair2 != want[*first[0].Pair2ID] {
+		t.Errorf("pairs = %v / %v; want %q / %q", occs[0].Pair1, occs[0].Pair2, want[*first[0].Pair1ID], want[*first[0].Pair2ID])
 	}
 
 	// Unscheduling releases the hours.
