@@ -17,7 +17,7 @@ import { addDays, futureWeekday, openOwnerPage, provisionWorld, type EventsWorld
 test.describe.configure({ mode: 'serial' });
 
 const CLIENT = { first: 'Serie', last: 'Fijo', phone: '9115550001' };
-const BLOCK = /Bloqueo por turno fijo · Serie Fijo/;
+const BLOCK = /Turno fijo · Serie Fijo/;
 
 // Monday, ~4 months out: far from the 06:00 "already due" window of a new series.
 const FIRST = futureWeekday(1, 120);
@@ -86,10 +86,10 @@ test('the owner creates a weekly fixed booking from the new booking dialog', asy
   await expect(dialog).toBeHidden();
 });
 
-test('every future matching date shows "Bloqueo por turno fijo · {cliente}" on the grid', async () => {
+test('every future matching date shows "Turno fijo · {cliente}" on the grid', async () => {
   await gotoDay(THIRD);
   await expect(fixedBlock()).toBeVisible({ timeout: 10_000 });
-  await expect(fixedBlock()).toHaveAccessibleName(/19:00–20:30, Bloqueo por turno fijo · Serie Fijo/);
+  await expect(fixedBlock()).toHaveAccessibleName(/19:00–20:30, Turno fijo · Serie Fijo/);
 
   // The block opens a sheet that says which weekly booking it is and offers the two actions.
   await fixedBlock().click();
