@@ -16,7 +16,7 @@ export function BookingSeriesLabel({ series, isPending }: { series: BookingSerie
   return (
     <div className={SERIES_LABEL_ROW}>
       <Repeat className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-      <p className="text-text-secondary min-w-0 truncate text-sm">
+      <p className="text-text-secondary min-w-0 text-sm break-words">
         {t.bookings.series.label(weekday, series.start_time.slice(0, 5))}
       </p>
     </div>

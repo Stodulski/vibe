@@ -22,7 +22,9 @@ export function useSkipSeriesDate(complexId: string) {
       toast.success(t.bookings.series.skipSuccess(formatDayMonth(skipped.date)));
     },
     onError: (error: unknown) => {
-      toast.error(getHttpErrorMessage(error, t.bookings.series.skipError));
+      // Same shape as the booking errors: a title, then what the server said.
+      const detail = getHttpErrorMessage(error, '');
+      toast.error(t.bookings.series.skipError, detail ? { description: detail } : undefined);
     },
   });
 }

@@ -21,7 +21,9 @@ export function useEndBookingSeries(complexId: string) {
       toast.success(t.bookings.series.endSuccess(cancelled.length, kept.length));
     },
     onError: (error: unknown) => {
-      toast.error(getHttpErrorMessage(error, t.bookings.series.endError));
+      // Same shape as the booking errors: a title, then what the server said.
+      const detail = getHttpErrorMessage(error, '');
+      toast.error(t.bookings.series.endError, detail ? { description: detail } : undefined);
     },
   });
 }

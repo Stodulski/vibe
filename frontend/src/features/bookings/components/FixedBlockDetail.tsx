@@ -31,7 +31,7 @@ function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: 
     <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
       <div className="flex h-5 items-center gap-2">
         <Repeat className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        <p className="text-text-secondary min-w-0 truncate text-sm">
+        <p className="text-text-secondary min-w-0 text-sm break-words">
           {t.bookings.series.label(weekday, block.start_time.slice(0, 5))}
         </p>
       </div>
