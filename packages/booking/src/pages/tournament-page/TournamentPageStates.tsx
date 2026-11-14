@@ -10,6 +10,7 @@ export function TournamentNotFoundState({ slug }: { slug: string }) {
     <StatusHero
       icon={CalendarX}
       tone="neutral"
+      size="large"
       title={t.tournaments.notFound}
       description={t.tournaments.notFoundDescription}
     >
@@ -23,6 +24,7 @@ export function TournamentLoadErrorState({ onRetry }: { onRetry: () => void }) {
     <StatusHero
       icon={AlertTriangle}
       tone="warning"
+      size="large"
       title={t.tournaments.loadError}
       description={t.publicBooking.complexLoadErrorDescription}
     >
@@ -38,6 +40,7 @@ export function CancelledTournamentNotice() {
     <StatusHero
       icon={CalendarX}
       tone="warning"
+      size="large"
       title={t.tournaments.cancelledTitle}
       description={t.tournaments.cancelledDescription}
     />

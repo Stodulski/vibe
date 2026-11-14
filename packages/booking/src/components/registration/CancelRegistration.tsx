@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { Button, ConfirmDialog, StatusHero, formatDeadline, formatPrice } from '@vibe/ui';
+import { Ban } from 'lucide-react';
+import { Button, ConfirmDialog, StatusHero, formatDeadline } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicComplexPath } from '../../lib/publicPaths';
 import type { RefundEnvelope } from '../../api/types';
@@ -11,16 +11,13 @@ const t = BOOKING_MESSAGES;
 export function CancelledResult({ refund, slug, title }: { refund: RefundEnvelope; slug: string; title: string }) {
   return (
     <StatusHero
-      icon={CheckCircle2}
-      tone={refund.status === 'manual' ? 'warning' : 'success'}
+      icon={Ban}
+      tone={refund.status === 'manual' ? 'warning' : 'neutral'}
       size="large"
       title={title}
       description={refund.message || t.publicBooking.cancelledSuccessfully}
       descriptionClassName="max-w-sm"
     >
-      {refund.amount !== undefined && (
-        <p className="text-text-primary text-base font-semibold">{formatPrice(refund.amount)}</p>
-      )}
       <Button asChild variant="outline" className="min-h-12">
         <a href={publicComplexPath(slug)}>{t.events.backToComplex}</a>
       </Button>

@@ -49,7 +49,7 @@ export function StepChoice({ question, choices, selected, onChoose }: StepChoice
 
   return (
     <section>
-      <h2 className="text-text-primary text-base font-semibold sm:text-lg">{question}</h2>
+      <h2 className="text-text-primary text-xl font-bold">{question}</h2>
       <div className={cn('mt-3 grid gap-2', columns)}>
         {choices.map((choice) => (
           <button

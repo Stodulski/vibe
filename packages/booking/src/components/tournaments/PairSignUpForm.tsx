@@ -48,7 +48,7 @@ function PlayersFieldsets({ register, control, errors, categoryId }: FormApi & {
 function PrivacyNotice() {
   const { privacyUrl } = useBookingConfig();
   return (
-    <p className="text-text-tertiary text-center text-xs">
+    <p className="text-text-tertiary text-xs">
       {t.tournaments.privacyNotice}{' '}
       <a
         href={privacyUrl}

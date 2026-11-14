@@ -44,7 +44,7 @@ export function FullFormView({
         <PhoneAndEmailFields register={register} control={control} errors={errors} />
         <NotesField register={register} />
         <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
-        <p className="text-text-tertiary text-center text-xs">
+        <p className="text-text-tertiary text-xs">
           {t.publicBooking.privacyNotice}{' '}
           <a
             href={privacyUrl}

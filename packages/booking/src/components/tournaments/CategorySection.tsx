@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { Ban, Info, Lock, type LucideIcon } from 'lucide-react';
 import { Button, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournamentDetail, PublicTournamentCategory } from '../../api/types';
@@ -6,23 +6,24 @@ import { BracketView } from './BracketView';
 import { GroupSection } from './GroupSection';
 import { PairSignUpForm } from './PairSignUpForm';
 import { ScheduleList } from './ScheduleList';
-import { formatLabel, isOpenForSignUp, matchFormatLabel, spotsLeftLabel } from './tournamentModel';
+import { formatLabel, isOpenForSignUp, matchFormatLabel, pairPriceSuffix, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
-function Notice({ children }: { children: string }) {
+function Notice({ icon: Icon, children }: { icon: LucideIcon; children: string }) {
   return (
     <p role="status" className="text-text-secondary text-sm">
-      <CheckCircle2 className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
+      <Icon className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
       {children}
     </p>
   );
 }
 
-function noticeFor(category: PublicTournamentCategory): string {
-  if (category.status === 'cancelled') return t.categoryCancelled;
-  if (category.status === 'closed' || category.draw_generated) return t.signUpClosedCategory;
-  return t.categoryFull;
+/** Why a category takes no pairs, with a neutral icon: none of these is a success. */
+function noticeFor(category: PublicTournamentCategory): { icon: LucideIcon; text: string } {
+  if (category.status === 'cancelled') return { icon: Ban, text: t.categoryCancelled };
+  if (category.status === 'closed' || category.draw_generated) return { icon: Lock, text: t.signUpClosedCategory };
+  return { icon: Info, text: t.categoryFull };
 }
 
 interface SignUpAreaProps {
@@ -39,7 +40,10 @@ interface SignUpAreaProps {
 /** The open category offers its form on demand; any other says why it does not. */
 function SignUpArea({ slug, tournamentId, category, tournamentActive, formOpen, otherFormOpen, onFormOpenChange }: SignUpAreaProps) {
   if (!tournamentActive) return null;
-  if (!isOpenForSignUp(category)) return <Notice>{noticeFor(category)}</Notice>;
+  if (!isOpenForSignUp(category)) {
+    const notice = noticeFor(category);
+    return <Notice icon={notice.icon}>{notice.text}</Notice>;
+  }
 
   return (
     <div className="flex flex-col gap-4">
@@ -81,8 +85,8 @@ function CategoryHeader({ headingId, category, showOffer }: CategoryHeaderProps)
           <p className="text-text-secondary text-sm">{matchFormatLabel(category)}</p>
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pt-1">
             <p className="text-text-primary text-base font-semibold tabular-nums">
-              {formatPrice(category.total_price ?? category.price)}{' '}
-              <span className="text-text-secondary text-sm font-normal">{t.perPair}</span>
+              {formatPrice(category.price)}{' '}
+              <span className="text-text-secondary text-sm font-normal">{pairPriceSuffix(category)}</span>
             </p>
             {showOffer && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(category.spots_left)}</p>}
           </div>

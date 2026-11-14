@@ -1,4 +1,3 @@
-import { formatDateFull } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type {
   PublicTournamentCategory,
@@ -7,7 +6,7 @@ import type {
   PublicTournamentPair,
 } from '../../api/types';
 import { MatchLine } from './MatchLine';
-import { groupMatchdays, pairLines, pairLookup, qualifiersNote, type PairLookup } from './tournamentModel';
+import { groupMatchdays, pairLines, pairLookup, qualifiersNote, scheduleLabel, type PairLookup } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -66,7 +65,7 @@ function StandingsTable({
 
 function matchCaption(match: PublicTournamentMatch): string | undefined {
   const s = match.schedule;
-  return s ? `${formatDateFull(s.date)}, ${s.start_time} ${t.hoursSuffix}, ${s.court_name}` : undefined;
+  return s ? scheduleLabel(s) : undefined;
 }
 
 interface GroupSectionProps {

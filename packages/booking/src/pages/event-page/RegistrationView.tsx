@@ -1,4 +1,4 @@
-import { CheckCircle2 } from 'lucide-react';
+import { Ban, CheckCircle2 } from 'lucide-react';
 import { StatusHero } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useCancelEventRegistration } from '../../hooks/useEventRegistration';
@@ -53,7 +53,7 @@ export function RegistrationView({
           description={t.events.confirmedDescription}
           descriptionClassName="max-w-sm"
         >
-          <div className="flex w-full max-w-sm flex-col gap-6">
+          <div className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-6 sm:mx-0 sm:w-full">
             <EventCard
               event={registration.event}
               headingLevel="h2"
@@ -73,8 +73,9 @@ export function RegistrationView({
     case 'cancelled':
       return (
         <StatusHero
-          icon={CheckCircle2}
+          icon={Ban}
           tone="neutral"
+          size="large"
           title={t.events.cancelledByYouTitle}
           description={t.publicBooking.cancelledSuccessfully}
         >

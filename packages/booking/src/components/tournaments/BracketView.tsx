@@ -1,14 +1,8 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import type { PublicTournamentMatch, PublicTournamentPair, PublicTournamentSchedule } from '../../api/types';
-import { bracketRounds, pairLookup, scoreCells, slotLabel, type PairLookup, type Slot } from './tournamentModel';
+import type { PublicTournamentMatch, PublicTournamentPair } from '../../api/types';
+import { bracketRounds, pairLookup, scheduleLabel, scoreCells, slotLabel, type PairLookup, type Slot } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
-
-/** "05/12 10:00 hs, Cancha 1": the short form a bracket card has room for. */
-function shortSchedule(schedule: PublicTournamentSchedule): string {
-  const [, month = '', day = ''] = schedule.date.split('-');
-  return `${day}/${month} ${schedule.start_time} ${t.hoursSuffix}, ${schedule.court_name}`;
-}
 
 interface SlotRowProps {
   slot: Slot;
@@ -41,14 +35,34 @@ function SlotRow({ slot, withdrawn, winner, cells }: SlotRowProps) {
   );
 }
 
+/** Which connector a match draws: one to the next round and one from the previous, only where the rounds halve. */
+interface Connectors {
+  /** The match is the first or the second of the pair that feeds one match of the next round. */
+  out: 'first' | 'second' | null;
+  in: boolean;
+}
+
+const CONNECTOR = 'border-border-default pointer-events-none absolute';
+
+function connectorsOf(rounds: readonly { matches: readonly unknown[] }[], roundIndex: number, position: number): Connectors {
+  const size = rounds[roundIndex]?.matches.length ?? 0;
+  const next = rounds[roundIndex + 1]?.matches.length ?? 0;
+  const previous = rounds[roundIndex - 1]?.matches.length ?? 0;
+  return {
+    out: next > 0 && size === next * 2 ? (position % 2 === 0 ? 'first' : 'second') : null,
+    in: previous > 0 && previous === size * 2,
+  };
+}
+
 interface BracketMatchProps {
+  connectors: Connectors;
   match: PublicTournamentMatch;
   label: string;
   pairs: PairLookup;
   groupNames: ReadonlyMap<string, string>;
 }
 
-function BracketMatch({ match, label, pairs, groupNames }: BracketMatchProps) {
+function BracketMatch({ match, label, pairs, groupNames, connectors }: BracketMatchProps) {
   const side = (n: 1 | 2) => {
     const id = n === 1 ? match.pair1_id : match.pair2_id;
     const pair = id ? pairs.get(id) : undefined;
@@ -62,12 +76,24 @@ function BracketMatch({ match, label, pairs, groupNames }: BracketMatchProps) {
     );
   };
   return (
-    <li aria-label={`${label}, ${t.matchLabel} ${String(match.position)}`} className="border-border-subtle bg-bg-subtle rounded-xl border">
-      {side(1)}
-      <div className="border-border-subtle border-t" />
-      {side(2)}
-      {match.schedule && (
-        <p className="border-border-subtle text-text-tertiary border-t px-3 py-1.5 text-xs">{shortSchedule(match.schedule)}</p>
+    <li aria-label={`${label}, ${t.matchLabel} ${String(match.position)}`} className="relative flex flex-1 items-center py-1.5">
+      {connectors.in && (
+        <span aria-hidden="true" data-bracket-connector="in" className={`${CONNECTOR} top-1/2 -left-2 w-2 border-t`} />
+      )}
+      <div className="border-border-subtle bg-bg-subtle w-full rounded-xl border">
+        {side(1)}
+        <div className="border-border-subtle border-t" />
+        {side(2)}
+        {match.schedule && (
+          <p className="border-border-subtle text-text-tertiary border-t px-3 py-1.5 text-xs">{scheduleLabel(match.schedule)}</p>
+        )}
+      </div>
+      {connectors.out && (
+        <span
+          aria-hidden="true"
+          data-bracket-connector="out"
+          className={`${CONNECTOR} -right-2 h-1/2 w-2 border-r ${connectors.out === 'first' ? 'top-1/2 border-t' : 'bottom-1/2 border-b'}`}
+        />
       )}
     </li>
   );
@@ -98,13 +124,20 @@ export function BracketView({ matches, pairs, groupNames }: BracketViewProps) {
       tabIndex={0}
       className="border-border-subtle max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-xl border p-3"
     >
-      <div className="flex min-w-max gap-6">
-        {rounds.map((round) => (
-          <section key={round.round} className="flex w-60 shrink-0 flex-col gap-3">
+      <div className="flex min-w-max gap-4">
+        {rounds.map((round, roundIndex) => (
+          <section key={round.round} className="flex w-60 shrink-0 flex-col gap-2">
             <h4 className="text-text-secondary text-sm font-semibold">{round.label}</h4>
-            <ol className="flex flex-1 flex-col justify-around gap-3">
-              {round.matches.map((match) => (
-                <BracketMatch key={match.id} match={match} label={round.label} pairs={lookup} groupNames={groupNames} />
+            <ol className="flex flex-1 flex-col">
+              {round.matches.map((match, position) => (
+                <BracketMatch
+                  key={match.id}
+                  match={match}
+                  label={round.label}
+                  pairs={lookup}
+                  groupNames={groupNames}
+                  connectors={connectorsOf(rounds, roundIndex, position)}
+                />
               ))}
             </ol>
           </section>

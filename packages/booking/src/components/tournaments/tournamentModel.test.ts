@@ -11,7 +11,9 @@ import {
   scheduleByDay,
   scoreCells,
   scoreText,
+  scheduleLabel,
   slotLabel,
+  tournamentDates,
   winnerOnlySide,
 } from './tournamentModel';
 
@@ -84,7 +86,7 @@ describe('slotLabel', () => {
 
   it('marks the empty side of a bye and a slot nobody feeds yet', () => {
     expect(slotLabel(bye, 2, pairs, groupNames)).toEqual({ kind: 'bye', text: 'Libre' });
-    expect(slotLabel(matchById('b-f'), 1, pairs, groupNames)).toEqual({ kind: 'tbd', text: 'Por definir' });
+    expect(slotLabel(matchById('b-f'), 1, pairs, groupNames)).toEqual({ kind: 'tbd', text: 'A definir' });
   });
 
   it('gives the players of a known pair', () => {
@@ -143,5 +145,29 @@ describe('scheduleByDay', () => {
     expect(days).toHaveLength(1);
     expect(days[0]?.date).toBe('2099-12-05');
     expect(days[0]?.matches.map((m) => m.id)).toEqual(['m-a1', 'm-a2']);
+  });
+});
+
+describe('tournamentDates', () => {
+  it('names the month once when both days share it, capitalized', () => {
+    expect(tournamentDates({ start_date: '2026-12-12', end_date: '2026-12-13' })).toBe('Sábado 12 al domingo 13 de diciembre');
+  });
+
+  it('names both months when the tournament crosses them', () => {
+    expect(tournamentDates({ start_date: '2026-11-28', end_date: '2026-12-01' })).toBe(
+      'Sábado 28 de noviembre al martes 1 de diciembre',
+    );
+  });
+
+  it('is one capitalized day for a single-day tournament', () => {
+    expect(tournamentDates({ start_date: '2026-12-12', end_date: '2026-12-12' })).toBe('Sábado 12 de diciembre');
+  });
+});
+
+describe('scheduleLabel', () => {
+  it('reads court, day and time, with the court name unbreakable and no "hs"', () => {
+    expect(
+      scheduleLabel({ court_name: 'Cancha 1', date: '2026-12-12', start_time: '10:00' }),
+    ).toBe('Cancha\u00a01 \u00b7 sábado 12 de diciembre \u00b7 10:00');
   });
 });

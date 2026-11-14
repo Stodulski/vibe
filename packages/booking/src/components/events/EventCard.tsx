@@ -45,17 +45,23 @@ export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardP
       ) : (
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <p className="text-text-primary text-base font-semibold tabular-nums">
-            {formatPrice(event.total_price)} <span className="text-text-secondary text-sm font-normal">{t.perPerson}</span>
+            {formatPrice(event.price)}{' '}
+            <span className="text-text-secondary text-sm font-normal">
+              {event.total_price > event.price ? t.perPersonPlusFee : t.perPerson}
+            </span>
           </p>
           {open && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(event.spots_left)}</p>}
         </div>
       )}
 
-      {slug !== undefined && (
-        <Button asChild={open} disabled={!open} size="lg" className="min-h-12 w-full sm:w-auto sm:self-start">
-          {open ? <a href={publicEventPath(slug, event.id)}>{t.signUp}</a> : <span>{t.full}</span>}
-        </Button>
-      )}
+      {slug !== undefined &&
+        (open ? (
+          <Button asChild size="lg" className="min-h-12 w-full sm:w-auto sm:self-start">
+            <a href={publicEventPath(slug, event.id)}>{t.signUp}</a>
+          </Button>
+        ) : (
+          <p className="text-text-secondary text-sm font-medium">{t.full}</p>
+        ))}
     </article>
   );
 }

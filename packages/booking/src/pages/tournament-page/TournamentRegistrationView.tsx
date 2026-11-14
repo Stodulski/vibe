@@ -1,4 +1,4 @@
-import { CheckCircle2, LogOut } from 'lucide-react';
+import { Ban, CheckCircle2, LogOut } from 'lucide-react';
 import { Button, StatusHero, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useCancelTournamentRegistration } from '../../hooks/useTournamentRegistration';
@@ -21,12 +21,13 @@ const CANCEL_COPY: CancelCopy = {
 function PairSummary({ registration }: { registration: PublicPairRegistration }) {
   const { tournament, category, payer, partner } = registration;
   return (
-    <div className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-2 rounded-2xl border p-4 text-left">
+    <div className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-2 rounded-2xl border p-4 text-left sm:p-5">
       <h2 className="text-text-primary text-2xl leading-tight font-bold">{tournament.name}</h2>
       <p className="text-text-primary text-base font-bold">{tournamentDates(tournament)}</p>
       <p className="text-text-secondary text-sm">
         <span className="text-text-tertiary">{t.tournaments.categoryName}: </span>
-        {category.name} <span className="text-text-tertiary">{formatLabel(category.format)}</span>
+        {category.name}
+        <span className="text-text-tertiary">{` \u00b7 ${formatLabel(category.format)}`}</span>
       </p>
       <div className="text-text-primary text-sm">
         <span className="text-text-tertiary">{t.tournaments.pairLabel}</span>
@@ -54,6 +55,7 @@ function ConfirmedView({
       <StatusHero
         icon={LogOut}
         tone="neutral"
+        size="large"
         title={t.tournaments.withdrawnTitle}
         description={t.tournaments.withdrawnDescription}
       >
@@ -73,7 +75,7 @@ function ConfirmedView({
       description={t.tournaments.confirmedDescription}
       descriptionClassName="max-w-sm"
     >
-      <div className="flex w-full max-w-sm flex-col gap-6">
+      <div className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-6 sm:mx-0 sm:w-full">
         <PairSummary registration={registration} />
         <Button asChild variant="outline" className="min-h-12">
           <a href={tournamentPath}>{t.tournaments.backToTournament}</a>
@@ -124,8 +126,9 @@ export function TournamentRegistrationView({
     case 'cancelled':
       return (
         <StatusHero
-          icon={CheckCircle2}
+          icon={Ban}
           tone="neutral"
+          size="large"
           title={t.tournaments.cancelledByYouTitle}
           description={t.publicBooking.cancelledSuccessfully}
         >

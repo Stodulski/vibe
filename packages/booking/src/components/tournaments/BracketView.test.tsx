@@ -27,7 +27,7 @@ describe('BracketView', () => {
     bracketOf('c-groups');
     expect(screen.getAllByText('1º de la zona A')).toHaveLength(1);
     expect(screen.getByText('2º de la zona B')).toBeInTheDocument();
-    expect(screen.getAllByText('Por definir').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('A definir').length).toBeGreaterThan(0);
   });
 
   it('shows a bye as Libre and a walkover as W.O. next to the winner', () => {
@@ -59,5 +59,20 @@ describe('BracketView', () => {
       <BracketView matches={MATCHES.filter((m) => m.stage === 'group')} pairs={PAIRS} groupNames={groupNames} />,
     );
     expect(container).toBeEmptyDOMElement();
+  });
+
+  it('draws a connector from each match to the next round, and into it', () => {
+    const { container } = bracketOf('c-groups');
+    expect(container.querySelectorAll('[data-bracket-connector="out"]')).toHaveLength(2);
+    expect(container.querySelectorAll('[data-bracket-connector="in"]')).toHaveLength(1);
+  });
+
+  it('writes a match schedule as court, day and time', () => {
+    const schedule = { court_id: 'k1', court_name: 'Cancha 1', date: '2099-12-05', start_time: '10:00', end_time: '11:30', duration_minutes: 90 };
+    const matches = MATCHES.filter((m) => m.category_id === 'c-groups').map((m) =>
+      m.stage === 'bracket' && m.round === 1 ? { ...m, schedule } : m,
+    );
+    render(<BracketView matches={matches} pairs={PAIRS} groupNames={groupNames} />);
+    expect(screen.getAllByText('Cancha 1 \u00b7 sábado 5 de diciembre \u00b7 10:00').length).toBeGreaterThan(0);
   });
 });

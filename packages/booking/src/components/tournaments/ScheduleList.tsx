@@ -1,10 +1,7 @@
 import { formatDateFull } from '@vibe/ui';
-import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournamentMatch, PublicTournamentPair } from '../../api/types';
 import { MatchLine } from './MatchLine';
-import { matchStage, pairLookup, scheduleByDay } from './tournamentModel';
-
-const t = BOOKING_MESSAGES.tournaments;
+import { matchStage, pairLookup, scheduleByDay, scheduleLabel } from './tournamentModel';
 
 interface ScheduleListProps {
   /** The category's matches: the scheduled ones are listed, with their result once played. */
@@ -34,7 +31,7 @@ export function ScheduleList({ matches, pairs, groupNames }: ScheduleListProps) 
                 match={match}
                 pairs={lookup}
                 groupNames={groupNames}
-                caption={`${match.schedule?.start_time ?? ''} ${t.hoursSuffix}, ${match.schedule?.court_name ?? ''}. ${matchStage(match, groupNames, rounds)}`}
+                caption={`${match.schedule ? scheduleLabel(match.schedule) : ''} \u00b7 ${matchStage(match, groupNames, rounds)}`}
               />
             ))}
           </ul>

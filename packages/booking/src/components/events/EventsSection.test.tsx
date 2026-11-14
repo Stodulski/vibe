@@ -33,6 +33,8 @@ describe('EventsSection', () => {
     expect(screen.getByText('19:00 \u2013 22:00')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
     expect(screen.getByText('Quedan 7 lugares')).toBeInTheDocument();
+    expect(screen.getByText(/\$10\.000/)).toHaveTextContent('$10.000 por persona + cargo de servicio');
+    expect(screen.queryByText(/\$11\.000/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: t.signUp })).toHaveAttribute('href', '/c/test-club/events/ev1');
   });
 
@@ -46,6 +48,7 @@ describe('EventsSection', () => {
 
     expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
     expect(screen.getAllByText(t.full)).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: t.full })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
   });
 });

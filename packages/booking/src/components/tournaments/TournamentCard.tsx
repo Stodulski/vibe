@@ -2,13 +2,13 @@ import { Button, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicTournamentPath } from '../../lib/publicPaths';
 import type { PublicTournamentSummary } from '../../api/types';
-import { formatLabel, isOpenForSignUp, sportLabel, tournamentDates } from './tournamentModel';
+import { formatLabel, isOpenForSignUp, pairPriceSuffix, sportLabel, tournamentDates } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
 /** What a category row says at its end: the price while it takes pairs, otherwise why it does not. */
 function categoryStatus(category: PublicTournamentSummary['categories'][number]): string {
-  if (isOpenForSignUp(category)) return `${formatPrice(category.total_price ?? category.price)} ${t.perPair}`;
+  if (isOpenForSignUp(category)) return `${formatPrice(category.price)} ${pairPriceSuffix(category)}`;
   if (category.status === 'cancelled') return t.categoryStatusCancelled;
   if (category.status === 'open') return t.full;
   return t.categoryStatusClosed;

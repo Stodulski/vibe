@@ -4,6 +4,7 @@ export const EVENT_MESSAGES = {
   sectionDescription: 'Eventos con cupo limitado. Te inscribís, pagás tu lugar y jugás.',
   signUp: 'Inscribirme',
   perPerson: 'por persona',
+  perPersonPlusFee: 'por persona + cargo de servicio',
   paidPrefix: 'Pagaste',
   courtsLabel: 'Canchas',
   spotsLeftOne: 'Queda 1 lugar',

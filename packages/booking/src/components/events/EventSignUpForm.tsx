@@ -71,7 +71,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
         </LoadingButton>
       </div>
 
-      <p className="text-text-tertiary text-center text-xs">
+      <p className="text-text-tertiary text-xs">
         {t.events.privacyNotice}{' '}
         <a
           href={privacyUrl}

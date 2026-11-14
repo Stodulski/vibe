@@ -30,6 +30,8 @@ describe('TournamentsSection', () => {
     expect(await screen.findByRole('heading', { name: t.sectionTitle })).toBeInTheDocument();
     expect(screen.getByText(SUMMARY.name)).toBeInTheDocument();
     expect(screen.getByText('8va')).toBeInTheDocument();
+    expect(screen.getByText(/\$20\.000/)).toHaveTextContent('$20.000 por pareja + cargo de servicio');
+    expect(screen.queryByText(/\$22\.000/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: new RegExp(t.viewTournament) })).toHaveAttribute('href', '/c/test-club/tournaments/t1');
   });
 });

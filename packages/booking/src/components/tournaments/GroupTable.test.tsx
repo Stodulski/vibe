@@ -51,7 +51,7 @@ describe('GroupSection', () => {
     expect(screen.getByRole('heading', { name: 'Fecha 1' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: 'Fecha 2' })).toBeInTheDocument();
     expect(screen.getByText('6-4 6-3')).toBeInTheDocument();
-    expect(screen.getByText(/Cancha 2/)).toBeInTheDocument();
+    expect(screen.getByText(/^Cancha 2 \u00b7 .+ \u00b7 12:00$/)).toBeInTheDocument();
   });
 
   it('says who won when the match has no score', () => {

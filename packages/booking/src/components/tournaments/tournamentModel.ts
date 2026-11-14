@@ -5,6 +5,7 @@ import type {
   PublicTournamentCategory,
   PublicTournamentMatch,
   PublicTournamentPair,
+  PublicTournamentSchedule,
 } from '../../api/types';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -203,10 +204,32 @@ export function qualifiersNote(count: number): string {
   return `${t.qualifiersNotePrefix} ${String(count)} ${t.qualifiersNoteSuffix}`;
 }
 
-/** "sábado 5 de diciembre", or "sábado 5 de diciembre al domingo 6 de diciembre" for a tournament over several days. */
+/** What a pair pays per category: the entry price is shown, the service fee is only named. */
+export function pairPriceSuffix(category: Pick<PublicTournamentCategory, 'price' | 'total_price'>): string {
+  return (category.total_price ?? category.price) > category.price ? t.perPairPlusFee : t.perPair;
+}
+
+function capitalize(text: string): string {
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/**
+ * "Sábado 12 de diciembre", "Sábado 12 al domingo 13 de diciembre" (the month
+ * once when both days share it) or "Sábado 28 de noviembre al martes 1 de
+ * diciembre" when the tournament crosses months.
+ */
 export function tournamentDates(tournament: Pick<PublicTournament, 'start_date' | 'end_date'>): string {
   const start = formatDateFull(tournament.start_date);
-  if (tournament.end_date === tournament.start_date) return start;
-  return `${start} ${t.datesSeparator} ${formatDateFull(tournament.end_date)}`;
+  if (tournament.end_date === tournament.start_date) return capitalize(start);
+  const sameMonth = tournament.start_date.slice(0, 7) === tournament.end_date.slice(0, 7);
+  // formatDateFull ends in " de <month>": drop it from the first day when the month is shared.
+  const first = sameMonth ? start.replace(/ de \S+$/, '') : start;
+  return capitalize(`${first} ${t.datesSeparator} ${formatDateFull(tournament.end_date)}`);
+}
+
+/** "Cancha 1 · sábado 12 de diciembre · 10:00": one way to write when and where a match is played. The court never breaks. */
+export function scheduleLabel(schedule: Pick<PublicTournamentSchedule, 'court_name' | 'date' | 'start_time'>): string {
+  const court = schedule.court_name.replace(/ /g, '\u00a0');
+  return `${court} \u00b7 ${formatDateFull(schedule.date)} \u00b7 ${schedule.start_time}`;
 }
 
