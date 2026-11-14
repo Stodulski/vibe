@@ -13,6 +13,7 @@ import type {
   Sport,
 } from '../../api/types';
 import { CourtDirectory } from './CourtDirectory';
+import { EventsSection } from '../../components/events/EventsSection';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
@@ -123,6 +124,8 @@ export function ComplexPageContent({
           narrows the inventory inside one day, and this is the one that says
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
+      <EventsSection slug={complex.slug} />
+
       <div className="mt-6 sm:mt-10">
         <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
       </div>
