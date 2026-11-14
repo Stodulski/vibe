@@ -3,10 +3,11 @@ package courts
 import (
 	"errors"
 	"fmt"
-	"github.com/google/uuid"
 	"net/http"
 	"net/url"
 	"time"
+
+	"github.com/google/uuid"
 
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
