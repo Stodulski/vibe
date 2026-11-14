@@ -19,13 +19,17 @@ export function DateFieldTrigger({
   date,
   hasError,
   id = 'booking-date',
-}: {
+  className,
+  ...props
+}: React.ComponentProps<'button'> & {
   date: string | undefined;
   hasError: boolean;
-  id?: string;
 }) {
+  // `PopoverTrigger asChild` hands its click handler, aria attributes and ref
+  // through these props; dropping them leaves a button that never opens.
   return (
     <button
+      {...props}
       id={id}
       type="button"
       className={cn(
@@ -34,6 +38,7 @@ export function DateFieldTrigger({
         'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
         date ? 'text-text-primary' : 'text-text-tertiary/70',
         hasError && 'border-error-border bg-error-bg/30 ring-error-text/10 ring-1',
+        className,
       )}
     >
       <CalendarIcon className="text-text-tertiary size-4 shrink-0" />
