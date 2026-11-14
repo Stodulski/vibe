@@ -90,13 +90,13 @@ func TestDrawNeedsPaidPairs(t *testing.T) {
 // each, and the knockout is sized from the qualifiers.
 func TestGroupsDrawFollowsTheCategorySettings(t *testing.T) {
 	f := newFixture(t)
-	tr, cat := f.tournament(t, tournamentstore.FormatGroups, 16, 4, 2)
+	tr, cat := f.tournament(t, tournamentstore.FormatGroups, 16, 3, 2)
 	f.pairs(t, cat, 7)
 	f.generate(t, cat, nil)
 
 	d := f.detail(t, tr)
 	if len(d.Groups) != 2 {
-		t.Fatalf("%d groups, want 2 for 7 pairs of at most 4", len(d.Groups))
+		t.Fatalf("%d groups, want 2 for 7 pairs with groups of 3 as the target", len(d.Groups))
 	}
 	sizes := map[string]int{}
 	for _, p := range d.Pairs {
