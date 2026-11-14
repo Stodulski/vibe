@@ -329,7 +329,7 @@ func (s *Service) settleDate(
 	date time.Time,
 	now time.Time,
 ) (*bookingstore.Booking, string, error) {
-	reason := ""
+	var reason string
 	startAt := slots.At(timezone.Day(date), ser.StartTime)
 	switch {
 	case !startAt.Add(time.Duration(ser.DurationMinutes) * time.Minute).After(now):
