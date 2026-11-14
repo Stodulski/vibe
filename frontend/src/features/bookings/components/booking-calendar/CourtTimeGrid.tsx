@@ -10,7 +10,7 @@ import { GridBody } from './GridBody';
 import { GridHourGutter } from './GridHourGutter';
 import { GUTTER_CLASS, HEADER_HEIGHT_PX } from './gridLayout';
 import type { CSSProperties } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 
 /**
@@ -28,30 +28,52 @@ import type { CreateBookingPrefill } from './types';
 interface CourtTimeGridProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
+  fixedBlocks: FixedBlock[];
   activeCourts: CourtWithPrices[];
   date: string;
   slots: string[];
   onSelectBooking: (booking: Booking) => void;
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
+  onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+}
+
+/**
+ * A block means "this court is taken", so the rule is exactly the one
+ * `isSlotOccupied` uses for free slots: everything but a cancellation. Any
+ * other filter here would let a slot show as free while a booking still
+ * holds it — or the reverse — with the two disagreeing on the same screen.
+ */
+function useGridColumns(input: Parameters<typeof useTimelineColumns>[0]) {
+  const { bookings } = input;
+  const occupyingBookings = useMemo(() => bookings.filter((b) => b.status !== 'cancelled'), [bookings]);
+  return useTimelineColumns({ ...input, bookings: occupyingBookings });
+}
+
+function HourGutterColumn() {
+  return (
+    <div className={GUTTER_CLASS}>
+      {/* Pushes the gutter past the court names so its hours line up with
+          the grid rows rather than with the header. */}
+      <div style={{ height: `${String(HEADER_HEIGHT_PX)}px` }} />
+      <GridHourGutter />
+    </div>
+  );
 }
 
 export function CourtTimeGrid({
   bookings,
   blockedSlots,
+  fixedBlocks,
   activeCourts,
   date,
   slots,
   onSelectBooking,
   onCreateBooking,
   onSelectBlockedSlot,
+  onSelectFixedBlock,
 }: CourtTimeGridProps) {
-  // A block means "this court is taken", so the rule is exactly the one
-  // `isSlotOccupied` uses for free slots: everything but a cancellation. Any
-  // other filter here would let a slot show as free while a booking still
-  // holds it — or the reverse — with the two disagreeing on the same screen.
-  const occupyingBookings = useMemo(() => bookings.filter((b) => b.status !== 'cancelled'), [bookings]);
-  const columns = useTimelineColumns({ activeCourts, bookings: occupyingBookings, blockedSlots });
+  const columns = useGridColumns({ activeCourts, bookings, blockedSlots, fixedBlocks });
   const nowMin = getNowMinutesInBuenosAires(date);
   const { ref, trackRef, frameRef } = useColumnScroller();
   const { dragging, dragHandlers } = useDragScroll(ref);
@@ -70,12 +92,7 @@ export function CourtTimeGrid({
     // Only below `sm`, where that padding is 3 — from `sm` up the page's own
     // margins are worth keeping and there is room to spare.
     <div className="relative -mr-3 flex sm:mr-0">
-      <div className={GUTTER_CLASS}>
-        {/* Pushes the gutter past the court names so its hours line up with
-            the grid rows rather than with the header. */}
-        <div style={{ height: `${String(HEADER_HEIGHT_PX)}px` }} />
-        <GridHourGutter />
-      </div>
+      <HourGutterColumn />
 
       {/* No padding on either side any more. Both edges were lanes for the
           arrow shortcuts, and the columns now run to the full width they have.
@@ -111,11 +128,13 @@ export function CourtTimeGrid({
             date={date}
             bookings={bookings}
             blockedSlots={blockedSlots}
+            fixedBlocks={fixedBlocks}
             slots={slots}
             nowMin={nowMin}
             onSelectBooking={onSelectBooking}
             onCreateBooking={onCreateBooking}
             onSelectBlockedSlot={onSelectBlockedSlot}
+            onSelectFixedBlock={onSelectFixedBlock}
           />
         </div>
       </div>

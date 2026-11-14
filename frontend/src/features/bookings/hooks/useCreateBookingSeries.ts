@@ -17,9 +17,12 @@ export function useCreateBookingSeries(complexId: string) {
     // `attemptKey` goes to the header, never the body (see `useCreateBooking`).
     mutationFn: ({ attemptKey, ...data }: WithAttemptKey<CreateBookingSeriesRequest>) =>
       bookingSeriesApi.create(complexId, data, attemptKey),
-    onSuccess: ({ bookings, skipped }) => {
+    onSuccess: ({ series, skipped }) => {
+      // No bookings come back to count: the series holds its dates as blocks.
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.byComplex(complexId) });
-      toast.success(t.bookings.series.createSuccess(bookings.length, skipped.length));
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courts.blockedSlotsBase(complexId) });
+      const weekday = t.bookings.series.weekdaysPlural[series.weekday] ?? '';
+      toast.success(t.bookings.series.createSuccess(weekday, series.start_time.slice(0, 5), skipped.length));
     },
     onError: (error: unknown) => {
       // The dates are listed in the modal itself, with the choice to skip them.

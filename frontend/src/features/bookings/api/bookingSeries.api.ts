@@ -4,12 +4,14 @@ import {
   bookingSeriesDetailResponseSchema,
   createBookingSeriesResponseSchema,
   endBookingSeriesResponseSchema,
+  skipSeriesDateResponseSchema,
 } from '../schemas/bookingSeries.schema';
 import type {
   BookingSeriesDetailResponse,
   CreateBookingSeriesRequest,
   CreateBookingSeriesResponse,
   EndBookingSeriesResponse,
+  SkipSeriesDateResponse,
 } from '@/shared/types/api.types';
 
 export const bookingSeriesApi = {
@@ -35,4 +37,10 @@ export const bookingSeriesApi = {
       .post(`complexes/${complexId}/booking-series/${seriesId}/end`, { json: { from_date: fromDate } })
       .json()
       .then(parseWith(endBookingSeriesResponseSchema, 'bookingSeriesApi.end')),
+
+  skip: (complexId: string, seriesId: string, date: string): Promise<SkipSeriesDateResponse> =>
+    api
+      .post(`complexes/${complexId}/booking-series/${seriesId}/skip`, { json: { date } })
+      .json()
+      .then(parseWith(skipSeriesDateResponseSchema, 'bookingSeriesApi.skip')),
 };

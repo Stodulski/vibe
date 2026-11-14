@@ -146,16 +146,18 @@ export const bookings = {
     paymentNote: 'Cada turno se cobra como una reserva normal.',
     conflictsTitle: 'Estas fechas ya están ocupadas:',
     conflictReasons: {
+      cancelled_by_owner: 'liberada',
       overlap: 'ocupada',
       blocked: 'bloqueada',
       closed_day: 'el complejo está cerrado',
       no_price: 'sin precio para ese horario',
       client_blocked: 'cliente bloqueado',
+      missed: 'no se pudo crear',
     },
     skipConflicts: 'Crear salteando estas fechas',
     conflictsBack: 'Volver',
-    createSuccess: (bookings: number, skipped: number) => {
-      const created = `Turno fijo creado: ${String(bookings)} ${bookings === 1 ? 'reserva' : 'reservas'}`;
+    createSuccess: (weekdayPlural: string, time: string, skipped: number) => {
+      const created = `Turno fijo creado: todos los ${weekdayPlural} a las ${time}`;
       if (skipped === 0) return created;
       return `${created} · ${String(skipped)} ${skipped === 1 ? 'fecha salteada' : 'fechas salteadas'}`;
     },
@@ -168,13 +170,26 @@ export const bookings = {
     endFromHere: 'Cancelar turno fijo',
     endConfirmTitle: 'Cancelar el turno fijo',
     endConfirmDescription:
-      'Se cancelan este turno y todos los siguientes que no tienen pago. Los que ya tienen un pago se mantienen.',
+      'Esta fecha y las siguientes quedan libres. Si alguna ya tiene su reserva sin pago, se cancela; si tiene un pago, se mantiene.',
     endConfirmLabel: 'Cancelar turno fijo',
     endSuccess: (cancelled: number, kept: number) => {
-      const ended = `Turno fijo cancelado: ${String(cancelled)} ${cancelled === 1 ? 'reserva cancelada' : 'reservas canceladas'}`;
-      if (kept === 0) return ended;
-      return `${ended} · ${String(kept)} ${kept === 1 ? 'paga se mantiene' : 'pagas se mantienen'}`;
+      const ended = 'Turno fijo cancelado';
+      const parts = [
+        ...(cancelled > 0
+          ? [`${String(cancelled)} ${cancelled === 1 ? 'reserva cancelada' : 'reservas canceladas'}`]
+          : []),
+        ...(kept > 0 ? [`${String(kept)} ${kept === 1 ? 'paga se mantiene' : 'pagas se mantienen'}`] : []),
+      ];
+      return [ended, ...parts].join(' · ');
     },
+    skipSuccess: (dayMonth: string) => `Fecha liberada: ${dayMonth}`,
+    skipError: 'Error al liberar la fecha',
+    // The blocked slot of a date no booking exists for yet.
+    blockLabel: (client: string) => `Bloqueo por turno fijo · ${client}`,
+    blockTitle: 'Bloqueo por turno fijo',
+    blockLabelCompact: 'Turno fijo',
+    blockDetailTitle: 'Turno fijo',
+    slotTaken: 'Ese horario es de un turno fijo. Cancelá esa fecha del turno fijo para usarlo.',
     endError: 'Error al cancelar el turno fijo',
   },
   paymentsLoadError: 'No pudimos cargar los pagos',

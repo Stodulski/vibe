@@ -66,6 +66,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           }}
           filteredBookings={state.bookings}
           blockedSlots={state.blockedSlots}
+          fixedBlocks={state.fixedBlocks}
           isPast={state.isPast}
           selectedDate={state.selectedDate}
           courts={state.courts}
@@ -74,6 +75,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           onCreateFromSlot={state.handleCreateFromSlot}
           onOpenCreate={state.handleOpenCreate}
           onSelectBlockedSlot={blockSlot.setSelectedSlot}
+          onSelectFixedBlock={blockSlot.setSelectedFixedBlock}
         />
       </div>
 

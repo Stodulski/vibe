@@ -45,7 +45,8 @@ const SERIES_BODY = {
   client_last_name: 'Perez',
 };
 
-const CREATED = { series: {}, bookings: [{}, {}, {}], skipped: [{}] };
+// 2099-01-02 is a Friday; the series holds its dates, so no bookings come back.
+const CREATED = { series: { weekday: 5, start_time: '10:00:00' }, bookings: [], skipped: [{}] };
 
 /** The form with a filled-in booking and the repeat switch on. */
 async function renderRepeatingForm() {
@@ -104,7 +105,7 @@ describe('useCreateBookingForm — repeat every week', () => {
     });
     expect(bookingSeriesApi.create).toHaveBeenCalledWith('c1', SERIES_BODY, expect.any(String));
     expect(bookingsApi.create).not.toHaveBeenCalled();
-    expect(toast.success).toHaveBeenCalledWith(ES_AR.bookings.series.createSuccess(3, 1));
+    expect(toast.success).toHaveBeenCalledWith(ES_AR.bookings.series.createSuccess('viernes', '10:00', 1));
   });
 });
 

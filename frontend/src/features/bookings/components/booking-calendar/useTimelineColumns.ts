@@ -1,11 +1,12 @@
 import { useMemo } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock } from '@/shared/types/api.types';
 
 export interface TimelineColumnData {
   courtId: string;
   courtName: string;
   bookings: Booking[];
   blocked: BlockedSlot[];
+  fixed: FixedBlock[];
 }
 
 /**
@@ -19,10 +20,12 @@ export function useTimelineColumns({
   activeCourts,
   bookings,
   blockedSlots,
+  fixedBlocks,
 }: {
   activeCourts: CourtWithPrices[];
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
+  fixedBlocks: FixedBlock[];
 }): TimelineColumnData[] {
   return useMemo(() => {
     const columns: TimelineColumnData[] = activeCourts.map((court) => ({
@@ -30,6 +33,7 @@ export function useTimelineColumns({
       courtName: court.name,
       bookings: bookings.filter((b) => b.court_id === court.id),
       blocked: blockedSlots.filter((s) => s.court_id === court.id),
+      fixed: fixedBlocks.filter((f) => f.court_id === court.id),
     }));
 
     const knownIds = new Set(activeCourts.map((c) => c.id));
@@ -45,9 +49,10 @@ export function useTimelineColumns({
         courtName: orphanBooking?.court_name ?? orphanBlocked?.court_name ?? courtId,
         bookings: bookings.filter((b) => b.court_id === courtId),
         blocked: blockedSlots.filter((s) => s.court_id === courtId),
+        fixed: fixedBlocks.filter((f) => f.court_id === courtId),
       });
     }
 
     return columns;
-  }, [activeCourts, bookings, blockedSlots]);
+  }, [activeCourts, bookings, blockedSlots, fixedBlocks]);
 }

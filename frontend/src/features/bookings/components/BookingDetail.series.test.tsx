@@ -35,7 +35,10 @@ async function renderDetail(booking: Booking) {
   const { bookingsApi } = await import('../api/bookings.api');
   const { bookingSeriesApi } = await import('../api/bookingSeries.api');
   vi.mocked(bookingsApi.getById).mockResolvedValue({ booking, payments: [] });
-  vi.mocked(bookingSeriesApi.get).mockResolvedValue({ series, upcoming: [] });
+  vi.mocked(bookingSeriesApi.get).mockResolvedValue({
+    series,
+    upcoming: [{ date: DATE, state: 'booked', booking_id: booking.id }],
+  });
   const onClose = vi.fn();
   renderWithProviders(
     <BookingDetail
@@ -106,8 +109,32 @@ describe('BookingDetail — fixed weekly bookings', () => {
       expect(bookingSeriesApi.end).toHaveBeenCalledWith('c1', 'ser1', DATE);
     });
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Turno fijo cancelado: 3 reservas canceladas · 1 paga se mantiene');
+      expect(toast.success).toHaveBeenCalledWith('Turno fijo cancelado · 3 reservas canceladas · 1 paga se mantiene');
     });
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('BookingDetail — cancelling a fixed weekly booking with nothing created ahead', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('reports a plain cancellation when no booking was created ahead', async () => {
+    const user = userEvent.setup();
+    const { bookingSeriesApi } = await renderDetail(makeBooking({ date: DATE, series_id: 'ser1' }));
+    vi.mocked(bookingSeriesApi.end).mockResolvedValue({
+      series: { ...series, status: 'ended' },
+      cancelled: [],
+      kept: [],
+    });
+
+    await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
+    await user.click(screen.getByRole('menuitem', { name: t.series.endFromHere }));
+    await user.click(screen.getByRole('button', { name: t.series.endConfirmLabel }));
+
+    await waitFor(() => {
+      expect(toast.success).toHaveBeenCalledWith('Turno fijo cancelado');
+    });
   });
 });

@@ -1,4 +1,5 @@
 import { BookingDetailModals, CreateBookingModal } from '@/features/bookings';
+import { FixedBlockDetail } from '../../components/FixedBlockDetail';
 import { BlockSlotSection } from './BlockSlotSection';
 import { ClientDrawerModals, useClientActions } from '@/features/clients';
 import type { useBookingsPage } from './useBookingsPage';
@@ -87,6 +88,15 @@ export function BookingsPageModals({ state, blockSlot, selectedComplexId }: Book
           blockSlot.deleteBlockedSlot.mutate(slotId, { onSuccess });
         }}
         isDeletingSlot={blockSlot.deleteBlockedSlot.isPending}
+      />
+      <FixedBlockDetail
+        open={!!blockSlot.selectedFixedBlock}
+        onClose={() => {
+          blockSlot.setSelectedFixedBlock(null);
+        }}
+        block={blockSlot.selectedFixedBlock}
+        courtName={state.courts.find((c) => c.id === blockSlot.selectedFixedBlock?.court_id)?.name ?? ''}
+        complexId={selectedComplexId}
       />
       <ClientDrawerModals detail={clientDrawer} complexId={selectedComplexId} />
     </>

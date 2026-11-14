@@ -2,11 +2,13 @@ import { HTTPError } from 'ky';
 import type { BookingSeriesConflict } from '@/shared/types/api.types';
 
 const REASONS = new Set<BookingSeriesConflict['reason']>([
+  'cancelled_by_owner',
   'overlap',
   'blocked',
   'closed_day',
   'no_price',
   'client_blocked',
+  'missed',
 ]);
 
 function isConflict(value: unknown): value is BookingSeriesConflict {

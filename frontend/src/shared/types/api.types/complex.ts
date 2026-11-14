@@ -32,3 +32,6 @@ export type UpdateComplexRequest = Body<'complexesUpdate'>;
 export type UpdateSchedulesRequest = Body<'complexesUpdateSchedules'>;
 
 export type BlockedSlot = Spec<'BlockedSlot'>;
+
+/** A date a fixed weekly booking holds that has no booking yet. `end_time` is earlier than `start_time` when the hours run past midnight. */
+export type FixedBlock = Spec<'FixedBlock'>;

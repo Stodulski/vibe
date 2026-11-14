@@ -116,7 +116,11 @@ export type CreateBookingSeriesRequest = Omit<Body<'bookingSeriesCreate'>, 'dura
 
 export type CreateBookingSeriesResponse = Omit<Ok<'bookingSeriesCreate'>, 'bookings'> & { bookings: Booking[] };
 
-export type BookingSeriesDetailResponse = Omit<Ok<'bookingSeriesGet'>, 'upcoming'> & { upcoming: Booking[] };
+export type BookingSeriesUpcoming = Spec<'BookingSeriesUpcoming'>;
+
+export type BookingSeriesDetailResponse = Ok<'bookingSeriesGet'>;
+
+export type SkipSeriesDateResponse = Ok<'bookingSeriesSkip'>;
 
 export type EndBookingSeriesResponse = Omit<Ok<'bookingSeriesEnd'>, 'cancelled' | 'kept'> & {
   cancelled: Booking[];

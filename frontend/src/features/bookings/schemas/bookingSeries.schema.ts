@@ -5,8 +5,10 @@ import type {
   BookingSeries,
   BookingSeriesConflict,
   BookingSeriesDetailResponse,
+  BookingSeriesUpcoming,
   CreateBookingSeriesResponse,
   EndBookingSeriesResponse,
+  SkipSeriesDateResponse,
 } from '@/shared/types/api.types';
 
 const bookingSeriesSchema = exact<BookingSeries>(
@@ -29,11 +31,27 @@ const bookingSeriesSchema = exact<BookingSeries>(
     .loose(),
 );
 
+const seriesReasonSchema = z.enum([
+  'cancelled_by_owner',
+  'overlap',
+  'blocked',
+  'closed_day',
+  'no_price',
+  'client_blocked',
+  'missed',
+]);
+
 const seriesConflictSchema = exact<BookingSeriesConflict>(
+  z.object({ date: z.string(), reason: seriesReasonSchema }).loose(),
+);
+
+const seriesUpcomingSchema = exact<BookingSeriesUpcoming>(
   z
     .object({
       date: z.string(),
-      reason: z.enum(['overlap', 'blocked', 'closed_day', 'no_price', 'client_blocked']),
+      state: z.enum(['pending', 'booked', 'exception']),
+      booking_id: z.string().optional(),
+      reason: seriesReasonSchema.optional(),
     })
     .loose(),
 );
@@ -52,10 +70,13 @@ export const bookingSeriesDetailResponseSchema = exact<BookingSeriesDetailRespon
   z
     .object({
       series: bookingSeriesSchema,
-      upcoming: z.array(bookingSchema),
-      skipped: z.array(seriesConflictSchema),
+      upcoming: z.array(seriesUpcomingSchema),
     })
     .loose(),
+);
+
+export const skipSeriesDateResponseSchema = exact<SkipSeriesDateResponse>(
+  z.object({ skipped: seriesConflictSchema }).loose(),
 );
 
 export const endBookingSeriesResponseSchema = exact<EndBookingSeriesResponse>(

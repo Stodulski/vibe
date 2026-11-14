@@ -16,6 +16,8 @@ export function useEndBookingSeries(complexId: string) {
     onSuccess: ({ cancelled, kept }) => {
       // Every booking query: lists, and the cancelled occurrences' own detail entries.
       void queryClient.invalidateQueries({ queryKey: queryKeys.bookings.all });
+      // The freed dates stop being blocks on the grid.
+      void queryClient.invalidateQueries({ queryKey: queryKeys.courts.blockedSlotsBase(complexId) });
       toast.success(t.bookings.series.endSuccess(cancelled.length, kept.length));
     },
     onError: (error: unknown) => {

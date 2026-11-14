@@ -8,6 +8,7 @@ import type {
   CourtPrice,
   CourtWithPrices,
   BlockedSlot,
+  FixedBlock,
 } from '@/shared/types/api.types';
 import { blockedSlotSchema } from './complex.schema';
 import { exact } from '@/shared/lib/apiParse';
@@ -122,8 +123,23 @@ export const blockedSlotEnvelopeSchema = z
   })
   .loose() satisfies z.ZodType<{ blocked_slot: BlockedSlot }>;
 
+const fixedBlockSchema = exact<FixedBlock>(
+  z
+    .object({
+      series_id: z.string(),
+      court_id: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      duration_minutes: z.number(),
+      client_name: z.string(),
+    })
+    .loose(),
+);
+
 export const blockedSlotsEnvelopeSchema = z
   .object({
     blocked_slots: z.array(blockedSlotSchema),
+    fixed_blocks: z.array(fixedBlockSchema),
   })
-  .loose() satisfies z.ZodType<{ blocked_slots: BlockedSlot[] }>;
+  .loose() satisfies z.ZodType<{ blocked_slots: BlockedSlot[]; fixed_blocks: FixedBlock[] }>;

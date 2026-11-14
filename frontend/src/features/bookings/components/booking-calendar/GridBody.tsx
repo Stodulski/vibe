@@ -4,9 +4,30 @@ import { GridHourLines } from './GridHourLines';
 import { NowLine } from './NowLine';
 import { CourtColumn } from './CourtColumn';
 import { GRID_HEIGHT_PX } from './gridLayout';
-import type { Booking, BlockedSlot } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 import type { TimelineColumnData } from './useTimelineColumns';
+
+interface GridBodyProps {
+  columns: TimelineColumnData[];
+  /**
+   * How wide each column is drawn, decided once by the grid from the space it
+   * has (`resolveColumnWidthPx`). Everything positioned by column index —
+   * this box's own width, and the duration menu's anchor — must use this same
+   * number or the menu opens over the wrong court.
+   */
+  columnWidth: number;
+  date: string;
+  bookings: Booking[];
+  blockedSlots: BlockedSlot[];
+  fixedBlocks: FixedBlock[];
+  slots: string[];
+  nowMin: number | null;
+  onSelectBooking: (booking: Booking) => void;
+  onCreateBooking: (prefill: CreateBookingPrefill) => void;
+  onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
+  onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+}
 
 /**
  * The plot area: gridlines, the now line, every court column at the width the
@@ -25,36 +46,19 @@ export function GridBody({
   date,
   bookings,
   blockedSlots,
+  fixedBlocks,
   slots,
   nowMin,
   onSelectBooking,
   onCreateBooking,
   onSelectBlockedSlot,
-}: {
-  columns: TimelineColumnData[];
-  /**
-   * How wide each column is drawn, decided once by the grid from the space it
-   * has (`resolveColumnWidthPx`). Everything positioned by column index —
-   * this box's own width, and the duration menu's anchor — must use this same
-   * number or the menu opens over the wrong court.
-   */
-  columnWidth: number;
-  date: string;
-  bookings: Booking[];
-  blockedSlots: BlockedSlot[];
-  slots: string[];
-  nowMin: number | null;
-  onSelectBooking: (booking: Booking) => void;
-  onCreateBooking: (prefill: CreateBookingPrefill) => void;
-  onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
-}) {
+  onSelectFixedBlock,
+}: GridBodyProps) {
   const { open, preview, setPreview, openOn, pick, close } = useSlotMenu(columns, date, onCreateBooking);
 
   return (
-    // The surface is the plot area alone — the hour gutter and the court names
-    // read as annotations of the grid, not part of its face. Width is pinned
-    // to the columns so the gridlines span all of them, not just the visible
-    // slice of the scroller.
+    // The plot area alone (the gutter and court names are annotations), pinned
+    // to the columns' width so the gridlines span all of them.
     <div
       className="border-border-subtle bg-bg-base relative flex border-y"
       style={{
@@ -74,12 +78,14 @@ export function GridBody({
           date={date}
           allBookings={bookings}
           allBlockedSlots={blockedSlots}
+          allFixedBlocks={fixedBlocks}
           slots={slots}
           onSelectBooking={onSelectBooking}
           onPickSlot={openOn}
           openSlot={open?.courtId === column.courtId ? open.slot : null}
           previewMin={preview}
           onSelectBlockedSlot={onSelectBlockedSlot}
+          onSelectFixedBlock={onSelectFixedBlock}
         />
       ))}
 

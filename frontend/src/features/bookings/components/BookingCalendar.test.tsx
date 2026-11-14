@@ -5,7 +5,7 @@ import { BookingCalendar } from './BookingCalendar';
 import { makeBooking } from '@/test/factories';
 import { venueInstant } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
-import type { Booking, CourtWithPrices, Schedule, BlockedSlot } from '@/shared/types/api.types';
+import type { Booking, CourtWithPrices, Schedule, BlockedSlot, FixedBlock } from '@/shared/types/api.types';
 
 const futureDate = '2027-03-20';
 
@@ -123,22 +123,22 @@ const mockBookings: Booking[] = [
   }),
 ];
 
+const defaultProps = {
+  bookings: mockBookings,
+  blockedSlots: [] as BlockedSlot[],
+  courts: mockCourts,
+  date: futureDate,
+  schedules: mockSchedules,
+  onSelectBooking: vi.fn(),
+  onCreateBooking: vi.fn(),
+  onSelectBlockedSlot: vi.fn(),
+};
+
+beforeEach(() => {
+  vi.clearAllMocks();
+});
+
 describe('BookingCalendar', () => {
-  const defaultProps = {
-    bookings: mockBookings,
-    blockedSlots: [] as BlockedSlot[],
-    courts: mockCourts,
-    date: futureDate,
-    schedules: mockSchedules,
-    onSelectBooking: vi.fn(),
-    onCreateBooking: vi.fn(),
-    onSelectBlockedSlot: vi.fn(),
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
   it('renders booking client name', () => {
     render(<BookingCalendar {...defaultProps} />);
     expect(screen.getByText('Juan Perez')).toBeInTheDocument();
@@ -179,5 +179,58 @@ describe('BookingCalendar', () => {
   it('renders empty state when no bookings', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} />);
     expect(screen.queryByText('Juan Perez')).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingCalendar — fixed weekly bookings without a booking yet', () => {
+  const fixedBlock: FixedBlock = {
+    series_id: 'ser1',
+    court_id: 'ct1',
+    date: futureDate,
+    start_time: '19:00',
+    end_time: '20:30',
+    duration_minutes: 90,
+    client_name: 'Ana Gomez',
+  };
+
+  it('draws the block labelled as a fixed weekly booking and hands it over on click', async () => {
+    const user = userEvent.setup();
+    const onSelectFixedBlock = vi.fn();
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        fixedBlocks={[fixedBlock]}
+        onSelectFixedBlock={onSelectFixedBlock}
+      />,
+    );
+
+    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
+    expect(block).toHaveTextContent('Bloqueo por turno fijo');
+    expect(block).toHaveTextContent('Ana Gomez');
+    await user.click(block);
+
+    expect(onSelectFixedBlock).toHaveBeenCalledWith(fixedBlock);
+  });
+
+  it('draws hours that run past midnight down to the end of the day instead of dropping them', () => {
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        fixedBlocks={[{ ...fixedBlock, start_time: '23:00', end_time: '00:30', duration_minutes: 90 }]}
+      />,
+    );
+
+    // 23:00 to the end of the day is 4% of the grid; a backwards range would not be drawn at all.
+    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
+    expect(block.style.top).toContain('95.83');
+  });
+
+  it('offers no free slot under the block', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} fixedBlocks={[fixedBlock]} />);
+
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear reserva · Cancha 1 · 18:00/ })).toBeInTheDocument();
   });
 });

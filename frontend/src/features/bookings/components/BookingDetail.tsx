@@ -221,6 +221,11 @@ function useSeriesDetail(
   };
 }
 
+/** Where the series ends when it is cancelled from this booking: its own date. */
+function seriesEndTarget(booking: Booking) {
+  return { seriesId: booking.series_id, fromDate: booking.date.slice(0, 10) };
+}
+
 export function BookingDetail({
   open,
   onClose,
@@ -240,8 +245,7 @@ export function BookingDetail({
 
   if (!b) return null;
 
-  const { canCancel, canMarkNoShow, canConfirmPayment, canMarkManualRefund, manualRefundAmount } =
-    getBookingDetailFlags(b, payments);
+  const flags = getBookingDetailFlags(b, payments);
 
   const clientRow = hideClient ? undefined : <ClientInfoRow booking={b} client={client} onOpenClient={onOpenClient} />;
 
@@ -267,19 +271,21 @@ export function BookingDetail({
             isDetailPending={isDetailPending}
             isDetailError={isDetailError}
             refetchDetail={refetchDetail}
-            canMarkNoShow={canMarkNoShow}
-            canCancel={canCancel}
+            {...flags}
             onNoShow={onNoShow}
             onCancel={onCancel}
-            canConfirmPayment={canConfirmPayment}
-            canMarkManualRefund={canMarkManualRefund}
-            manualRefundAmount={manualRefundAmount}
             onConfirmPayment={onConfirmPayment}
             onManualRefund={onManualRefund}
           />
         </SheetContent>
       </Sheet>
-      <EndSeriesDialog booking={b} complexId={complexId} open={endOpen} onClose={closeEnd} onEnded={onClose} />
+      <EndSeriesDialog
+        {...seriesEndTarget(b)}
+        complexId={complexId}
+        open={endOpen}
+        onClose={closeEnd}
+        onEnded={onClose}
+      />
     </>
   );
 }
