@@ -82,7 +82,7 @@ describe('CourtPicker — selection', () => {
     const onSelect = vi.fn<(entry: CourtAtTime) => void>();
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={onSelect} />);
 
-    await user.click(screen.getByRole('button', { name: /^Cancha 2\b/ }));
+    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
 
     expect(onSelect).toHaveBeenCalledTimes(1);
     expect(onSelect.mock.calls[0]?.[0].court.court_id).toBe('2');
@@ -91,8 +91,8 @@ describe('CourtPicker — selection', () => {
   it('marks only the selected court as pressed', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId="2" onSelect={vi.fn()} />);
 
-    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.getByRole('button', { name: /^Cancha 2\b/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: /^Cancha\s1\b/ })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: /^Cancha\s2\b/ })).toHaveAttribute('aria-pressed', 'true');
   });
 });
 

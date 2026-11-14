@@ -1,9 +1,10 @@
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
 import { BOOKING_MESSAGES } from '../../messages';
-import { formatPrice, toDisplayDate } from '@vibe/ui';
+import { toDisplayDate } from '@vibe/ui';
 import type { BookingSlotInfo } from './types';
-import { TicketCourt, TicketStub } from '../ticket/TicketParts';
+import { TicketCourt, TicketPriceRow, TicketStub } from '../ticket/TicketParts';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 
@@ -40,13 +41,10 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
             {`${slotInfo.startTime}\u00A0${t.publicBooking.timeRangeTo}\u00A0${slotInfo.endTime}`}
           </p>
         </div>
-        <TicketCourt name={slotInfo.courtName} tags={courtTags} description={slotInfo.courtDescription} />
+        <TicketCourt name={keepTogether(slotInfo.courtName)} tags={courtTags} description={slotInfo.courtDescription} />
       </div>
       <TicketStub />
-      <div className="flex justify-between gap-2 text-sm">
-        <span className="text-text-inverse">{t.publicBooking.courtPrice}</span>
-        <span className="text-text-inverse tabular-nums">{formatPrice(slotInfo.price)}</span>
-      </div>
+      <TicketPriceRow label={t.publicBooking.courtPrice} amount={slotInfo.price} />
     </>
   );
 }

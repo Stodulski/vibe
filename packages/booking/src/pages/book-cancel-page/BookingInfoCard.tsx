@@ -2,6 +2,7 @@ import { BOOKING_MESSAGES } from '../../messages';
 import { formatDateFull, formatHourRange } from '@vibe/ui';
 import { COURT_TYPE_LABELS } from '../../components/court-selector/constants';
 import type { CancelInfoResponse } from '../../api/types';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
@@ -61,7 +62,7 @@ export function BookingInfoCard({ cancelInfo, money }: BookingInfoCardProps) {
         <p className="text-text-primary text-3xl font-bold tabular-nums">{timeRange(booking)}</p>
       </div>
       <div className="space-y-1 py-3">
-        <p className="text-text-primary text-base font-semibold">{booking.court_name}</p>
+        <p className="text-text-primary text-base font-semibold whitespace-nowrap">{keepTogether(booking.court_name)}</p>
         {courtLines(booking).map((line) => (
           <p key={line} className="text-text-secondary text-sm">
             {line}

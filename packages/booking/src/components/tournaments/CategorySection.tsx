@@ -1,7 +1,7 @@
 import { Ban, Info, Lock, type LucideIcon } from 'lucide-react';
 import { Button, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import type { PublicTournamentDetail, PublicTournamentCategory } from '../../api/types';
+import type { PublicTournament, PublicTournamentDetail, PublicTournamentCategory } from '../../api/types';
 import { BracketView } from './BracketView';
 import { GroupSection } from './GroupSection';
 import { PairSignUpForm } from './PairSignUpForm';
@@ -28,7 +28,7 @@ function noticeFor(category: PublicTournamentCategory): { icon: LucideIcon; text
 
 interface SignUpAreaProps {
   slug: string;
-  tournamentId: string;
+  tournament: PublicTournament;
   category: PublicTournamentCategory;
   tournamentActive: boolean;
   formOpen: boolean;
@@ -38,7 +38,7 @@ interface SignUpAreaProps {
 }
 
 /** The open category offers its form on demand; any other says why it does not. */
-function SignUpArea({ slug, tournamentId, category, tournamentActive, formOpen, otherFormOpen, onFormOpenChange }: SignUpAreaProps) {
+function SignUpArea({ slug, tournament, category, tournamentActive, formOpen, otherFormOpen, onFormOpenChange }: SignUpAreaProps) {
   if (!tournamentActive) return null;
   if (!isOpenForSignUp(category)) {
     const notice = noticeFor(category);
@@ -59,7 +59,7 @@ function SignUpArea({ slug, tournamentId, category, tournamentActive, formOpen, 
           {t.signUp}
         </Button>
       )}
-      {formOpen && <PairSignUpForm slug={slug} tournamentId={tournamentId} category={category} />}
+      {formOpen && <PairSignUpForm slug={slug} tournament={tournament} category={category} />}
     </div>
   );
 }
@@ -132,7 +132,7 @@ export function CategorySection({ slug, detail, category, openFormId, onOpenForm
 
       <SignUpArea
         slug={slug}
-        tournamentId={tournament.id}
+        tournament={tournament}
         category={category}
         tournamentActive={tournament.status === 'active'}
         formOpen={openFormId === category.id}

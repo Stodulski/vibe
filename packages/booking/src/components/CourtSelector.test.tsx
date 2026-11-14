@@ -166,7 +166,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     expect(defaultProps.onSelect).not.toHaveBeenCalled();
     expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: /^Cancha 1\b/ }));
+    await user.click(screen.getByRole('button', { name: /^Cancha\s1\b/ }));
     expect(defaultProps.onContinue).toHaveBeenCalledWith(
       expect.objectContaining({ courtId: 'court-1', courtName: 'Cancha 1' }),
     );
@@ -182,8 +182,8 @@ describe('CourtSelector — the court is always asked after the hour', () => {
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
 
-    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Cancha 2\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha\s1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha\s2\b/ })).toBeInTheDocument();
     expect(defaultProps.onSelect).not.toHaveBeenCalled();
   });
 
@@ -200,7 +200,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
 
     // The card's accessible name carries type, sport and price after the
     // court's name, so match the name at the start.
-    await user.click(screen.getByRole('button', { name: /^Cancha 2\b/ }));
+    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
     expect(defaultProps.onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ courtId: 'court-2', courtType: 'outdoor' }),
     );
@@ -239,7 +239,7 @@ describe('CourtSelector — the question owns the screen', () => {
     // Hours and courts were both on screen once, and a visitor could tap a
     // second hour while a court from the first stayed highlighted.
     expect(screen.queryByRole('button', { name: /^08:00\b/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha\s1\b/ })).toBeInTheDocument();
     // And the page was told which hour is open, so it can show the crumb.
     expect(screen.getByRole('button', { name: 'Cambiar horario 08:00' })).toBeInTheDocument();
   });
@@ -256,7 +256,7 @@ describe('CourtSelector — the question owns the screen', () => {
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
     expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: /^Cancha 2\b/ }));
+    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
     // The selection travels with the call: the page has not stored it yet.
     expect(defaultProps.onContinue).toHaveBeenCalledWith(expect.objectContaining({ courtId: 'court-2' }));
   });
@@ -273,7 +273,7 @@ describe('CourtSelector — the question owns the screen', () => {
     await user.click(screen.getByRole('button', { name: /^Cambiar horario/ }));
 
     expect(screen.getByRole('button', { name: /^08:00\b/ })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Cancha 1\b/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^Cancha\s1\b/ })).not.toBeInTheDocument();
   });
 
   it('renders the hours instead of a stale court question when its hour is no longer on offer', () => {
@@ -308,7 +308,7 @@ describe('CourtSelector — U-06: an hour restored from the confirm page', () =>
     render(<CourtSelector {...defaultProps} pendingStartTime="08:00" onPendingStartTimeChange={vi.fn()} />);
 
     expect(screen.getByText(t.publicBooking.selectCourt)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^Cancha 1\b/ })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Cancha\s1\b/ })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^11:00\b/ })).not.toBeInTheDocument();
   });
 

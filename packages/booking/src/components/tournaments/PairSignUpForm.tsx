@@ -1,15 +1,17 @@
 import { useState } from 'react';
 import type { FieldErrors, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Lock } from 'lucide-react';
-import { LoadingButton, submitHandler, useAppForm } from '@vibe/ui';
+import { submitHandler, useAppForm } from '@vibe/ui';
 import { useTournamentSignUp } from '../../hooks/useTournamentSignUp';
-import { useBookingConfig } from '../../config';
 import { BOOKING_MESSAGES } from '../../messages';
 import { PersonFields } from '../signup/PersonFields';
-import { PriceSummary } from '../signup/PriceSummary';
+import { FormErrorAlert } from '../booking-form/FormErrorAlert';
+import { PrivacyNotice } from '../booking-form/PrivacyNotice';
+import { SubmitFooter } from '../booking-form/SubmitFooter';
+import { SignUpSummaryCard } from '../signup/SignUpSummaryCard';
+import { formatLabel, matchFormatLabel, sportLabel, tournamentDates } from './tournamentModel';
 import { pairSignUpSchema, type PairSignUpFormData } from '../../schemas/pair-signup.schema';
-import type { PublicTournamentCategory } from '../../api/types';
+import type { PublicTournament, PublicTournamentCategory } from '../../api/types';
 
 const t = BOOKING_MESSAGES;
 
@@ -45,26 +47,9 @@ function PlayersFieldsets({ register, control, errors, categoryId }: FormApi & {
   );
 }
 
-function PrivacyNotice() {
-  const { privacyUrl } = useBookingConfig();
-  return (
-    <p className="text-text-tertiary text-xs">
-      {t.tournaments.privacyNotice}{' '}
-      <a
-        href={privacyUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-primary-400 whitespace-nowrap underline underline-offset-2"
-      >
-        {t.publicBooking.privacyNoticeLink}
-      </a>
-    </p>
-  );
-}
-
 interface PairSignUpFormProps {
   slug: string;
-  tournamentId: string;
+  tournament: PublicTournament;
   category: PublicTournamentCategory;
 }
 
@@ -73,7 +58,7 @@ interface PairSignUpFormProps {
  * phone. Submitting holds the spot and hands the payer to the Mercado Pago
  * checkout for the whole entry.
  */
-export function PairSignUpForm({ slug, tournamentId, category }: PairSignUpFormProps) {
+export function PairSignUpForm({ slug, tournament, category }: PairSignUpFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const {
     register,
@@ -84,7 +69,7 @@ export function PairSignUpForm({ slug, tournamentId, category }: PairSignUpFormP
     resolver: zodResolver(pairSignUpSchema),
     defaultValues: { first_name: '', last_name: '', phone: '', email: '', partner: { first_name: '', last_name: '', phone: '' } },
   });
-  const signUp = useTournamentSignUp(slug, tournamentId, category.id, setErrorMessage);
+  const signUp = useTournamentSignUp(slug, tournament.id, category.id, setErrorMessage);
 
   function onSubmit(data: PairSignUpFormData) {
     setErrorMessage(null);
@@ -92,33 +77,27 @@ export function PairSignUpForm({ slug, tournamentId, category }: PairSignUpFormP
   }
 
   const serviceFee = category.service_fee ?? 0;
+  const total = category.total_price ?? category.price + serviceFee;
   return (
-    <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-5" noValidate>
-      <p className="text-text-secondary text-sm">{t.tournaments.formDescription}</p>
-      <PlayersFieldsets register={register} control={control} errors={errors} categoryId={category.id} />
-      <div className="space-y-4 pt-2">
-        <PriceSummary
-          label={t.tournaments.priceLabel}
-          price={category.price}
-          serviceFee={serviceFee}
-          total={category.total_price ?? category.price + serviceFee}
-        />
-        {errorMessage && (
-          <p role="alert" className="text-error-text text-sm">
-            {errorMessage}
-          </p>
-        )}
-        <LoadingButton
-          type="submit"
-          className="shadow-brand h-14 w-full rounded-xl text-base font-semibold"
-          loading={signUp.isPending}
-          loadingText={t.publicBooking.generatingPaymentLink}
-        >
-          <Lock className="size-4 shrink-0" aria-hidden="true" />
-          {t.publicBooking.paySecurely}
-        </LoadingButton>
-      </div>
-      <PrivacyNotice />
-    </form>
+    <div className="space-y-5">
+      <SignUpSummaryCard
+        ariaLabel={t.tournaments.summaryLabel}
+        dateLabel={tournamentDates(tournament)}
+        title={tournament.name}
+        tags={[category.name, formatLabel(category.format), sportLabel(tournament.sport)]}
+        details={[matchFormatLabel(category)]}
+        priceLabel={t.tournaments.priceLabel}
+        price={category.price}
+        serviceFee={serviceFee}
+        total={total}
+        feeNote={t.tournaments.feeNote}
+      />
+      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+        <PlayersFieldsets register={register} control={control} errors={errors} categoryId={category.id} />
+        <SubmitFooter isLoading={signUp.isPending} totalOnline={total} type="submit" />
+        <PrivacyNotice text={t.tournaments.privacyNotice} />
+      </form>
+      {errorMessage && <FormErrorAlert message={errorMessage} />}
+    </div>
   );
 }

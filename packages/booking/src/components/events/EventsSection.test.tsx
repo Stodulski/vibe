@@ -30,7 +30,7 @@ describe('EventsSection', () => {
 
     expect(await screen.findByRole('heading', { name: t.sectionTitle })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: EVENT.name })).toBeInTheDocument();
-    expect(screen.getByText('19:00 \u2013 22:00')).toBeInTheDocument();
+    expect(screen.getByText('19:00 a 22:00')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
     expect(screen.getByText('Quedan 7 lugares')).toBeInTheDocument();
     expect(screen.getByText(/\$10\.000/)).toHaveTextContent('$10.000 por persona + cargo de servicio');

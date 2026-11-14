@@ -3,6 +3,7 @@ import { formatPrice, formatDateFull, formatHourRange } from '@vibe/ui';
 import { COURT_TYPE_LABELS } from '../court-selector/constants';
 import type { BookingInfo } from './types';
 import { TicketCourt, TicketStub } from '../ticket/TicketParts';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
@@ -32,7 +33,7 @@ function TicketHeader({ bookingInfo }: BookingSummaryProps) {
           {formatHourRange(bookingInfo.startsAt, bookingInfo.endsAt, `\u00A0${t.publicBooking.timeRangeTo}\u00A0`)}
         </p>
       </div>
-      <TicketCourt name={bookingInfo.courtName} tags={courtLines(bookingInfo)} />
+      <TicketCourt name={keepTogether(bookingInfo.courtName)} tags={courtLines(bookingInfo)} />
     </div>
   );
 }

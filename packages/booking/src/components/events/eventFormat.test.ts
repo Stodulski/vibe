@@ -16,7 +16,7 @@ describe('eventHasStarted', () => {
 });
 
 describe('eventTimeRange', () => {
-  it('writes the range the way the owner panel does, with no suffix', () => {
-    expect(eventTimeRange({ start_time: '19:00', end_time: '21:00' })).toBe('19:00 \u2013 21:00');
+  it('writes the range with the word a and never a long dash', () => {
+    expect(eventTimeRange({ start_time: '19:00', end_time: '21:00' })).toBe('19:00\u00a0a\u00a021:00');
   });
 });

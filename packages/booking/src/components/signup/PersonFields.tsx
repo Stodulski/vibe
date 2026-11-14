@@ -69,6 +69,8 @@ function NameFields<T extends FieldValues>({ access, labels }: { access: FieldAc
           autoComplete={nested ? 'off' : 'given-name'}
           placeholder={t.placeholders.firstName}
           className="h-12 text-base"
+          aria-invalid={!!errorOf('first_name')}
+          aria-describedby={errorOf('first_name') ? `${id('first_name')}-error` : undefined}
           {...register(path('first_name'))}
         />
       </FormField>
@@ -87,6 +89,8 @@ function NameFields<T extends FieldValues>({ access, labels }: { access: FieldAc
           autoComplete={nested ? 'off' : 'family-name'}
           placeholder={t.placeholders.lastName}
           className="h-12 text-base"
+          aria-invalid={!!errorOf('last_name')}
+          aria-describedby={errorOf('last_name') ? `${id('last_name')}-error` : undefined}
           {...register(path('last_name'))}
         />
       </FormField>
@@ -105,7 +109,7 @@ function PhoneField<T extends FieldValues>({ access, labels }: { access: FieldAc
         </>
       }
       htmlFor={id('phone')}
-      {...(labels.phoneHelp ? { helpText: <span className="text-xs">{labels.phoneHelp}</span> } : {})}
+      {...(labels.phoneHelp ? { helpText: labels.phoneHelp } : {})}
       error={errorOf('phone')}
     >
       <Controller
@@ -120,6 +124,7 @@ function PhoneField<T extends FieldValues>({ access, labels }: { access: FieldAc
             placeholder="11 2345 6789"
             inputClassName="h-12 text-base"
             aria-invalid={!!errorOf('phone')}
+            aria-describedby={errorOf('phone') ? `${id('phone')}-error` : undefined}
           />
         )}
       />
@@ -147,6 +152,8 @@ function EmailField<T extends FieldValues>({ access }: { access: FieldAccess<T> 
         autoComplete="email"
         placeholder={t.publicBooking.emailPlaceholder}
         className="h-12 text-base"
+        aria-invalid={!!errorOf('email')}
+        aria-describedby={errorOf('email') ? `${id('email')}-error` : undefined}
         {...register(path('email'))}
       />
     </FormField>

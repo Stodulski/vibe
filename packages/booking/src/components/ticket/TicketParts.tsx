@@ -1,3 +1,5 @@
+import { formatPrice } from '@vibe/ui';
+
 /**
  * Pieces shared by the two green tickets, the summary before paying and the
  * confirmed booking, so both read as the same ticket.
@@ -26,11 +28,14 @@ export function TicketStub() {
 }
 
 interface TicketCourtProps {
+  /** The court's name (callers keep it together with `keepTogether`) or, on an entry's ticket, what it is called. */
   name: string;
   /** Sport and court type, shown as chips in one row. */
   tags: string[];
   /** The owner's free text, on its own line below the chips. */
   description?: string | null | undefined;
+  /** The ticket's own heading on a page that has no other: the name is then the page's `h1`. */
+  as?: 'p' | 'h1';
 }
 
 /**
@@ -38,10 +43,10 @@ interface TicketCourtProps {
  * owner's description on its own line, since it is free text of any length.
  * Whatever the data lacks is not rendered.
  */
-export function TicketCourt({ name, tags, description }: TicketCourtProps) {
+export function TicketCourt({ name, tags, description, as: Name = 'p' }: TicketCourtProps) {
   return (
     <div>
-      <p className="text-text-inverse text-base font-semibold">{name}</p>
+      <Name className="text-text-inverse text-base font-semibold">{name}</Name>
       {tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1.5">
           {tags.map((tag) => (
@@ -55,6 +60,16 @@ export function TicketCourt({ name, tags, description }: TicketCourtProps) {
         </div>
       )}
       {description && <p className="text-text-inverse mt-2 text-sm">{description}</p>}
+    </div>
+  );
+}
+
+/** One money row of the ticket: what it is and what it costs, in centavos. */
+export function TicketPriceRow({ label, amount }: { label: string; amount: number }) {
+  return (
+    <div className="flex justify-between gap-2 text-sm">
+      <span className="text-text-inverse">{label}</span>
+      <span className="text-text-inverse tabular-nums">{formatPrice(amount)}</span>
     </div>
   );
 }

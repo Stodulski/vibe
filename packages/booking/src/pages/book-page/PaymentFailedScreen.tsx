@@ -5,6 +5,7 @@ import { publicComplexPath } from '../../lib/publicPaths';
 import { BOOKING_MESSAGES } from '../../messages';
 import { readStoredBookingInfo } from '../../lib/storedBookingInfo';
 import { whatsappChatHref } from '../../lib/whatsapp';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 
@@ -45,7 +46,7 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
           <p className="text-text-tertiary text-xs font-semibold tracking-wide uppercase">
             {t.publicBooking.paymentFailedSlotLabel}
           </p>
-          <p className="text-text-primary mt-2 text-sm font-semibold">{booking.courtName}</p>
+          <p className="text-text-primary mt-2 text-sm font-semibold whitespace-nowrap">{keepTogether(booking.courtName)}</p>
           <p className="text-text-secondary mt-0.5 text-sm">
             {formatDateFull(booking.date)} · {formatHourRange(booking.startsAt, booking.endsAt, ' a ')}
           </p>

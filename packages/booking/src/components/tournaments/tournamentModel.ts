@@ -1,4 +1,5 @@
 import { formatDateFull } from '@vibe/ui';
+import { keepTogether } from '../../lib/keepTogether';
 import { BOOKING_MESSAGES } from '../../messages';
 import type {
   PublicTournament,
@@ -229,7 +230,7 @@ export function tournamentDates(tournament: Pick<PublicTournament, 'start_date' 
 
 /** "Cancha 1 · sábado 12 de diciembre · 10:00": one way to write when and where a match is played. The court never breaks. */
 export function scheduleLabel(schedule: Pick<PublicTournamentSchedule, 'court_name' | 'date' | 'start_time'>): string {
-  const court = schedule.court_name.replace(/ /g, '\u00a0');
+  const court = keepTogether(schedule.court_name);
   return `${court} \u00b7 ${formatDateFull(schedule.date)} \u00b7 ${schedule.start_time}`;
 }
 

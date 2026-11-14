@@ -7,13 +7,15 @@ const t = BOOKING_MESSAGES;
 interface PriceBreakdownProps {
   depositPercentage: number;
   pricing: BookingPricing;
+  /** The line under the service fee. A court booking says it is not deducted from the court price. */
+  feeNote?: string;
 }
 
 // The money rows, one band each with a hairline between them, continuing the
 // bands SlotHeaderRow opened above: the deposit, the service fee with the
 // note that it is not deducted from the court price, what is paid now in
 // bold, and what is still owed at the venue.
-export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownProps) {
+export function PriceBreakdown({ depositPercentage, pricing, feeNote = t.serviceFee.notDeductedFromCourtPrice }: PriceBreakdownProps) {
   const { hasDeposit, mpAmount, serviceFee, totalOnline, remainingAmount } = pricing;
 
   return (
@@ -31,7 +33,7 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
           <dt className="text-text-inverse">{t.serviceFee.label}</dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(serviceFee)}</dd>
         </div>
-        <p className="text-text-inverse mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
+        <p className="text-text-inverse mt-1 text-xs">{feeNote}</p>
       </div>
       <div className="bg-text-inverse/10 flex items-center justify-between gap-2 rounded-2xl px-4 py-3.5">
         <dt className="text-text-inverse font-semibold">{t.publicBooking.totalOnline}</dt>

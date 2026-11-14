@@ -1,6 +1,7 @@
 import { Button } from '@vibe/ui';
 import { formatDateFull, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
+import { keepTogether } from '../../lib/keepTogether';
 import { publicEventPath } from '../../lib/publicPaths';
 import type { PublicOpenPlayEvent } from '../../api/types';
 import { eventHasStarted, eventTimeRange, isOpenForSignUp, spotsLeftLabel, sportLabel } from './eventFormat';
@@ -43,7 +44,7 @@ export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardP
       {event.court_names.length > 0 && (
         <p className="text-text-secondary text-sm">
           <span className="text-text-tertiary">{t.courtsLabel}: </span>
-          {event.court_names.join(', ')}
+          {event.court_names.map(keepTogether).join(', ')}
         </p>
       )}
 

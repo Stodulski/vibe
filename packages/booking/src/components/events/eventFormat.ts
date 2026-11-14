@@ -2,15 +2,16 @@ import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicOpenPlayEvent } from '../../api/types';
 
 const t = BOOKING_MESSAGES.events;
+const RANGE_TO = BOOKING_MESSAGES.publicBooking.timeRangeTo;
 const SPORT_LABELS: Record<string, string> = BOOKING_MESSAGES.courts.sportTypes;
 
 export function sportLabel(sport: string): string {
   return SPORT_LABELS[sport] ?? sport;
 }
 
-/** "19:00 \u2013 22:00", as the owner panel writes it. The end is read as the next day by the server when it is not later than the start. */
+/** "19:00 a 22:00", the way a booking writes its hours (never a long dash). The end is read as the next day by the server when it is not later than the start. */
 export function eventTimeRange(event: Pick<PublicOpenPlayEvent, 'start_time' | 'end_time'>): string {
-  return `${event.start_time} \u2013 ${event.end_time}`;
+  return `${event.start_time}\u00A0${RANGE_TO}\u00A0${event.end_time}`;
 }
 
 export function endsNextDay(event: Pick<PublicOpenPlayEvent, 'start_time' | 'end_time'>): boolean {

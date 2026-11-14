@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/msw/server';
@@ -265,5 +265,58 @@ describe('EventPage checkout return, after the person acts', () => {
     expect(await screen.findByRole('button', { name: t.publicBooking.paySecurely })).toBeInTheDocument();
     expect(cancelBody).toEqual({ token: 'tok-held' });
     expect(window.location.search).toBe('');
+  });
+});
+
+describe('EventPage checkout parity with a booking', () => {
+  it('shows the same green ticket as a booking: venue, day, hours, courts, price rows and the cancellation window', async () => {
+    serveEvent();
+    open();
+
+    const ticket = await screen.findByRole('region', { name: t.events.summaryLabel });
+    expect(within(ticket).getByRole('heading', { level: 1, name: EVENT.name })).toBeInTheDocument();
+    expect(within(ticket).getByText('Club Norte')).toBeInTheDocument();
+    expect(within(ticket).getByText('19:00 a 22:00')).toBeInTheDocument();
+    expect(within(ticket).getByText(/Cancha 1, Cancha 2/)).toBeInTheDocument();
+    expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
+    expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();
+    expect(within(ticket).getByText(/24h/)).toBeInTheDocument();
+  });
+
+  it('has no title or intro above the fields, the way the booking form has none', async () => {
+    serveEvent();
+    open();
+    await screen.findByRole('region', { name: t.events.summaryLabel });
+    expect(screen.queryByText(/Cada persona se inscribe por separado/)).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Tus datos' })).not.toBeInTheDocument();
+  });
+
+  it('asks the phone the way a booking does, with the same helper text', async () => {
+    serveEvent();
+    open();
+    await screen.findByRole('region', { name: t.events.summaryLabel });
+    expect(screen.getByText(t.publicBooking.phoneHelper)).toBeInTheDocument();
+  });
+
+  it('restates the total beside the pay button, as a booking does', async () => {
+    serveEvent();
+    open();
+    await screen.findByRole('region', { name: t.events.summaryLabel });
+    expect(screen.getAllByText(t.publicBooking.totalOnline)).toHaveLength(2);
+  });
+
+  it('shows a refused sign-up in the same alert box a booking uses', async () => {
+    serveEvent();
+    server.use(
+      http.post('*/public/complexes/:slug/events/:id/registrations', () => new HttpResponse(null, { status: 409 })),
+    );
+    open();
+    const user = userEvent.setup();
+    await user.type(await screen.findByLabelText(/^Nombre/), 'Ana');
+    await user.type(screen.getByLabelText(/^Apellido/), 'Pérez');
+    await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
+    await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.className).toContain('bg-error-bg');
   });
 });

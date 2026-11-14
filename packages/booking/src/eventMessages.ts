@@ -19,9 +19,9 @@ export const EVENT_MESSAGES = {
   nextDayNote: 'Termina al día siguiente.',
   shareAction: 'Compartir evento',
   shareTextPrefix: 'Sumate a',
-  formTitle: 'Tus datos',
   privacyNotice: 'Tus datos los gestiona el complejo para tu inscripción. Vibe los procesa por su cuenta.',
-  formDescription: 'Cada persona se inscribe por separado. Te guardamos el lugar mientras pagás.',
+  summaryLabel: 'Resumen de la inscripción',
+  feeNote: 'No se descuenta del precio del lugar.',
   priceLabel: 'Lugar',
   signUpConflict:
     'No pudimos guardar tu lugar. Puede que el evento esté completo, que la inscripción esté cerrada o que este teléfono ya tenga un lugar.',
