@@ -1,6 +1,6 @@
 import { addMinutes } from '@/shared/lib/time';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDayMonth, formatDayMonthYear, weekdayOf } from './seriesDates';
+import { formatDayMonthYear, weekdayOf } from './seriesDates';
 
 const t = ES_AR;
 
@@ -21,23 +21,32 @@ function lastOfWeeks(date: string, weeks: number): string {
   return last.toISOString().slice(0, 10);
 }
 
+/** One fact of the summary, label and value. */
+interface SummaryRow {
+  label: string;
+  value: string;
+}
+
 /**
- * The one line that says what a weekly booking will do, for the step where the
- * owner confirms it: "Todos los lunes de 18:00 a 19:30 en Cancha 1, desde el
- * 16/11", plus "hasta el …" once it has an end. Each "el" and its date are one
- * unbreakable unit, and both dates carry the year when the series crosses one.
+ * What a weekly booking will do, one fact per row for the step where the owner
+ * confirms it: the weekday it repeats on, its hours, its court, its first date
+ * and its last one (or that it has none). Dates carry the year so a series that
+ * crosses into the next one reads unambiguously.
  */
-export function seriesSummary({ date, startTime, durationMinutes, courtName, end }: SeriesSummaryInput): string {
+export function seriesSummaryRows({
+  date,
+  startTime,
+  durationMinutes,
+  courtName,
+  end,
+}: SeriesSummaryInput): SummaryRow[] {
+  const s = t.bookings.series;
   const until = end.ends_on ?? (end.weeks ? lastOfWeeks(date, end.weeks) : undefined);
-  // The year only when the series reaches into another one, and then on both ends.
-  const crossesYear = !!until && until.slice(0, 4) !== date.slice(0, 4);
-  const day = crossesYear ? formatDayMonthYear : formatDayMonth;
-  return t.bookings.series.summary(
-    t.bookings.series.weekdaysPlural[weekdayOf(date)] ?? '',
-    startTime,
-    addMinutes(startTime, durationMinutes),
-    courtName,
-    day(date),
-    until ? day(until) : undefined,
-  );
+  return [
+    { label: s.summaryRepeats, value: s.everyWeekday(s.weekdaysPlural[weekdayOf(date)] ?? '') },
+    { label: s.summaryHours, value: s.hoursRange(startTime, addMinutes(startTime, durationMinutes)) },
+    { label: s.summaryCourt, value: courtName },
+    { label: s.summarySince, value: formatDayMonthYear(date) },
+    { label: s.summaryUntil, value: until ? formatDayMonthYear(until) : s.endNever },
+  ];
 }

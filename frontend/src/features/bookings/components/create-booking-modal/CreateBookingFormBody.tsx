@@ -4,7 +4,8 @@ import { PaymentAndNotesFields } from './PaymentAndNotesFields';
 import { PaymentOptionsSection } from './PaymentOptionsSection';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { seriesSummary } from '../../lib/seriesSummary';
+import { seriesSummaryRows } from '../../lib/seriesSummary';
+import { InfoRow } from '@/shared/components/common/InfoRow';
 import type { useCreateBookingForm } from './useCreateBookingForm';
 
 const t = ES_AR;
@@ -44,16 +45,20 @@ interface CreateBookingFormBodyProps {
 function PaymentOptionsOrSeriesNote({ form }: { form: ReturnType<typeof useCreateBookingForm> }) {
   if (form.series.repeat) {
     return (
-      <div className="space-y-1">
-        <p className="text-text-primary text-sm font-medium">
-          {seriesSummary({
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {seriesSummaryRows({
             date: form.date,
             startTime: form.startTime,
             durationMinutes: form.durationMinutes,
             courtName: form.courtName,
             end: form.series.toEnd(),
-          })}
-        </p>
+          }).map((row) => (
+            <InfoRow key={row.label} label={row.label}>
+              {row.value}
+            </InfoRow>
+          ))}
+        </div>
         <p className="text-text-tertiary text-sm">{t.bookings.series.paymentNote}</p>
       </div>
     );

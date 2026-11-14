@@ -36,7 +36,9 @@ describe('CreateBookingFormBody — last step', () => {
   it('a weekly booking says it repeats and is created as a turno fijo', async () => {
     renderWithProviders(<LastStep repeat />);
 
-    expect(await screen.findByText('Todos los lunes de 18:00 a 19:30 en Cancha 1, desde el 05/01')).toBeInTheDocument();
+    expect(await screen.findByText('Todos los lunes')).toBeInTheDocument();
+    expect(screen.getByText('18:00 a 19:30')).toBeInTheDocument();
+    expect(screen.getByText('Sin fecha de fin')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.series.createLabel })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.create })).not.toBeInTheDocument();
   });

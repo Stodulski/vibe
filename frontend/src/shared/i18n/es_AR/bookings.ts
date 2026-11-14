@@ -181,9 +181,14 @@ export const bookings = {
     createError: 'Error al crear el turno fijo',
     // The last step's button when the booking repeats every week.
     createLabel: 'Crear turno fijo',
-    // "Todos los lunes de 18:00 a 19:30 en Cancha 1, desde el 16/11" (+ " hasta el 30/05").
-    summary: (weekdayPlural: string, from: string, to: string, court: string, since: string, until?: string) =>
-      `Todos los ${weekdayPlural} de ${from} a ${to} en ${court}, desde\u00a0el\u00a0${since}${until ? ` hasta\u00a0el\u00a0${until}` : ''}`,
+    // The repeat summary on the last step, one fact per row.
+    summaryRepeats: 'Repite',
+    summaryHours: 'Horario',
+    summaryCourt: 'Cancha',
+    summarySince: 'Desde',
+    summaryUntil: 'Hasta',
+    everyWeekday: (weekdayPlural: string) => `Todos los ${weekdayPlural}`,
+    hoursRange: (from: string, to: string) => `${from} a ${to}`,
     // Indexed by weekday, 0 = Sunday, as the API sends it. Plural and lower
     // case because it follows "todos los".
     weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
