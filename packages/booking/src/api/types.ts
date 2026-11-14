@@ -353,3 +353,5 @@ export interface PublicCancelBookingResponse {
   refunded: boolean;
   refund: RefundEnvelope;
 }
+
+export * from './types.events';
