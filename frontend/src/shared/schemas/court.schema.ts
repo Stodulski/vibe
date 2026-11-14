@@ -164,6 +164,8 @@ const matchBlockSchema = exact<MatchBlock>(
       end_time: z.string(),
       duration_minutes: z.number(),
       name: z.string(),
+      pair1: z.string().nullable(),
+      pair2: z.string().nullable(),
     })
     .loose(),
 );

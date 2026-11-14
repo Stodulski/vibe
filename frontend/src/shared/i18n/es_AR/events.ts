@@ -19,6 +19,8 @@ export const events = {
   // The grid bar, under the hours: "Canchas libres · {nombre}".
   blockLabel: (name: string) => `Canchas libres · ${name}`,
   blockLabelCompact: 'Canchas libres',
+  // The grid bar of a tournament match whose pairs are known: "{categoría} · {pareja} vs {pareja}".
+  matchBlockLine: (category: string, pair1: string, pair2: string) => `${category} · ${pair1} vs ${pair2}`,
 
   // Create form
   form: {

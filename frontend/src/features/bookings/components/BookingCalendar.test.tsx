@@ -312,9 +312,11 @@ describe('BookingCalendar — tournament matches', () => {
     end_time: '20:30',
     duration_minutes: 90,
     name: 'Copa Vibe · 6ta',
+    pair1: 'Pérez / Gómez',
+    pair2: 'Díaz / Ruiz',
   };
 
-  it('draws the match like a booking, hours first and "Torneo · {nombre}" under them, and hands it over on click', async () => {
+  it('draws the match like a booking, hours first and "{categoría} · {pareja} vs {pareja}" under them, and hands it over on click', async () => {
     const user = userEvent.setup();
     const onSelectEventBlock = vi.fn();
     render(
@@ -328,10 +330,19 @@ describe('BookingCalendar — tournament matches', () => {
 
     const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
     const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
-    expect(lines).toEqual(['19:00 – 20:30', 'Torneo · Copa Vibe · 6ta']);
+    expect(lines).toEqual(['19:00 – 20:30', '6ta · Pérez / Gómez vs Díaz / Ruiz']);
+    expect(block).toHaveAccessibleName(/Torneo · Copa Vibe · 6ta · Pérez \/ Gómez vs Díaz \/ Ruiz/);
     await user.click(block);
 
     expect(onSelectEventBlock).toHaveBeenCalledWith(matchBlock);
+  });
+
+  it('falls back to "Torneo · {nombre}" while a pair is not known yet', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...matchBlock, pair2: null }]} />);
+
+    const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 – 20:30', 'Torneo · Copa Vibe · 6ta']);
   });
 
   it('offers no free slot under the match', () => {

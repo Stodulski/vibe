@@ -63,7 +63,15 @@ describe('BookingCalendar — hours that started the evening before', () => {
         bookings={[]}
         eventBlocks={[
           { event_id: 'ev1', court_id: 'ct1', name: 'Americano', ...tail },
-          { match_id: 'm1', tournament_id: 't1', court_id: 'ct1', name: 'Copa Vibe · 6ta', ...tail },
+          {
+            match_id: 'm1',
+            tournament_id: 't1',
+            court_id: 'ct1',
+            name: 'Copa Vibe · 6ta',
+            pair1: null,
+            pair2: null,
+            ...tail,
+          },
         ]}
       />,
     );
@@ -110,7 +118,7 @@ describe('BookingCalendar — what each kind of hours is drawn in', () => {
         fixedBlocks={[{ ...hour('12:00', '13:00'), series_id: 's', client_name: 'Ana' }]}
         eventBlocks={[
           { ...hour('14:00', '15:00'), event_id: 'e', name: 'Libres' },
-          { ...hour('16:00', '17:00'), match_id: 'm', tournament_id: 't', name: 'Copa' },
+          { ...hour('16:00', '17:00'), match_id: 'm', tournament_id: 't', name: 'Copa', pair1: null, pair2: null },
         ]}
       />,
     );

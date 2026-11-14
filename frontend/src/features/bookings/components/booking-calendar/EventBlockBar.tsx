@@ -14,13 +14,40 @@ const t = ES_AR;
 // this tall, the short label alone below it.
 const TWO_LINE_MIN_HEIGHT_PX = 56;
 
+/** The category is what follows the last " · " of a match block's name. */
+function categoryOf(name: string): string {
+  const at = name.lastIndexOf(' · ');
+  return at === -1 ? name : name.slice(at + 3);
+}
+
+/**
+ * The second line and the accessible name of a block: for a match whose pairs are
+ * known "{categoría} · {pareja} vs {pareja}" (the name keeps the tournament too),
+ * otherwise "Torneo · {nombre}" or "Canchas libres · {nombre}".
+ */
+function blockLabels(block: CourtEventBlock): { line: string; accessible: string } {
+  if (!('match_id' in block)) {
+    const label = t.events.blockLabel(block.name);
+    return { line: label, accessible: label };
+  }
+  if (block.pair1 === null || block.pair2 === null) {
+    const label = t.tournaments.blockLabel(block.name);
+    return { line: label, accessible: label };
+  }
+  return {
+    line: t.events.matchBlockLine(categoryOf(block.name), block.pair1, block.pair2),
+    accessible: t.tournaments.blockLabel(t.events.matchBlockLine(block.name, block.pair1, block.pair2)),
+  };
+}
+
 /**
  * The hours an open-play event or a tournament match holds on a court. Drawn
  * like a fixed block's bar, dashed, in a colour of its own per kind (blue for
  * an event, teal for a match) with a calendar icon in place of the repeat one.
  * Laid out like a booking's block: the hours on the first line, then "Canchas
- * libres · {nombre}" (or "Torneo · {nombre}") truncated on one line. On the day after it started it draws the tail of hours that ran
- * past midnight.
+ * libres · {nombre}", or "{categoría} · {pareja} vs {pareja}" for a match whose pairs are known
+ * (else "Torneo · {nombre}"), truncated on one line. On the day after it started it draws the
+ * tail of hours that ran past midnight.
  */
 export function EventBlockBar({
   block,
@@ -45,9 +72,9 @@ export function EventBlockBar({
   const heightPx = (visibleMin / SLOT_MINUTES) * SLOT_HEIGHT_PX;
   const tall = heightPx >= TWO_LINE_MIN_HEIGHT_PX;
   const isMatch = 'match_id' in block;
-  const label = isMatch ? t.tournaments.blockLabel(block.name) : t.events.blockLabel(block.name);
   const compactLabel = isMatch ? t.tournaments.blockLabelCompact : t.events.blockLabelCompact;
-  const ariaLabel = `${courtName}, ${formatTime(block.start_time)}–${formatTime(block.end_time)}, ${label}`;
+  const { line, accessible } = blockLabels(block);
+  const ariaLabel = `${courtName}, ${formatTime(block.start_time)}–${formatTime(block.end_time)}, ${accessible}`;
 
   return (
     <button
@@ -72,7 +99,7 @@ export function EventBlockBar({
           <span className="flex min-w-0 items-center gap-1">
             <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />
             <span data-line className="text-text-primary truncate text-xs font-medium">
-              {label}
+              {line}
             </span>
           </span>
         </>

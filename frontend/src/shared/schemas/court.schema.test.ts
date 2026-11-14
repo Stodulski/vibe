@@ -62,7 +62,6 @@ describe('courtsApi response envelopes', () => {
     });
     expect(result.success).toBe(true);
   });
-
 });
 
 describe('courtsApi blocked-slots held hours', () => {
@@ -95,6 +94,8 @@ describe('courtsApi blocked-slots held hours', () => {
       end_time: '20:30',
       duration_minutes: 90,
       name: 'Copa Vibe · 6ta',
+      pair1: 'Pérez / Gómez',
+      pair2: null,
     };
     const result = blockedSlotsEnvelopeSchema.safeParse({
       blocked_slots: [],

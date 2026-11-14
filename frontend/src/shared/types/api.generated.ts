@@ -3289,7 +3289,7 @@ export interface components {
             duration_minutes: number;
             name: string;
         };
-        /** @description Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+        /** @description Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null while no pair fills that slot of the match. */
         MatchBlock: {
             /** Format: uuid */
             match_id: string;
@@ -3306,6 +3306,8 @@ export interface components {
             end_time: string;
             duration_minutes: number;
             name: string;
+            pair1: string | null;
+            pair2: string | null;
         };
         Tournament: {
             /** Format: uuid */
