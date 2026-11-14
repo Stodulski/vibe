@@ -377,3 +377,16 @@ func TestSchedulingUsesTheCategoryDuration(t *testing.T) {
 		t.Errorf("scheduled minutes = %+v, want 75 then 120", got)
 	}
 }
+
+// S6d: the owner can send only the winner; it reaches the store as such.
+func TestAWinnerOnlyResultReachesTheStore(t *testing.T) {
+	f := newFixture(t)
+	f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New()}}
+	mid, tid := f.store.detail.Matches[0].ID, f.store.detail.Tournament.ID
+	if _, err := f.svc.SetResult(t.Context(), f.complex, f.actor(), tid, mid, ResultInput{Winner: 2}); err != nil {
+		t.Fatal(err)
+	}
+	if last := f.store.results[len(f.store.results)-1]; last.Winner != 2 || last.MatchID != mid || len(last.Sets) != 0 {
+		t.Errorf("winner input = %+v", last)
+	}
+}

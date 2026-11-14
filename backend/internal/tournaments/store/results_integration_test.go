@@ -3,6 +3,7 @@
 package store_test
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
@@ -281,5 +282,111 @@ func TestAMatchAgainstAWithdrawnPairIsAWalkoverWhenTheOpponentArrives(t *testing
 	final := matchesOf(f.detail(t, tr), tournamentstore.StageBracket, 2)[0]
 	if final.Status != tournamentstore.MatchCompleted || final.WalkoverLoser == 0 {
 		t.Fatalf("the final must be a walkover against the withdrawn seed 1: %+v", final)
+	}
+}
+
+// S6d: the owner can load only who won, and the winner advances like with a
+// score. The match keeps no sets.
+func TestAWinnerOnlyResultAdvancesTheWinner(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	f.pairs(t, cat, 4)
+	f.generate(t, cat, pairIDs(f.detail(t, tr)))
+	d := f.detail(t, tr)
+	first := matchesOf(d, tournamentstore.StageBracket, 1)
+	final := matchesOf(d, tournamentstore.StageBracket, 2)[0]
+
+	got, err := f.Stores.Tournaments.SetResult(f.ctx, tournamentstore.ResultInput{MatchID: first[0].ID, Winner: 2})
+	if err != nil {
+		t.Fatalf("winner only: %v", err)
+	}
+	if got.Status != tournamentstore.MatchCompleted || *got.WinnerID != *first[0].Pair2ID || len(got.Sets) != 0 || got.WalkoverLoser != 0 {
+		t.Fatalf("result = %+v", got)
+	}
+	if next := matchByID(f.detail(t, tr), final.ID); next.Pair1ID == nil || *next.Pair1ID != *first[0].Pair2ID {
+		t.Fatalf("the winner must reach the final: %+v", next)
+	}
+	// A winner-only result is corrected like any other, by a score too.
+	if _, err := f.Stores.Tournaments.SetResult(f.ctx, tournamentstore.ResultInput{
+		MatchID: first[0].ID, Sets: []draw.Set{{A: 6, B: 0}, {A: 6, B: 0}},
+	}); err != nil {
+		t.Fatalf("correct with a score: %v", err)
+	}
+	if next := matchByID(f.detail(t, tr), final.ID); *next.Pair1ID != *first[0].Pair1ID {
+		t.Fatalf("the final must follow the correction: %+v", next)
+	}
+}
+
+// S6d: exactly one of the three shapes, and the winner is a side.
+func TestAResultTakesExactlyOneShape(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	f.pairs(t, cat, 4)
+	f.generate(t, cat, pairIDs(f.detail(t, tr)))
+	first := matchesOf(f.detail(t, tr), tournamentstore.StageBracket, 1)[0]
+	score := []draw.Set{{A: 6, B: 0}, {A: 6, B: 0}}
+
+	for name, in := range map[string]tournamentstore.ResultInput{
+		"winner and sets":     {Winner: 1, Sets: score},
+		"winner and walkover": {Winner: 1, WalkoverLoser: 2},
+		"sets and walkover":   {Sets: score, WalkoverLoser: 2},
+		"nothing":             {},
+		"winner is a side":    {Winner: 3},
+	} {
+		in.MatchID = first.ID
+		_, err := f.Stores.Tournaments.SetResult(f.ctx, in)
+		if !errors.Is(err, draw.ErrInvalidScore) {
+			t.Errorf("%s: err = %v, want an invalid score", name, err)
+		}
+	}
+	if got := matchByID(f.detail(t, tr), first.ID); got.Status != tournamentstore.MatchPending {
+		t.Errorf("a refused result must not be recorded: %+v", got)
+	}
+}
+
+// S6d: a group with scored and unscored matches ranks by wins, and the figures
+// come only from the scored ones. The group still finishes and fills the bracket.
+func TestAGroupWithUnscoredMatchesRanksByWinsAndFeedsTheBracket(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.formatted(t, tournamentstore.FormatGroups, 2, 6, true)
+	f.pairs(t, cat, 3)
+	f.generate(t, cat, pairIDs(f.detail(t, tr)))
+	d := f.detail(t, tr)
+	var group []*tournamentstore.Match
+	for _, m := range d.Matches {
+		if m.Stage == tournamentstore.StageGroup {
+			group = append(group, m)
+		}
+	}
+	if len(group) != 3 {
+		t.Fatalf("three pairs play three matches, got %d", len(group))
+	}
+	// Side 1 wins every match: the first two without a score, the last with one.
+	for _, m := range group[:2] {
+		if _, err := f.Stores.Tournaments.SetResult(f.ctx, tournamentstore.ResultInput{MatchID: m.ID, Winner: 1}); err != nil {
+			t.Fatalf("winner only: %v", err)
+		}
+	}
+	f.win(t, group[2], 1)
+
+	tables := tournamentstore.GroupTables(f.detail(t, tr), cat.ID)
+	if len(tables) != 1 {
+		t.Fatalf("tables = %+v", tables)
+	}
+	rows := tables[0].Rows
+	if rows[0].Won < rows[1].Won || rows[1].Won < rows[2].Won {
+		t.Errorf("rows must be ordered by wins: %+v", rows)
+	}
+	var sets int
+	for _, row := range rows {
+		sets += row.SetsFor
+	}
+	if sets != 2 {
+		t.Errorf("only the scored match adds sets (2 for its winner), got %d: %+v", sets, rows)
+	}
+	for _, m := range f.detail(t, tr).Matches {
+		if m.Stage == tournamentstore.StageBracket && m.Source1 != nil && m.Pair1ID == nil {
+			t.Errorf("the finished group must fill its qualifiers into the bracket: %+v", m)
+		}
 	}
 }

@@ -117,3 +117,52 @@ func TestStandingsListsPairsWithNoMatchesYet(t *testing.T) {
 		t.Errorf("rows: %+v", rows)
 	}
 }
+
+// winnerOnly builds a played match whose score was not loaded: only who won.
+func winnerOnly(a, b uuid.UUID, winner int) draw.Result {
+	return draw.Result{A: a, B: b, Outcome: draw.WinnerOnly(winner)}
+}
+
+// S6d: a result without a score is a win and nothing else: it adds no sets or
+// games to either side.
+func TestAWinnerOnlyResultCountsAsAWinWithoutFigures(t *testing.T) {
+	p := ids(2)
+	rows := draw.Standings(p, []draw.Result{winnerOnly(p[0], p[1], 1)})
+	wantOrder(t, rows, p[0], p[1])
+	for _, r := range rows {
+		if r.SetsFor+r.SetsAgainst+r.GamesFor+r.GamesAgainst != 0 {
+			t.Errorf("a winner-only match carries no figures: %+v", r)
+		}
+	}
+	if rows[0].Won != 1 || rows[0].Played != 1 || rows[1].Lost != 1 {
+		t.Errorf("rows: %+v", rows)
+	}
+}
+
+// S6d: with scored and unscored matches mixed, wins rank first and set and game
+// differences come only from the matches that have a score.
+func TestStandingsMixScoredAndUnscoredMatches(t *testing.T) {
+	p := ids(3)
+	rows := draw.Standings(p, []draw.Result{
+		winnerOnly(p[0], p[1], 1),
+		result(p[1], p[2], draw.Set{A: 6, B: 0}, draw.Set{A: 6, B: 0}),
+		result(p[2], p[0], draw.Set{A: 6, B: 0}, draw.Set{A: 6, B: 0}),
+	})
+	// One win each. Set difference: p1 +2 (its unscored loss adds nothing),
+	// p2 -2 +2 = 0, p0 -2 (its unscored win adds nothing).
+	wantOrder(t, rows, p[1], p[2], p[0])
+	if rows[0].SetDiff() != 2 || rows[1].SetDiff() != 0 || rows[2].SetDiff() != -2 {
+		t.Errorf("set differences: %+v", rows)
+	}
+}
+
+// S6d: more wins beat any difference, scored or not.
+func TestWinsRankAboveDifferencesWhenSomeMatchesAreUnscored(t *testing.T) {
+	p := ids(3)
+	rows := draw.Standings(p, []draw.Result{
+		winnerOnly(p[0], p[1], 1),
+		winnerOnly(p[0], p[2], 1),
+		result(p[1], p[2], draw.Set{A: 6, B: 0}, draw.Set{A: 6, B: 0}),
+	})
+	wantOrder(t, rows, p[0], p[1], p[2])
+}

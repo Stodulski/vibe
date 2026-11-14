@@ -547,10 +547,11 @@ func (s *Service) Unschedule(ctx context.Context, complex *complexstore.Complex,
 	return m, nil
 }
 
-// ResultInput is a result the owner loads: the sets, or the side (1 or 2) that
-// did not show up.
+// ResultInput is a result the owner loads, in exactly one shape: the sets, only
+// the winning side (1 or 2), or the side (1 or 2) that did not show up.
 type ResultInput struct {
 	Sets          []draw.Set
+	Winner        int
 	WalkoverLoser int
 }
 
@@ -561,7 +562,7 @@ func (s *Service) SetResult(ctx context.Context, complex *complexstore.Complex, 
 	if _, err := s.match(ctx, complex.ID, tournamentID, matchID); err != nil {
 		return nil, err
 	}
-	_, err := s.store.SetResult(ctx, tournamentstore.ResultInput{MatchID: matchID, Sets: in.Sets, WalkoverLoser: in.WalkoverLoser})
+	_, err := s.store.SetResult(ctx, tournamentstore.ResultInput{MatchID: matchID, Sets: in.Sets, Winner: in.Winner, WalkoverLoser: in.WalkoverLoser})
 	switch {
 	case err == nil:
 	case errors.Is(err, draw.ErrInvalidScore):

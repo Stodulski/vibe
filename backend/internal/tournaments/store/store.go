@@ -270,16 +270,32 @@ func matchFeeFromDB(f db.TournamentMatchFee) *MatchFee {
 }
 
 // Outcome is the figures of a played match of the given format, from its stored
-// sets.
+// sets. A completed match with no sets and no walkover is a winner-only result.
 func (m *Match) Outcome(f draw.Format) (draw.Outcome, bool) {
 	switch {
 	case m.Status != MatchCompleted || m.Bye:
 		return draw.Outcome{}, false
 	case m.WalkoverLoser != 0:
 		return f.Walkover(m.WalkoverLoser), true
+	case len(m.Sets) == 0:
+		return m.winnerOnly()
 	}
 	out, err := f.ParseResult(m.Sets)
 	return out, err == nil
+}
+
+// winnerOnly is the outcome of a completed match that has no score: the side
+// whose pair is the recorded winner.
+func (m *Match) winnerOnly() (draw.Outcome, bool) {
+	switch {
+	case m.WinnerID == nil || m.Pair1ID == nil || m.Pair2ID == nil:
+		return draw.Outcome{}, false
+	case *m.WinnerID == *m.Pair1ID:
+		return draw.WinnerOnly(1), true
+	case *m.WinnerID == *m.Pair2ID:
+		return draw.WinnerOnly(2), true
+	}
+	return draw.Outcome{}, false
 }
 
 func tournamentFromDB(t db.Tournament) *Tournament {

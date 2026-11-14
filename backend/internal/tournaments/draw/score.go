@@ -15,13 +15,21 @@ type Set struct {
 
 // Outcome is a decided match: who won (1 for the first pair, 2 for the second)
 // and the sets and games each side took, the figures a group table adds up. A
-// match tiebreak counts as one set and one game for its winner.
+// match tiebreak counts as one set and one game for its winner. A match whose
+// score was not loaded has NoScore set and carries only its winner.
 type Outcome struct {
 	Winner       int
 	SetsA, SetsB int
 	GamesA       int
 	GamesB       int
+	// NoScore marks a result of only who won: it counts as a win in a group
+	// table and adds no sets or games.
+	NoScore bool
 }
+
+// WinnerOnly is the outcome of a match whose owner loaded only who won (1 for
+// the first pair, 2 for the second).
+func WinnerOnly(winner int) Outcome { return Outcome{Winner: winner, NoScore: true} }
 
 // ErrInvalidScore is returned for a score that is not a finished match of the
 // category's format.

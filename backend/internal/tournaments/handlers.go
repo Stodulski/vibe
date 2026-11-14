@@ -431,13 +431,14 @@ func (h *Handler) SetResult(w http.ResponseWriter, r *http.Request) {
 			B     int  `json:"b"`
 			Super bool `json:"super"`
 		} `json:"sets"`
+		Winner        int `json:"winner"`
 		WalkoverLoser int `json:"walkover_loser"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
 	}
-	in := ResultInput{WalkoverLoser: input.WalkoverLoser}
+	in := ResultInput{Winner: input.Winner, WalkoverLoser: input.WalkoverLoser}
 	for _, s := range input.Sets {
 		in.Sets = append(in.Sets, drawSet(s))
 	}

@@ -217,8 +217,9 @@ CREATE POLICY tenant_bypass ON tournament_pairs
 -- pair id is filled when the group finishes. A bye match has one slot that will
 -- never fill; its present pair is the winner as soon as it is known.
 --
--- winner_pair_id and sets record the result; walkover_loser (1 or 2) marks a
--- walkover, sets then being null. The schedule is all-or-nothing.
+-- winner_pair_id and sets record the result; sets is null when the owner loaded
+-- only who won (the score is optional); walkover_loser (1 or 2) marks a
+-- walkover, sets then being null too. The schedule is all-or-nothing.
 CREATE TABLE tournament_matches (
     id               UUID PRIMARY KEY DEFAULT uuidv7(),
     category_id      UUID NOT NULL,
@@ -291,9 +292,10 @@ CREATE POLICY tenant_bypass ON tournament_matches
 -- ============================================================================
 -- One row per (match, side) charged, side 1 or 2 being the match's pair1 / pair2.
 -- The money is not kept here: charging writes an income movement of the complex's
--- open cash session (category 'tournaments', method cash or transfer), exactly
--- like a counter sale (see sales), and this row links to it. amount is the fee
--- at the time of the charge and never changes afterwards.
+-- open cash session (category 'tournaments', method any counter payment method:
+-- cash, transfer, cards, QR wallet), exactly like a counter sale (see sales),
+-- and this row links to it. amount is the fee at the time of the charge and
+-- never changes afterwards.
 --
 -- Undoing a charge is a void of that movement, which is the only place a charge
 -- is reversed: a charge stands while its movement has no void, whether the void

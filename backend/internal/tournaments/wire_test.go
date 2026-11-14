@@ -70,7 +70,12 @@ func richDetail(f *fixture) *tournamentstore.Detail {
 		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageBracket, Round: 1, Position: 0, Bye: true,
 		Source1: &tournamentstore.Slot{GroupID: group.ID, Rank: 1}, Status: tournamentstore.MatchPending,
 	}
-	d.Matches = []*tournamentstore.Match{play, walk, final}
+	// A result with no score: only who won, no sets and no walkover.
+	bare := &tournamentstore.Match{
+		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageGroup, GroupID: &group.ID, Round: 3, Position: 2,
+		Pair1ID: &b.ID, Pair2ID: &c.ID, Status: tournamentstore.MatchCompleted, WinnerID: &c.ID,
+	}
+	d.Matches = []*tournamentstore.Match{play, walk, final, bare}
 	return d
 }
 
@@ -160,5 +165,22 @@ func TestTheWireCarriesTheMatchFormat(t *testing.T) {
 				t.Errorf("%s view lacks %s", name, want)
 			}
 		}
+	}
+}
+
+// S6d: a winner-only result shows its winner and an empty set list, in the
+// owner's wire and the public one alike.
+func TestAWinnerOnlyResultHasAWinnerAndNoSets(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	bare := d.Matches[3]
+	w := toWireMatch(bare, nil)
+	if w.Status != tournamentstore.MatchCompleted || w.WinnerPairID == nil || *w.WinnerPairID != *bare.WinnerID || len(w.Sets) != 0 || w.WalkoverLoser != 0 {
+		t.Errorf("wire = %+v", w)
+	}
+	validate(t, "TournamentMatch", w)
+	raw, _ := json.Marshal(w)
+	if !strings.Contains(string(raw), `"sets":[]`) {
+		t.Errorf("a winner-only result has an empty sets array, got %s", raw)
 	}
 }

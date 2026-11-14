@@ -14,11 +14,13 @@ import (
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
 )
 
-// ResultInput is an owner loading (or correcting) the result of a match: the
-// sets, or the side that did not show up (WalkoverLoser 1 or 2).
+// ResultInput is an owner loading (or correcting) the result of a match, in
+// exactly one of three shapes: the sets, only the winning side (Winner 1 or 2,
+// no score), or the side that did not show up (WalkoverLoser 1 or 2).
 type ResultInput struct {
 	MatchID       uuid.UUID
 	Sets          []draw.Set
+	Winner        int
 	WalkoverLoser int
 }
 
@@ -82,14 +84,26 @@ func (e *engine) applyResult(match db.TournamentMatch, in ResultInput, format dr
 }
 
 func parseInput(in ResultInput, format draw.Format) (draw.Outcome, pgtype.Text, int, error) {
-	if in.WalkoverLoser != 0 {
+	shapes := 0
+	for _, given := range []bool{len(in.Sets) > 0, in.Winner != 0, in.WalkoverLoser != 0} {
+		if given {
+			shapes++
+		}
+	}
+	if shapes != 1 {
+		return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: send exactly one of the sets, the winner or the walkover side", draw.ErrInvalidScore)
+	}
+	switch {
+	case in.WalkoverLoser != 0:
 		if in.WalkoverLoser != 1 && in.WalkoverLoser != 2 {
 			return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: the walkover side is 1 or 2", draw.ErrInvalidScore)
 		}
-		if len(in.Sets) > 0 {
-			return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: a walkover has no sets", draw.ErrInvalidScore)
-		}
 		return format.Walkover(in.WalkoverLoser), pgtype.Text{}, in.WalkoverLoser, nil
+	case in.Winner != 0:
+		if in.Winner != 1 && in.Winner != 2 {
+			return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: the winner is side 1 or 2", draw.ErrInvalidScore)
+		}
+		return draw.WinnerOnly(in.Winner), pgtype.Text{}, 0, nil
 	}
 	outcome, err := format.ParseResult(in.Sets)
 	if err != nil {

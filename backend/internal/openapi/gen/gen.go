@@ -2596,6 +2596,24 @@ func (e TournamentsMatchResultJSONBodyWalkoverLoser) Valid() bool {
 	}
 }
 
+// Defines values for TournamentsMatchResultJSONBodyWinner.
+const (
+	TournamentsMatchResultJSONBodyWinnerN1 TournamentsMatchResultJSONBodyWinner = 1
+	TournamentsMatchResultJSONBodyWinnerN2 TournamentsMatchResultJSONBodyWinner = 2
+)
+
+// Valid indicates whether the value is a known member of the TournamentsMatchResultJSONBodyWinner enum.
+func (e TournamentsMatchResultJSONBodyWinner) Valid() bool {
+	switch e {
+	case TournamentsMatchResultJSONBodyWinnerN1:
+		return true
+	case TournamentsMatchResultJSONBodyWinnerN2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplexesPresignUploadJSONBodyContentType.
 const (
 	Imagejpeg ComplexesPresignUploadJSONBodyContentType = "image/jpeg"
@@ -4299,7 +4317,7 @@ type TournamentGroup struct {
 	Standings  []TournamentStanding `json:"standings"`
 }
 
-// TournamentMatch A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise.
+// TournamentMatch A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. A completed match that is neither a bye nor a walkover and has no `sets` was loaded with only its winner (no score).
 type TournamentMatch struct {
 	Bye        bool                `json:"bye"`
 	CategoryId openapi_types.UUID  `json:"category_id"`
@@ -5613,10 +5631,14 @@ type TournamentsMatchCourtFeeChargeJSONBodyMethod string
 type TournamentsMatchResultJSONBody struct {
 	Sets          *[]TournamentSet                             `json:"sets,omitempty"`
 	WalkoverLoser *TournamentsMatchResultJSONBodyWalkoverLoser `json:"walkover_loser,omitempty"`
+	Winner        *TournamentsMatchResultJSONBodyWinner        `json:"winner,omitempty"`
 }
 
 // TournamentsMatchResultJSONBodyWalkoverLoser defines parameters for TournamentsMatchResult.
 type TournamentsMatchResultJSONBodyWalkoverLoser int
+
+// TournamentsMatchResultJSONBodyWinner defines parameters for TournamentsMatchResult.
+type TournamentsMatchResultJSONBodyWinner int
 
 // TournamentsMatchScheduleJSONBody defines parameters for TournamentsMatchSchedule.
 type TournamentsMatchScheduleJSONBody struct {

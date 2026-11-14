@@ -30,7 +30,8 @@ func (r Row) SetDiff() int { return r.SetsFor - r.SetsAgainst }
 func (r Row) GameDiff() int { return r.GamesFor - r.GamesAgainst }
 
 // Standings ranks the pairs of a group (given in seed order) from the matches
-// played so far: matches won, then set difference, then game difference, then
+// played so far: matches won, then set difference, then game difference (both
+// only from the matches that have a score), then
 // the head to head among the pairs still level (matches won against each
 // other), and finally the seed order so the table is always the same.
 func Standings(pairs []uuid.UUID, results []Result) []Row {
@@ -48,8 +49,8 @@ func Standings(pairs []uuid.UUID, results []Result) []Row {
 			continue
 		}
 		o := res.Outcome
-		rows[a].add(o.SetsA, o.SetsB, o.GamesA, o.GamesB, o.Winner == 1)
-		rows[b].add(o.SetsB, o.SetsA, o.GamesB, o.GamesA, o.Winner == 2)
+		rows[a].add(o, o.SetsA, o.SetsB, o.GamesA, o.GamesB, o.Winner == 1)
+		rows[b].add(o, o.SetsB, o.SetsA, o.GamesB, o.GamesA, o.Winner == 2)
 		if o.Winner == 1 {
 			h2h[[2]uuid.UUID{res.A, res.B}] = true
 		} else {
@@ -64,12 +65,17 @@ func Standings(pairs []uuid.UUID, results []Result) []Row {
 	return rows
 }
 
-func (r *Row) add(setsFor, setsAgainst, gamesFor, gamesAgainst int, won bool) {
+// add counts a played match for one side. The sets and games count only when
+// the match has a score.
+func (r *Row) add(o Outcome, setsFor, setsAgainst, gamesFor, gamesAgainst int, won bool) {
 	r.Played++
 	if won {
 		r.Won++
 	} else {
 		r.Lost++
+	}
+	if o.NoScore {
+		return
 	}
 	r.SetsFor += setsFor
 	r.SetsAgainst += setsAgainst
