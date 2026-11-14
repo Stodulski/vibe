@@ -15,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
+	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -25,6 +26,9 @@ type Handler struct {
 	svc            *Service
 	respond        *httpx.Refuser
 	trustedProxies httpx.TrustedProxies
+	// gate is the booking hold's bot check, asked before a spot is held. Nil
+	// lets every sign-up through.
+	gate *turnstile.Gate
 }
 
 // refusals maps the sentinels the service raises onto HTTP: the sign-up ones are
@@ -41,8 +45,8 @@ var refusals = httpx.Refusals{
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies) *Handler {
-	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustedProxies: trustedProxies}
+func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies, gate *turnstile.Gate) *Handler {
+	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustedProxies: trustedProxies, gate: gate}
 }
 
 func (h *Handler) actor(r *http.Request) Actor {

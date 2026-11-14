@@ -109,7 +109,8 @@ func (h *Handler) PublicSignUp(w http.ResponseWriter, r *http.Request) {
 	}
 	var input struct {
 		signUpPlayer
-		Partner signUpPlayer `json:"partner"`
+		Partner        signUpPlayer `json:"partner"`
+		TurnstileToken string       `json:"turnstile_token"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -119,6 +120,10 @@ func (h *Handler) PublicSignUp(w http.ResponseWriter, r *http.Request) {
 	in := PairSignUpInput{Payer: playerInput(v, "", input.signUpPlayer), Partner: playerInput(v, "partner.", input.Partner)}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+	// The bot check runs before anything is held: a refused token costs nothing.
+	if !h.gate.Check(w, r, input.TurnstileToken) {
 		return
 	}
 	res, err := h.svc.SignUp(r.Context(), h.actor(r), httpx.ReadStringParam(r, "slug"), ids[0], ids[1], in)

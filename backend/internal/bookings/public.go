@@ -1,7 +1,6 @@
 package bookings
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -13,7 +12,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
-	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -496,39 +494,9 @@ func (h *Handler) PublicCancel(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// checkTurnstile verifies the storefront's Cloudflare Turnstile token when the
-// operator opted in (TURNSTILE_BOOKING_ENFORCE) and a secret is configured.
-// It reports whether the booking may proceed; on false it has already
-// written the 422, in the same shape and codes auth's checkTurnstile uses.
-//
-// Cloudflare being unreachable fails open, as login does: a storefront that
-// cannot take bookings while Cloudflare is down costs the venue real money,
-// and the rate limiter still bounds what an unchecked request can do.
+// checkTurnstile asks the shared Turnstile gate (internal/turnstile.Gate) to
+// verify the storefront's token. It reports whether the booking may proceed; on
+// false the gate has already written the 422.
 func (h *Handler) checkTurnstile(w http.ResponseWriter, r *http.Request, token string) bool {
-	if !h.enforceTurnstile || h.turnstile == nil || !h.turnstile.Enabled() {
-		return true
-	}
-
-	v := validator.New()
-	if token == "" {
-		v.AddError("turnstile_token", "required")
-		h.respond.FailedValidation(w, r, v.Errors)
-		return false
-	}
-
-	err := h.turnstile.Verify(r.Context(), token, httpx.ClientIPFrom(r, h.trustedProxies))
-	switch {
-	case err == nil:
-		return true
-	case errors.Is(err, turnstile.ErrUnavailable):
-		h.logger.Warn("turnstile: verification unavailable, booking allowed", "path", r.URL.Path, "error", err)
-		return true
-	case errors.Is(err, turnstile.ErrMissingToken):
-		v.AddError("turnstile_token", "required")
-	default:
-		h.logger.Warn("turnstile: token rejected", "path", r.URL.Path, "error", err)
-		v.AddError("turnstile_token", "invalid")
-	}
-	h.respond.FailedValidation(w, r, v.Errors)
-	return false
+	return h.gate.Check(w, r, token)
 }

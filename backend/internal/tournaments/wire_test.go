@@ -80,7 +80,7 @@ func richDetail(f *fixture) *tournamentstore.Detail {
 }
 
 func (f *fixture) handler() *Handler {
-	return NewHandler(f.svc, httpx.NewResponder(slog.New(slog.NewTextHandler(io.Discard, nil))), httpx.TrustedProxies{})
+	return NewHandler(f.svc, httpx.NewResponder(slog.New(slog.NewTextHandler(io.Discard, nil))), httpx.TrustedProxies{}, nil)
 }
 
 // validate checks a JSON body against a schema of the OpenAPI document, so the

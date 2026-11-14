@@ -1,6 +1,7 @@
 package events
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -16,11 +17,29 @@ import (
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/turnstile"
 )
 
 func newHandler(f *fixture) *Handler {
+	return newHandlerWithGate(f, nil)
+}
+
+func newHandlerWithGate(f *fixture, gate *turnstile.Gate) *Handler {
 	responder := httpx.NewResponder(f.svc.logger)
-	return NewHandler(f.svc, responder, httpx.TrustedProxies{})
+	return NewHandler(f.svc, responder, httpx.TrustedProxies{}, gate)
+}
+
+// stubTurnstile is a turnstile.Verifier double: enabled, and rejecting with err.
+type stubTurnstile struct {
+	err   error
+	calls []string
+}
+
+func (s *stubTurnstile) Enabled() bool { return true }
+
+func (s *stubTurnstile) Verify(_ context.Context, token, _ string) error {
+	s.calls = append(s.calls, token)
+	return s.err
 }
 
 // ownerRequest is a request by the complex's authenticated owner.
@@ -321,4 +340,52 @@ func TestPublicStatusAndCancelFollowTheRegistrationToken(t *testing.T) {
 	if w.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("a missing token is 422; got %d", w.Code)
 	}
+}
+
+// The sign-up takes a spot, so it asks the same bot check as the booking hold:
+// a missing or rejected token is a 422 on turnstile_token and holds nothing.
+func TestPublicSignUpAsksTheTurnstileGateLikeTheBookingHold(t *testing.T) {
+	const person = `"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"`
+	for _, tc := range []struct {
+		name  string
+		body  string
+		err   error
+		want  string
+		calls int
+	}{
+		{"missing token", `{` + person + `}`, nil, "required", 0},
+		{"rejected token", `{` + person + `,"turnstile_token":"bad"}`, turnstile.ErrInvalidToken, "invalid", 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			verifier := &stubTurnstile{err: tc.err}
+			h := newHandlerWithGate(f, turnstile.NewGate(verifier, true, httpx.NewResponder(f.svc.logger), f.svc.logger, httpx.TrustedProxies{}))
+			w := httptest.NewRecorder()
+			h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", tc.body,
+				map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}))
+			if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), `"`+tc.want+`"`) ||
+				!strings.Contains(w.Body.String(), "turnstile_token") {
+				t.Fatalf("want 422 turnstile_token %s; got %d (%s)", tc.want, w.Code, w.Body.String())
+			}
+			if len(f.store.signedUp) != 0 {
+				t.Error("a refused token must hold no spot")
+			}
+			if len(verifier.calls) != tc.calls {
+				t.Errorf("Verify calls = %d, want %d", len(verifier.calls), tc.calls)
+			}
+		})
+	}
+
+	t.Run("valid token signs up", func(t *testing.T) {
+		f := newFixture(t)
+		f.store.event.Courts = nil
+		verifier := &stubTurnstile{}
+		h := newHandlerWithGate(f, turnstile.NewGate(verifier, true, httpx.NewResponder(f.svc.logger), f.svc.logger, httpx.TrustedProxies{}))
+		w := httptest.NewRecorder()
+		h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", `{`+person+`,"turnstile_token":"ok"}`,
+			map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}))
+		if w.Code != http.StatusCreated || len(f.store.signedUp) != 1 || len(verifier.calls) != 1 || verifier.calls[0] != "ok" {
+			t.Fatalf("want 201 with the token verified; got %d (%s) calls=%v", w.Code, w.Body.String(), verifier.calls)
+		}
+	})
 }

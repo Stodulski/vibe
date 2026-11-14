@@ -5745,6 +5745,9 @@ type EventsPublicSignUpJSONBody struct {
 
 	// Phone Normalized to E.164.
 	Phone string `json:"phone"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through.
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // CourtsPublicNextAvailableParams defines parameters for CourtsPublicNextAvailable.
@@ -5774,6 +5777,9 @@ type TournamentsPublicSignUpJSONBody struct {
 
 	// Phone Normalized to E.164.
 	Phone string `json:"phone"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through.
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
 
 // WaitlistJoinJSONBody defines parameters for WaitlistJoin.

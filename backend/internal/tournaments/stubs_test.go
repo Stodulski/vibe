@@ -15,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/mp"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -191,7 +192,7 @@ func (s *stubEvents) SignUpWith(_ context.Context, _ events.Actor, _ *complexsto
 	if s.signUpErr != nil {
 		return nil, s.signUpErr
 	}
-	return &events.SignUpResult{Registration: &eventstore.Registration{ID: uuid.New()}}, nil
+	return &events.SignUpResult{Registration: &eventstore.Registration{ID: uuid.New()}, Preference: &mp.Preference{ID: "pref", InitPoint: "https://mp.test/pay"}}, nil
 }
 
 func (s *stubEvents) CancelAny(_ context.Context, _ *complexstore.Complex, _ events.Actor, eventID uuid.UUID, _ *string) (*events.CancelResult, error) {

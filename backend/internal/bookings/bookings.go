@@ -29,6 +29,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/turnstile"
 )
 
 // Store is the booking persistence this module uses.
@@ -309,15 +310,14 @@ type Handler struct {
 	// over the request, so they are an HTTP concern and are checked here,
 	// before anything reaches the service.
 	whatsapp WhatsAppVerifier
-	// turnstile and enforceTurnstile guard POST /book against bots. Both
-	// halves are needed: the flag is the operator's opt-in
-	// (TURNSTILE_BOOKING_ENFORCE), and a verifier that is nil or not Enabled
-	// (no TURNSTILE_SECRET_KEY) means no check, whatever the flag says.
-	turnstile        TurnstileVerifier
-	enforceTurnstile bool
-	respond          *httpx.Refuser
-	logger           *slog.Logger
-	trustedProxies   httpx.TrustedProxies
+	// gate guards POST /book and POST /book/holds against bots. Both halves
+	// are needed: the flag is the operator's opt-in (TURNSTILE_BOOKING_ENFORCE),
+	// and a verifier that is nil or not Enabled (no TURNSTILE_SECRET_KEY) means
+	// no check, whatever the flag says. The open-play sign-ups ask the same rule.
+	gate           *turnstile.Gate
+	respond        *httpx.Refuser
+	logger         *slog.Logger
+	trustedProxies httpx.TrustedProxies
 }
 
 // refusals is this module's whole error-to-status table: every domain error of
@@ -348,19 +348,18 @@ var refusals = httpx.Refusals{
 
 // NewHandler returns a Handler backed by the given service.
 //
-// turnstile may be nil: that, like enforceTurnstile false, leaves PublicBook
+// verifier may be nil: that, like enforceTurnstile false, leaves PublicBook
 // exactly as it was before the storefront bot check existed.
-func NewHandler(svc *Service, whatsapp WhatsAppVerifier, turnstile TurnstileVerifier, enforceTurnstile bool,
+func NewHandler(svc *Service, whatsapp WhatsAppVerifier, verifier TurnstileVerifier, enforceTurnstile bool,
 	respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies,
 ) *Handler {
 	return &Handler{
-		svc:              svc,
-		whatsapp:         whatsapp,
-		turnstile:        turnstile,
-		enforceTurnstile: enforceTurnstile,
-		respond:          respond.WithRefusals(refusals),
-		logger:           logger,
-		trustedProxies:   trustedProxies,
+		svc:            svc,
+		whatsapp:       whatsapp,
+		gate:           turnstile.NewGate(verifier, enforceTurnstile, respond, logger, trustedProxies),
+		respond:        respond.WithRefusals(refusals),
+		logger:         logger,
+		trustedProxies: trustedProxies,
 	}
 }
 
