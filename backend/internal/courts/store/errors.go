@@ -50,4 +50,9 @@ var (
 	// refused the delete at the moment it tried it, not that a caller-side
 	// check some time earlier said no.
 	ErrCourtHasActiveBookings = errors.New("court has active bookings")
+	// ErrCourtHasActiveSeries is returned by Store.SoftDelete when a fixed
+	// weekly booking ("turno fijo") still holds the court: an active series whose
+	// last date has not passed. It has no booking row for the active-bookings
+	// check to find, yet it owes its client the hours every week.
+	ErrCourtHasActiveSeries = errors.New("court has active fixed weekly bookings")
 )

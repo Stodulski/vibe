@@ -6,8 +6,10 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
@@ -61,5 +63,56 @@ func TestSoftDeleteRefusesACourtWithLiveBookings(t *testing.T) {
 	err := f.Stores.Courts.SoftDelete(ctx, f.CourtID)
 	if !errors.Is(err, courtstore.ErrCourtHasActiveBookings) {
 		t.Errorf("deleting a court with a live booking must be refused with ErrCourtHasActiveBookings; got %v", err)
+	}
+}
+
+// seriesOn stores a weekly series on the fixture's court, ending on endsOn when
+// it is not nil.
+func seriesOn(t *testing.T, f *datatest.Fixture, endsOn *time.Time) *bookingstore.Series {
+	t.Helper()
+	start := time.Now().AddDate(0, 0, 1).Truncate(24 * time.Hour)
+	s := &bookingstore.Series{
+		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
+		Weekday: int(start.Weekday()), StartTime: "18:00", DurationMinutes: 90,
+		StartsOn: start, EndsOn: endsOn, Status: bookingstore.SeriesStatusActive, CreatedBy: f.UserID,
+	}
+	if err := f.Stores.BookingSeries.InsertSeries(f.Scoped(context.Background()), s, nil); err != nil {
+		t.Fatalf("InsertSeries: %v", err)
+	}
+	return s
+}
+
+// A fixed weekly booking has no booking row until its day, so the live-booking
+// question cannot see it; the court must still refuse to be deleted.
+func TestSoftDeleteRefusesACourtWithAnActiveSeries(t *testing.T) {
+	f := datatest.Isolated(t)
+	seriesOn(t, f, nil)
+
+	err := f.Stores.Courts.SoftDelete(context.Background(), f.CourtID)
+	if !errors.Is(err, courtstore.ErrCourtHasActiveSeries) {
+		t.Errorf("want ErrCourtHasActiveSeries; got %v", err)
+	}
+}
+
+func TestSoftDeleteRefusesASeriesThatEndsInTheFuture(t *testing.T) {
+	f := datatest.Isolated(t)
+	end := time.Now().AddDate(0, 0, 30).Truncate(24 * time.Hour)
+	seriesOn(t, f, &end)
+
+	if err := f.Stores.Courts.SoftDelete(context.Background(), f.CourtID); !errors.Is(err, courtstore.ErrCourtHasActiveSeries) {
+		t.Errorf("want ErrCourtHasActiveSeries; got %v", err)
+	}
+}
+
+func TestSoftDeleteIgnoresAnEndedSeries(t *testing.T) {
+	f := datatest.Isolated(t)
+	end := time.Now().AddDate(0, 0, 30).Truncate(24 * time.Hour)
+	ser := seriesOn(t, f, nil)
+	if _, err := f.Stores.BookingSeries.EndSeries(f.Scoped(context.Background()), ser.ID, &end, bookingstore.SeriesStatusEnded); err != nil {
+		t.Fatalf("EndSeries: %v", err)
+	}
+
+	if err := f.Stores.Courts.SoftDelete(context.Background(), f.CourtID); err != nil {
+		t.Errorf("an ended series holds nothing; got %v", err)
 	}
 }

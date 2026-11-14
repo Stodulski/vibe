@@ -238,6 +238,32 @@ func TestDeleteIsRefusedWhileBookingsAreLive(t *testing.T) {
 	}
 }
 
+// A fixed weekly booking has no booking row for dates that are not booked yet,
+// but it still owes its client the hours, so it refuses the delete too, and the
+// message says why.
+func TestDeleteIsRefusedWhileAFixedWeeklyBookingHoldsTheCourt(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{
+		court:           &courtstore.Court{ID: courtID, ComplexID: complexID},
+		hasActiveSeries: true,
+	}
+
+	h, rec := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.Delete(w, ownerRequest(t, http.MethodDelete, "/", complexID,
+		map[string]string{"courtID": courtID.String()}, ""))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "turnos fijos") {
+		t.Errorf("the refusal must name the fixed weekly bookings; got %s", w.Body.String())
+	}
+	if store.softDeleted != nil || len(rec.entries) != 0 {
+		t.Error("a refused delete must neither delete nor audit")
+	}
+}
+
 func TestDeleteSucceedsWithNoLiveBookings(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}

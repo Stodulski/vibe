@@ -114,6 +114,8 @@ type Handler struct {
 var refusals = httpx.Refusals{
 	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
 		"cannot delete court while it has active bookings, cancel them first"),
+	courtstore.ErrCourtHasActiveSeries: httpx.Conflict(
+		"cannot delete court while it has fixed weekly bookings (turnos fijos), cancel them first"),
 	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),
 	// One sentence for one collision. A client cannot be told two different
 	// things about it depending on which of the service's two checks happened
