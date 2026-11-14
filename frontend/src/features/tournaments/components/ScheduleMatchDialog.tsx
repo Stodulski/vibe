@@ -79,7 +79,13 @@ function ScheduleBody({ onClose, complexId, tournament, category, match, courts 
         <DialogDescription>{category.name}</DialogDescription>
       </DialogHeader>
       <form onSubmit={submitHandler(form.handleSubmit, onSubmit)} className="space-y-4" noValidate>
-        <ScheduleFields form={form} courts={courts} defaultDuration={category.match_duration_minutes} />
+        <ScheduleFields
+          form={form}
+          courts={courts}
+          defaultDuration={category.match_duration_minutes}
+          firstDay={tournament.start_date}
+          lastDay={tournament.end_date}
+        />
         <ConflictNotice conflict={conflict} message={errorMessage} />
         <SectionFooter onCancel={onClose} cancelDisabled={isPending} submitLabel={t.submit} pending={isPending} />
       </form>

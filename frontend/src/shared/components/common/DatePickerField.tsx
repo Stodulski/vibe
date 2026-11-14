@@ -4,6 +4,7 @@ import { parseISO } from 'date-fns/parseISO';
 import { startOfDay } from 'date-fns/startOfDay';
 import { es } from 'date-fns/locale/es';
 import { CalendarIcon } from 'lucide-react';
+import type { Matcher } from 'react-day-picker';
 import { Calendar } from '@/shared/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { FormField } from '@/shared/components/common/FormField';
@@ -19,6 +20,9 @@ interface DatePickerFieldProps {
   onSelect: (date: string) => void;
   /** Days before today are not offered. */
   disablePast?: boolean;
+  /** `YYYY-MM-DD` limits: days before `minDate` or after `maxDate` are not offered. */
+  minDate?: string;
+  maxDate?: string;
 }
 
 /**
@@ -33,8 +37,16 @@ export function DatePickerField({
   error,
   onSelect,
   disablePast = true,
+  minDate,
+  maxDate,
 }: DatePickerFieldProps) {
   const [open, setOpen] = useState(false);
+  const disabled: Matcher[] = [];
+  if (disablePast) disabled.push({ before: startOfDay(new Date()) });
+  if (minDate) disabled.push({ before: parseISO(minDate) });
+  if (maxDate) disabled.push({ after: parseISO(maxDate) });
+  const selected = value ? parseISO(value) : undefined;
+  const defaultMonth = selected ?? (minDate ? parseISO(minDate) : undefined);
 
   return (
     <FormField label={label} htmlFor={id} error={error}>
@@ -59,14 +71,15 @@ export function DatePickerField({
         <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start">
           <Calendar
             mode="single"
-            selected={value ? parseISO(value) : undefined}
+            selected={selected}
+            {...(defaultMonth ? { defaultMonth } : {})}
             onSelect={(day) => {
               if (day) {
                 onSelect(format(day, 'yyyy-MM-dd'));
                 setOpen(false);
               }
             }}
-            {...(disablePast ? { disabled: { before: startOfDay(new Date()) } } : {})}
+            {...(disabled.length > 0 ? { disabled } : {})}
             locale={es}
           />
         </PopoverContent>

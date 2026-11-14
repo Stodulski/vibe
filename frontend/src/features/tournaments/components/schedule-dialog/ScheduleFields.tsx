@@ -16,6 +16,9 @@ interface Props {
   courts: CourtWithPrices[];
   /** The category's match duration, said under the duration field. */
   defaultDuration: number;
+  /** The tournament's first and last day (`YYYY-MM-DD`): the only days a match can be scheduled. */
+  firstDay: string;
+  lastDay: string;
 }
 
 function CourtAndTime({ form, courts }: Pick<Props, 'form' | 'courts'>) {
@@ -65,7 +68,7 @@ function CourtAndTime({ form, courts }: Pick<Props, 'form' | 'courts'>) {
 }
 
 /** Court, day, time and duration of a match. */
-export function ScheduleFields({ form, courts, defaultDuration }: Props) {
+export function ScheduleFields({ form, courts, defaultDuration, firstDay, lastDay }: Props) {
   const { watch, setValue, register, formState } = form;
   return (
     <>
@@ -77,6 +80,8 @@ export function ScheduleFields({ form, courts, defaultDuration }: Props) {
         placeholder={ES_AR.tournaments.form.selectDate}
         error={formState.errors.date?.message}
         disablePast={false}
+        minDate={firstDay}
+        maxDate={lastDay}
         onSelect={(day) => {
           setValue('date', day, { shouldValidate: true });
         }}

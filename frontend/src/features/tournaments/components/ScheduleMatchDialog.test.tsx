@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-utils';
+import { renderWithProviders, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { makeCategory, makeDetail, makeMatch } from '../testing/fixtures';
@@ -81,6 +81,20 @@ describe('ScheduleMatchDialog', () => {
     expect(screen.getByText(ES_AR.validation.dateRequired)).toBeInTheDocument();
     expect(screen.getByText(ES_AR.validation.timeRequired)).toBeInTheDocument();
     expect(tournamentsApi.schedule).not.toHaveBeenCalled();
+  });
+
+  it('offers only the days of the tournament in the date picker', async () => {
+    const { user } = await renderDialog(makeMatch({ id: 'm1', pair1Id: 'p1', pair2Id: 'p2' }));
+
+    await user.click(screen.getByRole('button', { name: new RegExp(t.date) }));
+
+    const grid = await screen.findByRole('grid');
+    const day = (n: string) => within(grid).getByRole('button', { name: new RegExp(`^\\w+, ${n} de enero`) });
+    // The tournament runs 2099-01-02 to 2099-01-04.
+    expect(day('1')).toBeDisabled();
+    expect(day('2')).toBeEnabled();
+    expect(day('4')).toBeEnabled();
+    expect(day('5')).toBeDisabled();
   });
 
   it('opens a scheduled match with its court, day, time and duration, and sends the change', async () => {
