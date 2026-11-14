@@ -165,17 +165,17 @@ export const bookings = {
     weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
     label: (weekdayPlural: string, time: string) => `Turno fijo · todos los ${weekdayPlural} a las ${time}`,
     cancelOne: 'Cancelar solo esta fecha',
-    endFromHere: 'Dar de baja desde esta fecha',
-    endConfirmTitle: 'Dar de baja el turno fijo',
+    endFromHere: 'Cancelar turno fijo',
+    endConfirmTitle: 'Cancelar el turno fijo',
     endConfirmDescription:
-      'Se cancelan los turnos futuros sin pago desde esta fecha. Los que ya tienen un pago se mantienen.',
-    endConfirmLabel: 'Dar de baja',
+      'Se cancelan este turno y todos los siguientes que no tienen pago. Los que ya tienen un pago se mantienen.',
+    endConfirmLabel: 'Cancelar turno fijo',
     endSuccess: (cancelled: number, kept: number) => {
-      const ended = `Turno fijo dado de baja: ${String(cancelled)} ${cancelled === 1 ? 'reserva cancelada' : 'reservas canceladas'}`;
+      const ended = `Turno fijo cancelado: ${String(cancelled)} ${cancelled === 1 ? 'reserva cancelada' : 'reservas canceladas'}`;
       if (kept === 0) return ended;
       return `${ended} · ${String(kept)} ${kept === 1 ? 'paga se mantiene' : 'pagas se mantienen'}`;
     },
-    endError: 'Error al dar de baja el turno fijo',
+    endError: 'Error al cancelar el turno fijo',
   },
   paymentsLoadError: 'No pudimos cargar los pagos',
   paymentsLoadErrorDescription: 'Revisá tu conexión e intentá de nuevo.',

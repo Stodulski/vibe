@@ -48,6 +48,8 @@ export function EndSeriesDialog({
       title={t.bookings.series.endConfirmTitle}
       description={t.bookings.series.endConfirmDescription}
       confirmLabel={t.bookings.series.endConfirmLabel}
+      // "Cancelar" next to "Cancelar turno fijo" would read as the same action.
+      cancelLabel={t.common.back}
       variant="destructive"
       isLoading={endSeries.isPending}
     />

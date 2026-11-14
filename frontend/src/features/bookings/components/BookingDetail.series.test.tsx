@@ -106,7 +106,7 @@ describe('BookingDetail — fixed weekly bookings', () => {
       expect(bookingSeriesApi.end).toHaveBeenCalledWith('c1', 'ser1', DATE);
     });
     await waitFor(() => {
-      expect(toast.success).toHaveBeenCalledWith('Turno fijo dado de baja: 3 reservas canceladas · 1 paga se mantiene');
+      expect(toast.success).toHaveBeenCalledWith('Turno fijo cancelado: 3 reservas canceladas · 1 paga se mantiene');
     });
     expect(onClose).toHaveBeenCalled();
   });
