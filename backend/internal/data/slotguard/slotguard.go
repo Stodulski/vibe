@@ -313,6 +313,17 @@ func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Ra
 			    AND created_by IS NULL
 			    AND created_at < NOW() - make_interval(secs => $3)
 			  )
+		)
+		-- Hours a fixed weekly series is holding count as booked: the owner may not
+		-- block them either. The span is asked from the day before because an
+		-- occurrence that runs past midnight is returned under its start date.
+		OR EXISTS(
+			SELECT 1
+			FROM booking_series_occurrences(
+			         NULL, ARRAY[$1]::uuid[],
+			         (lower($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - 1,
+			         (upper($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) o
+			WHERE o.span && $2::tstzrange
 		)`,
 		data.UUIDToPg(courtID), span, hold.Seconds(),
 	).Scan(&taken)

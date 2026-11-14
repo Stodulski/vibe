@@ -220,6 +220,7 @@ var routePolicies = map[string]policy{
 	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":                              complexOwner,
 	"POST /api/v1/complexes/{id}/booking-series":                                        complexOwner,
 	"GET /api/v1/complexes/{id}/booking-series/{seriesID}":                              complexOwner,
+	"POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip":                        complexOwner,
 	"POST /api/v1/complexes/{id}/booking-series/{seriesID}/end":                         complexOwner,
 	"GET /api/v1/complexes/{id}/bookings":                                               complexOwner,
 	"POST /api/v1/complexes/{id}/bookings":                                              complexOwner,

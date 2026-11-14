@@ -56,6 +56,10 @@ type stubStore struct {
 	// booked is what GetBookedSlotsByCourtIDs answers: the spans other
 	// bookings already hold, whatever day is asked about.
 	booked []bookingstore.BookedSpan
+	// occurrencesFn is what SeriesOccurrences answers; the series fixture wires
+	// it to the stub series store, which expands the rule the way the SQL
+	// function does.
+	occurrencesFn func(complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) []bookingstore.SeriesOccurrence
 	// beforeInsert runs first in InsertSafe, so a test can make the write
 	// refuse the way the database does (an overlap, a date already generated).
 	beforeInsert func(*bookingstore.Booking) error
@@ -280,6 +284,19 @@ func (s *stubStore) GetByClient(context.Context, uuid.UUID, uuid.UUID, int) ([]*
 
 func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
 	return s.booked, nil
+}
+
+func (s *stubStore) BookedSpansBetween(context.Context, []uuid.UUID, time.Time, time.Time) ([]bookingstore.BookedSpan, error) {
+	return s.booked, nil
+}
+
+// SeriesOccurrences answers from occurrencesFn, which a series test wires to
+// the stub series store; without one nothing is held by a series.
+func (s *stubStore) SeriesOccurrences(_ context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	if s.occurrencesFn == nil {
+		return nil, nil
+	}
+	return s.occurrencesFn(complexID, courtIDs, from, to), nil
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }
@@ -520,6 +537,26 @@ func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, dat
 		return nil, s.blockedErr
 	}
 	return s.blocked[date.Format("2006-01-02")], nil
+}
+
+// GetBlockedSlotsByComplex answers every blocked slot filed from dateFrom to
+// dateTo, whatever court it is on.
+func (s *stubCourts) GetBlockedSlotsByComplex(ctx context.Context, _ uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if s.blockedErr != nil {
+		return nil, s.blockedErr
+	}
+	var out []*courtstore.BlockedSlot
+	for _, slots := range s.blocked {
+		for _, b := range slots {
+			if !b.Date.Before(dateFrom) && !b.Date.After(dateTo) {
+				out = append(out, b)
+			}
+		}
+	}
+	return out, nil
 }
 
 // block takes hours off sale on a court for one date, the way the owner's

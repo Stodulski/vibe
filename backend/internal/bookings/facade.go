@@ -21,6 +21,8 @@ type FacadeStore interface {
 	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.BookedSpan, error)
+	SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
 	HasActiveBookings(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasBookingsOtherThanUnpaidHolds(ctx context.Context, complexID uuid.UUID) (bool, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
@@ -103,6 +105,13 @@ func (f *Facade) GetByClient(ctx context.Context, complexID, clientID uuid.UUID,
 // for courts, whose availability grid subtracts them.
 func (f *Facade) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
 	return f.store.GetBookedSlotsByCourtIDs(ctx, courtIDs, date)
+}
+
+// ComplexSeriesOccurrences returns the dates fixed weekly series are holding between
+// two dates that no booking covers yet. Exported for courts, whose calendar
+// draws them as blocks for the owner.
+func (f *Facade) ComplexSeriesOccurrences(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	return f.store.SeriesOccurrences(ctx, &complexID, nil, from, to)
 }
 
 // HasActiveBookings reports whether a complex still has live bookings. Exported

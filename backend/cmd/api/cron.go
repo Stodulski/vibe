@@ -54,7 +54,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("sweep_refund_intents", 2*time.Minute, app.paymentsService.SweepOrphanedRefundIntents),
 		job("sweep_booking_link_tokens", 2*time.Minute, app.cronCleanBookingLinkTokens),
 		job("complete_bookings", 30*time.Minute, app.cronCompleteBookings),
-		job("extend_booking_series", 6*time.Hour, app.bookingsService.ExtendSeries),
+		job("materialize_booking_series", time.Hour, app.bookingsService.MaterializeSeries),
 		job("refresh_mp_tokens", 12*time.Hour, app.cronRefreshMPTokens),
 		job("clean_tokens", 24*time.Hour, app.cronCleanExpiredTokens),
 		job("clean_webhook_events", 24*time.Hour, app.cronCleanWebhookEvents),

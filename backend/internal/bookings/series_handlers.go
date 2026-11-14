@@ -146,9 +146,51 @@ func (h *Handler) GetSeries(w http.ResponseWriter, r *http.Request) {
 	}
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"series":   toGenSeries(detail.Series),
-		"upcoming": nonNil(toGenBookings(detail.Upcoming)),
-		"skipped":  toGenSeriesConflicts(detail.Skipped),
+		"upcoming": toGenSeriesUpcoming(detail.Upcoming),
 	})
+}
+
+// SkipSeriesDate handles POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip,
+// which cancels one date of the series that has no booking yet.
+func (h *Handler) SkipSeriesDate(w http.ResponseWriter, r *http.Request) {
+	complex, ok := httpx.ContextGetComplex(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
+		return
+	}
+	seriesID, err := httpx.ReadUUIDParam(r, "seriesID")
+	if err != nil {
+		h.respond.NotFound(w, r)
+		return
+	}
+
+	var input struct {
+		Date string `json:"date"`
+	}
+	if err := httpx.ReadJSON(w, r, &input); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+	v := validator.New()
+	v.Check(input.Date != "", "date", "must be provided")
+	var date time.Time
+	if input.Date != "" {
+		date, err = time.Parse(time.DateOnly, input.Date)
+		if err != nil {
+			v.AddError("date", "must be in YYYY-MM-DD format")
+		}
+	}
+	if !v.Valid() {
+		h.respond.FailedValidation(w, r, v.Errors)
+		return
+	}
+
+	skipped, err := h.svc.SkipSeriesDate(r.Context(), complex, h.actor(r), seriesID, date)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"skipped": toGenSeriesConflicts([]SeriesConflict{*skipped})[0]})
 }
 
 // EndSeries handles POST /api/v1/complexes/{id}/booking-series/{seriesID}/end.
@@ -243,6 +285,22 @@ func toGenSeriesConflicts(cs []SeriesConflict) []gen.BookingSeriesConflict {
 	out := make([]gen.BookingSeriesConflict, len(cs))
 	for i, c := range cs {
 		out[i] = gen.BookingSeriesConflict{Date: openapi_types.Date{Time: c.Date}, Reason: gen.BookingSeriesConflictReason(c.Reason)}
+	}
+	return out
+}
+
+func toGenSeriesUpcoming(ups []SeriesUpcoming) []gen.BookingSeriesUpcoming {
+	out := make([]gen.BookingSeriesUpcoming, len(ups))
+	for i, u := range ups {
+		out[i] = gen.BookingSeriesUpcoming{
+			BookingId: u.BookingID,
+			Date:      openapi_types.Date{Time: u.Date},
+			State:     gen.BookingSeriesUpcomingState(u.State),
+		}
+		if u.Reason != nil {
+			reason := gen.BookingSeriesUpcomingReason(*u.Reason)
+			out[i].Reason = &reason
+		}
 	}
 	return out
 }

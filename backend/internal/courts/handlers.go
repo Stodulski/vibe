@@ -63,6 +63,11 @@ const maxPriceMessage = "must not exceed the maximum price this column can store
 // one sentence because they are answering one question.
 const blockedSlotHasBookingMessage = "this time range overlaps with an existing booking"
 
+// blockedSlotHeldByFixedBookingMessage is what a blocked-slot write answers with
+// when a fixed weekly booking holds the hours. The way out is cancelling that
+// date of the series, so the sentence says what it is.
+const blockedSlotHeldByFixedBookingMessage = "this time range belongs to a fixed weekly booking (turno fijo)"
+
 // emptyToNil folds a description of "" into no description at all.
 //
 // A client that clears the field sends an empty string, and a court that was

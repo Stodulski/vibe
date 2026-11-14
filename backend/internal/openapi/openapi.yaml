@@ -1200,20 +1200,26 @@ paths:
       operationId: bookingSeriesCreate
       summary: Create a fixed weekly booking (turno fijo)
       description: >-
-        Creates a series and materializes its first eight weeks as ordinary bookings
-        (`series_id` set, unpaid, no client notification). The weekday is the one
-        `first_date` falls on. When dates in that window cannot be booked (an overlap, a
-        blocked slot, a closed day, no price) the call answers `409` with every such date and
-        writes nothing, unless `skip_conflicts` is true, in which case those dates are skipped,
-        recorded, and returned under `skipped`. Send at most one of `ends_on` and `weeks`; with
-        neither the series has no end. A daily job keeps the eight-week window full.
+        Creates a weekly rule that holds its court and hours on every matching date from
+        `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each
+        date counts as taken for the storefront, the owner's booking and blocked-slot guards and
+        the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day,
+        a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification).
+        The weekday is the one `first_date` falls on. When that date is already due (today, or
+        tomorrow before 06:00) its booking is created at once and returned under `bookings`;
+        otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold
+        dates up to the booking horizon (365 days) the call answers `409` with every such date and
+        writes nothing, unless `skip_conflicts` is true, in which case those dates become
+        exceptions and are returned under `skipped`. A weekday the venue is closed, or an hour no
+        price rule covers without a manual `price`, is a `422` on the series as a whole. Send at
+        most one of `ends_on` and `weeks`; with neither the series has no end.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/IdempotencyKey"}
       responses:
         "201":
-          description: The series, the occurrences created, and the dates skipped.
+          description: The series, the booking of its first date when that was already due, and the dates skipped.
           content:
             application/json:
               schema:
@@ -1232,8 +1238,9 @@ paths:
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
           description: >-
-            Dates of the first window cannot be booked (`conflicts` lists them), or the client is
-            blocked. Nothing was written.
+            Dates of the series are held by something else (`conflicts` lists them), a booking was
+            made on one while the series was being created, or the client is blocked. Nothing was
+            written.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1257,41 +1264,84 @@ paths:
                 client_first_name: {type: string}
                 client_last_name: {type: string}
                 notes: {type: string}
-                price: {type: integer, description: "Centavos ARS, applied to every occurrence. Absent: each is priced when generated."}
+                price: {type: integer, description: "Centavos ARS, applied to every occurrence. Absent: each is priced on the day its booking is created."}
                 ends_on: {type: [string, "null"], format: date, description: "Last day, inclusive."}
                 weeks: {type: integer, minimum: 1, maximum: 156, description: "Alternative to ends_on: the number of weekly occurrences."}
-                skip_conflicts: {type: boolean, description: "Create the series skipping the dates that cannot be booked."}
+                skip_conflicts: {type: boolean, description: "Create the series turning the dates something else holds into exceptions."}
 
   /api/v1/complexes/{id}/booking-series/{seriesID}:
     get:
       tags: [bookings]
       operationId: bookingSeriesGet
-      summary: Get a fixed weekly booking with its upcoming occurrences
+      summary: Get a fixed weekly booking with its next dates
+      description: >-
+        The series and its next eight dates, computed from the rule (nothing is stored per
+        date until it is settled): `pending` while the date only holds its hours, `booked` once
+        its booking exists (`booking_id`), `exception` when it is not part of the series
+        (`reason`). An ended series has no upcoming dates.
       security: [{cookieAuth: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/SeriesID"}
       responses:
         "200":
-          description: The series, its occurrences from today on, and the dates skipped.
+          description: The series and its next dates.
           content:
             application/json:
               schema:
                 type: object
-                required: [series, upcoming, skipped]
+                required: [series, upcoming]
                 properties:
                   series: {$ref: "#/components/schemas/BookingSeries"}
                   upcoming:
                     type: array
-                    items: {$ref: "#/components/schemas/Booking"}
-                  skipped:
-                    type: array
-                    items: {$ref: "#/components/schemas/BookingSeriesConflict"}
+                    items: {$ref: "#/components/schemas/BookingSeriesUpcoming"}
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/booking-series/{seriesID}/skip:
+    post:
+      tags: [bookings]
+      operationId: bookingSeriesSkip
+      summary: Cancel one date of a fixed weekly booking
+      description: >-
+        Records that `date` is not part of the series (`cancelled_by_owner`): its hours go back
+        on sale. Only a future (or today's) date of the series that has no booking yet. A date
+        that already has its booking is cancelled through that booking (`bookingsCancel`), and a
+        date already cancelled is refused. Both, a past date and a date the rule does not match,
+        are `422`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SeriesID"}
+      responses:
+        "200":
+          description: The date now recorded as an exception.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [skipped]
+                properties:
+                  skipped: {$ref: "#/components/schemas/BookingSeriesConflict"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [date]
+              properties:
+                date: {type: string, format: date, description: "Not in the past."}
 
   /api/v1/complexes/{id}/booking-series/{seriesID}/end:
     post:
@@ -1299,17 +1349,17 @@ paths:
       operationId: bookingSeriesEnd
       summary: End a fixed weekly booking from a date
       description: >-
-        Occurrences on or after `from_date` that have no payment are cancelled, quietly (no
-        message to the client). Those with a payment stand and come back under `kept`. The
-        series stops generating from `from_date` (`ends_on` becomes the day before) and is
-        marked `ended` when no paid occurrence remains ahead.
+        The series stops holding its dates from `from_date` on (`ends_on` becomes the day
+        before) and is marked `ended`. Only a booking the series already created for a date on
+        or after `from_date` is affected: without a payment it is cancelled, quietly (no message
+        to the client); with a payment it stands and comes back under `kept`.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
         - {$ref: "#/components/parameters/SeriesID"}
       responses:
         "200":
-          description: The series as it now stands and what became of its occurrences.
+          description: The series as it now stands and what became of its bookings.
           content:
             application/json:
               schema:
@@ -2981,7 +3031,7 @@ paths:
     get:
       tags: [courts]
       operationId: courtsListBlockedSlots
-      summary: List blocked slots in a date range
+      summary: List blocked slots and fixed-booking blocks in a date range
       description: The range is capped at 366 days.
       security: [{cookieAuth: []}]
       parameters:
@@ -3001,11 +3051,19 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [blocked_slots]
+                required: [blocked_slots, fixed_blocks]
                 properties:
                   blocked_slots:
                     type: array
                     items: {$ref: "#/components/schemas/BlockedSlot"}
+                  fixed_blocks:
+                    type: array
+                    description: >-
+                      The dates fixed weekly bookings hold in the range that have no booking yet.
+                      They block like a blocked slot but are not one: they cannot be deleted from
+                      here and are cancelled through the series (`bookingSeriesSkip`,
+                      `bookingSeriesEnd`). Not paginated.
+                    items: {$ref: "#/components/schemas/FixedBlock"}
         "400":
           description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
           content:
@@ -5676,7 +5734,9 @@ components:
 
     BookingSeries:
       type: object
-      description: A fixed weekly booking (turno fijo); its occurrences are ordinary bookings carrying `series_id`.
+      description: >-
+        A fixed weekly booking (turno fijo): a weekly rule that holds its court and hours on every
+        matching date. The booking of a date is created on its own day and carries `series_id`.
       required: [id, complex_id, court_id, client_id, weekday, start_time, duration_minutes, starts_on, status, created_at]
       properties:
         id: {type: string, format: uuid}
@@ -5686,7 +5746,7 @@ components:
         weekday: {type: integer, minimum: 0, maximum: 6, description: "0 = Sunday .. 6 = Saturday."}
         start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
         duration_minutes: {type: integer}
-        price: {type: [integer, "null"], description: "Centavos ARS. Null: each occurrence is priced when generated."}
+        price: {type: [integer, "null"], description: "Centavos ARS. Null: each occurrence is priced on the day its booking is created."}
         notes: {type: [string, "null"]}
         starts_on: {type: string, format: date}
         ends_on: {type: [string, "null"], format: date, description: "Inclusive. Null while the series has no end."}
@@ -5695,10 +5755,45 @@ components:
 
     BookingSeriesConflict:
       type: object
+      description: A date that is not part of a series, and why.
       required: [date, reason]
       properties:
         date: {type: string, format: date}
-        reason: {type: string, enum: [overlap, blocked, closed_day, no_price, client_blocked]}
+        reason:
+          type: string
+          enum: [cancelled_by_owner, overlap, blocked, closed_day, no_price, client_blocked, missed]
+
+    BookingSeriesUpcoming:
+      type: object
+      description: One upcoming date of a series.
+      required: [date, state]
+      properties:
+        date: {type: string, format: date}
+        state:
+          type: string
+          enum: [pending, booked, exception]
+          description: "`pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series."
+        booking_id: {type: string, format: uuid, description: "Present when `booked`."}
+        reason:
+          type: string
+          enum: [cancelled_by_owner, overlap, blocked, closed_day, no_price, client_blocked, missed]
+          description: "Present when `exception`."
+
+    FixedBlock:
+      type: object
+      description: >-
+        A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar
+        draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time`
+        when the hours run past midnight.
+      required: [series_id, court_id, date, start_time, end_time, duration_minutes, client_name]
+      properties:
+        series_id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        date: {type: string, format: date, description: "The local day the hours start on."}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        client_name: {type: string}
 
     Booking:
       type: object

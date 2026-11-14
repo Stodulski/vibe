@@ -96,9 +96,21 @@ func SlotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, e
 			    AND created_by IS NULL
 			    AND created_at < NOW() - make_interval(secs => $6)
 			  )
+		)
+		-- The hours a fixed weekly series is holding are taken too, whether or not
+		-- its booking exists yet. An occurrence of the candidate's own series on
+		-- its own date is the candidate itself — the job is about to settle it.
+		OR EXISTS(
+			SELECT 1
+			FROM booking_series_occurrences(NULL, ARRAY[$1]::uuid[], $2::date - 1, $2::date + 1) o
+			WHERE o.span && tstzrange(
+			        booking_starts_at($2, $3),
+			        booking_starts_at($2, $3) + make_interval(mins => $4),
+			        '[)')
+			  AND NOT (o.series_id IS NOT DISTINCT FROM $7::uuid AND o.occurs_on = $2::date)
 		)`,
 		data.UUIDToPg(b.CourtID), data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
-		b.DurationMinutes, data.UUIDToPg(exclude), hold.Seconds(),
+		b.DurationMinutes, data.UUIDToPg(exclude), hold.Seconds(), data.UUIDPtrToPg(b.SeriesID),
 	).Scan(&taken)
 	if err != nil {
 		return false, fmt.Errorf("check bookings: %w", err)

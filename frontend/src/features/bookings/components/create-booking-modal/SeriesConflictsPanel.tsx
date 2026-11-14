@@ -29,7 +29,7 @@ export function SeriesConflictsPanel({
           <li key={conflict.date} className="text-text-secondary">
             <span className="text-text-primary font-medium">{formatDateOnly(conflict.date)}</span>
             {' — '}
-            {t.bookings.series.conflictReasons[conflict.reason]}
+            {(t.bookings.series.conflictReasons as Record<string, string>)[conflict.reason] ?? conflict.reason}
           </li>
         ))}
       </ul>

@@ -6,8 +6,10 @@ import (
 	"github.com/google/uuid"
 	openapi_types "github.com/oapi-codegen/runtime/types"
 
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // toGenCourt maps a store court onto the generated wire type (rule HTTP-08).
@@ -188,4 +190,23 @@ func toBlockedSlotWire(s *courtstore.BlockedSlot) blockedSlotWire {
 		CreatedAt: s.CreatedAt,
 		CourtName: courtName,
 	}
+}
+
+// toFixedBlocksWire maps the dates fixed weekly bookings hold onto the wire's
+// fixed blocks, never nil. The times are the venue's wall-clock: end_time is
+// earlier than start_time when the hours run past midnight.
+func toFixedBlocksWire(occs []bookingstore.SeriesOccurrence) []gen.FixedBlock {
+	out := make([]gen.FixedBlock, len(occs))
+	for i, o := range occs {
+		out[i] = gen.FixedBlock{
+			SeriesId:        o.SeriesID,
+			CourtId:         o.CourtID,
+			Date:            openapi_types.Date{Time: o.Date},
+			StartTime:       o.StartsAt.In(timezone.Argentina).Format("15:04"),
+			EndTime:         o.EndsAt.In(timezone.Argentina).Format("15:04"),
+			DurationMinutes: int(o.EndsAt.Sub(o.StartsAt) / time.Minute),
+			ClientName:      o.ClientName,
+		}
+	}
+	return out
 }

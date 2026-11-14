@@ -18,6 +18,11 @@ var (
 	// single-table — so it comes from a query InsertBlockedSlot runs inside the
 	// same transaction, under the same court-day lock the booking path takes.
 	ErrSlotHasBooking = errors.New("slot already booked")
+	// ErrSlotHeldByFixedBooking is returned when a blocked-slot request would
+	// close hours a fixed weekly booking (turno fijo) holds on a date it has not
+	// been booked for yet. There is no booking to point the owner at, so it is its
+	// own sentence: the way out is to cancel that date of the series.
+	ErrSlotHeldByFixedBooking = errors.New("slot held by a fixed weekly booking")
 	// ErrDuplicateCourtName is returned when a complex already has a live court with that name.
 	//
 	// courts_active_name_unique (db/migrations/001_init.sql) is what detects it. The

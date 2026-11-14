@@ -249,6 +249,10 @@ type BookedSpan struct {
 	CourtID  uuid.UUID
 	StartsAt time.Time
 	EndsAt   time.Time
+	// Fixed is true for hours a fixed weekly series is holding that no booking
+	// covers yet (SeriesOccurrence): as taken as a booking, but there is no
+	// booking to open, and an owner refused over them is told so.
+	Fixed bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's
@@ -882,7 +886,18 @@ func (m *Store) MarkManualBalanceOwed(ctx context.Context, b *Booking) error {
 // used to have a sibling, GetAvailableSlots, which ran the same query for a
 // single court, returned booked slots under an inverted name, and had no
 // caller. It is gone.
+//
+// It also holds the dates fixed weekly series are holding (Fixed spans), so the
+// storefront's grid, the next-available search and the owner's blocked-slot
+// guard all see them without knowing series exist.
 func (m *Store) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]BookedSpan, error) {
+	return m.BookedSpansBetween(ctx, courtIDs, date, date)
+}
+
+// BookedSpansBetween is GetBookedSlotsByCourtIDs over the local days from..to,
+// inclusive: one read for a whole range instead of one per day, which is what a
+// series' pre-check over a year of dates needs.
+func (m *Store) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]BookedSpan, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
@@ -891,7 +906,8 @@ func (m *Store) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UU
 	}
 	dbSlots, err := m.Q.GetBookedSlots(ctx, db.GetBookedSlotsParams{
 		Column1: data.UUIDSliceToPg(courtIDs),
-		Day:     data.DateToPg(date),
+		DayFrom: data.DateToPg(from),
+		DayTo:   data.DateToPg(to),
 		// Same configured hold SlotTaken uses (see slot_guard.go), so the
 		// storefront and the insert-time collision guard agree on when a
 		// stale pending booking stops blocking a slot.
@@ -901,13 +917,26 @@ func (m *Store) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UU
 		return nil, err
 	}
 
-	result := make([]BookedSpan, len(dbSlots))
+	result := make([]BookedSpan, len(dbSlots), len(dbSlots)+1)
 	for i, s := range dbSlots {
 		result[i] = BookedSpan{
 			CourtID:  data.PgToUUID(s.CourtID),
 			StartsAt: s.StartsAt.Time,
 			EndsAt:   s.EndsAt.Time,
 		}
+	}
+
+	// An occurrence that starts the evening before and runs past midnight
+	// occupies the first morning, hence from-1.
+	occs, err := m.SeriesOccurrences(ctx, nil, courtIDs, from.AddDate(0, 0, -1), to)
+	if err != nil {
+		return nil, err
+	}
+	windowStart := timezone.Day(from)
+	windowEnd := timezone.Day(to).AddDate(0, 0, 1)
+	if fixed := fixedSpans(occs, windowStart, windowEnd); len(fixed) > 0 {
+		result = append(result, fixed...)
+		sortSpans(result)
 	}
 	return result, nil
 }

@@ -68,6 +68,11 @@ type Querier interface {
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
 	EndBookingSeries(ctx context.Context, arg EndBookingSeriesParams) (BookingSeries, error)
+	// Marks ended the active series whose last day is behind the given date; only
+	// the materialization job calls it, under the tenant bypass. Such a series no
+	// longer holds any date (booking_series_occurrences stops at ends_on), so this
+	// changes what the owner reads, not what is sold.
+	EndExpiredBookingSeries(ctx context.Context, endsOn pgtype.Date) (int64, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
 	// the id is a sale's, or none at all.
@@ -99,6 +104,11 @@ type Querier interface {
 	// Matching on `span && local_day(day)` rather than `date = day`: a court
 	// occupied until 01:00 is occupied on that morning's grid too. See
 	// local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
+	//
+	// The window is the local days day_from..day_to inclusive (the same day twice
+	// for the storefront's single-day grid). Real bookings only: the dates fixed
+	// weekly series are holding are read beside it by Store.SeriesOccurrences, so
+	// GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
 	//
 	// payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
 	// default 15 minutes — see internal/stores), passed as a parameter
@@ -306,10 +316,6 @@ type Querier interface {
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
 	InsertWaitlistEntry(ctx context.Context, arg InsertWaitlistEntryParams) error
-	// Every active series across tenants, for the daily extension job (which runs
-	// under the tenant bypass). Series whose end is already behind them are
-	// included on purpose: the job is what marks them ended.
-	ListActiveBookingSeries(ctx context.Context) ([]BookingSeries, error)
 	// The public city hubs and the sitemap read this. It reads active_complexes, so
 	// a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
 	// carries one sport per switched-on court of that complex, read from
@@ -338,8 +344,8 @@ type Querier interface {
 	// it is recorded, before any list query runs.
 	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
 	ListBookingSeriesBookingsFrom(ctx context.Context, arg ListBookingSeriesBookingsFromParams) ([]Booking, error)
-	// The dates of one series already generated (booked or skipped) inside a
-	// window, which is what stops the job from generating a date twice.
+	// The ledger rows of one series inside a window: the dates already settled
+	// (booked or excepted).
 	ListBookingSeriesDates(ctx context.Context, arg ListBookingSeriesDatesParams) ([]BookingSeriesDate, error)
 	// The owners the campaign has not reached yet, oldest account first, at most
 	// max_rows. Each carries the segment that picks the email's last line, and the
@@ -441,9 +447,11 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
-	// A date that could not be booked. DO NOTHING keeps the first answer: a date
-	// already booked or already skipped is never rewritten.
-	RecordBookingSeriesSkip(ctx context.Context, arg RecordBookingSeriesSkipParams) (int64, error)
+	// A date that is not part of the series: cancelled by the owner, or one that
+	// could not be booked. DO NOTHING keeps the first answer: a date already booked
+	// or excepted is never rewritten, and the row count says whether this call was
+	// the one that settled it.
+	RecordBookingSeriesException(ctx context.Context, arg RecordBookingSeriesExceptionParams) (int64, error)
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error

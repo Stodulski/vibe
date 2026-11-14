@@ -107,6 +107,10 @@ type CourtReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
+	// GetBlockedSlotsByComplex is the same read over a range of dates for every
+	// court of the complex: what a fixed weekly series checks itself against in
+	// one query instead of one per date.
+	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
 }
 
 // PaymentStore records the payment a public booking is waiting on.

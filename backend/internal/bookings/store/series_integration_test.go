@@ -23,7 +23,7 @@ func newSeries(t *testing.T, f *datatest.Fixture, startsOn time.Time) *bookingst
 		Weekday: int(startsOn.Weekday()), StartTime: "18:00", DurationMinutes: 90,
 		StartsOn: startsOn, Status: bookingstore.SeriesStatusActive, CreatedBy: f.UserID,
 	}
-	if err := f.Stores.BookingSeries.InsertSeries(f.Scoped(context.Background()), s); err != nil {
+	if err := f.Stores.BookingSeries.InsertSeries(f.Scoped(context.Background()), s, nil); err != nil {
 		t.Fatalf("InsertSeries: %v", err)
 	}
 	return s
@@ -67,23 +67,23 @@ func TestAnOccurrenceClaimsItsDateAtMostOnce(t *testing.T) {
 	}
 }
 
-func TestASkippedDateIsNeverGenerated(t *testing.T) {
+func TestAnExceptionDateIsNeverGenerated(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := f.Scoped(context.Background())
 	series := newSeries(t, f, time.Now().AddDate(0, 0, 7).Truncate(24*time.Hour))
 
-	if err := f.Stores.BookingSeries.RecordSeriesSkip(ctx, series, series.StartsOn, "overlap"); err != nil {
-		t.Fatalf("RecordSeriesSkip: %v", err)
+	if done, err := f.Stores.BookingSeries.RecordSeriesException(ctx, series, series.StartsOn, "overlap"); err != nil || !done {
+		t.Fatalf("RecordSeriesException = %v, %v", done, err)
 	}
-	if err := f.Stores.BookingSeries.RecordSeriesSkip(ctx, series, series.StartsOn, "blocked"); err != nil {
-		t.Fatalf("a repeated skip is a no-op, not an error: %v", err)
+	if done, err := f.Stores.BookingSeries.RecordSeriesException(ctx, series, series.StartsOn, "blocked"); err != nil || done {
+		t.Fatalf("a repeated exception is a no-op reported as such: %v, %v", done, err)
 	}
 	dates, _ := f.Stores.BookingSeries.SeriesDates(ctx, series.ID, series.StartsOn, series.StartsOn)
-	if len(dates) != 1 || dates[0].Reason == nil || *dates[0].Reason != "overlap" {
+	if len(dates) != 1 || dates[0].Outcome != bookingstore.SeriesDateException || dates[0].Reason == nil || *dates[0].Reason != "overlap" {
 		t.Fatalf("the first answer stands; got %+v", dates)
 	}
 	if err := f.Stores.Bookings.InsertSafe(ctx, occurrence(f, series, "18:00", "19:30")); !errors.Is(err, bookingstore.ErrSeriesDateGenerated) {
-		t.Errorf("a skipped date must not be booked; got %v", err)
+		t.Errorf("an excepted date must not be booked; got %v", err)
 	}
 }
 
@@ -138,10 +138,27 @@ func TestEndingASeriesStoresTheNewEnd(t *testing.T) {
 	if err != nil || ended.Status != bookingstore.SeriesStatusEnded || ended.EndsOn == nil || !ended.EndsOn.Equal(before) {
 		t.Fatalf("EndSeries = %+v, %v", ended, err)
 	}
-	active, _ := f.Stores.BookingSeries.ListActiveSeries(ctx)
-	for _, s := range active {
-		if s.ID == series.ID {
-			t.Error("an ended series is not listed as active")
-		}
+}
+
+func TestEndExpiredSeriesMarksOnlyThoseWhoseLastDayPassed(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	start := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
+	live := newSeries(t, f, start)
+	over := newSeries(t, f, start)
+	last := start
+	if _, err := f.Stores.BookingSeries.EndSeries(ctx, over.ID, &last, bookingstore.SeriesStatusActive); err != nil {
+		t.Fatal(err)
+	}
+
+	n, err := f.Stores.BookingSeries.EndExpiredSeries(data.ContextWithTenantBypass(context.Background()), start.AddDate(0, 0, 1))
+	if err != nil || n != 1 {
+		t.Fatalf("EndExpiredSeries = %d, %v; want 1", n, err)
+	}
+	if got, _ := f.Stores.BookingSeries.GetSeries(ctx, over.ID); got.Status != bookingstore.SeriesStatusEnded {
+		t.Errorf("expired series status = %s", got.Status)
+	}
+	if got, _ := f.Stores.BookingSeries.GetSeries(ctx, live.ID); got.Status != bookingstore.SeriesStatusActive {
+		t.Errorf("a series without an end must stay active; got %s", got.Status)
 	}
 }

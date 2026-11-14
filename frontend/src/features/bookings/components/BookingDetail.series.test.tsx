@@ -35,7 +35,7 @@ async function renderDetail(booking: Booking) {
   const { bookingsApi } = await import('../api/bookings.api');
   const { bookingSeriesApi } = await import('../api/bookingSeries.api');
   vi.mocked(bookingsApi.getById).mockResolvedValue({ booking, payments: [] });
-  vi.mocked(bookingSeriesApi.get).mockResolvedValue({ series, upcoming: [], skipped: [] });
+  vi.mocked(bookingSeriesApi.get).mockResolvedValue({ series, upcoming: [] });
   const onClose = vi.fn();
   renderWithProviders(
     <BookingDetail

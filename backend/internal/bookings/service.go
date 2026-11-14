@@ -61,6 +61,8 @@ type Service struct {
 	cfg          Config
 	run          func(func())
 	waitlist     SlotFreedNotifier
+	// now is the clock the fixed weekly series reason by; tests replace it.
+	now func() time.Time
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -85,6 +87,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		cfg:          cfg,
 		run:          d.Run,
 		waitlist:     d.Waitlist,
+		now:          time.Now,
 	}
 }
 
@@ -614,6 +617,16 @@ func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Compl
 	}
 	if blocked {
 		return nil, &ConflictError{Message: blockedSlotMessage}
+	}
+	// Hours a fixed weekly series holds are as unavailable to the owner's
+	// dashboard as a booking's. The series' own occurrence is the one exception
+	// (in.seriesID), which is how the job books its date.
+	held, err := s.heldByFixedBooking(ctx, court.ID, in.Date, startAt, endAt, in.seriesID)
+	if err != nil {
+		return nil, err
+	}
+	if held {
+		return nil, &ConflictError{Message: fixedBookingMessage}
 	}
 
 	// An explicit price overrides the computed one outright — the owner's

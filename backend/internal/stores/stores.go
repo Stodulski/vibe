@@ -304,14 +304,20 @@ type CourtStore interface {
 // ---------------------------------------------------------------------------
 
 // BookingSeriesStore persists fixed weekly bookings (turnos fijos): the series
-// itself, the dates it has been generated for, and its occurrences.
+// rule, the ledger of its settled dates, and the bookings it produced.
 type BookingSeriesStore interface {
-	InsertSeries(ctx context.Context, s *bookingstore.Series) error
+	// InsertSeries writes the series and its starting exceptions in one
+	// transaction, refusing with ErrSlotUnavailable when a booking now covers a
+	// date it holds.
+	InsertSeries(ctx context.Context, s *bookingstore.Series, exceptions []bookingstore.SeriesException) error
 	GetSeries(ctx context.Context, id uuid.UUID) (*bookingstore.Series, error)
-	ListActiveSeries(ctx context.Context) ([]*bookingstore.Series, error)
+	// EndExpiredSeries marks ended the active series whose last day is before day.
+	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)
 	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*bookingstore.Series, error)
 	SeriesDates(ctx context.Context, seriesID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error)
-	RecordSeriesSkip(ctx context.Context, s *bookingstore.Series, date time.Time, reason string) error
+	// RecordSeriesException settles a date as an exception; false when the date
+	// was already settled.
+	RecordSeriesException(ctx context.Context, s *bookingstore.Series, date time.Time, reason string) (bool, error)
 	SeriesBookingsFrom(ctx context.Context, seriesID uuid.UUID, from time.Time) ([]*bookingstore.Booking, error)
 }
 
@@ -329,6 +335,12 @@ type BookingReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
 	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	// BookedSpansBetween is GetBookedSlotsByCourtIDs over a range of days.
+	BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.BookedSpan, error)
+	// SeriesOccurrences returns the dates fixed weekly series are holding that
+	// no booking covers yet: the one reading every availability decision,
+	// the owner's calendar and the materialization job share.
+	SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 

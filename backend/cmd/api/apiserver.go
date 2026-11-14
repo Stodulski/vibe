@@ -248,6 +248,12 @@ func (s *apiServer) BookingSeriesGet(w http.ResponseWriter, r *http.Request, id 
 	s.app.bookings.GetSeries(w, r)
 }
 
+// BookingSeriesSkip implements gen.ServerInterface for bookingSeriesSkip
+// (POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingSeriesSkip(w http.ResponseWriter, r *http.Request, id gen.PathID, seriesID gen.SeriesID) {
+	s.app.bookings.SkipSeriesDate(w, r)
+}
+
 // BookingSeriesEnd implements gen.ServerInterface for bookingSeriesEnd
 // (POST /api/v1/complexes/{id}/booking-series/{seriesID}/end). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingSeriesEnd(w http.ResponseWriter, r *http.Request, id gen.PathID, seriesID gen.SeriesID) {

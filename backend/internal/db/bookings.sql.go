@@ -40,20 +40,21 @@ const getBookedSlots = `-- name: GetBookedSlots :many
 SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
-  AND b.span && local_day($2::date)
+  AND b.span && tstzrange(lower(local_day($2::date)), upper(local_day($3::date)), '[)')
   AND b.status NOT IN ('cancelled', 'no_show')
   AND NOT (
     b.status = 'pending'
     AND b.collection_status = 'unpaid'
     AND b.created_by IS NULL
-    AND b.created_at < NOW() - make_interval(secs => $3::float8)
+    AND b.created_at < NOW() - make_interval(secs => $4::float8)
   )
 ORDER BY b.court_id, lower(b.span)
 `
 
 type GetBookedSlotsParams struct {
 	Column1              []pgtype.UUID `json:"column_1"`
-	Day                  pgtype.Date   `json:"day"`
+	DayFrom              pgtype.Date   `json:"day_from"`
+	DayTo                pgtype.Date   `json:"day_to"`
 	PaymentExpirySeconds float64       `json:"payment_expiry_seconds"`
 }
 
@@ -89,6 +90,11 @@ type GetBookedSlotsRow struct {
 // occupied until 01:00 is occupied on that morning's grid too. See
 // local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
 //
+// The window is the local days day_from..day_to inclusive (the same day twice
+// for the storefront's single-day grid). Real bookings only: the dates fixed
+// weekly series are holding are read beside it by Store.SeriesOccurrences, so
+// GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
+//
 // payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
 // default 15 minutes — see internal/stores), passed as a parameter
 // rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
@@ -97,7 +103,12 @@ type GetBookedSlotsRow struct {
 // pending booking between the two configured values shows as free here and
 // taken there (or the reverse). Both now read Config.PaymentExpiry once.
 func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) ([]GetBookedSlotsRow, error) {
-	rows, err := q.db.Query(ctx, getBookedSlots, arg.Column1, arg.Day, arg.PaymentExpirySeconds)
+	rows, err := q.db.Query(ctx, getBookedSlots,
+		arg.Column1,
+		arg.DayFrom,
+		arg.DayTo,
+		arg.PaymentExpirySeconds,
+	)
 	if err != nil {
 		return nil, err
 	}

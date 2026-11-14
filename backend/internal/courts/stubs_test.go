@@ -176,8 +176,13 @@ func (s *stubStore) DeleteBlockedSlot(_ context.Context, id uuid.UUID) error {
 
 type stubBookings struct {
 	booked    []bookingstore.BookedSpan
+	fixed     []bookingstore.SeriesOccurrence
 	hasActive bool
 	err       error
+}
+
+func (b *stubBookings) ComplexSeriesOccurrences(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	return b.fixed, b.err
 }
 
 func (b *stubBookings) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {

@@ -47,6 +47,24 @@ func (q *Queries) EndBookingSeries(ctx context.Context, arg EndBookingSeriesPara
 	return i, err
 }
 
+const endExpiredBookingSeries = `-- name: EndExpiredBookingSeries :execrows
+UPDATE booking_series
+SET status = 'ended'
+WHERE status = 'active' AND ends_on IS NOT NULL AND ends_on < $1
+`
+
+// Marks ended the active series whose last day is behind the given date; only
+// the materialization job calls it, under the tenant bypass. Such a series no
+// longer holds any date (booking_series_occurrences stops at ends_on), so this
+// changes what the owner reads, not what is sold.
+func (q *Queries) EndExpiredBookingSeries(ctx context.Context, endsOn pgtype.Date) (int64, error) {
+	result, err := q.db.Exec(ctx, endExpiredBookingSeries, endsOn)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getBookingSeries = `-- name: GetBookingSeries :one
 SELECT id, complex_id, court_id, client_id, weekday, start_time, duration_minutes, price, notes, starts_on, ends_on, status, created_by, created_at, updated_at FROM booking_series
 WHERE id = $1
@@ -142,51 +160,6 @@ func (q *Queries) InsertBookingSeries(ctx context.Context, arg InsertBookingSeri
 	return i, err
 }
 
-const listActiveBookingSeries = `-- name: ListActiveBookingSeries :many
-SELECT id, complex_id, court_id, client_id, weekday, start_time, duration_minutes, price, notes, starts_on, ends_on, status, created_by, created_at, updated_at FROM booking_series
-WHERE status = 'active'
-ORDER BY created_at, id
-`
-
-// Every active series across tenants, for the daily extension job (which runs
-// under the tenant bypass). Series whose end is already behind them are
-// included on purpose: the job is what marks them ended.
-func (q *Queries) ListActiveBookingSeries(ctx context.Context) ([]BookingSeries, error) {
-	rows, err := q.db.Query(ctx, listActiveBookingSeries)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BookingSeries
-	for rows.Next() {
-		var i BookingSeries
-		if err := rows.Scan(
-			&i.ID,
-			&i.ComplexID,
-			&i.CourtID,
-			&i.ClientID,
-			&i.Weekday,
-			&i.StartTime,
-			&i.DurationMinutes,
-			&i.Price,
-			&i.Notes,
-			&i.StartsOn,
-			&i.EndsOn,
-			&i.Status,
-			&i.CreatedBy,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listBookingSeriesBookingsFrom = `-- name: ListBookingSeriesBookingsFrom :many
 SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id FROM bookings
 WHERE series_id = $1 AND date >= $2
@@ -258,8 +231,8 @@ type ListBookingSeriesDatesParams struct {
 	Date_2   pgtype.Date `json:"date_2"`
 }
 
-// The dates of one series already generated (booked or skipped) inside a
-// window, which is what stops the job from generating a date twice.
+// The ledger rows of one series inside a window: the dates already settled
+// (booked or excepted).
 func (q *Queries) ListBookingSeriesDates(ctx context.Context, arg ListBookingSeriesDatesParams) ([]BookingSeriesDate, error) {
 	rows, err := q.db.Query(ctx, listBookingSeriesDates, arg.SeriesID, arg.Date, arg.Date_2)
 	if err != nil {
@@ -287,23 +260,25 @@ func (q *Queries) ListBookingSeriesDates(ctx context.Context, arg ListBookingSer
 	return items, nil
 }
 
-const recordBookingSeriesSkip = `-- name: RecordBookingSeriesSkip :execrows
+const recordBookingSeriesException = `-- name: RecordBookingSeriesException :execrows
 INSERT INTO booking_series_dates (series_id, complex_id, date, outcome, reason)
-VALUES ($1, $2, $3, 'skipped', $4)
+VALUES ($1, $2, $3, 'exception', $4)
 ON CONFLICT (series_id, date) DO NOTHING
 `
 
-type RecordBookingSeriesSkipParams struct {
+type RecordBookingSeriesExceptionParams struct {
 	SeriesID  pgtype.UUID `json:"series_id"`
 	ComplexID pgtype.UUID `json:"complex_id"`
 	Date      pgtype.Date `json:"date"`
 	Reason    pgtype.Text `json:"reason"`
 }
 
-// A date that could not be booked. DO NOTHING keeps the first answer: a date
-// already booked or already skipped is never rewritten.
-func (q *Queries) RecordBookingSeriesSkip(ctx context.Context, arg RecordBookingSeriesSkipParams) (int64, error) {
-	result, err := q.db.Exec(ctx, recordBookingSeriesSkip,
+// A date that is not part of the series: cancelled by the owner, or one that
+// could not be booked. DO NOTHING keeps the first answer: a date already booked
+// or excepted is never rewritten, and the row count says whether this call was
+// the one that settled it.
+func (q *Queries) RecordBookingSeriesException(ctx context.Context, arg RecordBookingSeriesExceptionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordBookingSeriesException,
 		arg.SeriesID,
 		arg.ComplexID,
 		arg.Date,

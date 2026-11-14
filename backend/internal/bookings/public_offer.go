@@ -187,6 +187,16 @@ func (s *Service) publicOffer(ctx context.Context, complex *complexstore.Complex
 	if blocked {
 		return publicOffer{}, &ConflictError{Message: blockedSlotMessage}
 	}
+	// The storefront's grid already hides the hours a fixed weekly series holds;
+	// this is the same answer for a request that names them anyway. The
+	// insert-time guard (store.SlotTaken) is what holds against a race.
+	held, err := s.heldByFixedBooking(ctx, court.ID, startDate, startAt, endAt, nil)
+	if err != nil {
+		return publicOffer{}, err
+	}
+	if held {
+		return publicOffer{}, &ConflictError{Message: blockedSlotMessage}
+	}
 
 	// Reject slots that have already begun. Compared as instants: an after-
 	// midnight slot of today's grid is tomorrow's, and is not in the past.

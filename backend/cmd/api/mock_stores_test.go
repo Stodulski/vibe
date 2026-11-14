@@ -820,6 +820,14 @@ func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtID
 	return nil, nil
 }
 
+func (m *mockBookingStore) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.BookedSpan, error) {
+	return nil, nil
+}
+
+func (m *mockBookingStore) SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	return nil, nil
+}
+
 func (m *mockBookingStore) GetForReminder2h(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error) {
 	if m.GetForReminder2hFn != nil {
 		return m.GetForReminder2hFn(ctx, now)
