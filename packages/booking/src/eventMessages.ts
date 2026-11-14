@@ -18,6 +18,7 @@ export const EVENT_MESSAGES = {
   shareAction: 'Compartir evento',
   shareTextPrefix: 'Sumate a',
   formTitle: 'Tus datos',
+  privacyNotice: 'Tus datos los gestiona el complejo para tu inscripción. Vibe los procesa por su cuenta.',
   formDescription: 'Cada persona se inscribe por separado. Te guardamos el lugar mientras pagás.',
   priceLabel: 'Lugar',
   signUpConflict:
@@ -31,6 +32,7 @@ export const EVENT_MESSAGES = {
   eventNotFound: 'Evento no encontrado',
   eventNotFoundDescription: 'No existe o fue eliminado.',
   eventLoadError: 'No pudimos cargar el evento',
+  registrationNotFoundTitle: 'Inscripción no encontrada',
   registrationNotFoundDescription: 'El link no es válido o venció.',
   confirmedTitle: 'Lugar confirmado',
   confirmedDescription: 'Te esperamos. Guardá esta página: desde acá podés cancelar tu lugar.',

@@ -85,7 +85,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
       </div>
 
       <p className="text-text-tertiary text-center text-xs">
-        {t.publicBooking.privacyNotice}{' '}
+        {t.events.privacyNotice}{' '}
         <a
           href={privacyUrl}
           target="_blank"

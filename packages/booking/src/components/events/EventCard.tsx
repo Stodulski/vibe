@@ -3,7 +3,7 @@ import { formatDateFull, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicEventPath } from '../../lib/publicPaths';
 import type { PublicOpenPlayEvent } from '../../api/types';
-import { eventTimeRange, isOpenForSignUp, spotsLeftLabel, sportLabel } from './eventFormat';
+import { eventHasStarted, eventTimeRange, isOpenForSignUp, spotsLeftLabel, sportLabel } from './eventFormat';
 
 const t = BOOKING_MESSAGES.events;
 
@@ -17,8 +17,8 @@ interface EventCardProps {
 /** One open-play event: what it is, when, where, what it costs and how many spots are left. */
 export function EventCard({ event, slug, headingLevel = 'h3' }: EventCardProps) {
   const Heading = headingLevel;
-  const open = isOpenForSignUp(event);
-  const cancelled = event.status === 'cancelled';
+  // A full, cancelled or started event says so once, in the button or in the page state below the card.
+  const open = isOpenForSignUp(event) && !eventHasStarted(event);
 
   return (
     <article className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-3 rounded-2xl border p-4 text-left sm:p-5">
@@ -42,9 +42,7 @@ export function EventCard({ event, slug, headingLevel = 'h3' }: EventCardProps) 
         <p className="text-text-primary text-base font-semibold tabular-nums">
           {formatPrice(event.total_price)} <span className="text-text-secondary text-sm font-normal">{t.perPerson}</span>
         </p>
-        <p className={open ? 'text-primary-400 text-sm font-medium' : 'text-text-secondary text-sm font-medium'}>
-          {cancelled ? BOOKING_MESSAGES.events.cancelledTitle : open ? spotsLeftLabel(event.spots_left) : t.full}
-        </p>
+        {open && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(event.spots_left)}</p>}
       </div>
 
       {slug !== undefined && (

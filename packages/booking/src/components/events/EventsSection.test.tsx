@@ -45,7 +45,7 @@ describe('EventsSection', () => {
     renderBooking(<EventsSection slug="test-club" />);
 
     expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
-    expect(screen.getAllByText(t.full).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(t.full)).toHaveLength(1);
     expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
   });
 });

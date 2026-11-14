@@ -46,7 +46,7 @@ export function RegistrationNotFoundState({ slug, eventPath }: { slug: string; e
     <StatusHero
       icon={XCircle}
       tone="neutral"
-      title={t.publicBooking.bookingNotFound}
+      title={t.events.registrationNotFoundTitle}
       description={t.events.registrationNotFoundDescription}
     >
       <div className="flex flex-col gap-2">
