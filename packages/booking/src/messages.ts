@@ -1,4 +1,5 @@
 import { EVENT_MESSAGES } from './eventMessages';
+import { TOURNAMENT_MESSAGES } from './tournamentMessages';
 
 /**
  * The strings the booking package renders. This file is the single source of
@@ -197,6 +198,7 @@ export const BOOKING_MESSAGES = {
     privacyNoticeLink: 'Política de privacidad',
   },
   events: EVENT_MESSAGES,
+  tournaments: TOURNAMENT_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
     amenities: {

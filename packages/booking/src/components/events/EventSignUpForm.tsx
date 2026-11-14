@@ -1,34 +1,16 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Lock } from 'lucide-react';
-import { LoadingButton, formatPrice, submitHandler, useAppForm } from '@vibe/ui';
+import { LoadingButton, submitHandler, useAppForm } from '@vibe/ui';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
 import { useBookingConfig } from '../../config';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
+import { PriceSummary } from '../signup/PriceSummary';
 import { eventSignUpSchema, type EventSignUpFormData } from '../../schemas/event-signup.schema';
 import type { PublicOpenPlayEvent } from '../../api/types';
 
 const t = BOOKING_MESSAGES;
-
-function EventPriceSummary({ event }: { event: PublicOpenPlayEvent }) {
-  return (
-    <dl className="text-sm">
-      <div className="flex items-baseline justify-between">
-        <dt className="text-text-secondary">{t.events.priceLabel}</dt>
-        <dd className="text-text-primary tabular-nums">{formatPrice(event.price)}</dd>
-      </div>
-      <div className="flex items-baseline justify-between">
-        <dt className="text-text-secondary">{t.serviceFee.label}</dt>
-        <dd className="text-text-primary tabular-nums">{formatPrice(event.service_fee)}</dd>
-      </div>
-      <div className="flex items-baseline justify-between pt-1">
-        <dt className="text-text-secondary">{t.publicBooking.totalOnline}</dt>
-        <dd className="text-text-primary font-semibold tabular-nums">{formatPrice(event.total_price)}</dd>
-      </div>
-    </dl>
-  );
-}
 
 interface EventSignUpFormProps {
   slug: string;
@@ -67,7 +49,12 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
       <EventSignUpFields register={register} control={control} errors={errors} />
 
       <div className="space-y-2 pt-1">
-        <EventPriceSummary event={event} />
+        <PriceSummary
+          label={t.events.priceLabel}
+          price={event.price}
+          serviceFee={event.service_fee}
+          total={event.total_price}
+        />
         {errorMessage && (
           <p role="alert" className="text-error-text text-sm">
             {errorMessage}

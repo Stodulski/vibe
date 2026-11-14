@@ -1,43 +1,18 @@
-import { HTTPError } from 'ky';
 import { BOOKING_MESSAGES } from '../messages';
-import { getProblem } from './ApiError';
-import { getHttpErrorMessage } from './httpErrors';
+import { refusalCopy, type RefusalCopy } from './signUpRefusals';
 
-const t = BOOKING_MESSAGES;
+const t = BOOKING_MESSAGES.events;
 
-/**
- * The text a refused sign-up shows. The 409s each carry their own problem kind
- * (`event-full`, `event-closed`, `already-registered`); the English detail is
- * never shown. Any other 409 keeps the catch-all sentence.
- */
-function conflictCopy(kind: string | undefined): string {
-  switch (kind) {
-    case 'event-full':
-      return t.events.eventFullRefusal;
-    case 'event-closed':
-      return t.events.signUpClosed;
-    case 'already-registered':
-      return t.events.alreadyRegistered;
-    default:
-      return t.events.signUpConflict;
-  }
-}
+const EVENT_REFUSALS: RefusalCopy = {
+  full: t.eventFullRefusal,
+  closed: t.signUpClosed,
+  alreadyRegistered: t.alreadyRegistered,
+  conflict: t.signUpConflict,
+  tooManyUnpaid: t.tooManyUnpaid,
+  fallback: t.signUpError,
+};
 
-/** The text a refused sign-up shows, by status and, for a 409, by problem kind. */
+/** The text a refused event sign-up shows. */
 export function signUpRefusalCopy(error: unknown): string {
-  if (error instanceof HTTPError) {
-    switch (error.response.status) {
-      case 409:
-        return conflictCopy(getProblem(error)?.kind);
-      case 403:
-        return t.publicBooking.accountBlocked;
-      case 429:
-        return t.events.tooManyUnpaid;
-      case 503:
-        return t.publicBooking.paymentLinkError;
-      default:
-        break;
-    }
-  }
-  return getHttpErrorMessage(error, t.events.signUpError);
+  return refusalCopy(error, EVENT_REFUSALS);
 }

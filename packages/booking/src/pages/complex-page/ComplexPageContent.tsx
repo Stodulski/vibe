@@ -14,6 +14,7 @@ import type {
 } from '../../api/types';
 import { CourtDirectory } from './CourtDirectory';
 import { EventsSection } from '../../components/events/EventsSection';
+import { TournamentsSection } from '../../components/tournaments/TournamentsSection';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
@@ -125,6 +126,7 @@ export function ComplexPageContent({
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
       <EventsSection slug={complex.slug} />
+      <TournamentsSection slug={complex.slug} />
 
       <div className="mt-6 sm:mt-10">
         <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
