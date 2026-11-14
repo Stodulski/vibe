@@ -108,7 +108,7 @@ func eventSpans(occs []EventOccupancy, windowStart, windowEnd time.Time) []Booke
 		if !o.StartsAt.Before(windowEnd) || !o.EndsAt.After(windowStart) {
 			continue
 		}
-		out = append(out, BookedSpan{CourtID: o.CourtID, StartsAt: o.StartsAt, EndsAt: o.EndsAt, Event: true})
+		out = append(out, BookedSpan{CourtID: o.CourtID, StartsAt: o.StartsAt, EndsAt: o.EndsAt, Event: true, Match: o.Kind == OccupancyMatch})
 	}
 	return out
 }

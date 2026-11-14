@@ -628,13 +628,17 @@ func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Compl
 	if held {
 		return nil, &ConflictError{Message: fixedBookingMessage}
 	}
-	// So are the hours an open-play event holds: the owner cancels the event to
-	// free its courts.
-	heldByEvent, err := s.heldByEvent(ctx, court.ID, in.Date, startAt, endAt)
+	// So are the hours an open-play event or a tournament match holds: the owner
+	// cancels the event, or unschedules the match, to free its court.
+	holding, err := s.occupancyHolding(ctx, court.ID, in.Date, startAt, endAt)
 	if err != nil {
 		return nil, err
 	}
-	if heldByEvent {
+	switch holding {
+	case "":
+	case bookingstore.OccupancyMatch:
+		return nil, &ConflictError{Message: matchBookingMessage}
+	default:
 		return nil, &ConflictError{Message: eventBookingMessage}
 	}
 

@@ -253,21 +253,33 @@ func (s *Service) heldByFixedBooking(
 // open-play event holds the hours.
 const eventBookingMessage = "the selected time belongs to an open-play event (canchas libres)"
 
-// heldByEvent reports whether an active open-play event holds any of the
-// candidate's hours on its court. Like heldByFixedBooking, it is the read-only
+// matchBookingMessage is the same refusal when a scheduled tournament match
+// holds the hours: the way out is unscheduling the match, not an event.
+const matchBookingMessage = "the selected time belongs to a tournament match"
+
+// heldByEvent reports whether an active open-play event or a scheduled
+// tournament match holds any of the candidate's hours on its court.
+func (s *Service) heldByEvent(ctx context.Context, courtID uuid.UUID, date time.Time, startAt, endAt time.Time) (bool, error) {
+	kind, err := s.occupancyHolding(ctx, courtID, date, startAt, endAt)
+	return kind != "", err
+}
+
+// occupancyHolding is the kind (bookingstore.OccupancyEvent or OccupancyMatch)
+// of the first occupancy that holds any of the candidate's hours on its court,
+// or "" when none does. Like heldByFixedBooking, it is the read-only
 // pre-check; the insert-time guard (store.SlotTaken) asks the same question in
 // SQL under the court-day lock.
-func (s *Service) heldByEvent(ctx context.Context, courtID uuid.UUID, date time.Time, startAt, endAt time.Time) (bool, error) {
+func (s *Service) occupancyHolding(ctx context.Context, courtID uuid.UUID, date time.Time, startAt, endAt time.Time) (string, error) {
 	occs, err := s.store.EventOccupancies(ctx, nil, []uuid.UUID{courtID}, date.AddDate(0, 0, -1), date.AddDate(0, 0, 1))
 	if err != nil {
-		return false, err
+		return "", err
 	}
 	for _, o := range occs {
 		if slots.OverlapAt(startAt, endAt, o.StartsAt, o.EndsAt) {
-			return true, nil
+			return o.Kind, nil
 		}
 	}
-	return false, nil
+	return "", nil
 }
 
 // occurrenceConflict maps what writing an occurrence refused to the reason a
@@ -281,7 +293,7 @@ func occurrenceConflict(err error) (reason string, ok bool) {
 		return ReasonOverlap, true
 	case errors.As(err, &conflict):
 		switch conflict.Message {
-		case fixedBookingMessage, eventBookingMessage:
+		case fixedBookingMessage, eventBookingMessage, matchBookingMessage:
 			return ReasonOverlap, true
 		case blockedSlotMessage:
 			return ReasonBlocked, true

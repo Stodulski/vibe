@@ -382,6 +382,9 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 			if b.Fixed {
 				return nil, courtstore.ErrSlotHeldByFixedBooking
 			}
+			if b.Match {
+				return nil, courtstore.ErrSlotHeldByMatch
+			}
 			if b.Event {
 				return nil, courtstore.ErrSlotHeldByEvent
 			}

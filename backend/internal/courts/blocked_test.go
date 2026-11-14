@@ -281,6 +281,33 @@ func TestBlockSlotRefusesHoursAnOpenPlayEventHolds(t *testing.T) {
 	}
 }
 
+// A scheduled tournament match holds its court too, but it is not an event: the
+// refusal names the match, and never sends the owner to cancel an event.
+func TestBlockSlotRefusesHoursATournamentMatchHolds(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
+	day := mustParseDate(t, futureDate())
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
+		CourtID: courtID, StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"), Event: true, Match: true,
+	}}}
+
+	h, _ := newTestHandler(store, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.BlockSlot(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"courtID": courtID.String()},
+		`{"date":"`+futureDate()+`","start_time":"18:30","end_time":"20:00"}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "tournament match") || strings.Contains(w.Body.String(), "canchas libres") {
+		t.Errorf("the refusal must name the tournament match, not an event; got %s", w.Body.String())
+	}
+	if store.insertedBlocked != nil {
+		t.Error("hours a match holds must not be blocked")
+	}
+}
+
 // The owner's calendar draws the hours events hold beside the blocked slots: the
 // list answers them under event_blocks, in the venue's wall-clock, never as null.
 func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {

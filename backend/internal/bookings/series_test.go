@@ -541,6 +541,28 @@ func TestTheOwnerCannotBookHoursAFixedBookingHoldsButCanOnceTheDateIsSkipped(t *
 	}
 }
 
+// The owner is told which kind of thing holds the hours: an open-play event or
+// a tournament match each have their own sentence, and the way out differs.
+func TestTheOwnerIsToldWhetherAnEventOrAMatchHoldsTheHours(t *testing.T) {
+	for _, tc := range []struct{ kind, want, notWant string }{
+		{bookingstore.OccupancyEvent, "open-play event (canchas libres)", "tournament match"},
+		{bookingstore.OccupancyMatch, "tournament match", "canchas libres"},
+	} {
+		f := newSeriesFixture(t)
+		date := f.day(3)
+		f.store.eventsFn = func(_ *uuid.UUID, _ []uuid.UUID, _, _ time.Time) []bookingstore.EventOccupancy {
+			return []bookingstore.EventOccupancy{{
+				EventID: uuid.New(), ComplexID: f.complexID, CourtID: f.courtID, Date: date, Kind: tc.kind,
+				StartsAt: slots.At(timezone.Day(date), "18:00"), EndsAt: slots.At(timezone.Day(date), "19:30"),
+			}}
+		}
+		w := f.ownerBook(t, date, "18:00")
+		if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), tc.want) || strings.Contains(w.Body.String(), tc.notWant) {
+			t.Errorf("%s: want 409 naming %q and not %q; got %d (%s)", tc.kind, tc.want, tc.notWant, w.Code, w.Body.String())
+		}
+	}
+}
+
 func TestTheOwnerCanBookAfterTheSeriesEnds(t *testing.T) {
 	f := newSeriesFixture(t)
 	first := f.day(3)

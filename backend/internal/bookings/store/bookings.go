@@ -256,6 +256,10 @@ type BookedSpan struct {
 	// Event is true for hours an open-play event is holding (EventOccupancy):
 	// as taken as a booking, and the owner is told it is an event to cancel.
 	Event bool
+	// Match is true, together with Event, when the hours are a scheduled
+	// tournament match rather than an open-play event: the owner is told to
+	// unschedule the match instead.
+	Match bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's

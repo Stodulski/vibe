@@ -72,6 +72,10 @@ const blockedSlotHeldByFixedBookingMessage = "this time range belongs to a fixed
 // holds the hours: the way out is cancelling the event.
 const blockedSlotHeldByEventMessage = "this time range belongs to an open-play event (canchas libres), cancel the event to free it"
 
+// blockedSlotHeldByMatchMessage is the same refusal when a scheduled tournament
+// match holds the hours: the way out is unscheduling the match.
+const blockedSlotHeldByMatchMessage = "this time range belongs to a tournament match, unschedule it to free it"
+
 // emptyToNil folds a description of "" into no description at all.
 //
 // A client that clears the field sends an empty string, and a court that was

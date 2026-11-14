@@ -4,7 +4,7 @@ import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
-import { isFixedBookingConflict, isOpenPlayEventConflict } from '@/features/courts';
+import { isFixedBookingConflict, isOpenPlayEventConflict, isTournamentMatchConflict } from '@/features/courts';
 import { useIdempotentMutation, type WithAttemptKey } from '@/shared/lib/idempotency';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
@@ -30,6 +30,10 @@ export function useCreateBooking(complexId: string) {
       }
       if (isOpenPlayEventConflict(error)) {
         toast.error(t.bookings.createError, { description: t.bookings.openPlayEventSlotTaken });
+        return;
+      }
+      if (isTournamentMatchConflict(error)) {
+        toast.error(t.bookings.createError, { description: t.bookings.tournamentMatchSlotTaken });
         return;
       }
       if (getHttpStatus(error) === 409) {
