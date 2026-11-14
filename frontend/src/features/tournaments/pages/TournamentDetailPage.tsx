@@ -34,7 +34,7 @@ export function TournamentDetailContent({ complexId, tournamentId }: { complexId
 
   return (
     <div className={TOURNAMENT_DETAIL_CLASS}>
-      <BackLink to="/tournaments">{t.tournaments.backToList}</BackLink>
+      <BackLink to="/events/tournaments">{t.tournaments.backToList}</BackLink>
       {query.isLoading ? (
         <TournamentDetailBodySkeleton />
       ) : !query.data ? (

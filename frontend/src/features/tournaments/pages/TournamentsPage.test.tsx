@@ -33,7 +33,7 @@ describe('TournamentsPage', () => {
     renderWithProviders(<TournamentsPage />);
 
     const card = await screen.findByRole('link', { name: /Copa Vibe/ });
-    expect(card).toHaveAttribute('href', '/tournaments/t1');
+    expect(card).toHaveAttribute('href', '/events/tournaments/t1');
     expect(card).toHaveTextContent('6ta, 7ma');
     expect(card).toHaveTextContent(t.pairsCount(10));
     const { from, to } = upcomingRange(todayInArgentina());

@@ -22,17 +22,22 @@ describe('AppShellLoader', () => {
     expect(screen.getAllByRole('status')).toHaveLength(1);
     const rail = container.querySelector('.bg-bg-sidebar');
     expect(rail).not.toBeNull();
-    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(9);
+    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(8);
   });
 
-  it.each(['/cash', '/dashboard', '/courts', '/clients', '/reports', '/open-play', '/tournaments'] as const)(
-    'draws the %s route fallback inside <main>',
-    (pathname) => {
-      const { container } = renderAt(pathname);
-      const expected = render(<>{routeSkeleton(pathname)}</>).container.innerHTML;
-      expect(mainHtml(container)).toBe(expected);
-    },
-  );
+  it.each([
+    '/cash',
+    '/dashboard',
+    '/courts',
+    '/clients',
+    '/reports',
+    '/events/open-play',
+    '/events/tournaments',
+  ] as const)('draws the %s route fallback inside <main>', (pathname) => {
+    const { container } = renderAt(pathname);
+    const expected = render(<>{routeSkeleton(pathname)}</>).container.innerHTML;
+    expect(mainHtml(container)).toBe(expected);
+  });
 
   it('keeps the cash fallback specific: it carries the cash section tabs', () => {
     const { container } = renderAt('/cash');

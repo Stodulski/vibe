@@ -134,7 +134,7 @@ describe('Sidebar — labels and icons per width', () => {
     for (const label of [
       'Dashboard',
       'Reservas',
-      'Canchas libres',
+      'Eventos',
       'Caja',
       'Canchas',
       'Clientes',

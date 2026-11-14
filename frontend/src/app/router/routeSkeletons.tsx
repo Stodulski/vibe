@@ -28,9 +28,9 @@ import { ProductsPageSkeleton } from '@/features/products/pages/ProductsPageSkel
 const OWNER_ROUTE_SKELETONS = {
   '/dashboard': () => <DashboardPageSkeleton />,
   '/bookings': () => <BookingsPageSkeleton />,
-  '/open-play': () => <EventsPageSkeleton />,
-  '/tournaments': () => <TournamentsPageSkeleton />,
-  '/tournaments/:tournamentId': () => <TournamentDetailPageSkeleton />,
+  '/events/open-play': () => <EventsPageSkeleton />,
+  '/events/tournaments': () => <TournamentsPageSkeleton />,
+  '/events/tournaments/:tournamentId': () => <TournamentDetailPageSkeleton />,
   '/cash': () => <CashPageSkeleton />,
   '/cash/sell': () => <CashSellPageSkeleton />,
   '/cash/sessions/:sessionId': () => <CashSessionDetailPageSkeleton />,

@@ -1,5 +1,6 @@
 import { Plus } from 'lucide-react';
 import { useSelectedComplex } from '@/features/complex';
+import { EventsSectionTabs } from '@/shared/components/common/EventsSectionTabs';
 import { PageHeader } from '@/shared/components/common/PageHeader';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -16,9 +17,9 @@ const TABS: { value: TournamentsTab; label: string }[] = [
   { value: 'past', label: t.past },
 ];
 
-/** The owner's "Torneos": upcoming and past tournaments, a create dialog, and a detail page per tournament. */
+/** The "Torneos" tab of Eventos: upcoming and past tournaments, a create dialog, and a detail page per tournament. */
 export default function TournamentsPage() {
-  usePageTitle(t.title);
+  usePageTitle(ES_AR.navigation.events);
   const { selectedComplexId } = useSelectedComplex();
   if (!selectedComplexId) return null;
   return <TournamentsPageContent complexId={selectedComplexId} />;
@@ -30,7 +31,7 @@ function TournamentsPageContent({ complexId }: { complexId: string }) {
   return (
     <div>
       <PageHeader
-        title={t.title}
+        title={ES_AR.navigation.events}
         action={{
           label: t.create,
           icon: Plus,
@@ -39,6 +40,7 @@ function TournamentsPageContent({ complexId }: { complexId: string }) {
           },
         }}
       />
+      <EventsSectionTabs />
       <div className={TOURNAMENTS_PAGE_CLASS}>
         <SegmentedTabs items={TABS} active={state.tab} onChange={state.setTab} ariaLabel={t.title} />
         <TournamentList

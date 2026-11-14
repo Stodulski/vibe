@@ -69,7 +69,7 @@ function seedPairs(category: string, prefix: string, count: number, price: numbe
 }
 
 async function openTournament(): Promise<void> {
-  await page.goto(`/tournaments/${tournamentId}`);
+  await page.goto(`/events/tournaments/${tournamentId}`);
   await expect(page.getByRole('heading', { name: TOURNAMENT })).toBeVisible({ timeout: 10_000 });
 }
 
@@ -119,8 +119,8 @@ test.afterAll(async () => {
 
 test('the owner creates a tournament with a groups category and an elimination category', async () => {
   test.slow();
-  await page.goto('/tournaments');
-  await expect(page.getByRole('heading', { name: 'Torneos', exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.goto('/events/tournaments');
+  await expect(page.getByRole('heading', { name: 'Eventos', exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole('button', { name: 'Crear torneo' }).first().click();
   const dialog = page.getByRole('dialog');
   await expect(dialog.getByText('Cada categoría tiene su cupo, su precio por pareja y su formato.')).toBeVisible();

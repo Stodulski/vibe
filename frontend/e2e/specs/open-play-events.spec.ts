@@ -95,8 +95,8 @@ test.afterAll(async () => {
 
 test('an event over an existing booking is refused with the court named, in Spanish', async () => {
   test.slow();
-  await page.goto('/open-play');
-  await expect(page.getByRole('heading', { name: 'Canchas libres', exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.goto('/events/open-play');
+  await expect(page.getByRole('heading', { name: 'Eventos', exact: true })).toBeVisible({ timeout: 10_000 });
   await page.getByRole('button', { name: 'Crear evento' }).first().click();
 
   await fillEventForm('18:00', '20:00');
@@ -183,7 +183,7 @@ test('the participants list shows each spot with its payment state', async () =>
   seedPaidRegistration(world.complexId, eventId, person(2), PRICE_PESOS * 100, 250);
   seedHeldRegistration(world.complexId, eventId, person(3), PRICE_PESOS * 100);
 
-  await page.goto(`/open-play?event=${eventId}`);
+  await page.goto(`/events/open-play?event=${eventId}`);
   const sheet = page.getByRole('dialog');
   await expect(sheet.getByText(EVENT_NAME)).toBeVisible({ timeout: 10_000 });
   await expect(sheet.getByText('2 de 4 anotados')).toBeVisible();
@@ -264,7 +264,7 @@ test('public: an event that already started says the sign-up closed', async ({ p
 });
 
 test('cancelling shows the paid count and frees the grid', async ({ page: visitor }) => {
-  await page.goto(`/open-play?event=${eventId}`);
+  await page.goto(`/events/open-play?event=${eventId}`);
   const sheet = page.getByRole('dialog');
   await expect(sheet.getByText('Participantes · 4 personas')).toBeVisible({ timeout: 10_000 });
   await sheet.getByRole('button', { name: 'Cancelar evento' }).click();

@@ -117,7 +117,7 @@ describe('EventsPage tabs and detail', () => {
     const { eventsApi } = await import('../api/events.api').then((m) => ({ eventsApi: m.eventsApi }));
     vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
     vi.mocked(eventsApi.get).mockResolvedValue({ event: makeEvent({}), participants: [] });
-    renderWithProviders(<EventsPage />, { initialEntries: ['/open-play?event=ev1'] });
+    renderWithProviders(<EventsPage />, { initialEntries: ['/events/open-play?event=ev1'] });
 
     expect(await screen.findByText(t.detail.noParticipants)).toBeInTheDocument();
     expect(eventsApi.get).toHaveBeenCalledWith('c1', 'ev1', expect.anything());

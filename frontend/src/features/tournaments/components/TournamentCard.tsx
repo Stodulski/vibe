@@ -13,7 +13,7 @@ export function TournamentCard({ tournament }: { tournament: TournamentOwnerSumm
 
   return (
     <Link
-      to={`/tournaments/${tournament.id}`}
+      to={`/events/tournaments/${tournament.id}`}
       className={cn(TOURNAMENT_CARD_CLASS, 'focus-self hover:border-border-default transition-colors')}
     >
       <div className={TOURNAMENT_CARD_TOP_ROW_CLASS}>

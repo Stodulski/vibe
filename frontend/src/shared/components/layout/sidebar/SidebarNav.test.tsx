@@ -11,6 +11,31 @@ function renderAt(path: string) {
   );
 }
 
+describe('SidebarNav — Eventos', () => {
+  it('shows one Eventos entry after Reservas instead of Canchas libres and Torneos', () => {
+    renderAt('/dashboard');
+    const names = screen.getAllByRole('link').map((link) => link.textContent);
+    expect(names.filter((name) => name === 'Eventos')).toHaveLength(1);
+    expect(names.indexOf('Eventos')).toBe(names.indexOf('Reservas') + 1);
+    expect(names).not.toContain('Canchas libres');
+    expect(names).not.toContain('Torneos');
+    expect(screen.getByRole('link', { name: 'Eventos' })).toHaveAttribute('href', '/events/open-play');
+  });
+
+  it.each(['/events/open-play', '/events/tournaments', '/events/tournaments/t1'])(
+    'marks Eventos active on %s',
+    (path) => {
+      renderAt(path);
+      expect(screen.getByRole('link', { name: 'Eventos' })).toHaveAttribute('aria-current', 'page');
+    },
+  );
+
+  it('does not mark Eventos active on /eventsfoo, which only shares the text prefix', () => {
+    renderAt('/eventsfoo');
+    expect(screen.getByRole('link', { name: 'Eventos' })).not.toHaveAttribute('aria-current', 'page');
+  });
+});
+
 describe('SidebarNav — active path resolution', () => {
   it('marks Caja active on the exact /cash route', () => {
     renderAt('/cash');
