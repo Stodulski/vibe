@@ -251,6 +251,31 @@ func TestPublicSignUpAnswers409WhenFullAnd400WithoutMercadoPago(t *testing.T) {
 	}
 }
 
+// Each refusal of a sign-up answers its own problem kind, so the page can say
+// which one it was without reading the English detail.
+func TestPublicSignUpRefusalsEachAnswerTheirOwnKind(t *testing.T) {
+	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"}`
+	for _, tc := range []struct {
+		err    error
+		status int
+		kind   string
+	}{
+		{eventstore.ErrEventFull, http.StatusConflict, "event-full"},
+		{eventstore.ErrEventClosed, http.StatusConflict, "event-closed"},
+		{eventstore.ErrAlreadyRegistered, http.StatusConflict, "already-registered"},
+		{eventstore.ErrHoldLimit, http.StatusTooManyRequests, "rate-limited"},
+	} {
+		f := newFixture(t)
+		f.store.signUpErr = tc.err
+		params := map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}
+		w := httptest.NewRecorder()
+		newHandler(f).PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", body, params))
+		if w.Code != tc.status || !strings.Contains(w.Body.String(), "/problems/"+tc.kind+`"`) {
+			t.Errorf("%v: want %d kind %s; got %d (%s)", tc.err, tc.status, tc.kind, w.Code, w.Body.String())
+		}
+	}
+}
+
 // S6: status and cancel authorize on the registration's token, and cancelling
 // answers what became of the money.
 func TestPublicStatusAndCancelFollowTheRegistrationToken(t *testing.T) {

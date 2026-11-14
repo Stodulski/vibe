@@ -155,11 +155,13 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, eventID 
 func signUpError(err error) error {
 	switch {
 	case errors.Is(err, eventstore.ErrEventFull):
-		return &ConflictError{Message: "the event is full"}
+		return ErrEventFull
 	case errors.Is(err, eventstore.ErrEventClosed):
-		return &ConflictError{Message: "sign-up for this event is closed"}
+		return ErrEventClosed
 	case errors.Is(err, eventstore.ErrAlreadyRegistered):
-		return &ConflictError{Message: "this phone is already signed up for the event"}
+		return ErrAlreadyRegistered
+	case errors.Is(err, eventstore.ErrHoldLimit):
+		return ErrTooManyHolds
 	}
 	return err
 }

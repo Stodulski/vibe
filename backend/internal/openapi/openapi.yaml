@@ -2954,8 +2954,10 @@ paths:
         Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the
         person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed
         when the payment is approved; a hold nobody pays stops counting by itself. Phone is required,
-        email optional (without it no confirmation email is sent). Answers `409` when the event is
-        full or closed, or the phone already holds a spot. The returned `token` is the person's
+        email optional (without it no confirmation email is sent). Answers `409` with its own problem
+        kind per reason: `event-full`, `event-closed` (started or cancelled) or `already-registered`
+        (the phone already holds a spot); `429` `rate-limited` when the address already holds 3
+        unpaid spots. The returned `token` is the person's
         credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the
         checkout returns them to the event page with it.
       security: []
@@ -2980,7 +2982,9 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
-          description: The event is full, sign-up is closed, or this phone already holds a spot.
+          description: >-
+            Problem kind `event-full`, `event-closed` or `already-registered`: the event is full,
+            sign-up is closed, or this phone already holds a spot.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}

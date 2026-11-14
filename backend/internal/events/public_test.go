@@ -73,18 +73,18 @@ func TestSignUpWithoutAnEmailIsAccepted(t *testing.T) {
 }
 
 // S4: capacity closes sign-up, and the person is told why.
-func TestSignUpAnswersConflictWhenTheEventIsFullOrClosed(t *testing.T) {
-	for err, want := range map[error]string{
-		eventstore.ErrEventFull:         "the event is full",
-		eventstore.ErrEventClosed:       "sign-up for this event is closed",
-		eventstore.ErrAlreadyRegistered: "this phone is already signed up for the event",
+func TestSignUpRefusesWithTheSentinelOfEachReason(t *testing.T) {
+	for store, want := range map[error]error{
+		eventstore.ErrEventFull:         ErrEventFull,
+		eventstore.ErrEventClosed:       ErrEventClosed,
+		eventstore.ErrAlreadyRegistered: ErrAlreadyRegistered,
+		eventstore.ErrHoldLimit:         ErrTooManyHolds,
 	} {
 		f := newFixture(t)
-		f.store.signUpErr = err
+		f.store.signUpErr = store
 		_, got := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, signUpInput())
-		var conflict *ConflictError
-		if !errors.As(got, &conflict) || conflict.Message != want {
-			t.Errorf("%v: got %v, want conflict %q", err, got, want)
+		if !errors.Is(got, want) {
+			t.Errorf("%v: got %v, want %v", store, got, want)
 		}
 		if len(f.checkout.input) != 0 {
 			t.Error("a refused sign-up opens no checkout")

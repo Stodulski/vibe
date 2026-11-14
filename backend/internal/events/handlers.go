@@ -31,6 +31,10 @@ var refusals = httpx.Refusals{
 	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
 	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
+	ErrEventFull:               httpx.EventFull("the event is full"),
+	ErrEventClosed:             httpx.EventClosed("sign-up for this event is closed"),
+	ErrAlreadyRegistered:       httpx.AlreadyRegistered("this phone is already signed up for the event"),
+	ErrTooManyHolds:            httpx.TooManyRequests("too many unpaid spots held from this address, pay for one or wait for it to expire"),
 }
 
 // NewHandler returns a Handler backed by the given service.

@@ -163,6 +163,12 @@ var (
 	ErrCheckoutUnavailable = errors.New("events: the checkout link could not be created")
 	// ErrClientBlocked reports a phone the venue blocked.
 	ErrClientBlocked = errors.New("events: the phone is blocked by the complex")
+	// ErrEventFull, ErrEventClosed, ErrAlreadyRegistered and ErrTooManyHolds are
+	// the reasons a public sign-up is refused; each answers its own problem kind.
+	ErrEventFull         = errors.New("events: the event is full")
+	ErrEventClosed       = errors.New("events: sign-up for the event is closed")
+	ErrAlreadyRegistered = errors.New("events: the phone is already signed up for the event")
+	ErrTooManyHolds      = errors.New("events: too many spots held from this address")
 	// ErrNotEditable reports an operation the event's state does not allow.
 	ErrNotEditable = errors.New("events: the event no longer allows that")
 )

@@ -50,7 +50,13 @@ const (
 	// released, already converted or past its window), so the visitor has to
 	// pick a time again rather than retry.
 	KindHoldExpired Kind = "hold-expired"
-	KindGone        Kind = "gone"
+	// KindEventFull, KindEventClosed and KindAlreadyRegistered are 409s distinct
+	// from the generic KindConflict: the three reasons a public sign-up for an
+	// open-play event is refused, so the page can say which without parsing Detail.
+	KindEventFull         Kind = "event-full"
+	KindEventClosed       Kind = "event-closed"
+	KindAlreadyRegistered Kind = "already-registered"
+	KindGone              Kind = "gone"
 	// KindUnsupportedMediaType is the 415 ReadJSON answers when a request's
 	// Content-Type does not declare application/json — see
 	// UnsupportedMediaTypeError in json.go for why this exists.
@@ -140,6 +146,9 @@ var titles = map[Kind]string{
 	KindSlotUnavailable:      "Slot Unavailable",
 	KindStaleVersion:         "Stale Version",
 	KindHoldExpired:          "Hold Expired",
+	KindEventFull:            "Event Full",
+	KindEventClosed:          "Event Closed",
+	KindAlreadyRegistered:    "Already Registered",
 	KindGone:                 "Gone",
 	KindUnsupportedMediaType: "Unsupported Media Type",
 	KindTooLarge:             "Payload Too Large",
