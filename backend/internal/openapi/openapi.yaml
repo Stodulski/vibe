@@ -6266,6 +6266,22 @@ components:
           type: array
           description: Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
           items: {$ref: "#/components/schemas/BookingSeriesConflict"}
+        alternatives:
+          type: array
+          description: >-
+            Present with `conflicts`: other active courts of the same complex and sport that the
+            series fits better, free ones first, the most alike (same surface, covered or open,
+            lighting) first within each. At most three.
+          items: {$ref: "#/components/schemas/CourtAlternative"}
+
+    CourtAlternative:
+      type: object
+      description: Another court offered when the chosen one holds the series' dates.
+      required: [court_id, court_name, conflicts]
+      properties:
+        court_id: {type: string, format: uuid}
+        court_name: {type: string}
+        conflicts: {type: integer, description: "Dates of the series something else holds on this court; 0 when it is free every week."}
 
     PaymentsExport:
       type: object

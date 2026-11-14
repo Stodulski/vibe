@@ -501,7 +501,9 @@ func (s *stubComplexes) RefreshMPCredentials(_ context.Context, complexID uuid.U
 }
 
 type stubCourts struct {
-	court  *courtstore.Court
+	court *courtstore.Court
+	// all is what GetByComplex answers: the courts of the complex.
+	all    []*courtstore.Court
 	prices []*courtstore.CourtPrice
 	// blocked is what the owner has taken off sale, keyed by date so a stub
 	// that returns the same list for every day cannot make a test pass on a
@@ -530,6 +532,10 @@ func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*courtstore.Court, err
 		return nil, data.ErrRecordNotFound
 	}
 	return s.court, nil
+}
+
+func (s *stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Court, error) {
+	return s.all, nil
 }
 
 func (s *stubCourts) GetPrices(context.Context, uuid.UUID) ([]*courtstore.CourtPrice, error) {

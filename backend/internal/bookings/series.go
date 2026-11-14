@@ -110,6 +110,8 @@ const (
 // written.
 type SeriesConflictsError struct {
 	Conflicts []SeriesConflict
+	// Alternatives are other courts the series fits better; see seriesAlternatives.
+	Alternatives []CourtAlternative
 }
 
 func (e *SeriesConflictsError) Error() string {
@@ -576,7 +578,7 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 		return nil, err
 	}
 	if len(conflicts) > 0 && !in.SkipConflicts {
-		return nil, &SeriesConflictsError{Conflicts: conflicts}
+		return nil, &SeriesConflictsError{Conflicts: conflicts, Alternatives: s.seriesAlternatives(ctx, ser, len(conflicts))}
 	}
 
 	client, err := s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)

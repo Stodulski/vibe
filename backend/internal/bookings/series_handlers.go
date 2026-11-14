@@ -249,7 +249,11 @@ func (h *Handler) refuseSeriesConflicts(w http.ResponseWriter, r *http.Request, 
 	for i, c := range conflicts.Conflicts {
 		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason, HeldBy: c.HeldBy}
 	}
-	h.respond.ConflictDates(w, r, "some dates of the series cannot be booked", out)
+	alternatives := make([]httpx.CourtAlternative, len(conflicts.Alternatives))
+	for i, a := range conflicts.Alternatives {
+		alternatives[i] = httpx.CourtAlternative{CourtID: a.CourtID.String(), CourtName: a.CourtName, Conflicts: a.Conflicts}
+	}
+	h.respond.ConflictDates(w, r, "some dates of the series cannot be booked", out, alternatives)
 	return true
 }
 

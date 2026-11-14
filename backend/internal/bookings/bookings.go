@@ -105,6 +105,9 @@ type ComplexReader interface {
 // sells hours the storefront has already withdrawn.
 type CourtReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
+	// GetByComplex lists the complex's courts, which a refused series searches
+	// for another court that fits its dates.
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	// GetBlockedSlotsByComplex is the same read over a range of dates for every

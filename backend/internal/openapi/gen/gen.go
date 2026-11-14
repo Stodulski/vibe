@@ -3229,6 +3229,14 @@ type CourtCourtType string
 // CourtSport defines model for Court.Sport.
 type CourtSport string
 
+// CourtAlternative Another court offered when the chosen one holds the series' dates.
+type CourtAlternative struct {
+	// Conflicts Dates of the series something else holds on this court; 0 when it is free every week.
+	Conflicts int                `json:"conflicts"`
+	CourtId   openapi_types.UUID `json:"court_id"`
+	CourtName string             `json:"court_name"`
+}
+
 // CourtPrice defines model for CourtPrice.
 type CourtPrice struct {
 	CourtId openapi_types.UUID `json:"court_id"`
@@ -3625,6 +3633,9 @@ type PlaceDetails struct {
 
 // Problem An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type Problem struct {
+	// Alternatives Present with `conflicts`: other active courts of the same complex and sport that the series fits better, free ones first, the most alike (same surface, covered or open, lighting) first within each. At most three.
+	Alternatives *[]CourtAlternative `json:"alternatives,omitempty"`
+
 	// Conflicts Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
 	Conflicts *[]BookingSeriesConflict `json:"conflicts,omitempty"`
 
