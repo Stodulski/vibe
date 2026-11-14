@@ -34,6 +34,13 @@ func (m *mockTournamentStore) List(context.Context, uuid.UUID, time.Time, time.T
 	return nil, nil
 }
 
+func (m *mockTournamentStore) Matches(context.Context, uuid.UUID) ([]*tournamentstore.Match, error) {
+	if m.seeded != nil {
+		return m.seeded.Matches, nil
+	}
+	return nil, nil
+}
+
 func (m *mockTournamentStore) Categories(context.Context, uuid.UUID) ([]*tournamentstore.Category, error) {
 	if m.seeded != nil {
 		return m.seeded.Categories, nil

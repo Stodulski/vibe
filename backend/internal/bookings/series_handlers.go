@@ -247,7 +247,7 @@ func (h *Handler) refuseSeriesConflicts(w http.ResponseWriter, r *http.Request, 
 	}
 	out := make([]httpx.DateConflict, len(conflicts.Conflicts))
 	for i, c := range conflicts.Conflicts {
-		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason}
+		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason, HeldBy: c.HeldBy}
 	}
 	h.respond.ConflictDates(w, r, "some dates of the series cannot be booked", out)
 	return true
@@ -285,6 +285,10 @@ func toGenSeriesConflicts(cs []SeriesConflict) []gen.BookingSeriesConflict {
 	out := make([]gen.BookingSeriesConflict, len(cs))
 	for i, c := range cs {
 		out[i] = gen.BookingSeriesConflict{Date: openapi_types.Date{Time: c.Date}, Reason: gen.BookingSeriesConflictReason(c.Reason)}
+		if c.HeldBy != "" {
+			heldBy := gen.BookingSeriesConflictHeldBy(c.HeldBy)
+			out[i].HeldBy = &heldBy
+		}
 	}
 	return out
 }

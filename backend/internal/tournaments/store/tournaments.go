@@ -164,6 +164,21 @@ func categories(ctx context.Context, q *db.Queries, tournamentID uuid.UUID) ([]*
 	return out, nil
 }
 
+// Matches returns every match of a tournament, in the order the draw made them.
+func (m *Store) Matches(ctx context.Context, tournamentID uuid.UUID) ([]*Match, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+	rows, err := m.Q.ListTournamentMatches(ctx, data.UUIDToPg(tournamentID))
+	if err != nil {
+		return nil, fmt.Errorf("tournaments: list matches: %w", err)
+	}
+	out := make([]*Match, len(rows))
+	for i, r := range rows {
+		out[i] = matchFromDB(r)
+	}
+	return out, nil
+}
+
 // Category returns one category of the tournament by id, or ErrRecordNotFound.
 func (m *Store) Category(ctx context.Context, tournamentID, categoryID uuid.UUID) (*Category, error) {
 	cats, err := m.Categories(ctx, tournamentID)

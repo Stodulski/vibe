@@ -940,3 +940,43 @@ func TestGetSeriesComputesTheNextDatesFromTheRuleWithTheirState(t *testing.T) {
 		t.Error("the detail has no skipped list any more")
 	}
 }
+
+// The conflicts say what holds each date, so the owner knows what to move.
+func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
+	f := newSeriesFixture(t)
+	first := f.day(3)
+	span := func(week int, flags bookingstore.BookedSpan) bookingstore.BookedSpan {
+		start := slots.At(timezone.Day(first.AddDate(0, 0, 7*week)), "18:00")
+		flags.CourtID, flags.StartsAt, flags.EndsAt = f.courtID, start, start.Add(90*time.Minute)
+		return flags
+	}
+	f.store.booked = append(f.store.booked,
+		span(1, bookingstore.BookedSpan{}),
+		span(2, bookingstore.BookedSpan{Fixed: true}),
+		span(3, bookingstore.BookedSpan{Event: true}),
+		span(4, bookingstore.BookedSpan{Event: true, Match: true}),
+	)
+	w := f.create(t, first, "")
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d (%s)", w.Code, w.Body.String())
+	}
+	var problem struct {
+		Conflicts []struct {
+			Date   string `json:"date"`
+			HeldBy string `json:"held_by"`
+		}
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &problem); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, c := range problem.Conflicts {
+		got[c.Date] = c.HeldBy
+	}
+	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match"} {
+		date := first.AddDate(0, 0, 7*week).Format(time.DateOnly)
+		if got[date] != want {
+			t.Errorf("week %d held_by = %q, want %q (all: %+v)", week, got[date], want, got)
+		}
+	}
+}

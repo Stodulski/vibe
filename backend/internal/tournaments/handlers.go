@@ -212,7 +212,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]wireOwnerSummary, len(sums))
 	for i, s := range sums {
-		out[i] = wireOwnerSummary{toWireTournament(s.Tournament), toWireOwnerCategories(s.Categories)}
+		out[i] = wireOwnerSummary{toWireTournament(s.Tournament), toWireOwnerCategories(s.Categories), s.UnscheduledCount}
 	}
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"tournaments": out})
 }

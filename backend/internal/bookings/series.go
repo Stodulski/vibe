@@ -92,7 +92,18 @@ type SeriesStore interface {
 type SeriesConflict struct {
 	Date   time.Time
 	Reason string
+	// HeldBy says what holds the date when Reason is overlap: one of the HeldBy
+	// constants. Empty for every other reason.
+	HeldBy string
 }
+
+// What holds a date of a series that collides with something.
+const (
+	HeldByBooking = "booking"
+	HeldByFixed   = "fixed"
+	HeldByEvent   = "event"
+	HeldByMatch   = "match"
+)
 
 // SeriesConflictsError refuses a series whose dates collide with something that
 // already holds them, when the owner did not ask to skip them. Nothing was
@@ -500,17 +511,33 @@ func (s *Service) seriesConflicts(ctx context.Context, ser *Series) ([]SeriesCon
 		switch {
 		case blockedBySlots(blocks, ser.CourtID, d, startAt, endAt):
 			out = append(out, SeriesConflict{Date: d, Reason: ReasonBlocked})
-		case heldBySpans(spans, ser.CourtID, startAt, endAt):
-			out = append(out, SeriesConflict{Date: d, Reason: ReasonOverlap})
+		default:
+			if heldBy := heldBySpans(spans, ser.CourtID, startAt, endAt); heldBy != "" {
+				out = append(out, SeriesConflict{Date: d, Reason: ReasonOverlap, HeldBy: heldBy})
+			}
 		}
 	}
 	return out, nil
 }
 
-func heldBySpans(spans []bookingstore.BookedSpan, courtID uuid.UUID, startAt, endAt time.Time) bool {
-	return slices.ContainsFunc(spans, func(sp bookingstore.BookedSpan) bool {
+// heldBySpans is the HeldBy constant of the first span holding the candidate's
+// hours on its court, or "" when none does.
+func heldBySpans(spans []bookingstore.BookedSpan, courtID uuid.UUID, startAt, endAt time.Time) string {
+	i := slices.IndexFunc(spans, func(sp bookingstore.BookedSpan) bool {
 		return sp.CourtID == courtID && slots.OverlapAt(startAt, endAt, sp.StartsAt, sp.EndsAt)
 	})
+	if i < 0 {
+		return ""
+	}
+	switch sp := spans[i]; {
+	case sp.Match:
+		return HeldByMatch
+	case sp.Event:
+		return HeldByEvent
+	case sp.Fixed:
+		return HeldByFixed
+	}
+	return HeldByBooking
 }
 
 // blockedBySlots is slotIsBlocked over blocks already loaded: the candidate

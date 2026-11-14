@@ -127,6 +127,9 @@ type DateConflict struct {
 	Date string `json:"date"`
 	// Reason is a stable machine code: overlap, blocked, closed_day, no_price.
 	Reason string `json:"reason"`
+	// HeldBy says what holds the date when Reason is overlap: booking, fixed,
+	// event or match. Omitted for any other reason.
+	HeldBy string `json:"held_by,omitempty"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors

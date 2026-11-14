@@ -184,3 +184,36 @@ func TestAWinnerOnlyResultHasAWinnerAndNoSets(t *testing.T) {
 		t.Errorf("a winner-only result has an empty sets array, got %s", raw)
 	}
 }
+
+// The list tells the owner how many matches are ready to be scheduled and are
+// not: both pairs known, not a bye, not played, no court. A cancelled tournament
+// has none to schedule.
+func TestTheOwnerListCountsTheMatchesStillToSchedule(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	cat, a, b := d.Categories[1].ID, d.Pairs[0].ID, d.Pairs[1].ID
+	pending := func(p1, p2 *uuid.UUID) *tournamentstore.Match {
+		return &tournamentstore.Match{ID: uuid.New(), CategoryID: cat, Stage: tournamentstore.StageGroup, Pair1ID: p1, Pair2ID: p2, Status: tournamentstore.MatchPending}
+	}
+	court := f.court.ID
+	scheduled := pending(&a, &b)
+	scheduled.CourtID = &court
+	d.Matches = append(d.Matches, pending(&a, &b), pending(&b, &a), pending(&a, nil), scheduled)
+
+	sums, err := f.svc.List(t.Context(), f.complex.ID, d.Tournament.StartDate, d.Tournament.EndDate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sums) != 1 || sums[0].UnscheduledCount != 2 {
+		t.Fatalf("want 2 matches to schedule; got %+v", sums)
+	}
+
+	d.Tournament.Status = tournamentstore.StatusCancelled
+	sums, err = f.svc.List(t.Context(), f.complex.ID, d.Tournament.StartDate, d.Tournament.EndDate)
+	if err != nil || sums[0].UnscheduledCount != 0 {
+		t.Fatalf("a cancelled tournament has nothing to schedule; got %+v, %v", sums, err)
+	}
+	validate(t, "TournamentOwnerSummary", wireOwnerSummary{
+		wireTournament: toWireTournament(&d.Tournament), Categories: toWireOwnerCategories(d.Categories), UnscheduledCount: 2,
+	})
+}

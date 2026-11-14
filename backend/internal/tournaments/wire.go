@@ -332,6 +332,8 @@ type wireOwnerDetail struct {
 type wireOwnerSummary struct {
 	wireTournament
 	Categories []wireOwnerCategory `json:"categories"`
+	// UnscheduledCount is how many matches have both pairs and no court yet.
+	UnscheduledCount int `json:"unscheduled_count"`
 }
 
 func toWireOwnerCategories(cats []*tournamentstore.Category) []wireOwnerCategory {

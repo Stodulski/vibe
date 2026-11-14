@@ -70,6 +70,10 @@ func (s *stubStore) List(context.Context, uuid.UUID, time.Time, time.Time, bool)
 	return []*tournamentstore.Tournament{&t}, nil
 }
 
+func (s *stubStore) Matches(context.Context, uuid.UUID) ([]*tournamentstore.Match, error) {
+	return s.detail.Matches, nil
+}
+
 func (s *stubStore) Categories(context.Context, uuid.UUID) ([]*tournamentstore.Category, error) {
 	return s.detail.Categories, nil
 }

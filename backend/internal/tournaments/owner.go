@@ -229,13 +229,42 @@ func (s *Service) List(ctx context.Context, complexID uuid.UUID, from, to time.T
 	if err != nil {
 		return nil, err
 	}
-	return s.summaries(ctx, ts)
+	sums, err := s.summaries(ctx, ts)
+	if err != nil {
+		return nil, err
+	}
+	for _, sum := range sums {
+		if sum.Tournament.Status != tournamentstore.StatusActive {
+			continue
+		}
+		matches, err := s.store.Matches(ctx, sum.Tournament.ID)
+		if err != nil {
+			return nil, err
+		}
+		sum.UnscheduledCount = countToSchedule(matches)
+	}
+	return sums, nil
 }
 
-// Summary is a tournament with its categories.
+// countToSchedule is how many matches the owner can schedule now and has not:
+// both pairs known, not a bye, not played, no court yet. A match still waiting
+// for a pair is not counted, since it cannot be scheduled.
+func countToSchedule(matches []*tournamentstore.Match) int {
+	n := 0
+	for _, m := range matches {
+		if !m.Bye && m.Status != tournamentstore.MatchCompleted && !m.Scheduled() && m.Pair1ID != nil && m.Pair2ID != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// Summary is a tournament with its categories. UnscheduledCount is filled by
+// the owner's List only.
 type Summary struct {
-	Tournament *tournamentstore.Tournament
-	Categories []*tournamentstore.Category
+	Tournament       *tournamentstore.Tournament
+	Categories       []*tournamentstore.Category
+	UnscheduledCount int
 }
 
 func (s *Service) summaries(ctx context.Context, ts []*tournamentstore.Tournament) ([]*Summary, error) {

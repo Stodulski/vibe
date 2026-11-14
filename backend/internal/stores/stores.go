@@ -659,6 +659,7 @@ type TournamentReader interface {
 	Get(ctx context.Context, id uuid.UUID) (*tournamentstore.Tournament, error)
 	List(ctx context.Context, complexID uuid.UUID, from, to time.Time, includeCancelled bool) ([]*tournamentstore.Tournament, error)
 	Categories(ctx context.Context, tournamentID uuid.UUID) ([]*tournamentstore.Category, error)
+	Matches(ctx context.Context, tournamentID uuid.UUID) ([]*tournamentstore.Match, error)
 	Category(ctx context.Context, tournamentID, categoryID uuid.UUID) (*tournamentstore.Category, error)
 	Detail(ctx context.Context, id uuid.UUID) (*tournamentstore.Detail, error)
 	CategoryOfEvent(ctx context.Context, eventID uuid.UUID) (tournamentID, categoryID uuid.UUID, err error)

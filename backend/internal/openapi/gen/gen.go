@@ -124,6 +124,30 @@ func (e BookingSeriesStatus) Valid() bool {
 	}
 }
 
+// Defines values for BookingSeriesConflictHeldBy.
+const (
+	BookingSeriesConflictHeldByBooking BookingSeriesConflictHeldBy = "booking"
+	BookingSeriesConflictHeldByEvent   BookingSeriesConflictHeldBy = "event"
+	BookingSeriesConflictHeldByFixed   BookingSeriesConflictHeldBy = "fixed"
+	BookingSeriesConflictHeldByMatch   BookingSeriesConflictHeldBy = "match"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesConflictHeldBy enum.
+func (e BookingSeriesConflictHeldBy) Valid() bool {
+	switch e {
+	case BookingSeriesConflictHeldByBooking:
+		return true
+	case BookingSeriesConflictHeldByEvent:
+		return true
+	case BookingSeriesConflictHeldByFixed:
+		return true
+	case BookingSeriesConflictHeldByMatch:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BookingSeriesConflictReason.
 const (
 	BookingSeriesConflictReasonBlocked          BookingSeriesConflictReason = "blocked"
@@ -2944,9 +2968,15 @@ type BookingSeriesStatus string
 
 // BookingSeriesConflict A date that is not part of a series, and why.
 type BookingSeriesConflict struct {
-	Date   openapi_types.Date          `json:"date"`
-	Reason BookingSeriesConflictReason `json:"reason"`
+	Date openapi_types.Date `json:"date"`
+
+	// HeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+	HeldBy *BookingSeriesConflictHeldBy `json:"held_by,omitempty"`
+	Reason BookingSeriesConflictReason  `json:"reason"`
 }
+
+// BookingSeriesConflictHeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+type BookingSeriesConflictHeldBy string
 
 // BookingSeriesConflictReason defines model for BookingSeriesConflict.Reason.
 type BookingSeriesConflictReason string
@@ -4504,6 +4534,9 @@ type TournamentOwnerSummary struct {
 	Sport        string                       `json:"sport"`
 	StartDate    openapi_types.Date           `json:"start_date"`
 	Status       TournamentOwnerSummaryStatus `json:"status"`
+
+	// UnscheduledCount Matches of an active tournament with both pairs known, not a bye, not played and without a court yet. 0 for a cancelled tournament.
+	UnscheduledCount int `json:"unscheduled_count"`
 }
 
 // TournamentOwnerSummaryStatus defines model for TournamentOwnerSummary.Status.

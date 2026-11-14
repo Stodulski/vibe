@@ -224,7 +224,7 @@ func TestTheOwnerWireMatchesTheDocumentAndThePublicOneCarriesNoCourtFee(t *testi
 	h := f.handler()
 
 	validate(t, "TournamentDetail", envelopeOf(h.ownerDetail(t.Context(), f.complex.ID, d)))
-	validate(t, "TournamentSummary", wireOwnerSummary{toWireTournament(&d.Tournament), toWireOwnerCategories(d.Categories)})
+	validate(t, "TournamentSummary", wireOwnerSummary{toWireTournament(&d.Tournament), toWireOwnerCategories(d.Categories), 0})
 	validate(t, "TournamentOwnerMatch", toWireOwnerMatches(d, nil)[0])
 
 	raw, _ := json.Marshal(envelopeOf(h.publicDetail(t.Context(), f.complex.ID, d)))

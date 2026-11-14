@@ -396,3 +396,69 @@ func TestListBlockedSlotsReturnsScheduledMatchesAsMatchBlocks(t *testing.T) {
 		t.Errorf("event_blocks must stay an empty array; got %s", w.Body.String())
 	}
 }
+
+// A block that starts the evening before and runs past midnight still holds the
+// first hours of the requested day: the calendar of that day draws its tail. A
+// block that ended before the range starts stays out.
+func TestListBlockedSlotsIncludesTailsOfBlocksStartedTheDayBefore(t *testing.T) {
+	complexID, courtID, tournamentID := uuid.New(), uuid.New(), uuid.New()
+	eve := mustParseDate(t, "2026-03-05")
+	span := func(start, end string) (time.Time, time.Time) {
+		return slots.At(timezone.Day(eve), start), slots.At(timezone.Day(eve.AddDate(0, 0, 1)), end)
+	}
+	nightStart, nightEnd := span("23:00", "01:00")
+	earlyStart, earlyEnd := slots.At(timezone.Day(eve), "20:00"), slots.At(timezone.Day(eve), "22:00")
+	bookings := &stubBookings{
+		fixed: []bookingstore.SeriesOccurrence{
+			{SeriesID: uuid.New(), CourtID: courtID, Date: eve, StartsAt: nightStart, EndsAt: nightEnd, ClientName: "Ana Paz"},
+			{SeriesID: uuid.New(), CourtID: courtID, Date: eve, StartsAt: earlyStart, EndsAt: earlyEnd, ClientName: "Luz Gil"},
+		},
+		events: []bookingstore.EventOccupancy{
+			{EventID: uuid.New(), CourtID: courtID, Date: eve, StartsAt: nightStart, EndsAt: nightEnd, Name: "Libres", Kind: bookingstore.OccupancyEvent},
+			{EventID: uuid.New(), CourtID: courtID, Date: eve, StartsAt: earlyStart, EndsAt: earlyEnd, Name: "Viejo", Kind: bookingstore.OccupancyEvent},
+			{EventID: uuid.New(), CourtID: courtID, Date: eve, StartsAt: nightStart, EndsAt: nightEnd, Name: "Torneo", Kind: bookingstore.OccupancyMatch, ParentID: &tournamentID},
+		},
+	}
+	h, _ := newTestHandler(&stubStore{}, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-06&date_to=2026-03-06", complexID, nil, ""))
+	var resp struct {
+		Fixed []struct {
+			ClientName string `json:"client_name"`
+		} `json:"fixed_blocks"`
+		Events []struct {
+			Name string `json:"name"`
+		} `json:"event_blocks"`
+		Match []struct {
+			Name string `json:"name"`
+		} `json:"match_blocks"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.Fixed) != 1 || resp.Fixed[0].ClientName != "Ana Paz" {
+		t.Errorf("fixed_blocks = %+v; want only the overnight series", resp.Fixed)
+	}
+	if len(resp.Events) != 1 || resp.Events[0].Name != "Libres" {
+		t.Errorf("event_blocks = %+v; want only the overnight event", resp.Events)
+	}
+	if len(resp.Match) != 1 || resp.Match[0].Name != "Torneo" {
+		t.Errorf("match_blocks = %+v; want the overnight match", resp.Match)
+	}
+}
+
+// The store reads an occurrence under its start date, so the service asks from
+// the day before the range.
+func TestHeldBlocksAskFromTheDayBefore(t *testing.T) {
+	bookings := &stubBookings{}
+	h, _ := newTestHandler(&stubStore{}, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-06&date_to=2026-03-08", uuid.New(), nil, ""))
+	const want = "2026-03-05"
+	if got := bookings.fixedFrom.Format("2006-01-02"); got != want {
+		t.Errorf("fixed from = %s; want %s", got, want)
+	}
+	if got := bookings.eventsFrom.Format("2006-01-02"); got != want {
+		t.Errorf("events from = %s; want %s", got, want)
+	}
+}
