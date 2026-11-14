@@ -11,6 +11,7 @@ import {
   roundName,
   scoreText,
   slotLabel,
+  tournamentDays,
 } from './tournamentView';
 
 const t = ES_AR.tournaments;
@@ -118,5 +119,25 @@ describe('resultText', () => {
   it('says nothing for a match that is not played yet or a bye', () => {
     expect(resultText(makeMatch({ id: 'm', pair1Id: 'p1', pair2Id: 'p2' }), pairs)).toBe('');
     expect(resultText(makeMatch({ ...played, bye: true }), pairs)).toBe('');
+  });
+});
+
+describe('tournamentDays', () => {
+  it('writes one day with its weekday', () => {
+    expect(tournamentDays('2026-12-26', '2026-12-26')).toBe('sábado 26 de diciembre');
+  });
+
+  it('writes two days of one month with the month once', () => {
+    expect(tournamentDays('2026-12-26', '2026-12-27')).toBe('sábado 26 al domingo 27 de diciembre');
+  });
+
+  it('writes both months when the days are in different months', () => {
+    expect(tournamentDays('2026-11-28', '2026-12-01')).toBe('sábado 28 de noviembre al martes 1 de diciembre');
+  });
+
+  it('adds the years when the days are in different years', () => {
+    expect(tournamentDays('2026-12-30', '2027-01-02')).toBe(
+      'miércoles 30 de diciembre de 2026 al sábado 2 de enero de 2027',
+    );
   });
 });

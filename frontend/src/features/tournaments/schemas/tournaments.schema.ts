@@ -179,7 +179,7 @@ const ownerMatchSchema = exact<TournamentOwnerMatch>(
 );
 
 const summarySchema = exact<TournamentOwnerSummary>(
-  z.object({ ...tournamentShape, categories: z.array(categorySchema) }).loose(),
+  z.object({ ...tournamentShape, categories: z.array(categorySchema), unscheduled_count: z.number() }).loose(),
 );
 
 const refundsSchema = z.array(

@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/ui/input';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { FieldLabel } from './FieldLabel';
 import { categoryField, type TournamentFormValues } from '../../schemas/tournamentForm.schema';
 
 const t = ES_AR.tournaments.form;
@@ -66,8 +67,12 @@ function GamesAndDuration({ form, index }: Props) {
   const errors = formState.errors.categories?.[index];
   const id = `category-${String(index)}`;
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <FormField label={t.gamesPerSet} htmlFor={`${id}-games`} error={errors?.games_per_set?.message}>
+    <>
+      <FormField
+        label={<FieldLabel text={t.gamesPerSet} required />}
+        htmlFor={`${id}-games`}
+        error={errors?.games_per_set?.message}
+      >
         <Input
           id={`${id}-games`}
           type="number"
@@ -77,7 +82,11 @@ function GamesAndDuration({ form, index }: Props) {
           {...register(categoryField(index, 'games_per_set'), { valueAsNumber: true })}
         />
       </FormField>
-      <FormField label={t.matchDuration} htmlFor={`${id}-duration`} error={errors?.match_duration_minutes?.message}>
+      <FormField
+        label={<FieldLabel text={t.matchDuration} required />}
+        htmlFor={`${id}-duration`}
+        error={errors?.match_duration_minutes?.message}
+      >
         <Input
           id={`${id}-duration`}
           type="number"
@@ -88,6 +97,6 @@ function GamesAndDuration({ form, index }: Props) {
           {...register(categoryField(index, 'match_duration_minutes'), { valueAsNumber: true })}
         />
       </FormField>
-    </div>
+    </>
   );
 }

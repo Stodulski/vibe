@@ -8,6 +8,10 @@ import type { CourtWithPrices, TournamentMatch } from '@/shared/types/api.types'
 
 vi.mock('../api/tournaments.api', () => ({ tournamentsApi: { schedule: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
+vi.mock('@/features/complex', () => ({
+  useSelectedComplex: () => ({ complex: { id: 'c1', slug: 'club' } }),
+  useSchedules: () => ({ data: undefined }),
+}));
 
 const t = ES_AR.tournaments.schedule;
 const { tournament } = makeDetail();

@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Button } from '@/shared/components/ui/button';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateShort } from '@/shared/lib/utils';
+import { tournamentDays } from '../lib/tournamentView';
 import { CancelTournamentDialog } from './CancelDialogs';
+import { MoreMenu } from './MoreMenu';
 import type { Tournament } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
@@ -17,29 +17,33 @@ interface TournamentFactsProps {
   canCancel: boolean;
 }
 
-/** The tournament's days and state, and the action that cancels all of it. */
+/** The tournament's days and state, and the overflow menu with the action that cancels all of it. */
 export function TournamentFacts({ tournament, complexId, paidCount, canCancel }: TournamentFactsProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {tournament.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.cancelledNote}</p>}
-      <InfoRow label={ES_AR.events.detail.when}>
-        <span className="score-text font-medium">
-          {t.days(formatDateShort(tournament.start_date), formatDateShort(tournament.end_date))}
-        </span>
-      </InfoRow>
-      {canCancel && (
-        <Button
-          type="button"
-          variant="destructive"
-          className="w-full rounded-xl sm:w-auto"
-          onClick={() => {
-            setCancelOpen(true);
-          }}
-        >
-          {t.cancel.action}
-        </Button>
-      )}
+      <div className="flex items-start justify-between gap-3">
+        <InfoRow label={ES_AR.events.detail.when}>
+          <span className="font-medium first-letter:uppercase">
+            {tournamentDays(tournament.start_date, tournament.end_date)}
+          </span>
+        </InfoRow>
+        {canCancel && (
+          <MoreMenu
+            ariaLabel={t.detail.moreTournament}
+            items={[
+              {
+                label: t.cancel.action,
+                destructive: true,
+                onSelect: () => {
+                  setCancelOpen(true);
+                },
+              },
+            ]}
+          />
+        )}
+      </div>
       <CancelTournamentDialog
         open={cancelOpen}
         onClose={() => {

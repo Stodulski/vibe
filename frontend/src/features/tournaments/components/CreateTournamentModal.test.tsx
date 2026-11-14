@@ -9,8 +9,14 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 const t = ES_AR.tournaments;
 type User = ReturnType<typeof userEvent.setup>;
 
+/** A field by its label text, whatever "(requerido)" or "(opcional)" follows it. */
+function field(label: string) {
+  const escaped = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return screen.getByLabelText(new RegExp(`^${escaped}( \\(|$)`));
+}
+
 async function pickDay(user: User, label: string, last: boolean) {
-  await user.click(screen.getByRole('button', { name: label }));
+  await user.click(screen.getByRole('button', { name: new RegExp(`^${label}`) }));
   const grid = await screen.findByRole('grid');
   const days = within(grid)
     .getAllByRole('button')
@@ -29,11 +35,11 @@ async function renderModal() {
 }
 
 async function fillBasics(user: User) {
-  await user.type(screen.getByLabelText(t.form.name), '  Copa Vibe ');
+  await user.type(field(t.form.name), '  Copa Vibe ');
   await pickDay(user, t.form.startDate, false);
   await pickDay(user, t.form.endDate, true);
-  await user.type(screen.getByLabelText(t.form.categoryName), ' 6ta ');
-  await user.type(screen.getByLabelText(t.form.price), '20000');
+  await user.type(field(t.form.categoryName), ' 6ta ');
+  await user.type(field(t.form.price), '20000');
 }
 
 describe('CreateTournamentModal', () => {
@@ -44,10 +50,10 @@ describe('CreateTournamentModal', () => {
   it('starts a groups category with the suggested defaults: groups of 3, 2 advance, best of three to 6, 90 minutes', async () => {
     await renderModal();
 
-    expect(screen.getByLabelText(t.form.groupSize)).toHaveValue(3);
-    expect(screen.getByLabelText(t.form.qualifiers)).toHaveValue(2);
-    expect(screen.getByLabelText(t.form.gamesPerSet)).toHaveValue(6);
-    expect(screen.getByLabelText(t.form.matchDuration)).toHaveValue(90);
+    expect(field(t.form.groupSize)).toHaveValue(3);
+    expect(field(t.form.qualifiers)).toHaveValue(2);
+    expect(field(t.form.gamesPerSet)).toHaveValue(6);
+    expect(field(t.form.matchDuration)).toHaveValue(90);
     expect(screen.getByRole('checkbox', { name: t.form.superTiebreak })).toBeChecked();
   });
 
@@ -67,8 +73,8 @@ describe('CreateTournamentModal', () => {
     const { tournamentsApi, user } = await renderModal();
     await fillBasics(user);
 
-    await user.clear(screen.getByLabelText(t.form.qualifiers));
-    await user.type(screen.getByLabelText(t.form.qualifiers), '3');
+    await user.clear(field(t.form.qualifiers));
+    await user.type(field(t.form.qualifiers), '3');
     await user.click(screen.getByRole('button', { name: t.form.submit }));
 
     expect(await screen.findByText(t.validation.qualifiersRange)).toBeInTheDocument();
@@ -123,7 +129,7 @@ describe('CreateTournamentModal: match format and submit', () => {
   it('sends the court fee per pair in centavos when the owner sets one, and leaves it out otherwise', async () => {
     const { tournamentsApi, user } = await renderModal();
     await fillBasics(user);
-    await user.type(screen.getByLabelText(t.form.courtFee), '1500');
+    await user.type(field(t.form.courtFee), '1500');
 
     await user.click(screen.getByRole('button', { name: t.form.submit }));
 
@@ -131,5 +137,48 @@ describe('CreateTournamentModal: match format and submit', () => {
       expect(tournamentsApi.create).toHaveBeenCalledTimes(1);
     });
     expect(vi.mocked(tournamentsApi.create).mock.calls[0]?.[1].categories[0]).toMatchObject({ court_fee: 150000 });
+  });
+});
+
+describe('CreateTournamentModal: layout', () => {
+  it('opens the first category and a new one, folding the one before', async () => {
+    const { user } = await renderModal();
+    const trigger = (n: number) => screen.getByRole('button', { name: t.form.category(n) });
+
+    expect(trigger(1)).toHaveAttribute('aria-expanded', 'true');
+    await user.click(screen.getByRole('button', { name: t.form.addCategory }));
+
+    expect(trigger(2)).toHaveAttribute('aria-expanded', 'true');
+    expect(trigger(1)).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('names the category in its header once it has a name', async () => {
+    const { user } = await renderModal();
+    await user.type(field(t.form.categoryName), '6ta');
+
+    expect(screen.getByRole('button', { name: t.form.categoryTitle(1, '6ta') })).toBeInTheDocument();
+  });
+
+  it('opens a folded category that has an error when sending', async () => {
+    const { user } = await renderModal();
+    await user.click(screen.getByRole('button', { name: t.form.addCategory }));
+    expect(screen.getByRole('button', { name: t.form.category(1) })).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(screen.getByRole('button', { name: t.form.submit }));
+
+    expect(await screen.findByRole('button', { name: t.form.category(1) })).toHaveAttribute('aria-expanded', 'true');
+  });
+});
+
+describe('CreateTournamentModal: required and optional', () => {
+  it('marks every field required or optional in its label, with the hint above the field', async () => {
+    await renderModal();
+
+    expect(screen.getByLabelText(`${t.form.name} (${ES_AR.common.requiredMarker})`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`${t.form.courtFee} (${ES_AR.common.optional})`)).toBeInTheDocument();
+    const hint = screen.getByText(t.form.courtFeeHint);
+    const input = screen.getByLabelText(`${t.form.courtFee} (${ES_AR.common.optional})`);
+    expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(hint).not.toHaveTextContent(/^Opcional/);
   });
 });

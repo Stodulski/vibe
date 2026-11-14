@@ -105,4 +105,17 @@ describe('TournamentDetail: swapping pairs', () => {
     expect(screen.getByText(t.draw.locked)).toBeInTheDocument();
     expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();
   });
+
+  it('keeps Sortear de nuevo enabled once a result is loaded and says why it does nothing', async () => {
+    const detail = makeDrawnDetail();
+    detail.matches = [
+      makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
+    ];
+    const { user } = await renderDetail(detail);
+
+    await user.click(screen.getByRole('button', { name: t.draw.regenerate }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(t.draw.errors.locked);
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
+  });
 });

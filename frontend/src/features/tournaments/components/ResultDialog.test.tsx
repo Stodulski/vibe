@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-utils';
+import { renderWithProviders, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { makeCategory, makeDetail, makeMatch, makePair } from '../testing/fixtures';
@@ -103,6 +103,42 @@ describe('ResultDialog', () => {
   });
 });
 
+describe('ResultDialog: columns by pair', () => {
+  it('names the pair of each column above the first set', async () => {
+    const { user } = await renderDialog();
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
+
+    const header = screen.getByRole('group', { name: t.columnsLabel });
+    expect(within(header).getByText('Pérez / Gómez')).toBeInTheDocument();
+    expect(within(header).getByText('Ruiz / Soto')).toBeInTheDocument();
+  });
+});
+
+describe('ResultDialog: save without a pick', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('keeps Guardar resultado enabled and says who to pick, sending nothing', async () => {
+    const { tournamentsApi, user } = await renderDialog();
+
+    await user.click(screen.getByRole('button', { name: t.submit }));
+
+    expect(await screen.findByText(t.errors.pickWinner)).toBeInTheDocument();
+    expect(tournamentsApi.setResult).not.toHaveBeenCalled();
+  });
+
+  it('asks who did not show up in walkover mode', async () => {
+    const { tournamentsApi, user } = await renderDialog();
+    await user.click(screen.getByRole('button', { name: t.modeWalkover }));
+
+    await user.click(screen.getByRole('button', { name: t.submit }));
+
+    expect(await screen.findByText(t.errors.pickAbsent)).toBeInTheDocument();
+    expect(tournamentsApi.setResult).not.toHaveBeenCalled();
+  });
+});
+
 describe('ResultDialog: only the winner', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -113,7 +149,7 @@ describe('ResultDialog: only the winner', () => {
 
     expect(screen.queryByRole('group', { name: t.set(1) })).not.toBeInTheDocument();
     expect(screen.getByText(t.winnerQuestion)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: t.submit })).toBeDisabled();
+    expect(screen.getByRole('button', { name: t.submit })).toBeEnabled();
     await user.click(screen.getByRole('button', { name: 'Ruiz / Soto' }));
     await user.click(screen.getByRole('button', { name: t.submit }));
 

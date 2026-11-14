@@ -2,6 +2,7 @@ import { type UseFormReturn } from 'react-hook-form';
 import { FormField } from '@/shared/components/common/FormField';
 import { Input } from '@/shared/components/ui/input';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { FieldLabel } from './FieldLabel';
 import { categoryField, type TournamentFormValues } from '../../schemas/tournamentForm.schema';
 
 const t = ES_AR.tournaments.form;
@@ -11,8 +12,13 @@ export function CategoryGroupFields({ form, index }: { form: UseFormReturn<Tourn
   const errors = form.formState.errors.categories?.[index];
   const id = `category-${String(index)}`;
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <FormField label={t.groupSize} htmlFor={`${id}-group-size`} error={errors?.group_size?.message}>
+    <>
+      <FormField
+        label={<FieldLabel text={t.groupSize} required />}
+        htmlFor={`${id}-group-size`}
+        helpText={t.groupSizeHint}
+        error={errors?.group_size?.message}
+      >
         <Input
           id={`${id}-group-size`}
           type="number"
@@ -25,7 +31,12 @@ export function CategoryGroupFields({ form, index }: { form: UseFormReturn<Tourn
           })}
         />
       </FormField>
-      <FormField label={t.qualifiers} htmlFor={`${id}-qualifiers`} error={errors?.qualifiers_per_group?.message}>
+      <FormField
+        label={<FieldLabel text={t.qualifiers} required />}
+        htmlFor={`${id}-qualifiers`}
+        helpText={t.qualifiersHint}
+        error={errors?.qualifiers_per_group?.message}
+      >
         <Input
           id={`${id}-qualifiers`}
           type="number"
@@ -34,9 +45,6 @@ export function CategoryGroupFields({ form, index }: { form: UseFormReturn<Tourn
           {...form.register(categoryField(index, 'qualifiers_per_group'), { valueAsNumber: true })}
         />
       </FormField>
-      <p className="text-text-tertiary text-xs sm:col-span-2">
-        {t.groupSizeHint} {t.qualifiersHint}
-      </p>
-    </div>
+    </>
   );
 }

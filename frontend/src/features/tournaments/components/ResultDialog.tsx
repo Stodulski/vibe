@@ -100,7 +100,6 @@ function ResultBody({ onClose, complexId, tournamentId, category, match, pairs }
           cancelDisabled={form.isPending}
           submitLabel={t.submit}
           pending={form.isPending}
-          submitDisabled={!form.canSubmit}
         />
       </form>
     </>

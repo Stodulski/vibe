@@ -43,13 +43,13 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
   const generate = useGenerateDraw(complexId, tournamentId, category.id);
   const [order, setOrder] = useState<TournamentOwnerPair[] | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const enough = view.paidPairs.length >= 2;
 
   return (
     <div className="border-border-subtle space-y-3 rounded-2xl border p-3.5">
       <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
       <p className="text-text-tertiary text-xs">{view.locked ? t.locked : drawn ? t.regenerateHint : t.generateHint}</p>
-      {!enough && <p className="text-warning-text text-xs">{t.needTwo}</p>}
       {order && (
         <SeedOrderEditor
           order={order}
@@ -58,17 +58,20 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
           }}
         />
       )}
-      <DrawError error={generate.error} category={category} pairs={view.paidPairs.length} />
+      <DrawError error={refusal ?? generate.error} category={category} pairs={view.paidPairs.length} />
       <DrawButtons
         drawn={drawn}
         showSeedToggle={!view.locked && enough}
         seedOn={!!order}
-        disabled={!enough || view.locked || generate.isPending}
+        disabled={generate.isPending}
         onToggleSeed={() => {
           setOrder(order ? null : initialOrder(view.paidPairs));
         }}
         onGenerate={() => {
-          setConfirmOpen(true);
+          // The button stays enabled: a disabled one says nothing about why. The reason is told here, on pressing it.
+          const reason = view.locked ? t.errors.locked : !enough ? t.errors.notEnough : null;
+          setRefusal(reason);
+          if (!reason) setConfirmOpen(true);
         }}
       />
       <ConfirmDialog
@@ -123,6 +126,14 @@ function DrawButtons({ drawn, showSeedToggle, seedOn, disabled, onToggleSeed, on
 
 function DrawError({ error, category, pairs }: { error: unknown; category: TournamentOwnerCategory; pairs: number }) {
   if (!error) return null;
+  // A refusal is already a sentence; anything else is a request error to translate.
+  if (typeof error === 'string') {
+    return (
+      <p role="alert" className="text-error-text text-sm">
+        {error}
+      </p>
+    );
+  }
   return (
     <p role="alert" className="text-error-text text-sm">
       {drawErrorMessage(error, {

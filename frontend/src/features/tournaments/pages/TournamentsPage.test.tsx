@@ -18,6 +18,7 @@ function summary(id: string, name: string, status: 'active' | 'cancelled' = 'act
     id,
     name,
     status,
+    unscheduled_count: 0,
     categories: [makeCategory({ confirmed_count: 6 }), makeCategory({ id: 'cat2', name: '7ma', confirmed_count: 4 })],
   };
 }
@@ -55,6 +56,7 @@ describe('TournamentsPage', () => {
     renderWithProviders(<TournamentsPage />);
 
     expect(await screen.findByText(t.noUpcoming)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: t.create })).toHaveLength(1);
     expect(tournamentsApi.list).toHaveBeenCalledTimes(1);
 
     await user.click(screen.getByRole('button', { name: t.past }));

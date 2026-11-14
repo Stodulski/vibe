@@ -36,6 +36,13 @@ function ScoreInput({ label, value, onChange }: { label: string; value: string; 
 export function SetRows({ rows, format, names, onChange }: SetRowsProps) {
   return (
     <div className="space-y-3">
+      <div role="group" aria-label={t.columnsLabel} className="grid grid-cols-2 gap-3">
+        {names.map((name, side) => (
+          <p key={side} className="text-text-primary min-w-0 text-center text-xs font-semibold break-words">
+            {name}
+          </p>
+        ))}
+      </div>
       {rows.map((row, index) => {
         const isSuper = isSuperRow(format, index);
         const setLabel = isSuper ? t.superTiebreakSet(index + 1) : t.set(index + 1);

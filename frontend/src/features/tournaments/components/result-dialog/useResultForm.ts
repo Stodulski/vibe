@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useSetResult } from '../../hooks/useTournamentChanges';
+import { ES_AR } from '@/shared/i18n/es_AR';
 import { resultErrorMessage } from '../../lib/tournamentErrors';
 import { parseScore, scoreFormatOf, scoreRowCount, type ScoreRow } from '../../lib/score';
 import type { TournamentCategory, TournamentMatch } from '@/shared/types/api.types';
@@ -58,12 +59,15 @@ export function useResultForm({ complexId, tournamentId, category, match, onDone
     const send = (result: Parameters<typeof setResult.mutate>[0]['result']) => {
       setResult.mutate({ matchId: match.id, result }, { onSuccess: onDone });
     };
+    // The save button is never disabled: a missing pick is told here, on pressing it.
     if (mode === 'winner') {
       if (winner !== null) send({ winner });
+      else setScoreError(ES_AR.tournaments.result.errors.pickWinner);
       return;
     }
     if (mode === 'walkover') {
       if (loser !== null) send({ walkover_loser: loser });
+      else setScoreError(ES_AR.tournaments.result.errors.pickAbsent);
       return;
     }
     const parsed = parseScore(rows, format);
@@ -74,16 +78,24 @@ export function useResultForm({ complexId, tournamentId, category, match, onDone
   return {
     format,
     mode,
-    setMode,
+    setMode: (next: ResultMode) => {
+      setMode(next);
+      setScoreError(null);
+    },
     rows,
     setRow,
     winner,
-    setWinner,
+    setWinner: (side: 1 | 2) => {
+      setWinner(side);
+      setScoreError(null);
+    },
     loser,
-    setLoser,
+    setLoser: (side: 1 | 2) => {
+      setLoser(side);
+      setScoreError(null);
+    },
     submit,
     isPending: setResult.isPending,
-    canSubmit: mode === 'sets' || (mode === 'winner' ? winner !== null : loser !== null),
     error: scoreError ?? (setResult.error ? resultErrorMessage(setResult.error) : null),
   };
 }

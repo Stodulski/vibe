@@ -2,20 +2,15 @@ import { Plus } from 'lucide-react';
 import { useSelectedComplex } from '@/features/complex';
 import { EventsSectionTabs } from '@/shared/components/common/EventsSectionTabs';
 import { PageHeader } from '@/shared/components/common/PageHeader';
+import { UpcomingPastSwitch } from '@/shared/components/common/UpcomingPastSwitch';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { CreateTournamentModal } from '../components/CreateTournamentModal';
-import { SegmentedTabs } from '../components/SegmentedTabs';
 import { TournamentList } from '../components/TournamentList';
 import { TOURNAMENTS_PAGE_CLASS } from '../lib/tournamentLayout';
-import { useTournamentsPage, type TournamentsTab } from './tournaments/useTournamentsPage';
+import { useTournamentsPage } from './tournaments/useTournamentsPage';
 
 const t = ES_AR.tournaments;
-
-const TABS: { value: TournamentsTab; label: string }[] = [
-  { value: 'upcoming', label: t.upcoming },
-  { value: 'past', label: t.past },
-];
 
 /** The "Torneos" tab of Eventos: upcoming and past tournaments, a create dialog, and a detail page per tournament. */
 export default function TournamentsPage() {
@@ -42,7 +37,7 @@ function TournamentsPageContent({ complexId }: { complexId: string }) {
       />
       <EventsSectionTabs />
       <div className={TOURNAMENTS_PAGE_CLASS}>
-        <SegmentedTabs items={TABS} active={state.tab} onChange={state.setTab} ariaLabel={t.title} />
+        <UpcomingPastSwitch value={state.tab} onChange={state.setTab} />
         <TournamentList
           tournaments={state.tournaments}
           isLoading={state.isLoading}
@@ -51,9 +46,6 @@ function TournamentsPageContent({ complexId }: { complexId: string }) {
             void state.refetch();
           }}
           kind={state.tab}
-          onCreate={() => {
-            state.setCreateOpen(true);
-          }}
         />
       </div>
       <CreateTournamentModal

@@ -1,4 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { formatEventDay } from '@/shared/lib/eventDates';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
@@ -101,4 +102,20 @@ export function resultText(match: TournamentMatch, pairs: Map<string, Tournament
   if (score || match.bye || match.status !== 'completed' || !match.winner_pair_id) return score;
   const winner = pairs.get(match.winner_pair_id);
   return winner ? t.bracket.wonBy(pairName(winner)) : '';
+}
+
+/**
+ * The tournament's days the way open play shows its own: "sábado 26 al
+ * domingo 27 de diciembre". The month is said once when both days share it, and
+ * the year only when the days are in different years.
+ */
+export function tournamentDays(start: string, end: string): string {
+  if (start === end) return formatEventDay(start);
+  const first = formatEventDay(start);
+  const last = formatEventDay(end);
+  if (start.slice(0, 4) !== end.slice(0, 4)) {
+    return t.days(`${first} de ${start.slice(0, 4)}`, `${last} de ${end.slice(0, 4)}`);
+  }
+  if (start.slice(0, 7) === end.slice(0, 7)) return t.days(first.split(' de ')[0] ?? first, last);
+  return t.days(first, last);
 }

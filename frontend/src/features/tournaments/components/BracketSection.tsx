@@ -1,5 +1,6 @@
+import { formatEventDay } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
+import { cn, formatTime } from '@/shared/lib/utils';
 import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
@@ -27,22 +28,81 @@ function BracketSlot({ match, side, lookups }: { match: TournamentMatch; side: 1
   );
 }
 
-function BracketMatchCard({ match, lookups }: { match: TournamentMatch; lookups: Lookups }) {
+/** Which connector a match draws: one to the next round, one from the previous, both only when the rounds halve. */
+interface Connectors {
+  /** The match is the first or the second of the pair feeding one match of the next round. */
+  out: 'first' | 'second' | null;
+  in: boolean;
+}
+
+const CONNECTOR = 'border-border-default pointer-events-none absolute';
+
+function BracketMatchCard({
+  match,
+  lookups,
+  connectors,
+}: {
+  match: TournamentMatch;
+  lookups: Lookups;
+  connectors: Connectors;
+}) {
   const score = resultText(match, lookups.pairs);
   const when = match.schedule
-    ? `${match.schedule.court_name} · ${formatDateShort(match.schedule.date)} · ${formatTime(match.schedule.start_time)}`
+    ? ES_AR.tournaments.matches.scheduledAt(
+        match.schedule.court_name,
+        formatEventDay(match.schedule.date),
+        formatTime(match.schedule.start_time),
+      )
     : null;
   return (
-    <li className="border-border-subtle bg-bg-subtle divide-border-subtle divide-y rounded-xl border">
-      <BracketSlot match={match} side={1} lookups={lookups} />
-      <BracketSlot match={match} side={2} lookups={lookups} />
-      {(score || when) && (
-        <p className="text-text-tertiary score-text px-2.5 py-1 text-xs break-words">
-          {[score, when].filter(Boolean).join(' · ')}
-        </p>
+    <li className="relative flex flex-1 items-center py-1.5">
+      {connectors.in && (
+        <span
+          aria-hidden="true"
+          data-bracket-connector="in"
+          className={cn(CONNECTOR, 'top-1/2 -left-2 w-2 border-t')}
+        />
+      )}
+      <div className="border-border-subtle bg-bg-subtle divide-border-subtle w-full divide-y rounded-xl border">
+        <BracketSlot match={match} side={1} lookups={lookups} />
+        <BracketSlot match={match} side={2} lookups={lookups} />
+        {(score || when) && (
+          <p className="text-text-tertiary px-2.5 py-1 text-xs break-words">
+            {score && <span className="score-text">{score}</span>}
+            {score && when && ' · '}
+            {when && <span className="first-letter:uppercase">{when}</span>}
+          </p>
+        )}
+      </div>
+      {connectors.out && (
+        <span
+          aria-hidden="true"
+          data-bracket-connector="out"
+          className={cn(
+            CONNECTOR,
+            '-right-2 h-1/2 w-2 border-r',
+            connectors.out === 'first' ? 'top-1/2 border-t' : 'bottom-1/2 border-b',
+          )}
+        />
       )}
     </li>
   );
+}
+
+/**
+ * The connectors of one match. They only exist where the rounds halve (two
+ * matches feed one of the next round, as a bracket sized to a power of two
+ * does); otherwise the columns are left unjoined rather than joined wrongly.
+ */
+function connectorsOf(rounds: TournamentMatch[][], roundIndex: number, position: number): Connectors {
+  const size = rounds[roundIndex]?.length ?? 0;
+  const next = rounds[roundIndex + 1]?.length ?? 0;
+  const previous = rounds[roundIndex - 1]?.length ?? 0;
+  const feeds = next > 0 && size === next * 2;
+  return {
+    out: feeds ? (position % 2 === 0 ? 'first' : 'second') : null,
+    in: previous > 0 && previous === size * 2,
+  };
 }
 
 interface BracketSectionProps extends Lookups {
@@ -71,9 +131,14 @@ export function BracketSection({ matches, pairs, groupNames }: BracketSectionPro
           {rounds.map((round, index) => (
             <section key={index} className="flex w-56 shrink-0 flex-col gap-2">
               <h3 className="text-text-secondary text-xs font-semibold">{roundName(index + 1, rounds.length)}</h3>
-              <ul className="flex flex-1 flex-col justify-around gap-3">
-                {round.map((match) => (
-                  <BracketMatchCard key={match.id} match={match} lookups={lookups} />
+              <ul className="flex flex-1 flex-col">
+                {round.map((match, position) => (
+                  <BracketMatchCard
+                    key={match.id}
+                    match={match}
+                    lookups={lookups}
+                    connectors={connectorsOf(rounds, index, position)}
+                  />
                 ))}
               </ul>
             </section>

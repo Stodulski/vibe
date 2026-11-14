@@ -48,7 +48,7 @@ function FeeRow({
       <span className="text-text-secondary min-w-0 break-words">{name}</span>
       {side.charged ? (
         <>
-          <span className="text-text-primary score-text font-medium">{t.paid(formatPrice(side.amount))}</span>
+          <span className="text-text-primary font-medium">{t.paid(formatPrice(side.amount))}</span>
           {side.method && <span className="text-text-tertiary text-xs">{methodLabel(side.method)}</span>}
           {editable && (
             <Button
@@ -69,9 +69,9 @@ function FeeRow({
         editable && (
           <Button
             type="button"
-            variant="outline"
+            variant="ghost"
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg underline underline-offset-4"
             aria-label={t.chargeAria(name)}
             onClick={() => {
               actions.onCharge(target);

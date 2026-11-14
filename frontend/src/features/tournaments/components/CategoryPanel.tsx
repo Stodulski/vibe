@@ -10,6 +10,7 @@ import { CategoryFacts } from './CategoryFacts';
 import { DrawControls } from './DrawControls';
 import { GroupsSection } from './GroupsSection';
 import { MatchesSection } from './MatchesSection';
+import { MoreMenu } from './MoreMenu';
 import { PairsSection } from './PairsSection';
 import { SegmentedTabs } from './SegmentedTabs';
 import { useCategoryDialogs, type CategoryDialogs } from './useCategoryDialogs';
@@ -37,30 +38,33 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
   ];
 }
 
-/** What the owner can do to the category itself: change its court fee or cancel it. */
+/** What the owner can do to the category itself: change its court fee, or cancel it from the "Más" menu. */
 function CategoryActions({ dialogs }: { dialogs: CategoryDialogs }) {
   return (
-    <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+    <div className="flex shrink-0 gap-2">
       <Button
         type="button"
         variant="outline"
-        className="w-full rounded-xl sm:w-auto"
+        size="sm"
+        className="rounded-xl"
         onClick={() => {
           dialogs.setFeeOpen(true);
         }}
       >
         {t.courtFee.edit}
       </Button>
-      <Button
-        type="button"
-        variant="outline"
-        className="text-error-text w-full rounded-xl sm:w-auto"
-        onClick={() => {
-          dialogs.setCancelOpen(true);
-        }}
-      >
-        {t.cancel.categoryAction}
-      </Button>
+      <MoreMenu
+        ariaLabel={t.detail.moreCategory}
+        items={[
+          {
+            label: t.cancel.categoryAction,
+            destructive: true,
+            onSelect: () => {
+              dialogs.setCancelOpen(true);
+            },
+          },
+        ]}
+      />
     </div>
   );
 }
@@ -76,8 +80,19 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
 
   return (
     <div className="space-y-4">
-      <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
-      {open && (
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
+        </div>
+        {open && <CategoryActions dialogs={dialogs} />}
+      </div>
+      <SegmentedTabs
+        items={sectionItems(category)}
+        active={section}
+        onChange={setSection}
+        ariaLabel={t.detail.sectionsLabel}
+      />
+      {open && section === 'pairs' && (
         <DrawControls
           complexId={complexId}
           tournamentId={detail.tournament.id}
@@ -86,13 +101,6 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           view={view}
         />
       )}
-      {open && <CategoryActions dialogs={dialogs} />}
-      <SegmentedTabs
-        items={sectionItems(category)}
-        active={section}
-        onChange={setSection}
-        ariaLabel={t.detail.sectionsLabel}
-      />
       <CategorySection
         section={section}
         category={category}

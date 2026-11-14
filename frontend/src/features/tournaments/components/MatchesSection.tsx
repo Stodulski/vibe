@@ -1,6 +1,7 @@
+import { formatEventDay } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
-import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
+import { cn, formatTime } from '@/shared/lib/utils';
 import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
 import { isCorrectionLocked } from '../lib/correctionLock';
 import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
@@ -22,23 +23,27 @@ interface MatchActions {
 function whenText(match: TournamentOwnerMatch): string {
   const schedule = match.schedule;
   if (!schedule) return t.unscheduled;
-  return t.scheduledAt(schedule.court_name, formatDateShort(schedule.date), formatTime(schedule.start_time));
+  return t.scheduledAt(schedule.court_name, formatEventDay(schedule.date), formatTime(schedule.start_time));
 }
 
 function ResultButton({
   match,
   actions,
   locked,
+  primary,
 }: {
   match: TournamentOwnerMatch;
   actions: MatchActions;
   locked: boolean;
+  /** The one match whose next action is the primary of the view. */
+  primary: boolean;
 }) {
   return (
     <>
       <Button
         type="button"
         size="sm"
+        variant={primary ? 'default' : 'outline'}
         className="rounded-lg"
         disabled={locked}
         aria-describedby={locked ? `locked-${match.id}` : undefined}
@@ -62,12 +67,14 @@ function MatchButtons({
   actions,
   ready,
   locked,
+  primary,
 }: {
   match: TournamentOwnerMatch;
   actions: MatchActions;
   ready: boolean;
   /** The played match cannot be corrected: what comes next already has a result. */
   locked: boolean;
+  primary: boolean;
 }) {
   const done = match.status === 'completed';
   return (
@@ -99,7 +106,7 @@ function MatchButtons({
         </Button>
       )}
       {ready ? (
-        <ResultButton match={match} actions={actions} locked={locked} />
+        <ResultButton match={match} actions={actions} locked={locked} primary={primary} />
       ) : (
         <span className="text-text-tertiary self-center text-xs">{t.notReady}</span>
       )}
@@ -114,6 +121,7 @@ function MatchRow({
   courtFee,
   editable,
   locked,
+  primary,
 }: {
   match: TournamentOwnerMatch;
   lookups: Lookups;
@@ -121,6 +129,7 @@ function MatchRow({
   courtFee: { fee: number; actions: CourtFeeActions };
   editable: boolean;
   locked: boolean;
+  primary: boolean;
 }) {
   const score = resultText(match, lookups.pairs);
   const ready = !!match.pair1_id && !!match.pair2_id;
@@ -146,7 +155,7 @@ function MatchRow({
         </span>
       </p>
       {score && <p className="text-text-primary score-text text-sm font-medium">{score}</p>}
-      <p className="text-text-tertiary score-text text-xs break-words">{whenText(match)}</p>
+      <p className="text-text-tertiary text-xs break-words first-letter:uppercase">{whenText(match)}</p>
       <MatchCourtFee
         match={match}
         fee={courtFee.fee}
@@ -155,7 +164,7 @@ function MatchRow({
         actions={courtFee.actions}
         editable={editable}
       />
-      {editable && <MatchButtons match={match} actions={actions} ready={ready} locked={locked} />}
+      {editable && <MatchButtons match={match} actions={actions} ready={ready} locked={locked} primary={primary} />}
     </li>
   );
 }
@@ -197,6 +206,10 @@ interface MatchesSectionProps extends Lookups {
 /** Every match with its court and time, and the actions to schedule it and load its result. */
 export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, editable }: MatchesSectionProps) {
   const blocks = blocksOf(matches, groupNames);
+  // The next match waiting for a result, in playing order: the only primary button of the view.
+  const nextId = blocks
+    .flatMap((block) => block.matches)
+    .find((match) => match.status !== 'completed' && !!match.pair1_id && !!match.pair2_id)?.id;
   if (blocks.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
   return (
     <div className="space-y-5">
@@ -213,6 +226,7 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
                 courtFee={courtFee}
                 editable={editable}
                 locked={match.status === 'completed' && isCorrectionLocked(match, matches)}
+                primary={match.id === nextId}
               />
             ))}
           </ul>

@@ -32,10 +32,12 @@ describe('TournamentDetail: cancelling', () => {
     const { tournamentsApi, user } = await renderCancel();
     vi.mocked(tournamentsApi.cancel).mockResolvedValue({ tournament: makeDetail().tournament, refunds: [] });
 
-    await user.click(screen.getByRole('button', { name: t.cancel.action }));
+    await user.click(screen.getByRole('button', { name: t.detail.moreTournament }));
+    await user.click(await screen.findByRole('menuitem', { name: t.cancel.action }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(t.cancel.confirmDescriptionPaid(2));
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.confirmLabel }));
+    expect(within(dialog).getByRole('button', { name: t.cancel.back })).toBeInTheDocument();
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, cancelar torneo' }));
 
     await waitFor(() => {
       expect(tournamentsApi.cancel).toHaveBeenCalledWith('c1', 't1');
@@ -46,13 +48,30 @@ describe('TournamentDetail: cancelling', () => {
     const { tournamentsApi, user } = await renderCancel();
     vi.mocked(tournamentsApi.cancelCategory).mockResolvedValue({ refunds: [] });
 
-    await user.click(screen.getByRole('button', { name: t.cancel.categoryAction }));
+    await user.click(screen.getByRole('button', { name: t.detail.moreCategory }));
+    await user.click(await screen.findByRole('menuitem', { name: t.cancel.categoryAction }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(t.cancel.categoryDescriptionPaid(2));
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.categoryConfirmLabel }));
+    await user.click(within(dialog).getByRole('button', { name: 'Sí, cancelar categoría' }));
 
     await waitFor(() => {
       expect(tournamentsApi.cancelCategory).toHaveBeenCalledWith('c1', 't1', 'cat1');
     });
+  });
+});
+
+describe('cancel copy', () => {
+  const sentences = (text: string) => text.split(/(?<=\.)\s+/).filter(Boolean);
+  const words = (sentence: string) => sentence.split(/\s+/).filter(Boolean).length;
+
+  it.each([
+    ['tournament, paid', t.cancel.confirmDescriptionPaid(2)],
+    ['tournament, one paid', t.cancel.confirmDescriptionPaid(1)],
+    ['tournament, none paid', t.cancel.confirmDescription],
+    ['category, paid', t.cancel.categoryDescriptionPaid(2)],
+    ['category, one paid', t.cancel.categoryDescriptionPaid(1)],
+    ['category, none paid', t.cancel.categoryDescription],
+  ])('keeps every sentence of the %s description to 20 words', (_name, text) => {
+    for (const sentence of sentences(text)) expect(words(sentence)).toBeLessThanOrEqual(20);
   });
 });

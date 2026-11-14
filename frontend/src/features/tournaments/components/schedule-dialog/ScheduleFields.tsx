@@ -1,15 +1,16 @@
 import { type UseFormReturn } from 'react-hook-form';
+import { useSchedules, useSelectedComplex } from '@/features/complex';
+import { TimeSelectField } from '@/shared/components/common/TimeSelectField';
 import { DatePickerField } from '@/shared/components/common/DatePickerField';
 import { FormField } from '@/shared/components/common/FormField';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { generateTimeSlots } from '@/shared/lib/time';
+import { timeOptionsForOpeningHours } from '@/shared/lib/timeOptions';
 import type { ScheduleFormValues } from '../../schemas/scheduleForm.schema';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.schedule;
-const TIME_OPTIONS = generateTimeSlots();
 
 interface Props {
   form: UseFormReturn<ScheduleFormValues>;
@@ -21,58 +22,61 @@ interface Props {
   lastDay: string;
 }
 
-function CourtAndTime({ form, courts }: Pick<Props, 'form' | 'courts'>) {
+function TimeField({ form }: Pick<Props, 'form'>) {
   const { watch, setValue, formState } = form;
+  const time = watch('start_time');
+  const options = useTimeOptions(time);
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <FormField label={t.court} htmlFor="match-court" error={formState.errors.court_id?.message}>
-        <Select
-          value={watch('court_id')}
-          onValueChange={(courtId) => {
-            setValue('court_id', courtId, { shouldValidate: true });
-          }}
-        >
-          <SelectTrigger id="match-court">
-            <SelectValue placeholder={t.courtPlaceholder} />
-          </SelectTrigger>
-          <SelectContent>
-            {courts.map((court) => (
-              <SelectItem key={court.id} value={court.id}>
-                {court.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
-      <FormField label={t.time} htmlFor="match-time" error={formState.errors.start_time?.message}>
-        <Select
-          value={watch('start_time')}
-          onValueChange={(time) => {
-            setValue('start_time', time, { shouldValidate: true });
-          }}
-        >
-          <SelectTrigger id="match-time">
-            <SelectValue placeholder="--:--" />
-          </SelectTrigger>
-          <SelectContent>
-            {TIME_OPTIONS.map((time) => (
-              <SelectItem key={time} value={time}>
-                {time}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
-    </div>
+    <TimeSelectField
+      id="match-time"
+      label={t.time}
+      value={time}
+      options={options}
+      error={formState.errors.start_time?.message}
+      onChange={(next) => {
+        setValue('start_time', next, { shouldValidate: true });
+      }}
+    />
   );
 }
 
-/** Court, day, time and duration of a match. */
+/** The hours the selected complex is open (the one already chosen stays); the whole day until its schedule loads. */
+function useTimeOptions(current: string): string[] {
+  const { complex } = useSelectedComplex();
+  const { data: schedules } = useSchedules(complex?.id ?? '', complex?.slug);
+  return timeOptionsForOpeningHours(schedules, [current]);
+}
+
+function CourtField({ form, courts }: Pick<Props, 'form' | 'courts'>) {
+  const { watch, setValue, formState } = form;
+  return (
+    <FormField label={t.court} htmlFor="match-court" error={formState.errors.court_id?.message}>
+      <Select
+        value={watch('court_id')}
+        onValueChange={(courtId) => {
+          setValue('court_id', courtId, { shouldValidate: true });
+        }}
+      >
+        <SelectTrigger id="match-court">
+          <SelectValue placeholder={t.courtPlaceholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {courts.map((court) => (
+            <SelectItem key={court.id} value={court.id}>
+              {court.name}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
+}
+
+/** Day, time, court and duration of a match, in that order, the way the event form asks for its day first. */
 export function ScheduleFields({ form, courts, defaultDuration, firstDay, lastDay }: Props) {
   const { watch, setValue, register, formState } = form;
   return (
     <>
-      <CourtAndTime form={form} courts={courts} />
       <DatePickerField
         id="match-date"
         label={t.date}
@@ -86,6 +90,8 @@ export function ScheduleFields({ form, courts, defaultDuration, firstDay, lastDa
           setValue('date', day, { shouldValidate: true });
         }}
       />
+      <TimeField form={form} />
+      <CourtField form={form} courts={courts} />
       <FormField label={t.duration} htmlFor="match-duration" error={formState.errors.duration_minutes?.message}>
         <Input
           id="match-duration"

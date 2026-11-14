@@ -15,10 +15,10 @@ interface TournamentListProps {
   onRetry: () => void;
   /** An empty upcoming list invites creating one, an empty past list does not. */
   kind: 'upcoming' | 'past';
-  onCreate: () => void;
 }
 
-export function TournamentList({ tournaments, isLoading, isError, onRetry, kind, onCreate }: TournamentListProps) {
+/** The empty list points at the header's "Crear torneo": one primary button per screen, not a second one here. */
+export function TournamentList({ tournaments, isLoading, isError, onRetry, kind }: TournamentListProps) {
   if (isLoading) return <TournamentListSkeleton />;
 
   if (isError) {
@@ -35,13 +35,7 @@ export function TournamentList({ tournaments, isLoading, isError, onRetry, kind,
 
   if (tournaments.length === 0) {
     return kind === 'upcoming' ? (
-      <EmptyState
-        icon={Trophy}
-        title={t.tournaments.noUpcoming}
-        description={t.tournaments.noUpcomingDescription}
-        actionLabel={t.tournaments.create}
-        onAction={onCreate}
-      />
+      <EmptyState icon={Trophy} title={t.tournaments.noUpcoming} description={t.tournaments.noUpcomingDescription} />
     ) : (
       <EmptyState icon={Trophy} title={t.tournaments.noPast} description="" />
     );

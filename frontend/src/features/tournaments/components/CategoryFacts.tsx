@@ -6,7 +6,11 @@ import type { TournamentOwnerCategory } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
 
-/** What the category is: its status, capacity, price per pair, court fee and what is collected of it, format and how its matches are played. */
+/**
+ * What the category is, as a compact grid so the section tabs stay near the top:
+ * capacity and status, price per pair, court fee and what is collected of it,
+ * format and how its matches are played. Monospace only on the numbers.
+ */
 export function CategoryFacts({
   category,
   courtFee,
@@ -15,39 +19,47 @@ export function CategoryFacts({
   courtFee: CourtFeeSummary;
 }) {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
-      <InfoRow label={t.detail.capacity}>
-        {t.pairsTaken(category.confirmed_count, category.capacity)} · {t.categoryStatus[category.status]}
-      </InfoRow>
-      <InfoRow label={t.detail.price}>
-        <span className="score-text font-medium">{formatPrice(category.price)}</span>
-      </InfoRow>
-      <InfoRow label={t.courtFee.factLabel}>
-        {category.court_fee > 0 ? (
-          <span className="score-text font-medium">{t.courtFee.perPair(formatPrice(category.court_fee))}</span>
-        ) : (
-          t.courtFee.none
-        )}
-      </InfoRow>
-      {(courtFee.collected > 0 || courtFee.pending > 0) && (
-        <InfoRow label={t.courtFee.summaryLabel}>
-          <span className="score-text">
-            {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
-          </span>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
+        <InfoRow label={t.detail.capacity}>
+          {t.pairsTaken(category.confirmed_count, category.capacity)} · {t.categoryStatus[category.status]}
         </InfoRow>
-      )}
-      <InfoRow label={t.detail.formatLabel}>
-        <span className="block">{t.format[category.format]}</span>
-        {category.format === 'groups' && (
-          <span className="text-text-secondary block">
-            {t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}
-          </span>
+        <InfoRow label={t.detail.price}>
+          <span className="score-text font-medium">{formatPrice(category.price)}</span>
+        </InfoRow>
+        <InfoRow label={t.courtFee.factLabel}>
+          {category.court_fee > 0 ? (
+            <>
+              <span className="score-text font-medium">{formatPrice(category.court_fee)}</span>{' '}
+              {t.courtFee.perPairSuffix}
+            </>
+          ) : (
+            t.courtFee.none
+          )}
+        </InfoRow>
+        {(courtFee.collected > 0 || courtFee.pending > 0) && (
+          <InfoRow label={t.courtFee.summaryLabel}>
+            {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
+          </InfoRow>
         )}
-        <span className="text-text-secondary block">
-          {t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider)}
-        </span>
-      </InfoRow>
+        <div className="col-span-2">
+          <InfoRow label={t.detail.formatLabel}>
+            {t.format[category.format]}
+            {category.format === 'groups' && (
+              <>
+                {' · '}
+                <span className="text-text-secondary">
+                  {t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}
+                </span>
+              </>
+            )}
+            <span className="text-text-secondary block">
+              {t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider)}
+            </span>
+          </InfoRow>
+        </div>
+      </div>
     </div>
   );
 }

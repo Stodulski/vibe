@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { makeDrawnDetail, makeMatch } from '../testing/fixtures';
+import { makeCategory, makeDrawnDetail, makeMatch } from '../testing/fixtures';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import type { TournamentDetailResponse } from '@/shared/types/api.types';
 
@@ -106,6 +106,27 @@ describe('TournamentDetail: correcting a result', () => {
     expect(buttons[0]).toBeDisabled();
     expect(buttons[1]).toBeEnabled();
     expect(screen.getAllByText(t.matches.correctLocked)).toHaveLength(1);
+  });
+});
+
+describe('TournamentDetail: one primary action', () => {
+  it('keeps a single primary button on the matches: the next result to load', async () => {
+    const detail = makeDrawnDetail();
+    detail.matches = [
+      makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', courtFee: { due: 100000 } }),
+      makeMatch({ id: 'gm2', stage: 'group', groupId: 'g1', round: 2, pair1Id: 'p1', pair2Id: 'p3' }),
+    ];
+    detail.categories = [
+      makeCategory({ status: 'closed', draw_generated: true, confirmed_count: 4, court_fee: 100000 }),
+    ];
+    await renderMatches(detail);
+
+    const primary = screen
+      .getAllByRole('button')
+      // The pressed tabs are toggles, not actions.
+      .filter((button) => button.className.includes('bg-primary') && !button.hasAttribute('aria-pressed'));
+    expect(primary).toHaveLength(1);
+    expect(primary[0]).toHaveTextContent(t.matches.loadResult);
   });
 });
 

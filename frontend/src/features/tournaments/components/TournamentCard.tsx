@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { cn, formatDateShort } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/utils';
+import { tournamentDays } from '../lib/tournamentView';
 import { TOURNAMENT_CARD_CLASS, TOURNAMENT_CARD_TOP_ROW_CLASS } from '../lib/tournamentLayout';
 import type { TournamentOwnerSummary } from '@/shared/types/api.types';
 
@@ -22,8 +23,8 @@ export function TournamentCard({ tournament }: { tournament: TournamentOwnerSumm
           <span className="text-error-text shrink-0 text-xs font-medium">{t.cancelledBadge}</span>
         )}
       </div>
-      <p className="text-text-secondary score-text text-sm">
-        {t.days(formatDateShort(tournament.start_date), formatDateShort(tournament.end_date))}
+      <p className="text-text-secondary text-sm first-letter:uppercase">
+        {tournamentDays(tournament.start_date, tournament.end_date)}
       </p>
       <p className="text-text-tertiary truncate text-xs" title={live.map((c) => c.name).join(', ')}>
         {t.categoriesCount(live.length)} · {live.map((c) => c.name).join(', ')}

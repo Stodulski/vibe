@@ -39,6 +39,8 @@ export const tournaments = {
     selectDate: 'Elegí la fecha',
     categories: 'Categorías',
     category: (n: number) => `Categoría ${String(n)}`,
+    categoryTitle: (n: number, name: string) =>
+      name.trim() ? `Categoría ${String(n)}: ${name.trim()}` : `Categoría ${String(n)}`,
     categoryName: 'Nombre',
     categoryNamePlaceholder: 'Ej: 6ta',
     categoryFormat: 'Formato',
@@ -55,7 +57,7 @@ export const tournaments = {
     superTiebreak: 'El tercer set es un súper tie-break a 10 puntos',
     matchDuration: 'Duración de cada partido (minutos)',
     courtFee: 'Cancha por partido (por pareja)',
-    courtFeeHint: 'Opcional. Se cobra en el complejo el día del partido, no online.',
+    courtFeeHint: 'Se cobra en el complejo el día del partido, no online.',
     addCategory: 'Agregar categoría',
     removeCategory: 'Quitar categoría',
     submit: 'Crear torneo',
@@ -94,6 +96,9 @@ export const tournaments = {
       setsToWin === 1
         ? `Un set de ${String(games)} games`
         : `Mejor de tres sets de ${String(games)} games${superTiebreak ? ', súper tie-break como tercero' : ''}`,
+    more: 'Más',
+    moreTournament: 'Más acciones del torneo',
+    moreCategory: 'Más acciones de la categoría',
     cancelledNote: 'Este torneo está cancelado. Las canchas ya están libres.',
     categoryCancelledNote: 'Esta categoría está cancelada.',
   },
@@ -146,7 +151,6 @@ export const tournaments = {
       'Se rehace el sorteo con las parejas que ya pagaron. Las que están pagando todavía no entran y se les devuelve el pago.',
     confirmLabel: 'Sortear',
     back: 'Volver',
-    needTwo: 'Hacen falta al menos dos parejas que hayan pagado.',
     locked: 'Hay resultados cargados: el sorteo ya no se puede repetir.',
     success: 'Sorteo hecho',
     errors: {
@@ -196,8 +200,6 @@ export const tournaments = {
   // Matches
   matches: {
     none: 'Todavía no hay partidos. Se arman con el sorteo.',
-    groupStage: 'Zonas',
-    bracketStage: 'Cuadro',
     notReady: 'Esperando a las parejas',
     pending: 'Pendiente',
     completed: 'Jugado',
@@ -254,6 +256,7 @@ export const tournaments = {
     modeSets: 'Cargar resultado por sets',
     modeWalkover: 'W.O.',
     modeLabel: 'Cómo se definió',
+    columnsLabel: 'Parejas del partido',
     set: (n: number) => `Set ${String(n)}`,
     superTiebreakSet: (n: number) => `Set ${String(n)} · súper tie-break`,
     games: (name: string) => `Games de ${name}`,
@@ -266,6 +269,8 @@ export const tournaments = {
     submit: 'Guardar resultado',
     success: 'Resultado guardado',
     errors: {
+      pickWinner: 'Elegí quién ganó el partido.',
+      pickAbsent: 'Elegí quién no se presentó.',
       missing: (n: number) => `Cargá los games del set ${String(n)}.`,
       gap: (n: number) => `Completá el set ${String(n)} antes del siguiente.`,
       invalidSet: (n: number, a: number, b: number, games: number) =>
@@ -293,8 +298,8 @@ export const tournaments = {
     confirmDescriptionPaid: (paid: number) =>
       `Se cancelan todas las categorías y las canchas de los partidos quedan libres. ${
         paid === 1 ? 'A la pareja que ya pagó' : `A las ${String(paid)} parejas que ya pagaron`
-      } les devolvemos el pago completo por Mercado Pago, servicio incluido, y les avisamos por email si dejaron uno.`,
-    confirmLabel: 'Cancelar torneo',
+      } les devolvemos todo por Mercado Pago, servicio incluido. Les avisamos por email si dejaron uno.`,
+    confirmLabel: 'Sí, cancelar torneo',
     back: 'Volver',
     success: (refunded: number) =>
       refunded === 0
@@ -307,8 +312,8 @@ export const tournaments = {
     categoryDescriptionPaid: (paid: number) =>
       `Se cancelan sus partidos y las canchas quedan libres. ${
         paid === 1 ? 'A la pareja que ya pagó' : `A las ${String(paid)} parejas que ya pagaron`
-      } les devolvemos el pago completo por Mercado Pago, servicio incluido, y les avisamos por email si dejaron uno.`,
-    categoryConfirmLabel: 'Cancelar categoría',
+      } les devolvemos todo por Mercado Pago, servicio incluido. Les avisamos por email si dejaron uno.`,
+    categoryConfirmLabel: 'Sí, cancelar categoría',
     categorySuccess: (refunded: number) =>
       refunded === 0
         ? 'Categoría cancelada'
