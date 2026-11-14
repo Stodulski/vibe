@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useSelectedComplex } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -27,6 +28,7 @@ export default function BookingsPage() {
 function BookingsPageContent({ complexId }: { complexId: string }) {
   const state = useBookingsPage(complexId);
   const blockSlot = useBlockSlotSection(complexId);
+  const navigate = useNavigate();
 
   return (
     <div>
@@ -67,6 +69,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           filteredBookings={state.bookings}
           blockedSlots={state.blockedSlots}
           fixedBlocks={state.fixedBlocks}
+          eventBlocks={state.eventBlocks}
           isPast={state.isPast}
           selectedDate={state.selectedDate}
           courts={state.courts}
@@ -76,6 +79,10 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           onOpenCreate={state.handleOpenCreate}
           onSelectBlockedSlot={blockSlot.setSelectedSlot}
           onSelectFixedBlock={blockSlot.setSelectedFixedBlock}
+          // Cancelling or reading an event is the events page's job: the block opens it there.
+          onSelectEventBlock={(block) => {
+            void navigate(`/open-play?event=${block.event_id}`);
+          }}
         />
       </div>
 

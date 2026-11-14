@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock } from '@/shared/types/api.types';
 
 export interface TimelineColumnData {
   courtId: string;
@@ -7,6 +7,7 @@ export interface TimelineColumnData {
   bookings: Booking[];
   blocked: BlockedSlot[];
   fixed: FixedBlock[];
+  event: EventBlock[];
 }
 
 /**
@@ -21,11 +22,13 @@ export function useTimelineColumns({
   bookings,
   blockedSlots,
   fixedBlocks,
+  eventBlocks,
 }: {
   activeCourts: CourtWithPrices[];
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
+  eventBlocks: EventBlock[];
 }): TimelineColumnData[] {
   return useMemo(() => {
     const columns: TimelineColumnData[] = activeCourts.map((court) => ({
@@ -34,6 +37,7 @@ export function useTimelineColumns({
       bookings: bookings.filter((b) => b.court_id === court.id),
       blocked: blockedSlots.filter((s) => s.court_id === court.id),
       fixed: fixedBlocks.filter((f) => f.court_id === court.id),
+      event: eventBlocks.filter((e) => e.court_id === court.id),
     }));
 
     const knownIds = new Set(activeCourts.map((c) => c.id));
@@ -50,9 +54,10 @@ export function useTimelineColumns({
         bookings: bookings.filter((b) => b.court_id === courtId),
         blocked: blockedSlots.filter((s) => s.court_id === courtId),
         fixed: fixedBlocks.filter((f) => f.court_id === courtId),
+        event: eventBlocks.filter((e) => e.court_id === courtId),
       });
     }
 
     return columns;
-  }, [activeCourts, bookings, blockedSlots, fixedBlocks]);
+  }, [activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks]);
 }

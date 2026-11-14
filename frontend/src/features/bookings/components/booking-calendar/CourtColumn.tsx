@@ -4,10 +4,11 @@ import { courtObstacles, isSlotOccupied, upcomingSlots } from './helpers';
 import { FreeSlots } from './FreeSlots';
 import { BlockedBlock } from './BlockedBlock';
 import { FixedBlockBar } from './FixedBlockBar';
-import { fixedBlockSpans } from './fixedBlocks';
+import { EventBlockBar } from './EventBlockBar';
+import { fixedBlockSpans, type HeldBlock } from './fixedBlocks';
 import { BookingBlock } from './BookingBlock';
 import { DAY_START_MIN, DAY_END_MIN } from './gridLayout';
-import type { Booking, BlockedSlot, DurationMinutes, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, DurationMinutes, EventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
 /**
@@ -30,7 +31,8 @@ interface CourtColumnProps {
   date: string;
   allBookings: Booking[];
   allBlockedSlots: BlockedSlot[];
-  allFixedBlocks: FixedBlock[];
+  /** Fixed weekly bookings and events together: both only matter here as hours no free slot may sit on. */
+  allHeldBlocks: HeldBlock[];
   slots: string[];
   /** Minutes since midnight when the column's date is today, else null. */
   nowMin: number | null;
@@ -45,16 +47,24 @@ interface CourtColumnProps {
   previewMin: number | null;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
 }
 
-function ColumnFixedBlocks({
-  fixed,
-  courtName,
-  onSelectFixedBlock,
+/**
+ * The hours held on this court that are not a booking: fixed weekly bookings
+ * and open-play events. Both are drawn as the same kind of bar, each handed to
+ * its own handler when pressed.
+ */
+function ColumnHeldBlocks({
+  column: { courtName, fixed, event: events },
+  onFixed,
+  onEvent,
 }: {
-  fixed: FixedBlock[];
-  courtName: string;
-  onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+  column: TimelineColumnData;
+  /** Pressed fixed weekly booking. */
+  onFixed?: ((block: FixedBlock) => void) | undefined;
+  /** Pressed open-play event. */
+  onEvent?: ((block: EventBlock) => void) | undefined;
 }) {
   return (
     <>
@@ -64,7 +74,17 @@ function ColumnFixedBlocks({
           block={block}
           courtName={courtName}
           onSelect={() => {
-            onSelectFixedBlock?.(block);
+            onFixed?.(block);
+          }}
+        />
+      ))}
+      {events.map((block) => (
+        <EventBlockBar
+          key={`${block.event_id}-${block.date}`}
+          block={block}
+          courtName={courtName}
+          onSelect={() => {
+            onEvent?.(block);
           }}
         />
       ))}
@@ -127,19 +147,19 @@ function ColumnBookings({
 
 /**
  * Once for the column, not once per slot: every free-slot control asks the
- * same question of the same day's bookings and blocks. A fixed block holds
- * its hours like a blocked slot: no free slot under it.
+ * same question of the same day's bookings and blocks. A fixed block or an
+ * event holds its hours like a blocked slot: no free slot under it.
  */
 function useColumnObstacles(
   bookings: Booking[],
   blockedSlots: BlockedSlot[],
-  fixedBlocks: FixedBlock[],
+  heldBlocks: HeldBlock[],
   courtId: string,
   date: string,
 ) {
   return useMemo(
-    () => [...courtObstacles(bookings, blockedSlots, courtId, date), ...fixedBlockSpans(fixedBlocks, courtId, date)],
-    [bookings, blockedSlots, fixedBlocks, courtId, date],
+    () => [...courtObstacles(bookings, blockedSlots, courtId, date), ...fixedBlockSpans(heldBlocks, courtId, date)],
+    [bookings, blockedSlots, heldBlocks, courtId, date],
   );
 }
 
@@ -150,7 +170,7 @@ function CourtColumnImpl({
   date,
   allBookings,
   allBlockedSlots,
-  allFixedBlocks,
+  allHeldBlocks,
   slots,
   nowMin,
   onSelectBooking,
@@ -159,8 +179,9 @@ function CourtColumnImpl({
   previewMin,
   onSelectBlockedSlot,
   onSelectFixedBlock,
+  onSelectEventBlock,
 }: CourtColumnProps) {
-  const obstacles = useColumnObstacles(allBookings, allBlockedSlots, allFixedBlocks, column.courtId, date);
+  const obstacles = useColumnObstacles(allBookings, allBlockedSlots, allHeldBlocks, column.courtId, date);
   const handlePick = useCallback(
     (slot: string, durations: DurationMinutes[]) => {
       onPickSlot(column.courtId, slot, durations);
@@ -194,7 +215,7 @@ function CourtColumnImpl({
         courtName={column.courtName}
         onSelectBlockedSlot={onSelectBlockedSlot}
       />
-      <ColumnFixedBlocks fixed={column.fixed} courtName={column.courtName} onSelectFixedBlock={onSelectFixedBlock} />
+      <ColumnHeldBlocks column={column} onFixed={onSelectFixedBlock} onEvent={onSelectEventBlock} />
       <ColumnBookings
         bookings={column.bookings}
         courtName={column.courtName}

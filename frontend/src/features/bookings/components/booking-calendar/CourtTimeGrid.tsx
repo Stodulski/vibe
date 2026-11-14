@@ -9,8 +9,8 @@ import { StickyCourtNames } from './StickyCourtNames';
 import { GridBody } from './GridBody';
 import { GridHourGutter } from './GridHourGutter';
 import { GUTTER_CLASS, HEADER_HEIGHT_PX } from './gridLayout';
-import type { CSSProperties } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock } from '@/shared/types/api.types';
+import type { CSSProperties, ReactNode, RefObject } from 'react';
+import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 
 /**
@@ -29,6 +29,7 @@ interface CourtTimeGridProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
+  eventBlocks: EventBlock[];
   activeCourts: CourtWithPrices[];
   date: string;
   slots: string[];
@@ -36,6 +37,7 @@ interface CourtTimeGridProps {
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
 }
 
 /**
@@ -61,10 +63,42 @@ function HourGutterColumn() {
   );
 }
 
+function DragSurface({
+  scrollRef,
+  dragging,
+  dragHandlers,
+  children,
+}: {
+  scrollRef: RefObject<HTMLDivElement | null>;
+  dragging: boolean;
+  dragHandlers: ReturnType<typeof useDragScroll>['dragHandlers'];
+  children: ReactNode;
+}) {
+  return (
+    <div
+      ref={scrollRef}
+      {...dragHandlers}
+      data-dragging={dragging ? '' : undefined}
+      // `data-scrollable` (written by useColumnScroller) gates both cursors:
+      // a hand over a grid already showing every court promises a drag that
+      // cannot move. `data-dragging` gates `.drag-surface`'s child override
+      // in globals.css, so slots keep their own pointer at rest and only
+      // stop arguing about the cursor once a drag is actually under way.
+      className={cn(
+        'drag-surface scrollbar-none overflow-x-auto select-none',
+        dragging ? 'data-scrollable:cursor-grabbing' : 'data-scrollable:cursor-grab',
+      )}
+    >
+      {children}
+    </div>
+  );
+}
+
 export function CourtTimeGrid({
   bookings,
   blockedSlots,
   fixedBlocks,
+  eventBlocks,
   activeCourts,
   date,
   slots,
@@ -72,8 +106,9 @@ export function CourtTimeGrid({
   onCreateBooking,
   onSelectBlockedSlot,
   onSelectFixedBlock,
+  onSelectEventBlock,
 }: CourtTimeGridProps) {
-  const columns = useGridColumns({ activeCourts, bookings, blockedSlots, fixedBlocks });
+  const columns = useGridColumns({ activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks });
   const nowMin = getNowMinutesInBuenosAires(date);
   const { ref, trackRef, frameRef } = useColumnScroller();
   const { dragging, dragHandlers } = useDragScroll(ref);
@@ -108,20 +143,7 @@ export function CourtTimeGrid({
       >
         <StickyCourtNames columns={columns} trackRef={trackRef} columnWidth={columnWidth} />
 
-        <div
-          ref={ref}
-          {...dragHandlers}
-          data-dragging={dragging ? '' : undefined}
-          // `data-scrollable` (written by useColumnScroller) gates both cursors:
-          // a hand over a grid already showing every court promises a drag that
-          // cannot move. `data-dragging` gates `.drag-surface`'s child override
-          // in globals.css, so slots keep their own pointer at rest and only
-          // stop arguing about the cursor once a drag is actually under way.
-          className={cn(
-            'drag-surface scrollbar-none overflow-x-auto select-none',
-            dragging ? 'data-scrollable:cursor-grabbing' : 'data-scrollable:cursor-grab',
-          )}
-        >
+        <DragSurface scrollRef={ref} dragging={dragging} dragHandlers={dragHandlers}>
           <GridBody
             columns={columns}
             columnWidth={columnWidth}
@@ -129,14 +151,16 @@ export function CourtTimeGrid({
             bookings={bookings}
             blockedSlots={blockedSlots}
             fixedBlocks={fixedBlocks}
+            eventBlocks={eventBlocks}
             slots={slots}
             nowMin={nowMin}
             onSelectBooking={onSelectBooking}
             onCreateBooking={onCreateBooking}
             onSelectBlockedSlot={onSelectBlockedSlot}
             onSelectFixedBlock={onSelectFixedBlock}
+            onSelectEventBlock={onSelectEventBlock}
           />
-        </div>
+        </DragSurface>
       </div>
     </div>
   );
