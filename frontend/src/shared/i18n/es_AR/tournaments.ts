@@ -46,7 +46,7 @@ export const tournaments = {
     price: 'Precio por pareja',
     priceHint: 'Paga una sola persona por la pareja y el costo del servicio de pago se suma aparte.',
     groupSize: 'Parejas por zona',
-    groupSizeHint: 'Como máximo. Armamos la menor cantidad de zonas que alcance.',
+    groupSizeHint: 'Es el tamaño buscado: si sobran parejas, se suman a las zonas que ya hay.',
     qualifiers: 'Pasan por zona',
     qualifiersHint: 'Las mejores de cada zona juegan el cuadro.',
     matchFormat: 'Formato de partido',
@@ -90,7 +90,7 @@ export const tournaments = {
     price: 'Precio',
     formatLabel: 'Formato',
     groupsSetup: (size: number, qualifiers: number) =>
-      `Zonas de hasta ${String(size)} parejas, pasan ${String(qualifiers)}`,
+      `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1
         ? `Un set de ${String(games)} games`
@@ -154,6 +154,8 @@ export const tournaments = {
       locked: 'Ya hay resultados cargados: el sorteo no se puede cambiar.',
       notEnough: 'Hacen falta al menos dos parejas que hayan pagado.',
       settings: 'La configuración de zonas no alcanza para esas parejas. Cambiala o esperá más inscriptas.',
+      settingsWhy: (pairs: number, size: number, qualifiers: number) =>
+        `Con ${String(pairs)} parejas no se pueden armar zonas de ${String(size)} donde pasen ${String(qualifiers)}. Bajá cuántas pasan o el tamaño de la zona.`,
       unknown: 'No pudimos hacer el sorteo',
     },
   },

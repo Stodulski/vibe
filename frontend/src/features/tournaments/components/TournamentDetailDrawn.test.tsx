@@ -87,4 +87,22 @@ describe('TournamentDetail: swapping pairs', () => {
     expect(screen.queryByRole('button', { name: /^Intercambiar/ })).not.toBeInTheDocument();
     expect(screen.getByText(t.pairs.swapLocked)).toBeInTheDocument();
   });
+
+  it('tells the draw can be repeated, and only that, while no result is loaded', async () => {
+    await renderDetail(makeDrawnDetail());
+
+    expect(screen.getByText(t.draw.regenerateHint)).toBeInTheDocument();
+    expect(screen.queryByText(t.draw.locked)).not.toBeInTheDocument();
+  });
+
+  it('tells the draw is locked, and only that, once a result is loaded', async () => {
+    const detail = makeDrawnDetail();
+    detail.matches = [
+      makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
+    ];
+    await renderDetail(detail);
+
+    expect(screen.getByText(t.draw.locked)).toBeInTheDocument();
+    expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();
+  });
 });

@@ -84,6 +84,8 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           categoryId={category.id}
           drawn={drawn}
           view={view}
+          groupSize={category.group_size}
+          qualifiers={category.qualifiers_per_group}
         />
       )}
       {open && <CategoryActions dialogs={dialogs} />}

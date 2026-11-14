@@ -51,7 +51,14 @@ export function resultErrorMessage(error: unknown): string {
   }
 }
 
-export function drawErrorMessage(error: unknown): string {
+/** The category's group settings and how many pairs the draw took, to say why they do not fit. */
+export interface GroupSettings {
+  pairs: number;
+  groupSize: number;
+  qualifiers: number;
+}
+
+export function drawErrorMessage(error: unknown, settings?: GroupSettings): string {
   const e = t.draw.errors;
   switch (getHttpStatus(error)) {
     case 409:
@@ -59,7 +66,7 @@ export function drawErrorMessage(error: unknown): string {
     case 400:
       return e.notEnough;
     case 422:
-      return e.settings;
+      return settings ? e.settingsWhy(settings.pairs, settings.groupSize, settings.qualifiers) : e.settings;
     default:
       return e.unknown;
   }

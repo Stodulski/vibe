@@ -59,6 +59,13 @@ describe('drawErrorMessage', () => {
     expect(drawErrorMessage(await http(422, 'groups'))).toBe(t.draw.errors.settings);
     expect(drawErrorMessage(new Error('boom'))).toBe(t.draw.errors.unknown);
   });
+
+  it('says why the groups do not fit and what to change when it knows the settings', async () => {
+    const message = drawErrorMessage(await http(422, 'groups'), { pairs: 4, groupSize: 3, qualifiers: 2 });
+    expect(message).toBe(
+      'Con 4 parejas no se pueden armar zonas de 3 donde pasen 2. Bajá cuántas pasan o el tamaño de la zona.',
+    );
+  });
 });
 
 describe('courtFeeErrorMessage', () => {

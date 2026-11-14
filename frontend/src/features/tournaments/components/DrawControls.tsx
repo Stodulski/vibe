@@ -3,7 +3,7 @@ import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useGenerateDraw } from '../hooks/useTournamentChanges';
-import { drawErrorMessage } from '../lib/tournamentErrors';
+import { drawErrorMessage, type GroupSettings } from '../lib/tournamentErrors';
 import type { CategoryView } from '../lib/categoryView';
 import { SeedOrderEditor } from './SeedOrderEditor';
 import type { TournamentOwnerPair } from '@/shared/types/api.types';
@@ -16,6 +16,8 @@ interface DrawControlsProps {
   categoryId: string;
   drawn: boolean;
   view: CategoryView;
+  groupSize: number;
+  qualifiers: number;
 }
 
 /** Paid pairs best seed first: the existing seeds when drawn before, otherwise the order they signed up. */
@@ -39,7 +41,7 @@ function moved(order: TournamentOwnerPair[], pairId: string, direction: -1 | 1):
  * The draw: how many pairs paid, an optional seed order, and the button that
  * generates (or regenerates, until a result is loaded) the groups and bracket.
  */
-export function DrawControls({ complexId, tournamentId, categoryId, drawn, view }: DrawControlsProps) {
+export function DrawControls({ complexId, tournamentId, categoryId, drawn, view, groupSize, qualifiers }: DrawControlsProps) {
   const generate = useGenerateDraw(complexId, tournamentId, categoryId);
   const [order, setOrder] = useState<TournamentOwnerPair[] | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -48,9 +50,10 @@ export function DrawControls({ complexId, tournamentId, categoryId, drawn, view 
   return (
     <div className="border-border-subtle space-y-3 rounded-2xl border p-3.5">
       <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
-      <p className="text-text-tertiary text-xs">{drawn ? t.regenerateHint : t.generateHint}</p>
+      <p className="text-text-tertiary text-xs">
+        {view.locked ? t.locked : drawn ? t.regenerateHint : t.generateHint}
+      </p>
       {!enough && <p className="text-warning-text text-xs">{t.needTwo}</p>}
-      {view.locked && <p className="text-text-tertiary text-xs">{t.locked}</p>}
       {order && (
         <SeedOrderEditor
           order={order}
@@ -59,7 +62,7 @@ export function DrawControls({ complexId, tournamentId, categoryId, drawn, view 
           }}
         />
       )}
-      <DrawError error={generate.error} />
+      <DrawError error={generate.error} settings={{ pairs: view.paidPairs.length, groupSize, qualifiers }} />
       <DrawButtons
         drawn={drawn}
         showSeedToggle={!view.locked && enough}
@@ -122,11 +125,11 @@ function DrawButtons({ drawn, showSeedToggle, seedOn, disabled, onToggleSeed, on
   );
 }
 
-function DrawError({ error }: { error: unknown }) {
+function DrawError({ error, settings }: { error: unknown; settings: GroupSettings }) {
   if (!error) return null;
   return (
     <p role="alert" className="text-error-text text-sm">
-      {drawErrorMessage(error)}
+      {drawErrorMessage(error, settings)}
     </p>
   );
 }
