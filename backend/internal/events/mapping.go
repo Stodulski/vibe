@@ -17,7 +17,7 @@ func endTimeOf(e *eventstore.Event) string {
 // toGenEvent maps an event onto the owner's wire type.
 func toGenEvent(e *eventstore.Event) gen.OpenPlayEvent {
 	courts := make([]struct {
-		Id   openapi_types.UUID `json:"id"`
+		Id   openapi_types.UUID `json:"id"` //nolint:revive // must match the generated anonymous struct field name
 		Name string             `json:"name"`
 	}, len(e.Courts))
 	for i, c := range e.Courts {

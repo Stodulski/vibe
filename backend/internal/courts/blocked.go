@@ -3,6 +3,7 @@ package courts
 import (
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"net/http"
 	"net/url"
 	"time"
@@ -87,24 +88,31 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 		out[i] = toBlockedSlotWire(s)
 	}
 
-	fixed, err := h.svc.ListFixedBlocks(r.Context(), complex.ID, dateFrom, dateTo)
+	env, err := h.heldBlocks(r, complex.ID, dateFrom, dateTo)
 	if err != nil {
 		h.respond.ServerError(w, r, err)
 		return
 	}
+	env["blocked_slots"] = out
+	env["metadata"] = metadata
+	h.respond.JSON(w, r, http.StatusOK, env)
+}
 
-	events, err := h.svc.ListEventBlocks(r.Context(), complex.ID, dateFrom, dateTo)
+// heldBlocks is the part of the calendar that no blocked-slot row stands for:
+// the weekly fixed bookings and the open-play events holding courts in range.
+func (h *Handler) heldBlocks(r *http.Request, complexID uuid.UUID, dateFrom, dateTo time.Time) (httpx.Envelope, error) {
+	fixed, err := h.svc.ListFixedBlocks(r.Context(), complexID, dateFrom, dateTo)
 	if err != nil {
-		h.respond.ServerError(w, r, err)
-		return
+		return nil, err
 	}
-
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"blocked_slots": out,
-		"fixed_blocks":  toFixedBlocksWire(fixed),
-		"event_blocks":  toEventBlocksWire(events),
-		"metadata":      metadata,
-	})
+	events, err := h.svc.ListEventBlocks(r.Context(), complexID, dateFrom, dateTo)
+	if err != nil {
+		return nil, err
+	}
+	return httpx.Envelope{
+		"fixed_blocks": toFixedBlocksWire(fixed),
+		"event_blocks": toEventBlocksWire(events),
+	}, nil
 }
 
 // parseBlockedSlotsDateRange reads and validates the required date_from/

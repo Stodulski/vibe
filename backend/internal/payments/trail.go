@@ -102,6 +102,7 @@ func (s *Service) reportShortfall(source, action string, complexID, bookingID uu
 	}
 
 	s.logger.Error(source+": mercadopago refunded less than was claimed, the remainder is owed by hand",
+		"complex_id", complexID,
 		"booking_id", bookingID,
 		"mp_payment_id", claimed.MPPaymentID,
 		"attempt_id", claimed.AttemptID,
