@@ -171,6 +171,12 @@ export const bookings = {
       client_blocked: 'cliente bloqueado',
       missed: 'no se pudo crear',
     },
+    // Other courts of the same complex and sport the refused series fits (`alternatives`).
+    alternativesFree: 'Canchas libres para este turno fijo:',
+    alternativesFewer: 'Otras canchas con menos fechas ocupadas:',
+    alternativeAllFree: 'todas las semanas libres',
+    alternativeBusy: (count: number) => (count === 1 ? '1 fecha ocupada' : `${String(count)} fechas ocupadas`),
+    useCourt: 'Usar esta cancha',
     skipConflicts: 'Crear salteando estas fechas',
     conflictsBack: 'Volver',
     createSuccess: (weekdayPlural: string, time: string, skipped: number) => {

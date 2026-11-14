@@ -3,12 +3,14 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SeriesConflictsPanel } from './SeriesConflictsPanel';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import type { CourtAlternative } from '@/shared/types/api.types';
 
 const t = ES_AR.bookings.series;
 
-function renderPanel(endless = false) {
+function renderPanel(endless = false, alternatives: CourtAlternative[] = []) {
   const onSkip = vi.fn();
   const onBack = vi.fn();
+  const onUseCourt = vi.fn();
   render(
     <SeriesConflictsPanel
       conflicts={[
@@ -18,11 +20,13 @@ function renderPanel(endless = false) {
       ]}
       endless={endless}
       pending={false}
+      alternatives={alternatives}
+      onUseCourt={onUseCourt}
       onSkip={onSkip}
       onBack={onBack}
     />,
   );
-  return { onSkip, onBack };
+  return { onSkip, onBack, onUseCourt };
 }
 
 describe('SeriesConflictsPanel', () => {
@@ -32,9 +36,9 @@ describe('SeriesConflictsPanel', () => {
     expect(screen.getByText(t.conflictsTitle(3))).toBeInTheDocument();
     const items = screen.getAllByRole('listitem').map((li) => li.textContent);
     expect(items).toEqual([
-      'mié 18 nov 2026 — ocupada por un evento',
-      'mié 25 nov 2026 — el complejo está cerrado',
-      'mié 2 dic 2026 — sin precio para ese horario',
+      'mié 18 nov 2026: ocupada por un evento',
+      'mié 25 nov 2026: el complejo está cerrado',
+      'mié 2 dic 2026: sin precio para ese horario',
     ]);
   });
 
@@ -70,5 +74,39 @@ describe('SeriesConflictsPanel', () => {
 
     expect(onSkip).toHaveBeenCalledOnce();
     expect(onBack).toHaveBeenCalledOnce();
+  });
+});
+
+describe('SeriesConflictsPanel, other courts', () => {
+  it('offers the free courts, and switches to the one the owner picks', async () => {
+    const user = userEvent.setup();
+    const { onUseCourt } = renderPanel(false, [
+      { court_id: 'ct2', court_name: 'Cancha 2', conflicts: 0 },
+      { court_id: 'ct3', court_name: 'Cancha 3', conflicts: 2 },
+    ]);
+
+    expect(screen.getByText(t.alternativesFree)).toBeInTheDocument();
+    const rows = screen.getAllByTestId('court-alternative').map((row) => row.textContent.replace(/\u00A0/g, ' '));
+    expect(rows).toEqual([
+      'Cancha 2 (todas las semanas libres) · Usar esta cancha',
+      'Cancha 3 (2 fechas ocupadas) · Usar esta cancha',
+    ]);
+    const [, second] = screen.getAllByRole('button', { name: t.useCourt });
+    if (second) await user.click(second);
+
+    expect(onUseCourt).toHaveBeenCalledWith('ct3');
+  });
+
+  it('says "menos fechas ocupadas" when no other court is free every week', () => {
+    renderPanel(false, [{ court_id: 'ct3', court_name: 'Cancha 3', conflicts: 1 }]);
+
+    expect(screen.getByText(t.alternativesFewer)).toBeInTheDocument();
+    expect(screen.queryByText(t.alternativesFree)).not.toBeInTheDocument();
+  });
+
+  it('shows nothing about other courts when the server offers none', () => {
+    renderPanel();
+
+    expect(screen.queryByTestId('court-alternative')).not.toBeInTheDocument();
   });
 });

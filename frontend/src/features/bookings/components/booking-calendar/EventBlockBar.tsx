@@ -1,5 +1,6 @@
 import { CalendarDays } from 'lucide-react';
-import { cn, formatTime } from '@/shared/lib/utils';
+import { cn } from '@/shared/lib/utils';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventTimeRange } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { barPosition } from './timelineGeometry';
@@ -74,7 +75,7 @@ export function EventBlockBar({
   const isMatch = 'match_id' in block;
   const compactLabel = isMatch ? t.tournaments.blockLabelCompact : t.events.blockLabelCompact;
   const { line, accessible } = blockLabels(block);
-  const ariaLabel = `${courtName}, ${formatTime(block.start_time)}–${formatTime(block.end_time)}, ${accessible}`;
+  const ariaLabel = `${keepTogether(courtName)}, ${formatEventTimeRange(block.start_time, block.end_time)}, ${accessible}`;
 
   return (
     <button

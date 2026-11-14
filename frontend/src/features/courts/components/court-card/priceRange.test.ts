@@ -86,7 +86,7 @@ describe('formatPriceLabel', () => {
   const format = (v: number) => `$${String(v)}`;
 
   it('returns an em dash when there is no price', () => {
-    expect(formatPriceLabel(null, null, format)).toBe('—');
+    expect(formatPriceLabel(null, null, format)).toBe('Sin precio');
   });
 
   it('returns a single formatted value when min equals max', () => {

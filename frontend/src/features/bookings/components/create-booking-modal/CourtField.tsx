@@ -7,6 +7,7 @@ import { DurationField } from './DurationField';
 import type { UseFormSetValue, FieldErrors } from 'react-hook-form';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -51,7 +52,7 @@ export function CourtField({
           <SelectContent>
             {activeCourts.map((court) => (
               <SelectItem key={court.id} value={court.id}>
-                {court.name} · {t.courts.sportTypes[court.sport]}
+                {keepTogether(court.name)} · {t.courts.sportTypes[court.sport]}
               </SelectItem>
             ))}
           </SelectContent>

@@ -4,8 +4,10 @@ import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader'
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateFull, formatTime } from '@/shared/lib/utils';
+import { formatDateFull } from '@/shared/lib/utils';
+import { formatEventTimeRange } from '@/shared/lib/eventDates';
 import type { BlockedSlot } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -52,11 +54,9 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
         {/* Only the body scrolls; the header and the action stay put. */}
         <div className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
           <InfoRow label={t.bookings.time}>
-            <span className="score-text font-medium">
-              {formatTime(shown.start_time)} – {formatTime(shown.end_time)}
-            </span>
+            <span className="score-text font-medium">{formatEventTimeRange(shown.start_time, shown.end_time)}</span>
           </InfoRow>
-          <InfoRow label={t.bookings.court}>{shown.court_name}</InfoRow>
+          <InfoRow label={t.bookings.court}>{keepTogether(shown.court_name ?? '')}</InfoRow>
           {shown.reason && (
             <InfoRow label={t.courts.blockReason}>
               <p className="break-words">{shown.reason}</p>

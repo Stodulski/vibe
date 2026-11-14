@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import { Repeat } from 'lucide-react';
-import { Sheet, SheetContent, SheetFooter } from '@/shared/components/ui/sheet';
-import { Button } from '@/shared/components/ui/button';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
+import { keepTogether } from '@/shared/lib/keepTogether';
+import { FixedBlockMenu } from './booking-detail/FixedBlockMenu';
 import { SkipDateDialog } from './booking-detail/SkipDateDialog';
 import { EndSeriesDialog } from './booking-detail/EndSeriesDialog';
 import { weekdayOf } from '../lib/seriesDates';
@@ -27,39 +28,25 @@ interface FixedBlockDetailProps {
 
 function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: string; courtName: string }) {
   const weekday = t.bookings.series.weekdaysPlural[weekdayOf(date)] ?? '';
+  // Same body as a booking's sheet: only it scrolls, with the same padding.
   return (
-    <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
-      <div className="flex h-5 items-center gap-2">
-        <Repeat className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        <p className="text-text-secondary min-w-0 text-sm break-words">
-          {t.bookings.series.label(weekday, block.start_time.slice(0, 5))}
-        </p>
+    <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
+      <div className="space-y-4">
+        <div className="flex h-5 items-center gap-2">
+          <Repeat className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
+          <p className="text-text-secondary min-w-0 text-sm break-words">
+            {t.bookings.series.label(weekday, block.start_time.slice(0, 5))}
+          </p>
+        </div>
+        <InfoRow label={t.bookings.client}>
+          <p className="break-words">{block.client_name}</p>
+        </InfoRow>
+        <InfoRow label={t.bookings.court}>{keepTogether(courtName)}</InfoRow>
+        <InfoRow label={t.bookings.time}>
+          <span className="score-text font-medium">{formatEventTimeRange(block.start_time, block.end_time)}</span>
+        </InfoRow>
       </div>
-      <InfoRow label={t.bookings.client}>
-        <p className="break-words">{block.client_name}</p>
-      </InfoRow>
-      <InfoRow label={t.bookings.court}>{courtName}</InfoRow>
-      <InfoRow label={t.bookings.time}>
-        <span className="score-text font-medium">{formatEventTimeRange(block.start_time, block.end_time)}</span>
-      </InfoRow>
     </div>
-  );
-}
-
-function FixedBlockActions({ onSkip, onEnd }: { onSkip: () => void; onEnd: () => void }) {
-  return (
-    <SheetFooter className="items-start sm:px-6">
-      <Button
-        variant="outline"
-        className="border-error-text/30 text-error-text hover:bg-error-text/10 rounded-lg"
-        onClick={onSkip}
-      >
-        {t.bookings.series.cancelOne}
-      </Button>
-      <Button variant="destructive" className="rounded-lg" onClick={onEnd}>
-        {t.bookings.series.endFromHere}
-      </Button>
-    </SheetFooter>
   );
 }
 
@@ -107,8 +94,8 @@ function FixedBlockDialogs({
 
 /**
  * What a fixed weekly booking's date offers while it has no booking yet:
- * free just this date, or cancel the whole turno fijo from it on. Built from
- * the same pieces as the blocked-slot drawer.
+ * free just this date, or cancel the whole turno fijo from it on. Laid out like
+ * the booking sheet: the two cancellations sit in the header menu.
  */
 export function FixedBlockDetail({ open, onClose, block, courtName, complexId }: FixedBlockDetailProps) {
   const [endOpen, setEndOpen] = useState(false);
@@ -139,20 +126,21 @@ export function FixedBlockDetail({ open, onClose, block, courtName, complexId }:
           <DetailSheetHeader
             title={t.bookings.series.blockDetailTitle}
             subtitle={<span className="inline-block first-letter:uppercase">{formatEventDay(date)}</span>}
+            menu={
+              canCancel && (
+                <FixedBlockMenu
+                  onSkip={() => {
+                    setSkipOpen(true);
+                  }}
+                  onEnd={() => {
+                    setEndOpen(true);
+                  }}
+                />
+              )
+            }
           />
 
           <FixedBlockFacts block={shown} date={date} courtName={courtName} />
-
-          {canCancel && (
-            <FixedBlockActions
-              onSkip={() => {
-                setSkipOpen(true);
-              }}
-              onEnd={() => {
-                setEndOpen(true);
-              }}
-            />
-          )}
         </SheetContent>
       </Sheet>
       <FixedBlockDialogs

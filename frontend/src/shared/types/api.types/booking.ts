@@ -109,6 +109,9 @@ export type BookingSeries = Spec<'BookingSeries'>;
 
 export type BookingSeriesConflict = Spec<'BookingSeriesConflict'>;
 
+/** Another court the refused series fits better, as the create-series 409 offers it. */
+export type CourtAlternative = Spec<'CourtAlternative'>;
+
 /** Same `duration_minutes` narrowing as {@link CreateBookingRequest}. */
 export type CreateBookingSeriesRequest = Omit<Body<'bookingSeriesCreate'>, 'duration_minutes'> & {
   duration_minutes: DurationMinutes;

@@ -1,6 +1,7 @@
 import { Ban } from 'lucide-react';
 import { timeToMinutes } from '@/shared/lib/time';
-import { formatTime } from '@/shared/lib/utils';
+import { formatEventTimeRange } from '@/shared/lib/eventDates';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { barPosition } from './timelineGeometry';
 import { DAY_START_MIN, DAY_END_MIN } from './gridLayout';
@@ -20,7 +21,7 @@ export function BlockedBlock({
   const startMin = timeToMinutes(slot.start_time);
   const endMin = timeToMinutes(slot.end_time);
   const { leftPct: topPct, widthPct: heightPct } = barPosition(startMin, endMin, DAY_START_MIN, DAY_END_MIN);
-  const ariaLabel = `${courtName}, ${formatTime(slot.start_time)}–${formatTime(slot.end_time)}, ${t.bookings.blockedSlot}`;
+  const ariaLabel = `${keepTogether(courtName)}, ${formatEventTimeRange(slot.start_time, slot.end_time)}, ${t.bookings.blockedSlot}`;
 
   return (
     // Native button rather than role="button" + a hand-written key handler:

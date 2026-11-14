@@ -48,8 +48,8 @@ export function useCreateBookingForm({
 }: UseCreateBookingFormArgs) {
   const createBooking = useCreateBooking(complexId);
   const series = useSeriesOptions(open);
-  const seriesSubmit = useSeriesSubmit(complexId, series);
   const formState = useBookingFormState();
+  const seriesSubmit = useSeriesSubmit(complexId, series, formState.setValue);
   const { courtId, date, startTime, durationMinutes, price, setError, reset, dirtyFields } = formState;
 
   const pricing = useBookingPricing({

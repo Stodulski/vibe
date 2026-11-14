@@ -1,5 +1,6 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatDate, formatHourRange } from '@/shared/lib/utils';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -20,7 +21,7 @@ export function BookingSummaryCard({
       <div className="space-y-1.5">
         <div className="flex justify-between gap-3">
           <span className="text-text-tertiary shrink-0">{t.bookings.court}</span>
-          <span className="text-text-primary truncate font-medium">{booking.court_name}</span>
+          <span className="text-text-primary truncate font-medium">{keepTogether(booking.court_name)}</span>
         </div>
         <div className="flex justify-between gap-3">
           <span className="text-text-tertiary shrink-0">{t.bookings.date}</span>

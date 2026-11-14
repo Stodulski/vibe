@@ -3,18 +3,15 @@ import { minutesInto, toSpan } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
 import { cn, endsOnALaterDay, formatHourRange } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { STATUS_BAR_STYLES } from '../BookingStatusBadge';
+import { BLOCK_BASE_CLASSES, BLOCK_NAME_CLASSES, BLOCK_TIME_CLASSES, TWO_LINE_MIN_HEIGHT_PX } from './blockStyles';
 import { barPosition } from './timelineGeometry';
 import { DAY_START_MIN, DAY_END_MIN, SLOT_HEIGHT_PX, SLOT_MINUTES } from './gridLayout';
 import { paymentDisplayStatus } from '@/shared/types/api.types';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;
-
-// A block needs both lines (icon+time, then name) once it's at least this
-// tall; below that only the name fits. Derived from the booking's own
-// duration, never from a measured DOM box — jsdom has no layout to measure.
-const TWO_LINE_MIN_HEIGHT_PX = 56;
 
 /**
  * The booking's position on `date`, in minutes from that day's midnight.
@@ -42,7 +39,7 @@ function spanMinutes(booking: Booking, date: string): { startMin: number; endMin
 // label produced "Cancha Cancha 1, Cliente Juan Perez" — the courts are
 // already named "Cancha N", and a person's name needs no announcement.
 function bookingAriaLabel(booking: Booking, courtName: string): string {
-  const hours = formatHourRange(booking.starts_at, booking.ends_at, '–');
+  const hours = formatHourRange(booking.starts_at, booking.ends_at);
   // `formatHourRange` no longer appends "Día sig." to its own output (removed
   // dialog-wide, and range-wide, by owner instruction) — this is the one place
   // that fact still has to reach someone, since the visible block only shows
@@ -52,7 +49,7 @@ function bookingAriaLabel(booking: Booking, courtName: string): string {
     ? `${hours}, ${t.bookings.endsNextDay}`
     : hours;
   return [
-    courtName,
+    keepTogether(courtName),
     hoursWithNote,
     booking.client_name,
     `${t.bookings.status}: ${t.bookings.statuses[booking.status]}`,
@@ -118,8 +115,7 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
       title={ariaLabel}
       onClick={onSelect}
       className={cn(
-        'focus-self absolute inset-x-[3px] flex cursor-pointer flex-col overflow-hidden rounded-md border px-1.5 py-0.5 text-left',
-        'transition-[filter] focus-visible:brightness-150',
+        BLOCK_BASE_CLASSES,
         runsOnPastToday && 'rounded-b-none border-b-0',
         beganBeforeToday && 'rounded-t-none border-t-0',
         styles.bg,
@@ -138,15 +134,13 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
         // Dimmed white rather than a grey token: the greys are calibrated
         // against the near-black page, and on a mid-tone fill they drop to
         // ~2:1. This holds 5.1:1 and still reads as the secondary line.
-        <span className="score-text text-text-primary/80 text-[0.6875rem]">
-          {formatHourRange(booking.starts_at, booking.ends_at)}
-        </span>
+        <span className={BLOCK_TIME_CLASSES}>{formatHourRange(booking.starts_at, booking.ends_at)}</span>
       )}
       <div className="flex min-w-0 items-center gap-1">
         {booking.series_id && heightPx >= SERIES_ICON_MIN_HEIGHT_PX && (
           <Repeat role="img" aria-label={t.bookings.fixedBooking} className="text-text-primary/80 size-3 shrink-0" />
         )}
-        <p className="text-text-primary truncate text-xs font-medium">{booking.client_name}</p>
+        <p className={BLOCK_NAME_CLASSES}>{booking.client_name}</p>
       </div>
     </button>
   );

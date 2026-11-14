@@ -1,3 +1,4 @@
+import { ES_AR } from '@/shared/i18n/es_AR';
 import type { CourtPrice } from '@/shared/types/api.types';
 
 const WEEKDAY_KEYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday'];
@@ -45,7 +46,7 @@ export function formatPriceLabel(
   max: number | null,
   formatPrice: (value: number) => string,
 ): string {
-  if (min === null) return '—';
+  if (min === null) return ES_AR.courts.noPrice;
   if (max !== null && max !== min) return `${formatPrice(min)} - ${formatPrice(max)}`;
   return formatPrice(min);
 }

@@ -1,7 +1,9 @@
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatDateOnlyWithYear } from '../../lib/seriesDates';
-import type { BookingSeriesConflict } from '@/shared/types/api.types';
+import { Button } from '@/shared/components/ui/button';
+import { keepTogether } from '@/shared/lib/keepTogether';
+import type { BookingSeriesConflict, CourtAlternative } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -9,6 +11,51 @@ const t = ES_AR;
 function conflictReason(conflict: BookingSeriesConflict): string {
   if (conflict.reason === 'overlap' && conflict.held_by) return t.bookings.series.heldBy[conflict.held_by];
   return t.bookings.series.conflictReasons[conflict.reason];
+}
+
+/** The other courts that fit the series better, each with a way to switch to it. */
+function CourtAlternatives({
+  alternatives,
+  pending,
+  onUseCourt,
+}: {
+  alternatives: CourtAlternative[];
+  pending: boolean;
+  onUseCourt: (courtId: string) => void;
+}) {
+  const anyFree = alternatives.some((alt) => alt.conflicts === 0);
+  return (
+    <div className="space-y-2">
+      <p className="text-text-primary text-sm font-medium">
+        {anyFree ? t.bookings.series.alternativesFree : t.bookings.series.alternativesFewer}
+      </p>
+      <ul className="space-y-1.5 text-sm">
+        {alternatives.map((alt) => (
+          <li key={alt.court_id} data-testid="court-alternative" className="text-text-secondary">
+            <span>
+              <span className="text-text-primary font-medium">{keepTogether(alt.court_name)}</span> (
+              {alt.conflicts === 0
+                ? t.bookings.series.alternativeAllFree
+                : t.bookings.series.alternativeBusy(alt.conflicts)}
+              )
+            </span>{' '}
+            <span aria-hidden="true">·</span>{' '}
+            <Button
+              type="button"
+              variant="link"
+              className="h-auto p-0 align-baseline"
+              disabled={pending}
+              onClick={() => {
+                onUseCourt(alt.court_id);
+              }}
+            >
+              {t.bookings.series.useCourt}
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /**
@@ -21,6 +68,8 @@ export function SeriesConflictsPanel({
   conflicts,
   endless,
   pending,
+  alternatives,
+  onUseCourt,
   onSkip,
   onBack,
 }: {
@@ -28,6 +77,9 @@ export function SeriesConflictsPanel({
   /** The series has no end, so only the year ahead was checked. */
   endless: boolean;
   pending: boolean;
+  /** Other courts the server says fit the series better, best first. */
+  alternatives: CourtAlternative[];
+  onUseCourt: (courtId: string) => void;
   onSkip: () => void;
   onBack: () => void;
 }) {
@@ -43,11 +95,14 @@ export function SeriesConflictsPanel({
         {conflicts.map((conflict) => (
           <li key={conflict.date} className="text-text-secondary">
             <span className="text-text-primary font-medium">{formatDateOnlyWithYear(conflict.date)}</span>
-            {' — '}
+            {': '}
             {conflictReason(conflict)}
           </li>
         ))}
       </ul>
+      {alternatives.length > 0 && (
+        <CourtAlternatives alternatives={alternatives} pending={pending} onUseCourt={onUseCourt} />
+      )}
       <SectionFooter
         className="mt-auto sm:mt-0"
         onCancel={onBack}

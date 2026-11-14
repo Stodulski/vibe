@@ -2449,6 +2449,16 @@ export interface components {
             errors?: components["schemas"]["FieldError"][];
             /** @description Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked. */
             conflicts?: components["schemas"]["BookingSeriesConflict"][];
+            /** @description Present with `conflicts`: other active courts of the same complex and sport that the series fits better, free ones first, the most alike (same surface, covered or open, lighting) first within each. At most three. */
+            alternatives?: components["schemas"]["CourtAlternative"][];
+        };
+        /** @description Another court offered when the chosen one holds the series' dates. */
+        CourtAlternative: {
+            /** Format: uuid */
+            court_id: string;
+            court_name: string;
+            /** @description Dates of the series something else holds on this court; 0 when it is free every week. */
+            conflicts: number;
         };
         /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
         PaymentsExport: {

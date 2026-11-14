@@ -7,6 +7,7 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import type { Booking, BookingRefundStatus, PaymentDisplayStatus, Payment } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 // The refund half of the pair, in the vocabulary the badge already has labels,
 // colours and icons for. 'none' is absent because that half is not rendered at
@@ -256,7 +257,7 @@ export function BookingInfoSection({
         <span className="score-text font-medium">{booking.duration_minutes} min</span>
       </InfoRow>
       <InfoRow label={t.bookings.court}>
-        <span className="truncate">{booking.court_name}</span>
+        <span className="truncate">{keepTogether(booking.court_name)}</span>
       </InfoRow>
       {clientRow}
     </div>

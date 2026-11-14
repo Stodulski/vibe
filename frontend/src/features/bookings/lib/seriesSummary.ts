@@ -1,6 +1,7 @@
 import { addMinutes } from '@/shared/lib/time';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatDayMonthYear, weekdayOf } from './seriesDates';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -45,7 +46,7 @@ export function seriesSummaryRows({
   return [
     { label: s.summaryRepeats, value: s.everyWeekday(s.weekdaysPlural[weekdayOf(date)] ?? '') },
     { label: s.summaryHours, value: s.hoursRange(startTime, addMinutes(startTime, durationMinutes)) },
-    { label: s.summaryCourt, value: courtName },
+    { label: s.summaryCourt, value: keepTogether(courtName) },
     { label: s.summarySince, value: formatDayMonthYear(date) },
     { label: s.summaryUntil, value: until ? formatDayMonthYear(until) : s.endNever },
   ];

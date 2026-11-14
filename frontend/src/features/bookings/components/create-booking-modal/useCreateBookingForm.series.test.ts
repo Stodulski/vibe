@@ -250,3 +250,43 @@ describe('useCreateBookingForm — repeat conflicts', () => {
     expect(result.current.seriesSubmit.conflicts).toEqual([]);
   });
 });
+
+describe('useCreateBookingForm, repeat on another court', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const CONFLICTS = [{ date: '2099-01-09', reason: 'overlap' }];
+
+  it('keeps the courts the server offers instead, and "Usar esta cancha" resends the series on that court', async () => {
+    const { bookingSeriesApi } = await import('../../api/bookingSeries.api');
+    const alternatives = [
+      { court_id: 'ct2', court_name: 'Cancha 2', conflicts: 0 },
+      { court_id: 'ct3', court_name: 'Cancha 3', conflicts: 1 },
+    ];
+    vi.mocked(bookingSeriesApi.create)
+      .mockRejectedValueOnce(
+        await makeConsumedHttpError(409, { title: 'Conflict', conflicts: CONFLICTS, alternatives }),
+      )
+      .mockResolvedValueOnce(CREATED as never);
+    const result = await renderRepeatingForm();
+    const onClose = await submit(result);
+    await waitFor(() => {
+      expect(result.current.seriesSubmit.alternatives).toEqual(alternatives);
+    });
+
+    act(() => {
+      result.current.seriesSubmit.switchCourt('ct2', onClose);
+    });
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
+      'c1',
+      { ...SERIES_BODY, court_id: 'ct2' },
+      expect.any(String),
+    );
+    expect(result.current.courtId).toBe('ct2');
+  });
+});

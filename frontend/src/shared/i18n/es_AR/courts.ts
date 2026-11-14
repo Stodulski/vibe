@@ -15,6 +15,8 @@ export const courts = {
   inactive: 'Inactiva',
   prices: 'Precios',
   noPrices: 'Sin precios configurados',
+  // Where a price column has no figure to show.
+  noPrice: 'Sin precio',
   duration: 'Duración',
   dayType: 'Tipo de día',
   price: 'Precio',

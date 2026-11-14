@@ -37,6 +37,10 @@ function SeriesConflictsView({
       conflicts={seriesSubmit.conflicts}
       endless={form.series.endMode === 'never'}
       pending={seriesSubmit.createSeries.isPending}
+      alternatives={seriesSubmit.alternatives}
+      onUseCourt={(courtId) => {
+        seriesSubmit.switchCourt(courtId, onClose);
+      }}
       onSkip={() => {
         seriesSubmit.submitSkippingConflicts(onClose);
       }}

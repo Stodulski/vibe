@@ -9,7 +9,7 @@ describe('seriesSummaryRows', () => {
     expect(seriesSummaryRows(base)).toEqual([
       { label: 'Repite', value: 'Todos los lunes' },
       { label: 'Horario', value: '18:00 a 19:30' },
-      { label: 'Cancha', value: 'Cancha 1' },
+      { label: 'Cancha', value: 'Cancha\u00A01' },
       { label: 'Desde', value: '05/01/2099' },
       { label: 'Hasta', value: 'Sin fecha de fin' },
     ]);

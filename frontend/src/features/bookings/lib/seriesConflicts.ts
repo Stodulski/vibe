@@ -1,5 +1,5 @@
 import { HTTPError } from 'ky';
-import type { BookingSeriesConflict } from '@/shared/types/api.types';
+import type { BookingSeriesConflict, CourtAlternative } from '@/shared/types/api.types';
 
 const REASONS = new Set<BookingSeriesConflict['reason']>([
   'cancelled_by_owner',
@@ -32,4 +32,26 @@ export function seriesConflictsFrom(error: unknown): BookingSeriesConflict[] {
   if (typeof data !== 'object' || data === null) return [];
   const { conflicts } = data as { conflicts?: unknown };
   return Array.isArray(conflicts) ? conflicts.filter(isConflict) : [];
+}
+
+function isAlternative(value: unknown): value is CourtAlternative {
+  if (typeof value !== 'object' || value === null) return false;
+  const { court_id, court_name, conflicts } = value as {
+    court_id?: unknown;
+    court_name?: unknown;
+    conflicts?: unknown;
+  };
+  return typeof court_id === 'string' && typeof court_name === 'string' && typeof conflicts === 'number';
+}
+
+/**
+ * The other courts the same 409 offers, read off its `alternatives` extension,
+ * in the order the server ranked them. Empty when there are none.
+ */
+export function courtAlternativesFrom(error: unknown): CourtAlternative[] {
+  if (!(error instanceof HTTPError) || error.response.status !== 409) return [];
+  const data: unknown = error.data;
+  if (typeof data !== 'object' || data === null) return [];
+  const { alternatives } = data as { alternatives?: unknown };
+  return Array.isArray(alternatives) ? alternatives.filter(isAlternative) : [];
 }

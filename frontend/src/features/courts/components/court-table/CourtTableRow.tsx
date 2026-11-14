@@ -9,6 +9,7 @@ import { CourtDescriptionCell } from './CourtDescriptionCell';
 import { CourtPriceCell } from './CourtPriceCell';
 import { CourtRowActionsMenu } from './CourtRowActionsMenu';
 import type { CourtWithPrices } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -51,13 +52,13 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
             checked={court.is_active}
             onCheckedChange={handleToggleActive}
             disabled={isTogglePending}
-            aria-label={`${court.name}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
+            aria-label={`${keepTogether(court.name)}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
           />
         </TableCell>
 
         <TableCell className="text-right">
           <CourtRowActionsMenu
-            courtName={court.name}
+            courtName={keepTogether(court.name)}
             onEdit={() => {
               onEdit(court);
             }}
@@ -92,7 +93,7 @@ function CourtNameCell({ court }: { court: CourtWithPrices }) {
   return (
     <TableCell className="max-w-56">
       <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>
-        {court.name}
+        {keepTogether(court.name)}
       </p>
       <p className="text-text-tertiary truncate text-xs">{t.courts.sportTypes[court.sport]}</p>
       {details && (

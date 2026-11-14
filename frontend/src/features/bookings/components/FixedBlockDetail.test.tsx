@@ -32,6 +32,14 @@ async function renderDetail(overrides: Partial<FixedBlock> = {}) {
   return { bookingSeriesApi, onClose };
 }
 
+type User = ReturnType<typeof userEvent.setup>;
+
+/** The sheet keeps its actions in the header menu, like a booking's: open it and return one item. */
+async function openActions(user: User, name: string) {
+  await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
+  return screen.findByRole('menuitem', { name });
+}
+
 describe('FixedBlockDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -45,12 +53,23 @@ describe('FixedBlockDetail', () => {
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
 
+  it('lays its actions out like a booking sheet: in the header menu, with no loose buttons at the bottom', async () => {
+    const user = userEvent.setup();
+    await renderDetail();
+
+    await screen.findByText(t.label('martes', '21:00'));
+    expect(screen.queryByRole('button', { name: t.cancelOne })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.endFromHere })).not.toBeInTheDocument();
+    await openActions(user, t.cancelOne);
+    expect(screen.getAllByRole('menuitem').map((item) => item.textContent)).toEqual([t.cancelOne, t.endFromHere]);
+  });
+
   it('"Cancelar solo esta fecha" frees that date and says which, after confirming', async () => {
     const user = userEvent.setup();
     const { bookingSeriesApi, onClose } = await renderDetail();
     vi.mocked(bookingSeriesApi.skip).mockResolvedValue({ skipped: { date: DATE, reason: 'cancelled_by_owner' } });
 
-    await user.click(await screen.findByRole('button', { name: t.cancelOne }));
+    await user.click(await openActions(user, t.cancelOne));
     expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
     expect(screen.getByText(t.skipConfirmTitle)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: t.skipConfirmLabel }));
@@ -66,12 +85,12 @@ describe('FixedBlockDetail', () => {
   });
 });
 
-describe('FixedBlockDetail — backing out of freeing a date', () => {
+describe('FixedBlockDetail, backing out of freeing a date', () => {
   it('"Volver" leaves the date held and writes nothing', async () => {
     const user = userEvent.setup();
     const { bookingSeriesApi, onClose } = await renderDetail();
 
-    await user.click(await screen.findByRole('button', { name: t.cancelOne }));
+    await user.click(await openActions(user, t.cancelOne));
     await user.click(screen.getByRole('button', { name: ES_AR.common.back }));
 
     expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
@@ -79,7 +98,7 @@ describe('FixedBlockDetail — backing out of freeing a date', () => {
   });
 });
 
-describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
+describe('FixedBlockDetail, cancelling the whole fixed booking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -104,7 +123,7 @@ describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
       kept: [],
     });
 
-    await user.click(await screen.findByRole('button', { name: t.endFromHere }));
+    await user.click(await openActions(user, t.endFromHere));
     expect(bookingSeriesApi.end).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: t.endConfirmLabel }));
 
@@ -122,7 +141,6 @@ describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
     await renderDetail({ date: '2020-01-07' });
 
     await screen.findByText(t.label('martes', '21:00'));
-    expect(screen.queryByRole('button', { name: t.cancelOne })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: t.endFromHere })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
   });
 });

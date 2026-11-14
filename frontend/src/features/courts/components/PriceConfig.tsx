@@ -8,6 +8,7 @@ import { DayRow } from './price-config/DayRow';
 import { usePriceConfigForm } from './price-config/usePriceConfigForm';
 import { ALL_DAYS } from './price-config/days';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -50,7 +51,7 @@ export function PriceConfig({ open, onClose, complexId, court }: PriceConfigProp
       <DialogContent className="sm:max-h-[90dvh] sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>
-            {t.courts.prices} · {court.name}
+            {t.courts.prices} · {keepTogether(court.name)}
           </DialogTitle>
         </DialogHeader>
 
