@@ -106,6 +106,111 @@ func (e AvailabilityCourtSurface) Valid() bool {
 	}
 }
 
+// Defines values for BookingSeriesStatus.
+const (
+	Active BookingSeriesStatus = "active"
+	Ended  BookingSeriesStatus = "ended"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesStatus enum.
+func (e BookingSeriesStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Ended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BookingSeriesConflictReason.
+const (
+	BookingSeriesConflictReasonBlocked          BookingSeriesConflictReason = "blocked"
+	BookingSeriesConflictReasonCancelledByOwner BookingSeriesConflictReason = "cancelled_by_owner"
+	BookingSeriesConflictReasonClientBlocked    BookingSeriesConflictReason = "client_blocked"
+	BookingSeriesConflictReasonClosedDay        BookingSeriesConflictReason = "closed_day"
+	BookingSeriesConflictReasonMissed           BookingSeriesConflictReason = "missed"
+	BookingSeriesConflictReasonNoPrice          BookingSeriesConflictReason = "no_price"
+	BookingSeriesConflictReasonOverlap          BookingSeriesConflictReason = "overlap"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesConflictReason enum.
+func (e BookingSeriesConflictReason) Valid() bool {
+	switch e {
+	case BookingSeriesConflictReasonBlocked:
+		return true
+	case BookingSeriesConflictReasonCancelledByOwner:
+		return true
+	case BookingSeriesConflictReasonClientBlocked:
+		return true
+	case BookingSeriesConflictReasonClosedDay:
+		return true
+	case BookingSeriesConflictReasonMissed:
+		return true
+	case BookingSeriesConflictReasonNoPrice:
+		return true
+	case BookingSeriesConflictReasonOverlap:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BookingSeriesUpcomingReason.
+const (
+	BookingSeriesUpcomingReasonBlocked          BookingSeriesUpcomingReason = "blocked"
+	BookingSeriesUpcomingReasonCancelledByOwner BookingSeriesUpcomingReason = "cancelled_by_owner"
+	BookingSeriesUpcomingReasonClientBlocked    BookingSeriesUpcomingReason = "client_blocked"
+	BookingSeriesUpcomingReasonClosedDay        BookingSeriesUpcomingReason = "closed_day"
+	BookingSeriesUpcomingReasonMissed           BookingSeriesUpcomingReason = "missed"
+	BookingSeriesUpcomingReasonNoPrice          BookingSeriesUpcomingReason = "no_price"
+	BookingSeriesUpcomingReasonOverlap          BookingSeriesUpcomingReason = "overlap"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesUpcomingReason enum.
+func (e BookingSeriesUpcomingReason) Valid() bool {
+	switch e {
+	case BookingSeriesUpcomingReasonBlocked:
+		return true
+	case BookingSeriesUpcomingReasonCancelledByOwner:
+		return true
+	case BookingSeriesUpcomingReasonClientBlocked:
+		return true
+	case BookingSeriesUpcomingReasonClosedDay:
+		return true
+	case BookingSeriesUpcomingReasonMissed:
+		return true
+	case BookingSeriesUpcomingReasonNoPrice:
+		return true
+	case BookingSeriesUpcomingReasonOverlap:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BookingSeriesUpcomingState.
+const (
+	BookingSeriesUpcomingStateBooked    BookingSeriesUpcomingState = "booked"
+	BookingSeriesUpcomingStateException BookingSeriesUpcomingState = "exception"
+	BookingSeriesUpcomingStatePending   BookingSeriesUpcomingState = "pending"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesUpcomingState enum.
+func (e BookingSeriesUpcomingState) Valid() bool {
+	switch e {
+	case BookingSeriesUpcomingStateBooked:
+		return true
+	case BookingSeriesUpcomingStateException:
+		return true
+	case BookingSeriesUpcomingStatePending:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BookingStatus.
 const (
 	BookingStatusCancelled BookingStatus = "cancelled"
@@ -1945,13 +2050,70 @@ type Booking struct {
 	Price int `json:"price"`
 
 	// RefundStatus `partial` is set only by the system, never accepted as client input.
-	RefundStatus   RefundStatus  `json:"refund_status"`
-	ReminderSent2h bool          `json:"reminder_sent_2h"`
-	StartTime      string        `json:"start_time"`
-	StartsAt       time.Time     `json:"starts_at"`
-	Status         BookingStatus `json:"status"`
-	UpdatedAt      time.Time     `json:"updated_at"`
+	RefundStatus   RefundStatus `json:"refund_status"`
+	ReminderSent2h bool         `json:"reminder_sent_2h"`
+
+	// SeriesId The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
+	SeriesId  *openapi_types.UUID `json:"series_id,omitempty"`
+	StartTime string              `json:"start_time"`
+	StartsAt  time.Time           `json:"starts_at"`
+	Status    BookingStatus       `json:"status"`
+	UpdatedAt time.Time           `json:"updated_at"`
 }
+
+// BookingSeries A fixed weekly booking (turno fijo): a weekly rule that holds its court and hours on every matching date. The booking of a date is created on its own day and carries `series_id`.
+type BookingSeries struct {
+	ClientId        openapi_types.UUID `json:"client_id"`
+	ComplexId       openapi_types.UUID `json:"complex_id"`
+	CourtId         openapi_types.UUID `json:"court_id"`
+	CreatedAt       time.Time          `json:"created_at"`
+	DurationMinutes int                `json:"duration_minutes"`
+
+	// EndsOn Inclusive. Null while the series has no end.
+	EndsOn *openapi_types.Date `json:"ends_on,omitempty"`
+	Id     openapi_types.UUID  `json:"id"`
+	Notes  *string             `json:"notes,omitempty"`
+
+	// Price Centavos ARS. Null: each occurrence is priced on the day its booking is created.
+	Price     *int                `json:"price,omitempty"`
+	StartTime string              `json:"start_time"`
+	StartsOn  openapi_types.Date  `json:"starts_on"`
+	Status    BookingSeriesStatus `json:"status"`
+
+	// Weekday 0 = Sunday .. 6 = Saturday.
+	Weekday int `json:"weekday"`
+}
+
+// BookingSeriesStatus defines model for BookingSeries.Status.
+type BookingSeriesStatus string
+
+// BookingSeriesConflict A date that is not part of a series, and why.
+type BookingSeriesConflict struct {
+	Date   openapi_types.Date          `json:"date"`
+	Reason BookingSeriesConflictReason `json:"reason"`
+}
+
+// BookingSeriesConflictReason defines model for BookingSeriesConflict.Reason.
+type BookingSeriesConflictReason string
+
+// BookingSeriesUpcoming One upcoming date of a series.
+type BookingSeriesUpcoming struct {
+	// BookingId Present when `booked`.
+	BookingId *openapi_types.UUID `json:"booking_id,omitempty"`
+	Date      openapi_types.Date  `json:"date"`
+
+	// Reason Present when `exception`.
+	Reason *BookingSeriesUpcomingReason `json:"reason,omitempty"`
+
+	// State `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+	State BookingSeriesUpcomingState `json:"state"`
+}
+
+// BookingSeriesUpcomingReason Present when `exception`.
+type BookingSeriesUpcomingReason string
+
+// BookingSeriesUpcomingState `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+type BookingSeriesUpcomingState string
 
 // BookingStatus defines model for BookingStatus.
 type BookingStatus string
@@ -2294,6 +2456,19 @@ type FieldError struct {
 	Message string `json:"message"`
 }
 
+// FixedBlock A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight.
+type FixedBlock struct {
+	ClientName string             `json:"client_name"`
+	CourtId    openapi_types.UUID `json:"court_id"`
+
+	// Date The local day the hours start on.
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+	EndTime         string             `json:"end_time"`
+	SeriesId        openapi_types.UUID `json:"series_id"`
+	StartTime       string             `json:"start_time"`
+}
+
 // HealthStatus defines model for HealthStatus.
 type HealthStatus struct {
 	// Impaired Present only when non-empty.
@@ -2450,6 +2625,9 @@ type PlaceDetails struct {
 
 // Problem An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type Problem struct {
+	// Conflicts Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
+	Conflicts *[]BookingSeriesConflict `json:"conflicts,omitempty"`
+
 	// Detail Human readable detail for this occurrence, safe to display.
 	Detail *string `json:"detail,omitempty"`
 
@@ -2992,6 +3170,9 @@ type SaleID = openapi_types.UUID
 // SaleSessionIDFilter defines model for SaleSessionIDFilter.
 type SaleSessionIDFilter = openapi_types.UUID
 
+// SeriesID defines model for SeriesID.
+type SeriesID = openapi_types.UUID
+
 // SessionID defines model for SessionID.
 type SessionID = openapi_types.UUID
 
@@ -3305,6 +3486,51 @@ type AuditListComplexLogParams struct {
 type CourtsListBlockedSlotsParams struct {
 	DateFrom openapi_types.Date `form:"date_from" json:"date_from"`
 	DateTo   openapi_types.Date `form:"date_to" json:"date_to"`
+}
+
+// BookingSeriesCreateJSONBody defines parameters for BookingSeriesCreate.
+type BookingSeriesCreateJSONBody struct {
+	ClientEmail     *string            `json:"client_email,omitempty"`
+	ClientFirstName string             `json:"client_first_name"`
+	ClientLastName  string             `json:"client_last_name"`
+	ClientPhone     string             `json:"client_phone"`
+	CourtId         openapi_types.UUID `json:"court_id"`
+	DurationMinutes int                `json:"duration_minutes"`
+
+	// EndsOn Last day, inclusive.
+	EndsOn *openapi_types.Date `json:"ends_on,omitempty"`
+
+	// FirstDate The first occurrence; its weekday is the series' weekday. Not in the past.
+	FirstDate openapi_types.Date `json:"first_date"`
+	Notes     *string            `json:"notes,omitempty"`
+
+	// Price Centavos ARS, applied to every occurrence. Absent: each is priced on the day its booking is created.
+	Price *int `json:"price,omitempty"`
+
+	// SkipConflicts Create the series turning the dates something else holds into exceptions.
+	SkipConflicts *bool  `json:"skip_conflicts,omitempty"`
+	StartTime     string `json:"start_time"`
+
+	// Weeks Alternative to ends_on: the number of weekly occurrences.
+	Weeks *int `json:"weeks,omitempty"`
+}
+
+// BookingSeriesCreateParams defines parameters for BookingSeriesCreate.
+type BookingSeriesCreateParams struct {
+	// IdempotencyKey A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour.
+	IdempotencyKey *IdempotencyKey `json:"Idempotency-Key,omitempty"`
+}
+
+// BookingSeriesEndJSONBody defines parameters for BookingSeriesEnd.
+type BookingSeriesEndJSONBody struct {
+	// FromDate Not in the past.
+	FromDate openapi_types.Date `json:"from_date"`
+}
+
+// BookingSeriesSkipJSONBody defines parameters for BookingSeriesSkip.
+type BookingSeriesSkipJSONBody struct {
+	// Date Not in the past.
+	Date openapi_types.Date `json:"date"`
 }
 
 // BookingsListParams defines parameters for BookingsList.
@@ -4027,6 +4253,15 @@ type ComplexesCreateJSONRequestBody ComplexesCreateJSONBody
 // ComplexesUpdateJSONRequestBody defines body for ComplexesUpdate for application/json ContentType.
 type ComplexesUpdateJSONRequestBody ComplexesUpdateJSONBody
 
+// BookingSeriesCreateJSONRequestBody defines body for BookingSeriesCreate for application/json ContentType.
+type BookingSeriesCreateJSONRequestBody BookingSeriesCreateJSONBody
+
+// BookingSeriesEndJSONRequestBody defines body for BookingSeriesEnd for application/json ContentType.
+type BookingSeriesEndJSONRequestBody BookingSeriesEndJSONBody
+
+// BookingSeriesSkipJSONRequestBody defines body for BookingSeriesSkip for application/json ContentType.
+type BookingSeriesSkipJSONRequestBody BookingSeriesSkipJSONBody
+
 // BookingsCreateJSONRequestBody defines body for BookingsCreate for application/json ContentType.
 type BookingsCreateJSONRequestBody BookingsCreateJSONBody
 
@@ -4283,12 +4518,24 @@ type ServerInterface interface {
 	// AuditListComplexLog List a complex's own audit trail
 	// (GET /api/v1/complexes/{id}/audit-log)
 	AuditListComplexLog(w http.ResponseWriter, r *http.Request, id PathID, params AuditListComplexLogParams)
-	// CourtsListBlockedSlots List blocked slots in a date range
+	// CourtsListBlockedSlots List blocked slots and fixed-booking blocks in a date range
 	// (GET /api/v1/complexes/{id}/blocked-slots)
 	CourtsListBlockedSlots(w http.ResponseWriter, r *http.Request, id PathID, params CourtsListBlockedSlotsParams)
 	// CourtsDeleteBlockedSlot Remove a blocked slot
 	// (DELETE /api/v1/complexes/{id}/blocked-slots/{slotID})
 	CourtsDeleteBlockedSlot(w http.ResponseWriter, r *http.Request, id PathID, slotID openapi_types.UUID)
+	// BookingSeriesCreate Create a fixed weekly booking (turno fijo)
+	// (POST /api/v1/complexes/{id}/booking-series)
+	BookingSeriesCreate(w http.ResponseWriter, r *http.Request, id PathID, params BookingSeriesCreateParams)
+	// BookingSeriesGet Get a fixed weekly booking with its next dates
+	// (GET /api/v1/complexes/{id}/booking-series/{seriesID})
+	BookingSeriesGet(w http.ResponseWriter, r *http.Request, id PathID, seriesID SeriesID)
+	// BookingSeriesEnd End a fixed weekly booking from a date
+	// (POST /api/v1/complexes/{id}/booking-series/{seriesID}/end)
+	BookingSeriesEnd(w http.ResponseWriter, r *http.Request, id PathID, seriesID SeriesID)
+	// BookingSeriesSkip Cancel one date of a fixed weekly booking
+	// (POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip)
+	BookingSeriesSkip(w http.ResponseWriter, r *http.Request, id PathID, seriesID SeriesID)
 	// BookingsList List a complex's bookings for one day
 	// (GET /api/v1/complexes/{id}/bookings)
 	BookingsList(w http.ResponseWriter, r *http.Request, id PathID, params BookingsListParams)
@@ -5214,6 +5461,161 @@ func (siw *ServerInterfaceWrapper) CourtsDeleteBlockedSlot(w http.ResponseWriter
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CourtsDeleteBlockedSlot(w, r, id, slotID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingSeriesCreate operation middleware
+func (siw *ServerInterfaceWrapper) BookingSeriesCreate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params BookingSeriesCreateParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = &IdempotencyKey
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingSeriesCreate(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingSeriesGet operation middleware
+func (siw *ServerInterfaceWrapper) BookingSeriesGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "seriesID" -------------
+	var seriesID SeriesID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "seriesID", r.PathValue("seriesID"), &seriesID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "seriesID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingSeriesGet(w, r, id, seriesID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingSeriesEnd operation middleware
+func (siw *ServerInterfaceWrapper) BookingSeriesEnd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "seriesID" -------------
+	var seriesID SeriesID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "seriesID", r.PathValue("seriesID"), &seriesID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "seriesID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingSeriesEnd(w, r, id, seriesID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingSeriesSkip operation middleware
+func (siw *ServerInterfaceWrapper) BookingSeriesSkip(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "seriesID" -------------
+	var seriesID SeriesID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "seriesID", r.PathValue("seriesID"), &seriesID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "seriesID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingSeriesSkip(w, r, id, seriesID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8394,6 +8796,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/cancel", wrapper.BookingsPublicCancel)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings", wrapper.BookingsList)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings", wrapper.BookingsCreate)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series", wrapper.BookingSeriesCreate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}", wrapper.BookingSeriesGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}/skip", wrapper.BookingSeriesSkip)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}/end", wrapper.BookingSeriesEnd)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsGet)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsUpdate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/cancel", wrapper.BookingsCancel)

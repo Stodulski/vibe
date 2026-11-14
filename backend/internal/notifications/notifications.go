@@ -45,6 +45,10 @@ type Mailer interface {
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
+	// SendSeriesCreated and SendSeriesCancelled are the two notices of a fixed
+	// weekly booking. See series.go.
+	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string) error
+	SendSeriesCancelled(ctx context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string) error
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error
 	SendWelcome(ctx context.Context, to, firstName string) error

@@ -52,6 +52,17 @@ type stubStore struct {
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
+
+	// booked is what GetBookedSlotsByCourtIDs answers: the spans other
+	// bookings already hold, whatever day is asked about.
+	booked []bookingstore.BookedSpan
+	// occurrencesFn is what SeriesOccurrences answers; the series fixture wires
+	// it to the stub series store, which expands the rule the way the SQL
+	// function does.
+	occurrencesFn func(complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) []bookingstore.SeriesOccurrence
+	// beforeInsert runs first in InsertSafe, so a test can make the write
+	// refuse the way the database does (an overlap, a date already generated).
+	beforeInsert func(*bookingstore.Booking) error
 	// abandonedUpdates counts writes that were handed a context already done,
 	// so they never reached the database. See Update.
 	abandonedUpdates int
@@ -170,6 +181,11 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 	if s.insertErr != nil {
 		return s.insertErr
 	}
+	if s.beforeInsert != nil {
+		if err := s.beforeInsert(b); err != nil {
+			return err
+		}
+	}
 	b.ID = uuid.New()
 	// The real InsertSafe returns lower(span) and upper(span) and writes them
 	// onto the booking (internal/bookings/store/bookings.go), so every caller downstream
@@ -267,7 +283,20 @@ func (s *stubStore) GetByClient(context.Context, uuid.UUID, uuid.UUID, int) ([]*
 }
 
 func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
-	return nil, nil
+	return s.booked, nil
+}
+
+func (s *stubStore) BookedSpansBetween(context.Context, []uuid.UUID, time.Time, time.Time) ([]bookingstore.BookedSpan, error) {
+	return s.booked, nil
+}
+
+// SeriesOccurrences answers from occurrencesFn, which a series test wires to
+// the stub series store; without one nothing is held by a series.
+func (s *stubStore) SeriesOccurrences(_ context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	if s.occurrencesFn == nil {
+		return nil, nil
+	}
+	return s.occurrencesFn(complexID, courtIDs, from, to), nil
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }
@@ -508,6 +537,26 @@ func (s *stubCourts) GetBlockedSlots(ctx context.Context, courtID uuid.UUID, dat
 		return nil, s.blockedErr
 	}
 	return s.blocked[date.Format("2006-01-02")], nil
+}
+
+// GetBlockedSlotsByComplex answers every blocked slot filed from dateFrom to
+// dateTo, whatever court it is on.
+func (s *stubCourts) GetBlockedSlotsByComplex(ctx context.Context, _ uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	if s.blockedErr != nil {
+		return nil, s.blockedErr
+	}
+	var out []*courtstore.BlockedSlot
+	for _, slots := range s.blocked {
+		for _, b := range slots {
+			if !b.Date.Before(dateFrom) && !b.Date.After(dateTo) {
+				out = append(out, b)
+			}
+		}
+	}
+	return out, nil
 }
 
 // block takes hours off sale on a court for one date, the way the owner's
@@ -842,9 +891,11 @@ type stubWaitlist struct {
 func (w *stubWaitlist) SlotFreed(_ context.Context, f waitlist.Freed) { w.freed = append(w.freed, f) }
 
 type stubNotifier struct {
-	confirmed []notifications.BookingConfirmation
-	cancelled []notifications.Cancellation
-	reminders []notifications.Reminder
+	confirmed       []notifications.BookingConfirmation
+	cancelled       []notifications.Cancellation
+	reminders       []notifications.Reminder
+	seriesCreated   []notifications.SeriesCreation
+	seriesCancelled []notifications.SeriesCancellation
 	// reminderErr is what ReminderDue returns instead of queueing, as when the
 	// queue refuses the insert.
 	reminderErr error
@@ -864,6 +915,14 @@ func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
 
 func (s *stubNotifier) BookingCancelled(c notifications.Cancellation) {
 	s.cancelled = append(s.cancelled, c)
+}
+
+func (s *stubNotifier) SeriesCreated(c notifications.SeriesCreation) {
+	s.seriesCreated = append(s.seriesCreated, c)
+}
+
+func (s *stubNotifier) SeriesCancelled(c notifications.SeriesCancellation) {
+	s.seriesCancelled = append(s.seriesCancelled, c)
 }
 
 type stubBroadcaster struct{ published []uuid.UUID }

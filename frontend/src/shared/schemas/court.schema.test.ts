@@ -54,7 +54,7 @@ describe('courtsApi response envelopes', () => {
   });
 
   it('validates courtsApi.listBlockedSlots response shape', () => {
-    const result = blockedSlotsEnvelopeSchema.safeParse({ blocked_slots: [validBlockedSlot] });
+    const result = blockedSlotsEnvelopeSchema.safeParse({ blocked_slots: [validBlockedSlot], fixed_blocks: [] });
     expect(result.success).toBe(true);
   });
 });

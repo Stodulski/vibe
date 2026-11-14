@@ -148,6 +148,11 @@ RETURNING *;
 -- local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
 -- name: GetBookedSlots :many
 --
+-- The window is the local days day_from..day_to inclusive (the same day twice
+-- for the storefront's single-day grid). Real bookings only: the dates fixed
+-- weekly series are holding are read beside it by Store.SeriesOccurrences, so
+-- GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
+--
 -- payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
 -- default 15 minutes — see internal/stores), passed as a parameter
 -- rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
@@ -158,7 +163,7 @@ RETURNING *;
 SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
-  AND b.span && local_day(sqlc.arg(day)::date)
+  AND b.span && tstzrange(lower(local_day(sqlc.arg(day_from)::date)), upper(local_day(sqlc.arg(day_to)::date)), '[)')
   AND b.status NOT IN ('cancelled', 'no_show')
   AND NOT (
     b.status = 'pending'

@@ -1,5 +1,5 @@
 import { useSelectedComplex, useSchedules } from '@/features/complex';
-import { useCourts, useBlockedSlots } from '@/features/courts';
+import { useCourts, useBlockedSlots, useFixedBlocks } from '@/features/courts';
 import { useBookings, useBookingModals, useBookingActions } from '@/features/bookings';
 import { useDateNav } from './use-bookings-page/useDateNav';
 
@@ -17,6 +17,7 @@ export function useBookingsPage(complexId: string) {
 
   const { data: bookings = [], isLoading, isError, refetch } = useBookings(complexId, selectedDate);
   const { data: blockedSlots = [] } = useBlockedSlots(complexId, selectedDate, selectedDate);
+  const { data: fixedBlocks = [] } = useFixedBlocks(complexId, selectedDate, selectedDate);
 
   const modals = useBookingModals(selectedDate, complexId);
   const actions = useBookingActions({
@@ -43,6 +44,7 @@ export function useBookingsPage(complexId: string) {
     // Data
     bookings,
     blockedSlots,
+    fixedBlocks,
     isLoading,
     isError,
     refetch,

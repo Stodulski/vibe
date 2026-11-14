@@ -4,7 +4,7 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { BookingCalendarSkeleton } from '../../components/booking-calendar/BookingCalendarSkeleton';
 import { NoBookingsEmptyState } from './booking-content/BookingEmptyStates';
-import type { Booking, BlockedSlot, CourtWithPrices, Schedule } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock, Schedule } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -14,6 +14,7 @@ interface BookingContentProps {
   onRetry: () => void;
   filteredBookings: Booking[];
   blockedSlots: BlockedSlot[];
+  fixedBlocks?: FixedBlock[] | undefined;
   isPast: boolean;
   selectedDate: string;
   courts: CourtWithPrices[];
@@ -22,6 +23,7 @@ interface BookingContentProps {
   onCreateFromSlot: (prefill: { court_id: string; date: string; start_time: string }) => void;
   onOpenCreate: () => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
+  onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
 }
 
 export function BookingContent({
@@ -30,6 +32,7 @@ export function BookingContent({
   onRetry,
   filteredBookings,
   blockedSlots,
+  fixedBlocks,
   isPast,
   selectedDate,
   courts,
@@ -38,6 +41,7 @@ export function BookingContent({
   onCreateFromSlot,
   onOpenCreate,
   onSelectBlockedSlot,
+  onSelectFixedBlock,
 }: BookingContentProps) {
   if (isLoading) return <BookingCalendarSkeleton />;
 
@@ -53,7 +57,7 @@ export function BookingContent({
     );
   }
 
-  const hasNothing = filteredBookings.length === 0 && blockedSlots.length === 0;
+  const hasNothing = filteredBookings.length === 0 && blockedSlots.length === 0 && !fixedBlocks?.length;
 
   // Handed down rather than returned early: an empty day still has courts, and
   // the timeline's whole point is showing their free time — so it keeps
@@ -64,6 +68,7 @@ export function BookingContent({
     <BookingCalendar
       bookings={filteredBookings}
       blockedSlots={blockedSlots}
+      fixedBlocks={fixedBlocks}
       courts={courts}
       date={selectedDate}
       schedules={schedules}
@@ -71,6 +76,7 @@ export function BookingContent({
       onSelectBooking={onSelectBooking}
       onCreateBooking={onCreateFromSlot}
       onSelectBlockedSlot={onSelectBlockedSlot}
+      onSelectFixedBlock={onSelectFixedBlock}
     />
   );
 }

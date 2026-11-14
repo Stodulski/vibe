@@ -79,13 +79,10 @@ export type BookingStatusCancellation = Spec<'PublicBookingStatus'>['cancellatio
  * block) rather than assume the rest of the shape is there, and
  * `bookingStatusDetailsSchema` parses them as optional to match.
  */
-export type BookingStatusDetails = Pick<
-  Spec<'PublicBookingStatus'>,
-  'status' | 'collection_status' | 'refund_status'
-> &
-  Partial<
-    Omit<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status' | 'duration_minutes'>
-  > & { duration_minutes?: DurationMinutes };
+export type BookingStatusDetails = Pick<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status'> &
+  Partial<Omit<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status' | 'duration_minutes'>> & {
+    duration_minutes?: DurationMinutes;
+  };
 
 export type BookingStatusResponse = Omit<Ok<'bookingsPublicStatus'>, 'booking'> & { booking: BookingStatusDetails };
 

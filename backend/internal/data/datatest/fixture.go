@@ -324,6 +324,9 @@ func (f *Fixture) deleteComplexData(t *testing.T) {
 		`DELETE FROM payments WHERE complex_id = $1`,
 		`DELETE FROM slot_locks WHERE court_id IN (SELECT id FROM courts WHERE complex_id = $1)`,
 		`DELETE FROM bookings WHERE complex_id = $1`,
+		// Series name the client and the court, so they go before both.
+		`DELETE FROM booking_series_dates WHERE complex_id = $1`,
+		`DELETE FROM booking_series WHERE complex_id = $1`,
 		`DELETE FROM blocked_slots WHERE court_id IN (SELECT id FROM courts WHERE complex_id = $1)`,
 		`DELETE FROM clients WHERE complex_id = $1`,
 		`DELETE FROM court_prices WHERE court_id IN (SELECT id FROM courts WHERE complex_id = $1)`,

@@ -102,4 +102,17 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
     const { bookingsApi } = await import('../api/bookings.api');
     vi.mocked(bookingsApi.create).mockReset();
   });
+
+  it('tells the owner a fixed weekly booking holds the slot, in Spanish, whatever the server wrote', async () => {
+    await triggerCreateError(
+      await makeConsumedHttpError(409, {
+        title: 'Conflict',
+        detail: 'the selected time belongs to a fixed weekly booking (turno fijo)',
+      }),
+    );
+
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.createError, {
+      description: ES_AR.bookings.series.slotTaken,
+    });
+  });
 });

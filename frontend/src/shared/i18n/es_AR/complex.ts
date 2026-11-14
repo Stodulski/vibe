@@ -76,6 +76,7 @@ export const complex = {
   deleteComplexConfirmLabel: 'Eliminar complejo',
   deletedSuccess: 'Complejo eliminado',
   deleteError: 'Error al eliminar el complejo',
+  deleteHasFixedBookings: 'Tenés turnos fijos activos. Cancelalos antes de eliminar el complejo.',
   // Shown instead of the onboarding form when the complexes query fails
   // (network, 5xx, timeout) — a failed load is not the same as owning zero
   // complexes.

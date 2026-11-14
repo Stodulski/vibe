@@ -5,6 +5,8 @@ import { useBookingTimeSlots } from './useBookingTimeSlots';
 import { useBookingReset } from './useBookingReset';
 import type { CreateBookingPrefill } from './useBookingReset';
 import { cleanBookingPayload } from './cleanBookingPayload';
+import { useSeriesOptions } from './useSeriesOptions';
+import { useSeriesSubmit } from './useSeriesSubmit';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
@@ -30,6 +32,8 @@ export function useCreateBookingForm({
   schedules,
 }: UseCreateBookingFormArgs) {
   const createBooking = useCreateBooking(complexId);
+  const series = useSeriesOptions(open);
+  const seriesSubmit = useSeriesSubmit(complexId, series);
   const formState = useBookingFormState();
   const { courtId, date, startTime, durationMinutes, price, setError, reset, dirtyFields } = formState;
 
@@ -58,6 +62,13 @@ export function useCreateBookingForm({
       return;
     }
 
+    // A weekly series carries no payment: each occurrence is charged like a
+    // normal booking, so the deposit logic below does not apply.
+    if (series.repeat) {
+      seriesSubmit.submit(data, onClose);
+      return;
+    }
+
     // The deposit field is only ever filled by hand: once by selecting
     // "deposit" as the payment option, and after that (if the price changed
     // while it stayed selected) directly by the person. Apply the fresh
@@ -74,5 +85,23 @@ export function useCreateBookingForm({
     });
   };
 
-  return { ...formState, ...pricing, timeSlots, onSubmit, createBooking };
+  return {
+    ...formState,
+    ...pricing,
+    timeSlots,
+    onSubmit,
+    createBooking,
+    series: {
+      ...series,
+      // A series is charged like a normal booking, at the court: drop any
+      // deposit chosen before the switch, whose payment method would
+      // otherwise fail validation from a field this mode no longer shows.
+      setRepeat: (repeat: boolean) => {
+        series.setRepeat(repeat);
+        if (repeat) formState.setValue('payment_option', 'unpaid');
+      },
+    },
+    seriesSubmit,
+    isSubmitting: createBooking.isPending || seriesSubmit.createSeries.isPending,
+  };
 }

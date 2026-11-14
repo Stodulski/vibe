@@ -20,8 +20,7 @@ import type { Body, Ok, Spec } from './spec';
  * `formatHourRange`, never with `formatTime`, which slices the first five
  * characters off a string and returns `"2026-"` when handed an instant.
  */
-export type Booking = Spec<'Booking'> &
-  Required<Pick<Spec<'Booking'>, 'court_name' | 'client_name' | 'client_phone'>>;
+export type Booking = Spec<'Booking'> & Required<Pick<Spec<'Booking'>, 'court_name' | 'client_name' | 'client_phone'>>;
 
 export type BookingStatus = Spec<'BookingStatus'>;
 
@@ -102,4 +101,28 @@ export type BookingDetailResponse = Omit<Ok<'bookingsGet'>, 'booking' | 'payment
 export type ManualRefundResponse = Omit<Ok<'bookingsManualRefund'>, 'booking' | 'payments'> & {
   booking: Booking;
   payments: Payment[];
+};
+
+// ─── Booking series (turnos fijos) ───
+
+export type BookingSeries = Spec<'BookingSeries'>;
+
+export type BookingSeriesConflict = Spec<'BookingSeriesConflict'>;
+
+/** Same `duration_minutes` narrowing as {@link CreateBookingRequest}. */
+export type CreateBookingSeriesRequest = Omit<Body<'bookingSeriesCreate'>, 'duration_minutes'> & {
+  duration_minutes: DurationMinutes;
+};
+
+export type CreateBookingSeriesResponse = Omit<Ok<'bookingSeriesCreate'>, 'bookings'> & { bookings: Booking[] };
+
+export type BookingSeriesUpcoming = Spec<'BookingSeriesUpcoming'>;
+
+export type BookingSeriesDetailResponse = Ok<'bookingSeriesGet'>;
+
+export type SkipSeriesDateResponse = Ok<'bookingSeriesSkip'>;
+
+export type EndBookingSeriesResponse = Omit<Ok<'bookingSeriesEnd'>, 'cancelled' | 'kept'> & {
+  cancelled: Booking[];
+  kept: Booking[];
 };

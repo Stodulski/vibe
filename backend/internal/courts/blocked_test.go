@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/slots"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // R3-blocked-slots-silent-truncation: no test in the candidate that introduced
@@ -170,5 +172,84 @@ func TestBlockChangesAnnounceTheComplexOnTheRealtimeHub(t *testing.T) {
 	}
 	if len(refused.complexIDs) != 0 {
 		t.Errorf("a refused block commits nothing and must announce nothing; got %v", refused.complexIDs)
+	}
+}
+
+// A fixed weekly booking holds its hours on dates that have no booking yet. The
+// owner may not block them, and is told what holds them rather than being sent
+// looking for a booking that does not exist.
+func TestBlockSlotRefusesHoursAFixedBookingHolds(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
+	day := mustParseDate(t, futureDate())
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
+		CourtID: courtID, StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"), Fixed: true,
+	}}}
+
+	h, _ := newTestHandler(store, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.BlockSlot(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"courtID": courtID.String()},
+		`{"date":"`+futureDate()+`","start_time":"18:30","end_time":"20:00"}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "fixed weekly booking") {
+		t.Errorf("the refusal must say a fixed booking holds the hours; got %s", w.Body.String())
+	}
+	if store.insertedBlocked != nil {
+		t.Error("hours a fixed booking holds must not be blocked")
+	}
+}
+
+// The owner's calendar draws the dates fixed bookings hold beside the blocked
+// slots: the list answers them under fixed_blocks, in the venue's wall-clock,
+// and never as null.
+func TestListBlockedSlotsAlsoReturnsTheFixedBlocks(t *testing.T) {
+	complexID, courtID, seriesID := uuid.New(), uuid.New(), uuid.New()
+	day := mustParseDate(t, "2026-03-05")
+	bookings := &stubBookings{fixed: []bookingstore.SeriesOccurrence{{
+		SeriesID: seriesID, ComplexID: complexID, CourtID: courtID, Date: day,
+		StartsAt: slots.At(timezone.Day(day), "23:00"), EndsAt: slots.At(timezone.Day(day), "23:00").Add(2 * time.Hour),
+		ClientName: "Ana Perez",
+	}}}
+
+	h, _ := newTestHandler(&stubStore{}, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.ListBlockedSlots(w, ownerRequest(t, http.MethodGet,
+		"/?date_from=2026-03-01&date_to=2026-03-31", complexID, nil, ""))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	var resp struct {
+		BlockedSlots []json.RawMessage `json:"blocked_slots"`
+		FixedBlocks  []struct {
+			SeriesID        uuid.UUID `json:"series_id"`
+			CourtID         uuid.UUID `json:"court_id"`
+			Date            string    `json:"date"`
+			StartTime       string    `json:"start_time"`
+			EndTime         string    `json:"end_time"`
+			DurationMinutes int       `json:"duration_minutes"`
+			ClientName      string    `json:"client_name"`
+		} `json:"fixed_blocks"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.FixedBlocks) != 1 {
+		t.Fatalf("want 1 fixed block; got %s", w.Body.String())
+	}
+	fb := resp.FixedBlocks[0]
+	if fb.SeriesID != seriesID || fb.CourtID != courtID || fb.Date != "2026-03-05" ||
+		fb.StartTime != "23:00" || fb.EndTime != "01:00" || fb.DurationMinutes != 120 || fb.ClientName != "Ana Perez" {
+		t.Errorf("fixed block = %+v", fb)
+	}
+
+	empty, _ := newTestHandler(&stubStore{}, &stubBookings{}, &stubComplexes{})
+	w = httptest.NewRecorder()
+	empty.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-01&date_to=2026-03-31", complexID, nil, ""))
+	if !strings.Contains(w.Body.String(), `"fixed_blocks":[]`) {
+		t.Errorf("fixed_blocks must be an empty array, never null; got %s", w.Body.String())
 	}
 }

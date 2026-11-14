@@ -29,4 +29,10 @@ var (
 	// complex row, not a pre-check the caller made earlier. The complexes
 	// package re-exports it as complexes.ErrActiveBookings.
 	ErrActiveBookings = errors.New("complex still has active bookings")
+	// ErrActiveSeries is returned by SoftDeleteCascade when a fixed weekly
+	// booking ("turno fijo") of the complex has not ended: an active series
+	// with no end, or one ending today (venue day) or later. A series has no
+	// booking row for dates not booked yet, so the active-bookings check cannot
+	// see it. The complexes package re-exports it as complexes.ErrActiveSeries.
+	ErrActiveSeries = errors.New("complex still has active fixed weekly bookings")
 )

@@ -350,11 +350,39 @@ func softDeleteCourt(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	if hasBookings {
 		return ErrCourtHasActiveBookings
 	}
+	if err := refuseActiveSeries(ctx, tx, id); err != nil {
+		return err
+	}
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE courts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
 		data.UUIDToPg(id)); err != nil {
 		return fmt.Errorf("soft-delete court: %w", err)
+	}
+	return nil
+}
+
+// refuseActiveSeries answers ErrCourtHasActiveSeries when an active fixed
+// weekly series still holds the court: status active and no end, or an end that
+// is today (venue day) or later. A series holds its dates as a rule, with no
+// booking row, so the check above cannot see it. Like that check it runs after
+// the court row lock is held, and InsertSeries takes the same lock, so a series
+// being created concurrently is either seen here or waits for the delete.
+func refuseActiveSeries(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
+	var held bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+		  SELECT 1 FROM booking_series
+		  WHERE court_id = $1
+		    AND status = 'active'
+		    AND (ends_on IS NULL
+		         OR ends_on >= (NOW() AT TIME ZONE 'America/Argentina/Buenos_Aires')::date)
+		)`, data.UUIDToPg(courtID)).Scan(&held)
+	if err != nil {
+		return fmt.Errorf("check active series: %w", err)
+	}
+	if held {
+		return ErrCourtHasActiveSeries
 	}
 	return nil
 }

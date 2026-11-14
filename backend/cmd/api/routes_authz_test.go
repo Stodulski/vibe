@@ -218,6 +218,10 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/audit-log":                                              complexOwner,
 	"GET /api/v1/complexes/{id}/blocked-slots":                                          complexOwner,
 	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":                              complexOwner,
+	"POST /api/v1/complexes/{id}/booking-series":                                        complexOwner,
+	"GET /api/v1/complexes/{id}/booking-series/{seriesID}":                              complexOwner,
+	"POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip":                        complexOwner,
+	"POST /api/v1/complexes/{id}/booking-series/{seriesID}/end":                         complexOwner,
 	"GET /api/v1/complexes/{id}/bookings":                                               complexOwner,
 	"POST /api/v1/complexes/{id}/bookings":                                              complexOwner,
 	"GET /api/v1/complexes/{id}/bookings/{bookingID}":                                   complexOwner,
@@ -543,6 +547,19 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 
 	id := fx.subResourceID
 	tomorrow := time.Now().AddDate(0, 0, 1)
+
+	series, ok := fx.app.models.BookingSeries.(*mockBookingSeriesStore)
+	if !ok {
+		t.Fatalf("booking series store is %T, not *mockBookingSeriesStore", fx.app.models.BookingSeries)
+	}
+	fixedSeries := &bookingstore.Series{
+		ID: id, ComplexID: target.ID, CourtID: id, ClientID: id, StartTime: "10:00", DurationMinutes: 60,
+		StartsOn: tomorrow, Status: bookingstore.SeriesStatusActive, CreatedBy: target.OwnerID,
+	}
+	series.GetSeriesFn = func(context.Context, uuid.UUID) (*bookingstore.Series, error) { return fixedSeries, nil }
+	series.EndSeriesFn = func(context.Context, uuid.UUID, *time.Time, string) (*bookingstore.Series, error) {
+		return fixedSeries, nil
+	}
 
 	cashSession := &cashboxstore.CashSession{
 		ID:          id,

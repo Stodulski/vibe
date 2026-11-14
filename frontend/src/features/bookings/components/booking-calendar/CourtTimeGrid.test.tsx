@@ -51,6 +51,7 @@ function renderGrid(courtCount: number) {
     <CourtTimeGrid
       bookings={[]}
       blockedSlots={[]}
+      fixedBlocks={[]}
       activeCourts={makeCourts(courtCount)}
       date={FUTURE_DATE}
       slots={SLOTS}

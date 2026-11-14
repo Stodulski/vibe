@@ -73,6 +73,9 @@ type Store interface {
 // stops a court with live bookings from being deleted.
 type BookingReader interface {
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	// ComplexSeriesOccurrences is the calendar's read of the dates fixed weekly
+	// bookings hold that have no booking yet.
+	ComplexSeriesOccurrences(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 }
 
@@ -111,12 +114,15 @@ type Handler struct {
 var refusals = httpx.Refusals{
 	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
 		"cannot delete court while it has active bookings, cancel them first"),
+	courtstore.ErrCourtHasActiveSeries: httpx.Conflict(
+		"cannot delete court while it has fixed weekly bookings (turnos fijos), cancel them first"),
 	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),
 	// One sentence for one collision. A client cannot be told two different
 	// things about it depending on which of the service's two checks happened
 	// to see it — the only difference between them is that one ran inside the
 	// transaction, which is not something the owner can act on.
-	courtstore.ErrSlotHasBooking: httpx.Conflict(blockedSlotHasBookingMessage),
+	courtstore.ErrSlotHasBooking:         httpx.Conflict(blockedSlotHasBookingMessage),
+	courtstore.ErrSlotHeldByFixedBooking: httpx.Conflict(blockedSlotHeldByFixedBookingMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.

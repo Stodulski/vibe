@@ -50,6 +50,8 @@ type stubStore struct {
 	// It sits on the store rather than on stubBookings because that is where
 	// the real answer moved to — see SoftDelete below.
 	hasActiveBookings bool
+	// hasActiveSeries makes SoftDelete refuse with ErrCourtHasActiveSeries.
+	hasActiveSeries bool
 	// softDeleteErr drives SoftDelete's other two zero-row outcomes — an id
 	// nothing owns, or a court already soft-deleted — which hasActiveBookings
 	// alone cannot express since the real store no longer conflates either of
@@ -98,6 +100,9 @@ func (s *stubStore) Update(_ context.Context, c *courtstore.Court, _ *int) error
 func (s *stubStore) SoftDelete(_ context.Context, id uuid.UUID) error {
 	if s.hasActiveBookings {
 		return courtstore.ErrCourtHasActiveBookings
+	}
+	if s.hasActiveSeries {
+		return courtstore.ErrCourtHasActiveSeries
 	}
 	if s.softDeleteErr != nil {
 		return s.softDeleteErr
@@ -176,8 +181,13 @@ func (s *stubStore) DeleteBlockedSlot(_ context.Context, id uuid.UUID) error {
 
 type stubBookings struct {
 	booked    []bookingstore.BookedSpan
+	fixed     []bookingstore.SeriesOccurrence
 	hasActive bool
 	err       error
+}
+
+func (b *stubBookings) ComplexSeriesOccurrences(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	return b.fixed, b.err
 }
 
 func (b *stubBookings) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {

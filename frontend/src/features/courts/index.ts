@@ -12,3 +12,5 @@ export { useCourts } from './hooks/useCourts';
 export { useDeleteCourt } from './hooks/useDeleteCourt';
 export { useDeleteBlockedSlot } from './hooks/useDeleteBlockedSlot';
 export { useBlockedSlots } from './hooks/useBlockedSlots';
+export { useFixedBlocks } from './hooks/useFixedBlocks';
+export { isFixedBookingConflict } from './lib/fixedBookingConflict';

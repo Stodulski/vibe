@@ -1,9 +1,9 @@
 import { FormField } from '@/shared/components/common/FormField';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { Textarea } from '@/shared/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { COUNTER_PAYMENT_METHODS, type CounterPaymentMethod } from '../../lib/paymentMethods';
+import { PaymentMethodSelect } from './PaymentMethodSelect';
 import type { UseFormSetValue, UseFormRegister, FieldErrors } from 'react-hook-form';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 
@@ -14,41 +14,18 @@ export function PaymentAndNotesFields({
   setValue,
   errors,
   paymentOption,
+  hidePayment = false,
 }: {
   register: UseFormRegister<CreateBookingDto>;
   setValue: UseFormSetValue<CreateBookingDto>;
   errors: FieldErrors<CreateBookingDto>;
   paymentOption: string | undefined;
+  /** A weekly series is charged per occurrence at the court: no payment method to pick. */
+  hidePayment?: boolean;
 }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-      <FormField
-        label={
-          <>
-            {t.bookings.paymentMethod}
-            <FieldRequirement required={paymentOption === 'deposit' || paymentOption === 'full'} />
-          </>
-        }
-        htmlFor="booking-payment-method"
-        error={errors.payment_method?.message}
-      >
-        <Select
-          onValueChange={(v) => {
-            setValue('payment_method', v as CounterPaymentMethod);
-          }}
-        >
-          <SelectTrigger id="booking-payment-method">
-            <SelectValue placeholder={t.bookings.unspecified} />
-          </SelectTrigger>
-          <SelectContent>
-            {COUNTER_PAYMENT_METHODS.map((method) => (
-              <SelectItem key={method} value={method}>
-                {t.bookings.paymentMethods[method]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
+    <div className={cn('grid grid-cols-1 gap-3', !hidePayment && 'sm:grid-cols-2')}>
+      {!hidePayment && <PaymentMethodSelect setValue={setValue} errors={errors} paymentOption={paymentOption} />}
       <FormField
         label={
           <>

@@ -1,4 +1,4 @@
-import { MoreHorizontal, UserX, Ban } from 'lucide-react';
+import { MoreHorizontal, UserX, Ban, CalendarX } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
@@ -17,12 +17,18 @@ export function BookingDetailMenu({
   canCancel,
   onNoShow,
   onCancel,
+  isSeries = false,
+  onEndSeries,
 }: {
   booking: Booking;
   canMarkNoShow: boolean;
   canCancel: boolean;
   onNoShow: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
+  /** The booking is one occurrence of a fixed weekly series: cancelling only covers this date. */
+  isSeries?: boolean | undefined;
+  /** Present when the series can still be ended from this booking's date. */
+  onEndSeries?: (() => void) | undefined;
 }) {
   return (
     <DropdownMenu>
@@ -50,7 +56,13 @@ export function BookingDetailMenu({
             }}
           >
             <Ban className="size-3.5" />
-            {t.bookings.cancel}
+            {isSeries ? t.bookings.series.cancelOne : t.bookings.cancel}
+          </DropdownMenuItem>
+        )}
+        {onEndSeries && (
+          <DropdownMenuItem variant="destructive" onClick={onEndSeries}>
+            <CalendarX className="size-3.5" />
+            {t.bookings.series.endFromHere}
           </DropdownMenuItem>
         )}
       </DropdownMenuContent>

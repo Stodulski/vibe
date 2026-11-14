@@ -35,6 +35,22 @@ interface CreateBookingFormBodyProps {
  * (which makes the button `type="button"`) doubles as "Next" so only step 3
  * performs a real form submission.
  */
+/** A series is charged per occurrence at the court, so it swaps the payment choices for a one-line note. */
+function PaymentOptionsOrSeriesNote({ form }: { form: ReturnType<typeof useCreateBookingForm> }) {
+  if (form.series.repeat) return <p className="text-text-tertiary text-sm">{t.bookings.series.paymentNote}</p>;
+  return (
+    <PaymentOptionsSection
+      effectivePrice={form.effectivePrice}
+      paymentOption={form.paymentOption}
+      depositAmount={form.depositAmount}
+      defaultDepositPesos={form.defaultDepositPesos}
+      maxDepositPesos={form.maxDepositPesos}
+      setValue={form.setValue}
+      errors={form.errors}
+    />
+  );
+}
+
 export function CreateBookingFormBody({ step, form, onClose, onNext, onBack }: CreateBookingFormBodyProps) {
   if (step === 1) {
     return (
@@ -74,21 +90,14 @@ export function CreateBookingFormBody({ step, form, onClose, onNext, onBack }: C
         setValue={form.setValue}
         errors={form.errors}
         paymentOption={form.paymentOption}
+        hidePayment={form.series.repeat}
       />
-      <PaymentOptionsSection
-        effectivePrice={form.effectivePrice}
-        paymentOption={form.paymentOption}
-        depositAmount={form.depositAmount}
-        defaultDepositPesos={form.defaultDepositPesos}
-        maxDepositPesos={form.maxDepositPesos}
-        setValue={form.setValue}
-        errors={form.errors}
-      />
+      <PaymentOptionsOrSeriesNote form={form} />
       <SectionFooter
         onCancel={onBack}
         cancelLabel={t.common.back}
         submitLabel={t.bookings.create}
-        pending={form.createBooking.isPending}
+        pending={form.isSubmitting}
       />
     </>
   );

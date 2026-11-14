@@ -225,3 +225,35 @@ describe('BookingBlock hours', () => {
     expect(el.textContent).toContain('11:30');
   });
 });
+
+// A sibling describe, like the others, to keep each callback under the
+// function-length rule.
+describe('BookingBlock fixed weekly marker', () => {
+  function renderOn(overrides: Parameters<typeof makeBooking>[0], startsAt: string, endsAt: string) {
+    const booking = makeBooking({ date: DAY, starts_at: startsAt, ends_at: endsAt, ...overrides });
+    render(<BookingBlock booking={booking} courtName="Cancha 1" date={DAY} onSelect={() => undefined} />);
+    return screen.getByRole('button');
+  }
+
+  it('marks an occurrence of a series with the "Turno fijo" icon, and says so in its accessible name', () => {
+    const el = renderOn({ series_id: 'ser1' }, atVenue(DAY, '10:00'), atVenue(DAY, '11:30'));
+
+    expect(screen.getByRole('img', { name: t.bookings.fixedBooking })).toBeInTheDocument();
+    expect(el.getAttribute('aria-label')).toContain(t.bookings.fixedBooking);
+  });
+
+  it('leaves an ordinary booking unmarked', () => {
+    const el = renderOn({}, atVenue(DAY, '10:00'), atVenue(DAY, '11:30'));
+
+    expect(screen.queryByRole('img', { name: t.bookings.fixedBooking })).not.toBeInTheDocument();
+    expect(el.getAttribute('aria-label')).not.toContain(t.bookings.fixedBooking);
+  });
+
+  it('keeps the name and drops the icon on a block too short to hold both', () => {
+    const el = renderOn({ series_id: 'ser1' }, atVenue(DAY, '10:00'), atVenue(DAY, '10:15'));
+
+    expect(screen.queryByRole('img', { name: t.bookings.fixedBooking })).not.toBeInTheDocument();
+    expect(el.textContent).toContain('Juan Garcia');
+    expect(el.getAttribute('aria-label')).toContain(t.bookings.fixedBooking);
+  });
+});

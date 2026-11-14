@@ -38,6 +38,25 @@ describe('useBlockCourtSlot — onError surfaces the real backend message', () =
     expect(toast.error).not.toHaveBeenCalledWith(ES_AR.courts.blockError);
   });
 
+  it('says in Spanish that a fixed weekly booking holds the slot', async () => {
+    const { courtsApi } = await import('../api/courts.api');
+    vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(
+      await makeConsumedHttpError(409, {
+        title: 'Conflict',
+        detail: 'this time range belongs to a fixed weekly booking (turno fijo)',
+      }),
+    );
+
+    const { useBlockCourtSlot } = await import('./useBlockCourtSlot');
+    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createQueryWrapper() });
+    result.current.mutate({ courtId: 'ct1', data: { date: '2026-03-18', start_time: '10:00', end_time: '11:00' } });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.series.slotTaken);
+  });
+
   it('falls back to the generic i18n message when the backend body has no error field', async () => {
     const { courtsApi } = await import('../api/courts.api');
     const backendError = await makeConsumedHttpError(500, {});

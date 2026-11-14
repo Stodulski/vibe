@@ -158,6 +158,10 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	var conflictErr *ConflictError
 	var stateErr *StateError
 
+	if h.refuseSeriesConflicts(w, r, err) {
+		return
+	}
+
 	switch {
 	case errors.As(err, &validationErr):
 		h.respond.FailedValidation(w, r, validationErr.Errors)
@@ -220,6 +224,7 @@ func toGenBooking(b *bookingstore.Booking) gen.Booking {
 		Price:            b.Price,
 		RefundStatus:     gen.RefundStatus(b.RefundStatus),
 		ReminderSent2h:   b.ReminderSent2h,
+		SeriesId:         b.SeriesID,
 		StartTime:        b.StartTime,
 		StartsAt:         b.StartsAt,
 		Status:           gen.BookingStatus(b.Status),

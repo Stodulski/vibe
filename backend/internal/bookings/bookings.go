@@ -107,6 +107,10 @@ type CourtReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
+	// GetBlockedSlotsByComplex is the same read over a range of dates for every
+	// court of the complex: what a fixed weekly series checks itself against in
+	// one query instead of one per date.
+	GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error)
 }
 
 // PaymentStore records the payment a public booking is waiting on.
@@ -209,6 +213,10 @@ type LinkTokenStore interface {
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	BookingCancelled(c notifications.Cancellation)
+	// SeriesCreated and SeriesCancelled are the one notice per event of a fixed
+	// weekly booking.
+	SeriesCreated(c notifications.SeriesCreation)
+	SeriesCancelled(c notifications.SeriesCancellation)
 	// ReminderDue is the two-hour reminder the scheduler sends. It returns an
 	// error when the reminder was not queued, and the scheduler then leaves the
 	// booking unflagged so the next tick tries again.
@@ -256,8 +264,10 @@ type Dependencies struct {
 	// handler and cron paths reach those reads through the same code every
 	// other domain does. It must wrap the same store as Store below; cmd/api
 	// builds it from that store and hands it to both.
-	Facade       *Facade
-	Store        Store
+	Facade *Facade
+	Store  Store
+	// Series persists fixed weekly bookings. It may be the same value as Store.
+	Series       SeriesStore
 	Clients      ClientStore
 	Complexes    ComplexReader
 	Courts       CourtReader

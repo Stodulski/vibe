@@ -11,25 +11,31 @@ export function BookingDetailSheetHeader({
   canCancel,
   onNoShow,
   onCancel,
+  isSeries,
+  onEndSeries,
 }: {
   booking: Booking;
   canMarkNoShow: boolean;
   canCancel: boolean;
   onNoShow: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
+  isSeries?: boolean | undefined;
+  onEndSeries?: (() => void) | undefined;
 }) {
   return (
     <DetailSheetHeader
       title={t.publicBooking.bookingRef}
       subtitle={<span className="text-xs font-semibold tracking-wider uppercase">{t.bookings.bookingDetail}</span>}
       menu={
-        (canMarkNoShow || canCancel) && (
+        (canMarkNoShow || canCancel || onEndSeries) && (
           <BookingDetailMenu
             booking={booking}
             canMarkNoShow={canMarkNoShow}
             canCancel={canCancel}
             onNoShow={onNoShow}
             onCancel={onCancel}
+            isSeries={isSeries}
+            onEndSeries={onEndSeries}
           />
         )
       }

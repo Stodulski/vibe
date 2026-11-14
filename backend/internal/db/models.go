@@ -432,6 +432,7 @@ type Booking struct {
 	ClientEmail      pgtype.Text                      `json:"client_email"`
 	HoldTokenHash    []byte                           `json:"hold_token_hash"`
 	HoldIp           pgtype.Text                      `json:"hold_ip"`
+	SeriesID         pgtype.UUID                      `json:"series_id"`
 }
 
 type BookingLinkToken struct {
@@ -441,6 +442,33 @@ type BookingLinkToken struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 	ComplexID pgtype.UUID        `json:"complex_id"`
+}
+
+type BookingSeries struct {
+	ID              pgtype.UUID        `json:"id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	CourtID         pgtype.UUID        `json:"court_id"`
+	ClientID        pgtype.UUID        `json:"client_id"`
+	Weekday         int16              `json:"weekday"`
+	StartTime       pgtype.Time        `json:"start_time"`
+	DurationMinutes int32              `json:"duration_minutes"`
+	Price           pgtype.Int4        `json:"price"`
+	Notes           pgtype.Text        `json:"notes"`
+	StartsOn        pgtype.Date        `json:"starts_on"`
+	EndsOn          pgtype.Date        `json:"ends_on"`
+	Status          string             `json:"status"`
+	CreatedBy       pgtype.UUID        `json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type BookingSeriesDate struct {
+	SeriesID  pgtype.UUID        `json:"series_id"`
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	Date      pgtype.Date        `json:"date"`
+	Outcome   string             `json:"outcome"`
+	Reason    pgtype.Text        `json:"reason"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
 type CampaignClaim struct {

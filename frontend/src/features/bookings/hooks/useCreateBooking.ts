@@ -4,6 +4,7 @@ import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
+import { isFixedBookingConflict } from '@/features/courts';
 import { useIdempotentMutation, type WithAttemptKey } from '@/shared/lib/idempotency';
 import type { CreateBookingRequest } from '@/shared/types/api.types';
 
@@ -23,6 +24,10 @@ export function useCreateBooking(complexId: string) {
       toast.success(t.bookings.createSuccess);
     },
     onError: (error: unknown) => {
+      if (isFixedBookingConflict(error)) {
+        toast.error(t.bookings.createError, { description: t.bookings.series.slotTaken });
+        return;
+      }
       if (getHttpStatus(error) === 409) {
         // The server now refuses several distinct slot problems (no price
         // configured, outside schedule, closed that day, etc.) as English

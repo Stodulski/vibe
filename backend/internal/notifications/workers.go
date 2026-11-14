@@ -53,6 +53,7 @@ func (s *Service) RegisterWorkers() {
 	s.registerWaitlistWorkers()
 	s.registerLifecycleWorkers()
 	s.registerCampaignWorkers()
+	s.registerSeriesWorkers()
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingConfirmation, func(ctx context.Context, p bookingConfirmationEmail) error {
 		return s.mailer.SendBookingConfirmation(ctx, p.Email, p.ComplexName, p.CourtName,

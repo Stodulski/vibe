@@ -21,12 +21,15 @@ export const queryKeys = {
       ['courts', 'blockedSlots', complexId, dateFrom, dateTo] as const,
   },
   bookings: {
+    all: ['bookings'] as const,
     byComplex: (complexId: string) => ['bookings', complexId] as const,
     byDate: (complexId: string, date: string) => ['bookings', complexId, date] as const,
     // 'detail' segment keeps this from colliding with `byComplex(id)`, which
     // shares the same `['bookings', <string>]` shape — without it,
     // invalidating one prefix-matches and clears the other's cache entries too.
     detail: (id: string) => ['bookings', 'detail', id] as const,
+    // Same reasoning as 'detail': the literal segment keeps it off `byDate`'s shape.
+    series: (complexId: string, seriesId: string) => ['bookings', 'series', complexId, seriesId] as const,
   },
   clients: {
     byComplex: (complexId: string) => ['clients', complexId] as const,

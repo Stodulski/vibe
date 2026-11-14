@@ -456,6 +456,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/booking-series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create a fixed weekly booking (turno fijo)
+         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
+         */
+        post: operations["bookingSeriesCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/booking-series/{seriesID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a fixed weekly booking with its next dates
+         * @description The series and its next eight dates, computed from the rule (nothing is stored per date until it is settled): `pending` while the date only holds its hours, `booked` once its booking exists (`booking_id`), `exception` when it is not part of the series (`reason`). An ended series has no upcoming dates.
+         */
+        get: operations["bookingSeriesGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/booking-series/{seriesID}/skip": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel one date of a fixed weekly booking
+         * @description Records that `date` is not part of the series (`cancelled_by_owner`): its hours go back on sale. Only a future (or today's) date of the series that has no booking yet. A date that already has its booking is cancelled through that booking (`bookingsCancel`), and a date already cancelled is refused. Both, a past date and a date the rule does not match, are `422`.
+         */
+        post: operations["bookingSeriesSkip"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/booking-series/{seriesID}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * End a fixed weekly booking from a date
+         * @description The series stops holding its dates from `from_date` on (`ends_on` becomes the day before) and is marked `ended`. Only a booking the series already created for a date on or after `from_date` is affected: without a payment it is cancelled, quietly (no message to the client); with a payment it stands and comes back under `kept`.
+         */
+        post: operations["bookingSeriesEnd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/bookings/{bookingID}": {
         parameters: {
             query?: never;
@@ -1044,7 +1124,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * List blocked slots in a date range
+         * List blocked slots and fixed-booking blocks in a date range
          * @description The range is capped at 366 days.
          */
         get: operations["courtsListBlockedSlots"];
@@ -1891,6 +1971,8 @@ export interface components {
             request_id?: string;
             /** @description Present on a validation problem; one entry per invalid field. */
             errors?: components["schemas"]["FieldError"][];
+            /** @description Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked. */
+            conflicts?: components["schemas"]["BookingSeriesConflict"][];
         };
         /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
         PaymentsExport: {
@@ -2509,6 +2591,78 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
         };
+        /** @description A fixed weekly booking (turno fijo): a weekly rule that holds its court and hours on every matching date. The booking of a date is created on its own day and carries `series_id`. */
+        BookingSeries: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            /** Format: uuid */
+            court_id: string;
+            /** Format: uuid */
+            client_id: string;
+            /** @description 0 = Sunday .. 6 = Saturday. */
+            weekday: number;
+            start_time: string;
+            duration_minutes: number;
+            /** @description Centavos ARS. Null: each occurrence is priced on the day its booking is created. */
+            price?: number | null;
+            notes?: string | null;
+            /** Format: date */
+            starts_on: string;
+            /**
+             * Format: date
+             * @description Inclusive. Null while the series has no end.
+             */
+            ends_on?: string | null;
+            /** @enum {string} */
+            status: "active" | "ended";
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description A date that is not part of a series, and why. */
+        BookingSeriesConflict: {
+            /** Format: date */
+            date: string;
+            /** @enum {string} */
+            reason: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
+        };
+        /** @description One upcoming date of a series. */
+        BookingSeriesUpcoming: {
+            /** Format: date */
+            date: string;
+            /**
+             * @description `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+             * @enum {string}
+             */
+            state: "pending" | "booked" | "exception";
+            /**
+             * Format: uuid
+             * @description Present when `booked`.
+             */
+            booking_id?: string;
+            /**
+             * @description Present when `exception`.
+             * @enum {string}
+             */
+            reason?: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
+        };
+        /** @description A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+        FixedBlock: {
+            /** Format: uuid */
+            series_id: string;
+            /** Format: uuid */
+            court_id: string;
+            /**
+             * Format: date
+             * @description The local day the hours start on.
+             */
+            date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            client_name: string;
+        };
         Booking: {
             /** Format: uuid */
             id: string;
@@ -2553,6 +2707,11 @@ export interface components {
             client_name?: string;
             /** @description Enrichment, present when joined. */
             client_phone?: string;
+            /**
+             * Format: uuid
+             * @description The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
+             */
+            series_id?: string | null;
         };
         Payment: {
             /** Format: uuid */
@@ -2998,6 +3157,7 @@ export interface components {
         PathSlug: string;
         PathCity: string;
         BookingID: string;
+        SeriesID: string;
         CourtID: string;
         /** @description Cash session id. */
         SessionID: string;
@@ -4184,6 +4344,200 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Problem"];
                 };
             };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingSeriesCreate: {
+        parameters: {
+            query?: never;
+            header?: {
+                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    court_id: string;
+                    /**
+                     * Format: date
+                     * @description The first occurrence; its weekday is the series' weekday. Not in the past.
+                     */
+                    first_date: string;
+                    start_time: string;
+                    duration_minutes: number;
+                    /** @example +5491112345678 */
+                    client_phone: string;
+                    client_email?: string;
+                    client_first_name: string;
+                    client_last_name: string;
+                    notes?: string;
+                    /** @description Centavos ARS, applied to every occurrence. Absent: each is priced on the day its booking is created. */
+                    price?: number;
+                    /**
+                     * Format: date
+                     * @description Last day, inclusive.
+                     */
+                    ends_on?: string | null;
+                    /** @description Alternative to ends_on: the number of weekly occurrences. */
+                    weeks?: number;
+                    /** @description Create the series turning the dates something else holds into exceptions. */
+                    skip_conflicts?: boolean;
+                };
+            };
+        };
+        responses: {
+            /** @description The series, the booking of its first date when that was already due, and the dates skipped. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: components["schemas"]["BookingSeries"];
+                        bookings: components["schemas"]["Booking"][];
+                        skipped: components["schemas"]["BookingSeriesConflict"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Dates of the series are held by something else (`conflicts` lists them), a booking was made on one while the series was being created, or the client is blocked. Nothing was written. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingSeriesGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                seriesID: components["parameters"]["SeriesID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The series and its next dates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: components["schemas"]["BookingSeries"];
+                        upcoming: components["schemas"]["BookingSeriesUpcoming"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingSeriesSkip: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                seriesID: components["parameters"]["SeriesID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date
+                     * @description Not in the past.
+                     */
+                    date: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The date now recorded as an exception. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        skipped: components["schemas"]["BookingSeriesConflict"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingSeriesEnd: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                seriesID: components["parameters"]["SeriesID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: date
+                     * @description Not in the past.
+                     */
+                    from_date: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The series as it now stands and what became of its bookings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        series: components["schemas"]["BookingSeries"];
+                        cancelled: components["schemas"]["Booking"][];
+                        kept: components["schemas"]["Booking"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
@@ -6003,6 +6357,8 @@ export interface operations {
                 content: {
                     "application/json": {
                         blocked_slots: components["schemas"]["BlockedSlot"][];
+                        /** @description The dates fixed weekly bookings hold in the range that have no booking yet. They block like a blocked slot but are not one: they cannot be deleted from here and are cancelled through the series (`bookingSeriesSkip`, `bookingSeriesEnd`). Not paginated. */
+                        fixed_blocks: components["schemas"]["FixedBlock"][];
                     };
                 };
             };

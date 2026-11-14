@@ -14,6 +14,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/booklink"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -43,6 +44,7 @@ type Service struct {
 	*Facade
 
 	store        Store
+	series       SeriesStore
 	clients      ClientStore
 	complexes    ComplexReader
 	courts       CourtReader
@@ -59,6 +61,8 @@ type Service struct {
 	cfg          Config
 	run          func(func())
 	waitlist     SlotFreedNotifier
+	// now is the clock the fixed weekly series reason by; tests replace it.
+	now func() time.Time
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -66,6 +70,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 	return &Service{
 		Facade:       d.Facade,
 		store:        d.Store,
+		series:       d.Series,
 		clients:      d.Clients,
 		complexes:    d.Complexes,
 		courts:       d.Courts,
@@ -82,6 +87,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		cfg:          cfg,
 		run:          d.Run,
 		waitlist:     d.Waitlist,
+		now:          time.Now,
 	}
 }
 
@@ -467,6 +473,22 @@ type CreateInput struct {
 	PaymentOption   string
 	DepositAmount   *int
 	Price           *int
+
+	// seriesID marks the booking as an occurrence of a fixed weekly series; the
+	// store then records its date as generated in the same transaction.
+	seriesID *uuid.UUID
+	// client is the already-resolved client, so a series resolves its person
+	// once rather than once per occurrence.
+	client *clientstore.Client
+}
+
+// preparedBooking is a validated, priced booking ready to be written, with what
+// the confirmation that follows a manual booking needs.
+type preparedBooking struct {
+	booking *bookingstore.Booking
+	counter *bookingstore.CounterPayment
+	court   *courtstore.Court
+	client  *clientstore.Client
 }
 
 // Create books a court from the owner's dashboard. Unlike the public flow there
@@ -479,159 +501,12 @@ type CreateInput struct {
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, actor Actor, in CreateInput) (*bookingstore.Booking, error) {
-	// Verify court belongs to complex.
-	court, err := s.courts.GetByID(ctx, in.CourtID)
+	p, err := s.prepareCreate(ctx, complex, actor, in)
 	if err != nil {
 		return nil, err
 	}
-	if court.ComplexID != complex.ID {
-		return nil, data.ErrRecordNotFound
-	}
-
-	// Staff may book any hour of the day, whether or not the complex is open
-	// then, or on the grid the storefront renders — that check belongs to the
-	// public path alone (PublicBook), which still validates against courtGrid.
-	// One thing remains non-negotiable here: the start must fall on the
-	// package's 30-minute grid step, or it takes a position no slot lock and no
-	// other request can name.
-	//
-	// A midnight refusal used to sit beside it, because a booking was one row
-	// with a single date, start time and stored end time, and the start had
-	// to be the
-	// smaller of the two. A booking now carries a range that crosses midnight
-	// without noticing (the generated span), the check that forbade it is gone
-	// (a booking may cross midnight), and a 23:00 booking on a court open until 02:00 is
-	// an ordinary sale rather than a shape the database cannot hold. What stops
-	// two of them landing on one court is the exclusion constraint, which does
-	// not care which day either end falls on.
-	if !slots.OnGridStep(in.StartTime) {
-		return nil, &FieldError{Field: "start_time", Message: offBoundaryMessage}
-	}
-
-	// Hours the owner has taken off sale are off sale to the owner's own
-	// dashboard too. The blocked-slot write already refuses to block over a
-	// live booking; this is the other direction, which nothing enforced.
-	// The end comes from adding the duration to the start instant, never from
-	// parsing the end string: slots.Add wraps at midnight, so a 23:00 booking of
-	// sixty minutes would read as ending before it began.
-	// The candidate's instants are built on the product's wall-clock, the same
-	// one blockedDays anchors the block side to. date is parsed as midnight UTC
-	// here, and slots.At carries a date's location through, so leaving it
-	// unanchored put both sides three hours out — which happened to cancel out
-	// on this path and did not on the confirmation path (see grid.go).
-	startAt := slots.At(timezone.Day(in.Date), in.StartTime)
-	endAt := startAt.Add(time.Duration(in.DurationMinutes) * time.Minute)
-
-	blocked, err := s.slotIsBlocked(ctx, court.ID, in.Date, startAt, endAt)
-	if err != nil {
-		return nil, err
-	}
-	if blocked {
-		return nil, &ConflictError{Message: blockedSlotMessage}
-	}
-
-	// An explicit price overrides the computed one outright — the owner's
-	// dashboard may book hours no price rule covers, and this is the only way
-	// such a booking can be priced at all. When price is absent, computing it
-	// is unchanged from before.
-	var totalPrice int
-	if in.Price != nil {
-		totalPrice = *in.Price
-	} else {
-		computedPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, in.Date, in.StartTime, in.DurationMinutes)
-		if priceErr != nil {
-			// A booking no rule fully covers is not for sale on its own — but
-			// unlike the public path, the owner can still make it one by
-			// supplying price explicitly. The field-level error is what lets
-			// the dashboard show the manual price input instead of a dead end.
-			if errors.Is(priceErr, pricing.ErrNoPriceRule) {
-				return nil, &FieldError{Field: "price", Message: httpx.CodePriceRequired}
-			}
-			return nil, priceErr
-		}
-		totalPrice = computedPrice
-	}
-
-	if complex.DepositPercentage > 100 {
-		return nil, &FieldError{Field: "deposit_percentage", Message: httpx.CodeDepositOver100}
-	}
-
-	depositAmount := totalPrice * complex.DepositPercentage / 100
-
-	// Determine collection status based on payment_option. A booking created
-	// here has nothing to give back yet, so the refund axis stays at its column
-	// default of 'none' and is not named.
-	collectionStatus := bookingstore.CollectionStatus(bookingstore.CollectionStatusUnpaid)
-	switch in.PaymentOption {
-	case "deposit":
-		collectionStatus = bookingstore.CollectionStatusDepositPaid
-		if in.DepositAmount != nil && *in.DepositAmount > 0 {
-			if *in.DepositAmount > totalPrice {
-				return nil, &FieldError{Field: "deposit_amount", Message: httpx.CodeDepositExceedsPrice}
-			}
-			depositAmount = *in.DepositAmount
-		}
-	case "full":
-		collectionStatus = bookingstore.CollectionStatusFullyPaid
-	}
-
-	// Get or create client. This is the authenticated owner path
-	// (requireComplexOwner), so a name correction on an existing phone match
-	// is trusted the way the public path's is not — see
-	// clientstore.Store.GetOrCreate's comment on allowNameUpdate.
-	client, err := s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)
-	if err != nil {
-		return nil, err
-	}
-
-	if client.IsBlocked {
-		return nil, &ConflictError{Message: "client is blocked, cannot create booking"}
-	}
-
-	if actor.UserID == nil {
-		return nil, ErrNoActor
-	}
-	var notes *string
-	if in.Notes != "" {
-		notes = &in.Notes
-	}
-
-	booking := &bookingstore.Booking{
-		ComplexID:        complex.ID,
-		CourtID:          in.CourtID,
-		ClientID:         client.ID,
-		Date:             in.Date,
-		StartTime:        in.StartTime,
-		DurationMinutes:  in.DurationMinutes,
-		Price:            totalPrice,
-		DepositAmount:    depositAmount,
-		Status:           "confirmed",
-		CollectionStatus: collectionStatus,
-		RefundStatus:     bookingstore.RefundStatusNone,
-		Notes:            notes,
-		CreatedBy:        actor.UserID,
-	}
-
-	// The counter payment taken at creation is written in the same transaction
-	// as the booking. If it cannot be recorded, neither is the booking: the owner
-	// gets an error instead of a 201 for money the books do not hold. Retrying is
-	// safe because nothing was written.
-	var counter *bookingstore.CounterPayment
-	if in.PaymentMethod != "" && collectionStatus != bookingstore.CollectionStatusUnpaid {
-		paymentAmount := totalPrice
-		if collectionStatus == bookingstore.CollectionStatusDepositPaid {
-			paymentAmount = depositAmount
-		}
-		counter = &bookingstore.CounterPayment{
-			Amount: paymentAmount,
-			Method: in.PaymentMethod,
-			// payments.status still carries the shared payment_status enum
-			// (the payment_status split took only bookings off it), and these two values
-			// are legal in it.
-			Status: collectionStatus.String(),
-		}
-	}
-	if err := s.store.InsertSafeWithPayment(ctx, booking, counter); err != nil {
+	booking, court, client := p.booking, p.court, p.client
+	if err := s.store.InsertSafeWithPayment(ctx, booking, p.counter); err != nil {
 		return nil, err
 	}
 
@@ -683,6 +558,183 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	s.realtime.PublishBookingChanged(complex.ID)
 
 	return booking, nil
+}
+
+// prepareCreate is everything Create does before it writes: it checks the
+// court, the hour, the blocked slots and the price, resolves the client and
+// builds the booking. A fixed weekly series runs every occurrence through it
+// too, so a generated booking is validated and priced exactly like one the
+// owner typed in.
+//
+//nolint:funlen // see Create's cohesion note
+func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Complex, actor Actor, in CreateInput) (*preparedBooking, error) {
+	// Verify court belongs to complex.
+	court, err := s.courts.GetByID(ctx, in.CourtID)
+	if err != nil {
+		return nil, err
+	}
+	if court.ComplexID != complex.ID {
+		return nil, data.ErrRecordNotFound
+	}
+
+	// Staff may book any hour of the day, whether or not the complex is open
+	// then, or on the grid the storefront renders — that check belongs to the
+	// public path alone (PublicBook), which still validates against courtGrid.
+	// One thing remains non-negotiable here: the start must fall on the
+	// package's 30-minute grid step, or it takes a position no slot lock and no
+	// other request can name.
+	//
+	// A midnight refusal used to sit beside it, because a booking was one row
+	// with a single date, start time and stored end time, and the start had
+	// to be the
+	// smaller of the two. A booking now carries a range that crosses midnight
+	// without noticing (the generated span), the check that forbade it is gone
+	// (a booking may cross midnight), and a 23:00 booking on a court open until 02:00 is
+	// an ordinary sale rather than a shape the database cannot hold. What stops
+	// two of them landing on one court is the exclusion constraint, which does
+	// not care which day either end falls on.
+	if !slots.OnGridStep(in.StartTime) {
+		return nil, &FieldError{Field: "start_time", Message: offBoundaryMessage}
+	}
+
+	// Hours the owner has taken off sale are off sale to the owner's own
+	// dashboard too. The blocked-slot write already refuses to block over a
+	// live booking; this is the other direction, which nothing enforced.
+	// The end comes from adding the duration to the start instant, never from
+	// parsing the end string: slots.Add wraps at midnight, so a 23:00 booking of
+	// sixty minutes would read as ending before it began.
+	// The candidate's instants are built on the product's wall-clock, the same
+	// one blockedDays anchors the block side to. date is parsed as midnight UTC
+	// here, and slots.At carries a date's location through, so leaving it
+	// unanchored put both sides three hours out — which happened to cancel out
+	// on this path and did not on the confirmation path (see grid.go).
+	startAt := slots.At(timezone.Day(in.Date), in.StartTime)
+	endAt := startAt.Add(time.Duration(in.DurationMinutes) * time.Minute)
+
+	blocked, err := s.slotIsBlocked(ctx, court.ID, in.Date, startAt, endAt)
+	if err != nil {
+		return nil, err
+	}
+	if blocked {
+		return nil, &ConflictError{Message: blockedSlotMessage}
+	}
+	// Hours a fixed weekly series holds are as unavailable to the owner's
+	// dashboard as a booking's. The series' own occurrence is the one exception
+	// (in.seriesID), which is how the job books its date.
+	held, err := s.heldByFixedBooking(ctx, court.ID, in.Date, startAt, endAt, in.seriesID)
+	if err != nil {
+		return nil, err
+	}
+	if held {
+		return nil, &ConflictError{Message: fixedBookingMessage}
+	}
+
+	// An explicit price overrides the computed one outright — the owner's
+	// dashboard may book hours no price rule covers, and this is the only way
+	// such a booking can be priced at all. When price is absent, computing it
+	// is unchanged from before.
+	var totalPrice int
+	if in.Price != nil {
+		totalPrice = *in.Price
+	} else {
+		computedPrice, priceErr := s.findPrice(ctx, court.ComplexID, court.ID, in.Date, in.StartTime, in.DurationMinutes)
+		if priceErr != nil {
+			// A booking no rule fully covers is not for sale on its own — but
+			// unlike the public path, the owner can still make it one by
+			// supplying price explicitly. The field-level error is what lets
+			// the dashboard show the manual price input instead of a dead end.
+			if errors.Is(priceErr, pricing.ErrNoPriceRule) {
+				return nil, &FieldError{Field: "price", Message: httpx.CodePriceRequired}
+			}
+			return nil, priceErr
+		}
+		totalPrice = computedPrice
+	}
+
+	if complex.DepositPercentage > 100 {
+		return nil, &FieldError{Field: "deposit_percentage", Message: httpx.CodeDepositOver100}
+	}
+
+	depositAmount := totalPrice * complex.DepositPercentage / 100
+
+	// Determine collection status based on payment_option. A booking created
+	// here has nothing to give back yet, so the refund axis stays at its column
+	// default of 'none' and is not named.
+	collectionStatus := bookingstore.CollectionStatus(bookingstore.CollectionStatusUnpaid)
+	switch in.PaymentOption {
+	case "deposit":
+		collectionStatus = bookingstore.CollectionStatusDepositPaid
+		if in.DepositAmount != nil && *in.DepositAmount > 0 {
+			if *in.DepositAmount > totalPrice {
+				return nil, &FieldError{Field: "deposit_amount", Message: httpx.CodeDepositExceedsPrice}
+			}
+			depositAmount = *in.DepositAmount
+		}
+	case "full":
+		collectionStatus = bookingstore.CollectionStatusFullyPaid
+	}
+
+	// Get or create client. This is the authenticated owner path
+	// (requireComplexOwner), so a name correction on an existing phone match
+	// is trusted the way the public path's is not — see
+	// clientstore.Store.GetOrCreate's comment on allowNameUpdate.
+	client := in.client
+	if client == nil {
+		client, err = s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if client.IsBlocked {
+		return nil, &ConflictError{Message: "client is blocked, cannot create booking"}
+	}
+
+	if actor.UserID == nil {
+		return nil, ErrNoActor
+	}
+	var notes *string
+	if in.Notes != "" {
+		notes = &in.Notes
+	}
+
+	booking := &bookingstore.Booking{
+		ComplexID:        complex.ID,
+		CourtID:          in.CourtID,
+		ClientID:         client.ID,
+		Date:             in.Date,
+		StartTime:        in.StartTime,
+		DurationMinutes:  in.DurationMinutes,
+		Price:            totalPrice,
+		DepositAmount:    depositAmount,
+		Status:           "confirmed",
+		CollectionStatus: collectionStatus,
+		RefundStatus:     bookingstore.RefundStatusNone,
+		Notes:            notes,
+		CreatedBy:        actor.UserID,
+		SeriesID:         in.seriesID,
+	}
+
+	// The counter payment taken at creation is written in the same transaction
+	// as the booking. If it cannot be recorded, neither is the booking: the owner
+	// gets an error instead of a 201 for money the books do not hold. Retrying is
+	// safe because nothing was written.
+	var counter *bookingstore.CounterPayment
+	if in.PaymentMethod != "" && collectionStatus != bookingstore.CollectionStatusUnpaid {
+		paymentAmount := totalPrice
+		if collectionStatus == bookingstore.CollectionStatusDepositPaid {
+			paymentAmount = depositAmount
+		}
+		counter = &bookingstore.CounterPayment{
+			Amount: paymentAmount,
+			Method: in.PaymentMethod,
+			// payments.status still carries the shared payment_status enum
+			// (the payment_status split took only bookings off it), and these two values
+			// are legal in it.
+			Status: collectionStatus.String(),
+		}
+	}
+	return &preparedBooking{booking: booking, counter: counter, court: court, client: client}, nil
 }
 
 // ---------------------------------------------------------------------------

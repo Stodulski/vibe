@@ -131,6 +131,67 @@ export const bookings = {
   createBookingStep1: 'Cuándo y dónde',
   createBookingStep2: 'Cliente',
   createBookingStep3: 'Pago',
+  // Turnos fijos: a booking that repeats every week on the same weekday and hour.
+  fixedBooking: 'Turno fijo',
+  series: {
+    repeatWeekly: 'Repetir todas las semanas',
+    endLabel: 'Hasta cuándo',
+    endNever: 'Sin fecha de fin',
+    endUntil: 'Hasta',
+    endWeeks: 'Por N semanas',
+    weeksLabel: 'Cantidad de semanas',
+    untilRequired: 'Elegí la fecha de fin',
+    untilBeforeStart: 'La fecha de fin no puede ser anterior a la primera fecha',
+    weeksRange: 'Ingresá entre 2 y 52 semanas',
+    paymentNote: 'Cada turno se cobra como una reserva normal.',
+    conflictsTitle: 'Estas fechas ya están ocupadas:',
+    conflictReasons: {
+      cancelled_by_owner: 'liberada',
+      overlap: 'ocupada',
+      blocked: 'bloqueada',
+      closed_day: 'el complejo está cerrado',
+      no_price: 'sin precio para ese horario',
+      client_blocked: 'cliente bloqueado',
+      missed: 'no se pudo crear',
+    },
+    skipConflicts: 'Crear salteando estas fechas',
+    conflictsBack: 'Volver',
+    createSuccess: (weekdayPlural: string, time: string, skipped: number) => {
+      const created = `Turno fijo creado: todos los ${weekdayPlural} a las ${time}`;
+      if (skipped === 0) return created;
+      return `${created} · ${String(skipped)} ${skipped === 1 ? 'fecha salteada' : 'fechas salteadas'}`;
+    },
+    createError: 'Error al crear el turno fijo',
+    // Indexed by weekday, 0 = Sunday, as the API sends it. Plural and lower
+    // case because it follows "todos los".
+    weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
+    label: (weekdayPlural: string, time: string) => `Turno fijo · todos los ${weekdayPlural} a las ${time}`,
+    cancelOne: 'Cancelar solo esta fecha',
+    endFromHere: 'Cancelar turno fijo',
+    endConfirmTitle: 'Cancelar el turno fijo',
+    endConfirmDescription:
+      'Esta fecha y las siguientes quedan libres. Si alguna ya tiene su reserva sin pago, se cancela; si tiene un pago, se mantiene.',
+    endConfirmLabel: 'Cancelar turno fijo',
+    endSuccess: (cancelled: number, kept: number) => {
+      const ended = 'Turno fijo cancelado';
+      const parts = [
+        ...(cancelled > 0
+          ? [`${String(cancelled)} ${cancelled === 1 ? 'reserva cancelada' : 'reservas canceladas'}`]
+          : []),
+        ...(kept > 0 ? [`${String(kept)} ${kept === 1 ? 'paga se mantiene' : 'pagas se mantienen'}`] : []),
+      ];
+      return [ended, ...parts].join(' · ');
+    },
+    skipSuccess: (dayMonth: string) => `Fecha liberada: ${dayMonth}`,
+    skipError: 'Error al liberar la fecha',
+    // The blocked slot of a date no booking exists for yet.
+    blockLabel: (client: string) => `Bloqueo por turno fijo · ${client}`,
+    blockTitle: 'Bloqueo por turno fijo',
+    blockLabelCompact: 'Turno fijo',
+    blockDetailTitle: 'Turno fijo',
+    slotTaken: 'Ese horario es de un turno fijo. Cancelá esa fecha del turno fijo para usarlo.',
+    endError: 'Error al cancelar el turno fijo',
+  },
   paymentsLoadError: 'No pudimos cargar los pagos',
   paymentsLoadErrorDescription: 'Revisá tu conexión e intentá de nuevo.',
 } as const;

@@ -67,6 +67,12 @@ type Querier interface {
 	DeleteUnverifiedStaleUsers(ctx context.Context) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
+	EndBookingSeries(ctx context.Context, arg EndBookingSeriesParams) (BookingSeries, error)
+	// Marks ended the active series whose last day is behind the given date; only
+	// the materialization job calls it, under the tenant bypass. Such a series no
+	// longer holds any date (booking_series_occurrences stops at ends_on), so this
+	// changes what the owner reads, not what is sold.
+	EndExpiredBookingSeries(ctx context.Context, endsOn pgtype.Date) (int64, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
 	// the id is a sale's, or none at all.
@@ -98,6 +104,11 @@ type Querier interface {
 	// Matching on `span && local_day(day)` rather than `date = day`: a court
 	// occupied until 01:00 is occupied on that morning's grid too. See
 	// local_day() in db/migrations/001_init.sql for why "occupies day X" beat "started on day X".
+	//
+	// The window is the local days day_from..day_to inclusive (the same day twice
+	// for the storefront's single-day grid). Real bookings only: the dates fixed
+	// weekly series are holding are read beside it by Store.SeriesOccurrences, so
+	// GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
 	//
 	// payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
 	// default 15 minutes — see internal/stores), passed as a parameter
@@ -132,6 +143,9 @@ type Querier interface {
 	//
 	// Tenant-scoped like GetBookingByID above, and optional for the same reason.
 	GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error)
+	// The tenant predicate is the explicit half of the isolation the row-level
+	// security policies enforce; see GetBookingByID for why it is optional.
+	GetBookingSeries(ctx context.Context, arg GetBookingSeriesParams) (BookingSeries, error)
 	// Overlapping the days asked for, not starting on them: a booking that runs
 	// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
 	// has to see the hours it is still holding. Same predicate as the owner list in
@@ -270,6 +284,7 @@ type Querier interface {
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
+	InsertBookingSeries(ctx context.Context, arg InsertBookingSeriesParams) (BookingSeries, error)
 	// Serves both an ordinary movement (voids_movement_id NULL) and a void
 	// (voids_movement_id set): cash_movements_check_void (003_cashbox.sql)
 	// enforces every void invariant that needs to read the original row, so this
@@ -328,6 +343,10 @@ type Querier interface {
 	// payments rows directly: a checkout's lines are known by payment id right after
 	// it is recorded, before any list query runs.
 	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
+	ListBookingSeriesBookingsFrom(ctx context.Context, arg ListBookingSeriesBookingsFromParams) ([]Booking, error)
+	// The ledger rows of one series inside a window: the dates already settled
+	// (booked or excepted).
+	ListBookingSeriesDates(ctx context.Context, arg ListBookingSeriesDatesParams) ([]BookingSeriesDate, error)
 	// The owners the campaign has not reached yet, oldest account first, at most
 	// max_rows. Each carries the segment that picks the email's last line, and the
 	// slug of their live complex (empty when they have none). complexes_owner_id_key
@@ -428,6 +447,11 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// A date that is not part of the series: cancelled by the owner, or one that
+	// could not be booked. DO NOTHING keeps the first answer: a date already booked
+	// or excepted is never rewritten, and the row count says whether this call was
+	// the one that settled it.
+	RecordBookingSeriesException(ctx context.Context, arg RecordBookingSeriesExceptionParams) (int64, error)
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error

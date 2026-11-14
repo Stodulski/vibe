@@ -303,6 +303,24 @@ type CourtStore interface {
 // BookingStore — segregated by responsibility
 // ---------------------------------------------------------------------------
 
+// BookingSeriesStore persists fixed weekly bookings (turnos fijos): the series
+// rule, the ledger of its settled dates, and the bookings it produced.
+type BookingSeriesStore interface {
+	// InsertSeries writes the series and its starting exceptions in one
+	// transaction, refusing with ErrSlotUnavailable when a booking now covers a
+	// date it holds.
+	InsertSeries(ctx context.Context, s *bookingstore.Series, exceptions []bookingstore.SeriesException) error
+	GetSeries(ctx context.Context, id uuid.UUID) (*bookingstore.Series, error)
+	// EndExpiredSeries marks ended the active series whose last day is before day.
+	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)
+	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*bookingstore.Series, error)
+	SeriesDates(ctx context.Context, seriesID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error)
+	// RecordSeriesException settles a date as an exception; false when the date
+	// was already settled.
+	RecordSeriesException(ctx context.Context, s *bookingstore.Series, date time.Time, reason string) (bool, error)
+	SeriesBookingsFrom(ctx context.Context, seriesID uuid.UUID, from time.Time) ([]*bookingstore.Booking, error)
+}
+
 // BookingCreator creates new bookings, with a race-safe variant for concurrent slot claims.
 type BookingCreator interface {
 	Insert(ctx context.Context, booking *bookingstore.Booking) error
@@ -317,6 +335,12 @@ type BookingReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
 	GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time, filters data.Filters) ([]*bookingstore.Booking, data.Metadata, error)
 	GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error)
+	// BookedSpansBetween is GetBookedSlotsByCourtIDs over a range of days.
+	BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.BookedSpan, error)
+	// SeriesOccurrences returns the dates fixed weekly series are holding that
+	// no booking covers yet: the one reading every availability decision,
+	// the owner's calendar and the materialization job share.
+	SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 
@@ -722,6 +746,7 @@ type Stores struct {
 	Products          ProductStore
 	Sales             SalesStore
 	Bookings          BookingStore
+	BookingSeries     BookingSeriesStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
 	Clients           ClientStore
@@ -769,12 +794,14 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 	// One Payments value serves both the booking panel and a sales checkout's
 	// balance lines, so both confirm a payment through the same logic.
 	payments := &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry}
+	bookings := &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()}
 	return Stores{
 		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
 		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
-		Bookings:          &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
+		Bookings:          bookings,
+		BookingSeries:     bookings,
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
 		Leads:             &leadsstore.Store{Q: q},

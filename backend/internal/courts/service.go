@@ -379,6 +379,9 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 	blockEnd := slots.At(in.Date, in.EndTime)
 	for _, b := range bookedSlots {
 		if slots.OverlapAt(blockStart, blockEnd, b.StartsAt, b.EndsAt) {
+			if b.Fixed {
+				return nil, courtstore.ErrSlotHeldByFixedBooking
+			}
 			return nil, courtstore.ErrSlotHasBooking
 		}
 	}
@@ -429,6 +432,20 @@ func (s *Service) ListBlockedSlots(ctx context.Context, complexID uuid.UUID, dat
 	}
 
 	return trimBlockedSlotsPage(slots, filters)
+}
+
+// ListFixedBlocks returns the dates fixed weekly bookings hold over a date
+// range that have no booking yet, for the owner's calendar to draw beside the
+// blocked slots. They block like one but belong to their series.
+func (s *Service) ListFixedBlocks(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	return s.bookings.ComplexSeriesOccurrences(ctx, complexID, dateFrom, dateTo)
+}
+
+// GetBlockedSlotsByComplex returns every court's blocked slots over a date
+// range. Exported for bookings, whose series pre-check reads a whole year of
+// dates at once.
+func (s *Service) GetBlockedSlotsByComplex(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]*courtstore.BlockedSlot, error) {
+	return s.blocked.GetBlockedSlotsByComplex(ctx, complexID, dateFrom, dateTo)
 }
 
 // DeleteBlockedSlot puts a slot of this complex back on sale.

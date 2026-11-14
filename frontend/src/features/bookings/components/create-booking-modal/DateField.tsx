@@ -14,10 +14,23 @@ import { todayInArgentina } from '../../lib/today';
 
 const t = ES_AR;
 
-function DateFieldTrigger({ date, hasError }: { date: string | undefined; hasError: boolean }) {
+/** The button that opens a calendar popover, showing the chosen date. Also used by the series end date. */
+export function DateFieldTrigger({
+  date,
+  hasError,
+  id = 'booking-date',
+  className,
+  ...props
+}: React.ComponentProps<'button'> & {
+  date: string | undefined;
+  hasError: boolean;
+}) {
+  // `PopoverTrigger asChild` hands its click handler, aria attributes and ref
+  // through these props; dropping them leaves a button that never opens.
   return (
     <button
-      id="booking-date"
+      {...props}
+      id={id}
       type="button"
       className={cn(
         'border-border-subtle bg-bg-base/60 transition-input flex h-10 w-full items-center gap-2.5 rounded-xl border px-3.5 text-sm shadow-xs outline-none',
@@ -25,6 +38,7 @@ function DateFieldTrigger({ date, hasError }: { date: string | undefined; hasErr
         'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
         date ? 'text-text-primary' : 'text-text-tertiary/70',
         hasError && 'border-error-border bg-error-bg/30 ring-error-text/10 ring-1',
+        className,
       )}
     >
       <CalendarIcon className="text-text-tertiary size-4 shrink-0" />
