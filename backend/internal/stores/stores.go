@@ -303,6 +303,18 @@ type CourtStore interface {
 // BookingStore — segregated by responsibility
 // ---------------------------------------------------------------------------
 
+// BookingSeriesStore persists fixed weekly bookings (turnos fijos): the series
+// itself, the dates it has been generated for, and its occurrences.
+type BookingSeriesStore interface {
+	InsertSeries(ctx context.Context, s *bookingstore.Series) error
+	GetSeries(ctx context.Context, id uuid.UUID) (*bookingstore.Series, error)
+	ListActiveSeries(ctx context.Context) ([]*bookingstore.Series, error)
+	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*bookingstore.Series, error)
+	SeriesDates(ctx context.Context, seriesID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error)
+	RecordSeriesSkip(ctx context.Context, s *bookingstore.Series, date time.Time, reason string) error
+	SeriesBookingsFrom(ctx context.Context, seriesID uuid.UUID, from time.Time) ([]*bookingstore.Booking, error)
+}
+
 // BookingCreator creates new bookings, with a race-safe variant for concurrent slot claims.
 type BookingCreator interface {
 	Insert(ctx context.Context, booking *bookingstore.Booking) error
@@ -722,6 +734,7 @@ type Stores struct {
 	Products          ProductStore
 	Sales             SalesStore
 	Bookings          BookingStore
+	BookingSeries     BookingSeriesStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
 	Clients           ClientStore
@@ -769,12 +782,14 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 	// One Payments value serves both the booking panel and a sales checkout's
 	// balance lines, so both confirm a payment through the same logic.
 	payments := &paymentstore.Payments{DB: pooled, Q: q, PaymentExpiry: paymentExpiry}
+	bookings := &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()}
 	return Stores{
 		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
 		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
-		Bookings:          &bookingstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry, Keys: cfg.Keys, LinkTokenBuffer: cfg.linkTokenBuffer()},
+		Bookings:          bookings,
+		BookingSeries:     bookings,
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
 		Leads:             &leadsstore.Store{Q: q},

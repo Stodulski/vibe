@@ -67,6 +67,7 @@ type Querier interface {
 	DeleteUnverifiedStaleUsers(ctx context.Context) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
+	EndBookingSeries(ctx context.Context, arg EndBookingSeriesParams) (BookingSeries, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
 	// the id is a sale's, or none at all.
@@ -132,6 +133,9 @@ type Querier interface {
 	//
 	// Tenant-scoped like GetBookingByID above, and optional for the same reason.
 	GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByIDForUpdateParams) (Booking, error)
+	// The tenant predicate is the explicit half of the isolation the row-level
+	// security policies enforce; see GetBookingByID for why it is optional.
+	GetBookingSeries(ctx context.Context, arg GetBookingSeriesParams) (BookingSeries, error)
 	// Overlapping the days asked for, not starting on them: a booking that runs
 	// 23:00 to 01:00 occupies both days, and an owner looking at the next morning
 	// has to see the hours it is still holding. Same predicate as the owner list in
@@ -270,6 +274,7 @@ type Querier interface {
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
+	InsertBookingSeries(ctx context.Context, arg InsertBookingSeriesParams) (BookingSeries, error)
 	// Serves both an ordinary movement (voids_movement_id NULL) and a void
 	// (voids_movement_id set): cash_movements_check_void (003_cashbox.sql)
 	// enforces every void invariant that needs to read the original row, so this
@@ -301,6 +306,10 @@ type Querier interface {
 	// Atomic: deletes stale tokens (>3 min), inserts new only if none within 3 min.
 	InsertVerificationTokenWithCooldown(ctx context.Context, arg InsertVerificationTokenWithCooldownParams) (EmailVerificationToken, error)
 	InsertWaitlistEntry(ctx context.Context, arg InsertWaitlistEntryParams) error
+	// Every active series across tenants, for the daily extension job (which runs
+	// under the tenant bypass). Series whose end is already behind them are
+	// included on purpose: the job is what marks them ended.
+	ListActiveBookingSeries(ctx context.Context) ([]BookingSeries, error)
 	// The public city hubs and the sitemap read this. It reads active_complexes, so
 	// a soft-deleted venue is absent, and keeps only the switched-on ones. Each row
 	// carries one sport per switched-on court of that complex, read from
@@ -328,6 +337,10 @@ type Querier interface {
 	// payments rows directly: a checkout's lines are known by payment id right after
 	// it is recorded, before any list query runs.
 	ListBookingPaymentLinesByPaymentIDs(ctx context.Context, arg ListBookingPaymentLinesByPaymentIDsParams) ([]ListBookingPaymentLinesByPaymentIDsRow, error)
+	ListBookingSeriesBookingsFrom(ctx context.Context, arg ListBookingSeriesBookingsFromParams) ([]Booking, error)
+	// The dates of one series already generated (booked or skipped) inside a
+	// window, which is what stops the job from generating a date twice.
+	ListBookingSeriesDates(ctx context.Context, arg ListBookingSeriesDatesParams) ([]BookingSeriesDate, error)
 	// The owners the campaign has not reached yet, oldest account first, at most
 	// max_rows. Each carries the segment that picks the email's last line, and the
 	// slug of their live complex (empty when they have none). complexes_owner_id_key
@@ -428,6 +441,9 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// A date that could not be booked. DO NOTHING keeps the first answer: a date
+	// already booked or already skipped is never rewritten.
+	RecordBookingSeriesSkip(ctx context.Context, arg RecordBookingSeriesSkipParams) (int64, error)
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error

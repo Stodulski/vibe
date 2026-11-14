@@ -119,6 +119,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, publicURL str
 		Products:          &mockProductStore{},
 		Sales:             &mockSalesStore{},
 		Bookings:          &mockBookingStore{},
+		BookingSeries:     &mockBookingSeriesStore{},
 		BookingLinkTokens: &mockBookingLinkTokenStore{},
 		Clients:           &mockClientStore{},
 		Payments:          &mockPaymentStore{},

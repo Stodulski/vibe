@@ -236,6 +236,24 @@ func (s *apiServer) BookingsCreate(w http.ResponseWriter, r *http.Request, id ge
 	s.app.bookings.Create(w, r)
 }
 
+// BookingSeriesCreate implements gen.ServerInterface for bookingSeriesCreate
+// (POST /api/v1/complexes/{id}/booking-series). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingSeriesCreate(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.BookingSeriesCreateParams) {
+	s.app.bookings.CreateSeries(w, r)
+}
+
+// BookingSeriesGet implements gen.ServerInterface for bookingSeriesGet
+// (GET /api/v1/complexes/{id}/booking-series/{seriesID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingSeriesGet(w http.ResponseWriter, r *http.Request, id gen.PathID, seriesID gen.SeriesID) {
+	s.app.bookings.GetSeries(w, r)
+}
+
+// BookingSeriesEnd implements gen.ServerInterface for bookingSeriesEnd
+// (POST /api/v1/complexes/{id}/booking-series/{seriesID}/end). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingSeriesEnd(w http.ResponseWriter, r *http.Request, id gen.PathID, seriesID gen.SeriesID) {
+	s.app.bookings.EndSeries(w, r)
+}
+
 // BookingsGet implements gen.ServerInterface for bookingsGet
 // (GET /api/v1/complexes/{id}/bookings/{bookingID}). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID) {

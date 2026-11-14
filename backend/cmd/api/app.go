@@ -797,6 +797,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		// reads have one implementation whoever the caller is.
 		Facade:    bookingsFacade,
 		Store:     d.models.Bookings,
+		Series:    d.models.BookingSeries,
 		Clients:   clientsService,
 		Complexes: complexesService,
 		Courts:    courtsService,

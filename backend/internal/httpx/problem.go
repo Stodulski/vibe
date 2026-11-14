@@ -110,6 +110,17 @@ type Problem struct {
 	// Errors is present on a validation problem: one entry per invalid
 	// field.
 	Errors []FieldError `json:"errors,omitempty"`
+	// Conflicts is present on the 409 that refuses a fixed weekly booking:
+	// one entry per date that cannot be booked, with the reason.
+	Conflicts []DateConflict `json:"conflicts,omitempty"`
+}
+
+// DateConflict is one calendar date a request could not be honoured on, and why.
+type DateConflict struct {
+	// Date is "YYYY-MM-DD".
+	Date string `json:"date"`
+	// Reason is a stable machine code: overlap, blocked, closed_day, no_price.
+	Reason string `json:"reason"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors
@@ -144,18 +155,26 @@ var titles = map[Kind]string{
 // that assembles a Problem body, so every error response — however it was
 // reached — carries the same instance/request_id/title machinery.
 func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status int, kind Kind, detail string, fieldErrors []FieldError) {
-	problem := Problem{
-		Type:      kind.URI(),
-		Title:     titles[kind],
-		Status:    status,
-		Detail:    detail,
-		Instance:  r.URL.Path,
-		RequestID: ContextGetRequestID(r),
-		Errors:    fieldErrors,
-	}
+	rs.writeProblemWith(w, r, Problem{Type: kind.URI(), Title: titles[kind], Status: status, Detail: detail, Errors: fieldErrors})
+}
+
+// ConflictDates answers 409 with the dates the request could not be honoured
+// on. Nothing was written.
+func (rs *Responder) ConflictDates(w http.ResponseWriter, r *http.Request, detail string, conflicts []DateConflict) {
+	rs.writeProblemWith(w, r, Problem{
+		Type: KindConflict.URI(), Title: titles[KindConflict], Status: http.StatusConflict,
+		Detail: detail, Conflicts: conflicts,
+	})
+}
+
+// writeProblemWith stamps the request's instance and id on p and writes it.
+func (rs *Responder) writeProblemWith(w http.ResponseWriter, r *http.Request, p Problem) {
+	status := p.Status
+	p.Instance = r.URL.Path
+	p.RequestID = ContextGetRequestID(r)
 
 	w.Header().Set("Cache-Control", "no-store")
-	if err := WriteProblemJSON(w, status, problem); err != nil {
+	if err := WriteProblemJSON(w, status, p); err != nil {
 		rs.LogError(r, err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}

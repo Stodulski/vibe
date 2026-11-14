@@ -256,8 +256,10 @@ type Dependencies struct {
 	// handler and cron paths reach those reads through the same code every
 	// other domain does. It must wrap the same store as Store below; cmd/api
 	// builds it from that store and hands it to both.
-	Facade       *Facade
-	Store        Store
+	Facade *Facade
+	Store  Store
+	// Series persists fixed weekly bookings. It may be the same value as Store.
+	Series       SeriesStore
 	Clients      ClientStore
 	Complexes    ComplexReader
 	Courts       CourtReader

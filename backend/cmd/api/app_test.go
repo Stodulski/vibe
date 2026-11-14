@@ -30,6 +30,7 @@ func validTestDeps(t *testing.T) deps {
 			Complexes:         &mockComplexStore{},
 			Courts:            &mockCourtStore{},
 			Bookings:          &mockBookingStore{},
+			BookingSeries:     &mockBookingSeriesStore{},
 			BookingLinkTokens: &mockBookingLinkTokenStore{},
 			Clients:           &mockClientStore{},
 			Payments:          &mockPaymentStore{},

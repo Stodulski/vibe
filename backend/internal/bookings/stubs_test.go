@@ -52,6 +52,13 @@ type stubStore struct {
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
+
+	// booked is what GetBookedSlotsByCourtIDs answers: the spans other
+	// bookings already hold, whatever day is asked about.
+	booked []bookingstore.BookedSpan
+	// beforeInsert runs first in InsertSafe, so a test can make the write
+	// refuse the way the database does (an overlap, a date already generated).
+	beforeInsert func(*bookingstore.Booking) error
 	// abandonedUpdates counts writes that were handed a context already done,
 	// so they never reached the database. See Update.
 	abandonedUpdates int
@@ -170,6 +177,11 @@ func (s *stubStore) InsertSafe(_ context.Context, b *bookingstore.Booking) error
 	if s.insertErr != nil {
 		return s.insertErr
 	}
+	if s.beforeInsert != nil {
+		if err := s.beforeInsert(b); err != nil {
+			return err
+		}
+	}
 	b.ID = uuid.New()
 	// The real InsertSafe returns lower(span) and upper(span) and writes them
 	// onto the booking (internal/bookings/store/bookings.go), so every caller downstream
@@ -267,7 +279,7 @@ func (s *stubStore) GetByClient(context.Context, uuid.UUID, uuid.UUID, int) ([]*
 }
 
 func (s *stubStore) GetBookedSlotsByCourtIDs(context.Context, []uuid.UUID, time.Time) ([]bookingstore.BookedSpan, error) {
-	return nil, nil
+	return s.booked, nil
 }
 
 func (s *stubStore) HasActiveBookings(context.Context, uuid.UUID) (bool, error) { return false, nil }

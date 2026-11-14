@@ -1194,6 +1194,151 @@ paths:
                 deposit_amount: {type: integer, description: "Centavos ARS."}
                 price: {type: integer, description: "Centavos ARS. Required when no price rule covers the slot."}
 
+  /api/v1/complexes/{id}/booking-series:
+    post:
+      tags: [bookings]
+      operationId: bookingSeriesCreate
+      summary: Create a fixed weekly booking (turno fijo)
+      description: >-
+        Creates a series and materializes its first eight weeks as ordinary bookings
+        (`series_id` set, unpaid, no client notification). The weekday is the one
+        `first_date` falls on. When dates in that window cannot be booked (an overlap, a
+        blocked slot, a closed day, no price) the call answers `409` with every such date and
+        writes nothing, unless `skip_conflicts` is true, in which case those dates are skipped,
+        recorded, and returned under `skipped`. Send at most one of `ends_on` and `weeks`; with
+        neither the series has no end. A daily job keeps the eight-week window full.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/IdempotencyKey"}
+      responses:
+        "201":
+          description: The series, the occurrences created, and the dates skipped.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [series, bookings, skipped]
+                properties:
+                  series: {$ref: "#/components/schemas/BookingSeries"}
+                  bookings:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+                  skipped:
+                    type: array
+                    items: {$ref: "#/components/schemas/BookingSeriesConflict"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: >-
+            Dates of the first window cannot be booked (`conflicts` lists them), or the client is
+            blocked. Nothing was written.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [court_id, first_date, start_time, duration_minutes, client_phone, client_first_name, client_last_name]
+              properties:
+                court_id: {type: string, format: uuid}
+                first_date: {type: string, format: date, description: "The first occurrence; its weekday is the series' weekday. Not in the past."}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                duration_minutes: {type: integer}
+                client_phone: {type: string, example: "+5491112345678"}
+                client_email: {type: string}
+                client_first_name: {type: string}
+                client_last_name: {type: string}
+                notes: {type: string}
+                price: {type: integer, description: "Centavos ARS, applied to every occurrence. Absent: each is priced when generated."}
+                ends_on: {type: [string, "null"], format: date, description: "Last day, inclusive."}
+                weeks: {type: integer, minimum: 1, maximum: 156, description: "Alternative to ends_on: the number of weekly occurrences."}
+                skip_conflicts: {type: boolean, description: "Create the series skipping the dates that cannot be booked."}
+
+  /api/v1/complexes/{id}/booking-series/{seriesID}:
+    get:
+      tags: [bookings]
+      operationId: bookingSeriesGet
+      summary: Get a fixed weekly booking with its upcoming occurrences
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SeriesID"}
+      responses:
+        "200":
+          description: The series, its occurrences from today on, and the dates skipped.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [series, upcoming, skipped]
+                properties:
+                  series: {$ref: "#/components/schemas/BookingSeries"}
+                  upcoming:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+                  skipped:
+                    type: array
+                    items: {$ref: "#/components/schemas/BookingSeriesConflict"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/booking-series/{seriesID}/end:
+    post:
+      tags: [bookings]
+      operationId: bookingSeriesEnd
+      summary: End a fixed weekly booking from a date
+      description: >-
+        Occurrences on or after `from_date` that have no payment are cancelled, quietly (no
+        message to the client). Those with a payment stand and come back under `kept`. The
+        series stops generating from `from_date` (`ends_on` becomes the day before) and is
+        marked `ended` when no paid occurrence remains ahead.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/SeriesID"}
+      responses:
+        "200":
+          description: The series as it now stands and what became of its occurrences.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [series, cancelled, kept]
+                properties:
+                  series: {$ref: "#/components/schemas/BookingSeries"}
+                  cancelled:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+                  kept:
+                    type: array
+                    items: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [from_date]
+              properties:
+                from_date: {type: string, format: date, description: "Not in the past."}
+
   /api/v1/complexes/{id}/bookings/{bookingID}:
     get:
       tags: [bookings]
@@ -4638,6 +4783,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    SeriesID:
+      name: seriesID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     CourtID:
       name: courtID
       in: path
@@ -4828,6 +4978,10 @@ components:
           type: array
           description: Present on a validation problem; one entry per invalid field.
           items: {$ref: "#/components/schemas/FieldError"}
+        conflicts:
+          type: array
+          description: Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
+          items: {$ref: "#/components/schemas/BookingSeriesConflict"}
 
     PaymentsExport:
       type: object
@@ -5520,6 +5674,32 @@ components:
         created_at: {type: string, format: date-time}
         updated_at: {type: string, format: date-time}
 
+    BookingSeries:
+      type: object
+      description: A fixed weekly booking (turno fijo); its occurrences are ordinary bookings carrying `series_id`.
+      required: [id, complex_id, court_id, client_id, weekday, start_time, duration_minutes, starts_on, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        client_id: {type: string, format: uuid}
+        weekday: {type: integer, minimum: 0, maximum: 6, description: "0 = Sunday .. 6 = Saturday."}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        price: {type: [integer, "null"], description: "Centavos ARS. Null: each occurrence is priced when generated."}
+        notes: {type: [string, "null"]}
+        starts_on: {type: string, format: date}
+        ends_on: {type: [string, "null"], format: date, description: "Inclusive. Null while the series has no end."}
+        status: {type: string, enum: [active, ended]}
+        created_at: {type: string, format: date-time}
+
+    BookingSeriesConflict:
+      type: object
+      required: [date, reason]
+      properties:
+        date: {type: string, format: date}
+        reason: {type: string, enum: [overlap, blocked, closed_day, no_price, client_blocked]}
+
     Booking:
       type: object
       required:
@@ -5560,6 +5740,12 @@ components:
         court_name: {type: string, description: "Enrichment, present when joined."}
         client_name: {type: string, description: "Enrichment, present when joined."}
         client_phone: {type: string, description: "Enrichment, present when joined."}
+        series_id:
+          type: [string, "null"]
+          format: uuid
+          description: >-
+            The fixed weekly series this booking is an occurrence of (fetch it with
+            `bookingSeriesGet`). Absent or null for an ordinary booking.
 
     Payment:
       type: object

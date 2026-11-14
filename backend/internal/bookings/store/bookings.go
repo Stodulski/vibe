@@ -217,6 +217,11 @@ type Booking struct {
 	// client_snapshot.go); nil once a client is attached. Personal data, so
 	// never encoded.
 	ClientSnapshot *ClientSnapshot `json:"-"`
+	// SeriesID names the fixed weekly series this booking is an occurrence of;
+	// nil for every other booking. Set by the series service before the insert
+	// (which then records the date as generated, in the same transaction) and
+	// read back by the owner's detail and list reads.
+	SeriesID *uuid.UUID `json:"series_id,omitempty"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
 	CourtName   string `json:"court_name"`
@@ -565,9 +570,9 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold hold
 			price, deposit_amount, status, collection_status, refund_status,
 			notes, created_by,
 			client_first_name, client_last_name, client_phone, client_email,
-			hold_token_hash, hold_ip
+			hold_token_hash, hold_ip, series_id
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
 		RETURNING id, reminder_sent_2h, created_at, updated_at, lower(span), upper(span)`,
 		data.UUIDToPg(b.ComplexID), data.UUIDToPg(b.CourtID), clientIDParam(b),
 		data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
@@ -577,7 +582,7 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold hold
 		db.BookingStatus(b.Status), b.CollectionStatus, b.RefundStatus,
 		data.TextToPg(b.Notes), data.UUIDPtrToPg(b.CreatedBy),
 		data.TextToPg(first), data.TextToPg(last), data.TextToPg(phone), data.TextToPg(email),
-		hold.tokenHash, data.TextToPg(hold.ip),
+		hold.tokenHash, data.TextToPg(hold.ip), data.UUIDPtrToPg(b.SeriesID),
 	).Scan(&id, &reminderSent2h, &createdAt, &updatedAt, &b.StartsAt, &b.EndsAt)
 	if err != nil {
 		if isSlotAlreadySold(err) {
@@ -587,6 +592,16 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold hold
 	}
 
 	b.ID = data.PgToUUID(id)
+
+	// An occurrence claims its date in the same transaction as its row. The
+	// primary key on (series_id, date) is what makes "generated at most once
+	// ever" true even if two writers race: the loser's booking rolls back with
+	// this error rather than doubling the date.
+	if b.SeriesID != nil {
+		if err := claimSeriesDate(ctx, tx, b); err != nil {
+			return err
+		}
+	}
 	// The two instants come back on whatever clock pgx decoded them into. Put
 	// them on the product's, so a booking scanned here and one read back
 	// through BookingFromDB serialize to the same offset — the API's
@@ -625,7 +640,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 	var courtName, clientName, clientPhone string
 	err := m.DB.QueryRow(ctx, `
 		SELECT `+BookingColumns+`,
-		       b.refund_intent_at,
+		       b.refund_intent_at, b.series_id,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
@@ -646,7 +661,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		// Read so that a booking loaded here and written back (the owner's
 		// edit) keeps the refund it still owes. Left out, every such write
 		// stored NULL over a pending refund intent.
-		&b.RefundIntentAt,
+		&b.RefundIntentAt, &b.SeriesID,
 		&courtName, &clientName, &clientPhone,
 		&b.ClientFirstName, &b.ClientLastName, &b.ClientPhone, &b.ClientEmail,
 	)
@@ -690,6 +705,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
+		       b.series_id,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone
@@ -731,6 +747,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 			&b.CollectionStatus, &b.RefundStatus,
 			&b.ReminderSent2h,
 			&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+			&b.SeriesID,
 			&courtName, &clientName, &clientPhone,
 		)
 		if err != nil {
@@ -943,6 +960,7 @@ func BookingFromDB(b db.Booking) *Booking {
 		UpdatedAt:        data.PgToTime(b.UpdatedAt),
 		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
 		ClientSnapshot:   snapshotFromDB(b),
+		SeriesID:         data.PgToUUIDPtr(b.SeriesID),
 	}
 }
 

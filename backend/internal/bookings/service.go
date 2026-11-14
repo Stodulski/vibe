@@ -14,6 +14,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/booklink"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
@@ -43,6 +44,7 @@ type Service struct {
 	*Facade
 
 	store        Store
+	series       SeriesStore
 	clients      ClientStore
 	complexes    ComplexReader
 	courts       CourtReader
@@ -66,6 +68,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 	return &Service{
 		Facade:       d.Facade,
 		store:        d.Store,
+		series:       d.Series,
 		clients:      d.Clients,
 		complexes:    d.Complexes,
 		courts:       d.Courts,
@@ -467,6 +470,22 @@ type CreateInput struct {
 	PaymentOption   string
 	DepositAmount   *int
 	Price           *int
+
+	// seriesID marks the booking as an occurrence of a fixed weekly series; the
+	// store then records its date as generated in the same transaction.
+	seriesID *uuid.UUID
+	// client is the already-resolved client, so a series resolves its person
+	// once rather than once per occurrence.
+	client *clientstore.Client
+}
+
+// preparedBooking is a validated, priced booking ready to be written, with what
+// the confirmation that follows a manual booking needs.
+type preparedBooking struct {
+	booking *bookingstore.Booking
+	counter *bookingstore.CounterPayment
+	court   *courtstore.Court
+	client  *clientstore.Client
 }
 
 // Create books a court from the owner's dashboard. Unlike the public flow there
@@ -479,6 +498,73 @@ type CreateInput struct {
 //
 //nolint:funlen // see the cohesion note above
 func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, actor Actor, in CreateInput) (*bookingstore.Booking, error) {
+	p, err := s.prepareCreate(ctx, complex, actor, in)
+	if err != nil {
+		return nil, err
+	}
+	booking, court, client := p.booking, p.court, p.client
+	if err := s.store.InsertSafeWithPayment(ctx, booking, p.counter); err != nil {
+		return nil, err
+	}
+
+	s.record(actor, complex.ID, "create", &booking.ID, booking)
+
+	// Send booking confirmation notification.
+	clientEmail := ""
+	if client.Email != nil {
+		clientEmail = *client.Email
+	}
+	// InsertSafe already minted this booking's access token
+	// (bookingstore.Booking.LinkToken); it is the credential every public route
+	// authorizes on, not the booking's primary key.
+	cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, booking.LinkToken)
+	cancelPath := booklink.CancelPath(complex.Slug, booking.LinkToken)
+	mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
+	mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
+	address := booklink.Address(complex.Address, complex.City)
+	clientFullName := client.FirstName + " " + client.LastName
+	// Read off the booking that was just written, so a staff booking entered
+	// with nothing collected reports a $0 deposit rather than quoting one
+	// nobody paid.
+	confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
+	s.notify.BookingConfirmed(notifications.BookingConfirmation{
+		// SourceStaffCreate, and not a free-text label: this constant is what
+		// suppresses the owner's "Nueva reserva" email, since the owner is the
+		// person who just made this booking.
+		Source:        notifications.SourceStaffCreate,
+		Email:         clientEmail,
+		Phone:         client.Phone,
+		ComplexName:   complex.Name,
+		CourtName:     court.Name,
+		ClientName:    clientFullName,
+		Date:          booking.Date.Format("02/01"),
+		StartTime:     timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
+		CancelURL:     cancelURL,
+		CancelPath:    cancelPath,
+		MapsQuery:     mapsQuery,
+		Address:       address,
+		MapsURL:       mapsURL,
+		DepositAmount: confirmDepositAmount,
+		BalanceAmount: confirmBalanceAmount,
+		CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.GracePeriod,
+			pricing.WithinStandardWindow(booking, complex.CancellationHours)),
+		OwnerID:   complex.OwnerID.String(),
+		BookingID: booking.ID.String(),
+	})
+
+	s.realtime.PublishBookingChanged(complex.ID)
+
+	return booking, nil
+}
+
+// prepareCreate is everything Create does before it writes: it checks the
+// court, the hour, the blocked slots and the price, resolves the client and
+// builds the booking. A fixed weekly series runs every occurrence through it
+// too, so a generated booking is validated and priced exactly like one the
+// owner typed in.
+//
+//nolint:funlen // see Create's cohesion note
+func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Complex, actor Actor, in CreateInput) (*preparedBooking, error) {
 	// Verify court belongs to complex.
 	court, err := s.courts.GetByID(ctx, in.CourtID)
 	if err != nil {
@@ -579,9 +665,12 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// (requireComplexOwner), so a name correction on an existing phone match
 	// is trusted the way the public path's is not — see
 	// clientstore.Store.GetOrCreate's comment on allowNameUpdate.
-	client, err := s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)
-	if err != nil {
-		return nil, err
+	client := in.client
+	if client == nil {
+		client, err = s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if client.IsBlocked {
@@ -610,6 +699,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		RefundStatus:     bookingstore.RefundStatusNone,
 		Notes:            notes,
 		CreatedBy:        actor.UserID,
+		SeriesID:         in.seriesID,
 	}
 
 	// The counter payment taken at creation is written in the same transaction
@@ -631,58 +721,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 			Status: collectionStatus.String(),
 		}
 	}
-	if err := s.store.InsertSafeWithPayment(ctx, booking, counter); err != nil {
-		return nil, err
-	}
-
-	s.record(actor, complex.ID, "create", &booking.ID, booking)
-
-	// Send booking confirmation notification.
-	clientEmail := ""
-	if client.Email != nil {
-		clientEmail = *client.Email
-	}
-	// InsertSafe already minted this booking's access token
-	// (bookingstore.Booking.LinkToken); it is the credential every public route
-	// authorizes on, not the booking's primary key.
-	cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, booking.LinkToken)
-	cancelPath := booklink.CancelPath(complex.Slug, booking.LinkToken)
-	mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
-	mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
-	address := booklink.Address(complex.Address, complex.City)
-	clientFullName := client.FirstName + " " + client.LastName
-	// Read off the booking that was just written, so a staff booking entered
-	// with nothing collected reports a $0 deposit rather than quoting one
-	// nobody paid.
-	confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
-	s.notify.BookingConfirmed(notifications.BookingConfirmation{
-		// SourceStaffCreate, and not a free-text label: this constant is what
-		// suppresses the owner's "Nueva reserva" email, since the owner is the
-		// person who just made this booking.
-		Source:        notifications.SourceStaffCreate,
-		Email:         clientEmail,
-		Phone:         client.Phone,
-		ComplexName:   complex.Name,
-		CourtName:     court.Name,
-		ClientName:    clientFullName,
-		Date:          booking.Date.Format("02/01"),
-		StartTime:     timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
-		CancelURL:     cancelURL,
-		CancelPath:    cancelPath,
-		MapsQuery:     mapsQuery,
-		Address:       address,
-		MapsURL:       mapsURL,
-		DepositAmount: confirmDepositAmount,
-		BalanceAmount: confirmBalanceAmount,
-		CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.GracePeriod,
-			pricing.WithinStandardWindow(booking, complex.CancellationHours)),
-		OwnerID:   complex.OwnerID.String(),
-		BookingID: booking.ID.String(),
-	})
-
-	s.realtime.PublishBookingChanged(complex.ID)
-
-	return booking, nil
+	return &preparedBooking{booking: booking, counter: counter, court: court, client: client}, nil
 }
 
 // ---------------------------------------------------------------------------
