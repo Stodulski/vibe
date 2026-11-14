@@ -73,7 +73,7 @@ describe('CreateEventModal', () => {
     schedules.current = [];
   });
 
-  it('marks every field of the form as required, with the hints above the controls', async () => {
+  it('marks every field of the form as required, with the hints below the controls', async () => {
     await renderModal();
 
     for (const label of [t.form.name, t.form.sport, t.form.date, t.form.startTime, t.form.endTime, t.form.capacity]) {
@@ -81,7 +81,7 @@ describe('CreateEventModal', () => {
     }
     const hint = screen.getByText(t.form.capacityHint);
     const input = screen.getByLabelText(new RegExp(t.form.capacity));
-    expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
   });
 
   it('offers only the hours the complex is open, both ends included', async () => {

@@ -31,7 +31,7 @@ export function EventCourtsField({
 
   return (
     <fieldset className="space-y-2.5">
-      <legend className="text-text-primary text-sm font-medium">
+      <legend className="text-text-secondary text-xs font-medium">
         {t.courts}
         <FieldRequirement required />
       </legend>

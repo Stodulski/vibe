@@ -16,8 +16,8 @@ export const events = {
   fullBadge: 'Completo',
   pricePerPerson: (price: string) => `${price} por persona`,
   endsNextDay: 'Termina al día siguiente',
-  // The grid bar: "Canchas libres · {día} {hora}".
-  blockLabel: (day: string, time: string) => `Canchas libres · ${day} ${time}`,
+  // The grid bar, under the hours: "Canchas libres · {nombre}".
+  blockLabel: (name: string) => `Canchas libres · ${name}`,
   blockLabelCompact: 'Canchas libres',
 
   // Create form
@@ -64,10 +64,11 @@ export const events = {
   detail: {
     courts: 'Canchas',
     when: 'Cuándo',
+    time: 'Horario',
     capacity: 'Cupo',
     price: 'Precio por persona',
     participants: 'Participantes',
-    participantsCount: (count: number) => (count === 1 ? '1 persona' : `${String(count)} personas`),
+    confirmedCount: (count: number) => (count === 1 ? '1 confirmado' : `${String(count)} confirmados`),
     noParticipants: 'Todavía no se anotó nadie',
     loadError: 'No pudimos cargar el evento',
     cancelledNote: 'Este evento está cancelado. Las canchas ya están libres.',

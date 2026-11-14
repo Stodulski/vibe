@@ -123,6 +123,36 @@ describe('EventDetail', () => {
     expect(row).toHaveTextContent(t.participant.cancelledByOwner);
     expect(row).not.toHaveTextContent('Canceló');
   });
+});
+
+describe('EventDetail — header and participants', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('counts only the confirmed people in the heading', async () => {
+    await renderDetail();
+
+    expect(await screen.findByText(`${t.detail.participants} · 1 confirmado`)).toBeInTheDocument();
+  });
+
+  it('puts the date under the name and writes it in capitals like the other panels', async () => {
+    await renderDetail();
+
+    const subtitle = await screen.findByText('viernes 2 de enero', { selector: 'p span' });
+    expect(subtitle).toHaveClass('inline-block');
+  });
+
+  it('keeps the confirmed people first and the cancelled ones last', async () => {
+    await renderDetail(EVENT, [...PARTICIPANTS].reverse());
+
+    const rows = within(await screen.findByRole('list', { name: t.detail.participants })).getAllByRole('listitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Ana'),
+      expect.stringContaining('Beto'),
+      expect.stringContaining('Carla'),
+    ]);
+  });
 
   it('says so when nobody signed up yet', async () => {
     await renderDetail(EVENT, []);

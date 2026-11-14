@@ -36,7 +36,6 @@ const CAPACITY = 4;
 
 // A Friday about six weeks out.
 const DATE = futureWeekday(5, 40);
-const WEEKDAY_LABEL = 'viernes';
 
 let world: EventsWorld;
 let page: Page;
@@ -49,7 +48,7 @@ function person(n: number) {
 
 /** The event's blocks on the grid, one per court. */
 function eventBlocks(p: Page) {
-  return p.getByRole('button', { name: new RegExp(`Canchas libres · ${WEEKDAY_LABEL} 20:00`) });
+  return p.getByRole('button', { name: new RegExp(`Canchas libres · ${EVENT_NAME}`) });
 }
 
 async function gotoGrid(date: string): Promise<void> {
@@ -134,11 +133,11 @@ test('the owner creates the event for all courts in the free window', async () =
   eventId = created?.id ?? '';
 });
 
-test('the grid shows "Canchas libres · {día} {hora}" on every court', async () => {
+test('the grid shows "Canchas libres · {nombre}" on every court', async () => {
   await gotoGrid(DATE);
   await expect(eventBlocks(page)).toHaveCount(2, { timeout: 10_000 });
   await expect(eventBlocks(page).first()).toHaveAccessibleName(
-    new RegExp(`20:00–22:00, Canchas libres · ${WEEKDAY_LABEL} 20:00, ${EVENT_NAME}`),
+    new RegExp(`20:00–22:00, Canchas libres · ${EVENT_NAME}`),
   );
 });
 
@@ -187,7 +186,7 @@ test('the participants list shows each spot with its payment state', async () =>
   const sheet = page.getByRole('dialog');
   await expect(sheet.getByText(EVENT_NAME)).toBeVisible({ timeout: 10_000 });
   await expect(sheet.getByText('2 de 4 anotados')).toBeVisible();
-  await expect(sheet.getByText('Participantes · 3 personas')).toBeVisible();
+  await expect(sheet.getByText('Participantes · 2 confirmados')).toBeVisible();
 
   const list = sheet.getByRole('list', { name: 'Participantes' });
   const first = list.getByRole('listitem').filter({ hasText: 'Jugador1 Libre' });
@@ -266,7 +265,7 @@ test('public: an event that already started says the sign-up closed', async ({ p
 test('cancelling shows the paid count and frees the grid', async ({ page: visitor }) => {
   await page.goto(`/events/open-play?event=${eventId}`);
   const sheet = page.getByRole('dialog');
-  await expect(sheet.getByText('Participantes · 4 personas')).toBeVisible({ timeout: 10_000 });
+  await expect(sheet.getByText('Participantes · 3 confirmados')).toBeVisible({ timeout: 10_000 });
   await sheet.getByRole('button', { name: 'Cancelar evento' }).click();
 
   const confirm = page.getByRole('alertdialog');

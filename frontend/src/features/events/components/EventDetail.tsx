@@ -11,7 +11,7 @@ import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { todayInArgentina } from '@/shared/lib/today';
 import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
-import { paidCount } from '../lib/participantStatus';
+import { paidCount, sortParticipants } from '../lib/participantStatus';
 import { CancelEventDialog } from './CancelEventDialog';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { ParticipantList } from './ParticipantList';
@@ -36,9 +36,7 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
           {event.cancelled_at && ` ${t.detail.cancelledAt(formatDateShort(event.cancelled_at))}.`}
         </p>
       )}
-      <InfoRow label={t.detail.when}>
-        <span className="first-letter:uppercase">{formatEventDay(event.date)}</span>
-        {' · '}
+      <InfoRow label={t.detail.time}>
         <span className="score-text font-medium">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </InfoRow>
       <InfoRow label={t.detail.courts}>{event.courts.map((court) => court.name).join(', ')}</InfoRow>
@@ -56,11 +54,21 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
       <EventFacts event={event} />
       <section className="pt-2">
         <h3 className="text-text-primary mb-1 text-sm font-semibold">
-          {t.detail.participants} · {t.detail.participantsCount(participants.length)}
+          {t.detail.participants} · {t.detail.confirmedCount(paidCount(participants))}
         </h3>
-        <ParticipantList participants={participants} />
+        <ParticipantList participants={sortParticipants(participants)} />
       </section>
     </div>
+  );
+}
+
+function CancelEventFooter({ onCancel }: { onCancel: () => void }) {
+  return (
+    <SheetFooter className="items-start sm:px-6">
+      <Button variant="destructive" className="rounded-lg" onClick={onCancel}>
+        {t.cancel.action}
+      </Button>
+    </SheetFooter>
   );
 }
 
@@ -93,7 +101,12 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           showCloseButton={false}
           onPointerDownOutside={onPointerDownOutside}
         >
-          <DetailSheetHeader title={event?.name ?? t.title} />
+          <DetailSheetHeader
+            title={event?.name ?? t.title}
+            subtitle={
+              event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
+            }
+          />
           {isLoading && <EventDetailSkeleton />}
           {!!error && (
             <p role="alert" className="text-error-text px-4 pt-4 text-sm sm:px-6">
@@ -102,17 +115,11 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           )}
           {event && <EventBody event={event} participants={participants} />}
           {canCancel && (
-            <SheetFooter className="sm:px-6">
-              <Button
-                variant="destructive"
-                className="self-start rounded-lg"
-                onClick={() => {
-                  setCancelOpen(true);
-                }}
-              >
-                {t.cancel.action}
-              </Button>
-            </SheetFooter>
+            <CancelEventFooter
+              onCancel={() => {
+                setCancelOpen(true);
+              }}
+            />
           )}
         </SheetContent>
       </Sheet>

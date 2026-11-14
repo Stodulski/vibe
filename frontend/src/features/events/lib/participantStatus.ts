@@ -24,6 +24,13 @@ export function participantStatusKey(participant: OpenPlayParticipant): Particip
   }
 }
 
+const STATUS_ORDER: Record<OpenPlayParticipant['status'], number> = { confirmed: 0, held: 1, cancelled: 2 };
+
+/** Confirmed people first, then the ones still paying, then the cancelled; sign-up order inside each. */
+export function sortParticipants(participants: OpenPlayParticipant[]): OpenPlayParticipant[] {
+  return [...participants].sort((a, b) => STATUS_ORDER[a.status] - STATUS_ORDER[b.status]);
+}
+
 /** How many spots are paid: the ones cancelling the event refunds. */
 export function paidCount(participants: OpenPlayParticipant[]): number {
   return participants.filter((p) => p.status === 'confirmed').length;

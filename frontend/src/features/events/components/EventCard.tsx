@@ -12,7 +12,7 @@ function EventStateText({ event }: { event: OpenPlayEvent }) {
     return <span className="text-error-text shrink-0 text-xs font-medium">{t.cancelledBadge}</span>;
   }
   if (event.spots_left === 0) {
-    return <span className="text-warning-text shrink-0 text-xs font-medium">{t.fullBadge}</span>;
+    return <span className="text-success-text shrink-0 text-xs font-medium">{t.fullBadge}</span>;
   }
   return null;
 }
@@ -34,7 +34,7 @@ export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect:
         <EventStateText event={event} />
       </div>
       <p className="text-text-secondary text-sm">
-        <span className="first-letter:uppercase">{formatEventDay(event.date)}</span>
+        <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
         {' · '}
         <span className="score-text">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </p>
