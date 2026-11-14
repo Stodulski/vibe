@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { describe, it, expect } from 'vitest';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -17,11 +18,20 @@ function http(status: number, detail: string) {
 
 describe('scheduleConflictMessage', () => {
   it.each([
-    ['a booking already holds those hours on Cancha 2', t.schedule.conflict.booking('Cancha 2')],
-    ['those hours are blocked on Cancha 2', t.schedule.conflict.blocked('Cancha 2')],
-    ['a fixed weekly booking (turno fijo) holds those hours on Cancha 2', t.schedule.conflict.fixed('Cancha 2')],
-    ['another tournament match already holds those hours on Cancha 2', t.schedule.conflict.match('Cancha 2')],
-    ['an event already holds those hours on Cancha Central 1', t.schedule.conflict.event('Cancha Central 1')],
+    ['a booking already holds those hours on Cancha 2', t.schedule.conflict.booking(keepTogether('Cancha 2'))],
+    ['those hours are blocked on Cancha 2', t.schedule.conflict.blocked(keepTogether('Cancha 2'))],
+    [
+      'a fixed weekly booking (turno fijo) holds those hours on Cancha 2',
+      t.schedule.conflict.fixed(keepTogether('Cancha 2')),
+    ],
+    [
+      'another tournament match already holds those hours on Cancha 2',
+      t.schedule.conflict.match(keepTogether('Cancha 2')),
+    ],
+    [
+      'an event already holds those hours on Cancha Central 1',
+      t.schedule.conflict.event(keepTogether('Cancha Central 1')),
+    ],
   ])('says "%s" in Spanish and names the court', async (detail, expected) => {
     expect(scheduleConflictMessage(await http(409, detail))).toBe(expected);
   });

@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
@@ -58,7 +59,9 @@ describe('SellCart — booking balances', () => {
     const { onRemoveBalance } = renderCart();
 
     await user.click(
-      screen.getByRole('button', { name: `${t.cash.cartRemove}: Saldo turno · Cancha 2 19:00 · Juan Pérez` }),
+      screen.getByRole('button', {
+        name: `${t.cash.cartRemove}: Saldo turno · ${keepTogether('Cancha 2')} 19:00 · Juan Pérez`,
+      }),
     );
 
     expect(onRemoveBalance).toHaveBeenCalledWith('b1');

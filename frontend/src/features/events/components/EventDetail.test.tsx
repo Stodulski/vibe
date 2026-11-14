@@ -86,7 +86,7 @@ describe('EventDetail', () => {
 
     expect(await screen.findByText('Americano de viernes')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
-    expect(screen.getByText('19:00 – 21:00')).toBeInTheDocument();
+    expect(screen.getByText('19:00 a 21:00')).toBeInTheDocument();
     expect(screen.getByText(t.spotsTaken(2, 20))).toBeInTheDocument();
   });
 

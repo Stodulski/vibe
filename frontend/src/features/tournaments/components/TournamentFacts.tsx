@@ -22,7 +22,12 @@ export function TournamentFacts({ tournament, complexId, paidCount, canCancel }:
   const [cancelOpen, setCancelOpen] = useState(false);
   return (
     <div className="space-y-2">
-      {tournament.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.cancelledNote}</p>}
+      {tournament.status === 'cancelled' && (
+        <div className="text-error-text flex flex-col gap-0.5 text-sm">
+          <p>{t.detail.cancelledNote}</p>
+          <p>{ES_AR.events.detail.cancelledFreeCourts}</p>
+        </div>
+      )}
       <div className="flex items-start justify-between gap-3">
         <InfoRow label={ES_AR.events.detail.when}>
           <span className="block font-medium first-letter:uppercase">

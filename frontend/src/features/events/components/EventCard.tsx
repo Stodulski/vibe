@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
@@ -19,7 +20,7 @@ function EventStateText({ event }: { event: OpenPlayEvent }) {
 
 /** A row of the events list: what, when, where, how full and the price. Pressing it opens the detail. */
 export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect: (eventId: string) => void }) {
-  const courtNames = event.courts.map((court) => court.name).join(', ');
+  const courtNames = event.courts.map((court) => keepTogether(court.name)).join(', ');
 
   return (
     <button

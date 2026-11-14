@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { describe, it, expect } from 'vitest';
 import { makeBalanceDue } from '@/test/factories';
 import {
@@ -93,6 +94,8 @@ describe('reconcileBalances', () => {
 
 describe('bookingBalanceLabel', () => {
   it('reads as the cart line the cashier taps: prefix, court and start time, then the client', () => {
-    expect(bookingBalanceLabel('Cancha 2', '19:00', 'Juan Pérez')).toBe('Saldo turno · Cancha 2 19:00 · Juan Pérez');
+    expect(bookingBalanceLabel('Cancha 2', '19:00', 'Juan Pérez')).toBe(
+      `Saldo turno · ${keepTogether('Cancha 2')} 19:00 · Juan Pérez`,
+    );
   });
 });

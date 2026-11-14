@@ -8,6 +8,7 @@ import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatDateShort, formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { todayInArgentina } from '@/shared/lib/today';
 import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
@@ -31,15 +32,16 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
   return (
     <>
       {event.status === 'cancelled' && (
-        <p className="text-error-text text-sm">
-          {t.detail.cancelledNote}
-          {event.cancelled_at && ` ${t.detail.cancelledAt(formatDateShort(event.cancelled_at))}.`}
-        </p>
+        <div className="text-error-text flex flex-col gap-0.5 text-sm">
+          <p>{t.detail.cancelledNote}</p>
+          <p>{t.detail.cancelledFreeCourts}</p>
+          {event.cancelled_at && <p>{t.detail.cancelledAt(formatDateShort(event.cancelled_at))}</p>}
+        </div>
       )}
       <InfoRow label={t.detail.time}>
         <span className="score-text font-medium">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </InfoRow>
-      <InfoRow label={t.detail.courts}>{event.courts.map((court) => court.name).join(', ')}</InfoRow>
+      <InfoRow label={t.detail.courts}>{event.courts.map((court) => keepTogether(court.name)).join(', ')}</InfoRow>
       <InfoRow label={t.detail.capacity}>{t.spotsTaken(event.confirmed_count, event.capacity)}</InfoRow>
       <InfoRow label={t.detail.price}>
         <span className="score-text font-medium">{formatPrice(event.price)}</span>

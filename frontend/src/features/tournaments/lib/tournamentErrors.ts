@@ -1,4 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
 
 const t = ES_AR.tournaments;
@@ -25,7 +26,7 @@ export function scheduleConflictMessage(error: unknown): string | null {
   const detail = getHttpErrorMessage(error, '').trim();
   for (const { match, say } of REASONS) {
     const found = match.exec(detail);
-    if (found?.[1]) return say(found[1]);
+    if (found?.[1]) return say(keepTogether(found[1]));
   }
   return c.unknown;
 }

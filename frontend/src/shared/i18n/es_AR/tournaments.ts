@@ -98,7 +98,7 @@ export const tournaments = {
         : `Mejor de tres sets de ${String(games)} games${superTiebreak ? ', súper tie-break como tercero' : ''}`,
     moreTournament: 'Opciones del torneo',
     moreCategory: 'Opciones de la categoría',
-    cancelledNote: 'Este torneo está cancelado. Las canchas ya están libres.',
+    cancelledNote: 'Este torneo está cancelado.',
     categoryCancelledNote: 'Esta categoría está cancelada.',
   },
 

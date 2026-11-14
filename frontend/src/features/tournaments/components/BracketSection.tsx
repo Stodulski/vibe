@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDay } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatTime } from '@/shared/lib/utils';
@@ -49,7 +50,7 @@ function BracketMatchCard({
   const score = resultText(match, lookups.pairs);
   const when = match.schedule
     ? ES_AR.tournaments.matches.scheduledAt(
-        match.schedule.court_name,
+        keepTogether(match.schedule.court_name),
         formatEventDay(match.schedule.date),
         formatTime(match.schedule.start_time),
       )

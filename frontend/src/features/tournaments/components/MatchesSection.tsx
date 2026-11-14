@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDay } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
@@ -23,7 +24,11 @@ interface MatchActions {
 function whenText(match: TournamentOwnerMatch): string {
   const schedule = match.schedule;
   if (!schedule) return t.unscheduled;
-  return t.scheduledAt(schedule.court_name, formatEventDay(schedule.date), formatTime(schedule.start_time));
+  return t.scheduledAt(
+    keepTogether(schedule.court_name),
+    formatEventDay(schedule.date),
+    formatTime(schedule.start_time),
+  );
 }
 
 function ResultButton({

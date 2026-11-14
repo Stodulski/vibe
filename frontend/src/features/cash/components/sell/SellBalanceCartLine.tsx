@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { AlertTriangle, X } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatPrice } from '@/shared/lib/utils';
@@ -30,7 +31,7 @@ export function SellBalanceCartLine({ line, error, onRemove }: SellBalanceCartLi
       </div>
       <div className="flex items-center justify-between gap-3">
         <p className="text-text-secondary min-w-0 text-xs break-words">
-          {`${line.courtName} · ${line.startTime} · ${line.clientName}`}
+          {`${keepTogether(line.courtName)} · ${line.startTime} · ${line.clientName}`}
         </p>
         <Button
           type="button"

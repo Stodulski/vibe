@@ -73,7 +73,8 @@ export const events = {
     confirmedCount: (count: number) => (count === 1 ? '1 confirmado' : `${String(count)} confirmados`),
     noParticipants: 'Todavía no se anotó nadie',
     loadError: 'No pudimos cargar el evento',
-    cancelledNote: 'Este evento está cancelado. Las canchas ya están libres.',
+    cancelledNote: 'Este evento está cancelado.',
+    cancelledFreeCourts: 'Las canchas ya están libres.',
     cancelledAt: (date: string) => `Cancelado el ${date}`,
   },
   participant: {
