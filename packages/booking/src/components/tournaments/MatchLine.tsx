@@ -1,6 +1,6 @@
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournamentMatch } from '../../api/types';
-import { scoreText, slotLabel, type PairLookup, type Slot } from './tournamentModel';
+import { scoreText, slotLabel, winnerOnlySide, type PairLookup, type Slot } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -20,7 +20,9 @@ interface MatchLineProps {
 export function MatchLine({ match, pairs, groupNames, caption }: MatchLineProps) {
   const first = slotLabel(match, 1, pairs, groupNames);
   const second = slotLabel(match, 2, pairs, groupNames);
-  const score = scoreText(match);
+  const side = winnerOnlySide(match);
+  // A match with no score says who won instead.
+  const score = scoreText(match) || (side ? `${t.won} ${slotText(side === 1 ? first : second)}` : '');
   const name = (n: 1 | 2, slot: Slot) => {
     const id = n === 1 ? match.pair1_id : match.pair2_id;
     const winner = id !== null && match.winner_pair_id === id;

@@ -119,6 +119,11 @@ export const MATCHES: PublicTournamentMatch[] = [
     pair1_id: 'p4', pair2_id: 'p5', status: 'completed', winner_pair_id: 'p5',
     sets: [{ a: 6, b: 4 }, { a: 3, b: 6 }, { a: 8, b: 10, super: true }],
   }),
+  // Group B, matchday 2: the owner loaded only who won (p6), no score.
+  match({
+    id: 'm-b2', category_id: 'c-groups', stage: 'group', group_id: 'gB', round: 2, position: 1,
+    pair1_id: 'p4', pair2_id: 'p6', status: 'completed', winner_pair_id: 'p6',
+  }),
   // Bracket of the groups category: semifinals wait for the groups, then the final.
   match({
     id: 'b-s1', category_id: 'c-groups', stage: 'bracket', round: 1, position: 1,

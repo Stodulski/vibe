@@ -119,9 +119,18 @@ export function slotLabel(
   return { kind: 'tbd', text: t.toBeDefined };
 }
 
-/** One side's score cells: its games per set (a match tiebreak in brackets), or W.O. for the side that forfeited. */
+/** The side that won a match loaded without a score (no sets, no walkover), or null for any other match. */
+export function winnerOnlySide(match: PublicTournamentMatch): 1 | 2 | null {
+  if (match.status !== 'completed' || match.bye || match.walkover_loser !== 0 || match.sets.length > 0) return null;
+  if (match.winner_pair_id === null) return null;
+  if (match.winner_pair_id === match.pair1_id) return 1;
+  return match.winner_pair_id === match.pair2_id ? 2 : null;
+}
+
+/** One side's score cells: its games per set (a match tiebreak in brackets), W.O. for the side that forfeited, or "Ganó" for the winner of a match with no score. */
 export function scoreCells(match: PublicTournamentMatch, side: 1 | 2): string[] {
   if (match.walkover_loser !== 0) return match.walkover_loser === side ? [t.walkover] : [];
+  if (winnerOnlySide(match) !== null) return winnerOnlySide(match) === side ? [t.won] : [];
   return match.sets.map((set) => {
     const games = String(side === 1 ? set.a : set.b);
     return set.super ? `[${games}]` : games;

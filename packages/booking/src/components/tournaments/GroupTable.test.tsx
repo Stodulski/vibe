@@ -54,6 +54,11 @@ describe('GroupSection', () => {
     expect(screen.getByText(/Cancha 2/)).toBeInTheDocument();
   });
 
+  it('says who won when the match has no score', () => {
+    renderGroup('gB');
+    expect(screen.getByText('Ganó Juan Cruz / Kari Lara')).toBeInTheDocument();
+  });
+
   it('writes a match tiebreak in brackets', () => {
     renderGroup('gB');
     expect(screen.getByText('6-4 3-6 [8-10]')).toBeInTheDocument();

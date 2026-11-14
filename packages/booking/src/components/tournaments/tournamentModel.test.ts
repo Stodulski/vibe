@@ -10,7 +10,9 @@ import {
   roundLabel,
   scheduleByDay,
   scoreCells,
+  scoreText,
   slotLabel,
+  winnerOnlySide,
 } from './tournamentModel';
 
 const pairs = pairLookup(PAIRS);
@@ -108,6 +110,20 @@ describe('scoreCells', () => {
 
   it('is empty before a result', () => {
     expect(scoreCells(matchById('m-a2'), 1)).toEqual([]);
+  });
+});
+
+describe('a winner-only result', () => {
+  it('has no score cells or text, and names its winner side', () => {
+    const m = matchById('m-b2');
+    expect(winnerOnlySide(m)).toBe(2);
+    expect(scoreCells(m, 2)).toEqual(['Ganó']);
+    expect(scoreCells(m, 1)).toEqual([]);
+    expect(scoreText(m)).toBe('');
+  });
+
+  it('is not claimed by played, walkover, bye or pending matches', () => {
+    for (const id of ['m-a1', 'e-s2', 'e-s1', 'm-a2']) expect(winnerOnlySide(matchById(id))).toBeNull();
   });
 });
 

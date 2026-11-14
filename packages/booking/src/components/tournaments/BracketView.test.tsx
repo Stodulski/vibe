@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
-import { DETAIL, MATCHES, PAIRS } from '../../test/tournamentFixtures';
+import { DETAIL, MATCHES, PAIRS, matchById } from '../../test/tournamentFixtures';
 import { BracketView } from './BracketView';
 
 const groupNames = new Map(DETAIL.groups.map((g) => [g.id, g.name]));
@@ -37,6 +37,14 @@ describe('BracketView', () => {
     const final = screen.getByRole('listitem', { name: /^Final/ });
     expect(within(final).getByText('Lola Nieto')).toBeInTheDocument();
     expect(within(final).getByText('Nico Pons')).toBeInTheDocument();
+  });
+
+  it('marks the winner of a match loaded without a score, and shows no score', () => {
+    const played = { ...matchById('e-f'), status: 'completed' as const, winner_pair_id: 'q2' };
+    render(<BracketView matches={[played]} pairs={PAIRS} groupNames={groupNames} />);
+    const final = screen.getByRole('listitem', { name: /^Final/ });
+    expect(within(final).getByText('Ganó')).toBeInTheDocument();
+    expect(within(final).getByText('Nico Pons').closest('div')).toHaveClass('font-semibold');
   });
 
   it('scrolls horizontally inside its own container, never the page', () => {

@@ -72,6 +72,7 @@ export const TOURNAMENT_MESSAGES = {
   toBeDefined: 'Por definir',
   sourcePosition: 'º de la zona',
   walkover: 'W.O.',
+  won: 'Ganó',
   withdrawn: 'Se retiró',
   groupStage: 'Zona',
   versus: 'contra',
