@@ -45,12 +45,15 @@ describe('FixedBlockDetail', () => {
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
 
-  it('"Cancelar solo esta fecha" frees that date and says which', async () => {
+  it('"Cancelar solo esta fecha" frees that date and says which, after confirming', async () => {
     const user = userEvent.setup();
     const { bookingSeriesApi, onClose } = await renderDetail();
     vi.mocked(bookingSeriesApi.skip).mockResolvedValue({ skipped: { date: DATE, reason: 'cancelled_by_owner' } });
 
     await user.click(await screen.findByRole('button', { name: t.cancelOne }));
+    expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
+    expect(screen.getByText(t.skipConfirmTitle)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: t.skipConfirmLabel }));
 
     await waitFor(() => {
       expect(bookingSeriesApi.skip).toHaveBeenCalledWith('c1', 'ser1', DATE);
@@ -60,6 +63,19 @@ describe('FixedBlockDetail', () => {
     });
     expect(onClose).toHaveBeenCalled();
     expect(bookingSeriesApi.end).not.toHaveBeenCalled();
+  });
+});
+
+describe('FixedBlockDetail — backing out of freeing a date', () => {
+  it('"Volver" leaves the date held and writes nothing', async () => {
+    const user = userEvent.setup();
+    const { bookingSeriesApi, onClose } = await renderDetail();
+
+    await user.click(await screen.findByRole('button', { name: t.cancelOne }));
+    await user.click(screen.getByRole('button', { name: ES_AR.common.back }));
+
+    expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });
 

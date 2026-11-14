@@ -3102,6 +3102,11 @@ export interface components {
             date: string;
             /** @enum {string} */
             reason: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
+            /**
+             * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+             * @enum {string}
+             */
+            held_by?: "booking" | "fixed" | "event" | "match";
         };
         /** @description One upcoming date of a series. */
         BookingSeriesUpcoming: {
@@ -3360,6 +3365,8 @@ export interface components {
             court_fee: number;
         };
         TournamentOwnerSummary: components["schemas"]["Tournament"] & {
+            /** @description Matches of an active tournament with both pairs known, not a bye, not played and without a court yet. 0 for a cancelled tournament. */
+            unscheduled_count: number;
             categories: components["schemas"]["TournamentOwnerCategory"][];
         };
         TournamentSummary: components["schemas"]["Tournament"] & {

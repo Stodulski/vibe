@@ -35,6 +35,7 @@ function SeriesConflictsView({
   return (
     <SeriesConflictsPanel
       conflicts={seriesSubmit.conflicts}
+      endless={form.series.endMode === 'never'}
       pending={seriesSubmit.createSeries.isPending}
       onSkip={() => {
         seriesSubmit.submitSkippingConflicts(onClose);

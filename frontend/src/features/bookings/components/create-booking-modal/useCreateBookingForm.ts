@@ -8,6 +8,7 @@ import { cleanBookingPayload } from './cleanBookingPayload';
 import { useSeriesOptions } from './useSeriesOptions';
 import { useSeriesSubmit } from './useSeriesSubmit';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import type { UseFormSetValue } from 'react-hook-form';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { CourtWithPrices, Schedule } from '@/shared/types/api.types';
 
@@ -21,6 +22,20 @@ interface UseCreateBookingFormArgs {
   /** Opening hours, so the price preview charges from the window the hour came out of. */
   schedules: Schedule[];
   prefill?: CreateBookingPrefill | undefined;
+}
+
+/**
+ * A series is charged like a normal booking, at the court: drop any deposit
+ * chosen before the switch, whose payment method would otherwise fail
+ * validation from a field this mode no longer shows.
+ */
+function switchRepeat(
+  series: ReturnType<typeof useSeriesOptions>,
+  setValue: UseFormSetValue<CreateBookingDto>,
+  repeat: boolean,
+) {
+  series.setRepeat(repeat);
+  if (repeat) setValue('payment_option', 'unpaid');
 }
 
 export function useCreateBookingForm({
@@ -89,16 +104,13 @@ export function useCreateBookingForm({
     ...formState,
     ...pricing,
     timeSlots,
+    courtName: courts.find((c) => c.id === courtId)?.name ?? '',
     onSubmit,
     createBooking,
     series: {
       ...series,
-      // A series is charged like a normal booking, at the court: drop any
-      // deposit chosen before the switch, whose payment method would
-      // otherwise fail validation from a field this mode no longer shows.
       setRepeat: (repeat: boolean) => {
-        series.setRepeat(repeat);
-        if (repeat) formState.setValue('payment_option', 'unpaid');
+        switchRepeat(series, formState.setValue, repeat);
       },
     },
     seriesSubmit,

@@ -135,6 +135,12 @@ export const bookings = {
   fixedBooking: 'Turno fijo',
   openPlayEventSlotTaken: 'Ese horario es parte de un evento de canchas libres.',
   tournamentMatchSlotTaken: 'Ese horario lo ocupa un partido de torneo.',
+  // The notice above the grid on a day of a tournament that still has matches to schedule.
+  unscheduledMatches: {
+    message: (tournament: string, count: number) =>
+      `${tournament}: ${String(count)} ${count === 1 ? 'partido' : 'partidos'} sin cancha ni horario`,
+    schedule: 'Programar',
+  },
   series: {
     repeatWeekly: 'Repetir todas las semanas',
     endLabel: 'Hasta cuándo',
@@ -146,11 +152,21 @@ export const bookings = {
     untilBeforeStart: 'La fecha de fin no puede ser anterior a la primera fecha',
     weeksRange: 'Ingresá entre 2 y 52 semanas',
     paymentNote: 'Cada turno se cobra como una reserva normal.',
-    conflictsTitle: 'Estas fechas ya están ocupadas:',
+    conflictsTitle: (count: number) =>
+      count === 1 ? 'Esta fecha ya está ocupada:' : `Estas ${String(count)} fechas ya están ocupadas:`,
+    // A series with no end is only checked for the year ahead, the booking horizon.
+    conflictsEndless: 'Como el turno fijo no tiene fecha de fin, revisamos las fechas del próximo año.',
+    // What holds a date that collides, when the server says (`held_by`).
+    heldBy: {
+      booking: 'ocupada por una reserva',
+      fixed: 'ocupada por otro turno fijo',
+      event: 'ocupada por un evento',
+      match: 'ocupada por un partido de torneo',
+    },
     conflictReasons: {
       cancelled_by_owner: 'liberada',
       overlap: 'ocupada',
-      blocked: 'bloqueada',
+      blocked: 'ocupada por un bloqueo',
       closed_day: 'el complejo está cerrado',
       no_price: 'sin precio para ese horario',
       client_blocked: 'cliente bloqueado',
@@ -164,11 +180,19 @@ export const bookings = {
       return `${created} · ${String(skipped)} ${skipped === 1 ? 'fecha salteada' : 'fechas salteadas'}`;
     },
     createError: 'Error al crear el turno fijo',
+    // The last step's button when the booking repeats every week.
+    createLabel: 'Crear turno fijo',
+    // "Todos los lunes de 18:00 a 19:30 en Cancha 1, desde el 16/11" (+ " hasta el 30/05").
+    summary: (weekdayPlural: string, from: string, to: string, court: string, since: string, until?: string) =>
+      `Todos los ${weekdayPlural} de ${from} a ${to} en ${court}, desde el ${since}${until ? ` hasta el ${until}` : ''}`,
     // Indexed by weekday, 0 = Sunday, as the API sends it. Plural and lower
     // case because it follows "todos los".
     weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
     label: (weekdayPlural: string, time: string) => `Turno fijo · todos los ${weekdayPlural} a las ${time}`,
     cancelOne: 'Cancelar solo esta fecha',
+    skipConfirmTitle: 'Liberar esta fecha',
+    skipConfirmDescription: 'Esta fecha queda libre. El turno fijo sigue en las demás semanas.',
+    skipConfirmLabel: 'Cancelar esta fecha',
     endFromHere: 'Cancelar turno fijo',
     endConfirmTitle: 'Cancelar el turno fijo',
     endConfirmDescription:
@@ -187,8 +211,8 @@ export const bookings = {
     skipSuccess: (dayMonth: string) => `Fecha liberada: ${dayMonth}`,
     skipError: 'Error al liberar la fecha',
     // The blocked slot of a date no booking exists for yet.
-    blockLabel: (client: string) => `Bloqueo por turno fijo · ${client}`,
-    blockTitle: 'Bloqueo por turno fijo',
+    blockLabel: (client: string) => `Turno fijo · ${client}`,
+    blockTitle: 'Turno fijo',
     blockLabelCompact: 'Turno fijo',
     blockDetailTitle: 'Turno fijo',
     slotTaken: 'Ese horario es de un turno fijo. Cancelá esa fecha del turno fijo para usarlo.',

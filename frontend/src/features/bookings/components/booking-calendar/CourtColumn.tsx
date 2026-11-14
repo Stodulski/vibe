@@ -57,10 +57,12 @@ interface CourtColumnProps {
  */
 function ColumnHeldBlocks({
   column: { courtName, fixed, event: events },
+  date,
   onFixed,
   onEvent,
 }: {
   column: TimelineColumnData;
+  date: string;
   /** Pressed fixed weekly booking. */
   onFixed?: ((block: FixedBlock) => void) | undefined;
   /** Pressed open-play event. */
@@ -73,6 +75,7 @@ function ColumnHeldBlocks({
           key={`${block.series_id}-${block.date}`}
           block={block}
           courtName={courtName}
+          date={date}
           onSelect={() => {
             onFixed?.(block);
           }}
@@ -83,6 +86,7 @@ function ColumnHeldBlocks({
           key={`${'match_id' in block ? block.match_id : block.event_id}-${block.date}`}
           block={block}
           courtName={courtName}
+          date={date}
           onSelect={() => {
             onEvent?.(block);
           }}
@@ -215,7 +219,7 @@ function CourtColumnImpl({
         courtName={column.courtName}
         onSelectBlockedSlot={onSelectBlockedSlot}
       />
-      <ColumnHeldBlocks column={column} onFixed={onSelectFixedBlock} onEvent={onSelectEventBlock} />
+      <ColumnHeldBlocks column={column} date={date} onFixed={onSelectFixedBlock} onEvent={onSelectEventBlock} />
       <ColumnBookings
         bookings={column.bookings}
         courtName={column.courtName}

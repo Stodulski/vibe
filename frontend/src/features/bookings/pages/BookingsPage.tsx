@@ -3,6 +3,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useSelectedComplex } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useBookingsPage } from './bookings/useBookingsPage';
+import { UnscheduledMatchesNotice } from '../components/UnscheduledMatchesNotice';
 import { BookingContent } from './bookings/BookingContent';
 import { BookingsPageHeader } from './bookings/BookingsPageHeader';
 import { DateNavStrip } from './bookings/DateNavStrip';
@@ -61,6 +62,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
 
       {/* Content */}
       <div>
+        <UnscheduledMatchesNotice complexId={complexId} date={state.selectedDate} />
         <BookingContent
           isLoading={state.isLoading}
           isError={state.isError}

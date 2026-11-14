@@ -2,9 +2,9 @@ import { format } from 'date-fns/format';
 import { parseISO } from 'date-fns/parseISO';
 import { es } from 'date-fns/locale/es';
 
-/** A `YYYY-MM-DD` date as "mar 18 nov". `parseISO` reads a date-only string as local midnight, so no day shifts. */
-export function formatDateOnly(date: string): string {
-  return format(parseISO(date), 'EEE d MMM', { locale: es });
+/** A `YYYY-MM-DD` date as "mié 18 nov 2026": the year is there for dates a year or more away. */
+export function formatDateOnlyWithYear(date: string): string {
+  return format(parseISO(date), 'EEE d MMM yyyy', { locale: es });
 }
 
 /** A `YYYY-MM-DD` date, or a timestamp starting with one, as "14/12". */

@@ -11,10 +11,13 @@ const REASONS = new Set<BookingSeriesConflict['reason']>([
   'missed',
 ]);
 
+const HELD_BY = new Set<NonNullable<BookingSeriesConflict['held_by']>>(['booking', 'fixed', 'event', 'match']);
+
 function isConflict(value: unknown): value is BookingSeriesConflict {
   if (typeof value !== 'object' || value === null) return false;
-  const { date, reason } = value as { date?: unknown; reason?: unknown };
-  return typeof date === 'string' && typeof reason === 'string' && REASONS.has(reason as never);
+  const { date, reason, held_by } = value as { date?: unknown; reason?: unknown; held_by?: unknown };
+  const heldByOk = held_by === undefined || (typeof held_by === 'string' && HELD_BY.has(held_by as never));
+  return typeof date === 'string' && typeof reason === 'string' && REASONS.has(reason as never) && heldByOk;
 }
 
 /**

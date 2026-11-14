@@ -213,8 +213,8 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
-    expect(block).toHaveTextContent('Bloqueo por turno fijo');
+    const block = screen.getByRole('button', { name: /Turno fijo · Ana Gomez/ });
+    expect(block).toHaveTextContent('Turno fijo');
     expect(block).toHaveTextContent('Ana Gomez');
     await user.click(block);
 
@@ -231,7 +231,7 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
     );
 
     // 23:00 to the end of the day is 4% of the grid; a backwards range would not be drawn at all.
-    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
+    const block = screen.getByRole('button', { name: /Turno fijo · Ana Gomez/ });
     expect(block.style.top).toContain('95.83');
   });
 

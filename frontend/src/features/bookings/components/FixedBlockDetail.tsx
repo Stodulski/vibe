@@ -8,7 +8,7 @@ import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatDateFull, formatTime } from '@/shared/lib/utils';
-import { useSkipSeriesDate } from '../hooks/useSkipSeriesDate';
+import { SkipDateDialog } from './booking-detail/SkipDateDialog';
 import { EndSeriesDialog } from './booking-detail/EndSeriesDialog';
 import { weekdayOf } from '../lib/seriesDates';
 import { todayInArgentina } from '../lib/today';
@@ -48,21 +48,62 @@ function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: 
   );
 }
 
-function FixedBlockActions({ pending, onSkip, onEnd }: { pending: boolean; onSkip: () => void; onEnd: () => void }) {
+function FixedBlockActions({ onSkip, onEnd }: { onSkip: () => void; onEnd: () => void }) {
   return (
     <SheetFooter>
       <Button
         variant="outline"
         className="border-error-text/30 text-error-text hover:bg-error-text/10 w-full rounded-lg"
-        disabled={pending}
         onClick={onSkip}
       >
         {t.bookings.series.cancelOne}
       </Button>
-      <Button variant="destructive" className="w-full rounded-lg" disabled={pending} onClick={onEnd}>
+      <Button variant="destructive" className="w-full rounded-lg" onClick={onEnd}>
         {t.bookings.series.endFromHere}
       </Button>
     </SheetFooter>
+  );
+}
+
+/** The two confirmations behind the sheet: free just this date, or end the series from it. */
+function FixedBlockDialogs({
+  block,
+  complexId,
+  skipOpen,
+  endOpen,
+  onCloseSkip,
+  onCloseEnd,
+  onDone,
+}: {
+  block: FixedBlock;
+  complexId: string;
+  skipOpen: boolean;
+  endOpen: boolean;
+  onCloseSkip: () => void;
+  onCloseEnd: () => void;
+  /** Shuts the sheet once either one went through. */
+  onDone: () => void;
+}) {
+  const date = block.date.slice(0, 10);
+  return (
+    <>
+      <SkipDateDialog
+        seriesId={block.series_id}
+        date={date}
+        complexId={complexId}
+        open={skipOpen}
+        onClose={onCloseSkip}
+        onSkipped={onDone}
+      />
+      <EndSeriesDialog
+        seriesId={block.series_id}
+        fromDate={date}
+        complexId={complexId}
+        open={endOpen}
+        onClose={onCloseEnd}
+        onEnded={onDone}
+      />
+    </>
   );
 }
 
@@ -73,7 +114,7 @@ function FixedBlockActions({ pending, onSkip, onEnd }: { pending: boolean; onSki
  */
 export function FixedBlockDetail({ open, onClose, block, courtName, complexId }: FixedBlockDetailProps) {
   const [endOpen, setEndOpen] = useState(false);
-  const skipDate = useSkipSeriesDate(complexId);
+  const [skipOpen, setSkipOpen] = useState(false);
   const onPointerDownOutside = useOutsideClickGrace(open);
   // Keeps the last block on screen while the sheet slides away (see `BlockedSlotDetail`).
   const shown = useExitingValue(block);
@@ -106,9 +147,8 @@ export function FixedBlockDetail({ open, onClose, block, courtName, complexId }:
 
           {canCancel && (
             <FixedBlockActions
-              pending={skipDate.isPending}
               onSkip={() => {
-                skipDate.mutate({ seriesId: shown.series_id, date }, { onSuccess: onClose });
+                setSkipOpen(true);
               }}
               onEnd={() => {
                 setEndOpen(true);
@@ -117,15 +157,18 @@ export function FixedBlockDetail({ open, onClose, block, courtName, complexId }:
           )}
         </SheetContent>
       </Sheet>
-      <EndSeriesDialog
-        seriesId={shown.series_id}
-        fromDate={date}
+      <FixedBlockDialogs
+        block={shown}
         complexId={complexId}
-        open={endOpen}
-        onClose={() => {
+        skipOpen={skipOpen}
+        endOpen={endOpen}
+        onCloseSkip={() => {
+          setSkipOpen(false);
+        }}
+        onCloseEnd={() => {
           setEndOpen(false);
         }}
-        onEnded={onClose}
+        onDone={onClose}
       />
     </>
   );
