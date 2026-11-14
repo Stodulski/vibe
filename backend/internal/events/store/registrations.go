@@ -129,7 +129,7 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 		Price: event.Price,
 		//nolint:gosec // G115: the flat service fee on a price in centavos; far below int32 range.
 		ServiceFee:      int32(in.ServiceFee),
-		HeldUntil:       data.TimeToPg(time.Now().Add(m.PaymentExpiry)),
+		HoldSeconds:     m.PaymentExpiry.Seconds(),
 		AccessTokenHash: hash,
 		HoldIp:          data.TextToPg(&in.IP),
 	})

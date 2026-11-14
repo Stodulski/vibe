@@ -73,11 +73,18 @@ SET status = 'expired'
 WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
 
 -- name: InsertOpenPlayRegistration :one
+-- The hold ends hold_seconds from now on the database's clock, the one every
+-- capacity count compares held_until against.
 INSERT INTO open_play_registrations (
     event_id, complex_id, first_name, last_name, phone, email,
     price, service_fee, held_until, access_token_hash, hold_ip
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES (
+    sqlc.arg(event_id), sqlc.arg(complex_id), sqlc.arg(first_name), sqlc.arg(last_name),
+    sqlc.arg(phone), sqlc.arg(email), sqlc.arg(price), sqlc.arg(service_fee),
+    NOW() + make_interval(secs => sqlc.arg(hold_seconds)::float8),
+    sqlc.arg(access_token_hash), sqlc.arg(hold_ip)
+)
 RETURNING *;
 
 -- name: GetOpenPlayRegistration :one

@@ -328,6 +328,8 @@ type Querier interface {
 	InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) (EmailVerificationToken, error)
 	InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEventParams) (OpenPlayEvent, error)
 	InsertOpenPlayEventCourt(ctx context.Context, arg InsertOpenPlayEventCourtParams) error
+	// The hold ends hold_seconds from now on the database's clock, the one every
+	// capacity count compares held_until against.
 	InsertOpenPlayRegistration(ctx context.Context, arg InsertOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)

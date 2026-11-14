@@ -415,24 +415,31 @@ INSERT INTO open_play_registrations (
     event_id, complex_id, first_name, last_name, phone, email,
     price, service_fee, held_until, access_token_hash, hold_ip
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES (
+    $1, $2, $3, $4,
+    $5, $6, $7, $8,
+    NOW() + make_interval(secs => $9::float8),
+    $10, $11
+)
 RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at
 `
 
 type InsertOpenPlayRegistrationParams struct {
-	EventID         pgtype.UUID        `json:"event_id"`
-	ComplexID       pgtype.UUID        `json:"complex_id"`
-	FirstName       string             `json:"first_name"`
-	LastName        string             `json:"last_name"`
-	Phone           string             `json:"phone"`
-	Email           pgtype.Text        `json:"email"`
-	Price           int32              `json:"price"`
-	ServiceFee      int32              `json:"service_fee"`
-	HeldUntil       pgtype.Timestamptz `json:"held_until"`
-	AccessTokenHash []byte             `json:"access_token_hash"`
-	HoldIp          pgtype.Text        `json:"hold_ip"`
+	EventID         pgtype.UUID `json:"event_id"`
+	ComplexID       pgtype.UUID `json:"complex_id"`
+	FirstName       string      `json:"first_name"`
+	LastName        string      `json:"last_name"`
+	Phone           string      `json:"phone"`
+	Email           pgtype.Text `json:"email"`
+	Price           int32       `json:"price"`
+	ServiceFee      int32       `json:"service_fee"`
+	HoldSeconds     float64     `json:"hold_seconds"`
+	AccessTokenHash []byte      `json:"access_token_hash"`
+	HoldIp          pgtype.Text `json:"hold_ip"`
 }
 
+// The hold ends hold_seconds from now on the database's clock, the one every
+// capacity count compares held_until against.
 func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpenPlayRegistrationParams) (OpenPlayRegistration, error) {
 	row := q.db.QueryRow(ctx, insertOpenPlayRegistration,
 		arg.EventID,
@@ -443,7 +450,7 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 		arg.Email,
 		arg.Price,
 		arg.ServiceFee,
-		arg.HeldUntil,
+		arg.HoldSeconds,
 		arg.AccessTokenHash,
 		arg.HoldIp,
 	)
