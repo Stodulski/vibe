@@ -22,6 +22,10 @@ export const EVENT_MESSAGES = {
   priceLabel: 'Lugar',
   signUpConflict:
     'No pudimos guardar tu lugar. Puede que el evento esté completo, que la inscripción esté cerrada o que este teléfono ya tenga un lugar.',
+  eventFullRefusal: 'El evento ya está completo.',
+  signUpClosed: 'La inscripción ya cerró.',
+  alreadyRegistered: 'Ese teléfono ya está anotado en este evento.',
+  tooManyUnpaid: 'Hiciste muchos intentos o tenés inscripciones sin pagar. Esperá unos minutos y probá de nuevo.',
   signUpError: 'No pudimos inscribirte. Probá de nuevo.',
   backToComplex: 'Ver el complejo',
   eventNotFound: 'Evento no encontrado',

@@ -26,3 +26,11 @@ export function spotsLeftLabel(spotsLeft: number): string {
 export function isOpenForSignUp(event: Pick<PublicOpenPlayEvent, 'status' | 'spots_left'>): boolean {
   return event.status === 'active' && event.spots_left > 0;
 }
+
+/** Argentina has no daylight saving time, so the venue's offset is fixed. */
+const VENUE_UTC_OFFSET = '-03:00';
+
+/** Whether the event's start (its date and time in the venue's zone) is already behind `now`: a stale link. */
+export function eventHasStarted(event: Pick<PublicOpenPlayEvent, 'date' | 'start_time'>, now: Date = new Date()): boolean {
+  return now.getTime() >= new Date(`${event.date}T${event.start_time}:00${VENUE_UTC_OFFSET}`).getTime();
+}

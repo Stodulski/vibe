@@ -4,7 +4,7 @@ export const EVENT: PublicOpenPlayEvent = {
   id: 'ev1',
   name: 'Americano del sábado',
   sport: 'padel',
-  date: '2026-12-05',
+  date: '2099-12-05',
   start_time: '19:00',
   end_time: '22:00',
   duration_minutes: 180,

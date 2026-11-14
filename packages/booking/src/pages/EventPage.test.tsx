@@ -56,6 +56,14 @@ describe('EventPage event', () => {
     expect(screen.queryByRole('button', { name: t.publicBooking.paySecurely })).not.toBeInTheDocument();
   });
 
+  it('shows a closed state instead of the form once the event has started', async () => {
+    serveEvent({ ...EVENT, date: '2020-01-01' });
+    open();
+
+    expect(await screen.findByText(t.events.signUpClosed)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.publicBooking.paySecurely })).not.toBeInTheDocument();
+  });
+
   it('says a cancelled event was cancelled and offers no form', async () => {
     serveEvent({ ...EVENT, status: 'cancelled' });
     open();
@@ -126,13 +134,21 @@ describe('EventPage sign-up', () => {
 });
 
 describe('EventPage refused sign-up', () => {
-  it('explains a 409 without leaving the page', async () => {
+  const REFUSALS = [
+    { kind: 'event-full', status: 409, copy: t.events.eventFullRefusal },
+    { kind: 'event-closed', status: 409, copy: t.events.signUpClosed },
+    { kind: 'already-registered', status: 409, copy: t.events.alreadyRegistered },
+    { kind: 'conflict', status: 409, copy: t.events.signUpConflict },
+    { kind: 'rate-limited', status: 429, copy: t.events.tooManyUnpaid },
+  ];
+
+  it.each(REFUSALS)('explains a $kind refusal in its own words without leaving the page', async ({ kind, status, copy }) => {
     serveEvent();
     server.use(
       http.post('*/public/complexes/:slug/events/:id/registrations', () =>
         HttpResponse.json(
-          { type: 'https://vibe.com.ar/problems/conflict', title: 'Conflict', status: 409, detail: 'the event is full' },
-          { status: 409, headers: { 'Content-Type': 'application/problem+json' } },
+          { type: `https://vibe.com.ar/problems/${kind}`, title: 'Refused', status, detail: 'English prose' },
+          { status, headers: { 'Content-Type': 'application/problem+json' } },
         ),
       ),
     );
@@ -143,7 +159,7 @@ describe('EventPage refused sign-up', () => {
     await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
     await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
 
-    expect(await screen.findByRole('alert')).toHaveTextContent(t.events.signUpConflict);
+    expect(await screen.findByRole('alert')).toHaveTextContent(copy);
     expect(navigateTo).not.toHaveBeenCalled();
   });
 });

@@ -12,13 +12,14 @@ import {
 } from '../lib/eventRegistrationStorage';
 import { EventCard } from '../components/events/EventCard';
 import { EventSignUpForm } from '../components/events/EventSignUpForm';
-import { isOpenForSignUp } from '../components/events/eventFormat';
+import { eventHasStarted, isOpenForSignUp } from '../components/events/eventFormat';
 import {
   BackToComplexButton,
   CancelledEventNotice,
   EventLoadErrorState,
   EventNotFoundState,
   FullEventNotice,
+  SignUpClosedNotice,
   PaymentFailedState,
   RegistrationNotFoundState,
 } from './event-page/EventPageStates';
@@ -101,12 +102,16 @@ function EventSignUpPage({ slug, eventId, paymentFailed }: { slug: string; event
 
   if (showFailure) return <PaymentFailedState onRetry={() => void retry()} isRetrying={pending} />;
 
+  const started = eventHasStarted(event);
+  const cancelled = event.status === 'cancelled';
+  const open = isOpenForSignUp(event) && !started;
   return (
     <>
       <EventCard event={event} headingLevel="h1" />
-      {event.status === 'cancelled' && <CancelledEventNotice />}
-      {event.status !== 'cancelled' && !isOpenForSignUp(event) && <FullEventNotice />}
-      {isOpenForSignUp(event) && <EventSignUpForm slug={slug} event={event} />}
+      {cancelled && <CancelledEventNotice />}
+      {!cancelled && started && <SignUpClosedNotice />}
+      {!cancelled && !started && !open && <FullEventNotice />}
+      {open && <EventSignUpForm slug={slug} event={event} />}
       <BackToComplexButton slug={slug} />
     </>
   );

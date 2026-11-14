@@ -136,3 +136,12 @@ export function FullEventNotice() {
     </p>
   );
 }
+
+export function SignUpClosedNotice() {
+  return (
+    <p role="status" className="text-text-secondary text-center text-sm">
+      <CheckCircle2 className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
+      {t.events.signUpClosed}
+    </p>
+  );
+}
