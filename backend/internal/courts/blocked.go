@@ -93,9 +93,16 @@ func (h *Handler) ListBlockedSlots(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	events, err := h.svc.ListEventBlocks(r.Context(), complex.ID, dateFrom, dateTo)
+	if err != nil {
+		h.respond.ServerError(w, r, err)
+		return
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
 		"blocked_slots": out,
 		"fixed_blocks":  toFixedBlocksWire(fixed),
+		"event_blocks":  toEventBlocksWire(events),
 		"metadata":      metadata,
 	})
 }

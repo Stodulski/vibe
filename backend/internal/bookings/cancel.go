@@ -160,6 +160,13 @@ func refundEnvelope(outcome paymentstore.RefundOutcome) httpx.Envelope {
 	return e
 }
 
+// RefundEnvelope renders an outcome for a cancellation response. Exported for the
+// events domain, whose participants cancel under the same policy and read the same
+// sentences about their money.
+func RefundEnvelope(outcome paymentstore.RefundOutcome) httpx.Envelope {
+	return refundEnvelope(outcome)
+}
+
 // refundStatusAfter reports the booking's refund status as it now stands in the
 // database, which is not what the in-memory booking holds.
 //

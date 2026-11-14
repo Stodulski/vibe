@@ -12,6 +12,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -204,4 +205,32 @@ func TestACourtWithALiveEventCannotBeDeleted(t *testing.T) {
 	if err := f.Stores.Courts.SoftDelete(ctx, f.CourtID); err != nil {
 		t.Fatalf("with the event cancelled the court can go: %v", err)
 	}
+}
+
+// Events are tenant data: another complex's scope neither reads an event nor
+// cancels it, and cannot sign people up under it.
+func TestEventsAreScopedToTheirComplex(t *testing.T) {
+	f := datatest.Isolated(t)
+	e := createEvent(t, f, "18:00", 120)
+	foreign := data.ContextWithTenant(context.Background(), uuid.New())
+
+	if _, err := f.Stores.Events.GetEvent(foreign, e.ID); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("another tenant must not read the event; got %v", err)
+	}
+	if _, _, err := f.Stores.Events.CancelEvent(foreign, e.ID, f.UserID, nil); err == nil {
+		t.Error("another tenant must not cancel the event")
+	}
+	if _, err := signUpAs(foreign, f, e); err == nil {
+		t.Error("another tenant must not sign people up under the event")
+	}
+	if got, err := f.Stores.Events.GetEvent(f.Scoped(context.Background()), e.ID); err != nil || got.Status != eventstore.EventActive {
+		t.Errorf("the event must be untouched; got %+v (%v)", got, err)
+	}
+}
+
+func signUpAs(ctx context.Context, f *datatest.Fixture, e *eventstore.Event) (*eventstore.Registration, error) {
+	reg, _, err := f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+		EventID: e.ID, FirstName: "A", LastName: "B", Phone: "+5491100000042", IP: "203.0.113.50", MaxHoldsPerIP: 10,
+	})
+	return reg, err
 }

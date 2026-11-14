@@ -176,9 +176,26 @@ func ceilingsFor(r *http.Request) []int {
 		return generalAndBook
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book/holds":
 		return generalAndHold
+	case isEventSignUp(r):
+		return generalAndHold
 	default:
 		return generalOnly
 	}
+}
+
+// isEventSignUp reports whether the request is an open-play event sign-up,
+// POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations. Taking a
+// spot is taking a hold, so it is throttled under the same `hold` ceiling as a
+// slot hold: the slug and the id sit in the path, so the route cannot be
+// matched by equality as the fixed ones are.
+func isEventSignUp(r *http.Request) bool {
+	const prefix, suffix = "/api/v1/public/complexes/", "/registrations"
+	path := r.URL.Path
+	if r.Method != http.MethodPost || !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return false
+	}
+	// {slug}/events/{eventID}: exactly three segments between the prefix and the suffix.
+	return strings.Count(strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix), "/") == 2
 }
 
 // rateLimitExemptRoutes names the exact routes that are outside rate limiting,

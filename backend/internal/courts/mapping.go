@@ -210,3 +210,22 @@ func toFixedBlocksWire(occs []bookingstore.SeriesOccurrence) []gen.FixedBlock {
 	}
 	return out
 }
+
+// toEventBlocksWire maps the hours open-play events hold onto the wire's event
+// blocks, never nil. The times are the venue's wall-clock: end_time is earlier
+// than start_time when the hours run past midnight.
+func toEventBlocksWire(occs []bookingstore.EventOccupancy) []gen.EventBlock {
+	out := make([]gen.EventBlock, len(occs))
+	for i, o := range occs {
+		out[i] = gen.EventBlock{
+			EventId:         o.EventID,
+			CourtId:         o.CourtID,
+			Date:            openapi_types.Date{Time: o.Date},
+			StartTime:       o.StartsAt.In(timezone.Argentina).Format("15:04"),
+			EndTime:         o.EndsAt.In(timezone.Argentina).Format("15:04"),
+			DurationMinutes: int(o.EndsAt.Sub(o.StartsAt) / time.Minute),
+			Name:            o.Name,
+		}
+	}
+	return out
+}

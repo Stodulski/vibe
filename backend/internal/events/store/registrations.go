@@ -79,60 +79,68 @@ func (m *Store) SignUp(ctx context.Context, in SignUpInput) (*Registration, stri
 	}
 	var row db.OpenPlayRegistration
 	err = m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, q *db.Queries) error {
-		event, err := q.LockOpenPlayEvent(ctx, data.UUIDToPg(in.EventID))
-		if err != nil {
-			if errors.Is(err, pgx.ErrNoRows) {
-				return data.ErrRecordNotFound
-			}
-			return fmt.Errorf("events: lock event: %w", err)
-		}
-		if err := data.AssertTenant(ctx, data.PgToUUID(event.ComplexID)); err != nil {
-			return err
-		}
-		if event.Status != EventActive || !eventFromDB(event).StartsAt().After(time.Now()) {
-			return ErrEventClosed
-		}
-		if err := m.checkHoldLimit(ctx, tx, in); err != nil {
-			return err
-		}
-		if err := q.ExpireOpenPlayHoldsOfPhone(ctx, db.ExpireOpenPlayHoldsOfPhoneParams{
-			EventID: event.ID, Phone: in.Phone,
-		}); err != nil {
-			return fmt.Errorf("events: expire stale holds: %w", err)
-		}
-		if err := m.checkNotRegistered(ctx, tx, event.ID, in.Phone); err != nil {
-			return err
-		}
-		taken, err := q.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{EventID: event.ID})
-		if err != nil {
-			return fmt.Errorf("events: count spots: %w", err)
-		}
-		if taken >= event.Capacity {
-			return ErrEventFull
-		}
-		row, err = q.InsertOpenPlayRegistration(ctx, db.InsertOpenPlayRegistrationParams{
-			EventID: event.ID, ComplexID: event.ComplexID,
-			FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Email: data.TextToPg(in.Email),
-			Price: event.Price,
-			//nolint:gosec // G115: the flat service fee on a price in centavos; far below int32 range.
-			ServiceFee:      int32(in.ServiceFee),
-			HeldUntil:       data.TimeToPg(time.Now().Add(m.PaymentExpiry)),
-			AccessTokenHash: hash,
-			HoldIp:          data.TextToPg(&in.IP),
-		})
-		if err != nil {
-			var pgErr *pgconn.PgError
-			if errors.As(err, &pgErr) && pgErr.Code == data.SQLStateUniqueViolation {
-				return ErrAlreadyRegistered
-			}
-			return fmt.Errorf("events: insert registration: %w", err)
-		}
-		return nil
+		var err error
+		row, err = m.signUpInTx(ctx, tx, q, in, hash)
+		return err
 	})
 	if err != nil {
 		return nil, "", err
 	}
 	return registrationFromDB(row), token, nil
+}
+
+// signUpInTx is SignUp's transaction: lock the event, refuse what the event or
+// the person cannot take, count, and insert the hold.
+func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in SignUpInput, hash []byte) (db.OpenPlayRegistration, error) {
+	event, err := q.LockOpenPlayEvent(ctx, data.UUIDToPg(in.EventID))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return db.OpenPlayRegistration{}, data.ErrRecordNotFound
+		}
+		return db.OpenPlayRegistration{}, fmt.Errorf("events: lock event: %w", err)
+	}
+	if err := data.AssertTenant(ctx, data.PgToUUID(event.ComplexID)); err != nil {
+		return db.OpenPlayRegistration{}, err
+	}
+	if event.Status != EventActive || !eventFromDB(event).StartsAt().After(time.Now()) {
+		return db.OpenPlayRegistration{}, ErrEventClosed
+	}
+	if err := m.checkHoldLimit(ctx, tx, in); err != nil {
+		return db.OpenPlayRegistration{}, err
+	}
+	if err := q.ExpireOpenPlayHoldsOfPhone(ctx, db.ExpireOpenPlayHoldsOfPhoneParams{
+		EventID: event.ID, Phone: in.Phone,
+	}); err != nil {
+		return db.OpenPlayRegistration{}, fmt.Errorf("events: expire stale holds: %w", err)
+	}
+	if err := m.checkNotRegistered(ctx, tx, event.ID, in.Phone); err != nil {
+		return db.OpenPlayRegistration{}, err
+	}
+	taken, err := q.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{EventID: event.ID})
+	if err != nil {
+		return db.OpenPlayRegistration{}, fmt.Errorf("events: count spots: %w", err)
+	}
+	if taken >= event.Capacity {
+		return db.OpenPlayRegistration{}, ErrEventFull
+	}
+	row, err := q.InsertOpenPlayRegistration(ctx, db.InsertOpenPlayRegistrationParams{
+		EventID: event.ID, ComplexID: event.ComplexID,
+		FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Email: data.TextToPg(in.Email),
+		Price: event.Price,
+		//nolint:gosec // G115: the flat service fee on a price in centavos; far below int32 range.
+		ServiceFee:      int32(in.ServiceFee),
+		HeldUntil:       data.TimeToPg(time.Now().Add(m.PaymentExpiry)),
+		AccessTokenHash: hash,
+		HoldIp:          data.TextToPg(&in.IP),
+	})
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == data.SQLStateUniqueViolation {
+			return db.OpenPlayRegistration{}, ErrAlreadyRegistered
+		}
+		return db.OpenPlayRegistration{}, fmt.Errorf("events: insert registration: %w", err)
+	}
+	return row, nil
 }
 
 // checkNotRegistered refuses a phone that already holds a live spot of the
