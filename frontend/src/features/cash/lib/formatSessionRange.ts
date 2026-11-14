@@ -31,6 +31,6 @@ export function formatSessionRange(openedAt: string | null | undefined, closedAt
   const closeDay = DAY.format(closed);
   const closeTime = TIME.format(closed);
   return openDay === closeDay
-    ? `${openDay} · ${openTime}–${closeTime}`
-    : `${openDay} ${openTime} – ${closeDay} ${closeTime}`;
+    ? `${openDay} · ${openTime} a ${closeTime}`
+    : `${openDay} ${openTime} a ${closeDay} ${closeTime}`;
 }

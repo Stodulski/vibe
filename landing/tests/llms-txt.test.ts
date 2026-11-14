@@ -27,7 +27,7 @@ test('starts with the H1, the summary blockquote and the site summary', () => {
 
 test('every entry is a linked bullet with a note and its Markdown twin', () => {
   const out = renderLlmsTxt({ ...base, cities: [], complexes: [] });
-  assert.ok(out.includes(`- [Guías de Vibe](${SITE}/guias): Respuestas con fuente. — Markdown: ${SITE}/guias.md`));
+  assert.ok(out.includes(`- [Guías de Vibe](${SITE}/guias): Respuestas con fuente. · Markdown: ${SITE}/guias.md`));
 });
 
 test('the sections for cities and complexes appear only when there is something to list', () => {
@@ -42,7 +42,7 @@ test('the sections for cities and complexes appear only when there is something 
   });
   assert.ok(full.includes('## Canchas\n'));
   assert.ok(full.includes('## Complejos\n'));
-  assert.ok(full.includes(`- [La Zona F5](${SITE}/c/la-zona-f5): Piquiyin, Caleta Olivia — Markdown: ${SITE}/c-la-zona-f5.md`));
+  assert.ok(full.includes(`- [La Zona F5](${SITE}/c/la-zona-f5): Piquiyin, Caleta Olivia · Markdown: ${SITE}/c-la-zona-f5.md`));
 });
 
 test('the claim about Accept: text/markdown is written as a fact the site keeps', () => {
@@ -113,9 +113,9 @@ test('when the API answers, the cities and complexes are listed after the static
   const out = await llmsTxt(base, api, (message) => reports.push(message));
 
   assert.deepEqual(reports, []);
-  assert.ok(out.includes(`- [Canchas en Vibe](${SITE}/canchas): Todas las ciudades con complejos — Markdown: ${SITE}/canchas.md`));
-  assert.ok(out.includes(`- [Canchas en Rosario](${SITE}/canchas/rosario): Santa Fe · 1 complejo(s) — Markdown: ${SITE}/canchas-rosario.md`));
-  assert.ok(out.includes(`- [La Zona F5](${SITE}/c/la-zona-f5): Piquiyin 123, Rosario — Markdown: ${SITE}/c-la-zona-f5.md`));
+  assert.ok(out.includes(`- [Canchas en Vibe](${SITE}/canchas): Todas las ciudades con complejos · Markdown: ${SITE}/canchas.md`));
+  assert.ok(out.includes(`- [Canchas en Rosario](${SITE}/canchas/rosario): Santa Fe · 1 complejo(s) · Markdown: ${SITE}/canchas-rosario.md`));
+  assert.ok(out.includes(`- [La Zona F5](${SITE}/c/la-zona-f5): Piquiyin 123, Rosario · Markdown: ${SITE}/c-la-zona-f5.md`));
   const order = ['## Páginas', '## Canchas', '## Complejos'].map((heading) => out.indexOf(heading));
   assert.ok(order.every((at) => at > -1) && order[0] < order[1] && order[1] < order[2], 'sections in order');
 });

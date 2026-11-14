@@ -147,10 +147,10 @@ export function endsOnALaterDay(startsAt: string, endsAt: string): boolean {
  * detail, in the cancel modal and on the public cancel page. Nothing anywhere
  * said which 01:00.
  *
- * `separator` defaults to an en dash with non-breaking spaces so the range
+ * `separator` defaults to "a" with non-breaking spaces so the range
  * never wraps mid-way; the public pages pass their own joiner word.
  */
-export function formatHourRange(startsAt: string, endsAt: string, separator = '\u00A0–\u00A0'): string {
+export function formatHourRange(startsAt: string, endsAt: string, separator = '\u00A0a\u00A0'): string {
   const start = formatInstantTime(startsAt);
   const end = formatInstantTime(endsAt);
   if (!start || !end) return start || end;

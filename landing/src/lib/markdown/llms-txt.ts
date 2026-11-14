@@ -46,7 +46,7 @@ const label = (text: string): string => text.replace(/\[/g, '(').replace(/\]/g, 
 
 function entry({ title, url, md, note }: LlmsEntry): string {
   const tail = note ? `: ${note}` : '';
-  const twin = md ? ` — Markdown: ${md}` : '';
+  const twin = md ? ` · Markdown: ${md}` : '';
   return `- [${label(title)}](${url})${tail}${twin}`;
 }
 

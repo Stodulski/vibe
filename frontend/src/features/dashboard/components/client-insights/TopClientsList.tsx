@@ -43,7 +43,7 @@ export function TopClientsList({ top, onSelect }: TopClientsListProps) {
                     {i + 1}
                   </span>
                   <span className={cn('truncate text-xs', client ? 'text-text-primary' : 'text-text-disabled')}>
-                    {client?.name ?? '—'}
+                    {client?.name ?? 'Sin datos'}
                   </span>
                 </div>
                 {client && (
