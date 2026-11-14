@@ -46,7 +46,8 @@ describe('ResultDialog', () => {
   });
 
   it('shows three set rows for best of three, the third being the match tiebreak', async () => {
-    await renderDialog();
+    const { user } = await renderDialog();
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
 
     expect(screen.getByRole('group', { name: t.set(1) })).toBeInTheDocument();
     expect(screen.getByRole('group', { name: t.set(2) })).toBeInTheDocument();
@@ -54,12 +55,14 @@ describe('ResultDialog', () => {
   });
 
   it('shows one row for a single set', async () => {
-    await renderDialog(makeCategory({ sets_to_win: 1 }));
+    const { user } = await renderDialog(makeCategory({ sets_to_win: 1 }));
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
     expect(screen.getAllByRole('group', { name: /^Set \d/ })).toHaveLength(1);
   });
 
   it('shows a plain third set when the category has no match tiebreak', async () => {
-    await renderDialog(makeCategory({ super_tiebreak_decider: false }));
+    const { user } = await renderDialog(makeCategory({ super_tiebreak_decider: false }));
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
     expect(screen.getByRole('group', { name: t.set(3) })).toBeInTheDocument();
     expect(screen.queryByRole('group', { name: t.superTiebreakSet(3) })).not.toBeInTheDocument();
   });
@@ -67,6 +70,7 @@ describe('ResultDialog', () => {
   it('sends only the sets played and closes', async () => {
     const { tournamentsApi, onClose, user } = await renderDialog();
 
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
     await type(user, `${t.games('Pérez / Gómez')} (${t.set(1)})`, '6');
     await type(user, `${t.games('Ruiz / Soto')} (${t.set(1)})`, '4');
     await type(user, `${t.games('Pérez / Gómez')} (${t.set(2)})`, '6');
@@ -89,12 +93,47 @@ describe('ResultDialog', () => {
   it('says what is wrong with the score and sends nothing', async () => {
     const { tournamentsApi, user } = await renderDialog();
 
+    await user.click(screen.getByRole('button', { name: t.modeSets }));
     await type(user, `${t.games('Pérez / Gómez')} (${t.set(1)})`, '6');
     await type(user, `${t.games('Ruiz / Soto')} (${t.set(1)})`, '5');
     await user.click(screen.getByRole('button', { name: t.submit }));
 
     expect(await screen.findByText(t.errors.invalidSet(1, 6, 5, 6))).toBeInTheDocument();
     expect(tournamentsApi.setResult).not.toHaveBeenCalled();
+  });
+});
+
+describe('ResultDialog: only the winner', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('starts on who won, with a button per pair, and sends only the winner', async () => {
+    const { tournamentsApi, onClose, user } = await renderDialog();
+
+    expect(screen.queryByRole('group', { name: t.set(1) })).not.toBeInTheDocument();
+    expect(screen.getByText(t.winnerQuestion)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.submit })).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Ruiz / Soto' }));
+    await user.click(screen.getByRole('button', { name: t.submit }));
+
+    await waitFor(() => {
+      expect(tournamentsApi.setResult).toHaveBeenCalledWith('c1', 't1', 'm1', { winner: 2 });
+    });
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+  });
+
+  it('opens a winner-only result with its winner chosen, to correct it', async () => {
+    await renderDialog(
+      makeCategory(),
+      makeMatch({ id: 'm1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed', winnerPairId: 'p1' }),
+    );
+
+    expect(screen.getByRole('button', { name: 'Pérez / Gómez' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Ruiz / Soto' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('button', { name: t.submit })).toBeEnabled();
   });
 });
 

@@ -2,7 +2,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
 import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
-import { bracketRounds, roundName, scoreText, slotLabel } from '../lib/tournamentView';
+import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
 import type { TournamentOwnerMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.matches;
@@ -93,7 +93,7 @@ function MatchRow({
   courtFee: { fee: number; actions: CourtFeeActions };
   editable: boolean;
 }) {
-  const score = scoreText(match);
+  const score = resultText(match, lookups.pairs);
   const ready = !!match.pair1_id && !!match.pair2_id;
   const name = (side: 1 | 2) => slotLabel(match, side, lookups.pairs, lookups.groupNames);
   const winner = match.winner_pair_id;

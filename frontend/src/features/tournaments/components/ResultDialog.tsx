@@ -10,13 +10,14 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { slotLabel } from '../lib/tournamentView';
 import { SegmentedTabs } from './SegmentedTabs';
 import { SetRows } from './result-dialog/SetRows';
+import { SidePicker } from './result-dialog/SidePicker';
 import { useResultForm, type ResultMode } from './result-dialog/useResultForm';
-import { WalkoverPicker } from './result-dialog/WalkoverPicker';
 import type { TournamentCategory, TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.result;
 
 const MODES: { value: ResultMode; label: string }[] = [
+  { value: 'winner', label: t.modeWinner },
   { value: 'sets', label: t.modeSets },
   { value: 'walkover', label: t.modeWalkover },
 ];
@@ -31,7 +32,7 @@ interface ResultDialogProps {
   pairs: Map<string, TournamentOwnerPair>;
 }
 
-/** Loads or corrects a match's result: the sets (as many as the category plays) or a walkover. Mounted only while open. */
+/** Loads or corrects a match's result: only the winner, the sets (as many as the category plays) or a walkover. Mounted only while open. */
 export function ResultDialog({ open, onClose, match, pairs, ...rest }: ResultDialogProps) {
   return (
     <Dialog
@@ -70,10 +71,24 @@ function ResultBody({ onClose, complexId, tournamentId, category, match, pairs }
         noValidate
       >
         <SegmentedTabs items={MODES} active={form.mode} onChange={form.setMode} ariaLabel={t.modeLabel} />
-        {form.mode === 'sets' ? (
-          <SetRows rows={form.rows} format={form.format} names={names} onChange={form.setRow} />
-        ) : (
-          <WalkoverPicker names={names} loser={form.loser} onChange={form.setLoser} />
+        {form.mode === 'sets' && <SetRows rows={form.rows} format={form.format} names={names} onChange={form.setRow} />}
+        {form.mode === 'winner' && (
+          <SidePicker
+            names={names}
+            value={form.winner}
+            onChange={form.setWinner}
+            question={t.winnerQuestion}
+            hint={t.winnerHint}
+          />
+        )}
+        {form.mode === 'walkover' && (
+          <SidePicker
+            names={names}
+            value={form.loser}
+            onChange={form.setLoser}
+            question={t.walkoverQuestion}
+            hint={t.walkoverHint}
+          />
         )}
         {form.error && (
           <p role="alert" className="text-error-text text-sm">

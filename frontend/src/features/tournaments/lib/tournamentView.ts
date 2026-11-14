@@ -91,3 +91,14 @@ export function scoreText(match: TournamentMatch): string {
   if (match.walkover_loser !== 0) return t.bracket.walkover;
   return match.sets.map((set) => `${String(set.a)}-${String(set.b)}`).join(' ');
 }
+
+/**
+ * What a match shows as its result: the sets, "W.O.", or who won when the owner
+ * loaded no score; nothing for a match not played.
+ */
+export function resultText(match: TournamentMatch, pairs: Map<string, TournamentOwnerPair>): string {
+  const score = scoreText(match);
+  if (score || match.bye || match.status !== 'completed' || !match.winner_pair_id) return score;
+  const winner = pairs.get(match.winner_pair_id);
+  return winner ? t.bracket.wonBy(pairName(winner)) : '';
+}

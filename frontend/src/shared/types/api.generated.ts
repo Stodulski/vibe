@@ -1222,7 +1222,7 @@ export interface paths {
         get?: never;
         /**
          * Load or correct a match's result
-         * @description The score follows the category's format (`sets_to_win`, `games_per_set`, `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off, `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match tiebreak is never played. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side in group tables. The winner advances to the next match by itself; group standings update (matches won, then set difference, game difference, head to head), and when a group finishes its qualifiers fill their bracket slots. Loading a result again corrects it, allowed while the next match has no result (for a group match: while none of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid score; `400` when the match does not have both pairs yet or is a bye. The response is the whole tournament, since a result moves other matches.
+         * @description The score follows the category's format (`sets_to_win`, `games_per_set`, `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off, `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match tiebreak is never played. The score is optional: a result can be only `winner` (1 or 2, the side that won) with no sets, and then the match has a winner and an empty `sets`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side in group tables. Exactly one of `sets`, `winner` and `walkover_loser` is sent (`422` otherwise). The winner advances to the next match by itself; group standings update (matches won, then set difference, game difference, head to head; the set and game differences count only the matches that have a score), and when a group finishes its qualifiers fill their bracket slots. Loading a result again corrects it, allowed while the next match has no result (for a group match: while none of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid score; `400` when the match does not have both pairs yet or is a bye. The response is the whole tournament, since a result moves other matches.
          */
         put: operations["tournamentsMatchResult"];
         post?: never;
@@ -3443,7 +3443,7 @@ export interface components {
             /** @default false */
             super: boolean;
         };
-        /** @description A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. */
+        /** @description A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. A completed match that is neither a bye nor a walkover and has no `sets` was loaded with only its winner (no score). */
         TournamentMatch: {
             /** Format: uuid */
             id: string;
@@ -7575,6 +7575,8 @@ export interface operations {
             content: {
                 "application/json": {
                     sets?: components["schemas"]["TournamentSet"][];
+                    /** @enum {integer} */
+                    winner?: 1 | 2;
                     /** @enum {integer} */
                     walkover_loser?: 1 | 2;
                 };

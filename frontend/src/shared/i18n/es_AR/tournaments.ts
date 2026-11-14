@@ -188,6 +188,7 @@ export const tournaments = {
     bye: 'Libre',
     sourceOf: (rank: number, group: string) => `${String(rank)}º de la zona ${group}`,
     walkover: 'W.O.',
+    wonBy: (name: string) => `Ganó ${name}`,
     scrollHint: 'Deslizá para ver todas las rondas',
   },
 
@@ -247,7 +248,8 @@ export const tournaments = {
   // Result
   result: {
     title: 'Resultado del partido',
-    modeSets: 'Sets',
+    modeWinner: 'Quién ganó',
+    modeSets: 'Cargar resultado por sets',
     modeWalkover: 'W.O.',
     modeLabel: 'Cómo se definió',
     set: (n: number) => `Set ${String(n)}`,
@@ -255,6 +257,8 @@ export const tournaments = {
     games: (name: string) => `Games de ${name}`,
     points: (name: string) => `Puntos de ${name}`,
     optionalSet: 'Solo si hizo falta',
+    winnerQuestion: 'Quién ganó el partido',
+    winnerHint: 'No hace falta el marcador: el ganador pasa de ronda igual. Si querés, cargalo por sets.',
     walkoverQuestion: 'Quién no se presentó',
     walkoverHint: 'Cuenta como una victoria por el resultado máximo para la otra pareja.',
     submit: 'Guardar resultado',

@@ -4,7 +4,20 @@ import { resultErrorMessage } from '../../lib/tournamentErrors';
 import { parseScore, scoreFormatOf, scoreRowCount, type ScoreRow } from '../../lib/score';
 import type { TournamentCategory, TournamentMatch } from '@/shared/types/api.types';
 
-export type ResultMode = 'sets' | 'walkover';
+export type ResultMode = 'winner' | 'sets' | 'walkover';
+
+/** The mode a match opens in: its walkover, its score, or (new or winner-only) just who won. */
+function initialMode(match: TournamentMatch): ResultMode {
+  if (match.walkover_loser !== 0) return 'walkover';
+  return match.sets.length > 0 ? 'sets' : 'winner';
+}
+
+/** The side of a loaded result's winner, if any. */
+function winnerSide(match: TournamentMatch): 1 | 2 | null {
+  if (!match.winner_pair_id) return null;
+  if (match.winner_pair_id === match.pair1_id) return 1;
+  return match.winner_pair_id === match.pair2_id ? 2 : null;
+}
 
 /** The rows to start from: a loaded result's sets (to correct it), then blank rows up to the most sets a match takes. */
 function initialRows(match: TournamentMatch, rowCount: number): ScoreRow[] {
@@ -23,14 +36,15 @@ interface Options {
 }
 
 /**
- * The result form: sets typed as text (a blank row is a set not played) or a
- * walkover. A bad score is told here before sending; what the server refuses
+ * The result form: only who won (the default), the sets typed as text (a blank
+ * row is a set not played) or a walkover. A bad score is told here before sending; what the server refuses
  * (the next match already has a result) comes back as `serverError`.
  */
 export function useResultForm({ complexId, tournamentId, category, match, onDone }: Options) {
   const format = scoreFormatOf(category);
   const setResult = useSetResult(complexId, tournamentId);
-  const [mode, setMode] = useState<ResultMode>(match.walkover_loser === 0 ? 'sets' : 'walkover');
+  const [mode, setMode] = useState<ResultMode>(() => initialMode(match));
+  const [winner, setWinner] = useState<1 | 2 | null>(() => winnerSide(match));
   const [rows, setRows] = useState(() => initialRows(match, scoreRowCount(format)));
   const [loser, setLoser] = useState<1 | 2 | null>(match.walkover_loser === 0 ? null : match.walkover_loser);
   const [scoreError, setScoreError] = useState<string | null>(null);
@@ -44,6 +58,10 @@ export function useResultForm({ complexId, tournamentId, category, match, onDone
     const send = (result: Parameters<typeof setResult.mutate>[0]['result']) => {
       setResult.mutate({ matchId: match.id, result }, { onSuccess: onDone });
     };
+    if (mode === 'winner') {
+      if (winner !== null) send({ winner });
+      return;
+    }
     if (mode === 'walkover') {
       if (loser !== null) send({ walkover_loser: loser });
       return;
@@ -59,11 +77,13 @@ export function useResultForm({ complexId, tournamentId, category, match, onDone
     setMode,
     rows,
     setRow,
+    winner,
+    setWinner,
     loser,
     setLoser,
     submit,
     isPending: setResult.isPending,
-    canSubmit: mode === 'sets' || loser !== null,
+    canSubmit: mode === 'sets' || (mode === 'winner' ? winner !== null : loser !== null),
     error: scoreError ?? (setResult.error ? resultErrorMessage(setResult.error) : null),
   };
 }

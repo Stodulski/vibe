@@ -7,6 +7,7 @@ import {
   pairName,
   pairPaymentKey,
   paidPairCount,
+  resultText,
   roundName,
   scoreText,
   slotLabel,
@@ -94,5 +95,28 @@ describe('scoreText', () => {
     expect(scoreText(makeMatch({ id: 'm', sets }))).toBe('6-4 3-6 10-7');
     expect(scoreText(makeMatch({ id: 'm', walkoverLoser: 1 }))).toBe(t.bracket.walkover);
     expect(scoreText(makeMatch({ id: 'm' }))).toBe('');
+  });
+});
+
+describe('resultText', () => {
+  const pairs = new Map([
+    ['p1', makePair({ id: 'p1', players: ['Ana Pérez', 'Bea Gómez'] })],
+    ['p2', makePair({ id: 'p2', players: ['Carla Ruiz', 'Dana Soto'] })],
+  ]);
+  const played = { id: 'm', pair1Id: 'p1', pair2Id: 'p2', status: 'completed', winnerPairId: 'p2' } as const;
+
+  it('says who won when the match has no score', () => {
+    expect(resultText(makeMatch(played), pairs)).toBe(t.bracket.wonBy('Ruiz / Soto'));
+  });
+
+  it('keeps the sets and the walkover as they were', () => {
+    const sets = [{ a: 6, b: 4, super: false }];
+    expect(resultText(makeMatch({ ...played, sets }), pairs)).toBe('6-4');
+    expect(resultText(makeMatch({ ...played, walkoverLoser: 1 }), pairs)).toBe(t.bracket.walkover);
+  });
+
+  it('says nothing for a match that is not played yet or a bye', () => {
+    expect(resultText(makeMatch({ id: 'm', pair1Id: 'p1', pair2Id: 'p2' }), pairs)).toBe('');
+    expect(resultText(makeMatch({ ...played, bye: true }), pairs)).toBe('');
   });
 });

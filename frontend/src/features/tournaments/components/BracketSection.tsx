@@ -1,6 +1,6 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
-import { bracketRounds, roundName, scoreText, slotLabel } from '../lib/tournamentView';
+import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.bracket;
@@ -28,7 +28,7 @@ function BracketSlot({ match, side, lookups }: { match: TournamentMatch; side: 1
 }
 
 function BracketMatchCard({ match, lookups }: { match: TournamentMatch; lookups: Lookups }) {
-  const score = scoreText(match);
+  const score = resultText(match, lookups.pairs);
   const when = match.schedule
     ? `${match.schedule.court_name} · ${formatDateShort(match.schedule.date)} · ${formatTime(match.schedule.start_time)}`
     : null;
