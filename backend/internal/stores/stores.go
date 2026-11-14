@@ -30,6 +30,7 @@ import (
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
+	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 	waitliststore "github.com/stodulski/vibe-server/internal/waitlist/store"
 )
 
@@ -649,6 +650,44 @@ type EventsStore interface {
 }
 
 // ---------------------------------------------------------------------------
+// TournamentsStore — tournaments, their draws, schedules and results
+// ---------------------------------------------------------------------------
+
+// TournamentReader reads tournaments with their categories, pairs, groups and
+// matches.
+type TournamentReader interface {
+	Get(ctx context.Context, id uuid.UUID) (*tournamentstore.Tournament, error)
+	List(ctx context.Context, complexID uuid.UUID, from, to time.Time, includeCancelled bool) ([]*tournamentstore.Tournament, error)
+	Categories(ctx context.Context, tournamentID uuid.UUID) ([]*tournamentstore.Category, error)
+	Category(ctx context.Context, tournamentID, categoryID uuid.UUID) (*tournamentstore.Category, error)
+	Detail(ctx context.Context, id uuid.UUID) (*tournamentstore.Detail, error)
+	CategoryOfEvent(ctx context.Context, eventID uuid.UUID) (tournamentID, categoryID uuid.UUID, err error)
+	PairOf(ctx context.Context, registrationID uuid.UUID) (*tournamentstore.Pair, error)
+	DrawGenerated(ctx context.Context, eventID uuid.UUID) (bool, error)
+}
+
+// TournamentWriter creates and cancels tournaments and changes their draws.
+type TournamentWriter interface {
+	Create(ctx context.Context, t *tournamentstore.Tournament, cats []tournamentstore.NewCategory) error
+	Cancel(ctx context.Context, id, by uuid.UUID, reason *string) (*tournamentstore.Tournament, error)
+	GenerateDraw(ctx context.Context, in tournamentstore.DrawInput) error
+	MovePair(ctx context.Context, categoryID, pairA, pairB uuid.UUID) error
+	SetResult(ctx context.Context, in tournamentstore.ResultInput) (*tournamentstore.Match, error)
+	WithdrawPair(ctx context.Context, registrationID uuid.UUID) error
+	Schedule(ctx context.Context, in tournamentstore.ScheduleInput) (*tournamentstore.Match, error)
+	Unschedule(ctx context.Context, matchID uuid.UUID) (*tournamentstore.Match, error)
+	// PairHooks is what a pair's sign-up adds to the event sign-up.
+	PairHooks(payerPhone string, partner tournamentstore.Player) *eventstore.SignUpHooks
+}
+
+// TournamentsStore composes every tournaments capability: one concrete store
+// (internal/tournaments/store) satisfies all of them.
+type TournamentsStore interface {
+	TournamentReader
+	TournamentWriter
+}
+
+// ---------------------------------------------------------------------------
 // Stores — aggregate of all stores
 // ---------------------------------------------------------------------------
 
@@ -797,6 +836,7 @@ type Stores struct {
 	Bookings          BookingStore
 	BookingSeries     BookingSeriesStore
 	Events            EventsStore
+	Tournaments       TournamentsStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
 	Clients           ClientStore
@@ -853,6 +893,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Bookings:          bookings,
 		BookingSeries:     bookings,
 		Events:            &eventstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
+		Tournaments:       &tournamentstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
 		Leads:             &leadsstore.Store{Q: q},

@@ -6,39 +6,39 @@ import (
 	"sort"
 )
 
-// Group sizes a tournament accepts: owner assumption, groups of three or four.
-const (
-	MinGroupSize = 3
-	MaxGroupSize = 4
-)
+// ErrGroupCount is returned when n pairs cannot be split into groups the
+// category's settings allow.
+var ErrGroupCount = errors.New("the pairs cannot be split into groups with those settings")
 
-// ErrGroupCount is returned when n pairs cannot be split into that many groups
-// of three or four.
-var ErrGroupCount = errors.New("the pairs cannot be split into that many groups of 3 or 4")
-
-// ValidGroupCounts lists the group counts that split n pairs into groups of
-// three or four, fewest groups first.
-func ValidGroupCounts(n int) []int {
-	var out []int
-	for g := 1; g*MinGroupSize <= n; g++ {
-		if n <= g*MaxGroupSize {
-			out = append(out, g)
-		}
+// GroupCount is how many groups n pairs need when a group holds at most
+// groupSize: the fewest that fit.
+func GroupCount(n, groupSize int) int {
+	if groupSize < 1 {
+		return 0
 	}
-	return out
+	return (n + groupSize - 1) / groupSize
 }
 
-// SplitGroups returns the size of each of the given number of groups: as even
-// as possible, the bigger groups first so the best seeds land in them.
-func SplitGroups(n, groups int) ([]int, error) {
-	if groups < 1 || n < groups*MinGroupSize || n > groups*MaxGroupSize {
-		return nil, fmt.Errorf("%w: %d pairs, %d groups", ErrGroupCount, n, groups)
+// SplitGroups splits n pairs into the fewest groups of at most groupSize,
+// sizes differing by at most one (the bigger groups first, so the best seeds
+// land in them). Every group must be larger than qualifiers, so someone is
+// left out of each, and the knockout needs at least two qualifiers in all.
+func SplitGroups(n, groupSize, qualifiers int) ([]int, error) {
+	groups := GroupCount(n, groupSize)
+	if groups < 1 || qualifiers < 1 || qualifiers >= groupSize {
+		return nil, fmt.Errorf("%w: %d pairs, groups of %d, %d qualify", ErrGroupCount, n, groupSize, qualifiers)
+	}
+	base, extra := n/groups, n%groups
+	if base <= qualifiers {
+		return nil, fmt.Errorf("%w: %d pairs, groups of %d, %d qualify", ErrGroupCount, n, groupSize, qualifiers)
+	}
+	if groups*qualifiers < 2 {
+		return nil, fmt.Errorf("%w: fewer than two qualifiers", ErrGroupCount)
 	}
 	sizes := make([]int, groups)
-	big := n - groups*MinGroupSize
 	for i := range sizes {
-		sizes[i] = MinGroupSize
-		if i < big {
+		sizes[i] = base
+		if i < extra {
 			sizes[i]++
 		}
 	}

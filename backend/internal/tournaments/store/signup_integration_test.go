@@ -1,0 +1,165 @@
+//go:build integration
+
+package store_test
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"sync"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/datatest"
+	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
+)
+
+// S2: a pair signs up as one registration: the payer, with the partner beside
+// it, holding one spot of the category.
+func TestAPairHoldsOneSpotAndCapacityClosesTheCategory(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 2, 3, 2)
+
+	reg, err := f.signUp(cat, 1, "203.0.113.7")
+	if err != nil || reg.Status != eventstore.RegistrationHeld || reg.Price != cat.Price {
+		t.Fatalf("first pair = %+v (%v); want a held spot at the category's price", reg, err)
+	}
+	if _, err := f.signUp(cat, 2, "203.0.113.8"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.signUp(cat, 3, "203.0.113.9"); !errors.Is(err, eventstore.ErrEventFull) {
+		t.Fatalf("a third pair must be refused, the category is full; got %v", err)
+	}
+	got, err := f.Stores.Tournaments.Category(f.ctx, tr.ID, cat.ID)
+	if err != nil || got.HeldCount != 2 || got.SpotsLeft() != 0 {
+		t.Fatalf("category = %+v (%v); want 2 held and no spots left", got, err)
+	}
+	d := f.detail(t, tr)
+	if len(d.Pairs) != 2 || d.Pairs[0].Partner.Phone != "+549220000001" {
+		t.Fatalf("pairs = %+v", d.Pairs)
+	}
+}
+
+// S2: neither player may already be in the category, as payer or as partner.
+func TestAPlayerCannotBeInTwoPairsOfTheCategory(t *testing.T) {
+	f := newFixture(t)
+	_, cat := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	if _, err := f.signUp(cat, 1, "203.0.113.7"); err != nil {
+		t.Fatal(err)
+	}
+	signUpWith := func(payer, partner, ip string) error {
+		_, _, err := f.Stores.Events.SignUp(f.ctx, eventstore.SignUpInput{
+			EventID: cat.EventID, FirstName: "X", LastName: "Y", Phone: payer, IP: ip, MaxHoldsPerIP: 100,
+			Hooks: f.Stores.Tournaments.PairHooks(payer, tournamentstore.Player{FirstName: "P", LastName: "Q", Phone: partner}),
+		})
+		return err
+	}
+	// Payer 1's partner is +549220000001; payer 1 is +549110000001.
+	if err := signUpWith("+549110009999", "+549110000001", "203.0.113.20"); !errors.Is(err, eventstore.ErrAlreadyRegistered) {
+		t.Fatalf("a partner that is already a payer: %v", err)
+	}
+	if err := signUpWith("+549220000001", "+5491100009998", "203.0.113.21"); !errors.Is(err, eventstore.ErrAlreadyRegistered) {
+		t.Fatalf("a payer that is already a partner: %v", err)
+	}
+	if err := signUpWith("+5491100009997", "+549220000001", "203.0.113.22"); !errors.Is(err, eventstore.ErrAlreadyRegistered) {
+		t.Fatalf("a partner that is already a partner: %v", err)
+	}
+	if err := signUpWith("+5491100009996", "+5491100009995", "203.0.113.23"); err != nil {
+		t.Fatalf("two new players: %v", err)
+	}
+}
+
+// S2/S4: sign-up closes with the draw, and a pair that pays afterwards is not in it.
+func TestSignUpClosesWithTheDrawAndALatePaymentIsRefused(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	f.pairs(t, cat, 2)
+	late, err := f.signUp(cat, 3, "203.0.113.9") // held while the draw is made
+	if err != nil {
+		t.Fatal(err)
+	}
+	f.generate(t, cat, nil)
+
+	if _, err := f.signUp(cat, 4, "203.0.113.10"); !errors.Is(err, eventstore.ErrEventClosed) {
+		t.Fatalf("sign-up after the draw: %v", err)
+	}
+	if err := f.pay(late, "mp-late"); !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+		t.Fatalf("a payment after the draw must not confirm the pair (it is refunded): %v", err)
+	}
+	if d := f.detail(t, tr); len(matchesOf(d, tournamentstore.StageBracket, 0)) != 1 {
+		t.Fatalf("the draw must not change: %d matches", len(matchesOf(d, tournamentstore.StageBracket, 0)))
+	}
+}
+
+// S2/S4: two pairs racing for the last spot cannot both get it.
+func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := f.Scoped(context.Background())
+	tr := &tournamentstore.Tournament{
+		ComplexID: f.ComplexID, Name: "Carrera", Sport: "padel", StartDate: start(), EndDate: start(), CreatedBy: f.UserID,
+	}
+	if err := f.Stores.Tournaments.Create(ctx, tr, []tournamentstore.NewCategory{{
+		Name: "7ma", Format: tournamentstore.FormatElimination, Capacity: 3, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := f.Stores.Tournaments.Categories(ctx, tr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	const pairs = 10
+	var wg sync.WaitGroup
+	results := make([]error, pairs)
+	for i := range pairs {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			payer := fmt.Sprintf("+54911000%04d", i)
+			_, _, results[i] = f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+				EventID: cats[0].EventID, FirstName: "A", LastName: "B", Phone: payer, ServiceFee: 1000,
+				IP: fmt.Sprintf("198.51.100.%d", i+1), MaxHoldsPerIP: 100,
+				Hooks: f.Stores.Tournaments.PairHooks(payer, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: fmt.Sprintf("+54922000%04d", i)}),
+			})
+		}()
+	}
+	wg.Wait()
+	won, full := 0, 0
+	for _, err := range results {
+		switch {
+		case err == nil:
+			won++
+		case errors.Is(err, eventstore.ErrEventFull):
+			full++
+		default:
+			t.Errorf("unexpected error: %v", err)
+		}
+	}
+	if won != 3 || full != pairs-3 {
+		t.Fatalf("%d pairs got in and %d were refused; want 3 and %d", won, full, pairs-3)
+	}
+	var n int
+	if err := f.DB.QueryRow(context.Background(), `SELECT COUNT(*) FROM tournament_pairs WHERE category_id = $1`, cats[0].ID).Scan(&n); err != nil || n != 3 {
+		t.Fatalf("%d pair rows (%v), want 3", n, err)
+	}
+}
+
+// Tournament data is tenant data.
+func TestTournamentsAreScopedToTheirComplex(t *testing.T) {
+	f := newFixture(t)
+	tr, _ := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	foreign := data.ContextWithTenant(context.Background(), uuid.New())
+	if _, err := f.Stores.Tournaments.Get(foreign, tr.ID); err == nil {
+		t.Error("another tenant must not read the tournament")
+	}
+	if _, err := f.Stores.Tournaments.Cancel(foreign, tr.ID, f.UserID, nil); err == nil {
+		t.Error("another tenant must not cancel the tournament")
+	}
+	if got, err := f.Stores.Tournaments.Get(f.ctx, tr.ID); err != nil || got.Status != tournamentstore.StatusActive {
+		t.Errorf("the tournament must be untouched: %+v (%v)", got, err)
+	}
+}

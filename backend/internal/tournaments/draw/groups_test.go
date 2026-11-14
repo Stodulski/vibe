@@ -8,31 +8,32 @@ import (
 )
 
 func TestSplitGroups(t *testing.T) {
-	good := []struct {
-		n, groups int
-		want      []int
+	cases := []struct {
+		n, size, qualifiers int
+		want                []int
 	}{
-		{3, 1, []int{3}}, {4, 1, []int{4}}, {6, 2, []int{3, 3}}, {7, 2, []int{4, 3}},
-		{8, 2, []int{4, 4}}, {10, 3, []int{4, 3, 3}}, {12, 3, []int{4, 4, 4}}, {11, 3, []int{4, 4, 3}},
+		{3, 3, 2, []int{3}}, {6, 3, 2, []int{3, 3}}, {7, 4, 2, []int{4, 3}}, {10, 4, 2, []int{4, 3, 3}},
+		{10, 3, 1, []int{3, 3, 2, 2}}, {12, 4, 2, []int{4, 4, 4}}, {11, 4, 2, []int{4, 4, 3}},
+		{8, 5, 2, []int{4, 4}}, {5, 5, 2, []int{5}}, {9, 3, 2, []int{3, 3, 3}},
 	}
-	for _, c := range good {
-		got, err := draw.SplitGroups(c.n, c.groups)
+	for _, c := range cases {
+		got, err := draw.SplitGroups(c.n, c.size, c.qualifiers)
 		if err != nil || !slices.Equal(got, c.want) {
-			t.Errorf("SplitGroups(%d,%d) = %v, %v; want %v", c.n, c.groups, got, err, c.want)
+			t.Errorf("SplitGroups(%d,%d,%d) = %v, %v; want %v", c.n, c.size, c.qualifiers, got, err, c.want)
 		}
 	}
-	for _, c := range [][2]int{{5, 1}, {8, 3}, {2, 1}, {9, 2}, {4, 0}, {13, 3}} {
-		if got, err := draw.SplitGroups(c[0], c[1]); err == nil {
-			t.Errorf("SplitGroups(%d,%d) = %v, want an error", c[0], c[1], got)
+	// Bad settings, a group no larger than its qualifiers, a single qualifier.
+	for _, c := range [][3]int{{4, 3, 3}, {4, 3, 0}, {2, 3, 2}, {3, 2, 2}, {1, 4, 1}, {0, 3, 2}} {
+		if got, err := draw.SplitGroups(c[0], c[1], c[2]); err == nil {
+			t.Errorf("SplitGroups(%d,%d,%d) = %v, want an error", c[0], c[1], c[2], got)
 		}
 	}
 }
 
-func TestValidGroupCounts(t *testing.T) {
-	cases := map[int][]int{3: {1}, 6: {2}, 10: {3}, 12: {3, 4}, 5: nil, 2: nil, 24: {6, 7, 8}}
-	for n, want := range cases {
-		if got := draw.ValidGroupCounts(n); !slices.Equal(got, want) {
-			t.Errorf("ValidGroupCounts(%d) = %v, want %v", n, got, want)
+func TestGroupCount(t *testing.T) {
+	for _, c := range [][3]int{{3, 3, 1}, {4, 3, 2}, {10, 4, 3}, {12, 4, 3}, {13, 4, 4}} {
+		if got := draw.GroupCount(c[0], c[1]); got != c[2] {
+			t.Errorf("GroupCount(%d,%d) = %d, want %d", c[0], c[1], got, c[2])
 		}
 	}
 }
