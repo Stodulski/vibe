@@ -793,27 +793,33 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 // unavailable, which is returned as an error so the recorded event is retried
 // rather than a genuine payment being thrown away for an outage.
 func (s *Service) collectorMatchesComplex(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
-	complex, err := s.complexes.GetByID(ctx, booking.ComplexID)
+	return s.collectorMatches(ctx, booking.ComplexID, "booking_id", booking.ID, mpPayment, mpPaymentID)
+}
+
+// collectorMatches is collectorMatchesComplex for any payment's subject: the
+// log and Sentry lines name it under subjectKey ("booking_id", "registration_id").
+func (s *Service) collectorMatches(ctx context.Context, complexID uuid.UUID, subjectKey string, subjectID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) (bool, error) {
+	complex, err := s.complexes.GetByID(ctx, complexID)
 	if err != nil {
 		s.logger.Error("mp webhook: cannot verify collector - failed to fetch complex",
 			"error", err,
 			"mp_payment_id", mpPaymentID,
-			"booking_id", booking.ID,
-			"complex_id", booking.ComplexID,
+			subjectKey, subjectID,
+			"complex_id", complexID,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: complex lookup failed mp_payment_id=%s booking_id=%s complex_id=%s", mpPaymentID, booking.ID, booking.ComplexID))
+		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: complex lookup failed mp_payment_id=%s %s=%s complex_id=%s", mpPaymentID, subjectKey, subjectID, complexID))
 		return false, fmt.Errorf("verify the collector of payment %s: %w", mpPaymentID, err)
 	}
 
 	if complex.MPUserID == nil || *complex.MPUserID == "" || mpPayment.CollectorID == 0 {
 		s.logger.Error("mp webhook: cannot verify collector - missing MercadoPago identity",
 			"mp_payment_id", mpPaymentID,
-			"booking_id", booking.ID,
-			"complex_id", booking.ComplexID,
+			subjectKey, subjectID,
+			"complex_id", complexID,
 			"complex_has_mp_user_id", complex.MPUserID != nil && *complex.MPUserID != "",
 			"collector_id", mpPayment.CollectorID,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s booking_id=%s complex_id=%s collector_id=%d", mpPaymentID, booking.ID, booking.ComplexID, mpPayment.CollectorID))
+		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d", mpPaymentID, subjectKey, subjectID, complexID, mpPayment.CollectorID))
 		return false, nil
 	}
 
@@ -821,12 +827,12 @@ func (s *Service) collectorMatchesComplex(ctx context.Context, booking *bookings
 	if collectorID != *complex.MPUserID {
 		s.logger.Error("mp webhook: FRAUD ALERT - collector mismatch",
 			"mp_payment_id", mpPaymentID,
-			"booking_id", booking.ID,
-			"complex_id", booking.ComplexID,
+			subjectKey, subjectID,
+			"complex_id", complexID,
 			"expected_collector_id", *complex.MPUserID,
 			"actual_collector_id", collectorID,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: collector mismatch mp_payment_id=%s booking_id=%s complex_id=%s expected=%s actual=%s", mpPaymentID, booking.ID, booking.ComplexID, *complex.MPUserID, collectorID))
+		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: collector mismatch mp_payment_id=%s %s=%s complex_id=%s expected=%s actual=%s", mpPaymentID, subjectKey, subjectID, complexID, *complex.MPUserID, collectorID))
 		return false, nil
 	}
 

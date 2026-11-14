@@ -301,24 +301,6 @@ func (m *Payments) ListByBookingID(ctx context.Context, bookingID uuid.UUID) ([]
 	return payments, nil
 }
 
-// ListByRegistrationID returns every payment row of an event registration,
-// oldest first. Like ListByBookingID an empty ledger is a nil slice, not an
-// error.
-func (m *Payments) ListByRegistrationID(ctx context.Context, registrationID uuid.UUID) ([]*Payment, error) {
-	ctx, cancel := data.QueryContext(ctx)
-	defer cancel()
-
-	rows, err := m.Q.ListPaymentsByRegistrationID(ctx, data.UUIDToPg(registrationID))
-	if err != nil {
-		return nil, fmt.Errorf("list registration payments: %w", err)
-	}
-	var out []*Payment
-	for _, row := range rows {
-		out = append(out, paymentFromDB(row))
-	}
-	return out, nil
-}
-
 // GetByMPPaymentID returns the payment matching the given MercadoPago payment ID, or ErrRecordNotFound if none exists.
 func (m *Payments) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*Payment, error) {
 	ctx, cancel := data.QueryContext(ctx)

@@ -1149,6 +1149,14 @@ func (m *mockPaymentStore) ListByBookingID(ctx context.Context, bookingID uuid.U
 	return nil, nil
 }
 
+func (m *mockPaymentStore) ListByRegistrationID(context.Context, uuid.UUID) ([]*paymentstore.Payment, error) {
+	return nil, nil
+}
+
+func (m *mockPaymentStore) ConfirmRegistrationPayment(context.Context, *paymentstore.Payment, uuid.UUID) error {
+	return nil
+}
+
 func (m *mockPaymentStore) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error) {
 	if m.GetByMPPaymentFn != nil {
 		return m.GetByMPPaymentFn(ctx, mpPaymentID)

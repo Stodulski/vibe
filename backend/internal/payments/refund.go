@@ -379,6 +379,10 @@ func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Bookin
 // balance out; that money is genuinely owed by hand. The automatic half is not
 // back, so nothing here marks the booking as anything more than that.
 func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim paymentstore.RefundClaim) {
+	if claim.BookingID == uuid.Nil {
+		// An event registration has no cash balance to leave owed.
+		return
+	}
 	booking, err := s.bookings.GetByID(ctx, claim.BookingID)
 	if err != nil {
 		s.logger.Error("refund: failed to fetch the booking after an exhausted refund",
@@ -966,6 +970,9 @@ func manualBalance(payments []*paymentstore.Payment) (owedCentavos int, methods 
 // change; a booking with a genuine manual balance and an unreadable ledger
 // gets a second chance to be caught the next time anything re-derives it.
 func (s *Service) manualOwedForBooking(ctx context.Context, bookingID uuid.UUID) int {
+	if bookingID == uuid.Nil {
+		return 0
+	}
 	payments, err := s.payments.ListByBookingID(ctx, bookingID)
 	if err != nil {
 		s.logger.Error("refund: failed to read the payment ledger while checking for a manual balance",
@@ -1077,7 +1084,13 @@ func refundResultRank(result paymentstore.RefundResult) int {
 // recordedRefundedCentavos reads how much the claim's own payment row already holds
 // as refunded. That is the baseline MercadoPago's running total is measured from.
 func (s *Service) recordedRefundedCentavos(ctx context.Context, claim paymentstore.RefundClaim) (int, error) {
-	payments, err := s.payments.ListByBookingID(ctx, claim.BookingID)
+	var payments []*paymentstore.Payment
+	var err error
+	if claim.RegistrationID != nil {
+		payments, err = s.registrationLedger.ListByRegistrationID(ctx, *claim.RegistrationID)
+	} else {
+		payments, err = s.payments.ListByBookingID(ctx, claim.BookingID)
+	}
 	if err != nil {
 		return 0, err
 	}
@@ -1293,6 +1306,7 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 			AttemptID:      fr.ID,
 			PaymentID:      fr.PaymentID,
 			BookingID:      fr.BookingID,
+			RegistrationID: fr.RegistrationID,
 			ComplexID:      fr.ComplexID,
 			MPPaymentID:    fr.MPPaymentID,
 			RefundCentavos: fr.Amount,
@@ -1308,7 +1322,7 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 			// an exhausted refund is money owed with nothing automatic left
 			// behind it — the entry is how an owner finds that without
 			// reading the platform's alerts.
-			s.record(fr.ComplexID, fr.BookingID, "refund_retry",
+			s.recordClaim(claim, "refund_retry",
 				claimEvent(claim, outcome.AmountCentavos, outcome.Result, outcome.Reason))
 			continue
 		}
@@ -1319,12 +1333,12 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 			s.logger.Error("refund-retry: refund issued but not recorded, left queued for retry",
 				"error", err, "id", fr.ID, "payment_id", fr.PaymentID)
 			sentry.CaptureMessage(fmt.Sprintf("refund-retry RECORD FAILED (money refunded, queued for retry): booking_id=%s mp_payment_id=%s attempt_id=%s", fr.BookingID, fr.MPPaymentID, fr.ID))
-			s.record(fr.ComplexID, fr.BookingID, "refund_retry", claimEvent(claim, settled.RefundCentavos,
+			s.recordClaim(claim, "refund_retry", claimEvent(claim, settled.RefundCentavos,
 				paymentstore.RefundQueued, "the refund was issued but could not be recorded, and stays queued"))
 			continue
 		}
 
-		s.record(fr.ComplexID, fr.BookingID, "refund_retry",
+		s.recordClaim(claim, "refund_retry",
 			claimEvent(claim, refundTotal, paymentstore.RefundIssued, ""))
 
 		s.notifyRetriedRefund(ctx, fr, refundTotal)
@@ -1352,6 +1366,10 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 // The amount is the total RecordRefundSuccess actually wrote, so the message
 // cannot disagree with the row.
 func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
+	if fr.RegistrationID != nil {
+		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, refundTotal)
+		return
+	}
 	booking, bErr := s.bookings.GetByID(ctx, fr.BookingID)
 	if bErr != nil {
 		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)

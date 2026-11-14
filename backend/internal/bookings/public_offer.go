@@ -10,16 +10,15 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
+	"github.com/stodulski/vibe-server/internal/checkout"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
-	"github.com/stodulski/vibe-server/internal/mpcred"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -247,15 +246,8 @@ const passedSlotMessage = "cannot book a time slot that has already passed"
 // reaches MercadoPago as the platform, which is where the money would
 // otherwise land.
 func (s *Service) publicSeller(complex *complexstore.Complex) (mp.Caller, error) {
-	var seller mp.Caller
-	sellerToken, sellerErr := complex.SellerAccessToken()
-	if sellerErr == nil {
-		seller, sellerErr = mp.AsSeller(sellerToken)
-	}
-	if sellerErr != nil {
-		if errors.Is(sellerErr, mpcred.ErrMPCredentialUnreadable) {
-			sentry.CaptureMessage(fmt.Sprintf("SELLER TOKEN UNREADABLE (refusing checkout): complex_id=%s error=%v", complex.ID, sellerErr))
-		}
+	seller, err := checkout.Seller(complex)
+	if err != nil {
 		return seller, ErrMercadoPagoNotConnected
 	}
 	return seller, nil

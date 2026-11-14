@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
@@ -99,6 +100,9 @@ func (m *Store) SignUp(ctx context.Context, in SignUpInput) (*Registration, stri
 		}); err != nil {
 			return fmt.Errorf("events: expire stale holds: %w", err)
 		}
+		if err := m.checkNotRegistered(ctx, tx, event.ID, in.Phone); err != nil {
+			return err
+		}
 		taken, err := q.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{EventID: event.ID})
 		if err != nil {
 			return fmt.Errorf("events: count spots: %w", err)
@@ -129,6 +133,24 @@ func (m *Store) SignUp(ctx context.Context, in SignUpInput) (*Registration, stri
 		return nil, "", err
 	}
 	return registrationFromDB(row), token, nil
+}
+
+// checkNotRegistered refuses a phone that already holds a live spot of the
+// event, ahead of the capacity count: a person who is already in is told so even
+// when the event has since filled.
+func (m *Store) checkNotRegistered(ctx context.Context, tx pgx.Tx, eventID pgtype.UUID, phone string) error {
+	var registered bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS(
+			SELECT 1 FROM open_play_registrations
+			WHERE event_id = $1 AND phone = $2 AND status IN ('held', 'confirmed'))`, eventID, phone).Scan(&registered)
+	if err != nil {
+		return fmt.Errorf("events: check registered: %w", err)
+	}
+	if registered {
+		return ErrAlreadyRegistered
+	}
+	return nil
 }
 
 // checkHoldLimit refuses an address that already holds its cap of live spots,

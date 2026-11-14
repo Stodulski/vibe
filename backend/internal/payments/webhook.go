@@ -434,6 +434,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	// If the payment was already processed, only handle status transitions
 	// that require action (refund/chargeback). Skip everything else.
 	if existingPayment != nil {
+		if existingPayment.RegistrationID != nil {
+			return s.processRecordedRegistrationPayment(existingPayment, mpPayment, mpPaymentID)
+		}
 		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" {
 			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
@@ -442,6 +445,12 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 			"mp_status", mpPayment.Status,
 		)
 		return nil
+	}
+
+	// A payment made for an open-play event sign-up carries the registration in
+	// its metadata and is handled apart from a booking's.
+	if regID, ok := registrationIDOf(mpPayment); ok {
+		return s.processRegistrationPayment(ctx, regID, mpPayment, mpPaymentID)
 	}
 
 	// Extract booking_id from external_reference or metadata.

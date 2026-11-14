@@ -235,11 +235,17 @@ type Service struct {
 	locks         Locker
 	provider      Provider
 	notify        Notifier
-	waitlist      SlotFreedNotifier
-	realtime      Broadcaster
-	audit         Recorder
-	logger        *slog.Logger
-	cfg           Config
+	// The three ports of open-play event sign-ups (see registration.go). Each is
+	// nil in a service that was not wired for them, which then drops a
+	// registration payment with a log line instead of acting on it.
+	registrationLedger RegistrationLedger
+	registrations      RegistrationReader
+	registrationNotify RegistrationNotifier
+	waitlist           SlotFreedNotifier
+	realtime           Broadcaster
+	audit              Recorder
+	logger             *slog.Logger
+	cfg                Config
 	// run schedules background work on the application's tracked goroutines.
 	run func(func())
 }
@@ -259,11 +265,16 @@ type Dependencies struct {
 	Locks         Locker
 	Provider      Provider
 	Notify        Notifier
-	Realtime      Broadcaster
-	Audit         Recorder
-	Logger        *slog.Logger
-	Run           func(func())
-	Waitlist      SlotFreedNotifier
+	// RegistrationLedger, Registrations and RegistrationNotify wire open-play
+	// event sign-ups. All three or none.
+	RegistrationLedger RegistrationLedger
+	Registrations      RegistrationReader
+	RegistrationNotify RegistrationNotifier
+	Realtime           Broadcaster
+	Audit              Recorder
+	Logger             *slog.Logger
+	Run                func(func())
+	Waitlist           SlotFreedNotifier
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -277,26 +288,29 @@ func NewService(d Dependencies, cfg Config) *Service {
 		panic("payments: NewService needs an audit recorder; the money path's entries are not optional")
 	}
 	return &Service{
-		payments:      d.Payments,
-		ledger:        d.Payments,
-		refunds:       d.Payments,
-		bookings:      d.Bookings,
-		clients:       d.Clients,
-		complexes:     d.Complexes,
-		courts:        d.Courts,
-		failedRefunds: d.FailedRefunds,
-		webhookEvents: d.WebhookEvents,
-		refundIntents: d.RefundIntents,
-		linkTokens:    d.LinkTokens,
-		locks:         d.Locks,
-		provider:      d.Provider,
-		notify:        d.Notify,
-		waitlist:      d.Waitlist,
-		realtime:      d.Realtime,
-		audit:         d.Audit,
-		logger:        d.Logger,
-		cfg:           cfg,
-		run:           d.Run,
+		payments:           d.Payments,
+		ledger:             d.Payments,
+		refunds:            d.Payments,
+		bookings:           d.Bookings,
+		clients:            d.Clients,
+		complexes:          d.Complexes,
+		courts:             d.Courts,
+		failedRefunds:      d.FailedRefunds,
+		webhookEvents:      d.WebhookEvents,
+		refundIntents:      d.RefundIntents,
+		linkTokens:         d.LinkTokens,
+		locks:              d.Locks,
+		provider:           d.Provider,
+		notify:             d.Notify,
+		registrationLedger: d.RegistrationLedger,
+		registrations:      d.Registrations,
+		registrationNotify: d.RegistrationNotify,
+		waitlist:           d.Waitlist,
+		realtime:           d.Realtime,
+		audit:              d.Audit,
+		logger:             d.Logger,
+		cfg:                cfg,
+		run:                d.Run,
 	}
 }
 

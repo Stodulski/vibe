@@ -135,6 +135,13 @@ func (m *stubMailer) SendSeriesCancelled(_ context.Context, to, complexName, cou
 	return m.record("series_cancelled", to, complexName, courtName, weekdays, hours, from, keptPaid, bookURL)
 }
 
+func (m *stubMailer) SendEventRegistered(_ context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string) error {
+	return m.record("event_registered", to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL)
+}
+func (m *stubMailer) SendEventCancelled(_ context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string) error {
+	return m.record("event_cancelled", to, firstName, complexName, eventName, date, hours, byOwner, refundLine, refundAmount, eventsURL)
+}
+
 func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, date, bookURL string) error {
 	return m.record("waitlist_slot_freed", to, complexName, date, bookURL)
 }

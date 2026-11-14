@@ -15,6 +15,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // QueryParam is the name the three public routes read and every link writes.
@@ -50,6 +52,30 @@ func Success(publicURL, complexSlug, credential string) string {
 // since MercadoPago redirects there for a payment still under review.
 func SuccessPending(publicURL, complexSlug, credential string) string {
 	return fmt.Sprintf("%s/c/%s/book/success?%s=%s&status=pending", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
+}
+
+// EventPage is the public page of an open-play event ("canchas libres"): where
+// the sign-up is shared and where a confirmation email points.
+func EventPage(publicURL, complexSlug string, eventID uuid.UUID) string {
+	return fmt.Sprintf("%s/c/%s/events/%s", publicURL, complexSlug, eventID)
+}
+
+// EventSuccess builds the checkout preference's success back_url for an event
+// sign-up: the event page with the person's registration credential, which the
+// page reads to show the spot and the cancel action.
+func EventSuccess(publicURL, complexSlug string, eventID uuid.UUID, credential string) string {
+	return fmt.Sprintf("%s?%s=%s&registered=1", EventPage(publicURL, complexSlug, eventID), QueryParam, url.QueryEscape(credential))
+}
+
+// EventPending is EventSuccess for a payment still under review.
+func EventPending(publicURL, complexSlug string, eventID uuid.UUID, credential string) string {
+	return fmt.Sprintf("%s?%s=%s&registered=1&status=pending", EventPage(publicURL, complexSlug, eventID), QueryParam, url.QueryEscape(credential))
+}
+
+// EventFailure is the failure back_url of an event sign-up. Like Failure it
+// carries no credential.
+func EventFailure(publicURL, complexSlug string, eventID uuid.UUID) string {
+	return fmt.Sprintf("%s?error=payment_failed", EventPage(publicURL, complexSlug, eventID))
 }
 
 // Failure builds the MercadoPago checkout preference's failure back_url. It

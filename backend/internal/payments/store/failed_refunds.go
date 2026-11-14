@@ -127,20 +127,24 @@ func transientProviderFailure(cause string) bool {
 
 // FailedRefund tracks a refund that failed at the payment provider and is queued for retry with backoff.
 type FailedRefund struct {
-	ID           uuid.UUID  `json:"id"`
-	PaymentID    uuid.UUID  `json:"payment_id"`
-	BookingID    uuid.UUID  `json:"booking_id"`
-	ComplexID    uuid.UUID  `json:"complex_id"`
-	Amount       int        `json:"amount"`
-	MPPaymentID  string     `json:"mp_payment_id"`
-	ErrorMessage string     `json:"error_message"`
-	RetryCount   int        `json:"retry_count"`
-	MaxRetries   int        `json:"max_retries"`
-	NextRetryAt  time.Time  `json:"next_retry_at"`
-	Status       string     `json:"status"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	ResolvedAt   *time.Time `json:"resolved_at,omitempty"`
+	ID        uuid.UUID `json:"id"`
+	PaymentID uuid.UUID `json:"payment_id"`
+	// BookingID is uuid.Nil for the refund of an open-play registration's payment.
+	BookingID uuid.UUID `json:"booking_id"`
+	// RegistrationID is the open-play registration the refunded payment is for;
+	// nil on every booking's refund.
+	RegistrationID *uuid.UUID `json:"registration_id,omitempty"`
+	ComplexID      uuid.UUID  `json:"complex_id"`
+	Amount         int        `json:"amount"`
+	MPPaymentID    string     `json:"mp_payment_id"`
+	ErrorMessage   string     `json:"error_message"`
+	RetryCount     int        `json:"retry_count"`
+	MaxRetries     int        `json:"max_retries"`
+	NextRetryAt    time.Time  `json:"next_retry_at"`
+	Status         string     `json:"status"`
+	CreatedAt      time.Time  `json:"created_at"`
+	UpdatedAt      time.Time  `json:"updated_at"`
+	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
 }
 
 // FailedRefunds implements FailedRefundStore against PostgreSQL.
@@ -157,7 +161,7 @@ func (m *FailedRefunds) Insert(ctx context.Context, fr *FailedRefund) error {
 		INSERT INTO failed_refunds (payment_id, booking_id, complex_id, amount, mp_payment_id, error_message, next_retry_at)
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		RETURNING id, created_at, updated_at`,
-		fr.PaymentID, fr.BookingID, fr.ComplexID,
+		fr.PaymentID, bookingIDOrNil(fr.BookingID), fr.ComplexID,
 		fr.Amount, fr.MPPaymentID, fr.ErrorMessage, fr.NextRetryAt,
 	).Scan(&fr.ID, &fr.CreatedAt, &fr.UpdatedAt)
 	if err != nil {
@@ -194,7 +198,8 @@ func (m *FailedRefunds) GetPendingDue(ctx context.Context) ([]*FailedRefund, err
 		SELECT id, payment_id, booking_id, complex_id, amount,
 		       COALESCE(mp_payment_id, ''), COALESCE(error_message, ''),
 		       retry_count, max_retries, next_retry_at, status,
-		       created_at, updated_at, resolved_at
+		       created_at, updated_at, resolved_at,
+		       (SELECT p.registration_id FROM payments p WHERE p.id = failed_refunds.payment_id)
 		FROM failed_refunds
 		WHERE next_retry_at <= NOW()
 		  AND (status IN ('pending', 'exhausted')
@@ -367,14 +372,18 @@ func scanFailedRefunds(rows pgx.Rows) ([]*FailedRefund, error) {
 	var result []*FailedRefund
 	for rows.Next() {
 		var fr FailedRefund
+		var bookingID *uuid.UUID
 		err := rows.Scan(
-			&fr.ID, &fr.PaymentID, &fr.BookingID, &fr.ComplexID,
+			&fr.ID, &fr.PaymentID, &bookingID, &fr.ComplexID,
 			&fr.Amount, &fr.MPPaymentID, &fr.ErrorMessage,
 			&fr.RetryCount, &fr.MaxRetries, &fr.NextRetryAt, &fr.Status,
-			&fr.CreatedAt, &fr.UpdatedAt, &fr.ResolvedAt,
+			&fr.CreatedAt, &fr.UpdatedAt, &fr.ResolvedAt, &fr.RegistrationID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan failed refund: %w", err)
+		}
+		if bookingID != nil {
+			fr.BookingID = *bookingID
 		}
 		result = append(result, &fr)
 	}

@@ -39,8 +39,11 @@ type RefundClaim struct {
 	// AttemptID is the failed_refunds row recording this attempt.
 	AttemptID uuid.UUID
 	PaymentID uuid.UUID
-	BookingID uuid.UUID
-	ComplexID uuid.UUID
+	// BookingID is the booking the payment is for; uuid.Nil for the payment of
+	// an open-play event registration, which names RegistrationID instead.
+	BookingID      uuid.UUID
+	RegistrationID *uuid.UUID
+	ComplexID      uuid.UUID
 	// MPPaymentID is the MercadoPago payment to refund against.
 	MPPaymentID string
 	// RefundCentavos is the amount to send to the provider, computed under the
@@ -162,6 +165,7 @@ func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.U
 	claim := &RefundClaim{
 		PaymentID:      data.PgToUUID(dbPayment.ID),
 		BookingID:      data.PgToUUID(dbPayment.BookingID),
+		RegistrationID: data.PgToUUIDPtr(dbPayment.RegistrationID),
 		ComplexID:      data.PgToUUID(dbPayment.ComplexID),
 		MPPaymentID:    mpPaymentID,
 		RefundCentavos: remaining,
@@ -177,7 +181,7 @@ func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.U
 	// a separate round trip — is what keeps the crash window closed: a crash
 	// between this commit and a later clear would reopen exactly the gap the
 	// marker exists to cover.
-	if clearIntent {
+	if clearIntent && claim.BookingID != uuid.Nil {
 		if err := clearRefundIntent(ctx, tx, claim.BookingID); err != nil {
 			return nil, err
 		}
@@ -228,6 +232,15 @@ func claimable(locked db.Payment) (mpPaymentID string, remaining int, err error)
 	return locked.MpPaymentID.String, remaining, nil
 }
 
+// bookingIDOrNil is the booking column of a refund attempt: NULL for a
+// registration's payment, which has no booking.
+func bookingIDOrNil(id uuid.UUID) *uuid.UUID {
+	if id == uuid.Nil {
+		return nil
+	}
+	return &id
+}
+
 // recordRefundAttempt queues the attempt row for a claim, inside the claim's
 // transaction, and fills in its id.
 //
@@ -248,7 +261,7 @@ func recordRefundAttempt(ctx context.Context, tx pgx.Tx, claim *RefundClaim) err
 		INSERT INTO failed_refunds (payment_id, booking_id, complex_id, amount, mp_payment_id, error_message, next_retry_at, status)
 		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
 		RETURNING id`,
-		claim.PaymentID, claim.BookingID, claim.ComplexID,
+		claim.PaymentID, bookingIDOrNil(claim.BookingID), claim.ComplexID,
 		claim.RefundCentavos, claim.MPPaymentID, claimedAttemptNote,
 		time.Now().Add(firstRetryDelay),
 	).Scan(&claim.AttemptID)
@@ -328,7 +341,7 @@ func (m *Payments) RecordRefundSuccess(ctx context.Context, claim RefundClaim, m
 
 		// A full refund writes its booking only when that booking is already cancelled.
 		// A refund never cancels a live booking (see refundLeavesBookingAlone).
-		if isFullRefund {
+		if isFullRefund && claim.BookingID != uuid.Nil {
 			if err := settleCancelledBookingRefund(ctx, qtx, claim.BookingID, manualOwedCentavos > 0); err != nil {
 				return err
 			}

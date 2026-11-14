@@ -505,11 +505,19 @@ type PaymentRefunder interface {
 	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
 }
 
+// PaymentRegistrationLedger is the ledger side of open-play event sign-ups: the
+// payments of a registration, and settling an approved payment against it.
+type PaymentRegistrationLedger interface {
+	ListByRegistrationID(ctx context.Context, registrationID uuid.UUID) ([]*paymentstore.Payment, error)
+	ConfirmRegistrationPayment(ctx context.Context, payment *paymentstore.Payment, registrationID uuid.UUID) error
+}
+
 // PaymentStore composes payment read, write and refund access.
 type PaymentStore interface {
 	PaymentReader
 	PaymentWriter
 	PaymentRefunder
+	PaymentRegistrationLedger
 }
 
 // ---------------------------------------------------------------------------
