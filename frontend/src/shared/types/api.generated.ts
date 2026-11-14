@@ -3365,7 +3365,7 @@ export interface components {
             court_fee: number;
         };
         TournamentOwnerSummary: components["schemas"]["Tournament"] & {
-            /** @description Matches of an active tournament with both pairs known, not a bye, not played and without a court yet. 0 for a cancelled tournament. */
+            /** @description Matches of an active tournament that are not a bye, not played and without a court yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament. */
             unscheduled_count: number;
             categories: components["schemas"]["TournamentOwnerCategory"][];
         };

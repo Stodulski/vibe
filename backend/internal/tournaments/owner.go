@@ -246,13 +246,13 @@ func (s *Service) List(ctx context.Context, complexID uuid.UUID, from, to time.T
 	return sums, nil
 }
 
-// countToSchedule is how many matches the owner can schedule now and has not:
-// both pairs known, not a bye, not played, no court yet. A match still waiting
-// for a pair is not counted, since it cannot be scheduled.
+// countToSchedule is how many matches still have no court: not a bye, not
+// played. A later-round match still waiting for its pairs counts too, since it
+// can be given its court and hours before they are known.
 func countToSchedule(matches []*tournamentstore.Match) int {
 	n := 0
 	for _, m := range matches {
-		if !m.Bye && m.Status != tournamentstore.MatchCompleted && !m.Scheduled() && m.Pair1ID != nil && m.Pair2ID != nil {
+		if !m.Bye && m.Status != tournamentstore.MatchCompleted && !m.Scheduled() {
 			n++
 		}
 	}

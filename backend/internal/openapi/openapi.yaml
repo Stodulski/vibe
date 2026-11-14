@@ -7234,8 +7234,8 @@ components:
             unscheduled_count:
               type: integer
               description: >-
-                Matches of an active tournament with both pairs known, not a bye, not played and
-                without a court yet. 0 for a cancelled tournament.
+                Matches of an active tournament that are not a bye, not played and without a court
+                yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament.
             categories:
               type: array
               items: {$ref: "#/components/schemas/TournamentOwnerCategory"}

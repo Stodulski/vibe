@@ -185,8 +185,8 @@ func TestAWinnerOnlyResultHasAWinnerAndNoSets(t *testing.T) {
 	}
 }
 
-// The list tells the owner how many matches are ready to be scheduled and are
-// not: both pairs known, not a bye, not played, no court. A cancelled tournament
+// The list tells the owner how many matches have no court yet: not a bye, not
+// played, a later round still waiting for a pair included. A cancelled tournament
 // has none to schedule.
 func TestTheOwnerListCountsTheMatchesStillToSchedule(t *testing.T) {
 	f := newFixture(t)
@@ -204,8 +204,8 @@ func TestTheOwnerListCountsTheMatchesStillToSchedule(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(sums) != 1 || sums[0].UnscheduledCount != 2 {
-		t.Fatalf("want 2 matches to schedule; got %+v", sums)
+	if len(sums) != 1 || sums[0].UnscheduledCount != 3 {
+		t.Fatalf("want 3 matches to schedule; got %+v", sums)
 	}
 
 	d.Tournament.Status = tournamentstore.StatusCancelled

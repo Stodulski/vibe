@@ -4535,7 +4535,7 @@ type TournamentOwnerSummary struct {
 	StartDate    openapi_types.Date           `json:"start_date"`
 	Status       TournamentOwnerSummaryStatus `json:"status"`
 
-	// UnscheduledCount Matches of an active tournament with both pairs known, not a bye, not played and without a court yet. 0 for a cancelled tournament.
+	// UnscheduledCount Matches of an active tournament that are not a bye, not played and without a court yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament.
 	UnscheduledCount int `json:"unscheduled_count"`
 }
 
