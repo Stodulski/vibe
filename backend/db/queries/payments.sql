@@ -1,6 +1,6 @@
 -- name: InsertPayment :one
-INSERT INTO payments (booking_id, complex_id, amount, method, status, service_fee, mp_payment_id, mp_preference_id, status_detail)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+INSERT INTO payments (booking_id, complex_id, amount, method, status, service_fee, mp_payment_id, mp_preference_id, status_detail, registration_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
 
 -- name: GetPaymentByBookingID :one
@@ -85,3 +85,10 @@ SELECT EXISTS (
               + make_interval(mins => sqlc.arg(duration_minutes)::int),
             '[)')
 ) AS taken;
+
+-- name: ListPaymentsByRegistrationID :many
+-- Every payment row of an event registration, oldest first: the sign-up's
+-- checkout row, and any other money that reached it.
+SELECT * FROM payments
+WHERE registration_id = $1
+ORDER BY created_at ASC;

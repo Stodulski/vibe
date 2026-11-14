@@ -260,6 +260,60 @@ func (s *apiServer) BookingSeriesEnd(w http.ResponseWriter, r *http.Request, id 
 	s.app.bookings.EndSeries(w, r)
 }
 
+// EventsList implements gen.ServerInterface for eventsList
+// (GET /api/v1/complexes/{id}/open-play-events). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.EventsListParams) {
+	s.app.openPlay.List(w, r)
+}
+
+// EventsCreate implements gen.ServerInterface for eventsCreate
+// (POST /api/v1/complexes/{id}/open-play-events). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsCreate(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.openPlay.Create(w, r)
+}
+
+// EventsGet implements gen.ServerInterface for eventsGet
+// (GET /api/v1/complexes/{id}/open-play-events/{eventID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, eventID gen.EventID) {
+	s.app.openPlay.Get(w, r)
+}
+
+// EventsCancel implements gen.ServerInterface for eventsCancel
+// (POST /api/v1/complexes/{id}/open-play-events/{eventID}/cancel). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsCancel(w http.ResponseWriter, r *http.Request, id gen.PathID, eventID gen.EventID) {
+	s.app.openPlay.Cancel(w, r)
+}
+
+// EventsPublicList implements gen.ServerInterface for eventsPublicList
+// (GET /api/v1/public/complexes/{slug}/events). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsPublicList(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
+	s.app.openPlay.PublicList(w, r)
+}
+
+// EventsPublicGet implements gen.ServerInterface for eventsPublicGet
+// (GET /api/v1/public/complexes/{slug}/events/{eventID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsPublicGet(w http.ResponseWriter, r *http.Request, slug gen.PathSlug, eventID gen.EventID) {
+	s.app.openPlay.PublicGet(w, r)
+}
+
+// EventsPublicSignUp implements gen.ServerInterface for eventsPublicSignUp
+// (POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsPublicSignUp(w http.ResponseWriter, r *http.Request, slug gen.PathSlug, eventID gen.EventID) {
+	s.app.openPlay.PublicSignUp(w, r)
+}
+
+// EventsPublicRegistrationStatus implements gen.ServerInterface for eventsPublicRegistrationStatus
+// (GET /api/v1/public/event-registrations/status). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request, params gen.EventsPublicRegistrationStatusParams) {
+	s.app.openPlay.PublicRegistrationStatus(w, r)
+}
+
+// EventsPublicRegistrationCancel implements gen.ServerInterface for eventsPublicRegistrationCancel
+// (POST /api/v1/public/event-registrations/cancel). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request) {
+	s.app.openPlay.PublicRegistrationCancel(w, r)
+}
+
 // BookingsGet implements gen.ServerInterface for bookingsGet
 // (GET /api/v1/complexes/{id}/bookings/{bookingID}). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID) {

@@ -17,6 +17,13 @@ export const queryKeys = {
   cancelInfo: {
     byToken: (token: string) => ['cancel-info', token] as const,
   },
+  events: {
+    bySlug: (slug: string) => ['events', slug] as const,
+    byId: (slug: string, eventId: string) => ['event', slug, eventId] as const,
+  },
+  eventRegistration: {
+    byToken: (token: string) => ['eventRegistration', token] as const,
+  },
   bookingStatus: {
     byId: (id: string) => ['bookingStatus', id] as const,
   },

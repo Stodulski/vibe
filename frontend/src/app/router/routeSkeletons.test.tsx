@@ -10,6 +10,7 @@ function html(node: ReactNode) {
 const CASES = [
   ['/dashboard', '/dashboard'],
   ['/bookings', '/bookings'],
+  ['/open-play', '/open-play'],
   ['/cash', '/cash'],
   ['/cash/sell', '/cash/sell'],
   ['/cash/sessions/s-1', '/cash/sessions/:sessionId'],

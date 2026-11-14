@@ -18,16 +18,22 @@ import (
 
 // Payment represents a payment or deposit transaction associated with a booking.
 type Payment struct {
-	ID             uuid.UUID `json:"id"`
-	BookingID      uuid.UUID `json:"booking_id"`
-	ComplexID      uuid.UUID `json:"complex_id"`
-	Amount         int       `json:"amount"`
-	ServiceFee     int       `json:"service_fee"`
-	Method         string    `json:"method"`
-	Status         string    `json:"status"`
-	MPPaymentID    *string   `json:"mp_payment_id,omitempty"`
-	MPPreferenceID *string   `json:"mp_preference_id,omitempty"`
-	RefundAmount   int       `json:"refund_amount"`
+	ID uuid.UUID `json:"id"`
+	// BookingID is the booking this payment is for; uuid.Nil on a registration's
+	// payment, which names RegistrationID instead. A payment has exactly one of
+	// the two (payments_exactly_one_subject).
+	BookingID uuid.UUID `json:"booking_id"`
+	// RegistrationID is the open-play event sign-up this payment is for; nil on
+	// every booking payment.
+	RegistrationID *uuid.UUID `json:"registration_id,omitempty"`
+	ComplexID      uuid.UUID  `json:"complex_id"`
+	Amount         int        `json:"amount"`
+	ServiceFee     int        `json:"service_fee"`
+	Method         string     `json:"method"`
+	Status         string     `json:"status"`
+	MPPaymentID    *string    `json:"mp_payment_id,omitempty"`
+	MPPreferenceID *string    `json:"mp_preference_id,omitempty"`
+	RefundAmount   int        `json:"refund_amount"`
 	// StatusDetail is MercadoPago's own reason for the current status (e.g.
 	// "accredited", "cc_rejected_insufficient_amount", "partially_refunded").
 	// Nil when the payment was never confirmed/rejected/refunded through a
@@ -220,8 +226,9 @@ func (m *Payments) Insert(ctx context.Context, p *Payment) error {
 // InsertAndClaimRefund share it, so a new column reaches both.
 func insertPaymentParams(p *Payment) db.InsertPaymentParams {
 	return db.InsertPaymentParams{
-		BookingID: data.UUIDToPg(p.BookingID),
-		ComplexID: data.UUIDToPg(p.ComplexID),
+		BookingID:      bookingIDToPg(p.BookingID),
+		RegistrationID: data.UUIDPtrToPg(p.RegistrationID),
+		ComplexID:      data.UUIDToPg(p.ComplexID),
 		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
 		// MercadoPago's own payment amount; realistically far below int32 range.
 		Amount: int32(p.Amount),
@@ -233,6 +240,15 @@ func insertPaymentParams(p *Payment) db.InsertPaymentParams {
 		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
 		StatusDetail:   data.TextToPg(p.StatusDetail),
 	}
+}
+
+// bookingIDToPg is the booking column of a payment: NULL when the payment is a
+// registration's, which carries no booking.
+func bookingIDToPg(id uuid.UUID) pgtype.UUID {
+	if id == uuid.Nil {
+		return pgtype.UUID{}
+	}
+	return data.UUIDToPg(id)
 }
 
 // fillInserted writes back the columns the database generated for a new row.
@@ -420,8 +436,9 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 
 	// INSERT payment.
 	dbPayment, err := qtx.InsertPayment(ctx, db.InsertPaymentParams{
-		BookingID: data.UUIDToPg(p.BookingID),
-		ComplexID: data.UUIDToPg(p.ComplexID),
+		BookingID:      bookingIDToPg(p.BookingID),
+		RegistrationID: data.UUIDPtrToPg(p.RegistrationID),
+		ComplexID:      data.UUIDToPg(p.ComplexID),
 		//nolint:gosec // G115: currency amount (cents) derived from booking.DepositAmount (validated <= Price) or
 		// MercadoPago's own payment amount; realistically far below int32 range.
 		Amount: int32(p.Amount),
@@ -551,6 +568,7 @@ func paymentFromDB(p db.Payment) *Payment {
 	return &Payment{
 		ID:             data.PgToUUID(p.ID),
 		BookingID:      data.PgToUUID(p.BookingID),
+		RegistrationID: data.PgToUUIDPtr(p.RegistrationID),
 		ComplexID:      data.PgToUUID(p.ComplexID),
 		Amount:         int(p.Amount),
 		ServiceFee:     int(p.ServiceFee),

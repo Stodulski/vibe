@@ -6,3 +6,12 @@
 export function publicComplexPath(slug: string): string {
   return `/c/${slug}`;
 }
+
+/**
+ * Path of one open-play event's sign-up page, the link people share. The
+ * checkout returns here too (`booklink.EventSuccess` in the backend), so the
+ * shape must agree with it.
+ */
+export function publicEventPath(slug: string, eventId: string): string {
+  return `/c/${slug}/events/${eventId}`;
+}

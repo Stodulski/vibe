@@ -18,6 +18,7 @@ import (
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
+	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/middleware"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
@@ -218,6 +219,10 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/audit-log":                                              complexOwner,
 	"GET /api/v1/complexes/{id}/blocked-slots":                                          complexOwner,
 	"DELETE /api/v1/complexes/{id}/blocked-slots/{slotID}":                              complexOwner,
+	"GET /api/v1/complexes/{id}/open-play-events":                                       complexOwner,
+	"POST /api/v1/complexes/{id}/open-play-events":                                      complexOwner,
+	"GET /api/v1/complexes/{id}/open-play-events/{eventID}":                             complexOwner,
+	"POST /api/v1/complexes/{id}/open-play-events/{eventID}/cancel":                     complexOwner,
 	"POST /api/v1/complexes/{id}/booking-series":                                        complexOwner,
 	"GET /api/v1/complexes/{id}/booking-series/{seriesID}":                              complexOwner,
 	"POST /api/v1/complexes/{id}/booking-series/{seriesID}/skip":                        complexOwner,
@@ -559,6 +564,19 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 	series.GetSeriesFn = func(context.Context, uuid.UUID) (*bookingstore.Series, error) { return fixedSeries, nil }
 	series.EndSeriesFn = func(context.Context, uuid.UUID, *time.Time, string) (*bookingstore.Series, error) {
 		return fixedSeries, nil
+	}
+
+	openPlay, ok := fx.app.models.Events.(*mockEventStore)
+	if !ok {
+		t.Fatalf("event store is %T, not *mockEventStore", fx.app.models.Events)
+	}
+	event := &eventstore.Event{
+		ID: id, ComplexID: target.ID, Name: "Canchas libres", Sport: "padel", Date: tomorrow, StartTime: "19:00",
+		DurationMinutes: 120, Capacity: 20, Price: 800_000, Status: eventstore.EventActive, CreatedBy: target.OwnerID,
+	}
+	openPlay.GetEventFn = func(context.Context, uuid.UUID) (*eventstore.Event, error) { return event, nil }
+	openPlay.CancelEventFn = func(context.Context, uuid.UUID, uuid.UUID, *string) (*eventstore.Event, []uuid.UUID, error) {
+		return event, nil, nil
 	}
 
 	cashSession := &cashboxstore.CashSession{

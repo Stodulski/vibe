@@ -9,6 +9,7 @@ import type {
   CourtWithPrices,
   BlockedSlot,
   FixedBlock,
+  EventBlock,
 } from '@/shared/types/api.types';
 import { blockedSlotSchema } from './complex.schema';
 import { exact } from '@/shared/lib/apiParse';
@@ -137,9 +138,28 @@ const fixedBlockSchema = exact<FixedBlock>(
     .loose(),
 );
 
+const eventBlockSchema = exact<EventBlock>(
+  z
+    .object({
+      event_id: z.string(),
+      court_id: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      duration_minutes: z.number(),
+      name: z.string(),
+    })
+    .loose(),
+);
+
 export const blockedSlotsEnvelopeSchema = z
   .object({
     blocked_slots: z.array(blockedSlotSchema),
     fixed_blocks: z.array(fixedBlockSchema),
+    event_blocks: z.array(eventBlockSchema),
   })
-  .loose() satisfies z.ZodType<{ blocked_slots: BlockedSlot[]; fixed_blocks: FixedBlock[] }>;
+  .loose() satisfies z.ZodType<{
+  blocked_slots: BlockedSlot[];
+  fixed_blocks: FixedBlock[];
+  event_blocks: EventBlock[];
+}>;

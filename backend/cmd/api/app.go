@@ -19,6 +19,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/courts"
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	openplay "github.com/stodulski/vibe-server/internal/events"
 	"github.com/stodulski/vibe-server/internal/googleid"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -105,6 +106,7 @@ func validateDeps(d deps) error {
 		{"models.Complexes", d.models.Complexes != nil},
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
+		{"models.Events", d.models.Events != nil},
 		{"models.Waitlist", d.models.Waitlist != nil},
 		{"models.Leads", d.models.Leads != nil},
 		{"models.Lifecycle", d.models.Lifecycle != nil},
@@ -779,6 +781,12 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Audit:      auditor,
 		Logger:     d.logger,
 		Run:        app.background,
+		// Open-play event sign-ups are paid and refunded through this same
+		// service: the ledger is the same store, the registrations are the events
+		// store, and the notices go out through the same notifier.
+		RegistrationLedger: d.models.Payments,
+		Registrations:      d.models.Events,
+		RegistrationNotify: notify,
 	}, payments.Config{
 		PublicURL:               cfg.PublicBaseURL(),
 		CancellationGracePeriod: cfg.Booking.GracePeriod,
@@ -839,6 +847,30 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	bookingsHandler := bookings.NewHandler(bookingsService, waClient, turnstileClient, cfg.Turnstile.BookingEnforce,
 		respond, d.logger, d.trustedProxies)
 
+	// Open-play events ("canchas libres"): published by the owner, signed up for
+	// and paid by people one by one. The money side is the payments service
+	// above; `events` in this function is the realtime hub, hence the alias.
+	openPlayService := openplay.NewService(openplay.Dependencies{
+		Store:     d.models.Events,
+		Complexes: complexesService,
+		Courts:    courtsService,
+		Clients:   clientsService,
+		Payments:  paymentsService,
+		Checkout:  mpClient,
+		Notify:    notify,
+		Realtime:  events,
+		Audit:     auditor,
+		Logger:    d.logger,
+	}, openplay.Config{
+		PublicURL:     cfg.PublicBaseURL(),
+		BackendURL:    cfg.BackendURL,
+		GracePeriod:   cfg.Booking.GracePeriod,
+		PaymentExpiry: cfg.Booking.PaymentExpiry,
+		MaxHoldsPerIP: maxEventHoldsPerIP,
+		RefundGrace:   eventRefundGrace,
+	})
+	openPlayHandler := openplay.NewHandler(openPlayService, respond, d.trustedProxies)
+
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
 	// multi-instance deployment the instances that skipped were silent.
@@ -876,6 +908,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.paymentsService = paymentsService
 	app.bookings = bookingsHandler
 	app.bookingsService = bookingsService
+	app.openPlay = openPlayHandler
+	app.openPlayService = openPlayService
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
 	app.scheduler = sched

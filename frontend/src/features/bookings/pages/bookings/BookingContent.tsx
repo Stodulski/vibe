@@ -4,7 +4,7 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { BookingCalendarSkeleton } from '../../components/booking-calendar/BookingCalendarSkeleton';
 import { NoBookingsEmptyState } from './booking-content/BookingEmptyStates';
-import type { Booking, BlockedSlot, CourtWithPrices, FixedBlock, Schedule } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock, Schedule } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -15,6 +15,7 @@ interface BookingContentProps {
   filteredBookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks?: FixedBlock[] | undefined;
+  eventBlocks?: EventBlock[] | undefined;
   isPast: boolean;
   selectedDate: string;
   courts: CourtWithPrices[];
@@ -24,6 +25,7 @@ interface BookingContentProps {
   onOpenCreate: () => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
 }
 
 export function BookingContent({
@@ -33,6 +35,7 @@ export function BookingContent({
   filteredBookings,
   blockedSlots,
   fixedBlocks,
+  eventBlocks,
   isPast,
   selectedDate,
   courts,
@@ -42,6 +45,7 @@ export function BookingContent({
   onOpenCreate,
   onSelectBlockedSlot,
   onSelectFixedBlock,
+  onSelectEventBlock,
 }: BookingContentProps) {
   if (isLoading) return <BookingCalendarSkeleton />;
 
@@ -57,7 +61,8 @@ export function BookingContent({
     );
   }
 
-  const hasNothing = filteredBookings.length === 0 && blockedSlots.length === 0 && !fixedBlocks?.length;
+  const hasNothing =
+    filteredBookings.length === 0 && blockedSlots.length === 0 && !fixedBlocks?.length && !eventBlocks?.length;
 
   // Handed down rather than returned early: an empty day still has courts, and
   // the timeline's whole point is showing their free time — so it keeps
@@ -69,6 +74,7 @@ export function BookingContent({
       bookings={filteredBookings}
       blockedSlots={blockedSlots}
       fixedBlocks={fixedBlocks}
+      eventBlocks={eventBlocks}
       courts={courts}
       date={selectedDate}
       schedules={schedules}
@@ -77,6 +83,7 @@ export function BookingContent({
       onCreateBooking={onCreateFromSlot}
       onSelectBlockedSlot={onSelectBlockedSlot}
       onSelectFixedBlock={onSelectFixedBlock}
+      onSelectEventBlock={onSelectEventBlock}
     />
   );
 }

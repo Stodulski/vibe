@@ -281,6 +281,14 @@ Rendered: "Cancha 1 en Vibe Palermo, el lunes 14/12 y los lunes siguientes de
 **created** sends no WhatsApp at all, because every approved template carries a
 button bound to a booking that does not exist yet; the client gets an email only.
 
+**Open-play events ("canchas libres") send no WhatsApp at all.** Signing up
+(`email:event_registered`) and cancelling, by the person or by the owner
+cancelling the event (`email:event_cancelled`), are email only: every approved
+template carries a button bound to a booking, and a sign-up has none. A person
+who gave no email (it is optional; the phone is the required contact) hears
+nothing. If the product wants these on WhatsApp, a new template has to be
+written and approved first.
+
 ---
 
 ## 4. `deposit_returned`

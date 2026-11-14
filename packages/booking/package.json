@@ -11,6 +11,7 @@
     "./book-confirm": "./src/entries/book-confirm.tsx",
     "./book-success": "./src/entries/book-success.tsx",
     "./book-cancel": "./src/entries/book-cancel.tsx",
+    "./event-page": "./src/entries/event-page.tsx",
     "./payment-failed": "./src/entries/payment-failed.tsx",
     "./config": "./src/config.ts",
     "./messages": "./src/messages.ts",

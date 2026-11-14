@@ -1,3 +1,5 @@
+import { EVENT_MESSAGES } from './eventMessages';
+
 /**
  * The strings the booking package renders. This file is the single source of
  * the booking copy: the app's `shared/i18n/es_AR/publicBooking.ts` re-exports
@@ -194,6 +196,7 @@ export const BOOKING_MESSAGES = {
     privacyNotice: 'Tus datos los gestiona el complejo para tu reserva. Vibe los procesa por su cuenta.',
     privacyNoticeLink: 'Política de privacidad',
   },
+  events: EVENT_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
     amenities: {

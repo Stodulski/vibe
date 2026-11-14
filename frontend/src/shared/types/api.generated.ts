@@ -536,6 +536,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/open-play-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a complex's open-play events in a date range
+         * @description Events ("canchas libres") whose date is in the range, cancelled ones included, soonest first, with how many spots are taken. At most 200; not paginated.
+         */
+        get: operations["eventsList"];
+        put?: never;
+        /**
+         * Publish an open-play event (canchas libres)
+         * @description Takes the event's courts off sale for its window: the storefront, the owner's booking and blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the hours as taken until the event is cancelled. `court_ids` absent or empty means every active court. An `end_time` not after `start_time` means the event runs past midnight. When a booking, a blocked slot, a fixed weekly booking or another event already holds the hours on any of the courts the call answers `409` naming what and where, and writes nothing. People sign up one by one and pay `price` (plus the service fee) online until the event is full or begins.
+         */
+        post: operations["eventsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/open-play-events/{eventID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an open-play event with its participants
+         * @description The event and everyone who held a spot in it, with each payment: `held` spots are still being paid, `confirmed` are paid, `cancelled` ones are listed when they carried money (a refund shows in `payment.refund_amount`). Holds that ran out are not listed. Event income is in the complex cash like an online deposit.
+         */
+        get: operations["eventsGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/open-play-events/{eventID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel an open-play event
+         * @description Frees the event's courts and ends every registration at once. Every paid participant is refunded through MercadoPago (the whole payment, service fee included) and told by email when they gave one; a refund MercadoPago cannot complete now stays queued and is retried. People still paying lose their hold, and a payment that lands for one is refunded when it arrives. A second cancel is `400`.
+         */
+        post: operations["eventsCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/bookings/{bookingID}": {
         parameters: {
             query?: never;
@@ -994,6 +1058,106 @@ export interface paths {
          * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of the complex. Joining again for the same address and day answers the same `204`. The email is sent once, the first time a booking on that day is cancelled or expires. The daily cleanup drops entries whose day has passed.
          */
         post: operations["waitlistJoin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The open-play events a visitor can still sign up for
+         * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the holds still running; `0` means the sign-up is closed.
+         */
+        get: operations["eventsPublicList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/events/{eventID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One open-play event, for its shareable page
+         * @description Public. Cross-tenant bypass reason `resolves`. A cancelled event is still answered, as `cancelled`, so a shared link says so. An event of another complex is `404`.
+         */
+        get: operations["eventsPublicGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/events/{eventID}/registrations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign up for an open-play event and pay online
+         * @description Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling, and one address may hold at most 3 unpaid spots at once. Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed when the payment is approved; a hold nobody pays stops counting by itself. Phone is required, email optional (without it no confirmation email is sent). Answers `409` when the event is full or closed, or the phone already holds a spot. The returned `token` is the person's credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the checkout returns them to the event page with it.
+         */
+        post: operations["eventsPublicSignUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/event-registrations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A person's own spot in an open-play event
+         * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. `cancellation` says what cancelling right now would do under the complex's policy, the one bookings follow: within `cancellation_hours` before the event (or the grace period after signing up) the payment is refunded automatically, outside it the spot is released and the payment kept.
+         */
+        get: operations["eventsPublicRegistrationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/event-registrations/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a person's own spot in an open-play event
+         * @description Public. Cross-tenant bypass reason `resolves`. Follows the complex's cancellation policy as a booking does: within the window a paid spot is refunded through MercadoPago, outside it the spot is released and the payment kept. A spot still being paid is released with nothing to return.
+         */
+        post: operations["eventsPublicRegistrationCancel"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2647,6 +2811,167 @@ export interface components {
              */
             reason?: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
         };
+        /** @description An open-play event ("canchas libres"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
+        OpenPlayEvent: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            complex_id: string;
+            name: string;
+            /** @enum {string} */
+            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
+            /**
+             * Format: date
+             * @description The local day the event starts on.
+             */
+            date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            capacity: number;
+            /** @description Centavos ARS per person. */
+            price: number;
+            /** @enum {string} */
+            status: "active" | "cancelled";
+            cancel_reason?: string | null;
+            /** Format: date-time */
+            cancelled_at?: string | null;
+            courts: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            }[];
+            /** @description Paid spots. */
+            confirmed_count: number;
+            /** @description Spots held by people still paying. */
+            held_count: number;
+            /** @description Capacity minus paid spots and running holds, never below zero. */
+            spots_left: number;
+            /** Format: date-time */
+            created_at: string;
+        };
+        OpenPlayParticipant: {
+            /** Format: uuid */
+            id: string;
+            first_name: string;
+            last_name: string;
+            phone: string;
+            email?: string | null;
+            /** @enum {string} */
+            status: "held" | "confirmed" | "cancelled";
+            /** @description Centavos ARS, the event price at sign-up. */
+            price: number;
+            /** @description Centavos ARS, paid by the person on top of the price. */
+            service_fee: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            confirmed_at?: string | null;
+            /** Format: date-time */
+            cancelled_at?: string | null;
+            /** @enum {string|null} */
+            cancelled_by?: "participant" | "owner" | null;
+            /** @description The payment carrying the person's money; `null` while no checkout was ever opened. */
+            payment?: null | {
+                /** @description The payment status: unpaid, deposit_paid, refund_pending, partial_refund or refunded. */
+                status: string;
+                /** @description Centavos ARS. */
+                amount: number;
+                /** @description Centavos ARS. */
+                service_fee: number;
+                /** @description Centavos ARS already sent back. */
+                refund_amount: number;
+                /** @enum {string} */
+                method: "mercadopago";
+            };
+        };
+        /** @description An event as a visitor sees it on the complex's page. */
+        PublicOpenPlayEvent: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
+            /** Format: date */
+            date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            capacity: number;
+            /** @description `0` closes the sign-up. */
+            spots_left: number;
+            /** @description Centavos ARS per person. */
+            price: number;
+            /** @description Centavos ARS the person pays on top. */
+            service_fee: number;
+            /** @description Centavos ARS: `price` plus `service_fee`. */
+            total_price: number;
+            /** @enum {string} */
+            status: "active" | "cancelled";
+            court_names: string[];
+            complex_name?: string;
+            /** @description The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead. */
+            cancellation_hours?: number;
+        };
+        PublicEventSignUp: {
+            registration: {
+                /** @enum {string} */
+                status: "held";
+                /**
+                 * Format: date-time
+                 * @description The spot is released if unpaid by then.
+                 */
+                held_until: string;
+            };
+            /** @description Opaque credential for the person's own spot. The registration's primary key is never included. */
+            token: string;
+            event: components["schemas"]["PublicOpenPlayEvent"];
+            /** Format: uri */
+            mp_init_point?: string;
+            mp_preference_id?: string;
+            /** @description Centavos ARS. */
+            service_fee: number;
+            /** @description Centavos ARS the person pays. */
+            total_price: number;
+        };
+        PublicEventRegistration: {
+            /** @enum {string} */
+            status: "held" | "confirmed" | "cancelled" | "expired";
+            first_name: string;
+            last_name: string;
+            /** @description Centavos ARS. */
+            price: number;
+            /** @description Centavos ARS. */
+            service_fee: number;
+            /** Format: date-time */
+            held_until?: string;
+            event: components["schemas"]["PublicOpenPlayEvent"];
+            complex_name?: string;
+            complex_address?: string;
+            cancellation: {
+                can_cancel: boolean;
+                /** @description Whether cancelling now earns the payment back. */
+                within_window: boolean;
+                /** Format: date-time */
+                deadline: string;
+            };
+        };
+        /** @description Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+        EventBlock: {
+            /** Format: uuid */
+            event_id: string;
+            /** Format: uuid */
+            court_id: string;
+            /**
+             * Format: date
+             * @description The local day the hours start on.
+             */
+            date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            name: string;
+        };
         /** @description A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
         FixedBlock: {
             /** Format: uuid */
@@ -3157,6 +3482,7 @@ export interface components {
         PathSlug: string;
         PathCity: string;
         BookingID: string;
+        EventID: string;
         SeriesID: string;
         CourtID: string;
         /** @description Cash session id. */
@@ -4539,6 +4865,203 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsList: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Events in range, never `null`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: components["schemas"]["OpenPlayEvent"][];
+                    };
+                };
+            };
+            /** @description Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /**
+                     * @default padel
+                     * @enum {string}
+                     */
+                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
+                    /**
+                     * Format: date
+                     * @description The day the event starts on. Not in the past, within 365 days.
+                     */
+                    date: string;
+                    start_time: string;
+                    /** @description Between 30 minutes and 12 hours after `start_time`. */
+                    end_time: string;
+                    /** @description Active courts of the complex; absent or empty means all of them. */
+                    court_ids?: string[];
+                    capacity: number;
+                    /** @description Centavos ARS per person, greater than zero. */
+                    price: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The event. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        event: components["schemas"]["OpenPlayEvent"];
+                    };
+                };
+            };
+            /** @description Malformed body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Something already holds the hours on one of the courts. `detail` says what and which court. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                eventID: components["parameters"]["EventID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event and its participants. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        event: components["schemas"]["OpenPlayEvent"];
+                        participants: components["schemas"]["OpenPlayParticipant"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                eventID: components["parameters"]["EventID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The cancelled event and the refund of each paid participant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        event: components["schemas"]["OpenPlayEvent"];
+                        refunds: {
+                            /** Format: uuid */
+                            registration_id: string;
+                            refund: components["schemas"]["RefundOutcome"];
+                        }[];
+                    };
+                };
+            };
+            /** @description The event is already cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
         };
@@ -5961,6 +6484,232 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
+    eventsPublicList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Upcoming events, never `null`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        events: components["schemas"]["PublicOpenPlayEvent"][];
+                    };
+                };
+            };
+            /** @description Unknown slug, or the complex is inactive. */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsPublicGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+                eventID: components["parameters"]["EventID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The event. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        event: components["schemas"]["PublicOpenPlayEvent"];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsPublicSignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+                eventID: components["parameters"]["EventID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    first_name: string;
+                    last_name: string;
+                    /**
+                     * @description Normalized to E.164.
+                     * @example +5491112345678
+                     */
+                    phone: string;
+                    /** @description Optional. */
+                    email?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The spot is held; pay at `mp_init_point`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEventSignUp"];
+                };
+            };
+            /** @description Malformed body, or the complex has no MercadoPago connected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The complex blocked this phone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description The event is full, sign-up is closed, or this phone already holds a spot. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description MercadoPago would not create the checkout. The held spot was released. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    eventsPublicRegistrationStatus: {
+        parameters: {
+            query: {
+                /** @description The opaque booking-link token, never the booking's primary key. */
+                token: components["parameters"]["BookingToken"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The spot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicEventRegistration"];
+                };
+            };
+            /** @description Missing token. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    eventsPublicRegistrationCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Cancelled, with the resulting refund outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registration: components["schemas"]["PublicEventRegistration"];
+                        refunded: boolean;
+                        refund: components["schemas"]["RefundOutcome"];
+                    };
+                };
+            };
+            /** @description The spot is already cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Missing token. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
     courtsPublicNextAvailable: {
         parameters: {
             query: {
@@ -6359,6 +7108,8 @@ export interface operations {
                         blocked_slots: components["schemas"]["BlockedSlot"][];
                         /** @description The dates fixed weekly bookings hold in the range that have no booking yet. They block like a blocked slot but are not one: they cannot be deleted from here and are cancelled through the series (`bookingSeriesSkip`, `bookingSeriesEnd`). Not paginated. */
                         fixed_blocks: components["schemas"]["FixedBlock"][];
+                        /** @description The hours active open-play events hold in the range, one entry per event and court. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by cancelling the event (`eventsCancel`). Not paginated. */
+                        event_blocks: components["schemas"]["EventBlock"][];
                     };
                 };
             };

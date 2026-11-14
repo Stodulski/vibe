@@ -353,6 +353,9 @@ func softDeleteCourt(ctx context.Context, tx pgx.Tx, id uuid.UUID) error {
 	if err := refuseActiveSeries(ctx, tx, id); err != nil {
 		return err
 	}
+	if err := refuseActiveEvents(ctx, tx, id); err != nil {
+		return err
+	}
 
 	if _, err := tx.Exec(ctx,
 		`UPDATE courts SET deleted_at = NOW() WHERE id = $1 AND deleted_at IS NULL`,
@@ -383,6 +386,30 @@ func refuseActiveSeries(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error
 	}
 	if held {
 		return ErrCourtHasActiveSeries
+	}
+	return nil
+}
+
+// refuseActiveEvents answers ErrCourtHasActiveEvent when an active open-play
+// event that has not ended still holds the court. Like refuseActiveSeries it
+// runs after the court row lock is held, and creating an event takes the same
+// lock, so an event being created concurrently is either seen here or waits
+// for the delete.
+func refuseActiveEvents(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
+	var held bool
+	err := tx.QueryRow(ctx, `
+		SELECT EXISTS (
+		  SELECT 1 FROM open_play_event_courts oc
+		  JOIN open_play_events e ON e.id = oc.event_id
+		  WHERE oc.court_id = $1
+		    AND e.status = 'active'
+		    AND booking_starts_at(e.date, e.start_time) + make_interval(mins => e.duration_minutes) > NOW()
+		)`, data.UUIDToPg(courtID)).Scan(&held)
+	if err != nil {
+		return fmt.Errorf("check active events: %w", err)
+	}
+	if held {
+		return ErrCourtHasActiveEvent
 	}
 	return nil
 }

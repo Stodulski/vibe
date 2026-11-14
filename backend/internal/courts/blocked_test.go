@@ -253,3 +253,77 @@ func TestListBlockedSlotsAlsoReturnsTheFixedBlocks(t *testing.T) {
 		t.Errorf("fixed_blocks must be an empty array, never null; got %s", w.Body.String())
 	}
 }
+
+// An open-play event holds its courts for its window. The owner may not block
+// those hours either, and is told the way out is cancelling the event.
+func TestBlockSlotRefusesHoursAnOpenPlayEventHolds(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
+	day := mustParseDate(t, futureDate())
+	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
+		CourtID: courtID, StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "20:00"), Event: true,
+	}}}
+
+	h, _ := newTestHandler(store, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.BlockSlot(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"courtID": courtID.String()},
+		`{"date":"`+futureDate()+`","start_time":"18:30","end_time":"20:00"}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "cancel the event") {
+		t.Errorf("the refusal must say an event holds the hours and how to free them; got %s", w.Body.String())
+	}
+	if store.insertedBlocked != nil {
+		t.Error("hours an event holds must not be blocked")
+	}
+}
+
+// The owner's calendar draws the hours events hold beside the blocked slots: the
+// list answers them under event_blocks, in the venue's wall-clock, never as null.
+func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {
+	complexID, courtID, eventID := uuid.New(), uuid.New(), uuid.New()
+	day := mustParseDate(t, "2026-03-05")
+	bookings := &stubBookings{events: []bookingstore.EventOccupancy{{
+		EventID: eventID, ComplexID: complexID, CourtID: courtID, Date: day, Name: "Canchas libres",
+		StartsAt: slots.At(timezone.Day(day), "23:00"), EndsAt: slots.At(timezone.Day(day), "23:00").Add(2 * time.Hour),
+	}}}
+
+	h, _ := newTestHandler(&stubStore{}, bookings, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-01&date_to=2026-03-31", complexID, nil, ""))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	var resp struct {
+		EventBlocks []struct {
+			EventID         uuid.UUID `json:"event_id"`
+			CourtID         uuid.UUID `json:"court_id"`
+			Date            string    `json:"date"`
+			StartTime       string    `json:"start_time"`
+			EndTime         string    `json:"end_time"`
+			DurationMinutes int       `json:"duration_minutes"`
+			Name            string    `json:"name"`
+		} `json:"event_blocks"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatal(err)
+	}
+	if len(resp.EventBlocks) != 1 {
+		t.Fatalf("want 1 event block; got %s", w.Body.String())
+	}
+	eb := resp.EventBlocks[0]
+	if eb.EventID != eventID || eb.CourtID != courtID || eb.Date != "2026-03-05" || eb.StartTime != "23:00" ||
+		eb.EndTime != "01:00" || eb.DurationMinutes != 120 || eb.Name != "Canchas libres" {
+		t.Errorf("event block = %+v", eb)
+	}
+
+	empty, _ := newTestHandler(&stubStore{}, &stubBookings{}, &stubComplexes{})
+	w = httptest.NewRecorder()
+	empty.ListBlockedSlots(w, ownerRequest(t, http.MethodGet, "/?date_from=2026-03-01&date_to=2026-03-31", complexID, nil, ""))
+	if !strings.Contains(w.Body.String(), `"event_blocks":[]`) {
+		t.Errorf("event_blocks must be an empty array, never null; got %s", w.Body.String())
+	}
+}

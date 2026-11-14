@@ -16,6 +16,7 @@ import {
 } from '../schemas/publicBooking.schema';
 import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/availability.schema';
 import { withSignal } from './client';
+import { createPublicEventsApi } from './public-events.api';
 
 /**
  * The endpoints of the public booking flow, bound to the client that
@@ -90,6 +91,8 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
         .post('book/cancel', { json: data })
         .json()
         .then(parseWith(publicCancelBookingResponseSchema, 'publicBookingApi.cancelBooking', report)),
+
+    ...createPublicEventsApi(client, report),
   };
 }
 

@@ -59,6 +59,8 @@ tags:
     description: Venue profile, slug, hours, images and the MercadoPago connection. The tenant boundary.
   - name: courts
     description: Courts, price bands, blocked slots and the public availability grid.
+  - name: events
+    description: Open-play events (canchas libres) that hold courts for a window, and the per-person paid sign-up to them.
   - name: health
     description: Liveness and readiness probes.
   - name: leads
@@ -1389,6 +1391,193 @@ paths:
               properties:
                 from_date: {type: string, format: date, description: "Not in the past."}
 
+  /api/v1/complexes/{id}/open-play-events:
+    get:
+      tags: [events]
+      operationId: eventsList
+      summary: List a complex's open-play events in a date range
+      description: >-
+        Events ("canchas libres") whose date is in the range, cancelled ones included, soonest first,
+        with how many spots are taken. At most 200; not paginated.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - name: date_from
+          in: query
+          required: true
+          schema: {type: string, format: date}
+        - name: date_to
+          in: query
+          required: true
+          schema: {type: string, format: date}
+      responses:
+        "200":
+          description: Events in range, never `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: {$ref: "#/components/schemas/OpenPlayEvent"}
+        "400":
+          description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    post:
+      tags: [events]
+      operationId: eventsCreate
+      summary: Publish an open-play event (canchas libres)
+      description: >-
+        Takes the event's courts off sale for its window: the storefront, the owner's booking and
+        blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the
+        hours as taken until the event is cancelled. `court_ids` absent or empty means every active
+        court. An `end_time` not after `start_time` means the event runs past midnight. When a
+        booking, a blocked slot, a fixed weekly booking or another event already holds the hours on
+        any of the courts the call answers `409` naming what and where, and writes nothing. People
+        sign up one by one and pay `price` (plus the service fee) online until the event is full or
+        begins.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "201":
+          description: The event.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event]
+                properties:
+                  event: {$ref: "#/components/schemas/OpenPlayEvent"}
+        "400":
+          description: Malformed body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: Something already holds the hours on one of the courts. `detail` says what and which court.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name, date, start_time, end_time, capacity, price]
+              properties:
+                name: {type: string, maxLength: 100}
+                sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball], default: padel}
+                date: {type: string, format: date, description: "The day the event starts on. Not in the past, within 365 days."}
+                start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+                end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$", description: "Between 30 minutes and 12 hours after `start_time`."}
+                court_ids:
+                  type: array
+                  items: {type: string, format: uuid}
+                  description: Active courts of the complex; absent or empty means all of them.
+                capacity: {type: integer, minimum: 1, maximum: 500}
+                price: {type: integer, description: "Centavos ARS per person, greater than zero."}
+
+  /api/v1/complexes/{id}/open-play-events/{eventID}:
+    get:
+      tags: [events]
+      operationId: eventsGet
+      summary: Get an open-play event with its participants
+      description: >-
+        The event and everyone who held a spot in it, with each payment: `held` spots are still being
+        paid, `confirmed` are paid, `cancelled` ones are listed when they carried money (a refund
+        shows in `payment.refund_amount`). Holds that ran out are not listed. Event income is in
+        the complex cash like an online deposit.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/EventID"}
+      responses:
+        "200":
+          description: The event and its participants.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, participants]
+                properties:
+                  event: {$ref: "#/components/schemas/OpenPlayEvent"}
+                  participants:
+                    type: array
+                    items: {$ref: "#/components/schemas/OpenPlayParticipant"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/open-play-events/{eventID}/cancel:
+    post:
+      tags: [events]
+      operationId: eventsCancel
+      summary: Cancel an open-play event
+      description: >-
+        Frees the event's courts and ends every registration at once. Every paid participant is
+        refunded through MercadoPago (the whole payment, service fee included) and told by email when
+        they gave one; a refund MercadoPago cannot complete now stays queued and is retried. People
+        still paying lose their hold, and a payment that lands for one is refunded when it arrives.
+        A second cancel is `400`.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/EventID"}
+      responses:
+        "200":
+          description: The cancelled event and the refund of each paid participant.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event, refunds]
+                properties:
+                  event: {$ref: "#/components/schemas/OpenPlayEvent"}
+                  refunds:
+                    type: array
+                    items:
+                      type: object
+                      required: [registration_id, refund]
+                      properties:
+                        registration_id: {type: string, format: uuid}
+                        refund: {$ref: "#/components/schemas/RefundOutcome"}
+        "400":
+          description: The event is already cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: {type: string, maxLength: 500}
+
   /api/v1/complexes/{id}/bookings/{bookingID}:
     get:
       tags: [bookings]
@@ -2696,6 +2885,205 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /api/v1/public/complexes/{slug}/events:
+    get:
+      tags: [events]
+      operationId: eventsPublicList
+      summary: The open-play events a visitor can still sign up for
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest
+        first, for the complex's public page. `spots_left` is capacity minus the paid spots and the
+        holds still running; `0` means the sign-up is closed.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      responses:
+        "200":
+          description: Upcoming events, never `null`.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [events]
+                properties:
+                  events:
+                    type: array
+                    items: {$ref: "#/components/schemas/PublicOpenPlayEvent"}
+        "404":
+          description: Unknown slug, or the complex is inactive.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/complexes/{slug}/events/{eventID}:
+    get:
+      tags: [events]
+      operationId: eventsPublicGet
+      summary: One open-play event, for its shareable page
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. A cancelled event is still answered, as
+        `cancelled`, so a shared link says so. An event of another complex is `404`.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - {$ref: "#/components/parameters/EventID"}
+      responses:
+        "200":
+          description: The event.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [event]
+                properties:
+                  event: {$ref: "#/components/schemas/PublicOpenPlayEvent"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/complexes/{slug}/events/{eventID}/registrations:
+    post:
+      tags: [events]
+      operationId: eventsPublicSignUp
+      summary: Sign up for an open-play event and pay online
+      description: >-
+        Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in
+        addition to the general ceiling, and one address may hold at most 3 unpaid spots at once.
+        Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the
+        person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed
+        when the payment is approved; a hold nobody pays stops counting by itself. Phone is required,
+        email optional (without it no confirmation email is sent). Answers `409` with its own problem
+        kind per reason: `event-full`, `event-closed` (started or cancelled) or `already-registered`
+        (the phone already holds a spot); `429` `rate-limited` when the address already holds 3
+        unpaid spots. The returned `token` is the person's
+        credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the
+        checkout returns them to the event page with it.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+        - {$ref: "#/components/parameters/EventID"}
+      responses:
+        "201":
+          description: The spot is held; pay at `mp_init_point`.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicEventSignUp"}
+        "400":
+          description: Malformed body, or the complex has no MercadoPago connected.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "403":
+          description: The complex blocked this phone.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: >-
+            Problem kind `event-full`, `event-closed` or `already-registered`: the event is full,
+            sign-up is closed, or this phone already holds a spot.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "503":
+          description: MercadoPago would not create the checkout. The held spot was released.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [first_name, last_name, phone]
+              properties:
+                first_name: {type: string}
+                last_name: {type: string}
+                phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
+                email: {type: string, description: Optional.}
+
+  /api/v1/public/event-registrations/status:
+    get:
+      tags: [events]
+      operationId: eventsPublicRegistrationStatus
+      summary: A person's own spot in an open-play event
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the
+        sign-up returned. `cancellation` says what cancelling right now would do under the complex's
+        policy, the one bookings follow: within `cancellation_hours` before the event (or the grace
+        period after signing up) the payment is refunded automatically, outside it the spot is
+        released and the payment kept.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/BookingToken"}
+      responses:
+        "200":
+          description: The spot.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/PublicEventRegistration"}
+        "400":
+          description: Missing token.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/public/event-registrations/cancel:
+    post:
+      tags: [events]
+      operationId: eventsPublicRegistrationCancel
+      summary: Cancel a person's own spot in an open-play event
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Follows the complex's cancellation policy as
+        a booking does: within the window a paid spot is refunded through MercadoPago, outside it the
+        spot is released and the payment kept. A spot still being paid is released with nothing to
+        return.
+      security: []
+      responses:
+        "200":
+          description: Cancelled, with the resulting refund outcome.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [registration, refunded, refund]
+                properties:
+                  registration: {$ref: "#/components/schemas/PublicEventRegistration"}
+                  refunded: {type: boolean}
+                  refund: {$ref: "#/components/schemas/RefundOutcome"}
+        "400":
+          description: The spot is already cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422":
+          description: Missing token.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string}
+
   /api/v1/public/complexes/{slug}/next-available:
     get:
       tags: [courts]
@@ -3051,7 +3439,7 @@ paths:
             application/json:
               schema:
                 type: object
-                required: [blocked_slots, fixed_blocks]
+                required: [blocked_slots, fixed_blocks, event_blocks]
                 properties:
                   blocked_slots:
                     type: array
@@ -3064,6 +3452,13 @@ paths:
                       here and are cancelled through the series (`bookingSeriesSkip`,
                       `bookingSeriesEnd`). Not paginated.
                     items: {$ref: "#/components/schemas/FixedBlock"}
+                  event_blocks:
+                    type: array
+                    description: >-
+                      The hours active open-play events hold in the range, one entry per event and
+                      court. They block like a blocked slot but are not one: they cannot be deleted
+                      from here and are freed by cancelling the event (`eventsCancel`). Not paginated.
+                    items: {$ref: "#/components/schemas/EventBlock"}
         "400":
           description: Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days.
           content:
@@ -4841,6 +5236,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    EventID:
+      name: eventID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     SeriesID:
       name: seriesID
       in: path
@@ -5778,6 +6178,151 @@ components:
           type: string
           enum: [cancelled_by_owner, overlap, blocked, closed_day, no_price, client_blocked, missed]
           description: "Present when `exception`."
+
+    OpenPlayEvent:
+      type: object
+      description: >-
+        An open-play event ("canchas libres"): it holds its courts for its window and people sign up
+        one by one. `end_time` may be earlier than `start_time` when the event runs past midnight.
+        Prices are centavos ARS per person.
+      required:
+        [id, complex_id, name, sport, date, start_time, end_time, duration_minutes, capacity, price,
+         status, courts, confirmed_count, held_count, spots_left, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        complex_id: {type: string, format: uuid}
+        name: {type: string}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
+        date: {type: string, format: date, description: "The local day the event starts on."}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        capacity: {type: integer}
+        price: {type: integer, description: "Centavos ARS per person."}
+        status: {type: string, enum: [active, cancelled]}
+        cancel_reason: {type: [string, "null"]}
+        cancelled_at: {type: [string, "null"], format: date-time}
+        courts:
+          type: array
+          items:
+            type: object
+            required: [id, name]
+            properties:
+              id: {type: string, format: uuid}
+              name: {type: string}
+        confirmed_count: {type: integer, description: "Paid spots."}
+        held_count: {type: integer, description: "Spots held by people still paying."}
+        spots_left: {type: integer, description: "Capacity minus paid spots and running holds, never below zero."}
+        created_at: {type: string, format: date-time}
+
+    OpenPlayParticipant:
+      type: object
+      required: [id, first_name, last_name, phone, status, price, service_fee, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        first_name: {type: string}
+        last_name: {type: string}
+        phone: {type: string}
+        email: {type: [string, "null"]}
+        status: {type: string, enum: [held, confirmed, cancelled]}
+        price: {type: integer, description: "Centavos ARS, the event price at sign-up."}
+        service_fee: {type: integer, description: "Centavos ARS, paid by the person on top of the price."}
+        created_at: {type: string, format: date-time}
+        confirmed_at: {type: [string, "null"], format: date-time}
+        cancelled_at: {type: [string, "null"], format: date-time}
+        cancelled_by: {type: [string, "null"], enum: [participant, owner, null]}
+        payment:
+          description: The payment carrying the person's money; `null` while no checkout was ever opened.
+          oneOf:
+            - type: "null"
+            - type: object
+              required: [status, amount, service_fee, refund_amount, method]
+              properties:
+                status: {type: string, description: "The payment status: unpaid, deposit_paid, refund_pending, partial_refund or refunded."}
+                amount: {type: integer, description: "Centavos ARS."}
+                service_fee: {type: integer, description: "Centavos ARS."}
+                refund_amount: {type: integer, description: "Centavos ARS already sent back."}
+                method: {type: string, enum: [mercadopago]}
+
+    PublicOpenPlayEvent:
+      type: object
+      description: An event as a visitor sees it on the complex's page.
+      required:
+        [id, name, sport, date, start_time, end_time, duration_minutes, capacity, spots_left, price,
+         service_fee, total_price, status, court_names]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
+        date: {type: string, format: date}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        capacity: {type: integer}
+        spots_left: {type: integer, description: "`0` closes the sign-up."}
+        price: {type: integer, description: "Centavos ARS per person."}
+        service_fee: {type: integer, description: "Centavos ARS the person pays on top."}
+        total_price: {type: integer, description: "Centavos ARS: `price` plus `service_fee`."}
+        status: {type: string, enum: [active, cancelled]}
+        court_names:
+          type: array
+          items: {type: string}
+        complex_name: {type: string}
+        cancellation_hours: {type: integer, description: "The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead."}
+
+    PublicEventSignUp:
+      type: object
+      required: [registration, token, event, service_fee, total_price]
+      properties:
+        registration:
+          type: object
+          required: [status, held_until]
+          properties:
+            status: {type: string, enum: [held]}
+            held_until: {type: string, format: date-time, description: "The spot is released if unpaid by then."}
+        token: {type: string, description: Opaque credential for the person's own spot. The registration's primary key is never included.}
+        event: {$ref: "#/components/schemas/PublicOpenPlayEvent"}
+        mp_init_point: {type: string, format: uri}
+        mp_preference_id: {type: string}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        total_price: {type: integer, description: "Centavos ARS the person pays."}
+
+    PublicEventRegistration:
+      type: object
+      required: [status, first_name, last_name, price, service_fee, event, cancellation]
+      properties:
+        status: {type: string, enum: [held, confirmed, cancelled, expired]}
+        first_name: {type: string}
+        last_name: {type: string}
+        price: {type: integer, description: "Centavos ARS."}
+        service_fee: {type: integer, description: "Centavos ARS."}
+        held_until: {type: string, format: date-time}
+        event: {$ref: "#/components/schemas/PublicOpenPlayEvent"}
+        complex_name: {type: string}
+        complex_address: {type: string}
+        cancellation:
+          type: object
+          required: [can_cancel, within_window, deadline]
+          properties:
+            can_cancel: {type: boolean}
+            within_window: {type: boolean, description: "Whether cancelling now earns the payment back."}
+            deadline: {type: string, format: date-time}
+
+    EventBlock:
+      type: object
+      description: >-
+        Hours an open-play event holds on one court, as the owner's calendar draws them
+        ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours
+        run past midnight.
+      required: [event_id, court_id, date, start_time, end_time, duration_minutes, name]
+      properties:
+        event_id: {type: string, format: uuid}
+        court_id: {type: string, format: uuid}
+        date: {type: string, format: date, description: "The local day the hours start on."}
+        start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
+        duration_minutes: {type: integer}
+        name: {type: string}
 
     FixedBlock:
       type: object

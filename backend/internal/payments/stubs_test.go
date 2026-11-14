@@ -78,6 +78,12 @@ type stubPayments struct {
 	inserted  *paymentstore.Payment
 	confirmed *paymentstore.Payment
 
+	// byRegistration is the ledger of the event registration a test is about;
+	// regConfirmErr and regConfirmed stand in for ConfirmRegistrationPayment.
+	byRegistration []*paymentstore.Payment
+	regConfirmErr  error
+	regConfirmed   *paymentstore.Payment
+
 	// insertedBooking and confirmedBooking are the booking as the store was
 	// handed it, copied rather than aliased. The callers mutate the booking they
 	// pass and go on using it afterwards, so a pointer here would report the
@@ -229,6 +235,25 @@ func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error 
 	return nil
 }
 
+// ListByRegistrationID answers the ledger a test seeded for a registration.
+func (s *stubPayments) ListByRegistrationID(_ context.Context, _ uuid.UUID) ([]*paymentstore.Payment, error) {
+	return s.byRegistration, nil
+}
+
+// ConfirmRegistrationPayment is the real store's decision made by the test:
+// regConfirmErr is what the capacity check under the event lock answered.
+func (s *stubPayments) ConfirmRegistrationPayment(_ context.Context, p *paymentstore.Payment, _ uuid.UUID) error {
+	if s.regConfirmErr != nil {
+		return s.regConfirmErr
+	}
+	if p.ID == uuid.Nil {
+		p.ID = uuid.New()
+	}
+	s.regConfirmed = p
+	s.remember(p)
+	return nil
+}
+
 func (s *stubPayments) RecordManualRefund(_ context.Context, _ uuid.UUID) (int, error) {
 	s.manualRefunds++
 	return s.manualRefundAmount, nil
@@ -275,6 +300,9 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*pay
 		MPPaymentID:    "mp-123",
 		RefundCentavos: amount,
 	}
+	if p := s.paymentFor(paymentID); p != nil {
+		claim.RegistrationID = p.RegistrationID
+	}
 	// The real ClaimRefund reads BookingID and ComplexID off the locked payment
 	// row (internal/payments/store/refunds.go). Mirror that here so a caller building an
 	// alert from claim.BookingID/ComplexID — the seller-credential refusal path
@@ -296,6 +324,11 @@ func (s *stubPayments) paymentFor(id uuid.UUID) *paymentstore.Payment {
 		return s.byMPID
 	}
 	for _, p := range s.byBookingAll {
+		if p.ID == id {
+			return p
+		}
+	}
+	for _, p := range s.byRegistration {
 		if p.ID == id {
 			return p
 		}

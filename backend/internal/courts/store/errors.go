@@ -55,4 +55,10 @@ var (
 	// last date has not passed. It has no booking row for the active-bookings
 	// check to find, yet it owes its client the hours every week.
 	ErrCourtHasActiveSeries = errors.New("court has active fixed weekly bookings")
+	// ErrSlotHeldByEvent is returned when a blocked-slot request would close
+	// hours an open-play event holds. The way out is to cancel the event.
+	ErrSlotHeldByEvent = errors.New("slot held by an open-play event")
+	// ErrCourtHasActiveEvent is returned by Store.SoftDelete when an active
+	// open-play event that has not ended still holds the court.
+	ErrCourtHasActiveEvent = errors.New("court has active open-play events")
 )

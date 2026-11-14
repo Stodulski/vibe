@@ -314,7 +314,16 @@ type BackURLs struct {
 
 // CreatePreferenceInput holds the data needed to create a MercadoPago checkout preference.
 type CreatePreferenceInput struct {
-	BookingID      uuid.UUID
+	BookingID uuid.UUID
+	// RegistrationID marks the preference as an open-play event sign-up's rather
+	// than a booking's. When set it replaces BookingID everywhere MercadoPago
+	// keeps it (item id, external_reference, idempotency key), the metadata
+	// carries it as registration_id, and Title and Description are the item's
+	// copy, since the booking copy names a court and a deposit. The webhook
+	// reads registration_id to route the payment.
+	RegistrationID uuid.UUID
+	Title          string
+	Description    string
 	ComplexName    string
 	CourtName      string
 	Date           string
@@ -393,6 +402,22 @@ func titleDate(date string) string {
 	return fmt.Sprintf("%d %s", t.Day(), spanishMonths[t.Month()])
 }
 
+// checkoutIdentity is what names a preference to MercadoPago and, through the
+// webhook, back to us: the reference everything is keyed on, the metadata, and
+// the item's copy. A booking's is unchanged from before registrations existed.
+func (in CreatePreferenceInput) checkoutIdentity() (reference string, metadata map[string]string, title, description string) {
+	if in.RegistrationID != uuid.Nil {
+		return in.RegistrationID.String(),
+			map[string]string{"registration_id": in.RegistrationID.String(), "event_date": in.Date},
+			in.Title, in.Description
+	}
+	dateDisplay := titleDate(in.Date)
+	return in.BookingID.String(),
+		map[string]string{"booking_id": in.BookingID.String(), "booking_date": in.Date},
+		fmt.Sprintf("%s - %s - %s %s hs", in.ComplexName, in.CourtName, dateDisplay, in.StartTime),
+		fmt.Sprintf("Seña para reserva en %s. %s, %s a las %s hs.", in.ComplexName, in.CourtName, dateDisplay, in.StartTime)
+}
+
 // CreatePreference creates a MercadoPago checkout preference.
 // operation (build payload, call circuit-breaker-wrapped request, decode response); extraction
 // would fragment this into a chain of internal-only helpers each called exactly once.
@@ -408,8 +433,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 	}
 
 	unitPrice := float64(input.Amount) / 100.0
-
-	dateDisplay := titleDate(input.Date)
+	reference, metadata, title, description := input.checkoutIdentity()
 
 	// Preference expires after the configured payment expiry window.
 	expiry := input.ExpiresIn
@@ -423,9 +447,9 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 	body := map[string]any{
 		"items": []map[string]any{
 			{
-				"id":          input.BookingID.String(),
-				"title":       fmt.Sprintf("%s - %s - %s %s hs", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
-				"description": fmt.Sprintf("Seña para reserva en %s. %s, %s a las %s hs.", input.ComplexName, input.CourtName, dateDisplay, input.StartTime),
+				"id":          reference,
+				"title":       title,
+				"description": description,
 				"quantity":    1,
 				"currency_id": "ARS",
 				"unit_price":  unitPrice,
@@ -451,11 +475,8 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 		"expiration_date_from": expirationFrom,
 		"expiration_date_to":   expirationTo,
 		"statement_descriptor": "VIBE RESERVA",
-		"external_reference":   input.BookingID.String(),
-		"metadata": map[string]string{
-			"booking_id":   input.BookingID.String(),
-			"booking_date": input.Date,
-		},
+		"external_reference":   reference,
+		"metadata":             metadata,
 	}
 
 	// Payer info improves approval rate.
@@ -501,7 +522,7 @@ func (c *MPClient) CreatePreference(ctx context.Context, input CreatePreferenceI
 	// their behalf. Refused above if the caller is anyone else.
 	req.Header.Set("Authorization", "Bearer "+sellerToken)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Idempotency-Key", input.BookingID.String())
+	req.Header.Set("X-Idempotency-Key", reference)
 
 	resp, err := c.doRequest(req)
 	if err != nil {

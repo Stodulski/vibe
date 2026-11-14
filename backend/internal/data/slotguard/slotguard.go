@@ -324,6 +324,16 @@ func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Ra
 			         (lower($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - 1,
 			         (upper($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) o
 			WHERE o.span && $2::tstzrange
+		)
+		-- And the hours an open-play event holds: the owner may not block them
+		-- either, only cancel the event.
+		OR EXISTS(
+			SELECT 1
+			FROM open_play_event_occupancy(
+			         NULL, ARRAY[$1]::uuid[],
+			         (lower($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - 1,
+			         (upper($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) e
+			WHERE e.span && $2::tstzrange
 		)`,
 		data.UUIDToPg(courtID), span, hold.Seconds(),
 	).Scan(&taken)

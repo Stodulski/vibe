@@ -102,6 +102,7 @@ func (s *Service) reportShortfall(source, action string, complexID, bookingID uu
 	}
 
 	s.logger.Error(source+": mercadopago refunded less than was claimed, the remainder is owed by hand",
+		"complex_id", complexID,
 		"booking_id", bookingID,
 		"mp_payment_id", claimed.MPPaymentID,
 		"attempt_id", claimed.AttemptID,
@@ -111,7 +112,7 @@ func (s *Service) reportShortfall(source, action string, complexID, bookingID uu
 	)
 	sentry.CaptureMessage(fmt.Sprintf("MANUAL REFUND OWED: booking_id=%s mp_payment_id=%s amount=%d — %s",
 		bookingID, claimed.MPPaymentID, short, shortfallReason))
-	s.record(complexID, bookingID, action, claimEvent(claimed, short, paymentstore.RefundManual, shortfallReason))
+	s.recordClaim(claimed, action, claimEvent(claimed, short, paymentstore.RefundManual, shortfallReason))
 }
 
 // record writes one entry to the audit trail.
@@ -130,13 +131,30 @@ func (s *Service) reportShortfall(source, action string, complexID, bookingID uu
 // list in the order they happened. The payment row's own id travels in the
 // value.
 func (s *Service) record(complexID, bookingID uuid.UUID, action string, value moneyEvent) {
+	s.recordEntity(complexID, "booking", bookingID, action, value)
+}
+
+// recordEntity is record for an entry keyed on something other than a booking:
+// an open-play registration's money events are keyed on the registration, which
+// is what the owner reads the trail by.
+func (s *Service) recordEntity(complexID uuid.UUID, entityType string, entityID uuid.UUID, action string, value moneyEvent) {
 	s.audit.Record(audit.Entry{
 		ComplexID:  &complexID,
 		Action:     action,
-		EntityType: "booking",
-		EntityID:   &bookingID,
+		EntityType: entityType,
+		EntityID:   &entityID,
 		NewValue:   value,
 	})
+}
+
+// recordClaim writes the entry for a refund claim, keyed on what the claimed
+// payment is for: its booking, or its event registration.
+func (s *Service) recordClaim(claim paymentstore.RefundClaim, action string, value moneyEvent) {
+	if claim.RegistrationID != nil {
+		s.recordEntity(claim.ComplexID, registrationEntity, *claim.RegistrationID, action, value)
+		return
+	}
+	s.record(claim.ComplexID, claim.BookingID, action, value)
 }
 
 // providerRefundAction names a refund MercadoPago performed without being

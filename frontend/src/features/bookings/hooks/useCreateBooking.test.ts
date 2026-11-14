@@ -116,3 +116,18 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
     });
   });
 });
+
+describe('useCreateBooking — slots held by an open-play event', () => {
+  it('tells the owner an open-play event holds the slot, in Spanish, whatever the server wrote', async () => {
+    await triggerCreateError(
+      await makeConsumedHttpError(409, {
+        title: 'Conflict',
+        detail: 'the selected time belongs to an open-play event (canchas libres)',
+      }),
+    );
+
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.createError, {
+      description: ES_AR.bookings.openPlayEventSlotTaken,
+    });
+  });
+});

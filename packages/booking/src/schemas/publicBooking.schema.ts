@@ -212,7 +212,7 @@ const refundStatusSchema = z.enum([
   'manual',
 ]) satisfies z.ZodType<RefundStatus>;
 
-const refundEnvelopeSchema = exact<RefundEnvelope>(
+export const refundEnvelopeSchema = exact<RefundEnvelope>(
   z
     .object({
       status: refundStatusSchema,

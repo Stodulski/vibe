@@ -828,6 +828,10 @@ func (m *mockBookingStore) SeriesOccurrences(ctx context.Context, complexID *uui
 	return nil, nil
 }
 
+func (m *mockBookingStore) EventOccupancies(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error) {
+	return nil, nil
+}
+
 func (m *mockBookingStore) GetForReminder2h(ctx context.Context, now time.Time) ([]*bookingstore.Booking, error) {
 	if m.GetForReminder2hFn != nil {
 		return m.GetForReminder2hFn(ctx, now)
@@ -1143,6 +1147,14 @@ func (m *mockPaymentStore) ListByBookingID(ctx context.Context, bookingID uuid.U
 		return m.ListByBookingIDFn(ctx, bookingID)
 	}
 	return nil, nil
+}
+
+func (m *mockPaymentStore) ListByRegistrationID(context.Context, uuid.UUID) ([]*paymentstore.Payment, error) {
+	return nil, nil
+}
+
+func (m *mockPaymentStore) ConfirmRegistrationPayment(context.Context, *paymentstore.Payment, uuid.UUID) error {
+	return nil
 }
 
 func (m *mockPaymentStore) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error) {

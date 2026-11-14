@@ -382,6 +382,9 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 			if b.Fixed {
 				return nil, courtstore.ErrSlotHeldByFixedBooking
 			}
+			if b.Event {
+				return nil, courtstore.ErrSlotHeldByEvent
+			}
 			return nil, courtstore.ErrSlotHasBooking
 		}
 	}
@@ -439,6 +442,13 @@ func (s *Service) ListBlockedSlots(ctx context.Context, complexID uuid.UUID, dat
 // blocked slots. They block like one but belong to their series.
 func (s *Service) ListFixedBlocks(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]bookingstore.SeriesOccurrence, error) {
 	return s.bookings.ComplexSeriesOccurrences(ctx, complexID, dateFrom, dateTo)
+}
+
+// ListEventBlocks returns the hours open-play events hold over a date range, for
+// the owner's calendar to draw beside the blocked slots. They block like one but
+// belong to their event.
+func (s *Service) ListEventBlocks(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]bookingstore.EventOccupancy, error) {
+	return s.bookings.ComplexEventOccupancies(ctx, complexID, dateFrom, dateTo)
 }
 
 // GetBlockedSlotsByComplex returns every court's blocked slots over a date

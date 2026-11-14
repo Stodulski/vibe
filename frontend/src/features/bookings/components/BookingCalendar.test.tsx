@@ -5,7 +5,7 @@ import { BookingCalendar } from './BookingCalendar';
 import { makeBooking } from '@/test/factories';
 import { venueInstant } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
-import type { Booking, CourtWithPrices, Schedule, BlockedSlot, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, CourtWithPrices, Schedule, BlockedSlot, FixedBlock, EventBlock } from '@/shared/types/api.types';
 
 const futureDate = '2027-03-20';
 
@@ -232,5 +232,64 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
 
     expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Crear reserva · Cancha 1 · 18:00/ })).toBeInTheDocument();
+  });
+});
+
+describe('BookingCalendar — open-play events (canchas libres)', () => {
+  // 2027-03-20 is a Saturday.
+  const eventBlock: EventBlock = {
+    event_id: 'ev1',
+    court_id: 'ct1',
+    date: futureDate,
+    start_time: '19:00',
+    end_time: '21:00',
+    duration_minutes: 120,
+    name: 'Americano de sabado',
+  };
+
+  it('draws the block as "Canchas libres · {día} {hora}" and hands it over on click', async () => {
+    const user = userEvent.setup();
+    const onSelectEventBlock = vi.fn();
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        eventBlocks={[eventBlock]}
+        onSelectEventBlock={onSelectEventBlock}
+      />,
+    );
+
+    const block = screen.getByRole('button', { name: /Canchas libres · sábado 19:00/ });
+    expect(block).toHaveTextContent('Canchas libres · sábado 19:00');
+    expect(block).toHaveTextContent('Americano de sabado');
+    await user.click(block);
+
+    expect(onSelectEventBlock).toHaveBeenCalledWith(eventBlock);
+  });
+
+  it('draws hours that run past midnight down to the end of the day', () => {
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        eventBlocks={[{ ...eventBlock, start_time: '23:00', end_time: '01:00', duration_minutes: 120 }]}
+      />,
+    );
+
+    const block = screen.getByRole('button', { name: /Canchas libres · sábado 23:00/ });
+    expect(block.style.top).toContain('95.83');
+  });
+
+  it('offers no free slot under the block', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[eventBlock]} />);
+
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 20:30/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear reserva · Cancha 1 · 18:00/ })).toBeInTheDocument();
+  });
+
+  it('draws nothing on a court the event does not hold', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...eventBlock, court_id: 'other' }]} />);
+    expect(screen.queryByRole('button', { name: /Canchas libres/ })).not.toBeInTheDocument();
   });
 });

@@ -32,6 +32,12 @@ type Querier interface {
 	// nothing: the trigger on this table fires on any UPDATE, which is the whole
 	// effect wanted here.
 	BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error)
+	// Only a live event can be cancelled; a second cancel finds nothing.
+	CancelOpenPlayEvent(ctx context.Context, arg CancelOpenPlayEventParams) (OpenPlayEvent, error)
+	// The owner cancelling an event ends every registration of it at once. The rows
+	// come back with their previous status, so the caller knows which were paid.
+	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
+	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	// One-off campaign (2026-10). Remove after it has been sent.
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.
@@ -54,6 +60,14 @@ type Querier interface {
 	// stored expected_cash yet appear in a summary later rebuilt over
 	// [opened_at, closed_at) — see Service.Close's own comment.
 	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
+	// A hold that ran out and was swept can still be confirmed by a payment that
+	// arrives late, while the event has room (the caller checks, under the event
+	// lock).
+	ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUID) (OpenPlayRegistration, error)
+	// The spots of an event that are not free: registrations paid for, and holds
+	// still inside their window. except is the registration being decided about,
+	// which never counts against itself (NULL excludes nothing).
+	CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlaySpotsTakenParams) (int32, error)
 	// The balance lines a sale's checkout collected. A void refuses while any exist.
 	CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
@@ -73,6 +87,12 @@ type Querier interface {
 	// longer holds any date (booking_series_occurrences stops at ends_on), so this
 	// changes what the owner reads, not what is sold.
 	EndExpiredBookingSeries(ctx context.Context, endsOn pgtype.Date) (int64, error)
+	// The sweep: marks expired the holds nobody paid in time. They stopped counting
+	// against capacity the moment held_until passed; this only closes the rows.
+	ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHoldsRow, error)
+	// Lets a person whose own earlier hold ran out sign up again: the one-live-
+	// spot-per-phone index would otherwise still count the stale row.
+	ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
 	// the id is a sale's, or none at all.
@@ -248,6 +268,11 @@ type Querier interface {
 	// taking the lock here means a concurrent close sees this transaction's
 	// intent before either commits.
 	GetOpenCashSessionForUpdate(ctx context.Context, complexID pgtype.UUID) (CashSession, error)
+	// The tenant predicate is the explicit half of the isolation the row-level
+	// security policies enforce; see GetBookingByID for why it is optional.
+	GetOpenPlayEvent(ctx context.Context, arg GetOpenPlayEventParams) (OpenPlayEvent, error)
+	GetOpenPlayRegistration(ctx context.Context, arg GetOpenPlayRegistrationParams) (OpenPlayRegistration, error)
+	GetOpenPlayRegistrationByTokenHash(ctx context.Context, accessTokenHash []byte) (OpenPlayRegistration, error)
 	// A booking can legitimately have more than one payment row (the checkout row plus a
 	// cash row inserted by ConfirmPayment), and idx_payments_booking is not unique, so
 	// without an explicit order the driver returns an arbitrary row. Prefer the MercadoPago
@@ -301,6 +326,11 @@ type Querier interface {
 	// Idempotent: a second unsubscribe of the same address is a no-op.
 	InsertEmailSuppression(ctx context.Context, arg InsertEmailSuppressionParams) error
 	InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) (EmailVerificationToken, error)
+	InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEventParams) (OpenPlayEvent, error)
+	InsertOpenPlayEventCourt(ctx context.Context, arg InsertOpenPlayEventCourtParams) error
+	// The hold ends hold_seconds from now on the database's clock, the one every
+	// capacity count compares held_until against.
+	InsertOpenPlayRegistration(ctx context.Context, arg InsertOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
@@ -384,11 +414,30 @@ type Querier interface {
 	// creation when they have never made one. A booking from any source (the
 	// public site, the owner's panel, the WhatsApp flow) keeps the complex alive.
 	ListInactiveNudgeCandidates(ctx context.Context, maxRows int32) ([]ListInactiveNudgeCandidatesRow, error)
+	ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UUID) ([]ListOpenPlayEventCourtsRow, error)
+	// The events of one complex whose date is in the window, soonest first, with
+	// how many spots are taken: confirmed registrations plus the holds still
+	// running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+	// include_cancelled is what the owner's list sets and the public one does not.
+	ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error)
+	// Every registration of an event with the payment that carries its money (the
+	// MercadoPago row first, as GetPaymentByBookingID prefers it), oldest first.
+	// Registrations that never held a spot (expired holds) are the caller's to
+	// leave out with live_only.
+	ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPlayRegistrationsParams) ([]ListOpenPlayRegistrationsRow, error)
+	// Registrations the owner's cancellation ended whose money has not been sent
+	// back, once the cancellation is older than the grace: the refund the cancel
+	// request itself never finished (a crash, a provider outage that outlived its
+	// retries). The sweep drives each through the same refund path the cancel uses.
+	ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, arg ListOwnerCancelledRegistrationsStillPaidParams) ([]ListOwnerCancelledRegistrationsStillPaidRow, error)
 	// Every payment row of a booking, oldest first (the deposit before the balance),
 	// for callers that need the whole ledger rather than one row — the refund path
 	// sums money and the booking detail shows each payment; GetPaymentByBookingID's
 	// single MercadoPago-preferred row is for callers that need that one row.
 	ListPaymentsByBookingID(ctx context.Context, bookingID pgtype.UUID) ([]Payment, error)
+	// Every payment row of an event registration, oldest first: the sign-up's
+	// checkout row, and any other money that reached it.
+	ListPaymentsByRegistrationID(ctx context.Context, registrationID pgtype.UUID) ([]Payment, error)
 	// Not paginated — a shop's catalog is bounded the same way a complex's court
 	// list is (internal/courts/store's GetByComplex). has_active_filter is false
 	// when the caller asked for every product regardless of active state; the OR's
@@ -422,6 +471,10 @@ type Querier interface {
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
+	// Every write that changes how many spots are taken (a sign-up, a payment
+	// confirmed late, the owner cancelling) takes this lock first, so two of them
+	// can never both read the same count and both fit into the last spot.
+	LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPlayEvent, error)
 	// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
 	// the owner's manual-refund action becomes available. Only refund_status moves,
 	// and only from 'none': the refund path runs after its own read, and a

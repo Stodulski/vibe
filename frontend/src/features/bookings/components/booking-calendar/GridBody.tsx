@@ -1,10 +1,11 @@
+import { useMemo } from 'react';
 import { SlotDurationMenu } from './SlotDurationMenu';
 import { useSlotMenu } from './useSlotMenu';
 import { GridHourLines } from './GridHourLines';
 import { NowLine } from './NowLine';
 import { CourtColumn } from './CourtColumn';
 import { GRID_HEIGHT_PX } from './gridLayout';
-import type { Booking, BlockedSlot, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, EventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
@@ -21,12 +22,14 @@ interface GridBodyProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
+  eventBlocks: EventBlock[];
   slots: string[];
   nowMin: number | null;
   onSelectBooking: (booking: Booking) => void;
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
 }
 
 /**
@@ -47,14 +50,17 @@ export function GridBody({
   bookings,
   blockedSlots,
   fixedBlocks,
+  eventBlocks,
   slots,
   nowMin,
   onSelectBooking,
   onCreateBooking,
   onSelectBlockedSlot,
   onSelectFixedBlock,
+  onSelectEventBlock,
 }: GridBodyProps) {
   const { open, preview, setPreview, openOn, pick, close } = useSlotMenu(columns, date, onCreateBooking);
+  const heldBlocks = useMemo(() => [...fixedBlocks, ...eventBlocks], [fixedBlocks, eventBlocks]);
 
   return (
     // The plot area alone (the gutter and court names are annotations), pinned
@@ -78,7 +84,7 @@ export function GridBody({
           date={date}
           allBookings={bookings}
           allBlockedSlots={blockedSlots}
-          allFixedBlocks={fixedBlocks}
+          allHeldBlocks={heldBlocks}
           slots={slots}
           onSelectBooking={onSelectBooking}
           onPickSlot={openOn}
@@ -86,6 +92,7 @@ export function GridBody({
           previewMin={preview}
           onSelectBlockedSlot={onSelectBlockedSlot}
           onSelectFixedBlock={onSelectFixedBlock}
+          onSelectEventBlock={onSelectEventBlock}
         />
       ))}
 

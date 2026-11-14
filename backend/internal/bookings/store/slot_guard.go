@@ -108,6 +108,15 @@ func SlotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, e
 			        booking_starts_at($2, $3) + make_interval(mins => $4),
 			        '[)')
 			  AND NOT (o.series_id IS NOT DISTINCT FROM $7::uuid AND o.occurs_on = $2::date)
+		)
+		-- So are the hours an open-play event holds on the court.
+		OR EXISTS(
+			SELECT 1
+			FROM open_play_event_occupancy(NULL, ARRAY[$1]::uuid[], $2::date - 1, $2::date + 1) e
+			WHERE e.span && tstzrange(
+			        booking_starts_at($2, $3),
+			        booking_starts_at($2, $3) + make_interval(mins => $4),
+			        '[)')
 		)`,
 		data.UUIDToPg(b.CourtID), data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
 		b.DurationMinutes, data.UUIDToPg(exclude), hold.Seconds(), data.UUIDPtrToPg(b.SeriesID),

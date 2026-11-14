@@ -108,16 +108,16 @@ func (e AvailabilityCourtSurface) Valid() bool {
 
 // Defines values for BookingSeriesStatus.
 const (
-	Active BookingSeriesStatus = "active"
-	Ended  BookingSeriesStatus = "ended"
+	BookingSeriesStatusActive BookingSeriesStatus = "active"
+	BookingSeriesStatusEnded  BookingSeriesStatus = "ended"
 )
 
 // Valid indicates whether the value is a known member of the BookingSeriesStatus enum.
 func (e BookingSeriesStatus) Valid() bool {
 	switch e {
-	case Active:
+	case BookingSeriesStatusActive:
 		return true
-	case Ended:
+	case BookingSeriesStatusEnded:
 		return true
 	default:
 		return false
@@ -667,6 +667,114 @@ func (e HealthStatusStatus) Valid() bool {
 	}
 }
 
+// Defines values for OpenPlayEventSport.
+const (
+	OpenPlayEventSportBasketball OpenPlayEventSport = "basketball"
+	OpenPlayEventSportHockey     OpenPlayEventSport = "hockey"
+	OpenPlayEventSportPadel      OpenPlayEventSport = "padel"
+	OpenPlayEventSportPickleball OpenPlayEventSport = "pickleball"
+	OpenPlayEventSportSoccer     OpenPlayEventSport = "soccer"
+	OpenPlayEventSportTennis     OpenPlayEventSport = "tennis"
+	OpenPlayEventSportVolleyball OpenPlayEventSport = "volleyball"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayEventSport enum.
+func (e OpenPlayEventSport) Valid() bool {
+	switch e {
+	case OpenPlayEventSportBasketball:
+		return true
+	case OpenPlayEventSportHockey:
+		return true
+	case OpenPlayEventSportPadel:
+		return true
+	case OpenPlayEventSportPickleball:
+		return true
+	case OpenPlayEventSportSoccer:
+		return true
+	case OpenPlayEventSportTennis:
+		return true
+	case OpenPlayEventSportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenPlayEventStatus.
+const (
+	OpenPlayEventStatusActive    OpenPlayEventStatus = "active"
+	OpenPlayEventStatusCancelled OpenPlayEventStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayEventStatus enum.
+func (e OpenPlayEventStatus) Valid() bool {
+	switch e {
+	case OpenPlayEventStatusActive:
+		return true
+	case OpenPlayEventStatusCancelled:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenPlayParticipantCancelledBy.
+const (
+	OpenPlayParticipantCancelledByLessThannil OpenPlayParticipantCancelledBy = "<nil>"
+	OpenPlayParticipantCancelledByOwner       OpenPlayParticipantCancelledBy = "owner"
+	OpenPlayParticipantCancelledByParticipant OpenPlayParticipantCancelledBy = "participant"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayParticipantCancelledBy enum.
+func (e OpenPlayParticipantCancelledBy) Valid() bool {
+	switch e {
+	case OpenPlayParticipantCancelledByLessThannil:
+		return true
+	case OpenPlayParticipantCancelledByOwner:
+		return true
+	case OpenPlayParticipantCancelledByParticipant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenPlayParticipantPaymentMethod.
+const (
+	OpenPlayParticipantPaymentMethodMercadopago OpenPlayParticipantPaymentMethod = "mercadopago"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayParticipantPaymentMethod enum.
+func (e OpenPlayParticipantPaymentMethod) Valid() bool {
+	switch e {
+	case OpenPlayParticipantPaymentMethodMercadopago:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenPlayParticipantStatus.
+const (
+	OpenPlayParticipantStatusCancelled OpenPlayParticipantStatus = "cancelled"
+	OpenPlayParticipantStatusConfirmed OpenPlayParticipantStatus = "confirmed"
+	OpenPlayParticipantStatusHeld      OpenPlayParticipantStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayParticipantStatus enum.
+func (e OpenPlayParticipantStatus) Valid() bool {
+	switch e {
+	case OpenPlayParticipantStatusCancelled:
+		return true
+	case OpenPlayParticipantStatusConfirmed:
+		return true
+	case OpenPlayParticipantStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PaymentMethod.
 const (
 	PaymentMethodCash        PaymentMethod = "cash"
@@ -874,6 +982,96 @@ func (e PublicCancelInfoRefundMethod) Valid() bool {
 	case PublicCancelInfoRefundMethodMercadopago:
 		return true
 	case PublicCancelInfoRefundMethodNone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicEventRegistrationStatus.
+const (
+	PublicEventRegistrationStatusCancelled PublicEventRegistrationStatus = "cancelled"
+	PublicEventRegistrationStatusConfirmed PublicEventRegistrationStatus = "confirmed"
+	PublicEventRegistrationStatusExpired   PublicEventRegistrationStatus = "expired"
+	PublicEventRegistrationStatusHeld      PublicEventRegistrationStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the PublicEventRegistrationStatus enum.
+func (e PublicEventRegistrationStatus) Valid() bool {
+	switch e {
+	case PublicEventRegistrationStatusCancelled:
+		return true
+	case PublicEventRegistrationStatusConfirmed:
+		return true
+	case PublicEventRegistrationStatusExpired:
+		return true
+	case PublicEventRegistrationStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicEventSignUpRegistrationStatus.
+const (
+	PublicEventSignUpRegistrationStatusHeld PublicEventSignUpRegistrationStatus = "held"
+)
+
+// Valid indicates whether the value is a known member of the PublicEventSignUpRegistrationStatus enum.
+func (e PublicEventSignUpRegistrationStatus) Valid() bool {
+	switch e {
+	case PublicEventSignUpRegistrationStatusHeld:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicOpenPlayEventSport.
+const (
+	PublicOpenPlayEventSportBasketball PublicOpenPlayEventSport = "basketball"
+	PublicOpenPlayEventSportHockey     PublicOpenPlayEventSport = "hockey"
+	PublicOpenPlayEventSportPadel      PublicOpenPlayEventSport = "padel"
+	PublicOpenPlayEventSportPickleball PublicOpenPlayEventSport = "pickleball"
+	PublicOpenPlayEventSportSoccer     PublicOpenPlayEventSport = "soccer"
+	PublicOpenPlayEventSportTennis     PublicOpenPlayEventSport = "tennis"
+	PublicOpenPlayEventSportVolleyball PublicOpenPlayEventSport = "volleyball"
+)
+
+// Valid indicates whether the value is a known member of the PublicOpenPlayEventSport enum.
+func (e PublicOpenPlayEventSport) Valid() bool {
+	switch e {
+	case PublicOpenPlayEventSportBasketball:
+		return true
+	case PublicOpenPlayEventSportHockey:
+		return true
+	case PublicOpenPlayEventSportPadel:
+		return true
+	case PublicOpenPlayEventSportPickleball:
+		return true
+	case PublicOpenPlayEventSportSoccer:
+		return true
+	case PublicOpenPlayEventSportTennis:
+		return true
+	case PublicOpenPlayEventSportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicOpenPlayEventStatus.
+const (
+	PublicOpenPlayEventStatusActive    PublicOpenPlayEventStatus = "active"
+	PublicOpenPlayEventStatusCancelled PublicOpenPlayEventStatus = "cancelled"
+)
+
+// Valid indicates whether the value is a known member of the PublicOpenPlayEventStatus enum.
+func (e PublicOpenPlayEventStatus) Valid() bool {
+	switch e {
+	case PublicOpenPlayEventStatusActive:
+		return true
+	case PublicOpenPlayEventStatusCancelled:
 		return true
 	default:
 		return false
@@ -1630,6 +1828,39 @@ func (e CourtsUpdateJSONBodySurface) Valid() bool {
 	case CourtsUpdateJSONBodySurfaceSyntheticFloor:
 		return true
 	case CourtsUpdateJSONBodySurfaceSyntheticGrass:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EventsCreateJSONBodySport.
+const (
+	EventsCreateJSONBodySportBasketball EventsCreateJSONBodySport = "basketball"
+	EventsCreateJSONBodySportHockey     EventsCreateJSONBodySport = "hockey"
+	EventsCreateJSONBodySportPadel      EventsCreateJSONBodySport = "padel"
+	EventsCreateJSONBodySportPickleball EventsCreateJSONBodySport = "pickleball"
+	EventsCreateJSONBodySportSoccer     EventsCreateJSONBodySport = "soccer"
+	EventsCreateJSONBodySportTennis     EventsCreateJSONBodySport = "tennis"
+	EventsCreateJSONBodySportVolleyball EventsCreateJSONBodySport = "volleyball"
+)
+
+// Valid indicates whether the value is a known member of the EventsCreateJSONBodySport enum.
+func (e EventsCreateJSONBodySport) Valid() bool {
+	switch e {
+	case EventsCreateJSONBodySportBasketball:
+		return true
+	case EventsCreateJSONBodySportHockey:
+		return true
+	case EventsCreateJSONBodySportPadel:
+		return true
+	case EventsCreateJSONBodySportPickleball:
+		return true
+	case EventsCreateJSONBodySportSoccer:
+		return true
+	case EventsCreateJSONBodySportTennis:
+		return true
+	case EventsCreateJSONBodySportVolleyball:
 		return true
 	default:
 		return false
@@ -2447,6 +2678,19 @@ type DayMoneyTotals struct {
 	TotalIncome int `json:"total_income"`
 }
 
+// EventBlock Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight.
+type EventBlock struct {
+	CourtId openapi_types.UUID `json:"court_id"`
+
+	// Date The local day the hours start on.
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+	EndTime         string             `json:"end_time"`
+	EventId         openapi_types.UUID `json:"event_id"`
+	Name            string             `json:"name"`
+	StartTime       string             `json:"start_time"`
+}
+
 // FieldError defines model for FieldError.
 type FieldError struct {
 	// Field Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`.
@@ -2545,6 +2789,92 @@ type OccupancyPoint struct {
 	// Percentage 0 to 100, capped.
 	Percentage int `json:"percentage"`
 }
+
+// OpenPlayEvent An open-play event ("canchas libres"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person.
+type OpenPlayEvent struct {
+	CancelReason *string            `json:"cancel_reason,omitempty"`
+	CancelledAt  *time.Time         `json:"cancelled_at,omitempty"`
+	Capacity     int                `json:"capacity"`
+	ComplexId    openapi_types.UUID `json:"complex_id"`
+
+	// ConfirmedCount Paid spots.
+	ConfirmedCount int `json:"confirmed_count"`
+	Courts         []struct {
+		Id   openapi_types.UUID `json:"id"`
+		Name string             `json:"name"`
+	} `json:"courts"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// Date The local day the event starts on.
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+	EndTime         string             `json:"end_time"`
+
+	// HeldCount Spots held by people still paying.
+	HeldCount int                `json:"held_count"`
+	Id        openapi_types.UUID `json:"id"`
+	Name      string             `json:"name"`
+
+	// Price Centavos ARS per person.
+	Price int                `json:"price"`
+	Sport OpenPlayEventSport `json:"sport"`
+
+	// SpotsLeft Capacity minus paid spots and running holds, never below zero.
+	SpotsLeft int                 `json:"spots_left"`
+	StartTime string              `json:"start_time"`
+	Status    OpenPlayEventStatus `json:"status"`
+}
+
+// OpenPlayEventSport defines model for OpenPlayEvent.Sport.
+type OpenPlayEventSport string
+
+// OpenPlayEventStatus defines model for OpenPlayEvent.Status.
+type OpenPlayEventStatus string
+
+// OpenPlayParticipant defines model for OpenPlayParticipant.
+type OpenPlayParticipant struct {
+	CancelledAt *time.Time                      `json:"cancelled_at,omitempty"`
+	CancelledBy *OpenPlayParticipantCancelledBy `json:"cancelled_by,omitempty"`
+	ConfirmedAt *time.Time                      `json:"confirmed_at,omitempty"`
+	CreatedAt   time.Time                       `json:"created_at"`
+	Email       *string                         `json:"email,omitempty"`
+	FirstName   string                          `json:"first_name"`
+	Id          openapi_types.UUID              `json:"id"`
+	LastName    string                          `json:"last_name"`
+
+	// Payment The payment carrying the person's money; `null` while no checkout was ever opened.
+	Payment *struct {
+		// Amount Centavos ARS.
+		Amount int                              `json:"amount"`
+		Method OpenPlayParticipantPaymentMethod `json:"method"`
+
+		// RefundAmount Centavos ARS already sent back.
+		RefundAmount int `json:"refund_amount"`
+
+		// ServiceFee Centavos ARS.
+		ServiceFee int `json:"service_fee"`
+
+		// Status The payment status: unpaid, deposit_paid, refund_pending, partial_refund or refunded.
+		Status string `json:"status"`
+	} `json:"payment,omitempty"`
+	Phone string `json:"phone"`
+
+	// Price Centavos ARS, the event price at sign-up.
+	Price int `json:"price"`
+
+	// ServiceFee Centavos ARS, paid by the person on top of the price.
+	ServiceFee int                       `json:"service_fee"`
+	Status     OpenPlayParticipantStatus `json:"status"`
+}
+
+// OpenPlayParticipantCancelledBy defines model for OpenPlayParticipant.CancelledBy.
+type OpenPlayParticipantCancelledBy string
+
+// OpenPlayParticipantPaymentMethod defines model for OpenPlayParticipant.Payment.Method.
+type OpenPlayParticipantPaymentMethod string
+
+// OpenPlayParticipantStatus defines model for OpenPlayParticipant.Status.
+type OpenPlayParticipantStatus string
 
 // Payment defines model for Payment.
 type Payment struct {
@@ -2850,6 +3180,60 @@ type PublicComplexGone struct {
 	} `json:"gone"`
 }
 
+// PublicEventRegistration defines model for PublicEventRegistration.
+type PublicEventRegistration struct {
+	Cancellation struct {
+		CanCancel bool      `json:"can_cancel"`
+		Deadline  time.Time `json:"deadline"`
+
+		// WithinWindow Whether cancelling now earns the payment back.
+		WithinWindow bool `json:"within_window"`
+	} `json:"cancellation"`
+	ComplexAddress *string `json:"complex_address,omitempty"`
+	ComplexName    *string `json:"complex_name,omitempty"`
+
+	// Event An event as a visitor sees it on the complex's page.
+	Event     PublicOpenPlayEvent `json:"event"`
+	FirstName string              `json:"first_name"`
+	HeldUntil *time.Time          `json:"held_until,omitempty"`
+	LastName  string              `json:"last_name"`
+
+	// Price Centavos ARS.
+	Price int `json:"price"`
+
+	// ServiceFee Centavos ARS.
+	ServiceFee int                           `json:"service_fee"`
+	Status     PublicEventRegistrationStatus `json:"status"`
+}
+
+// PublicEventRegistrationStatus defines model for PublicEventRegistration.Status.
+type PublicEventRegistrationStatus string
+
+// PublicEventSignUp defines model for PublicEventSignUp.
+type PublicEventSignUp struct {
+	// Event An event as a visitor sees it on the complex's page.
+	Event          PublicOpenPlayEvent `json:"event"`
+	MpInitPoint    *string             `json:"mp_init_point,omitempty"`
+	MpPreferenceId *string             `json:"mp_preference_id,omitempty"`
+	Registration   struct {
+		// HeldUntil The spot is released if unpaid by then.
+		HeldUntil time.Time                           `json:"held_until"`
+		Status    PublicEventSignUpRegistrationStatus `json:"status"`
+	} `json:"registration"`
+
+	// ServiceFee Centavos ARS.
+	ServiceFee int `json:"service_fee"`
+
+	// Token Opaque credential for the person's own spot. The registration's primary key is never included.
+	Token string `json:"token"`
+
+	// TotalPrice Centavos ARS the person pays.
+	TotalPrice int `json:"total_price"`
+}
+
+// PublicEventSignUpRegistrationStatus defines model for PublicEventSignUp.Registration.Status.
+type PublicEventSignUpRegistrationStatus string
+
 // PublicHub One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store.
 type PublicHub struct {
 	// ComplexCount How many switched-on complexes the hub lists.
@@ -2935,6 +3319,41 @@ type PublicHubSummary struct {
 	// Sports The Spanish label of each sport the hub's switched-on courts carry, most-courted first, then by label.
 	Sports []string `json:"sports"`
 }
+
+// PublicOpenPlayEvent An event as a visitor sees it on the complex's page.
+type PublicOpenPlayEvent struct {
+	// CancellationHours The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead.
+	CancellationHours *int               `json:"cancellation_hours,omitempty"`
+	Capacity          int                `json:"capacity"`
+	ComplexName       *string            `json:"complex_name,omitempty"`
+	CourtNames        []string           `json:"court_names"`
+	Date              openapi_types.Date `json:"date"`
+	DurationMinutes   int                `json:"duration_minutes"`
+	EndTime           string             `json:"end_time"`
+	Id                openapi_types.UUID `json:"id"`
+	Name              string             `json:"name"`
+
+	// Price Centavos ARS per person.
+	Price int `json:"price"`
+
+	// ServiceFee Centavos ARS the person pays on top.
+	ServiceFee int                      `json:"service_fee"`
+	Sport      PublicOpenPlayEventSport `json:"sport"`
+
+	// SpotsLeft `0` closes the sign-up.
+	SpotsLeft int                       `json:"spots_left"`
+	StartTime string                    `json:"start_time"`
+	Status    PublicOpenPlayEventStatus `json:"status"`
+
+	// TotalPrice Centavos ARS: `price` plus `service_fee`.
+	TotalPrice int `json:"total_price"`
+}
+
+// PublicOpenPlayEventSport defines model for PublicOpenPlayEvent.Sport.
+type PublicOpenPlayEventSport string
+
+// PublicOpenPlayEventStatus defines model for PublicOpenPlayEvent.Status.
+type PublicOpenPlayEventStatus string
 
 // RefundOutcome defines model for RefundOutcome.
 type RefundOutcome struct {
@@ -3136,6 +3555,9 @@ type CourtID = openapi_types.UUID
 
 // Cursor defines model for Cursor.
 type Cursor = string
+
+// EventID defines model for EventID.
+type EventID = openapi_types.UUID
 
 // ExportID defines model for ExportID.
 type ExportID = openapi_types.UUID
@@ -3817,6 +4239,40 @@ type ComplexesRegisterMercadoPagoOAuthAttemptJSONBody struct {
 	State        string `json:"state"`
 }
 
+// EventsListParams defines parameters for EventsList.
+type EventsListParams struct {
+	DateFrom openapi_types.Date `form:"date_from" json:"date_from"`
+	DateTo   openapi_types.Date `form:"date_to" json:"date_to"`
+}
+
+// EventsCreateJSONBody defines parameters for EventsCreate.
+type EventsCreateJSONBody struct {
+	Capacity int `json:"capacity"`
+
+	// CourtIds Active courts of the complex; absent or empty means all of them.
+	CourtIds *[]openapi_types.UUID `json:"court_ids,omitempty"`
+
+	// Date The day the event starts on. Not in the past, within 365 days.
+	Date openapi_types.Date `json:"date"`
+
+	// EndTime Between 30 minutes and 12 hours after `start_time`.
+	EndTime string `json:"end_time"`
+	Name    string `json:"name"`
+
+	// Price Centavos ARS per person, greater than zero.
+	Price     int                        `json:"price"`
+	Sport     *EventsCreateJSONBodySport `json:"sport,omitempty"`
+	StartTime string                     `json:"start_time"`
+}
+
+// EventsCreateJSONBodySport defines parameters for EventsCreate.
+type EventsCreateJSONBodySport string
+
+// EventsCancelJSONBody defines parameters for EventsCancel.
+type EventsCancelJSONBody struct {
+	Reason *string `json:"reason,omitempty"`
+}
+
 // ProductsListParams defines parameters for ProductsList.
 type ProductsListParams struct {
 	// Active Restrict the list to active or inactive products. Omit to return both.
@@ -4050,6 +4506,17 @@ type CourtsPublicAvailabilityParams struct {
 	Duration *int `form:"duration,omitempty" json:"duration,omitempty"`
 }
 
+// EventsPublicSignUpJSONBody defines parameters for EventsPublicSignUp.
+type EventsPublicSignUpJSONBody struct {
+	// Email Optional.
+	Email     *string `json:"email,omitempty"`
+	FirstName string  `json:"first_name"`
+	LastName  string  `json:"last_name"`
+
+	// Phone Normalized to E.164.
+	Phone string `json:"phone"`
+}
+
 // CourtsPublicNextAvailableParams defines parameters for CourtsPublicNextAvailable.
 type CourtsPublicNextAvailableParams struct {
 	// From The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today.
@@ -4088,6 +4555,17 @@ type EmailUnsubscribeParams struct {
 
 // EmailUnsubscribeFormdataBodyListUnsubscribe defines parameters for EmailUnsubscribe.
 type EmailUnsubscribeFormdataBodyListUnsubscribe string
+
+// EventsPublicRegistrationCancelJSONBody defines parameters for EventsPublicRegistrationCancel.
+type EventsPublicRegistrationCancelJSONBody struct {
+	Token string `json:"token"`
+}
+
+// EventsPublicRegistrationStatusParams defines parameters for EventsPublicRegistrationStatus.
+type EventsPublicRegistrationStatusParams struct {
+	// Token The opaque booking-link token, never the booking's primary key.
+	Token BookingToken `form:"token" json:"token"`
+}
 
 // LeadsCaptureAbandonedRegistrationJSONBody defines parameters for LeadsCaptureAbandonedRegistration.
 type LeadsCaptureAbandonedRegistrationJSONBody struct {
@@ -4307,6 +4785,12 @@ type ComplexesConnectMercadoPagoJSONRequestBody ComplexesConnectMercadoPagoJSONB
 // ComplexesRegisterMercadoPagoOAuthAttemptJSONRequestBody defines body for ComplexesRegisterMercadoPagoOAuthAttempt for application/json ContentType.
 type ComplexesRegisterMercadoPagoOAuthAttemptJSONRequestBody ComplexesRegisterMercadoPagoOAuthAttemptJSONBody
 
+// EventsCreateJSONRequestBody defines body for EventsCreate for application/json ContentType.
+type EventsCreateJSONRequestBody EventsCreateJSONBody
+
+// EventsCancelJSONRequestBody defines body for EventsCancel for application/json ContentType.
+type EventsCancelJSONRequestBody EventsCancelJSONBody
+
 // ProductsCreateJSONRequestBody defines body for ProductsCreate for application/json ContentType.
 type ProductsCreateJSONRequestBody ProductsCreateJSONBody
 
@@ -4337,6 +4821,9 @@ type ComplexesDeleteUploadJSONRequestBody ComplexesDeleteUploadJSONBody
 // ComplexesPresignUploadJSONRequestBody defines body for ComplexesPresignUpload for application/json ContentType.
 type ComplexesPresignUploadJSONRequestBody ComplexesPresignUploadJSONBody
 
+// EventsPublicSignUpJSONRequestBody defines body for EventsPublicSignUp for application/json ContentType.
+type EventsPublicSignUpJSONRequestBody EventsPublicSignUpJSONBody
+
 // WaitlistJoinJSONRequestBody defines body for WaitlistJoin for application/json ContentType.
 type WaitlistJoinJSONRequestBody WaitlistJoinJSONBody
 
@@ -4345,6 +4832,9 @@ type EmailUnsubscribeJSONRequestBody EmailUnsubscribeJSONBody
 
 // EmailUnsubscribeFormdataRequestBody defines body for EmailUnsubscribe for application/x-www-form-urlencoded ContentType.
 type EmailUnsubscribeFormdataRequestBody EmailUnsubscribeFormdataBody
+
+// EventsPublicRegistrationCancelJSONRequestBody defines body for EventsPublicRegistrationCancel for application/json ContentType.
+type EventsPublicRegistrationCancelJSONRequestBody EventsPublicRegistrationCancelJSONBody
 
 // LeadsCaptureAbandonedRegistrationJSONRequestBody defines body for LeadsCaptureAbandonedRegistration for application/json ContentType.
 type LeadsCaptureAbandonedRegistrationJSONRequestBody LeadsCaptureAbandonedRegistrationJSONBody
@@ -4623,6 +5113,18 @@ type ServerInterface interface {
 	// ComplexesMercadoPagoStatus Get the complex's MercadoPago connection status
 	// (GET /api/v1/complexes/{id}/mp/status)
 	ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request, id PathID)
+	// EventsList List a complex's open-play events in a date range
+	// (GET /api/v1/complexes/{id}/open-play-events)
+	EventsList(w http.ResponseWriter, r *http.Request, id PathID, params EventsListParams)
+	// EventsCreate Publish an open-play event (canchas libres)
+	// (POST /api/v1/complexes/{id}/open-play-events)
+	EventsCreate(w http.ResponseWriter, r *http.Request, id PathID)
+	// EventsGet Get an open-play event with its participants
+	// (GET /api/v1/complexes/{id}/open-play-events/{eventID})
+	EventsGet(w http.ResponseWriter, r *http.Request, id PathID, eventID EventID)
+	// EventsCancel Cancel an open-play event
+	// (POST /api/v1/complexes/{id}/open-play-events/{eventID}/cancel)
+	EventsCancel(w http.ResponseWriter, r *http.Request, id PathID, eventID EventID)
 	// ProductsList List this complex's product catalog
 	// (GET /api/v1/complexes/{id}/products)
 	ProductsList(w http.ResponseWriter, r *http.Request, id PathID, params ProductsListParams)
@@ -4718,6 +5220,15 @@ type ServerInterface interface {
 	// CourtsPublicAvailability The storefront's bookable-slot grid for one day
 	// (GET /api/v1/public/complexes/{slug}/availability)
 	CourtsPublicAvailability(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicAvailabilityParams)
+	// EventsPublicList The open-play events a visitor can still sign up for
+	// (GET /api/v1/public/complexes/{slug}/events)
+	EventsPublicList(w http.ResponseWriter, r *http.Request, slug PathSlug)
+	// EventsPublicGet One open-play event, for its shareable page
+	// (GET /api/v1/public/complexes/{slug}/events/{eventID})
+	EventsPublicGet(w http.ResponseWriter, r *http.Request, slug PathSlug, eventID EventID)
+	// EventsPublicSignUp Sign up for an open-play event and pay online
+	// (POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations)
+	EventsPublicSignUp(w http.ResponseWriter, r *http.Request, slug PathSlug, eventID EventID)
 	// CourtsPublicNextAvailable The first day after a given date with a bookable slot
 	// (GET /api/v1/public/complexes/{slug}/next-available)
 	CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request, slug PathSlug, params CourtsPublicNextAvailableParams)
@@ -4727,6 +5238,12 @@ type ServerInterface interface {
 	// EmailUnsubscribe Stop owner lifecycle email to an address
 	// (POST /api/v1/public/email/unsubscribe)
 	EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params EmailUnsubscribeParams)
+	// EventsPublicRegistrationCancel Cancel a person's own spot in an open-play event
+	// (POST /api/v1/public/event-registrations/cancel)
+	EventsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request)
+	// EventsPublicRegistrationStatus A person's own spot in an open-play event
+	// (GET /api/v1/public/event-registrations/status)
+	EventsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request, params EventsPublicRegistrationStatusParams)
 	// PublicsiteHubs City hub index
 	// (GET /api/v1/public/hubs)
 	PublicsiteHubs(w http.ResponseWriter, r *http.Request)
@@ -6878,6 +7395,157 @@ func (siw *ServerInterfaceWrapper) ComplexesMercadoPagoStatus(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
+// EventsList operation middleware
+func (siw *ServerInterfaceWrapper) EventsList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EventsListParams
+
+	// ------------- Required query parameter "date_from" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "date_from", r.URL.Query(), &params.DateFrom, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "date_from"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date_from", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "date_to" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "date_to", r.URL.Query(), &params.DateTo, runtime.BindQueryParameterOptions{Type: "string", Format: "date"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "date_to"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "date_to", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsList(w, r, id, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsCreate operation middleware
+func (siw *ServerInterfaceWrapper) EventsCreate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsCreate(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsGet operation middleware
+func (siw *ServerInterfaceWrapper) EventsGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", r.PathValue("eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsGet(w, r, id, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsCancel operation middleware
+func (siw *ServerInterfaceWrapper) EventsCancel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", r.PathValue("eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsCancel(w, r, id, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProductsList operation middleware
 func (siw *ServerInterfaceWrapper) ProductsList(w http.ResponseWriter, r *http.Request) {
 
@@ -8105,6 +8773,102 @@ func (siw *ServerInterfaceWrapper) CourtsPublicAvailability(w http.ResponseWrite
 	handler.ServeHTTP(w, r)
 }
 
+// EventsPublicList operation middleware
+func (siw *ServerInterfaceWrapper) EventsPublicList(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsPublicList(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsPublicGet operation middleware
+func (siw *ServerInterfaceWrapper) EventsPublicGet(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", r.PathValue("eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsPublicGet(w, r, slug, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsPublicSignUp operation middleware
+func (siw *ServerInterfaceWrapper) EventsPublicSignUp(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", r.PathValue("eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsPublicSignUp(w, r, slug, eventID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // CourtsPublicNextAvailable operation middleware
 func (siw *ServerInterfaceWrapper) CourtsPublicNextAvailable(w http.ResponseWriter, r *http.Request) {
 
@@ -8210,6 +8974,53 @@ func (siw *ServerInterfaceWrapper) EmailUnsubscribe(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.EmailUnsubscribe(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsPublicRegistrationCancel operation middleware
+func (siw *ServerInterfaceWrapper) EventsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsPublicRegistrationCancel(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EventsPublicRegistrationStatus operation middleware
+func (siw *ServerInterfaceWrapper) EventsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params EventsPublicRegistrationStatusParams
+
+	// ------------- Required query parameter "token" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "token", r.URL.Query(), &params.Token, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "token"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsPublicRegistrationStatus(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8800,6 +9611,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}", wrapper.BookingSeriesGet)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}/skip", wrapper.BookingSeriesSkip)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/booking-series/{seriesID}/end", wrapper.BookingSeriesEnd)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events", wrapper.EventsList)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events", wrapper.EventsCreate)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events/{eventID}", wrapper.EventsGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events/{eventID}/cancel", wrapper.EventsCancel)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsGet)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsUpdate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/cancel", wrapper.BookingsCancel)
@@ -8830,6 +9645,11 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/oauth-attempts", wrapper.ComplexesRegisterMercadoPagoOAuthAttempt)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events", wrapper.EventsPublicList)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events/{eventID}", wrapper.EventsPublicGet)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/events/{eventID}/registrations", wrapper.EventsPublicSignUp)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/event-registrations/status", wrapper.EventsPublicRegistrationStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/event-registrations/cancel", wrapper.EventsPublicRegistrationCancel)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/next-available", wrapper.CourtsPublicNextAvailable)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/availability", wrapper.CourtsPublicAvailability)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/courts", wrapper.CourtsList)

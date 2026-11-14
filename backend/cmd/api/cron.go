@@ -55,6 +55,8 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("sweep_booking_link_tokens", 2*time.Minute, app.cronCleanBookingLinkTokens),
 		job("complete_bookings", 30*time.Minute, app.cronCompleteBookings),
 		job("materialize_booking_series", time.Hour, app.bookingsService.MaterializeSeries),
+		job("expire_event_holds", time.Minute, app.openPlayService.ExpireHolds),
+		job("sweep_event_refunds", 2*time.Minute, app.openPlayService.SweepUnrefunded),
 		job("refresh_mp_tokens", 12*time.Hour, app.cronRefreshMPTokens),
 		job("clean_tokens", 24*time.Hour, app.cronCleanExpiredTokens),
 		job("clean_webhook_events", 24*time.Hour, app.cronCleanWebhookEvents),
@@ -360,3 +362,11 @@ func (app *application) cronPublishSocialPosts(ctx context.Context) {
 		app.logger.Error("cron: publish social posts failed", "error", err)
 	}
 }
+
+// Open-play event sign-ups: how many unpaid spots one address may hold at once,
+// and how long an owner's cancellation is left to refund its participants itself
+// before the sweep drives the ones it did not reach.
+const (
+	maxEventHoldsPerIP = 3
+	eventRefundGrace   = 5 * time.Minute
+)

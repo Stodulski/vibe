@@ -31,6 +31,15 @@ export const queryKeys = {
     // Same reasoning as 'detail': the literal segment keeps it off `byDate`'s shape.
     series: (complexId: string, seriesId: string) => ['bookings', 'series', complexId, seriesId] as const,
   },
+  // Open-play events ("canchas libres"). The literal segment after the complex
+  // keeps list and detail keys off each other's shape, so invalidating the
+  // lists never clears a detail entry by prefix and vice versa.
+  events: {
+    base: (complexId: string) => ['events', complexId] as const,
+    list: (complexId: string, dateFrom: string, dateTo: string) =>
+      ['events', complexId, 'list', dateFrom, dateTo] as const,
+    detail: (complexId: string, eventId: string) => ['events', complexId, 'detail', eventId] as const,
+  },
   clients: {
     byComplex: (complexId: string) => ['clients', complexId] as const,
     detail: (complexId: string, clientId: string) => ['clients', complexId, clientId] as const,

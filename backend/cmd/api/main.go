@@ -23,6 +23,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/courts"
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
+	openplay "github.com/stodulski/vibe-server/internal/events"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/jobs"
@@ -110,6 +111,11 @@ type application struct {
 	// and the link-token sweep are the booking domain's own rules, not HTTP
 	// routes.
 	bookingsService *bookings.Service
+	// openPlay serves the open-play event routes; openPlayService is held apart
+	// because the scheduler closes its unpaid holds and finishes the refunds an
+	// event cancellation started.
+	openPlay        *openplay.Handler
+	openPlayService *openplay.Service
 	scheduler       *scheduler.Scheduler
 	// social serves the content sync; socialPublisher publishes due posts.
 	social          *social.Handler

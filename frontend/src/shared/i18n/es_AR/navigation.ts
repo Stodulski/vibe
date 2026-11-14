@@ -2,6 +2,7 @@ export const navigation = {
   dashboard: 'Dashboard',
   bookings: 'Reservas',
   cash: 'Caja',
+  openPlay: 'Canchas libres',
   courts: 'Canchas',
   clients: 'Clientes',
   reports: 'Reportes',

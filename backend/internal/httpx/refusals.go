@@ -86,6 +86,24 @@ func HoldExpired(message any) Refusal {
 	return Refusal{http.StatusConflict, KindHoldExpired, message}
 }
 
+// EventFull refuses a sign-up for an open-play event with no spot left: 409,
+// its own kind so the page can name the reason.
+func EventFull(message any) Refusal {
+	return Refusal{http.StatusConflict, KindEventFull, message}
+}
+
+// EventClosed refuses a sign-up for an open-play event that no longer takes
+// them (started or cancelled): 409, its own kind.
+func EventClosed(message any) Refusal {
+	return Refusal{http.StatusConflict, KindEventClosed, message}
+}
+
+// AlreadyRegistered refuses a sign-up from a phone that already holds a spot in
+// the event: 409, its own kind.
+func AlreadyRegistered(message any) Refusal {
+	return Refusal{http.StatusConflict, KindAlreadyRegistered, message}
+}
+
 // Gone refuses a resource that existed and deliberately does not any more: 410.
 func Gone(message any) Refusal { return Refusal{http.StatusGone, KindGone, message} }
 

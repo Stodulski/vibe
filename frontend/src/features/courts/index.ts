@@ -13,4 +13,6 @@ export { useDeleteCourt } from './hooks/useDeleteCourt';
 export { useDeleteBlockedSlot } from './hooks/useDeleteBlockedSlot';
 export { useBlockedSlots } from './hooks/useBlockedSlots';
 export { useFixedBlocks } from './hooks/useFixedBlocks';
+export { useEventBlocks } from './hooks/useEventBlocks';
 export { isFixedBookingConflict } from './lib/fixedBookingConflict';
+export { isOpenPlayEventConflict } from './lib/openPlayEventConflict';

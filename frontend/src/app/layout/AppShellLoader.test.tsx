@@ -22,10 +22,10 @@ describe('AppShellLoader', () => {
     expect(screen.getAllByRole('status')).toHaveLength(1);
     const rail = container.querySelector('.bg-bg-sidebar');
     expect(rail).not.toBeNull();
-    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(7);
+    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(8);
   });
 
-  it.each(['/cash', '/dashboard', '/courts', '/clients', '/reports'] as const)(
+  it.each(['/cash', '/dashboard', '/courts', '/clients', '/reports', '/open-play'] as const)(
     'draws the %s route fallback inside <main>',
     (pathname) => {
       const { container } = renderAt(pathname);

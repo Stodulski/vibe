@@ -326,6 +326,27 @@ func TestADifferentIPv6Slash64KeepsItsOwnAuthBudget(t *testing.T) {
 	}
 }
 
+// An open-play event sign-up takes a spot, so it is throttled as a hold; its path
+// carries the slug and the event id, so the match is by shape and not equality.
+func TestAnEventSignUpIsThrottledAsAHoldAndNothingElseUnderThePublicTreeIs(t *testing.T) {
+	cases := []struct {
+		method, path string
+		want         []int
+	}{
+		{http.MethodPost, "/api/v1/public/complexes/vibe/events/0190aaaa-0000-7000-8000-000000000001/registrations", []int{indexGeneral, indexHold}},
+		{http.MethodGet, "/api/v1/public/complexes/vibe/events/0190aaaa-0000-7000-8000-000000000001/registrations", []int{indexGeneral}},
+		{http.MethodPost, "/api/v1/public/complexes/vibe/waitlist", []int{indexGeneral}},
+		{http.MethodPost, "/api/v1/public/complexes/vibe/registrations", []int{indexGeneral}},
+		{http.MethodPost, "/api/v1/public/event-registrations/cancel", []int{indexGeneral}},
+	}
+	for _, tc := range cases {
+		r := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)
+		if got := ceilingsFor(r); !slices.Equal(got, tc.want) {
+			t.Errorf("%s %s: ceilings %v, want %v", tc.method, tc.path, got, tc.want)
+		}
+	}
+}
+
 // The slot hold is throttled like POST /book — the same numbers — in a bucket
 // of its own, so a visitor who changes their mind about the court a couple of
 // times does not spend the attempts their booking needs. Releasing a hold is

@@ -21,6 +21,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/crypto"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
+	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	leadsstore "github.com/stodulski/vibe-server/internal/leads/store"
 	"github.com/stodulski/vibe-server/internal/lifecycle"
@@ -341,6 +342,9 @@ type BookingReader interface {
 	// no booking covers yet: the one reading every availability decision,
 	// the owner's calendar and the materialization job share.
 	SeriesOccurrences(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
+	// EventOccupancies returns the hours active open-play events hold on their
+	// courts: read beside SeriesOccurrences by every availability decision.
+	EventOccupancies(ctx context.Context, complexID *uuid.UUID, courtIDs []uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error)
 	GetByClient(ctx context.Context, complexID, clientID uuid.UUID, limit int) ([]*bookingstore.Booking, error)
 }
 
@@ -501,11 +505,19 @@ type PaymentRefunder interface {
 	RecordManualRefund(ctx context.Context, bookingID uuid.UUID) (returnedCentavos int, err error)
 }
 
+// PaymentRegistrationLedger is the ledger side of open-play event sign-ups: the
+// payments of a registration, and settling an approved payment against it.
+type PaymentRegistrationLedger interface {
+	ListByRegistrationID(ctx context.Context, registrationID uuid.UUID) ([]*paymentstore.Payment, error)
+	ConfirmRegistrationPayment(ctx context.Context, payment *paymentstore.Payment, registrationID uuid.UUID) error
+}
+
 // PaymentStore composes payment read, write and refund access.
 type PaymentStore interface {
 	PaymentReader
 	PaymentWriter
 	PaymentRefunder
+	PaymentRegistrationLedger
 }
 
 // ---------------------------------------------------------------------------
@@ -597,6 +609,43 @@ type AuditStore interface {
 	// the caller still owns.
 	InsertAuditLog(ctx context.Context, userID, complexID *uuid.UUID, action, entityType string, entityID *uuid.UUID, oldJSON, newJSON []byte, ipAddr string) error
 	ListAuditLogs(ctx context.Context, complexID *uuid.UUID, entityType string, filters data.Filters) ([]*auditstore.AuditLogRow, data.Metadata, error)
+}
+
+// ---------------------------------------------------------------------------
+// EventStore — open-play events ("canchas libres") and their sign-ups
+// ---------------------------------------------------------------------------
+
+// EventWriter creates and cancels events.
+type EventWriter interface {
+	CreateEvent(ctx context.Context, e *eventstore.Event, courtIDs []uuid.UUID) error
+	CancelEvent(ctx context.Context, id, by uuid.UUID, reason *string) (*eventstore.Event, []uuid.UUID, error)
+}
+
+// EventReader reads events with their courts and spot counts.
+type EventReader interface {
+	GetEvent(ctx context.Context, id uuid.UUID) (*eventstore.Event, error)
+	ListEvents(ctx context.Context, complexID uuid.UUID, from, to time.Time, includeCancelled bool) ([]*eventstore.Event, error)
+}
+
+// RegistrationStore is the sign-ups of events: a person's spot, held while they
+// pay, confirmed by the payment and released by a cancellation or by running
+// out.
+type RegistrationStore interface {
+	SignUp(ctx context.Context, in eventstore.SignUpInput) (*eventstore.Registration, string, error)
+	GetRegistration(ctx context.Context, id uuid.UUID) (*eventstore.Registration, error)
+	GetRegistrationByToken(ctx context.Context, plaintext string) (*eventstore.Registration, error)
+	ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOnly bool) ([]*eventstore.RegistrationRow, error)
+	CancelRegistration(ctx context.Context, id uuid.UUID, by string) (*eventstore.Registration, error)
+	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
+	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+}
+
+// EventsStore composes every events capability: one concrete store
+// (internal/events/store) satisfies all of them.
+type EventsStore interface {
+	EventWriter
+	EventReader
+	RegistrationStore
 }
 
 // ---------------------------------------------------------------------------
@@ -747,6 +796,7 @@ type Stores struct {
 	Sales             SalesStore
 	Bookings          BookingStore
 	BookingSeries     BookingSeriesStore
+	Events            EventsStore
 	BookingLinkTokens BookingLinkTokenStore
 	Tokens            TokenStore
 	Clients           ClientStore
@@ -802,6 +852,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		Bookings:          bookings,
 		BookingSeries:     bookings,
+		Events:            &eventstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
 		Leads:             &leadsstore.Store{Q: q},

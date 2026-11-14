@@ -76,6 +76,9 @@ type BookingReader interface {
 	// ComplexSeriesOccurrences is the calendar's read of the dates fixed weekly
 	// bookings hold that have no booking yet.
 	ComplexSeriesOccurrences(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesOccurrence, error)
+	// ComplexEventOccupancies is the same read for open-play events: the hours
+	// they hold on their courts, which also have no booking.
+	ComplexEventOccupancies(ctx context.Context, complexID uuid.UUID, from, to time.Time) ([]bookingstore.EventOccupancy, error)
 	HasActiveBookingsByCourt(ctx context.Context, courtID uuid.UUID) (bool, error)
 }
 
@@ -114,6 +117,8 @@ type Handler struct {
 var refusals = httpx.Refusals{
 	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
 		"cannot delete court while it has active bookings, cancel them first"),
+	courtstore.ErrCourtHasActiveEvent: httpx.Conflict(
+		"cannot delete court while it has an open-play event (canchas libres), cancel it first"),
 	courtstore.ErrCourtHasActiveSeries: httpx.Conflict(
 		"cannot delete court while it has fixed weekly bookings (turnos fijos), cancel them first"),
 	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),
@@ -123,6 +128,7 @@ var refusals = httpx.Refusals{
 	// transaction, which is not something the owner can act on.
 	courtstore.ErrSlotHasBooking:         httpx.Conflict(blockedSlotHasBookingMessage),
 	courtstore.ErrSlotHeldByFixedBooking: httpx.Conflict(blockedSlotHeldByFixedBookingMessage),
+	courtstore.ErrSlotHeldByEvent:        httpx.Conflict(blockedSlotHeldByEventMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.
