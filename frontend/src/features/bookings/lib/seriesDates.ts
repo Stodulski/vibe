@@ -12,6 +12,11 @@ export function formatDayMonth(date: string): string {
   return format(parseISO(date.slice(0, 10)), 'dd/MM');
 }
 
+/** A `YYYY-MM-DD` date as "14/12/2026". */
+export function formatDayMonthYear(date: string): string {
+  return format(parseISO(date.slice(0, 10)), 'dd/MM/yyyy');
+}
+
 /** The weekday of a `YYYY-MM-DD` date, 0 = Sunday, as the series API numbers them. */
 export function weekdayOf(date: string): number {
   return parseISO(date.slice(0, 10)).getDay();

@@ -68,7 +68,7 @@ describe('BookingCalendar — hours that started the evening before', () => {
       />,
     );
 
-    for (const name of [/Canchas libres · viernes 23:00/, /Torneo · Copa Vibe · 6ta/]) {
+    for (const name of [/Canchas libres · Americano/, /Torneo · Copa Vibe · 6ta/]) {
       const block = screen.getByRole('button', { name });
       expect(block.style.top).toContain('calc(0%');
       expect(block.style.height).toContain('4.16');

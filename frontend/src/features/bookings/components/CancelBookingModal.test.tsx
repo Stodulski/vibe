@@ -57,7 +57,7 @@ describe('CancelBookingModal', () => {
 
   it('disables buttons when loading', () => {
     render(<CancelBookingModal {...defaultProps} isLoading />);
-    expect(screen.getByRole('button', { name: /cancelar$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /volver$/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toBeDisabled();
   });
 

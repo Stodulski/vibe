@@ -116,3 +116,19 @@ describe('BookingInfoSection', () => {
     expect(onRetryPayments).toHaveBeenCalledTimes(1);
   });
 });
+
+describe('BookingInfoSection — how the rows are written', () => {
+  it('writes figures (hours, minutes, money) in the figure face and names in the plain one', () => {
+    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[]} />);
+
+    expect(screen.getByText('90 min')).toHaveClass('score-text');
+    expect(screen.getByText('Cancha 1')).not.toHaveClass('score-text');
+  });
+
+  it('leaves the date to the panel header instead of repeating it as a row', () => {
+    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[]} />);
+
+    expect(screen.queryByText(ES_AR.bookings.date)).not.toBeInTheDocument();
+    expect(screen.queryByText('16/03/2026')).not.toBeInTheDocument();
+  });
+});

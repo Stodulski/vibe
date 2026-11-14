@@ -1,7 +1,7 @@
 import { Fragment, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateShort, formatHourRange, formatPrice } from '@/shared/lib/utils';
+import { formatHourRange, formatPrice } from '@/shared/lib/utils';
 import { BookingStatusText, PaymentStatusText } from '../BookingStatusBadge';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { EmptyState } from '@/shared/components/common/EmptyState';
@@ -249,15 +249,14 @@ export function BookingInfoSection({
           })
         }
       />
-      <InfoRow label={t.bookings.date}>
-        <span className="score-text font-medium">{formatDateShort(booking.date)}</span>
-      </InfoRow>
       <InfoRow label={t.bookings.time}>
         <span className="score-text font-medium">{formatHourRange(booking.starts_at, booking.ends_at)}</span>
       </InfoRow>
-      <InfoRow label={t.bookings.duration}>{booking.duration_minutes} min</InfoRow>
+      <InfoRow label={t.bookings.duration}>
+        <span className="score-text font-medium">{booking.duration_minutes} min</span>
+      </InfoRow>
       <InfoRow label={t.bookings.court}>
-        <span className="truncate font-medium">{booking.court_name}</span>
+        <span className="truncate">{booking.court_name}</span>
       </InfoRow>
       {clientRow}
     </div>

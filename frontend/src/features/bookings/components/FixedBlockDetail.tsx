@@ -7,7 +7,7 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateFull, formatTime } from '@/shared/lib/utils';
+import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { SkipDateDialog } from './booking-detail/SkipDateDialog';
 import { EndSeriesDialog } from './booking-detail/EndSeriesDialog';
 import { weekdayOf } from '../lib/seriesDates';
@@ -40,9 +40,7 @@ function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: 
       </InfoRow>
       <InfoRow label={t.bookings.court}>{courtName}</InfoRow>
       <InfoRow label={t.bookings.time}>
-        <span className="score-text font-medium">
-          {formatTime(block.start_time)} – {formatTime(block.end_time)}
-        </span>
+        <span className="score-text font-medium">{formatEventTimeRange(block.start_time, block.end_time)}</span>
       </InfoRow>
     </div>
   );
@@ -50,15 +48,15 @@ function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: 
 
 function FixedBlockActions({ onSkip, onEnd }: { onSkip: () => void; onEnd: () => void }) {
   return (
-    <SheetFooter>
+    <SheetFooter className="items-start sm:px-6">
       <Button
         variant="outline"
-        className="border-error-text/30 text-error-text hover:bg-error-text/10 w-full rounded-lg"
+        className="border-error-text/30 text-error-text hover:bg-error-text/10 rounded-lg"
         onClick={onSkip}
       >
         {t.bookings.series.cancelOne}
       </Button>
-      <Button variant="destructive" className="w-full rounded-lg" onClick={onEnd}>
+      <Button variant="destructive" className="rounded-lg" onClick={onEnd}>
         {t.bookings.series.endFromHere}
       </Button>
     </SheetFooter>
@@ -140,7 +138,7 @@ export function FixedBlockDetail({ open, onClose, block, courtName, complexId }:
         >
           <DetailSheetHeader
             title={t.bookings.series.blockDetailTitle}
-            subtitle={<span className="first-letter:uppercase">{formatDateFull(date)}</span>}
+            subtitle={<span className="inline-block first-letter:uppercase">{formatEventDay(date)}</span>}
           />
 
           <FixedBlockFacts block={shown} date={date} courtName={courtName} />

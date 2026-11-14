@@ -76,7 +76,7 @@ function BookingDetailFooter({
   if (!canConfirmPayment && !canMarkManualRefund) return null;
 
   return (
-    <SheetFooter>
+    <SheetFooter className="items-start sm:px-6">
       <DetailFooterActions
         booking={booking}
         onConfirmPayment={canConfirmPayment ? onConfirmPayment : undefined}

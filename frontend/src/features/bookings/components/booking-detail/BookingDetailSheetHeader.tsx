@@ -1,5 +1,6 @@
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { formatEventDay } from '@/shared/lib/eventDates';
 import { BookingDetailMenu } from './BookingDetailMenu';
 import type { Booking } from '@/shared/types/api.types';
 
@@ -25,7 +26,9 @@ export function BookingDetailSheetHeader({
   return (
     <DetailSheetHeader
       title={t.publicBooking.bookingRef}
-      subtitle={<span className="text-xs font-semibold tracking-wider uppercase">{t.bookings.bookingDetail}</span>}
+      subtitle={
+        <span className="inline-block first-letter:uppercase">{formatEventDay(booking.date.slice(0, 10))}</span>
+      }
       menu={
         (canMarkNoShow || canCancel || onEndSeries) && (
           <BookingDetailMenu

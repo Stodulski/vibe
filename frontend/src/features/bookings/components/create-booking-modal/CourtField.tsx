@@ -27,9 +27,8 @@ export function CourtField({
 }) {
   const labelId = useId();
   return (
-    <div className="space-y-2">
+    <>
       <FormField
-        className="space-y-2"
         htmlFor={labelId}
         label={
           <>
@@ -59,6 +58,6 @@ export function CourtField({
         </Select>
       </FormField>
       {selectedCourt && <DurationField durationMinutes={durationMinutes} setValue={setValue} errors={errors} />}
-    </div>
+    </>
   );
 }

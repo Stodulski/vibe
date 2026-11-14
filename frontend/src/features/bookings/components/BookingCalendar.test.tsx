@@ -255,7 +255,7 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
     name: 'Americano de sabado',
   };
 
-  it('draws the block as "Canchas libres · {día} {hora}" and hands it over on click', async () => {
+  it('draws the hours on one line and "Canchas libres · {nombre}" under them, and hands it over on click', async () => {
     const user = userEvent.setup();
     const onSelectEventBlock = vi.fn();
     render(
@@ -267,9 +267,9 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Canchas libres · sábado 19:00/ });
-    expect(block).toHaveTextContent('Canchas libres · sábado 19:00');
-    expect(block).toHaveTextContent('Americano de sabado');
+    const block = screen.getByRole('button', { name: /19:00–21:00, Canchas libres · Americano de sabado/ });
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 – 21:00', 'Canchas libres · Americano de sabado']);
     await user.click(block);
 
     expect(onSelectEventBlock).toHaveBeenCalledWith(eventBlock);
@@ -284,7 +284,7 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Canchas libres · sábado 23:00/ });
+    const block = screen.getByRole('button', { name: /23:00–01:00, Canchas libres · Americano de sabado/ });
     expect(block.style.top).toContain('95.83');
   });
 
@@ -314,7 +314,7 @@ describe('BookingCalendar — tournament matches', () => {
     name: 'Copa Vibe · 6ta',
   };
 
-  it('draws the match as "Torneo · {nombre}" and hands it over on click', async () => {
+  it('draws the match like a booking, hours first and "Torneo · {nombre}" under them, and hands it over on click', async () => {
     const user = userEvent.setup();
     const onSelectEventBlock = vi.fn();
     render(
@@ -327,7 +327,8 @@ describe('BookingCalendar — tournament matches', () => {
     );
 
     const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
-    expect(block).toHaveTextContent('Torneo · Copa Vibe · 6ta');
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 – 20:30', 'Torneo · Copa Vibe · 6ta']);
     await user.click(block);
 
     expect(onSelectEventBlock).toHaveBeenCalledWith(matchBlock);

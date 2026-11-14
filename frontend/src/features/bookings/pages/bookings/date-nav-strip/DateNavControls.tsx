@@ -40,27 +40,31 @@ export function DateNavControls({
         <ChevronLeft className="size-4" />
       </Button>
 
-      <DatePickerPopover
-        selectedDate={selectedDate}
-        dateLabel={dateLabel}
-        isToday={isToday}
-        calendarOpen={calendarOpen}
-        onCalendarOpenChange={onCalendarOpenChange}
-        onDateSelect={onDateSelect}
-      />
+      {/* A fixed-width middle, so the chevrons stay put whatever the weekday or
+          month and whether "Hoy" or "Ir a hoy" is showing beside the date. */}
+      <div className="flex w-[calc(100vw-10rem)] max-w-80 min-w-0 items-center justify-center">
+        <DatePickerPopover
+          selectedDate={selectedDate}
+          dateLabel={dateLabel}
+          isToday={isToday}
+          calendarOpen={calendarOpen}
+          onCalendarOpenChange={onCalendarOpenChange}
+          onDateSelect={onDateSelect}
+        />
 
-      {/* Takes the slot the "Hoy" badge occupies on today's date, so the
-          control never jumps between two places. */}
-      {!isToday && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-primary-400 hover:text-primary-300 -mx-2 shrink-0 text-xs"
-          onClick={onGoToToday}
-        >
-          {t.bookings.goToToday}
-        </Button>
-      )}
+        {/* Takes the slot the "Hoy" badge occupies on today's date, so the
+            control never jumps between two places. */}
+        {!isToday && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-primary-400 hover:text-primary-300 -mx-2 shrink-0 text-xs"
+            onClick={onGoToToday}
+          >
+            {t.bookings.goToToday}
+          </Button>
+        )}
+      </div>
 
       <Button
         variant="ghost"

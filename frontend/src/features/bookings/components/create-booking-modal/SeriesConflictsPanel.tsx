@@ -32,7 +32,9 @@ export function SeriesConflictsPanel({
   onBack: () => void;
 }) {
   return (
-    <div className="space-y-4">
+    // On a phone the dialog fills the screen and its form keeps the footer at the
+    // bottom (see `DialogContent`); this panel is not a form, so it asks for the same.
+    <div className="flex flex-1 flex-col gap-4 sm:flex-none">
       <div className="space-y-1">
         <p className="text-text-primary text-sm font-medium">{t.bookings.series.conflictsTitle(conflicts.length)}</p>
         {endless && <p className="text-text-tertiary text-sm">{t.bookings.series.conflictsEndless}</p>}
@@ -47,6 +49,7 @@ export function SeriesConflictsPanel({
         ))}
       </ul>
       <SectionFooter
+        className="mt-auto sm:mt-0"
         onCancel={onBack}
         cancelLabel={t.bookings.series.conflictsBack}
         cancelDisabled={pending}

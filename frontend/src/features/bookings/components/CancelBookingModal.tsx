@@ -82,7 +82,7 @@ export function CancelBookingModal({ open, onClose, onConfirm, isLoading, bookin
         </div>
 
         <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>{t.common.cancel}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t.common.back}</AlertDialogCancel>
           <AlertDialogAction
             onClick={(e) => {
               e.preventDefault();
