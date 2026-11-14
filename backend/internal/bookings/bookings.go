@@ -213,6 +213,10 @@ type LinkTokenStore interface {
 type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation)
 	BookingCancelled(c notifications.Cancellation)
+	// SeriesCreated and SeriesCancelled are the one notice per event of a fixed
+	// weekly booking.
+	SeriesCreated(c notifications.SeriesCreation)
+	SeriesCancelled(c notifications.SeriesCancellation)
 	// ReminderDue is the two-hour reminder the scheduler sends. It returns an
 	// error when the reminder was not queued, and the scheduler then leaves the
 	// booking unflagged so the next tick tries again.

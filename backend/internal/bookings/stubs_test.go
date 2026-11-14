@@ -891,9 +891,11 @@ type stubWaitlist struct {
 func (w *stubWaitlist) SlotFreed(_ context.Context, f waitlist.Freed) { w.freed = append(w.freed, f) }
 
 type stubNotifier struct {
-	confirmed []notifications.BookingConfirmation
-	cancelled []notifications.Cancellation
-	reminders []notifications.Reminder
+	confirmed       []notifications.BookingConfirmation
+	cancelled       []notifications.Cancellation
+	reminders       []notifications.Reminder
+	seriesCreated   []notifications.SeriesCreation
+	seriesCancelled []notifications.SeriesCancellation
 	// reminderErr is what ReminderDue returns instead of queueing, as when the
 	// queue refuses the insert.
 	reminderErr error
@@ -913,6 +915,14 @@ func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
 
 func (s *stubNotifier) BookingCancelled(c notifications.Cancellation) {
 	s.cancelled = append(s.cancelled, c)
+}
+
+func (s *stubNotifier) SeriesCreated(c notifications.SeriesCreation) {
+	s.seriesCreated = append(s.seriesCreated, c)
+}
+
+func (s *stubNotifier) SeriesCancelled(c notifications.SeriesCancellation) {
+	s.seriesCancelled = append(s.seriesCancelled, c)
 }
 
 type stubBroadcaster struct{ published []uuid.UUID }

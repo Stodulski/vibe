@@ -547,6 +547,7 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 	if err := s.settleDueFirstDate(ctx, complex, ser, client, result); err != nil {
 		return nil, err
 	}
+	s.notifySeriesCreated(ctx, complex, ser, client)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return result, nil
 }
@@ -689,8 +690,9 @@ func (s *Service) settledDateRefusal(ctx context.Context, ser *Series, day time.
 // cancelled, those with a payment stand and are reported back. The series is
 // marked ended either way; a kept booking is an ordinary booking from here.
 //
-// Cancelling is quiet: no message goes to the client and no refund is involved,
-// since only unpaid bookings are touched.
+// Cancelling the individual bookings is quiet and involves no refund, since only
+// unpaid ones are touched; the client gets one notice for the whole series
+// instead (notifySeriesCancelled).
 func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, actor Actor, seriesID uuid.UUID, from time.Time) (*SeriesEndResult, error) {
 	ser, err := s.ownedSeries(ctx, complex.ID, seriesID)
 	if err != nil {
@@ -736,6 +738,7 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 		UserID: actor.UserID, ComplexID: &complex.ID, Action: "end",
 		EntityType: "booking_series", EntityID: &ser.ID, NewValue: result.Series, IPAddress: actor.IP,
 	})
+	s.notifySeriesCancelled(ctx, complex, ser, from, len(result.Kept) > 0)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return result, nil
 }

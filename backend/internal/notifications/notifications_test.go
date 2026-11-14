@@ -128,6 +128,13 @@ func (m *stubMailer) SendEmailChangeRequested(_ context.Context, to, firstName, 
 	return m.record("email_change_requested", to, firstName, newEmail, confirmURL, expiresIn)
 }
 
+func (m *stubMailer) SendSeriesCreated(_ context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string) error {
+	return m.record("series_created", to, complexName, courtName, weekdays, hours, from, until, address, mapsURL)
+}
+func (m *stubMailer) SendSeriesCancelled(_ context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string) error {
+	return m.record("series_cancelled", to, complexName, courtName, weekdays, hours, from, keptPaid, bookURL)
+}
+
 func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, date, bookURL string) error {
 	return m.record("waitlist_slot_freed", to, complexName, date, bookURL)
 }

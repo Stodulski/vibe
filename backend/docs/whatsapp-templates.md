@@ -263,6 +263,24 @@ Ante cualquier consulta, contacte al complejo.
 [ Nueva reserva ]
 ```
 
+**Reused for a cancelled fixed weekly booking ("turno fijo").** When the owner
+cancels a series from a date on ("Cancelar turno fijo"), the client gets one
+message through this same approved template, built with the same
+`whatsapp.BookingCancelledTemplate` (task `wa:series_cancelled`, one message per
+event, never one per date). No new Meta template is involved; only the values
+differ:
+
+| # | Value for a series | Example |
+|---|---|---|
+| 3 | first date the series stops, with the weekday, then "y los {weekday} siguientes" | `lunes 14/12 y los lunes siguientes` |
+| 4 | the series' hours, same format as above | `19:00 a 20:30` |
+| 5 | `no hay pagos a devolver.` when no booked date carries a payment, else `los turnos ya pagos se mantienen.` | `no hay pagos a devolver.` |
+
+Rendered: "Cancha 1 en Vibe Palermo, el lunes 14/12 y los lunes siguientes de
+19:00 a 20:30." The button is the same "Nueva reserva". A series being
+**created** sends no WhatsApp at all, because every approved template carries a
+button bound to a booking that does not exist yet; the client gets an email only.
+
 ---
 
 ## 4. `deposit_returned`
