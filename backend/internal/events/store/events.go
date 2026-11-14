@@ -201,7 +201,10 @@ func (m *Store) fillCourts(ctx context.Context, e *Event) error {
 	}
 	e.Courts = make([]Court, len(courts))
 	for i, c := range courts {
-		e.Courts[i] = Court{ID: data.PgToUUID(c.CourtID), Name: c.CourtName}
+		e.Courts[i] = Court{
+			ID: data.PgToUUID(c.CourtID), Name: c.CourtName,
+			CourtType: string(c.CourtType), Surface: data.PgToTextPtr(c.Surface), HasLighting: c.HasLighting,
+		}
 	}
 	return nil
 }

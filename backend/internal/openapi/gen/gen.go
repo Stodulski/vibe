@@ -1012,6 +1012,27 @@ func (e PublicCancelInfoRefundMethod) Valid() bool {
 	}
 }
 
+// Defines values for PublicEventCourtCourtType.
+const (
+	PublicEventCourtCourtTypeIndoor      PublicEventCourtCourtType = "indoor"
+	PublicEventCourtCourtTypeOutdoor     PublicEventCourtCourtType = "outdoor"
+	PublicEventCourtCourtTypeSemiCovered PublicEventCourtCourtType = "semi_covered"
+)
+
+// Valid indicates whether the value is a known member of the PublicEventCourtCourtType enum.
+func (e PublicEventCourtCourtType) Valid() bool {
+	switch e {
+	case PublicEventCourtCourtTypeIndoor:
+		return true
+	case PublicEventCourtCourtTypeOutdoor:
+		return true
+	case PublicEventCourtCourtTypeSemiCovered:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicEventRegistrationStatus.
 const (
 	PublicEventRegistrationStatusCancelled PublicEventRegistrationStatus = "cancelled"
@@ -3861,6 +3882,20 @@ type PublicComplexGone struct {
 	} `json:"gone"`
 }
 
+// PublicEventCourt A court of a public event, with the facts the booking flow shows for a court.
+type PublicEventCourt struct {
+	CourtType   PublicEventCourtCourtType `json:"court_type"`
+	HasLighting bool                      `json:"has_lighting"`
+	Id          openapi_types.UUID        `json:"id"`
+	Name        string                    `json:"name"`
+
+	// Surface Playing surface; null when the owner has not said.
+	Surface *CourtSurface `json:"surface,omitempty"`
+}
+
+// PublicEventCourtCourtType defines model for PublicEventCourt.CourtType.
+type PublicEventCourtCourtType string
+
 // PublicEventRegistration defines model for PublicEventRegistration.
 type PublicEventRegistration struct {
 	Cancellation struct {
@@ -4004,15 +4039,18 @@ type PublicHubSummary struct {
 // PublicOpenPlayEvent An event as a visitor sees it on the complex's page.
 type PublicOpenPlayEvent struct {
 	// CancellationHours The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead.
-	CancellationHours *int               `json:"cancellation_hours,omitempty"`
-	Capacity          int                `json:"capacity"`
-	ComplexName       *string            `json:"complex_name,omitempty"`
-	CourtNames        []string           `json:"court_names"`
-	Date              openapi_types.Date `json:"date"`
-	DurationMinutes   int                `json:"duration_minutes"`
-	EndTime           string             `json:"end_time"`
-	Id                openapi_types.UUID `json:"id"`
-	Name              string             `json:"name"`
+	CancellationHours *int     `json:"cancellation_hours,omitempty"`
+	Capacity          int      `json:"capacity"`
+	ComplexName       *string  `json:"complex_name,omitempty"`
+	CourtNames        []string `json:"court_names"`
+
+	// Courts The event's courts with what a player compares, in the order of `court_names`.
+	Courts          []PublicEventCourt `json:"courts"`
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+	EndTime         string             `json:"end_time"`
+	Id              openapi_types.UUID `json:"id"`
+	Name            string             `json:"name"`
 
 	// Price Centavos ARS per person.
 	Price int `json:"price"`

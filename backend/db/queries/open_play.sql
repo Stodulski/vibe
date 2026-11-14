@@ -26,7 +26,7 @@ WHERE id = $1
 FOR UPDATE;
 
 -- name: ListOpenPlayEventCourts :many
-SELECT oc.court_id, c.name AS court_name
+SELECT oc.court_id, c.name AS court_name, c.court_type, c.surface, c.has_lighting
 FROM open_play_event_courts oc
 JOIN courts c ON c.id = oc.court_id
 WHERE oc.event_id = $1

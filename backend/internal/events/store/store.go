@@ -86,6 +86,10 @@ func (e *ConflictError) Error() string {
 type Court struct {
 	ID   uuid.UUID `json:"id"`
 	Name string    `json:"name"`
+	// CourtType, Surface and HasLighting are what a player compares between courts.
+	CourtType   string  `json:"court_type"`
+	Surface     *string `json:"surface,omitempty"`
+	HasLighting bool    `json:"has_lighting"`
 }
 
 // Event is an open-play event.

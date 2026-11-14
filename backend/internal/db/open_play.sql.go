@@ -484,7 +484,7 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 }
 
 const listOpenPlayEventCourts = `-- name: ListOpenPlayEventCourts :many
-SELECT oc.court_id, c.name AS court_name
+SELECT oc.court_id, c.name AS court_name, c.court_type, c.surface, c.has_lighting
 FROM open_play_event_courts oc
 JOIN courts c ON c.id = oc.court_id
 WHERE oc.event_id = $1
@@ -492,8 +492,11 @@ ORDER BY c.name, oc.court_id
 `
 
 type ListOpenPlayEventCourtsRow struct {
-	CourtID   pgtype.UUID `json:"court_id"`
-	CourtName string      `json:"court_name"`
+	CourtID     pgtype.UUID `json:"court_id"`
+	CourtName   string      `json:"court_name"`
+	CourtType   CourtType   `json:"court_type"`
+	Surface     pgtype.Text `json:"surface"`
+	HasLighting bool        `json:"has_lighting"`
 }
 
 func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UUID) ([]ListOpenPlayEventCourtsRow, error) {
@@ -505,7 +508,13 @@ func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UU
 	var items []ListOpenPlayEventCourtsRow
 	for rows.Next() {
 		var i ListOpenPlayEventCourtsRow
-		if err := rows.Scan(&i.CourtID, &i.CourtName); err != nil {
+		if err := rows.Scan(
+			&i.CourtID,
+			&i.CourtName,
+			&i.CourtType,
+			&i.Surface,
+			&i.HasLighting,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

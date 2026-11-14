@@ -7108,12 +7108,25 @@ components:
                 refund_amount: {type: integer, description: "Centavos ARS already sent back."}
                 method: {type: string, enum: [mercadopago]}
 
+    PublicEventCourt:
+      type: object
+      description: A court of a public event, with the facts the booking flow shows for a court.
+      required: [id, name, court_type, has_lighting]
+      properties:
+        id: {type: string, format: uuid}
+        name: {type: string}
+        court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+        has_lighting: {type: boolean}
+        surface:
+          oneOf: [{$ref: "#/components/schemas/CourtSurface"}, {type: "null"}]
+          description: Playing surface; null when the owner has not said.
+
     PublicOpenPlayEvent:
       type: object
       description: An event as a visitor sees it on the complex's page.
       required:
         [id, name, sport, date, start_time, end_time, duration_minutes, capacity, spots_left, price,
-         service_fee, total_price, status, court_names]
+         service_fee, total_price, status, court_names, courts]
       properties:
         id: {type: string, format: uuid}
         name: {type: string}
@@ -7131,6 +7144,10 @@ components:
         court_names:
           type: array
           items: {type: string}
+        courts:
+          type: array
+          description: The event's courts with what a player compares, in the order of `court_names`.
+          items: {$ref: "#/components/schemas/PublicEventCourt"}
         complex_name: {type: string}
         cancellation_hours: {type: integer, description: "The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead."}
 
