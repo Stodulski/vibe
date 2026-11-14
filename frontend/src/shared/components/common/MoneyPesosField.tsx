@@ -10,6 +10,8 @@ interface MoneyPesosFieldProps {
   onChange: (pesos: number | undefined) => void;
   error?: string | undefined;
   placeholder?: string | undefined;
+  /** Match the shared `Input` height, for a form whose other fields are plain inputs. */
+  compact?: boolean;
 }
 
 /**
@@ -54,7 +56,15 @@ interface MoneyPesosFieldProps {
  * always: the caller's own Zod schema is what reports a validation problem,
  * never a browser-native block before React runs.
  */
-export function MoneyPesosField({ id, label, value, onChange, error, placeholder }: MoneyPesosFieldProps) {
+export function MoneyPesosField({
+  id,
+  label,
+  value,
+  onChange,
+  error,
+  placeholder,
+  compact = false,
+}: MoneyPesosFieldProps) {
   const { displayValue, inputRef, handleChange, handleBlur } = useMoneyInput({ value, onChange });
 
   return (
@@ -66,7 +76,7 @@ export function MoneyPesosField({ id, label, value, onChange, error, placeholder
           type="text"
           inputMode="numeric"
           autoComplete="off"
-          className="h-12 pl-9 text-base"
+          className={compact ? 'pl-9' : 'h-12 pl-9 text-base'}
           ref={inputRef}
           value={displayValue}
           placeholder={placeholder}

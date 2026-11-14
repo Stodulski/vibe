@@ -145,6 +145,7 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
         }}
         error={formState.errors.price?.message}
         placeholder="0"
+        compact
       />
       <p className="text-text-tertiary text-xs sm:col-span-2">{t.events.form.priceHint}</p>
     </div>
