@@ -11,15 +11,12 @@ import { FormField } from '@/shared/components/common/FormField';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { COUNTER_PAYMENT_METHODS, type CounterPaymentMethod } from '@/shared/lib/paymentMethods';
 import { formatPrice } from '@/shared/lib/utils';
 import { useChargeCourtFee, type CourtFeeTarget } from '../hooks/useTournamentChanges';
 import { courtFeeErrorMessage } from '../lib/tournamentErrors';
 
 const t = ES_AR.tournaments.courtFee;
-
-/** The methods a court fee is collected with at the complex: the same two a booking is charged with at the venue. */
-const METHODS = ['cash', 'transfer'] as const;
-type Method = (typeof METHODS)[number];
 
 interface ChargeCourtFeeDialogProps {
   open: boolean;
@@ -33,7 +30,7 @@ interface ChargeCourtFeeDialogProps {
   amount: number;
 }
 
-/** Collects a pair's court fee by cash or transfer; the money goes into the open cash session. Mounted only while open. */
+/** Collects a pair's court fee with any counter payment method; the money goes into the open cash session. Mounted only while open. */
 export function ChargeCourtFeeDialog({ open, onClose, target, ...rest }: ChargeCourtFeeDialogProps) {
   return (
     <Dialog
@@ -52,7 +49,7 @@ export function ChargeCourtFeeDialog({ open, onClose, target, ...rest }: ChargeC
 type BodyProps = Omit<ChargeCourtFeeDialogProps, 'open' | 'target'> & { target: CourtFeeTarget };
 
 function ChargeBody({ onClose, complexId, tournamentId, target, pairName, amount }: BodyProps) {
-  const [method, setMethod] = useState<Method>('cash');
+  const [method, setMethod] = useState<CounterPaymentMethod>('cash');
   const charge = useChargeCourtFee(complexId, tournamentId);
 
   const submit = () => {
@@ -80,14 +77,14 @@ function ChargeBody({ onClose, complexId, tournamentId, target, pairName, amount
         <Select
           value={method}
           onValueChange={(value) => {
-            setMethod(value === 'transfer' ? 'transfer' : 'cash');
+            setMethod(COUNTER_PAYMENT_METHODS.find((m) => m === value) ?? 'cash');
           }}
         >
           <SelectTrigger id="court-fee-method">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {METHODS.map((value) => (
+            {COUNTER_PAYMENT_METHODS.map((value) => (
               <SelectItem key={value} value={value}>
                 {ES_AR.bookings.paymentMethods[value]}
               </SelectItem>

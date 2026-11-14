@@ -3,6 +3,7 @@ import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
 import { renderWithProviders, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { COUNTER_PAYMENT_METHODS } from '@/shared/lib/paymentMethods';
 import { formatPrice } from '@/shared/lib/utils';
 import { makeCategory, makeDrawnDetail, makeMatch } from '../testing/fixtures';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
@@ -128,6 +129,40 @@ describe('TournamentDetail: charging the court fee', () => {
 
     await waitFor(() => {
       expect(tournamentsApi.chargeCourtFee).toHaveBeenCalledWith('c1', 't1', 'gm1', 2, { method: 'cash' });
+    });
+  });
+});
+
+describe('TournamentDetail: court fee payment methods', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('offers every method the counter takes, with its own label', async () => {
+    const { user } = await renderOnMatches(detailWithFee());
+
+    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    const dialog = await screen.findByRole('dialog', { name: t.courtFee.chargeTitle });
+    await user.click(within(dialog).getByRole('combobox', { name: t.courtFee.method }));
+
+    const options = await screen.findAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual(
+      COUNTER_PAYMENT_METHODS.map((m) => ES_AR.bookings.paymentMethods[m]),
+    );
+  });
+
+  it('charges by card, keeping the method chosen', async () => {
+    const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
+    vi.mocked(tournamentsApi.chargeCourtFee).mockResolvedValue(detailWithFee());
+
+    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    const dialog = await screen.findByRole('dialog', { name: t.courtFee.chargeTitle });
+    await user.click(within(dialog).getByRole('combobox', { name: t.courtFee.method }));
+    await user.click(await screen.findByRole('option', { name: ES_AR.bookings.paymentMethods.debit_card }));
+    await user.click(within(dialog).getByRole('button', { name: t.courtFee.chargeSubmit(formatPrice(FEE)) }));
+
+    await waitFor(() => {
+      expect(tournamentsApi.chargeCourtFee).toHaveBeenCalledWith('c1', 't1', 'gm1', 2, { method: 'debit_card' });
     });
   });
 });

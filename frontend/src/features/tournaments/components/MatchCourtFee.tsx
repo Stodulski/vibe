@@ -1,5 +1,6 @@
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { COUNTER_PAYMENT_METHODS } from '@/shared/lib/paymentMethods';
 import { formatPrice } from '@/shared/lib/utils';
 import { slotLabel } from '../lib/tournamentView';
 import type { CourtFeeTarget } from '../hooks/useTournamentChanges';
@@ -24,10 +25,8 @@ interface MatchCourtFeeProps {
 
 /** The method a charge was made with; one this build does not know is shown as the server names it. */
 function methodLabel(method: string): string {
-  const labels = ES_AR.bookings.paymentMethods;
-  if (method === 'cash') return labels.cash;
-  if (method === 'transfer') return labels.transfer;
-  return method;
+  const known = COUNTER_PAYMENT_METHODS.find((m) => m === method);
+  return known ? ES_AR.bookings.paymentMethods[known] : method;
 }
 
 function FeeRow({

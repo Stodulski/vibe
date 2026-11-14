@@ -3488,7 +3488,7 @@ export interface components {
             /** @description Centavos. */
             amount: number;
             charged: boolean;
-            /** @description `cash` or `transfer` once charged. */
+            /** @description The counter payment method it was charged with, once charged. */
             method: string | null;
             /** Format: date-time */
             charged_at: string | null;
@@ -7681,7 +7681,7 @@ export interface operations {
             content: {
                 "application/json": {
                     /** @enum {string} */
-                    method: "cash" | "transfer";
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
                 };
             };
         };
