@@ -44,6 +44,13 @@ const (
 	MinMatchMinutes     = 30
 	MaxMatchMinutes     = 480
 	DefaultMatchMinutes = 90
+
+	// The match format a category plays unless its owner says otherwise: best
+	// of three sets of six games, the third a match tiebreak.
+	DefaultSetsToWin   = 2
+	DefaultGamesPerSet = 6
+	MinGamesPerSet     = 4
+	MaxGamesPerSet     = 9
 )
 
 var sports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
@@ -59,6 +66,15 @@ type CategoryInput struct {
 	// default (3 and 2).
 	GroupSize          int
 	QualifiersPerGroup int
+	// SetsToWin is 1 (a single set) or 2 (best of three), GamesPerSet 4..9,
+	// SuperTiebreakDecider makes the deciding set a match tiebreak (only when
+	// SetsToWin is 2) and MatchDurationMinutes is the court time a match gets
+	// when scheduled without one. Zero, or nil for the bool, means the default
+	// (2, 6, true and 90).
+	SetsToWin            int
+	GamesPerSet          int
+	SuperTiebreakDecider *bool
+	MatchDurationMinutes int
 }
 
 // CreateInput is an owner creating a tournament.
@@ -137,6 +153,34 @@ func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]st
 	} else if c.QualifiersPerGroup < 1 || c.QualifiersPerGroup >= c.GroupSize {
 		errs[field("qualifiers_per_group")] = "must be at least 1 and less than the group size"
 	}
+	c.validateMatchFormat(field, errs)
+}
+
+// validateMatchFormat fills the match format's defaults and refuses a value out
+// of range.
+func (c *CategoryInput) validateMatchFormat(field func(string) string, errs map[string]string) {
+	if c.SetsToWin == 0 {
+		c.SetsToWin = DefaultSetsToWin
+	}
+	if c.GamesPerSet == 0 {
+		c.GamesPerSet = DefaultGamesPerSet
+	}
+	if c.MatchDurationMinutes == 0 {
+		c.MatchDurationMinutes = DefaultMatchMinutes
+	}
+	if c.SuperTiebreakDecider == nil {
+		yes := true
+		c.SuperTiebreakDecider = &yes
+	}
+	if c.SetsToWin != 1 && c.SetsToWin != 2 {
+		errs[field("sets_to_win")] = "must be 1 (a single set) or 2 (best of three)"
+	}
+	if c.GamesPerSet < MinGamesPerSet || c.GamesPerSet > MaxGamesPerSet {
+		errs[field("games_per_set")] = fmt.Sprintf("must be between %d and %d", MinGamesPerSet, MaxGamesPerSet)
+	}
+	if c.MatchDurationMinutes < MinMatchMinutes || c.MatchDurationMinutes > MaxMatchMinutes {
+		errs[field("match_duration_minutes")] = fmt.Sprintf("must be between %d and %d", MinMatchMinutes, MaxMatchMinutes)
+	}
 }
 
 // Create publishes a tournament with its categories.
@@ -156,6 +200,8 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		cats[i] = tournamentstore.NewCategory{
 			Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
 			GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
+			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: *c.SuperTiebreakDecider,
+			MatchDurationMinutes: c.MatchDurationMinutes,
 		}
 	}
 	if err := s.store.Create(ctx, t, cats); err != nil {
@@ -380,12 +426,31 @@ func (s *Service) match(ctx context.Context, complexID, tournamentID, matchID uu
 	return nil, data.ErrRecordNotFound
 }
 
+// matchCategory is the category a match of the tournament belongs to.
+func (s *Service) matchCategory(ctx context.Context, complexID, tournamentID, matchID uuid.UUID) (*tournamentstore.Category, error) {
+	m, err := s.match(ctx, complexID, tournamentID, matchID)
+	if err != nil {
+		return nil, err
+	}
+	cats, err := s.store.Categories(ctx, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	for _, c := range cats {
+		if c.ID == m.CategoryID {
+			return c, nil
+		}
+	}
+	return nil, data.ErrRecordNotFound
+}
+
 // ScheduleInput is an owner giving a match a court, a day and a time.
 type ScheduleInput struct {
 	CourtID   uuid.UUID
 	Date      time.Time
 	StartTime string
-	// Minutes is the match's duration; zero means DefaultMatchMinutes.
+	// Minutes is the match's duration; zero means the category's
+	// match_duration_minutes.
 	Minutes int
 }
 
@@ -396,17 +461,18 @@ func (s *Service) Schedule(ctx context.Context, complex *complexstore.Complex, a
 	if !slots.ValidFormat(in.StartTime) {
 		errs["start_time"] = "must be in HH:MM format (00:00-23:59)"
 	}
-	if in.Minutes == 0 {
-		in.Minutes = DefaultMatchMinutes
-	}
-	if in.Minutes < MinMatchMinutes || in.Minutes > MaxMatchMinutes {
+	if in.Minutes != 0 && (in.Minutes < MinMatchMinutes || in.Minutes > MaxMatchMinutes) {
 		errs["duration_minutes"] = fmt.Sprintf("must be between %d and %d", MinMatchMinutes, MaxMatchMinutes)
 	}
 	if len(errs) > 0 {
 		return nil, &ValidationError{Errors: errs}
 	}
-	if _, err := s.match(ctx, complex.ID, tournamentID, matchID); err != nil {
+	cat, err := s.matchCategory(ctx, complex.ID, tournamentID, matchID)
+	if err != nil {
 		return nil, err
+	}
+	if in.Minutes == 0 {
+		in.Minutes = cat.MatchDurationMinutes
 	}
 	m, err := s.store.Schedule(ctx, tournamentstore.ScheduleInput{
 		MatchID: matchID, CourtID: in.CourtID, Date: in.Date, StartTime: in.StartTime, Minutes: in.Minutes,

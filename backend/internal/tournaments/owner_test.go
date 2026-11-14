@@ -237,7 +237,7 @@ func TestDrawErrorsAreMappedAndSeedsPassedOn(t *testing.T) {
 // S5: scheduling refuses what already holds the hours, naming it and the court.
 func TestSchedulingConflictsAreNamedAndValidated(t *testing.T) {
 	f := newFixture(t)
-	f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New()}}
+	f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New(), CategoryID: f.category().ID}}
 	matchID := f.store.detail.Matches[0].ID
 	tid := f.store.detail.Tournament.ID
 	in := ScheduleInput{CourtID: f.court.ID, Date: day(3), StartTime: "18:00"}
@@ -306,5 +306,74 @@ func TestResultErrorsAreMapped(t *testing.T) {
 	}
 	if last := f.store.results[len(f.store.results)-1]; last.WalkoverLoser != 2 || last.MatchID != mid {
 		t.Errorf("walkover input = %+v", last)
+	}
+}
+
+// S6b: a category created without a format plays best of three, six games, a
+// match tiebreak, 90 minutes; what the owner sets is kept.
+func TestCreateDefaultsAndKeepsTheMatchFormat(t *testing.T) {
+	f := newFixture(t)
+	no := false
+	in := validCreate()
+	in.Categories[1].SetsToWin, in.Categories[1].GamesPerSet = 1, 4
+	in.Categories[1].SuperTiebreakDecider, in.Categories[1].MatchDurationMinutes = &no, 60
+	if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
+		t.Fatal(err)
+	}
+	def, set := f.store.createdCats[0], f.store.createdCats[1]
+	if def.SetsToWin != 2 || def.GamesPerSet != 6 || !def.SuperTiebreakDecider || def.MatchDurationMinutes != 90 {
+		t.Errorf("defaults = %+v", def)
+	}
+	if set.SetsToWin != 1 || set.GamesPerSet != 4 || set.SuperTiebreakDecider || set.MatchDurationMinutes != 60 {
+		t.Errorf("set = %+v", set)
+	}
+}
+
+func TestCreateRefusesAMatchFormatOutOfRange(t *testing.T) {
+	cases := map[string]struct {
+		change func(*CategoryInput)
+		field  string
+	}{
+		"three sets to win":    {func(c *CategoryInput) { c.SetsToWin = 3 }, "categories[0].sets_to_win"},
+		"negative sets":        {func(c *CategoryInput) { c.SetsToWin = -1 }, "categories[0].sets_to_win"},
+		"three game sets":      {func(c *CategoryInput) { c.GamesPerSet = 3 }, "categories[0].games_per_set"},
+		"ten game sets":        {func(c *CategoryInput) { c.GamesPerSet = 10 }, "categories[0].games_per_set"},
+		"match of 29 minutes":  {func(c *CategoryInput) { c.MatchDurationMinutes = 29 }, "categories[0].match_duration_minutes"},
+		"match of 481 minutes": {func(c *CategoryInput) { c.MatchDurationMinutes = 481 }, "categories[0].match_duration_minutes"},
+	}
+	for name, c := range cases {
+		f := newFixture(t)
+		in := validCreate()
+		c.change(&in.Categories[0])
+		_, err := f.svc.Create(t.Context(), f.complex, f.actor(), in)
+		if _, ok := fieldErrors(t, err)[c.field]; !ok {
+			t.Errorf("%s: want an error on %s, got %v", name, c.field, err)
+		}
+	}
+	f := newFixture(t)
+	in := validCreate()
+	in.Categories[0].SetsToWin, in.Categories[0].GamesPerSet, in.Categories[0].MatchDurationMinutes = 2, 9, 480
+	if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
+		t.Errorf("the edges are valid: %v", err)
+	}
+}
+
+// S6b: scheduling without a duration uses the category's, and a duration in
+// the request still wins.
+func TestSchedulingUsesTheCategoryDuration(t *testing.T) {
+	f := newFixture(t)
+	f.category().MatchDurationMinutes = 75
+	f.store.detail.Matches = []*tournamentstore.Match{{ID: uuid.New(), CategoryID: f.category().ID}}
+	matchID, tid := f.store.detail.Matches[0].ID, f.store.detail.Tournament.ID
+	in := ScheduleInput{CourtID: f.court.ID, Date: day(3), StartTime: "18:00"}
+	if _, err := f.svc.Schedule(t.Context(), f.complex, f.actor(), tid, matchID, in); err != nil {
+		t.Fatal(err)
+	}
+	in.Minutes = 120
+	if _, err := f.svc.Schedule(t.Context(), f.complex, f.actor(), tid, matchID, in); err != nil {
+		t.Fatal(err)
+	}
+	if got := f.store.scheduled; len(got) != 2 || got[0].Minutes != 75 || got[1].Minutes != 120 {
+		t.Errorf("scheduled minutes = %+v, want 75 then 120", got)
 	}
 }

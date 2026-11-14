@@ -27,21 +27,25 @@ type wireTournament struct {
 }
 
 type wireCategory struct {
-	ID                 uuid.UUID `json:"id"`
-	TournamentID       uuid.UUID `json:"tournament_id"`
-	Name               string    `json:"name"`
-	Format             string    `json:"format"`
-	Capacity           int       `json:"capacity"`
-	Price              int       `json:"price"`
-	ServiceFee         *int      `json:"service_fee,omitempty"`
-	TotalPrice         *int      `json:"total_price,omitempty"`
-	SpotsLeft          int       `json:"spots_left"`
-	ConfirmedCount     int       `json:"confirmed_count"`
-	HeldCount          int       `json:"held_count"`
-	GroupSize          int       `json:"group_size"`
-	QualifiersPerGroup int       `json:"qualifiers_per_group"`
-	Status             string    `json:"status"`
-	DrawGenerated      bool      `json:"draw_generated"`
+	ID                   uuid.UUID `json:"id"`
+	TournamentID         uuid.UUID `json:"tournament_id"`
+	Name                 string    `json:"name"`
+	Format               string    `json:"format"`
+	Capacity             int       `json:"capacity"`
+	Price                int       `json:"price"`
+	ServiceFee           *int      `json:"service_fee,omitempty"`
+	TotalPrice           *int      `json:"total_price,omitempty"`
+	SpotsLeft            int       `json:"spots_left"`
+	ConfirmedCount       int       `json:"confirmed_count"`
+	HeldCount            int       `json:"held_count"`
+	GroupSize            int       `json:"group_size"`
+	QualifiersPerGroup   int       `json:"qualifiers_per_group"`
+	SetsToWin            int       `json:"sets_to_win"`
+	GamesPerSet          int       `json:"games_per_set"`
+	SuperTiebreakDecider bool      `json:"super_tiebreak_decider"`
+	MatchDurationMinutes int       `json:"match_duration_minutes"`
+	Status               string    `json:"status"`
+	DrawGenerated        bool      `json:"draw_generated"`
 }
 
 type wirePlayer struct {
@@ -183,7 +187,9 @@ func toWireCategory(c *tournamentstore.Category, serviceFee *int) wireCategory {
 	out := wireCategory{
 		ID: c.ID, TournamentID: c.TournamentID, Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
 		SpotsLeft: c.SpotsLeft(), ConfirmedCount: c.ConfirmedCount, HeldCount: c.HeldCount,
-		GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup, Status: status, DrawGenerated: c.DrawGeneratedAt != nil,
+		GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup, Status: status,
+		SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: c.SuperTiebreakDecider,
+		MatchDurationMinutes: c.MatchDurationMinutes, DrawGenerated: c.DrawGeneratedAt != nil,
 	}
 	if serviceFee != nil {
 		total := c.Price + *serviceFee

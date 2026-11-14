@@ -1306,6 +1306,24 @@ func (e TournamentCategoryFormat) Valid() bool {
 	}
 }
 
+// Defines values for TournamentCategorySetsToWin.
+const (
+	TournamentCategorySetsToWinN1 TournamentCategorySetsToWin = 1
+	TournamentCategorySetsToWinN2 TournamentCategorySetsToWin = 2
+)
+
+// Valid indicates whether the value is a known member of the TournamentCategorySetsToWin enum.
+func (e TournamentCategorySetsToWin) Valid() bool {
+	switch e {
+	case TournamentCategorySetsToWinN1:
+		return true
+	case TournamentCategorySetsToWinN2:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TournamentCategoryStatus.
 const (
 	TournamentCategoryStatusCancelled TournamentCategoryStatus = "cancelled"
@@ -2272,6 +2290,24 @@ func (e TournamentsCreateJSONBodyCategoriesFormat) Valid() bool {
 	case TournamentsCreateJSONBodyCategoriesFormatElimination:
 		return true
 	case TournamentsCreateJSONBodyCategoriesFormatGroups:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsCreateJSONBodyCategoriesSetsToWin.
+const (
+	TournamentsCreateJSONBodyCategoriesSetsToWinN1 TournamentsCreateJSONBodyCategoriesSetsToWin = 1
+	TournamentsCreateJSONBodyCategoriesSetsToWinN2 TournamentsCreateJSONBodyCategoriesSetsToWin = 2
+)
+
+// Valid indicates whether the value is a known member of the TournamentsCreateJSONBodyCategoriesSetsToWin enum.
+func (e TournamentsCreateJSONBodyCategoriesSetsToWin) Valid() bool {
+	switch e {
+	case TournamentsCreateJSONBodyCategoriesSetsToWinN1:
+		return true
+	case TournamentsCreateJSONBodyCategoriesSetsToWinN2:
 		return true
 	default:
 		return false
@@ -3958,24 +3994,39 @@ type TournamentCategory struct {
 	DrawGenerated  bool                     `json:"draw_generated"`
 	Format         TournamentCategoryFormat `json:"format"`
 
+	// GamesPerSet Games that make a set (4 to 9, 6 is standard).
+	GamesPerSet int `json:"games_per_set"`
+
 	// GroupSize Most pairs per group (groups format).
 	GroupSize int                `json:"group_size"`
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
-	Name      string             `json:"name"`
+
+	// MatchDurationMinutes Court time a match gets when scheduled without a duration.
+	MatchDurationMinutes int    `json:"match_duration_minutes"`
+	Name                 string `json:"name"`
 
 	// Price Centavos per pair.
-	Price              int                      `json:"price"`
-	QualifiersPerGroup int                      `json:"qualifiers_per_group"`
-	ServiceFee         *int                     `json:"service_fee,omitempty"`
-	SpotsLeft          int                      `json:"spots_left"`
-	Status             TournamentCategoryStatus `json:"status"`
-	TotalPrice         *int                     `json:"total_price,omitempty"`
-	TournamentId       openapi_types.UUID       `json:"tournament_id"`
+	Price              int  `json:"price"`
+	QualifiersPerGroup int  `json:"qualifiers_per_group"`
+	ServiceFee         *int `json:"service_fee,omitempty"`
+
+	// SetsToWin 1 is a single set, 2 is best of three.
+	SetsToWin TournamentCategorySetsToWin `json:"sets_to_win"`
+	SpotsLeft int                         `json:"spots_left"`
+	Status    TournamentCategoryStatus    `json:"status"`
+
+	// SuperTiebreakDecider The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2.
+	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
+	TotalPrice           *int               `json:"total_price,omitempty"`
+	TournamentId         openapi_types.UUID `json:"tournament_id"`
 }
 
 // TournamentCategoryFormat defines model for TournamentCategory.Format.
 type TournamentCategoryFormat string
+
+// TournamentCategorySetsToWin 1 is a single set, 2 is best of three.
+type TournamentCategorySetsToWin int
 
 // TournamentCategoryStatus defines model for TournamentCategory.Status.
 type TournamentCategoryStatus string
@@ -4109,7 +4160,7 @@ type TournamentRefunds = []struct {
 	RegistrationId openapi_types.UUID `json:"registration_id"`
 }
 
-// TournamentSet One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that is the third set.
+// TournamentSet One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that decides the match (the third set, best of three only).
 type TournamentSet struct {
 	A     int   `json:"a"`
 	B     int   `json:"b"`
@@ -5119,14 +5170,24 @@ type TournamentsListParams struct {
 type TournamentsCreateJSONBody struct {
 	Categories []struct {
 		// Capacity Pairs.
-		Capacity  int                                       `json:"capacity"`
-		Format    TournamentsCreateJSONBodyCategoriesFormat `json:"format"`
-		GroupSize *int                                      `json:"group_size,omitempty"`
-		Name      string                                    `json:"name"`
+		Capacity    int                                       `json:"capacity"`
+		Format      TournamentsCreateJSONBodyCategoriesFormat `json:"format"`
+		GamesPerSet *int                                      `json:"games_per_set,omitempty"`
+		GroupSize   *int                                      `json:"group_size,omitempty"`
+
+		// MatchDurationMinutes Court time given to a match scheduled without a duration.
+		MatchDurationMinutes *int   `json:"match_duration_minutes,omitempty"`
+		Name                 string `json:"name"`
 
 		// Price Centavos per pair.
 		Price              int  `json:"price"`
 		QualifiersPerGroup *int `json:"qualifiers_per_group,omitempty"`
+
+		// SetsToWin 1 plays a single set, 2 is best of three.
+		SetsToWin *TournamentsCreateJSONBodyCategoriesSetsToWin `json:"sets_to_win,omitempty"`
+
+		// SuperTiebreakDecider The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.
+		SuperTiebreakDecider *bool `json:"super_tiebreak_decider,omitempty"`
 	} `json:"categories"`
 
 	// EndDate On or after start_date, at most 60 days later.
@@ -5138,6 +5199,9 @@ type TournamentsCreateJSONBody struct {
 
 // TournamentsCreateJSONBodyCategoriesFormat defines parameters for TournamentsCreate.
 type TournamentsCreateJSONBodyCategoriesFormat string
+
+// TournamentsCreateJSONBodyCategoriesSetsToWin defines parameters for TournamentsCreate.
+type TournamentsCreateJSONBodyCategoriesSetsToWin int
 
 // TournamentsCreateJSONBodySport defines parameters for TournamentsCreate.
 type TournamentsCreateJSONBodySport string
@@ -5174,10 +5238,12 @@ type TournamentsMatchResultJSONBodyWalkoverLoser int
 
 // TournamentsMatchScheduleJSONBody defines parameters for TournamentsMatchSchedule.
 type TournamentsMatchScheduleJSONBody struct {
-	CourtId         openapi_types.UUID `json:"court_id"`
-	Date            openapi_types.Date `json:"date"`
-	DurationMinutes *int               `json:"duration_minutes,omitempty"`
-	StartTime       string             `json:"start_time"`
+	CourtId openapi_types.UUID `json:"court_id"`
+	Date    openapi_types.Date `json:"date"`
+
+	// DurationMinutes Omit to use the category's match_duration_minutes.
+	DurationMinutes *int   `json:"duration_minutes,omitempty"`
+	StartTime       string `json:"start_time"`
 }
 
 // ComplexesDeleteUploadJSONBody defines parameters for ComplexesDeleteUpload.

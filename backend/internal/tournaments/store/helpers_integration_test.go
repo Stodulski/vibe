@@ -38,12 +38,19 @@ func newFixture(t *testing.T) *fixture {
 // tournament creates a two-day tournament with one category of the format.
 func (f *fixture) tournament(t *testing.T, format string, capacity, groupSize, qualifiers int) (*tournamentstore.Tournament, *tournamentstore.Category) {
 	t.Helper()
+	return f.tournamentOf(t, tournamentstore.NewCategory{
+		Name: "6ta", Format: format, Capacity: capacity, Price: 1_000_000, GroupSize: groupSize, QualifiersPerGroup: qualifiers,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
+	})
+}
+
+// tournamentOf creates a two-day tournament with the one category given.
+func (f *fixture) tournamentOf(t *testing.T, nc tournamentstore.NewCategory) (*tournamentstore.Tournament, *tournamentstore.Category) {
+	t.Helper()
 	tr := &tournamentstore.Tournament{
 		ComplexID: f.ComplexID, Name: "Torneo", Sport: "padel", StartDate: start(), EndDate: start().AddDate(0, 0, 1), CreatedBy: f.UserID,
 	}
-	err := f.Stores.Tournaments.Create(f.ctx, tr, []tournamentstore.NewCategory{{
-		Name: "6ta", Format: format, Capacity: capacity, Price: 1_000_000, GroupSize: groupSize, QualifiersPerGroup: qualifiers,
-	}})
+	err := f.Stores.Tournaments.Create(f.ctx, tr, []tournamentstore.NewCategory{nc})
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}

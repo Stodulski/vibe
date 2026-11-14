@@ -121,7 +121,7 @@ func (q *Queries) GetTournament(ctx context.Context, arg GetTournamentParams) (T
 }
 
 const getTournamentCategory = `-- name: GetTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, draw_generated_at, created_at, updated_at FROM tournament_categories
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -144,6 +144,10 @@ func (q *Queries) GetTournamentCategory(ctx context.Context, arg GetTournamentCa
 		&i.Format,
 		&i.GroupSize,
 		&i.QualifiersPerGroup,
+		&i.SetsToWin,
+		&i.GamesPerSet,
+		&i.SuperTiebreakDecider,
+		&i.MatchDurationMinutes,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -152,7 +156,7 @@ func (q *Queries) GetTournamentCategory(ctx context.Context, arg GetTournamentCa
 }
 
 const getTournamentCategoryByEvent = `-- name: GetTournamentCategoryByEvent :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE event_id = $1
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE event_id = $1
 `
 
 func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgtype.UUID) (TournamentCategory, error) {
@@ -167,6 +171,10 @@ func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgty
 		&i.Format,
 		&i.GroupSize,
 		&i.QualifiersPerGroup,
+		&i.SetsToWin,
+		&i.GamesPerSet,
+		&i.SuperTiebreakDecider,
+		&i.MatchDurationMinutes,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -310,20 +318,25 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 
 const insertTournamentCategory = `-- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
-    tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group
+    tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, draw_generated_at, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at
 `
 
 type InsertTournamentCategoryParams struct {
-	TournamentID       pgtype.UUID `json:"tournament_id"`
-	ComplexID          pgtype.UUID `json:"complex_id"`
-	EventID            pgtype.UUID `json:"event_id"`
-	Name               string      `json:"name"`
-	Format             string      `json:"format"`
-	GroupSize          int32       `json:"group_size"`
-	QualifiersPerGroup int32       `json:"qualifiers_per_group"`
+	TournamentID         pgtype.UUID `json:"tournament_id"`
+	ComplexID            pgtype.UUID `json:"complex_id"`
+	EventID              pgtype.UUID `json:"event_id"`
+	Name                 string      `json:"name"`
+	Format               string      `json:"format"`
+	GroupSize            int32       `json:"group_size"`
+	QualifiersPerGroup   int32       `json:"qualifiers_per_group"`
+	SetsToWin            int32       `json:"sets_to_win"`
+	GamesPerSet          int32       `json:"games_per_set"`
+	SuperTiebreakDecider bool        `json:"super_tiebreak_decider"`
+	MatchDurationMinutes int32       `json:"match_duration_minutes"`
 }
 
 func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTournamentCategoryParams) (TournamentCategory, error) {
@@ -335,6 +348,10 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		arg.Format,
 		arg.GroupSize,
 		arg.QualifiersPerGroup,
+		arg.SetsToWin,
+		arg.GamesPerSet,
+		arg.SuperTiebreakDecider,
+		arg.MatchDurationMinutes,
 	)
 	var i TournamentCategory
 	err := row.Scan(
@@ -346,6 +363,10 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		&i.Format,
 		&i.GroupSize,
 		&i.QualifiersPerGroup,
+		&i.SetsToWin,
+		&i.GamesPerSet,
+		&i.SuperTiebreakDecider,
+		&i.MatchDurationMinutes,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -685,7 +706,7 @@ func (q *Queries) ListPairsOfGroup(ctx context.Context, groupID pgtype.UUID) ([]
 }
 
 const listTournamentCategories = `-- name: ListTournamentCategories :many
-SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.draw_generated_at, c.created_at, c.updated_at,
+SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.sets_to_win, c.games_per_set, c.super_tiebreak_decider, c.match_duration_minutes, c.draw_generated_at, c.created_at, c.updated_at,
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
@@ -700,22 +721,26 @@ ORDER BY c.created_at, c.id
 `
 
 type ListTournamentCategoriesRow struct {
-	ID                 pgtype.UUID        `json:"id"`
-	TournamentID       pgtype.UUID        `json:"tournament_id"`
-	ComplexID          pgtype.UUID        `json:"complex_id"`
-	EventID            pgtype.UUID        `json:"event_id"`
-	Name               string             `json:"name"`
-	Format             string             `json:"format"`
-	GroupSize          int32              `json:"group_size"`
-	QualifiersPerGroup int32              `json:"qualifiers_per_group"`
-	DrawGeneratedAt    pgtype.Timestamptz `json:"draw_generated_at"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	Capacity           int32              `json:"capacity"`
-	Price              int32              `json:"price"`
-	EventStatus        string             `json:"event_status"`
-	ConfirmedCount     int32              `json:"confirmed_count"`
-	HeldCount          int32              `json:"held_count"`
+	ID                   pgtype.UUID        `json:"id"`
+	TournamentID         pgtype.UUID        `json:"tournament_id"`
+	ComplexID            pgtype.UUID        `json:"complex_id"`
+	EventID              pgtype.UUID        `json:"event_id"`
+	Name                 string             `json:"name"`
+	Format               string             `json:"format"`
+	GroupSize            int32              `json:"group_size"`
+	QualifiersPerGroup   int32              `json:"qualifiers_per_group"`
+	SetsToWin            int32              `json:"sets_to_win"`
+	GamesPerSet          int32              `json:"games_per_set"`
+	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
+	MatchDurationMinutes int32              `json:"match_duration_minutes"`
+	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	Capacity             int32              `json:"capacity"`
+	Price                int32              `json:"price"`
+	EventStatus          string             `json:"event_status"`
+	ConfirmedCount       int32              `json:"confirmed_count"`
+	HeldCount            int32              `json:"held_count"`
 }
 
 // The categories of a tournament with what their sign-up container says: the
@@ -739,6 +764,10 @@ func (q *Queries) ListTournamentCategories(ctx context.Context, tournamentID pgt
 			&i.Format,
 			&i.GroupSize,
 			&i.QualifiersPerGroup,
+			&i.SetsToWin,
+			&i.GamesPerSet,
+			&i.SuperTiebreakDecider,
+			&i.MatchDurationMinutes,
 			&i.DrawGeneratedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -1079,7 +1108,7 @@ func (q *Queries) LockTournament(ctx context.Context, id pgtype.UUID) (Tournamen
 }
 
 const lockTournamentCategory = `-- name: LockTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE id = $1 FOR UPDATE
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE id = $1 FOR UPDATE
 `
 
 // Every change to a category's draw, matches or results takes this lock first,
@@ -1096,6 +1125,10 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 		&i.Format,
 		&i.GroupSize,
 		&i.QualifiersPerGroup,
+		&i.SetsToWin,
+		&i.GamesPerSet,
+		&i.SuperTiebreakDecider,
+		&i.MatchDurationMinutes,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,

@@ -2937,7 +2937,11 @@ paths:
         for the top seeds; `groups` is round-robin groups followed by a knockout of the best
         `qualifiers_per_group` of each. For `groups`, `group_size` (the most pairs per group,
         default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the
-        owner's to set per category. A category's sign-up is paid by one person for the whole pair and
+        owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single
+        set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6),
+        `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful
+        with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a
+        match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and
         works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60
         characters for the tournament and 30 for a category.
       security: [{cookieAuth: [], csrfHeader: []}]
@@ -2969,6 +2973,10 @@ paths:
                       price: {type: integer, description: "Centavos per pair."}
                       group_size: {type: integer, minimum: 2, maximum: 12}
                       qualifiers_per_group: {type: integer, minimum: 1}
+                      sets_to_win: {type: integer, enum: [1, 2], default: 2, description: "1 plays a single set, 2 is best of three."}
+                      games_per_set: {type: integer, minimum: 4, maximum: 9, default: 6}
+                      super_tiebreak_decider: {type: boolean, default: true, description: "The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1."}
+                      match_duration_minutes: {type: integer, minimum: 30, maximum: 480, default: 90, description: "Court time given to a match scheduled without a duration."}
       responses:
         "201":
           description: The created tournament.
@@ -3205,7 +3213,8 @@ paths:
       operationId: tournamentsMatchSchedule
       summary: Give a match a court, a day and a time
       description: >-
-        From then on the match holds that court for `duration_minutes` (default 90) everywhere
+        From then on the match holds that court for `duration_minutes` (default: the category's
+        `match_duration_minutes`, 90 unless the owner set another) everywhere
         availability is decided, as an event does: public availability, bookings, blocked slots,
         fixed bookings and events all see it (in `match_blocks` of `courtsListBlockedSlots`).
         Refused with `409` when a booking, blocked slot, fixed booking, event or another match
@@ -3227,7 +3236,7 @@ paths:
                 court_id: {type: string, format: uuid}
                 date: {type: string, format: date}
                 start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
-                duration_minutes: {type: integer, minimum: 30, maximum: 480}
+                duration_minutes: {type: integer, minimum: 30, maximum: 480, description: "Omit to use the category's match_duration_minutes."}
       responses:
         "200":
           description: The scheduled match.
@@ -3291,10 +3300,16 @@ paths:
       operationId: tournamentsMatchResult
       summary: Load or correct a match's result
       description: >-
-        Best of three sets: a set is 6-0 to 6-4, 7-5 or 7-6, and a third set may be a match
-        tiebreak (`super: true`, points to 10 with a two point lead), e.g. `6-4 6-3` or
-        `6-4 3-6 10-7`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no
-        sets; it counts as 6-0 6-0 for the other side. The winner advances to the next match by
+        The score follows the category's format (`sets_to_win`, `games_per_set`,
+        `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at
+        `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or
+        to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When
+        `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points
+        to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off,
+        `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match
+        tiebreak is never played. A walkover is `walkover_loser` 1 or 2 (the side that did not
+        show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side
+        in group tables. The winner advances to the next match by
         itself; group standings update (matches won, then set difference, game difference, head to
         head), and when a group finishes its qualifiers fill their bracket slots. Loading a result
         again corrects it, allowed while the next match has no result (for a group match: while none
@@ -3315,7 +3330,7 @@ paths:
               properties:
                 sets:
                   type: array
-                  minItems: 2
+                  minItems: 1
                   maxItems: 3
                   items: {$ref: "#/components/schemas/TournamentSet"}
                 walkover_loser: {type: integer, enum: [1, 2]}
@@ -7034,7 +7049,7 @@ components:
       description: >-
         `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or
         `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
-      required: [id, tournament_id, name, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, status, draw_generated]
+      required: [id, tournament_id, name, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, status, draw_generated]
       properties:
         id: {type: string, format: uuid}
         tournament_id: {type: string, format: uuid}
@@ -7049,6 +7064,10 @@ components:
         held_count: {type: integer}
         group_size: {type: integer, description: "Most pairs per group (groups format)."}
         qualifiers_per_group: {type: integer}
+        sets_to_win: {type: integer, enum: [1, 2], description: "1 is a single set, 2 is best of three."}
+        games_per_set: {type: integer, description: "Games that make a set (4 to 9, 6 is standard)."}
+        super_tiebreak_decider: {type: boolean, description: "The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2."}
+        match_duration_minutes: {type: integer, description: "Court time a match gets when scheduled without a duration."}
         status: {type: string, enum: [open, closed, cancelled]}
         draw_generated: {type: boolean}
 
@@ -7154,7 +7173,7 @@ components:
       type: object
       description: >-
         One set: games each side won (`a` is the match's first pair), or, with `super`, the points of
-        the match tiebreak that is the third set.
+        the match tiebreak that decides the match (the third set, best of three only).
       required: [a, b]
       properties:
         a: {type: integer}

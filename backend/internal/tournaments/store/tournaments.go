@@ -33,6 +33,13 @@ type NewCategory struct {
 	Price              int
 	GroupSize          int
 	QualifiersPerGroup int
+	// SetsToWin (1 or 2), GamesPerSet (4..9), SuperTiebreakDecider and
+	// MatchDurationMinutes (30..480) are the match format; the service fills the
+	// defaults, the store writes what it is given.
+	SetsToWin            int
+	GamesPerSet          int
+	SuperTiebreakDecider bool
+	MatchDurationMinutes int
 }
 
 // Create writes a tournament and its categories, each with its sign-up
@@ -89,6 +96,9 @@ func insertCategory(ctx context.Context, q *db.Queries, t db.Tournament, c NewCa
 		GroupSize: int32(c.GroupSize),
 		//nolint:gosec // G115: validated by the service (1..11).
 		QualifiersPerGroup: int32(c.QualifiersPerGroup),
+		//nolint:gosec // G115: validated by the service (1..2, 4..9, 30..480).
+		SetsToWin: int32(c.SetsToWin), GamesPerSet: int32(c.GamesPerSet),
+		SuperTiebreakDecider: c.SuperTiebreakDecider, MatchDurationMinutes: int32(c.MatchDurationMinutes),
 	}); err != nil {
 		return fmt.Errorf("tournaments: insert category: %w", err)
 	}

@@ -35,9 +35,10 @@ RETURNING *;
 
 -- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
-    tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group
+    tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 RETURNING *;
 
 -- name: GetTournamentCategory :one

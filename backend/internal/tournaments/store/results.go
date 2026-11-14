@@ -24,7 +24,7 @@ type ResultInput struct {
 
 // SetResult records the result of a match and carries it on: the winner goes to
 // the next bracket match, the group table updates, and a finished group fills
-// its qualifiers into the bracket. The sets are validated (draw.ParseResult);
+// its qualifiers into the bracket. The sets are validated against the category's format (draw.Format);
 // an invalid score answers an error wrapping draw.ErrInvalidScore.
 //
 // Loading a result again corrects it, allowed while the next match has no
@@ -43,12 +43,12 @@ func (m *Store) SetResult(ctx context.Context, in ResultInput) (*Match, error) {
 			}
 			return fmt.Errorf("tournaments: read match: %w", err)
 		}
-		return m.lockedCategory(ctx, q, match.CategoryID, func(e *engine, _ db.TournamentCategory) error {
+		return m.lockedCategory(ctx, q, match.CategoryID, func(e *engine, cat db.TournamentCategory) error {
 			// Read again under the lock: another result may have landed meanwhile.
 			if match, err = q.GetTournamentMatch(ctx, match.ID); err != nil {
 				return fmt.Errorf("tournaments: read match: %w", err)
 			}
-			if err := e.applyResult(match, in); err != nil {
+			if err := e.applyResult(match, in, categoryFormat(cat)); err != nil {
 				return err
 			}
 			out, err = q.GetTournamentMatch(ctx, match.ID)
@@ -61,11 +61,11 @@ func (m *Store) SetResult(ctx context.Context, in ResultInput) (*Match, error) {
 	return matchFromDB(out), nil
 }
 
-func (e *engine) applyResult(match db.TournamentMatch, in ResultInput) error {
+func (e *engine) applyResult(match db.TournamentMatch, in ResultInput, format draw.Format) error {
 	if match.Bye || !match.Pair1ID.Valid || !match.Pair2ID.Valid {
 		return ErrMatchNotReady
 	}
-	outcome, sets, loser, err := parseInput(in)
+	outcome, sets, loser, err := parseInput(in, format)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (e *engine) applyResult(match db.TournamentMatch, in ResultInput) error {
 	return e.complete(match, winner, sets, loser)
 }
 
-func parseInput(in ResultInput) (draw.Outcome, pgtype.Text, int, error) {
+func parseInput(in ResultInput, format draw.Format) (draw.Outcome, pgtype.Text, int, error) {
 	if in.WalkoverLoser != 0 {
 		if in.WalkoverLoser != 1 && in.WalkoverLoser != 2 {
 			return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: the walkover side is 1 or 2", draw.ErrInvalidScore)
@@ -89,9 +89,9 @@ func parseInput(in ResultInput) (draw.Outcome, pgtype.Text, int, error) {
 		if len(in.Sets) > 0 {
 			return draw.Outcome{}, pgtype.Text{}, 0, fmt.Errorf("%w: a walkover has no sets", draw.ErrInvalidScore)
 		}
-		return draw.Walkover(in.WalkoverLoser), pgtype.Text{}, in.WalkoverLoser, nil
+		return format.Walkover(in.WalkoverLoser), pgtype.Text{}, in.WalkoverLoser, nil
 	}
-	outcome, err := draw.ParseResult(in.Sets)
+	outcome, err := format.ParseResult(in.Sets)
 	if err != nil {
 		return draw.Outcome{}, pgtype.Text{}, 0, err
 	}
@@ -179,6 +179,12 @@ type Standings struct {
 // GroupTables computes the tables of every group of a category's detail. Pure
 // read-side helper over what Detail returned.
 func GroupTables(d *Detail, categoryID uuid.UUID) []Standings {
+	format := draw.DefaultFormat
+	for _, c := range d.Categories {
+		if c.ID == categoryID {
+			format = c.MatchFormat()
+		}
+	}
 	var out []Standings
 	for _, g := range d.Groups {
 		if g.CategoryID != categoryID {
@@ -200,7 +206,7 @@ func GroupTables(d *Detail, categoryID uuid.UUID) []Standings {
 			if m.GroupID == nil || *m.GroupID != g.ID {
 				continue
 			}
-			if o, ok := m.Outcome(); ok {
+			if o, ok := m.Outcome(format); ok {
 				results = append(results, draw.Result{A: *m.Pair1ID, B: *m.Pair2ID, Outcome: o})
 			}
 		}

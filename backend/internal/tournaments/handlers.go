@@ -151,12 +151,16 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		StartDate  string `json:"start_date"`
 		EndDate    string `json:"end_date"`
 		Categories []struct {
-			Name               string `json:"name"`
-			Format             string `json:"format"`
-			Capacity           int    `json:"capacity"`
-			Price              int    `json:"price"`
-			GroupSize          int    `json:"group_size"`
-			QualifiersPerGroup int    `json:"qualifiers_per_group"`
+			Name                 string `json:"name"`
+			Format               string `json:"format"`
+			Capacity             int    `json:"capacity"`
+			Price                int    `json:"price"`
+			GroupSize            int    `json:"group_size"`
+			QualifiersPerGroup   int    `json:"qualifiers_per_group"`
+			SetsToWin            int    `json:"sets_to_win"`
+			GamesPerSet          int    `json:"games_per_set"`
+			SuperTiebreakDecider *bool  `json:"super_tiebreak_decider"`
+			MatchDurationMinutes int    `json:"match_duration_minutes"`
 		} `json:"categories"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {

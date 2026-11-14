@@ -915,17 +915,21 @@ type Tournament struct {
 }
 
 type TournamentCategory struct {
-	ID                 pgtype.UUID        `json:"id"`
-	TournamentID       pgtype.UUID        `json:"tournament_id"`
-	ComplexID          pgtype.UUID        `json:"complex_id"`
-	EventID            pgtype.UUID        `json:"event_id"`
-	Name               string             `json:"name"`
-	Format             string             `json:"format"`
-	GroupSize          int32              `json:"group_size"`
-	QualifiersPerGroup int32              `json:"qualifiers_per_group"`
-	DrawGeneratedAt    pgtype.Timestamptz `json:"draw_generated_at"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	ID                   pgtype.UUID        `json:"id"`
+	TournamentID         pgtype.UUID        `json:"tournament_id"`
+	ComplexID            pgtype.UUID        `json:"complex_id"`
+	EventID              pgtype.UUID        `json:"event_id"`
+	Name                 string             `json:"name"`
+	Format               string             `json:"format"`
+	GroupSize            int32              `json:"group_size"`
+	QualifiersPerGroup   int32              `json:"qualifiers_per_group"`
+	SetsToWin            int32              `json:"sets_to_win"`
+	GamesPerSet          int32              `json:"games_per_set"`
+	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
+	MatchDurationMinutes int32              `json:"match_duration_minutes"`
+	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
 }
 
 type TournamentGroup struct {

@@ -74,6 +74,13 @@ CREATE INDEX idx_open_play_events_tournament ON open_play_events (tournament_id)
 -- qualifiers_per_group (suggested 2) per category; the draw derives the group
 -- count from the pairs signed up, sizes differing by at most one.
 -- draw_generated_at closes sign-up: it is set when the draw is first generated.
+--
+-- The match format is the owner's per category: sets_to_win (1 = a single set,
+-- 2 = best of three), games_per_set (6 is standard padel, 4 is the short set),
+-- super_tiebreak_decider (the deciding set is a match tiebreak to 10; only
+-- applies when sets_to_win = 2) and match_duration_minutes, the court time a
+-- match is given when it is scheduled without one. The defaults are best of
+-- three, 6 games, a match tiebreak and 90 minutes.
 CREATE TABLE tournament_categories (
     id                UUID PRIMARY KEY DEFAULT uuidv7(),
     tournament_id     UUID NOT NULL,
@@ -83,6 +90,10 @@ CREATE TABLE tournament_categories (
     format            TEXT NOT NULL,
     group_size           INTEGER NOT NULL DEFAULT 3,
     qualifiers_per_group INTEGER NOT NULL DEFAULT 2,
+    sets_to_win            INTEGER NOT NULL DEFAULT 2,
+    games_per_set          INTEGER NOT NULL DEFAULT 6,
+    super_tiebreak_decider BOOLEAN NOT NULL DEFAULT TRUE,
+    match_duration_minutes INTEGER NOT NULL DEFAULT 90,
     draw_generated_at TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -96,7 +107,10 @@ CREATE TABLE tournament_categories (
     CONSTRAINT tournament_categories_name_check CHECK (char_length(btrim(name)) BETWEEN 1 AND 60),
     CONSTRAINT tournament_categories_format_valid CHECK (format IN ('elimination', 'groups')),
     CONSTRAINT tournament_categories_group_size_check CHECK (group_size BETWEEN 2 AND 12),
-    CONSTRAINT tournament_categories_qualifiers_check CHECK (qualifiers_per_group >= 1 AND qualifiers_per_group < group_size)
+    CONSTRAINT tournament_categories_qualifiers_check CHECK (qualifiers_per_group >= 1 AND qualifiers_per_group < group_size),
+    CONSTRAINT tournament_categories_sets_to_win_check CHECK (sets_to_win IN (1, 2)),
+    CONSTRAINT tournament_categories_games_per_set_check CHECK (games_per_set BETWEEN 4 AND 9),
+    CONSTRAINT tournament_categories_match_duration_check CHECK (match_duration_minutes BETWEEN 30 AND 480)
 );
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON tournament_categories

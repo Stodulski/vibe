@@ -124,7 +124,7 @@ func (e *engine) carryOn(m db.TournamentMatch, winner pgtype.UUID) error {
 }
 
 // groupStandings ranks a group from its completed matches.
-func (e *engine) groupStandings(groupID pgtype.UUID, matches []db.TournamentMatch) ([]draw.Row, bool, error) {
+func (e *engine) groupStandings(groupID pgtype.UUID, matches []db.TournamentMatch, format draw.Format) ([]draw.Row, bool, error) {
 	pairs, err := e.q.ListPairsOfGroup(e.ctx, groupID)
 	if err != nil {
 		return nil, false, fmt.Errorf("tournaments: read group pairs: %w", err)
@@ -144,7 +144,7 @@ func (e *engine) groupStandings(groupID pgtype.UUID, matches []db.TournamentMatc
 			continue
 		}
 		mm := matchFromDB(m)
-		out, ok := mm.Outcome()
+		out, ok := mm.Outcome(format)
 		if !ok {
 			complete = false
 			continue
@@ -162,13 +162,13 @@ func (e *engine) fillIfGroupDone(categoryID, groupID pgtype.UUID) error {
 	if err != nil {
 		return fmt.Errorf("tournaments: read matches: %w", err)
 	}
-	rows, done, err := e.groupStandings(groupID, matches)
-	if err != nil || !done {
-		return err
-	}
 	cat, err := e.q.GetTournamentCategory(e.ctx, db.GetTournamentCategoryParams{ID: categoryID})
 	if err != nil {
 		return fmt.Errorf("tournaments: read category: %w", err)
+	}
+	rows, done, err := e.groupStandings(groupID, matches, categoryFormat(cat))
+	if err != nil || !done {
+		return err
 	}
 	for _, m := range matches {
 		if m.Stage != StageBracket {

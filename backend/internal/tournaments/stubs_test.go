@@ -43,6 +43,8 @@ func (s *stubStore) Create(_ context.Context, t *tournamentstore.Tournament, cat
 		s.detail.Categories = append(s.detail.Categories, &tournamentstore.Category{
 			ID: uuid.New(), TournamentID: t.ID, ComplexID: t.ComplexID, EventID: uuid.New(), Name: c.Name, Format: c.Format,
 			Capacity: c.Capacity, Price: c.Price, GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
+			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: c.SuperTiebreakDecider,
+			MatchDurationMinutes: c.MatchDurationMinutes,
 		})
 	}
 	return nil
@@ -213,6 +215,7 @@ func newFixture(t *testing.T) *fixture {
 	cat := &tournamentstore.Category{
 		ID: cid, TournamentID: tid, ComplexID: complexID, EventID: uuid.New(), Name: "6ta",
 		Format: tournamentstore.FormatElimination, Capacity: 8, Price: 1_000_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
 	}
 	f := &fixture{
 		store: &stubStore{detail: &tournamentstore.Detail{

@@ -26,6 +26,7 @@ func richDetail(f *fixture) *tournamentstore.Detail {
 		ID: uuid.New(), TournamentID: tid, ComplexID: f.complex.ID, EventID: uuid.New(), Name: "Mixto",
 		Format: tournamentstore.FormatGroups, Capacity: 12, Price: 800_000, GroupSize: 4, QualifiersPerGroup: 2,
 		DrawGeneratedAt: &now, ConfirmedCount: 3,
+		SetsToWin: 1, GamesPerSet: 4, SuperTiebreakDecider: false, MatchDurationMinutes: 60,
 	}
 	d.Categories = append(d.Categories, groupCat)
 	email, by := "ana@example.com", "participant"
@@ -139,4 +140,25 @@ func TestThePairViewsMatchTheDocument(t *testing.T) {
 	}
 	view.ServiceFee = 20_000
 	validate(t, "PublicPairRegistration", pairViewBody(view))
+}
+
+// S6b: the match format reaches the owner and the public alike, so the apps can
+// show how a category plays and the result form can follow it.
+func TestTheWireCarriesTheMatchFormat(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	for name, body := range map[string]any{
+		"owner":  envelopeOf(f.handler().ownerDetail(t.Context(), f.complex.ID, d)),
+		"public": envelopeOf(f.handler().publicDetail(t.Context(), f.complex.ID, d)),
+	} {
+		raw, _ := json.Marshal(body)
+		for _, want := range []string{
+			`"sets_to_win":1`, `"games_per_set":4`, `"super_tiebreak_decider":false`, `"match_duration_minutes":60`, // Mixto
+			`"sets_to_win":2`, `"games_per_set":6`, `"super_tiebreak_decider":true`, `"match_duration_minutes":90`, // 6ta
+		} {
+			if !strings.Contains(string(raw), want) {
+				t.Errorf("%s view lacks %s", name, want)
+			}
+		}
+	}
 }

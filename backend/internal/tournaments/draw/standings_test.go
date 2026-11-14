@@ -18,7 +18,7 @@ func ids(n int) []uuid.UUID {
 
 // result builds a played match from the pairs' sets, A against B.
 func result(a, b uuid.UUID, sets ...draw.Set) draw.Result {
-	out, err := draw.ParseResult(sets)
+	out, err := draw.Format{SetsToWin: 2, GamesPerSet: 6, SuperTiebreak: true}.ParseResult(sets)
 	if err != nil {
 		panic(err)
 	}
@@ -104,7 +104,7 @@ func TestStandingsASeedDecidesWhatNothingElseCan(t *testing.T) {
 
 func TestStandingsWalkoverCountsAsAWin(t *testing.T) {
 	p := ids(2)
-	rows := draw.Standings(p, []draw.Result{{A: p[0], B: p[1], Outcome: draw.Walkover(1)}})
+	rows := draw.Standings(p, []draw.Result{{A: p[0], B: p[1], Outcome: draw.DefaultFormat.Walkover(1)}})
 	if rows[0].Pair != p[1] || rows[0].Won != 1 || rows[0].SetsFor != 2 || rows[0].GamesFor != 12 {
 		t.Errorf("rows: %+v", rows)
 	}

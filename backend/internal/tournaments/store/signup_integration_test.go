@@ -104,6 +104,7 @@ func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 	}
 	if err := f.Stores.Tournaments.Create(ctx, tr, []tournamentstore.NewCategory{{
 		Name: "7ma", Format: tournamentstore.FormatElimination, Capacity: 3, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
 	}}); err != nil {
 		t.Fatal(err)
 	}

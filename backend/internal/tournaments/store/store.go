@@ -93,13 +93,30 @@ type Category struct {
 	Format             string
 	GroupSize          int
 	QualifiersPerGroup int
-	DrawGeneratedAt    *time.Time
+	// SetsToWin, GamesPerSet and SuperTiebreakDecider are how the category's
+	// matches are played; MatchDurationMinutes is the court time a match gets
+	// when it is scheduled without one.
+	SetsToWin            int
+	GamesPerSet          int
+	SuperTiebreakDecider bool
+	MatchDurationMinutes int
+	DrawGeneratedAt      *time.Time
 	// Capacity is pairs; Price is centavos per pair.
 	Capacity       int
 	Price          int
 	Cancelled      bool
 	ConfirmedCount int
 	HeldCount      int
+}
+
+// MatchFormat is the format its results are validated and counted by.
+func (c *Category) MatchFormat() draw.Format {
+	return draw.Format{SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreak: c.SuperTiebreakDecider && c.SetsToWin == 2}
+}
+
+// categoryFormat is the same format read from a category row.
+func categoryFormat(c db.TournamentCategory) draw.Format {
+	return draw.Format{SetsToWin: int(c.SetsToWin), GamesPerSet: int(c.GamesPerSet), SuperTiebreak: c.SuperTiebreakDecider && c.SetsToWin == 2}
 }
 
 // SpotsLeft is the pairs that can still sign up.
@@ -210,15 +227,16 @@ type Detail struct {
 	Matches    []*Match
 }
 
-// Outcome is the figures of a played match, from its stored sets.
-func (m *Match) Outcome() (draw.Outcome, bool) {
+// Outcome is the figures of a played match of the given format, from its stored
+// sets.
+func (m *Match) Outcome(f draw.Format) (draw.Outcome, bool) {
 	switch {
 	case m.Status != MatchCompleted || m.Bye:
 		return draw.Outcome{}, false
 	case m.WalkoverLoser != 0:
-		return draw.Walkover(m.WalkoverLoser), true
+		return f.Walkover(m.WalkoverLoser), true
 	}
-	out, err := draw.ParseResult(m.Sets)
+	out, err := f.ParseResult(m.Sets)
 	return out, err == nil
 }
 
@@ -236,7 +254,9 @@ func categoryFromRow(r db.ListTournamentCategoriesRow) *Category {
 		ID: data.PgToUUID(r.ID), TournamentID: data.PgToUUID(r.TournamentID), ComplexID: data.PgToUUID(r.ComplexID),
 		EventID: data.PgToUUID(r.EventID), Name: r.Name, Format: r.Format,
 		GroupSize: int(r.GroupSize), QualifiersPerGroup: int(r.QualifiersPerGroup),
-		DrawGeneratedAt: data.PgToTimePtr(r.DrawGeneratedAt), Capacity: int(r.Capacity), Price: int(r.Price),
+		SetsToWin: int(r.SetsToWin), GamesPerSet: int(r.GamesPerSet), SuperTiebreakDecider: r.SuperTiebreakDecider,
+		MatchDurationMinutes: int(r.MatchDurationMinutes),
+		DrawGeneratedAt:      data.PgToTimePtr(r.DrawGeneratedAt), Capacity: int(r.Capacity), Price: int(r.Price),
 		Cancelled: r.EventStatus != "active", ConfirmedCount: int(r.ConfirmedCount), HeldCount: int(r.HeldCount),
 	}
 }
