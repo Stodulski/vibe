@@ -10,19 +10,20 @@ import (
 // category's settings allow.
 var ErrGroupCount = errors.New("the pairs cannot be split into groups with those settings")
 
-// GroupCount is how many groups n pairs need when a group holds at most
-// groupSize: the fewest that fit.
+// GroupCount is how many groups n pairs make when groupSize is the target
+// size of a group: as many as fit whole groups, never fewer than one, so the
+// pairs left over join existing groups instead of forming one too small.
 func GroupCount(n, groupSize int) int {
 	if groupSize < 1 {
 		return 0
 	}
-	return (n + groupSize - 1) / groupSize
+	return max(1, n/groupSize)
 }
 
-// SplitGroups splits n pairs into the fewest groups of at most groupSize,
-// sizes differing by at most one (the bigger groups first, so the best seeds
-// land in them). Every group must be larger than qualifiers, so someone is
-// left out of each, and the knockout needs at least two qualifiers in all.
+// SplitGroups splits n pairs into GroupCount groups, sizes differing by at
+// most one (the bigger groups first, so the best seeds land in them). Every
+// group must be larger than qualifiers, so someone is left out of each, and
+// the knockout needs at least two qualifiers in all.
 func SplitGroups(n, groupSize, qualifiers int) ([]int, error) {
 	groups := GroupCount(n, groupSize)
 	if groups < 1 || qualifiers < 1 || qualifiers >= groupSize {

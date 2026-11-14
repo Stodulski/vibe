@@ -2935,7 +2935,7 @@ paths:
         Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and
         format: `elimination` is a single-elimination bracket sized to the next power of two with byes
         for the top seeds; `groups` is round-robin groups followed by a knockout of the best
-        `qualifiers_per_group` of each. For `groups`, `group_size` (the most pairs per group,
+        `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group,
         default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the
         owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single
         set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6),
@@ -3115,8 +3115,9 @@ paths:
       summary: Generate (or regenerate) a category's draw
       description: >-
         Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes
-        to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into as
-        few groups of at most `group_size` as hold them, sizes differing by at most one, deals them
+        to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into
+        as many groups as fit whole `group_size` groups (at least one; the leftover pairs join existing
+        groups), sizes differing by at most one, deals them
         snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play
         (group winners as top seeds, groupmates apart in the first round where possible, byes when the
         qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest
@@ -7198,7 +7199,7 @@ components:
         spots_left: {type: integer}
         confirmed_count: {type: integer}
         held_count: {type: integer}
-        group_size: {type: integer, description: "Most pairs per group (groups format)."}
+        group_size: {type: integer, description: "Target pairs per group (groups format)."}
         qualifiers_per_group: {type: integer}
         sets_to_win: {type: integer, enum: [1, 2], description: "1 is a single set, 2 is best of three."}
         games_per_set: {type: integer, description: "Games that make a set (4 to 9, 6 is standard)."}

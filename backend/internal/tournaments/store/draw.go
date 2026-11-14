@@ -27,8 +27,9 @@ type DrawInput struct {
 // qualifiers play. It replaces a draw that already exists, but only while no
 // result was loaded; generating it closes the category's sign-up for good.
 //
-// Group sizes follow the category's settings: as few groups of at most
-// group_size as hold the pairs, sizes differing by at most one
+// Group sizes follow the category's settings: group_size is the target,
+// the group count is the whole groups of that size that fit (at least one) and
+// the leftover pairs join them, sizes differing by at most one
 // (draw.SplitGroups); a split the settings do not allow answers an error
 // wrapping draw.ErrGroupCount.
 func (m *Store) GenerateDraw(ctx context.Context, in DrawInput) error {

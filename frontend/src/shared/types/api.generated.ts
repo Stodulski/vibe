@@ -1079,7 +1079,7 @@ export interface paths {
         put?: never;
         /**
          * Create a tournament with its categories
-         * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the most pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
+         * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
          */
         post: operations["tournamentsCreate"];
         delete?: never;
@@ -1159,7 +1159,7 @@ export interface paths {
         put?: never;
         /**
          * Generate (or regenerate) a category's draw
-         * @description Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into as few groups of at most `group_size` as hold them, sizes differing by at most one, deals them snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play (group winners as top seeds, groupmates apart in the first round where possible, byes when the qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest follow in random order. Generating closes the category's sign-up. It can be repeated while no result is loaded (`409` after); pairs still paying are not drawn and their late payment is refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold the pairs.
+         * @description Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into as many groups as fit whole `group_size` groups (at least one; the leftover pairs join existing groups), sizes differing by at most one, deals them snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play (group winners as top seeds, groupmates apart in the first round where possible, byes when the qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest follow in random order. Generating closes the category's sign-up. It can be repeated while no result is loaded (`409` after); pairs still paying are not drawn and their late payment is refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold the pairs.
          */
         post: operations["tournamentsDrawGenerate"];
         delete?: never;
@@ -3337,7 +3337,7 @@ export interface components {
             spots_left: number;
             confirmed_count: number;
             held_count: number;
-            /** @description Most pairs per group (groups format). */
+            /** @description Target pairs per group (groups format). */
             group_size: number;
             qualifiers_per_group: number;
             /**

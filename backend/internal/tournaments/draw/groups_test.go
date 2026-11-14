@@ -12,9 +12,11 @@ func TestSplitGroups(t *testing.T) {
 		n, size, qualifiers int
 		want                []int
 	}{
-		{3, 3, 2, []int{3}}, {6, 3, 2, []int{3, 3}}, {7, 4, 2, []int{4, 3}}, {10, 4, 2, []int{4, 3, 3}},
-		{10, 3, 1, []int{3, 3, 2, 2}}, {12, 4, 2, []int{4, 4, 4}}, {11, 4, 2, []int{4, 4, 3}},
-		{8, 5, 2, []int{4, 4}}, {5, 5, 2, []int{5}}, {9, 3, 2, []int{3, 3, 3}},
+		{3, 3, 2, []int{3}}, {6, 3, 2, []int{3, 3}}, {7, 4, 2, []int{7}}, {10, 4, 2, []int{5, 5}},
+		{10, 3, 1, []int{4, 3, 3}}, {12, 4, 2, []int{4, 4, 4}}, {11, 4, 2, []int{6, 5}},
+		{8, 5, 2, []int{8}}, {5, 5, 2, []int{5}}, {9, 3, 2, []int{3, 3, 3}},
+		// group_size is the target: leftovers join existing groups.
+		{7, 3, 2, []int{4, 3}}, {8, 3, 2, []int{4, 4}}, {5, 3, 2, []int{5}}, {4, 3, 2, []int{4}},
 	}
 	for _, c := range cases {
 		got, err := draw.SplitGroups(c.n, c.size, c.qualifiers)
@@ -31,9 +33,39 @@ func TestSplitGroups(t *testing.T) {
 }
 
 func TestGroupCount(t *testing.T) {
-	for _, c := range [][3]int{{3, 3, 1}, {4, 3, 2}, {10, 4, 3}, {12, 4, 3}, {13, 4, 4}} {
+	for _, c := range [][3]int{{3, 3, 1}, {2, 3, 1}, {4, 3, 1}, {7, 3, 2}, {8, 3, 2}, {10, 4, 2}, {12, 4, 3}, {13, 4, 3}} {
 		if got := draw.GroupCount(c[0], c[1]); got != c[2] {
 			t.Errorf("GroupCount(%d,%d) = %d, want %d", c[0], c[1], got, c[2])
+		}
+	}
+}
+
+// Across 2..33 pairs and the usual settings: either the split is valid (sizes
+// add up, differ by at most one, every group larger than the qualifiers, at
+// least two qualifiers) or it is refused only when even the best split would
+// leave a group too small.
+func TestSplitGroupsRange(t *testing.T) {
+	for _, cfg := range [][2]int{{3, 1}, {3, 2}, {4, 1}, {4, 2}, {4, 3}, {5, 2}, {6, 2}} {
+		size, q := cfg[0], cfg[1]
+		for n := 2; n <= 33; n++ {
+			got, err := draw.SplitGroups(n, size, q)
+			groups := max(1, n/size)
+			if err != nil {
+				if n/groups > q && groups*q >= 2 {
+					t.Errorf("SplitGroups(%d,%d,%d) refused although %d groups work: %v", n, size, q, groups, err)
+				}
+				continue
+			}
+			sum := 0
+			for _, s := range got {
+				sum += s
+				if s <= q || s < got[len(got)-1] || s > got[len(got)-1]+1 {
+					t.Errorf("SplitGroups(%d,%d,%d) = %v: bad size %d", n, size, q, got, s)
+				}
+			}
+			if sum != n || len(got) != groups || len(got)*q < 2 {
+				t.Errorf("SplitGroups(%d,%d,%d) = %v: sum %d, groups %d", n, size, q, got, sum, len(got))
+			}
 		}
 	}
 }
