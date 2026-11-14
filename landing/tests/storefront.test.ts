@@ -10,6 +10,7 @@ import loadDirectiveScript from 'astro/runtime/client/load.prebuilt.js';
 import onlyDirectiveScript from 'astro/runtime/client/only.prebuilt.js';
 import {
   ASTRO_INLINE_SCRIPT_HASHES,
+  isBookPath,
   robotsDirective,
   STOREFRONT_INDEXABLE,
   storefrontBookingConfig,
@@ -31,6 +32,18 @@ test('booking steps are never indexable, whatever the switch says', () => {
   for (const path of ['/c/club-sur/book', '/c/club-sur/book/confirm', '/c/club-sur/book/success', '/c/club-sur/book/cancel']) {
     assert.equal(storefrontRobots(path, 200), 'noindex', path);
   }
+});
+
+test('the sign-up page of an event is a booking step: never indexable, whatever the switch says', () => {
+  for (const path of ['/c/club-sur/events/6f1c2a0e', '/c/club-sur/events/6f1c2a0e/']) {
+    assert.equal(storefrontRobots(path, 200), 'noindex', path);
+    assert.equal(isBookPath(path), true, path);
+  }
+});
+
+test('a slug that is called events is the complex page, not an event', () => {
+  assert.equal(isBookPath('/c/events'), false);
+  assert.equal(storefrontRobots('/c/eventsclub', 200), robotsDirective(200));
 });
 
 test('the complex page follows the switch and the status', () => {

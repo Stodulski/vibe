@@ -1,0 +1,35 @@
+---
+/**
+ * /c/<slug>/events/<eventID>: one open-play event (canchas libres), its sign-up form and the
+ * place the Mercado Pago checkout returns to (`?token=...&registered=1`, `&status=pending`,
+ * `?error=payment_failed`). The event and the person's own spot are read in the browser, and
+ * the query comes from the server so the island hydrates with the same markup. The link is
+ * meant to be shared but not indexed: it carries one person's state when the checkout returns.
+ * Never cached by a shared cache.
+ */
+import { EventPageEntry } from '@vibe/booking/event-page';
+import { SkeletonCancelInfo } from '@vibe/ui';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+const eventId = Astro.params.eventID ?? '';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${BOOKING_MESSAGES.events.sectionTitle} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <EventPageEntry client:load slug={slug} eventId={eventId} config={config} initialSearch={Astro.url.search}>
+    <div slot="fallback" class="w-full" aria-busy="true">
+      <SkeletonCancelInfo />
+    </div>
+  </EventPageEntry>
+</StorefrontLayout>

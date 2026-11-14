@@ -21,8 +21,12 @@ export function robotsDirective(status = 200): string {
   return STOREFRONT_INDEXABLE && answersWithPage ? 'index, follow' : 'noindex';
 }
 
-/** A booking step: /c/<slug>/book and everything under it. */
-const BOOK_PATH = /^\/c\/[^/]+\/book(?:\/|$)/;
+/**
+ * A booking step: /c/<slug>/book and everything under it, and the sign-up page of an
+ * open-play event (/c/<slug>/events/<id>), which the checkout returns to with one person's
+ * state in its query.
+ */
+const BOOK_PATH = /^\/c\/[^/]+\/(?:book|events)(?:\/|$)/;
 
 export function isBookPath(pathname: string): boolean {
   return BOOK_PATH.test(pathname);
