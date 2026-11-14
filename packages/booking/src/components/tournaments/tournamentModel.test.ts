@@ -22,12 +22,12 @@ describe('matchFormatLabel', () => {
 
   it('says best of three, with the super tie-break when it decides', () => {
     expect(matchFormatLabel(base)).toBe('Al mejor de 3 sets');
-    expect(matchFormatLabel({ ...base, super_tiebreak_decider: true })).toBe('Al mejor de 3 sets \u00b7 super tie-break');
+    expect(matchFormatLabel({ ...base, super_tiebreak_decider: true })).toBe('Al mejor de 3 sets \u00b7 súper tie-break');
   });
 
   it('names the games only when they are not the standard 6 of a best of three', () => {
     expect(matchFormatLabel({ ...base, games_per_set: 4, super_tiebreak_decider: true })).toBe(
-      'Al mejor de 3 sets de 4 games \u00b7 super tie-break',
+      'Al mejor de 3 sets de 4 games \u00b7 súper tie-break',
     );
   });
 

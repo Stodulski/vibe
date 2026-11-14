@@ -43,7 +43,7 @@ describe('GroupSection', () => {
     expect(rows[1]).toHaveAttribute('data-qualifies', 'true');
     expect(rows[2]).toHaveAttribute('data-qualifies', 'true');
     expect(rows[3]).toHaveAttribute('data-qualifies', 'false');
-    expect(screen.getByText('Pasan a la llave las 2 mejores parejas de cada zona.')).toBeInTheDocument();
+    expect(screen.getByText('Pasan al cuadro las 2 mejores parejas de cada zona.')).toBeInTheDocument();
   });
 
   it('lists the group matches by matchday with the result and the court', () => {

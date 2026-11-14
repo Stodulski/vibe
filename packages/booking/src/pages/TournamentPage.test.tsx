@@ -57,7 +57,7 @@ describe('TournamentPage detail', () => {
     expect(await screen.findByRole('heading', { level: 1, name: TOURNAMENT.name })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '8va' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '6ta' })).toBeInTheDocument();
-    expect(screen.getAllByText('Al mejor de 3 sets \u00b7 super tie-break').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Al mejor de 3 sets \u00b7 súper tie-break').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: '7ma' })).toBeInTheDocument();
     expect(screen.getAllByText(t.tournaments.formatGroups)).toHaveLength(2);
     expect(screen.getByText(t.tournaments.formatElimination)).toBeInTheDocument();
