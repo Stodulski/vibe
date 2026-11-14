@@ -532,6 +532,31 @@ func (s *Service) extendSeries(ctx context.Context, day time.Time) {
 	s.logger.Info("cron_extend_series: completed", "series", len(all), "booked", booked, "skipped", skipped)
 }
 
+// extendDate books one not-yet-generated date of a series, or records it as
+// skipped with the reason the venue cannot sell it. It reports whether a
+// booking was made; any other failure is returned so the date is retried.
+func (s *Service) extendDate(
+	ctx context.Context,
+	complex *complexstore.Complex,
+	ser *Series,
+	client *clientstore.Client,
+	schedules []*complexstore.Schedule,
+	d time.Time,
+) (bool, error) {
+	reason := ReasonClosedDay
+	if !closedDay(schedules, d, ser.StartTime) {
+		booking, err := s.bookOccurrence(ctx, complex, ser, client, d)
+		if err == nil {
+			return booking != nil, nil
+		}
+		var ok bool
+		if reason, ok = occurrenceConflict(err); !ok {
+			return false, err
+		}
+	}
+	return false, s.series.RecordSeriesSkip(ctx, ser, d, reason)
+}
+
 // extendOne tops one series up, scoped to its own tenant.
 func (s *Service) extendOne(ctx context.Context, ser *Series, day time.Time) (booked, skipped int, err error) {
 	complex, err := s.complexes.GetByID(ctx, ser.ComplexID)
@@ -570,26 +595,15 @@ func (s *Service) extendOne(ctx context.Context, ser *Series, day time.Time) (bo
 		if _, ok := done[d.Format(time.DateOnly)]; ok {
 			continue
 		}
-		reason := ""
-		if closedDay(schedules, d, ser.StartTime) {
-			reason = ReasonClosedDay
-		} else {
-			booking, err := s.bookOccurrence(ctx, complex, ser, client, d)
-			if err == nil {
-				if booking != nil {
-					booked++
-				}
-				continue
-			}
-			var ok bool
-			if reason, ok = occurrenceConflict(err); !ok {
-				return booked, skipped, err
-			}
-		}
-		if err := s.series.RecordSeriesSkip(ctx, ser, d, reason); err != nil {
+		wasBooked, err := s.extendDate(ctx, complex, ser, client, schedules, d)
+		if err != nil {
 			return booked, skipped, err
 		}
-		skipped++
+		if wasBooked {
+			booked++
+		} else {
+			skipped++
+		}
 	}
 	if booked > 0 {
 		s.realtime.PublishBookingChanged(ser.ComplexID)
