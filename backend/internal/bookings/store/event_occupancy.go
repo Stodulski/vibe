@@ -23,14 +23,26 @@ type EventOccupancy struct {
 	Date     time.Time
 	StartsAt time.Time
 	EndsAt   time.Time
-	// Name is the event's name, as the owner's calendar labels it.
+	// Name is what the owner's calendar labels it: the event's name, or
+	// "tournament · category" for a match.
 	Name string
+	// Kind is OccupancyEvent or OccupancyMatch. For a match, EventID is the
+	// match's id.
+	Kind string
+	// ParentID is the tournament of a match; nil for an event.
+	ParentID *uuid.UUID
 }
+
+// What holds the hours of an EventOccupancy.
+const (
+	OccupancyEvent = "event"
+	OccupancyMatch = "match"
+)
 
 // EventOccupancies returns the hours active open-play events hold between from
 // and to, inclusive, one row per event and court.
 //
-// It is the Go read of the SQL function open_play_event_occupancy
+// It is the Go read of the SQL function court_event_occupancy
 // (db/migrations/028), which every write guard calls too, so the storefront's
 // availability, the owner's calendar and the guards cannot disagree about which
 // hours an event covers. complexID and courtIDs narrow the rows; nil and empty
@@ -49,9 +61,8 @@ func (m *Store) EventOccupancies(
 	}
 	rows, err := m.DB.Query(ctx, `
 		SELECT o.event_id, o.complex_id, o.court_id, o.occurs_on,
-		       lower(o.span)::timestamptz, upper(o.span)::timestamptz, e.name
-		FROM open_play_event_occupancy($1::uuid, $2::uuid[], $3::date, $4::date) o
-		JOIN open_play_events e ON e.id = o.event_id
+		       lower(o.span)::timestamptz, upper(o.span)::timestamptz, o.label, o.kind, o.parent_id
+		FROM court_event_occupancy($1::uuid, $2::uuid[], $3::date, $4::date) o
 		ORDER BY o.occurs_on, o.court_id, lower(o.span)`,
 		data.UUIDPtrToPg(complexID), courts, data.DateToPg(from), data.DateToPg(to))
 	if err != nil {
@@ -65,9 +76,10 @@ func (m *Store) EventOccupancies(
 			eventID, complexUUID, courtID pgtype.UUID
 			day                           pgtype.Date
 			startsAt, endsAt              pgtype.Timestamptz
-			name                          string
+			name, kind                    string
+			parent                        pgtype.UUID
 		)
-		if err := rows.Scan(&eventID, &complexUUID, &courtID, &day, &startsAt, &endsAt, &name); err != nil {
+		if err := rows.Scan(&eventID, &complexUUID, &courtID, &day, &startsAt, &endsAt, &name, &kind, &parent); err != nil {
 			return nil, fmt.Errorf("bookings: scan event occupancy: %w", err)
 		}
 		out = append(out, EventOccupancy{
@@ -78,6 +90,8 @@ func (m *Store) EventOccupancies(
 			StartsAt:  startsAt.Time.In(timezone.Argentina),
 			EndsAt:    endsAt.Time.In(timezone.Argentina),
 			Name:      name,
+			Kind:      kind,
+			ParentID:  data.PgToUUIDPtr(parent),
 		})
 	}
 	if err := rows.Err(); err != nil {

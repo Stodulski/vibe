@@ -121,19 +121,32 @@ type Dependencies struct {
 	Run       func(func())
 }
 
+// TournamentGate is what the events domain asks of the tournaments domain,
+// which is built on top of it: a tournament category's sign-up is an event
+// registration, and its withdrawal rules are the tournament's.
+type TournamentGate interface {
+	// DrawGenerated reports whether the category behind a tournament event
+	// already has its draw. After it a withdrawal is a walkover without refund.
+	DrawGenerated(ctx context.Context, eventID uuid.UUID) (bool, error)
+	// PairWithdrawn is told a registration of a tournament event ended after the
+	// draw, so its pair stops playing.
+	PairWithdrawn(ctx context.Context, registrationID uuid.UUID) error
+}
+
 // Service holds this module's rules.
 type Service struct {
-	store     Store
-	complexes ComplexReader
-	courts    CourtReader
-	clients   ClientReader
-	payments  Payments
-	checkout  Checkout
-	notify    Notifier
-	realtime  Broadcaster
-	audit     Recorder
-	logger    *slog.Logger
-	cfg       Config
+	tournaments TournamentGate
+	store       Store
+	complexes   ComplexReader
+	courts      CourtReader
+	clients     ClientReader
+	payments    Payments
+	checkout    Checkout
+	notify      Notifier
+	realtime    Broadcaster
+	audit       Recorder
+	logger      *slog.Logger
+	cfg         Config
 }
 
 // NewService returns a Service backed by the given dependencies.
@@ -144,6 +157,10 @@ func NewService(d Dependencies, cfg Config) *Service {
 		audit: d.Audit, logger: d.Logger, cfg: cfg,
 	}
 }
+
+// SetTournaments wires the tournaments domain in. It is a setter because the
+// tournaments service is built on this one.
+func (s *Service) SetTournaments(g TournamentGate) { s.tournaments = g }
 
 // Actor is who is acting: the authenticated owner, or nobody on a public route.
 type Actor struct {

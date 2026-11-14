@@ -54,6 +54,22 @@ type SignUpInput struct {
 	// most live holds one address may have across every event.
 	IP            string
 	MaxHoldsPerIP int
+	// Hooks is set by the tournaments domain for a pair's sign-up: what only it
+	// knows how to check and write, run inside the same transaction and under the
+	// same event lock. Nil for an open-play sign-up.
+	Hooks *SignUpHooks
+}
+
+// SignUpHooks are the steps a tournament adds to a sign-up. They run inside the
+// transaction that holds the event's row lock, so what they read cannot change
+// under them.
+type SignUpHooks struct {
+	// Admit runs after the event is locked and found live, before anything is
+	// held. It refuses with ErrEventClosed (the draw exists) or
+	// ErrAlreadyRegistered (a player is already in the category).
+	Admit func(ctx context.Context, q *db.Queries, event db.OpenPlayEvent) error
+	// Attach runs after the registration is inserted, to write what belongs to it.
+	Attach func(ctx context.Context, q *db.Queries, reg db.OpenPlayRegistration) error
 }
 
 // SignUp holds one spot of an event for a person and returns the registration
@@ -102,8 +118,14 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 	if err := data.AssertTenant(ctx, data.PgToUUID(event.ComplexID)); err != nil {
 		return db.OpenPlayRegistration{}, err
 	}
-	if event.Status != EventActive || !eventFromDB(event).StartsAt().After(time.Now()) {
+	// A category's sign-up closes with its draw (Admit), not at a start time.
+	if event.Status != EventActive || (!event.TournamentID.Valid && !eventFromDB(event).StartsAt().After(time.Now())) {
 		return db.OpenPlayRegistration{}, ErrEventClosed
+	}
+	if in.Hooks != nil && in.Hooks.Admit != nil {
+		if err := in.Hooks.Admit(ctx, q, event); err != nil {
+			return db.OpenPlayRegistration{}, err
+		}
 	}
 	if err := m.checkHoldLimit(ctx, tx, in); err != nil {
 		return db.OpenPlayRegistration{}, err
@@ -139,6 +161,11 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 			return db.OpenPlayRegistration{}, ErrAlreadyRegistered
 		}
 		return db.OpenPlayRegistration{}, fmt.Errorf("events: insert registration: %w", err)
+	}
+	if in.Hooks != nil && in.Hooks.Attach != nil {
+		if err := in.Hooks.Attach(ctx, q, row); err != nil {
+			return db.OpenPlayRegistration{}, err
+		}
 	}
 	return row, nil
 }

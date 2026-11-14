@@ -1,8 +1,8 @@
 -- name: InsertOpenPlayEvent :one
 INSERT INTO open_play_events (
-    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by
+    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, sqlc.narg('tournament_id'))
 RETURNING *;
 
 -- name: InsertOpenPlayEventCourt :exec
@@ -37,6 +37,7 @@ ORDER BY c.name, oc.court_id;
 -- how many spots are taken: confirmed registrations plus the holds still
 -- running, the count capacity is checked against (CountOpenPlaySpotsTaken).
 -- include_cancelled is what the owner's list sets and the public one does not.
+-- The sign-up containers of tournament categories are not events a person lists.
 SELECT e.*,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
@@ -44,6 +45,7 @@ SELECT e.*,
          WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = sqlc.arg(complex_id)
+  AND e.tournament_id IS NULL
   AND e.date BETWEEN sqlc.arg(date_from)::date AND sqlc.arg(date_to)::date
   AND (sqlc.arg(include_cancelled)::bool OR e.status = 'active')
 ORDER BY e.date, e.start_time, e.id

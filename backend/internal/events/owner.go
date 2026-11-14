@@ -190,6 +190,8 @@ func conflictMessage(c *eventstore.ConflictError, names map[uuid.UUID]string) st
 		return fmt.Sprintf("those hours are blocked on %s", court)
 	case eventstore.ConflictFixed:
 		return fmt.Sprintf("a fixed weekly booking (turno fijo) holds those hours on %s", court)
+	case eventstore.ConflictMatch:
+		return fmt.Sprintf("a tournament match already holds those hours on %s", court)
 	default:
 		return fmt.Sprintf("another event already holds those hours on %s", court)
 	}
@@ -221,7 +223,22 @@ func (s *Service) Get(ctx context.Context, complexID, eventID uuid.UUID) (*Detai
 	return &Detail{Event: ev, Participants: rows}, nil
 }
 
+// ownedEvent is an open-play event of the complex. The sign-up container of a
+// tournament category is not one: those routes never reach it.
 func (s *Service) ownedEvent(ctx context.Context, complexID, eventID uuid.UUID) (*eventstore.Event, error) {
+	ev, err := s.AnyEvent(ctx, complexID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if ev.TournamentID != nil {
+		return nil, data.ErrRecordNotFound
+	}
+	return ev, nil
+}
+
+// AnyEvent is ownedEvent that also returns a tournament category's container.
+// The tournaments domain uses it for its own events.
+func (s *Service) AnyEvent(ctx context.Context, complexID, eventID uuid.UUID) (*eventstore.Event, error) {
 	ev, err := s.store.GetEvent(ctx, eventID)
 	if err != nil {
 		return nil, err
@@ -254,10 +271,19 @@ type CancelResult struct {
 // the request never got to start (a crash after the cancellation committed) is
 // found by SweepUnrefunded.
 func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, actor Actor, eventID uuid.UUID, reason *string) (*CancelResult, error) {
+	if _, err := s.ownedEvent(ctx, complex.ID, eventID); err != nil {
+		return nil, err
+	}
+	return s.CancelAny(ctx, complex, actor, eventID, reason)
+}
+
+// CancelAny is Cancel for any event of the complex, a tournament category's
+// container included: the tournaments domain cancels its categories through it.
+func (s *Service) CancelAny(ctx context.Context, complex *complexstore.Complex, actor Actor, eventID uuid.UUID, reason *string) (*CancelResult, error) {
 	if actor.UserID == nil {
 		return nil, ErrNoActor
 	}
-	if _, err := s.ownedEvent(ctx, complex.ID, eventID); err != nil {
+	if _, err := s.AnyEvent(ctx, complex.ID, eventID); err != nil {
 		return nil, err
 	}
 	cancelled, owed, err := s.store.CancelEvent(ctx, eventID, *actor.UserID, reason)

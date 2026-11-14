@@ -16,9 +16,13 @@ func (m *Mailer) SendEventRegistered(ctx context.Context, to, firstName, complex
 	nameEsc, eventEsc, complexEsc := html.EscapeString(firstName), html.EscapeString(eventName), html.EscapeString(complexName)
 	dateEsc, hoursEsc := html.EscapeString(date), html.EscapeString(hours)
 
+	when := fmt.Sprintf("el <strong>%s</strong>, de <strong>%s</strong>", dateEsc, hoursEsc)
+	if hours == "" {
+		when = fmt.Sprintf("desde el <strong>%s</strong>", dateEsc)
+	}
 	content := title("Su lugar está confirmado.") +
-		p(fmt.Sprintf("Hola %s, quedó confirmada su inscripción a <strong>%s</strong> en <strong>%s</strong>: el <strong>%s</strong>, de <strong>%s</strong>.",
-			nameEsc, eventEsc, complexEsc, dateEsc, hoursEsc), 16, 16)
+		p(fmt.Sprintf("Hola %s, quedó confirmada su inscripción a <strong>%s</strong> en <strong>%s</strong>: %s.",
+			nameEsc, eventEsc, complexEsc, when), 16, 16)
 	if amount != "" {
 		content += p(fmt.Sprintf("Se registró su pago de <strong>%s</strong>.", html.EscapeString(amount)), 16, 16)
 	}
@@ -30,6 +34,9 @@ func (m *Mailer) SendEventRegistered(ctx context.Context, to, firstName, complex
 	}
 
 	preheader := fmt.Sprintf("%s · %s, %s.", eventEsc, dateEsc, hoursEsc)
+	if hours == "" {
+		preheader = fmt.Sprintf("%s · desde el %s.", eventEsc, dateEsc)
+	}
 	return m.send(ctx, to, subject, m.wrap("Inscripción confirmada", preheader, content))
 }
 
@@ -48,11 +55,15 @@ func (m *Mailer) SendEventCancelled(ctx context.Context, to, firstName, complexN
 	eventEsc, complexEsc := html.EscapeString(eventName), html.EscapeString(complexName)
 	dateEsc, hoursEsc := html.EscapeString(date), html.EscapeString(hours)
 
-	lead := fmt.Sprintf("Hola %s, su inscripción a <strong>%s</strong> en <strong>%s</strong> (%s, %s) se canceló.",
-		html.EscapeString(firstName), eventEsc, complexEsc, dateEsc, hoursEsc)
+	whenText := dateEsc + ", " + hoursEsc
+	if hours == "" {
+		whenText = "desde el " + dateEsc
+	}
+	lead := fmt.Sprintf("Hola %s, su inscripción a <strong>%s</strong> en <strong>%s</strong> (%s) se canceló.",
+		html.EscapeString(firstName), eventEsc, complexEsc, whenText)
 	if byOwner {
-		lead = fmt.Sprintf("Hola %s, el complejo canceló <strong>%s</strong> en <strong>%s</strong> (%s, %s).",
-			html.EscapeString(firstName), eventEsc, complexEsc, dateEsc, hoursEsc)
+		lead = fmt.Sprintf("Hola %s, el complejo canceló <strong>%s</strong> en <strong>%s</strong> (%s).",
+			html.EscapeString(firstName), eventEsc, complexEsc, whenText)
 	}
 	content := title(heading) + p(lead, 16, 16)
 	if refundLine != "" {

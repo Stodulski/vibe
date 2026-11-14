@@ -38,6 +38,7 @@ type Querier interface {
 	// come back with their previous status, so the caller knows which were paid.
 	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
 	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
+	CancelTournament(ctx context.Context, arg CancelTournamentParams) (Tournament, error)
 	// One-off campaign (2026-10). Remove after it has been sent.
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.
@@ -50,6 +51,7 @@ type Querier interface {
 	// Marks every entry still waiting for this day as notified and returns them, in
 	// one statement, so two frees of the same day cannot both claim the same row.
 	ClaimWaitlistEntries(ctx context.Context, arg ClaimWaitlistEntriesParams) ([]ClaimWaitlistEntriesRow, error)
+	ClearPairPlacements(ctx context.Context, categoryID pgtype.UUID) error
 	// closing_note is its own column: it never touches opening_note, so a
 	// closing note can never erase what Open recorded.
 	//
@@ -64,6 +66,8 @@ type Querier interface {
 	// arrives late, while the event has room (the caller checks, under the event
 	// lock).
 	ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUID) (OpenPlayRegistration, error)
+	// Matches of a category that were played (a bye is not a result).
+	CountCategoryResults(ctx context.Context, categoryID pgtype.UUID) (int32, error)
 	// The spots of an event that are not free: registrations paid for, and holds
 	// still inside their window. except is the registration being decided about,
 	// which never counts against itself (NULL excludes nothing).
@@ -78,6 +82,8 @@ type Querier interface {
 	DeleteExpiredRefreshTokens(ctx context.Context) error
 	DeleteRefreshToken(ctx context.Context, id pgtype.UUID) error
 	DeleteRegistrationLeadsOlderThan30Days(ctx context.Context) (int64, error)
+	DeleteTournamentGroups(ctx context.Context, categoryID pgtype.UUID) error
+	DeleteTournamentMatches(ctx context.Context, categoryID pgtype.UUID) error
 	DeleteUnverifiedStaleUsers(ctx context.Context) error
 	DeleteUser(ctx context.Context, id pgtype.UUID) error
 	DeleteWaitlistEntriesBefore(ctx context.Context, today pgtype.Date) (int64, error)
@@ -295,6 +301,14 @@ type Querier interface {
 	// GetCashSessionByIDForUpdate's own comment gives for cash_sessions.
 	GetSaleByIDForUpdate(ctx context.Context, arg GetSaleByIDForUpdateParams) (Sale, error)
 	GetSchedulesByComplex(ctx context.Context, complexID pgtype.UUID) ([]ComplexSchedule, error)
+	// The tenant predicate is the explicit half of the isolation the row-level
+	// security policies enforce; see GetBookingByID for why it is optional.
+	GetTournament(ctx context.Context, arg GetTournamentParams) (Tournament, error)
+	GetTournamentCategory(ctx context.Context, arg GetTournamentCategoryParams) (TournamentCategory, error)
+	GetTournamentCategoryByEvent(ctx context.Context, eventID pgtype.UUID) (TournamentCategory, error)
+	GetTournamentMatch(ctx context.Context, id pgtype.UUID) (TournamentMatch, error)
+	GetTournamentPair(ctx context.Context, id pgtype.UUID) (TournamentPair, error)
+	GetTournamentPairByRegistration(ctx context.Context, registrationID pgtype.UUID) (TournamentPair, error)
 	// Who a storefront booking is for, while it has no client yet: the snapshot
 	// POST /book stored instead of creating a clients row (024). No row means the
 	// booking already names its client, which is what makes attaching idempotent.
@@ -338,6 +352,11 @@ type Querier interface {
 	InsertSaleBookingPayment(ctx context.Context, arg InsertSaleBookingPaymentParams) (SaleBookingPayment, error)
 	InsertSaleItem(ctx context.Context, arg InsertSaleItemParams) (SaleItem, error)
 	InsertStockMovement(ctx context.Context, arg InsertStockMovementParams) (StockMovement, error)
+	InsertTournament(ctx context.Context, arg InsertTournamentParams) (Tournament, error)
+	InsertTournamentCategory(ctx context.Context, arg InsertTournamentCategoryParams) (TournamentCategory, error)
+	InsertTournamentGroup(ctx context.Context, arg InsertTournamentGroupParams) (TournamentGroup, error)
+	InsertTournamentMatch(ctx context.Context, arg InsertTournamentMatchParams) (TournamentMatch, error)
+	InsertTournamentPair(ctx context.Context, arg InsertTournamentPairParams) (TournamentPair, error)
 	InsertUser(ctx context.Context, arg InsertUserParams) (User, error)
 	// Idempotent: a repeated Google sign-in re-links the same (provider,
 	// subject) or (user_id, provider) pair and this is a silent no-op — see the
@@ -391,6 +410,8 @@ type Querier interface {
 	// is false on the first page, so the OR's left side short-circuits instead of
 	// comparing against a zero-value timestamp.
 	ListCashSessionsByComplex(ctx context.Context, arg ListCashSessionsByComplexParams) ([]CashSession, error)
+	ListCategoryMatches(ctx context.Context, categoryID pgtype.UUID) ([]TournamentMatch, error)
+	ListCategoryPairs(ctx context.Context, categoryID pgtype.UUID) ([]TournamentPair, error)
 	// A city keeps its hub after its last switched-on complex goes, so the hub read
 	// needs every city a complex was ever recorded in. This reads the complexes table
 	// itself, not active_complexes, so a switched-off or soft-deleted venue still
@@ -409,6 +430,9 @@ type Querier interface {
 	// created: it takes bookings but cannot take the deposit online.
 	ListConnectMPNudgeCandidates(ctx context.Context, maxRows int32) ([]ListConnectMPNudgeCandidatesRow, error)
 	ListCreateComplexNudgeCandidates(ctx context.Context, maxRows int32) ([]ListCreateComplexNudgeCandidatesRow, error)
+	// The pairs a draw is made of: paid sign-ups that have not withdrawn, in the
+	// owner's seed order where there is one (unseeded last), then by sign-up.
+	ListDrawablePairs(ctx context.Context, categoryID pgtype.UUID) ([]TournamentPair, error)
 	ListFinishSignupNudgeCandidates(ctx context.Context, maxRows int32) ([]ListFinishSignupNudgeCandidatesRow, error)
 	// An owner counts as active from the last request they made, or from account
 	// creation when they have never made one. A booking from any source (the
@@ -419,6 +443,7 @@ type Querier interface {
 	// how many spots are taken: confirmed registrations plus the holds still
 	// running, the count capacity is checked against (CountOpenPlaySpotsTaken).
 	// include_cancelled is what the owner's list sets and the public one does not.
+	// The sign-up containers of tournament categories are not events a person lists.
 	ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error)
 	// Every registration of an event with the payment that carries its money (the
 	// MercadoPago row first, as GetPaymentByBookingID prefers it), oldest first.
@@ -430,6 +455,9 @@ type Querier interface {
 	// request itself never finished (a crash, a provider outage that outlived its
 	// retries). The sweep drives each through the same refund path the cancel uses.
 	ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, arg ListOwnerCancelledRegistrationsStillPaidParams) ([]ListOwnerCancelledRegistrationsStillPaidRow, error)
+	// The pairs of a group in seed order, withdrawn ones included: a group table
+	// lists every pair that was drawn into it.
+	ListPairsOfGroup(ctx context.Context, groupID pgtype.UUID) ([]TournamentPair, error)
 	// Every payment row of a booking, oldest first (the deposit before the balance),
 	// for callers that need the whole ledger rather than one row — the refund path
 	// sums money and the booking detail shows each payment; GetPaymentByBookingID's
@@ -470,11 +498,33 @@ type Querier interface {
 	ListSalesByComplex(ctx context.Context, arg ListSalesByComplexParams) ([]Sale, error)
 	// Keyset pagination, same shape as cash_sessions' own ListCashSessionsByComplex.
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
+	// The categories of a tournament with what their sign-up container says: the
+	// capacity in pairs, the entry price per pair, whether it was cancelled, and how
+	// many pairs are paid and held (the count capacity is checked against).
+	ListTournamentCategories(ctx context.Context, tournamentID pgtype.UUID) ([]ListTournamentCategoriesRow, error)
+	ListTournamentGroups(ctx context.Context, categoryID pgtype.UUID) ([]TournamentGroup, error)
+	ListTournamentGroupsByTournament(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentGroup, error)
+	// Every match of every category of a tournament, bracket after group stage.
+	ListTournamentMatches(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatch, error)
+	// Every pair of a tournament with its registration (the payer, the state of the
+	// spot) and the payment that carries the money, as the owner's pair list reads
+	// it, oldest sign-up first. Registrations that never held a spot (expired
+	// holds, a cancelled one that never carried money) are left out.
+	ListTournamentPairs(ctx context.Context, tournamentID pgtype.UUID) ([]ListTournamentPairsRow, error)
+	// The tournaments of one complex that overlap the window, soonest first.
+	// include_cancelled is what the owner's list sets and the public one does not.
+	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
 	// Every write that changes how many spots are taken (a sign-up, a payment
 	// confirmed late, the owner cancelling) takes this lock first, so two of them
 	// can never both read the same count and both fit into the last spot.
 	LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPlayEvent, error)
+	// Cancelling a tournament and creating or changing its categories take this
+	// lock first, so they cannot interleave.
+	LockTournament(ctx context.Context, id pgtype.UUID) (Tournament, error)
+	// Every change to a category's draw, matches or results takes this lock first,
+	// so two of them can never interleave on the same bracket.
+	LockTournamentCategory(ctx context.Context, id pgtype.UUID) (TournamentCategory, error)
 	// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
 	// the owner's manual-refund action becomes available. Only refund_status moves,
 	// and only from 'none': the refund path runs after its own read, and a
@@ -500,6 +550,9 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// Whether any of the phones is a player of a live pair of the category: the
+	// payer of a paid or still-held sign-up, or its partner.
+	PairPlayersTaken(ctx context.Context, arg PairPlayersTakenParams) (bool, error)
 	// A date that is not part of the series: cancelled by the owner, or one that
 	// could not be booked. DO NOTHING keeps the first answer: a date already booked
 	// or excepted is never rewritten, and the row count says whether this call was
@@ -508,7 +561,18 @@ type Querier interface {
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error
+	ScheduleMatch(ctx context.Context, arg ScheduleMatchParams) error
+	// Records that the draw exists, which closes sign-up for good.
+	SetCategoryDraw(ctx context.Context, id pgtype.UUID) error
 	SetEmailVerified(ctx context.Context, id pgtype.UUID) error
+	SetMatchNext(ctx context.Context, arg SetMatchNextParams) error
+	SetMatchPairs(ctx context.Context, arg SetMatchPairsParams) error
+	// sets travels as text with an explicit cast: the pool's exec mode would send a
+	// []byte as bytea, which Postgres refuses to read as json (see audit.Insert).
+	SetMatchResult(ctx context.Context, arg SetMatchResultParams) error
+	// Puts a pair in one of a match's two slots (1 or 2), or empties it.
+	SetMatchSlot(ctx context.Context, arg SetMatchSlotParams) error
+	SetPairPlacement(ctx context.Context, arg SetPairPlacementParams) error
 	// :execrows, so the caller can tell "deleted it" from "it was already deleted"
 	// without a separate SELECT. complexstore.Store.SoftDeleteCascade is the only caller
 	// and runs this inside the transaction that also counts the courts the
@@ -526,6 +590,7 @@ type Querier interface {
 	// The WHERE clause is the throttle: an owner's activity is written at most once
 	// an hour, however many requests they make. Callers ignore a zero row count.
 	TouchOwnerLastActive(ctx context.Context, id pgtype.UUID) (int64, error)
+	UnscheduleMatch(ctx context.Context, id pgtype.UUID) error
 	// Unconditional on the row's prior state. What refuses an illegitimate write is
 	// the bookings_forbid_status_reversal trigger, which is enforced for every
 	// writer rather than for the one query that remembered to check a counter —
@@ -598,6 +663,7 @@ type Querier interface {
 	// apart the same way cashboxstore.Store.Close does for cash_sessions,
 	// because the lock above already proved the row exists moments earlier.
 	VoidSale(ctx context.Context, arg VoidSaleParams) (Sale, error)
+	WithdrawTournamentPair(ctx context.Context, id pgtype.UUID) (TournamentPair, error)
 }
 
 var _ Querier = (*Queries)(nil)

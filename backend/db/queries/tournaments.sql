@@ -1,0 +1,236 @@
+-- name: InsertTournament :one
+INSERT INTO tournaments (complex_id, name, sport, start_date, end_date, created_by)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: GetTournament :one
+-- The tenant predicate is the explicit half of the isolation the row-level
+-- security policies enforce; see GetBookingByID for why it is optional.
+SELECT * FROM tournaments
+WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid);
+
+-- name: LockTournament :one
+-- Cancelling a tournament and creating or changing its categories take this
+-- lock first, so they cannot interleave.
+SELECT * FROM tournaments WHERE id = $1 FOR UPDATE;
+
+-- name: ListTournaments :many
+-- The tournaments of one complex that overlap the window, soonest first.
+-- include_cancelled is what the owner's list sets and the public one does not.
+SELECT * FROM tournaments
+WHERE complex_id = sqlc.arg(complex_id)
+  AND end_date >= sqlc.arg(date_from)::date
+  AND start_date <= sqlc.arg(date_to)::date
+  AND (sqlc.arg(include_cancelled)::bool OR status = 'active')
+ORDER BY start_date, id
+LIMIT sqlc.arg(page_limit)::int;
+
+-- name: CancelTournament :one
+UPDATE tournaments
+SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2, cancel_reason = $3
+WHERE id = $1 AND status = 'active'
+RETURNING *;
+
+-- name: InsertTournamentCategory :one
+INSERT INTO tournament_categories (
+    tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: GetTournamentCategory :one
+SELECT * FROM tournament_categories
+WHERE id = $1
+  AND (sqlc.narg('complex_id')::uuid IS NULL
+       OR complex_id = sqlc.narg('complex_id')::uuid);
+
+-- name: GetTournamentCategoryByEvent :one
+SELECT * FROM tournament_categories WHERE event_id = $1;
+
+-- name: LockTournamentCategory :one
+-- Every change to a category's draw, matches or results takes this lock first,
+-- so two of them can never interleave on the same bracket.
+SELECT * FROM tournament_categories WHERE id = $1 FOR UPDATE;
+
+-- name: ListTournamentCategories :many
+-- The categories of a tournament with what their sign-up container says: the
+-- capacity in pairs, the entry price per pair, whether it was cancelled, and how
+-- many pairs are paid and held (the count capacity is checked against).
+SELECT c.*,
+       e.capacity AS capacity,
+       e.price AS price,
+       e.status AS event_status,
+       (SELECT count(*) FROM open_play_registrations r
+         WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
+       (SELECT count(*) FROM open_play_registrations r
+         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+FROM tournament_categories c
+JOIN open_play_events e ON e.id = c.event_id
+WHERE c.tournament_id = $1
+ORDER BY c.created_at, c.id;
+
+-- name: SetCategoryDraw :exec
+-- Records that the draw exists, which closes sign-up for good.
+UPDATE tournament_categories
+SET draw_generated_at = COALESCE(draw_generated_at, NOW())
+WHERE id = $1;
+
+-- name: InsertTournamentPair :one
+INSERT INTO tournament_pairs (
+    category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING *;
+
+-- name: GetTournamentPair :one
+SELECT * FROM tournament_pairs WHERE id = $1;
+
+-- name: GetTournamentPairByRegistration :one
+SELECT * FROM tournament_pairs WHERE registration_id = $1;
+
+-- name: ListTournamentPairs :many
+-- Every pair of a tournament with its registration (the payer, the state of the
+-- spot) and the payment that carries the money, as the owner's pair list reads
+-- it, oldest sign-up first. Registrations that never held a spot (expired
+-- holds, a cancelled one that never carried money) are left out.
+SELECT pr.*,
+       r.first_name, r.last_name, r.phone, r.email,
+       r.status AS registration_status, r.price AS registration_price, r.service_fee AS registration_service_fee,
+       r.held_until, r.confirmed_at, r.cancelled_at AS registration_cancelled_at, r.cancelled_by, r.created_at AS signed_up_at,
+       p.id AS payment_id,
+       COALESCE(p.status::text, '')::text AS payment_status,
+       COALESCE(p.amount, 0)::int AS payment_amount,
+       COALESCE(p.service_fee, 0)::int AS payment_service_fee,
+       COALESCE(p.refund_amount, 0)::int AS payment_refund_amount
+FROM tournament_pairs pr
+JOIN tournament_categories c ON c.id = pr.category_id
+JOIN open_play_registrations r ON r.id = pr.registration_id
+LEFT JOIN LATERAL (
+    SELECT * FROM payments pp
+    WHERE pp.registration_id = r.id
+    ORDER BY (pp.mp_payment_id IS NOT NULL) DESC, pp.created_at DESC
+    LIMIT 1
+) p ON TRUE
+WHERE c.tournament_id = $1
+  AND (r.status IN ('held', 'confirmed') OR (r.status = 'cancelled' AND p.id IS NOT NULL))
+ORDER BY r.created_at, pr.id;
+
+-- name: ListDrawablePairs :many
+-- The pairs a draw is made of: paid sign-ups that have not withdrawn, in the
+-- owner's seed order where there is one (unseeded last), then by sign-up.
+SELECT pr.* FROM tournament_pairs pr
+JOIN open_play_registrations r ON r.id = pr.registration_id
+WHERE pr.category_id = $1 AND pr.status = 'active' AND r.status = 'confirmed'
+ORDER BY pr.seed NULLS LAST, r.created_at, pr.id;
+
+-- name: SetPairPlacement :exec
+UPDATE tournament_pairs SET seed = $2, group_id = $3 WHERE id = $1;
+
+-- name: ClearPairPlacements :exec
+UPDATE tournament_pairs SET seed = NULL, group_id = NULL WHERE category_id = $1;
+
+-- name: WithdrawTournamentPair :one
+UPDATE tournament_pairs
+SET status = 'withdrawn', withdrawn_at = NOW()
+WHERE id = $1 AND status = 'active'
+RETURNING *;
+
+-- name: InsertTournamentGroup :one
+INSERT INTO tournament_groups (category_id, complex_id, name, position)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: ListTournamentGroups :many
+SELECT * FROM tournament_groups WHERE category_id = $1 ORDER BY position;
+
+-- name: DeleteTournamentGroups :exec
+DELETE FROM tournament_groups WHERE category_id = $1;
+
+-- name: InsertTournamentMatch :one
+INSERT INTO tournament_matches (
+    category_id, complex_id, stage, group_id, round, position,
+    pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye
+)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING *;
+
+-- name: SetMatchNext :exec
+UPDATE tournament_matches SET next_match_id = $2, next_slot = $3 WHERE id = $1;
+
+-- name: DeleteTournamentMatches :exec
+DELETE FROM tournament_matches WHERE category_id = $1;
+
+-- name: GetTournamentMatch :one
+SELECT * FROM tournament_matches WHERE id = $1;
+
+-- name: ListCategoryMatches :many
+SELECT * FROM tournament_matches
+WHERE category_id = $1
+ORDER BY stage DESC, round, position, id;
+
+-- name: ListTournamentMatches :many
+-- Every match of every category of a tournament, bracket after group stage.
+SELECT m.* FROM tournament_matches m
+JOIN tournament_categories c ON c.id = m.category_id
+WHERE c.tournament_id = $1
+ORDER BY m.category_id, m.stage DESC, m.round, m.position, m.id;
+
+-- name: ListTournamentGroupsByTournament :many
+SELECT g.* FROM tournament_groups g
+JOIN tournament_categories c ON c.id = g.category_id
+WHERE c.tournament_id = $1
+ORDER BY g.category_id, g.position;
+
+-- name: SetMatchSlot :exec
+-- Puts a pair in one of a match's two slots (1 or 2), or empties it.
+UPDATE tournament_matches
+SET pair1_id = CASE WHEN sqlc.arg(slot)::int = 1 THEN sqlc.narg('pair_id')::uuid ELSE pair1_id END,
+    pair2_id = CASE WHEN sqlc.arg(slot)::int = 2 THEN sqlc.narg('pair_id')::uuid ELSE pair2_id END
+WHERE id = sqlc.arg(id);
+
+-- name: SetMatchPairs :exec
+UPDATE tournament_matches SET pair1_id = $2, pair2_id = $3 WHERE id = $1;
+
+-- name: SetMatchResult :exec
+-- sets travels as text with an explicit cast: the pool's exec mode would send a
+-- []byte as bytea, which Postgres refuses to read as json (see audit.Insert).
+UPDATE tournament_matches
+SET status = 'completed', winner_pair_id = $2, sets = sqlc.narg('sets')::text::jsonb, walkover_loser = $3, completed_at = NOW()
+WHERE id = $1;
+
+-- name: ScheduleMatch :exec
+UPDATE tournament_matches
+SET court_id = $2, scheduled_on = $3, start_time = $4, duration_minutes = $5
+WHERE id = $1;
+
+-- name: UnscheduleMatch :exec
+UPDATE tournament_matches
+SET court_id = NULL, scheduled_on = NULL, start_time = NULL, duration_minutes = NULL
+WHERE id = $1;
+
+-- name: CountCategoryResults :one
+-- Matches of a category that were played (a bye is not a result).
+SELECT count(*)::int FROM tournament_matches
+WHERE category_id = $1 AND status = 'completed' AND NOT bye;
+
+-- name: PairPlayersTaken :one
+-- Whether any of the phones is a player of a live pair of the category: the
+-- payer of a paid or still-held sign-up, or its partner.
+SELECT EXISTS (
+  SELECT 1 FROM tournament_pairs tp
+  JOIN open_play_registrations r ON r.id = tp.registration_id
+  WHERE tp.category_id = sqlc.arg(category_id)
+    AND tp.status = 'active'
+    AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))
+    AND (r.phone = ANY(sqlc.arg(phones)::text[]) OR tp.partner_phone = ANY(sqlc.arg(phones)::text[]))
+) AS taken;
+
+-- name: ListPairsOfGroup :many
+-- The pairs of a group in seed order, withdrawn ones included: a group table
+-- lists every pair that was drawn into it.
+SELECT * FROM tournament_pairs WHERE group_id = $1 ORDER BY seed, id;
+
+-- name: ListCategoryPairs :many
+SELECT * FROM tournament_pairs WHERE category_id = $1 ORDER BY seed NULLS LAST, id;

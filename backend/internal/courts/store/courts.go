@@ -404,6 +404,14 @@ func refuseActiveEvents(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error
 		  WHERE oc.court_id = $1
 		    AND e.status = 'active'
 		    AND booking_starts_at(e.date, e.start_time) + make_interval(mins => e.duration_minutes) > NOW()
+		) OR EXISTS (
+		  SELECT 1 FROM tournament_matches m
+		  JOIN tournament_categories c ON c.id = m.category_id
+		  JOIN tournaments t ON t.id = c.tournament_id
+		  JOIN open_play_events ce ON ce.id = c.event_id
+		  WHERE m.court_id = $1 AND NOT m.bye AND m.status = 'pending'
+		    AND t.status = 'active' AND ce.status = 'active'
+		    AND booking_starts_at(m.scheduled_on, m.start_time) + make_interval(mins => m.duration_minutes) > NOW()
 		)`, data.UUIDToPg(courtID)).Scan(&held)
 	if err != nil {
 		return fmt.Errorf("check active events: %w", err)

@@ -66,6 +66,7 @@ const (
 	ConflictBlocked = "blocked"
 	ConflictFixed   = "fixed"
 	ConflictEvent   = "event"
+	ConflictMatch   = "match"
 )
 
 // ConflictError is returned by CreateEvent when something already holds the
@@ -105,6 +106,10 @@ type Event struct {
 	CancelledBy  *uuid.UUID
 	CreatedBy    uuid.UUID
 	CreatedAt    time.Time
+	// TournamentID is set for the sign-up container of a tournament category: it
+	// holds no courts and is not an open-play event a person lists. Nil for a
+	// canchas libres event.
+	TournamentID *uuid.UUID
 
 	// Courts are the courts the event holds, read with the event.
 	Courts []Court

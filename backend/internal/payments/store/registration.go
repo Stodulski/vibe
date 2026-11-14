@@ -84,7 +84,7 @@ func (m *Payments) ConfirmRegistrationPayment(ctx context.Context, p *Payment, r
 		}); err != nil {
 			return fmt.Errorf("re-read registration: %w", err)
 		}
-		if err := m.registrationConfirmable(ctx, qtx, event, reg); err != nil {
+		if err := m.registrationConfirmable(ctx, tx, qtx, event, reg); err != nil {
 			return err
 		}
 		if _, err := qtx.ConfirmOpenPlayRegistration(ctx, reg.ID); err != nil {
@@ -96,12 +96,23 @@ func (m *Payments) ConfirmRegistrationPayment(ctx context.Context, p *Payment, r
 
 // registrationConfirmable decides, under the event lock, whether a payment may
 // confirm the registration.
-func (m *Payments) registrationConfirmable(ctx context.Context, qtx *db.Queries, event db.OpenPlayEvent, reg db.OpenPlayRegistration) error {
+func (m *Payments) registrationConfirmable(ctx context.Context, tx pgx.Tx, qtx *db.Queries, event db.OpenPlayEvent, reg db.OpenPlayRegistration) error {
 	switch {
 	case reg.Status == "confirmed":
 		return ErrRegistrationAlreadyPaid
 	case reg.Status == "cancelled", event.Status != "active":
 		return ErrRegistrationUnavailable
+	}
+	// A pair that pays after its category's draw was made is not in it: the spot
+	// is gone and the payment goes back.
+	if event.TournamentID.Valid {
+		var drawn bool
+		if err := tx.QueryRow(ctx, `SELECT draw_generated_at IS NOT NULL FROM tournament_categories WHERE event_id = $1`, event.ID).Scan(&drawn); err != nil {
+			return fmt.Errorf("read the category's draw: %w", err)
+		}
+		if drawn {
+			return ErrRegistrationUnavailable
+		}
 	}
 	taken, err := qtx.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{
 		EventID: event.ID, Except: reg.ID,

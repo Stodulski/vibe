@@ -44,7 +44,7 @@ func (m *Store) CreateEvent(ctx context.Context, e *Event, courtIDs []uuid.UUID)
 	var created db.OpenPlayEvent
 	err := m.DB.WithTx(ctx, func(tx pgx.Tx, q *db.Queries) error {
 		for _, id := range ids {
-			if err := lockCourt(ctx, tx, id); err != nil {
+			if err := LockCourt(ctx, tx, id); err != nil {
 				return err
 			}
 		}
@@ -83,14 +83,15 @@ func insertEventParams(e *Event) db.InsertOpenPlayEventParams {
 		//nolint:gosec // G115: bounded by the schema's CHECK (1..500); the caller validates first.
 		Capacity: int32(e.Capacity),
 		//nolint:gosec // G115: a price in centavos, validated by the caller; far below int32 range.
-		Price:     int32(e.Price),
-		CreatedBy: data.UUIDToPg(e.CreatedBy),
+		Price:        int32(e.Price),
+		CreatedBy:    data.UUIDToPg(e.CreatedBy),
+		TournamentID: data.UUIDPtrToPg(e.TournamentID),
 	}
 }
 
-// lockCourt takes the court's row lock for update, refusing with
+// LockCourt takes the court's row lock for update, refusing with
 // ErrRecordNotFound when the court is gone.
-func lockCourt(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
+func LockCourt(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
 	var id uuid.UUID
 	err := tx.QueryRow(ctx,
 		`SELECT id FROM courts WHERE id = $1 AND deleted_at IS NULL FOR UPDATE`,
@@ -112,6 +113,18 @@ func lockCourt(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
 // It is one query so every court is judged on the same snapshot; the reasons
 // are ordered so the most concrete answer wins when several things collide.
 func (m *Store) checkCourtsFree(ctx context.Context, tx pgx.Tx, e *Event, courtIDs []uuid.UUID) error {
+	return CheckCourtsFree(ctx, tx, courtIDs, e.Date, e.StartTime, e.DurationMinutes, m.PaymentExpiry, uuid.Nil)
+}
+
+// CheckCourtsFree is checkCourtsFree for any caller that is about to hold hours
+// on courts: the tournaments domain asks it before scheduling a match, with
+// exceptMatch the match being (re)scheduled, which never conflicts with itself
+// (uuid.Nil excludes nothing). The caller holds the courts' row locks. hold is
+// the window an unpaid storefront booking holds its slot.
+func CheckCourtsFree(
+	ctx context.Context, tx pgx.Tx, courtIDs []uuid.UUID, date time.Time, startTime string, minutes int,
+	hold time.Duration, exceptMatch uuid.UUID,
+) error {
 	var reason string
 	var courtID uuid.UUID
 	err := tx.QueryRow(ctx, `
@@ -138,13 +151,14 @@ func (m *Store) checkCourtsFree(ctx context.Context, tx pgx.Tx, e *Event, courtI
 		  FROM booking_series_occurrences(NULL, $1::uuid[], $2::date - 1, $2::date + 1) o, candidate c
 		  WHERE o.span && c.span
 		  UNION ALL
-		  SELECT o.court_id, 4, 'event'
-		  FROM open_play_event_occupancy(NULL, $1::uuid[], $2::date - 1, $2::date + 1) o, candidate c
+		  SELECT o.court_id, 4, o.kind
+		  FROM court_event_occupancy(NULL, $1::uuid[], $2::date - 1, $2::date + 1) o, candidate c
 		  WHERE o.span && c.span
+		    AND NOT (o.kind = 'match' AND o.event_id = $6::uuid)
 		)
 		SELECT reason, court_id FROM held ORDER BY rank, court_id LIMIT 1`,
-		data.UUIDSliceToPg(courtIDs), data.DateToPg(e.Date), data.TimeStrToPg(e.StartTime),
-		e.DurationMinutes, m.PaymentExpiry.Seconds(),
+		data.UUIDSliceToPg(courtIDs), data.DateToPg(date), data.TimeStrToPg(startTime),
+		minutes, hold.Seconds(), data.UUIDToPg(exceptMatch),
 	).Scan(&reason, &courtID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil
@@ -229,6 +243,7 @@ func (m *Store) ListEvents(ctx context.Context, complexID uuid.UUID, from, to ti
 			StartTime: r.StartTime, DurationMinutes: r.DurationMinutes, Capacity: r.Capacity,
 			Price: r.Price, Status: r.Status, CancelReason: r.CancelReason, CancelledAt: r.CancelledAt,
 			CancelledBy: r.CancelledBy, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
+			TournamentID: r.TournamentID,
 		})
 		e.ConfirmedCount, e.HeldCount = int(r.ConfirmedCount), int(r.HeldCount)
 		if err := m.fillCourts(ctx, e); err != nil {
@@ -302,5 +317,6 @@ func eventFromDB(e db.OpenPlayEvent) *Event {
 		CancelledBy:     data.PgToUUIDPtr(e.CancelledBy),
 		CreatedBy:       data.PgToUUID(e.CreatedBy),
 		CreatedAt:       data.PgToTime(e.CreatedAt),
+		TournamentID:    data.PgToUUIDPtr(e.TournamentID),
 	}
 }
