@@ -12,7 +12,7 @@ export function CategoryGroupFields({ form, index }: { form: UseFormReturn<Tourn
   const errors = form.formState.errors.categories?.[index];
   const id = `category-${String(index)}`;
   return (
-    <>
+    <div className="grid gap-4 sm:grid-cols-2">
       <FormField
         label={<FieldLabel text={t.groupSize} required />}
         htmlFor={`${id}-group-size`}
@@ -45,6 +45,6 @@ export function CategoryGroupFields({ form, index }: { form: UseFormReturn<Tourn
           {...form.register(categoryField(index, 'qualifiers_per_group'), { valueAsNumber: true })}
         />
       </FormField>
-    </>
+    </div>
   );
 }

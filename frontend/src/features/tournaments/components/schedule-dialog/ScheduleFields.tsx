@@ -77,33 +77,39 @@ export function ScheduleFields({ form, courts, defaultDuration, firstDay, lastDa
   const { watch, setValue, register, formState } = form;
   return (
     <>
-      <DatePickerField
-        id="match-date"
-        label={t.date}
-        value={watch('date')}
-        placeholder={ES_AR.tournaments.form.selectDate}
-        error={formState.errors.date?.message}
-        disablePast={false}
-        minDate={firstDay}
-        maxDate={lastDay}
-        onSelect={(day) => {
-          setValue('date', day, { shouldValidate: true });
-        }}
-      />
-      <TimeField form={form} />
-      <CourtField form={form} courts={courts} />
-      <FormField label={t.duration} htmlFor="match-duration" error={formState.errors.duration_minutes?.message}>
-        <Input
-          id="match-duration"
-          type="number"
-          inputMode="numeric"
-          min={30}
-          max={480}
-          step={15}
-          {...register('duration_minutes', { valueAsNumber: true })}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <DatePickerField
+          id="match-date"
+          label={t.date}
+          value={watch('date')}
+          placeholder={ES_AR.tournaments.form.selectDate}
+          error={formState.errors.date?.message}
+          disablePast={false}
+          minDate={firstDay}
+          maxDate={lastDay}
+          onSelect={(day) => {
+            setValue('date', day, { shouldValidate: true });
+          }}
         />
-      </FormField>
-      <p className="text-text-tertiary -mt-2 text-xs">{t.durationHint(defaultDuration)}</p>
+        <TimeField form={form} />
+        <CourtField form={form} courts={courts} />
+        <FormField
+          label={t.duration}
+          htmlFor="match-duration"
+          helpText={t.durationHint(defaultDuration)}
+          error={formState.errors.duration_minutes?.message}
+        >
+          <Input
+            id="match-duration"
+            type="number"
+            inputMode="numeric"
+            min={30}
+            max={480}
+            step={15}
+            {...register('duration_minutes', { valueAsNumber: true })}
+          />
+        </FormField>
+      </div>
     </>
   );
 }

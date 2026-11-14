@@ -1,4 +1,5 @@
 import { courtFee } from './tournamentsCourtFee';
+import { createSteps } from './tournamentsCreate';
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? `1 ${one}` : `${String(count)} ${many}`);
 
@@ -28,6 +29,7 @@ export const tournaments = {
   categoryStatus: { open: 'Inscripción abierta', closed: 'Sorteo hecho', cancelled: 'Cancelada' },
 
   // Create form
+  createSteps,
   form: {
     title: 'Crear torneo',
     description: 'Cada categoría tiene su cupo, su precio por pareja y su formato.',
@@ -37,10 +39,6 @@ export const tournaments = {
     startDate: 'Primer día',
     endDate: 'Último día',
     selectDate: 'Elegí la fecha',
-    categories: 'Categorías',
-    category: (n: number) => `Categoría ${String(n)}`,
-    categoryTitle: (n: number, name: string) =>
-      name.trim() ? `Categoría ${String(n)}: ${name.trim()}` : `Categoría ${String(n)}`,
     categoryName: 'Nombre',
     categoryNamePlaceholder: 'Ej: 6ta',
     categoryFormat: 'Formato',
@@ -59,7 +57,6 @@ export const tournaments = {
     courtFee: 'Cancha por partido (por pareja)',
     courtFeeHint: 'Se cobra en el complejo el día del partido, no online.',
     addCategory: 'Agregar categoría',
-    removeCategory: 'Quitar categoría',
     submit: 'Crear torneo',
     createSuccess: 'Torneo creado',
     createError: 'No pudimos crear el torneo',

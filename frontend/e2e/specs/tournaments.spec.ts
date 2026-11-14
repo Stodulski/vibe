@@ -131,15 +131,20 @@ test('the owner creates a tournament with a groups category and an elimination c
   await dialog.locator('#tournament-end').click();
   await pickCalendarDate(page, DAY2);
 
-  // Category 1: groups of 4 where 2 advance, 60 minute matches, a court fee.
+  await dialog.getByRole('button', { name: 'Siguiente' }).click();
+
+  // Step 2, category 1: groups of 4 where 2 advance, 60 minute matches, a court fee.
+  await dialog.getByRole('button', { name: 'Agregar categoría' }).click();
   await dialog.locator('#category-0-name').fill(GROUPS);
   await dialog.locator('#category-0-capacity').fill(String(GROUPS_PAIRS));
   await dialog.locator('#category-0-price').fill(String(ENTRY_GROUPS));
   await dialog.locator('#category-0-court-fee').fill(String(COURT_FEE));
+  await dialog.getByRole('button', { name: 'Siguiente' }).click();
   await expect(dialog.getByLabel('Parejas por zona')).toBeVisible();
   await dialog.getByLabel('Parejas por zona').fill('4');
   await dialog.getByLabel('Pasan por zona').fill('2');
   await dialog.getByLabel('Duración de cada partido (minutos)').fill('60');
+  await dialog.getByRole('button', { name: 'Guardar categoría' }).click();
 
   // Category 2: single elimination.
   await dialog.getByRole('button', { name: 'Agregar categoría' }).click();
@@ -148,7 +153,13 @@ test('the owner creates a tournament with a groups category and an elimination c
   await page.getByRole('option', { name: 'Eliminación directa' }).click();
   await dialog.locator('#category-1-capacity').fill('8');
   await dialog.locator('#category-1-price').fill(String(ENTRY_KNOCKOUT));
-  await dialog.locator('#category-1-capacity').fill('8');
+  await dialog.getByRole('button', { name: 'Siguiente' }).click();
+  await dialog.getByRole('button', { name: 'Guardar categoría' }).click();
+  await dialog.getByRole('button', { name: 'Siguiente' }).click();
+
+  // Step 3: the review lists both categories before anything is sent.
+  await expect(dialog.getByText(GROUPS, { exact: true })).toBeVisible();
+  await expect(dialog.getByText(KNOCKOUT, { exact: true })).toBeVisible();
 
   await dialog.getByRole('button', { name: 'Crear torneo' }).click();
   await expect(page.getByText('Torneo creado', { exact: true })).toBeVisible({ timeout: 10_000 });

@@ -1,8 +1,6 @@
 import { type UseFormReturn } from 'react-hook-form';
 import { FormField } from '@/shared/components/common/FormField';
 import { MoneyInput } from '@/shared/components/common/MoneyInput';
-import { Button } from '@/shared/components/ui/button';
-import { AccordionContent, AccordionItem, AccordionTrigger } from '@/shared/components/ui/accordion';
 import { Input } from '@/shared/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -16,14 +14,12 @@ const t = ES_AR.tournaments;
 interface Props {
   form: UseFormReturn<TournamentFormValues>;
   index: number;
-  canRemove: boolean;
-  onRemove: () => void;
 }
 
-function NameAndFormat({ form, index }: Pick<Props, 'form' | 'index'>) {
+function NameAndFormat({ form, index }: Props) {
   const errors = form.formState.errors.categories?.[index];
   return (
-    <>
+    <div className="grid gap-4 sm:grid-cols-2">
       <FormField
         label={<FieldLabel text={t.form.categoryName} required />}
         htmlFor={`category-${String(index)}-name`}
@@ -57,44 +53,46 @@ function NameAndFormat({ form, index }: Pick<Props, 'form' | 'index'>) {
           </SelectContent>
         </Select>
       </FormField>
-    </>
+    </div>
   );
 }
 
-function CapacityAndPrice({ form, index }: Pick<Props, 'form' | 'index'>) {
+function CapacityAndPrice({ form, index }: Props) {
   const errors = form.formState.errors.categories?.[index];
   const id = `category-${String(index)}`;
   return (
     <>
-      <FormField
-        label={<FieldLabel text={t.form.capacity} required />}
-        htmlFor={`${id}-capacity`}
-        error={errors?.capacity?.message}
-      >
-        <Input
-          id={`${id}-capacity`}
-          type="number"
-          inputMode="numeric"
-          min={2}
-          max={128}
-          {...form.register(categoryField(index, 'capacity'), { valueAsNumber: true })}
-        />
-      </FormField>
-      <FormField
-        label={<FieldLabel text={t.form.price} required />}
-        htmlFor={`${id}-price`}
-        helpText={t.form.priceHint}
-        error={errors?.price?.message}
-      >
-        <MoneyInput
-          id={`${id}-price`}
-          value={form.watch(categoryField(index, 'price'))}
-          onChange={(pesos) => {
-            form.setValue(categoryField(index, 'price'), pesos ?? Number.NaN, { shouldValidate: true });
-          }}
-          placeholder="0"
-        />
-      </FormField>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <FormField
+          label={<FieldLabel text={t.form.capacity} required />}
+          htmlFor={`${id}-capacity`}
+          error={errors?.capacity?.message}
+        >
+          <Input
+            id={`${id}-capacity`}
+            type="number"
+            inputMode="numeric"
+            min={2}
+            max={128}
+            {...form.register(categoryField(index, 'capacity'), { valueAsNumber: true })}
+          />
+        </FormField>
+        <FormField
+          label={<FieldLabel text={t.form.price} required />}
+          htmlFor={`${id}-price`}
+          helpText={t.form.priceHint}
+          error={errors?.price?.message}
+        >
+          <MoneyInput
+            id={`${id}-price`}
+            value={form.watch(categoryField(index, 'price'))}
+            onChange={(pesos) => {
+              form.setValue(categoryField(index, 'price'), pesos ?? Number.NaN, { shouldValidate: true });
+            }}
+            placeholder="0"
+          />
+        </FormField>
+      </div>
       <FormField
         label={<FieldLabel text={t.form.courtFee} required={false} />}
         htmlFor={`${id}-court-fee`}
@@ -114,31 +112,23 @@ function CapacityAndPrice({ form, index }: Pick<Props, 'form' | 'index'>) {
   );
 }
 
-/**
- * One category of the create form, as an accordion item: its header names it
- * ("Categoría 1: 6ta") and its body holds the name, format, capacity, price per
- * pair, court fee, group settings and match format in one column.
- */
-export function CategoryFields({ form, index, canRemove, onRemove }: Props) {
-  const isGroups = form.watch(categoryField(index, 'format')) === 'groups';
-  const name = form.watch(categoryField(index, 'name'));
+/** First view of a category: its name, format, capacity, price per pair and court fee. */
+export function CategoryBasicsFields({ form, index }: Props) {
   return (
-    <AccordionItem value={String(index)}>
-      <AccordionTrigger className="text-text-primary text-sm font-semibold tracking-normal normal-case">
-        {t.form.categoryTitle(index + 1, name)}
-      </AccordionTrigger>
-      <AccordionContent className="space-y-4">
-        <NameAndFormat form={form} index={index} />
-        <CapacityAndPrice form={form} index={index} />
-        {isGroups && <CategoryGroupFields form={form} index={index} />}
-        <CategoryMatchFormatFields form={form} index={index} />
-        {/* The ghost button insets its text by its own padding: pull it back so the text lines up with the fields. */}
-        {canRemove && (
-          <Button type="button" variant="ghost" size="sm" className="-ml-3 rounded-lg" onClick={onRemove}>
-            {t.form.removeCategory}
-          </Button>
-        )}
-      </AccordionContent>
-    </AccordionItem>
+    <>
+      <NameAndFormat form={form} index={index} />
+      <CapacityAndPrice form={form} index={index} />
+    </>
+  );
+}
+
+/** Second view of a category: how it plays. Zone settings only exist for the zones format. */
+export function CategoryPlayFields({ form, index }: Props) {
+  const isGroups = form.watch(categoryField(index, 'format')) === 'groups';
+  return (
+    <>
+      {isGroups && <CategoryGroupFields form={form} index={index} />}
+      <CategoryMatchFormatFields form={form} index={index} />
+    </>
   );
 }

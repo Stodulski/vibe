@@ -41,7 +41,7 @@ export function ResultDialog({ open, onClose, match, pairs, ...rest }: ResultDia
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+      <DialogContent className="sm:max-w-md">
         {open && match && <ResultBody match={match} pairs={pairs} onClose={onClose} {...rest} />}
       </DialogContent>
     </Dialog>

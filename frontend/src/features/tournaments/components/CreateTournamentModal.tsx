@@ -1,4 +1,3 @@
-import { Plus } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -6,14 +5,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/components/common/AppDialog';
-import { SectionFooter } from '@/shared/components/common/SectionFooter';
-import { Accordion } from '@/shared/components/ui/accordion';
-import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { getHttpErrorMessage } from '@/shared/lib/utils';
-import { CategoryFields } from './create-tournament-modal/CategoryFields';
-import { TournamentBasicsFields } from './create-tournament-modal/TournamentBasicsFields';
-import { useCreateTournamentForm } from './create-tournament-modal/useCreateTournamentForm';
+import { CreateTournamentSteps } from './create-tournament-modal/CreateTournamentSteps';
 
 const t = ES_AR.tournaments;
 
@@ -32,61 +25,17 @@ export function CreateTournamentModal({ open, onClose, complexId }: CreateTourna
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-lg">
-        {open && <CreateTournamentBody complexId={complexId} onClose={onClose} />}
+      <DialogContent className="sm:max-w-lg">
+        {open && (
+          <>
+            <DialogHeader>
+              <DialogTitle>{t.form.title}</DialogTitle>
+              <DialogDescription>{t.form.description}</DialogDescription>
+            </DialogHeader>
+            <CreateTournamentSteps complexId={complexId} onClose={onClose} />
+          </>
+        )}
       </DialogContent>
     </Dialog>
-  );
-}
-
-function CreateTournamentBody({ complexId, onClose }: { complexId: string; onClose: () => void }) {
-  const { form, categories, onSubmit, open, setOpen, isPending, error, addCategory, removeCategory } =
-    useCreateTournamentForm(complexId, onClose);
-  const listError = form.formState.errors.categories?.root?.message ?? form.formState.errors.categories?.message;
-
-  return (
-    <>
-      <DialogHeader>
-        <DialogTitle>{t.form.title}</DialogTitle>
-        <DialogDescription>{t.form.description}</DialogDescription>
-      </DialogHeader>
-      <form onSubmit={onSubmit} className="space-y-4" noValidate>
-        <TournamentBasicsFields form={form} />
-        <h3 className="text-text-primary pt-1 text-sm font-semibold">{t.form.categories}</h3>
-        <Accordion
-          type="multiple"
-          value={open}
-          onValueChange={setOpen}
-          className="border-border-subtle rounded-xl border px-3.5"
-        >
-          {categories.fields.map((field, index) => (
-            <CategoryFields
-              key={field.id}
-              form={form}
-              index={index}
-              canRemove={categories.fields.length > 1}
-              onRemove={() => {
-                removeCategory(index);
-              }}
-            />
-          ))}
-        </Accordion>
-        {listError && (
-          <p role="alert" className="text-error-text text-xs">
-            {listError}
-          </p>
-        )}
-        <Button type="button" variant="outline" className="w-full rounded-xl" onClick={addCategory}>
-          <Plus className="size-4" aria-hidden="true" />
-          {t.form.addCategory}
-        </Button>
-        {!!error && (
-          <p role="alert" className="text-error-text text-sm">
-            {getHttpErrorMessage(error, t.form.createError)}
-          </p>
-        )}
-        <SectionFooter onCancel={onClose} cancelDisabled={isPending} submitLabel={t.form.submit} pending={isPending} />
-      </form>
-    </>
   );
 }

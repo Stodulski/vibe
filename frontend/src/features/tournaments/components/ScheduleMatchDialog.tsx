@@ -34,7 +34,7 @@ export function ScheduleMatchDialog({ open, onClose, match, ...rest }: ScheduleM
         if (!v) onClose();
       }}
     >
-      <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+      <DialogContent className="sm:max-w-lg">
         {open && match && <ScheduleBody match={match} onClose={onClose} {...rest} />}
       </DialogContent>
     </Dialog>

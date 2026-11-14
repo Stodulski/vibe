@@ -67,7 +67,7 @@ function GamesAndDuration({ form, index }: Props) {
   const errors = formState.errors.categories?.[index];
   const id = `category-${String(index)}`;
   return (
-    <>
+    <div className="grid gap-4 sm:grid-cols-2">
       <FormField
         label={<FieldLabel text={t.gamesPerSet} required />}
         htmlFor={`${id}-games`}
@@ -97,6 +97,6 @@ function GamesAndDuration({ form, index }: Props) {
           {...register(categoryField(index, 'match_duration_minutes'), { valueAsNumber: true })}
         />
       </FormField>
-    </>
+    </div>
   );
 }
