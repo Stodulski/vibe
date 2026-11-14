@@ -834,6 +834,24 @@ func (s *apiServer) TournamentsDrawMove(w http.ResponseWriter, r *http.Request, 
 	s.app.tournaments.MovePair(w, r)
 }
 
+// TournamentsCategoryCourtFee implements gen.ServerInterface for tournamentsCategoryCourtFee
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsCategoryCourtFee(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.SetCourtFee(w, r)
+}
+
+// TournamentsMatchCourtFeeCharge implements gen.ServerInterface for tournamentsMatchCourtFeeCharge
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchCourtFeeCharge(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID, side gen.TournamentsMatchCourtFeeChargeParamsSide) {
+	s.app.tournaments.ChargeCourtFee(w, r)
+}
+
+// TournamentsMatchCourtFeeUndo implements gen.ServerInterface for tournamentsMatchCourtFeeUndo
+// (DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchCourtFeeUndo(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID, side gen.TournamentsMatchCourtFeeUndoParamsSide) {
+	s.app.tournaments.UndoCourtFee(w, r)
+}
+
 // TournamentsMatchResult implements gen.ServerInterface for tournamentsMatchResult
 // (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) TournamentsMatchResult(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID) {

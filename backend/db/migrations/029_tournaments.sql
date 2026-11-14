@@ -81,6 +81,11 @@ CREATE INDEX idx_open_play_events_tournament ON open_play_events (tournament_id)
 -- applies when sets_to_win = 2) and match_duration_minutes, the court time a
 -- match is given when it is scheduled without one. The defaults are best of
 -- three, 6 games, a match tiebreak and 90 minutes.
+--
+-- court_fee is what each of the two pairs pays for the court of a match, in
+-- centavos, charged at the complex on match day (0 is no fee). The owner can
+-- change it at any time; a charge already recorded (tournament_match_fees)
+-- keeps the amount it was made at.
 CREATE TABLE tournament_categories (
     id                UUID PRIMARY KEY DEFAULT uuidv7(),
     tournament_id     UUID NOT NULL,
@@ -94,6 +99,7 @@ CREATE TABLE tournament_categories (
     games_per_set          INTEGER NOT NULL DEFAULT 6,
     super_tiebreak_decider BOOLEAN NOT NULL DEFAULT TRUE,
     match_duration_minutes INTEGER NOT NULL DEFAULT 90,
+    court_fee              INTEGER NOT NULL DEFAULT 0,
     draw_generated_at TIMESTAMPTZ,
     created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -110,7 +116,8 @@ CREATE TABLE tournament_categories (
     CONSTRAINT tournament_categories_qualifiers_check CHECK (qualifiers_per_group >= 1 AND qualifiers_per_group < group_size),
     CONSTRAINT tournament_categories_sets_to_win_check CHECK (sets_to_win IN (1, 2)),
     CONSTRAINT tournament_categories_games_per_set_check CHECK (games_per_set BETWEEN 4 AND 9),
-    CONSTRAINT tournament_categories_match_duration_check CHECK (match_duration_minutes BETWEEN 30 AND 480)
+    CONSTRAINT tournament_categories_match_duration_check CHECK (match_duration_minutes BETWEEN 30 AND 480),
+    CONSTRAINT tournament_categories_court_fee_check CHECK (court_fee BETWEEN 0 AND 2000000000)
 );
 
 CREATE TRIGGER set_updated_at BEFORE UPDATE ON tournament_categories
@@ -280,6 +287,54 @@ CREATE POLICY tenant_bypass ON tournament_matches
     WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
 
 -- ============================================================================
+-- TOURNAMENT MATCH FEES — the court fee a pair paid at the complex for a match
+-- ============================================================================
+-- One row per (match, side) charged, side 1 or 2 being the match's pair1 / pair2.
+-- The money is not kept here: charging writes an income movement of the complex's
+-- open cash session (category 'tournaments', method cash or transfer), exactly
+-- like a counter sale (see sales), and this row links to it. amount is the fee
+-- at the time of the charge and never changes afterwards.
+--
+-- Undoing a charge is a void of that movement, which is the only place a charge
+-- is reversed: a charge stands while its movement has no void, whether the void
+-- was written by the undo action or on the cash screen, so the two can never
+-- drift. Charging again after a void rewrites the row. Matches are deleted with
+-- the draw, which the store refuses while a charge stands.
+CREATE TABLE tournament_match_fees (
+    id               UUID PRIMARY KEY DEFAULT uuidv7(),
+    complex_id       UUID NOT NULL,
+    match_id         UUID NOT NULL,
+    side             INTEGER NOT NULL,
+    pair_id          UUID NOT NULL,
+    amount           INTEGER NOT NULL,
+    method           payment_method NOT NULL,
+    cash_movement_id UUID NOT NULL,
+    charged_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    charged_by       UUID NOT NULL,
+    CONSTRAINT tournament_match_fees_match_side_key UNIQUE (match_id, side),
+    CONSTRAINT tournament_match_fees_movement_key UNIQUE (cash_movement_id),
+    CONSTRAINT tournament_match_fees_match_fkey
+        FOREIGN KEY (match_id, complex_id) REFERENCES tournament_matches (id, complex_id) ON DELETE CASCADE,
+    CONSTRAINT tournament_match_fees_pair_fkey
+        FOREIGN KEY (pair_id, complex_id) REFERENCES tournament_pairs (id, complex_id),
+    CONSTRAINT tournament_match_fees_movement_fkey
+        FOREIGN KEY (cash_movement_id, complex_id) REFERENCES cash_movements (id, complex_id),
+    CONSTRAINT tournament_match_fees_charged_by_fkey FOREIGN KEY (charged_by) REFERENCES users (id),
+    CONSTRAINT tournament_match_fees_side_check CHECK (side IN (1, 2)),
+    CONSTRAINT tournament_match_fees_amount_check CHECK (amount > 0 AND amount <= 2000000000),
+    CONSTRAINT tournament_match_fees_method_not_online CHECK (method <> 'mercadopago')
+);
+
+ALTER TABLE tournament_match_fees ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tournament_match_fees FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON tournament_match_fees
+    USING (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid)
+    WITH CHECK (complex_id = nullif(current_setting('app.complex_id', true), '')::uuid);
+CREATE POLICY tenant_bypass ON tournament_match_fees
+    USING (current_setting('app.bypass_tenant', true) = 'on')
+    WITH CHECK (current_setting('app.bypass_tenant', true) = 'on');
+
+-- ============================================================================
 -- court_event_occupancy — every hour an event or a scheduled match holds
 -- ============================================================================
 -- Every place that asked open_play_event_occupancy "is this court free then?"
@@ -331,6 +386,8 @@ COMMENT ON FUNCTION court_event_occupancy(uuid, uuid[], date, date) IS
 SET LOCAL lock_timeout = '3s';
 
 DROP FUNCTION court_event_occupancy(uuid, uuid[], date, date);
+-- The income movements the charges wrote stay in the append-only cash ledger.
+DROP TABLE tournament_match_fees;
 DROP TABLE tournament_matches;
 DROP TABLE tournament_pairs;
 DROP TABLE tournament_groups;

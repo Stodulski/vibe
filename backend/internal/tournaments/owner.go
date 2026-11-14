@@ -71,10 +71,12 @@ type CategoryInput struct {
 	// SetsToWin is 2) and MatchDurationMinutes is the court time a match gets
 	// when scheduled without one. Zero, or nil for the bool, means the default
 	// (2, 6, true and 90).
+	// CourtFee is centavos each pair pays per match at the complex; 0 is none.
 	SetsToWin            int
 	GamesPerSet          int
 	SuperTiebreakDecider *bool
 	MatchDurationMinutes int
+	CourtFee             int
 }
 
 // CreateInput is an owner creating a tournament.
@@ -154,6 +156,9 @@ func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]st
 		errs[field("qualifiers_per_group")] = "must be at least 1 and less than the group size"
 	}
 	c.validateMatchFormat(field, errs)
+	if c.CourtFee < 0 || c.CourtFee > MaxPrice {
+		errs[field("court_fee")] = "must be an amount in centavos, 0 for none"
+	}
 }
 
 // validateMatchFormat fills the match format's defaults and refuses a value out
@@ -201,7 +206,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 			Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
 			GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
 			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: *c.SuperTiebreakDecider,
-			MatchDurationMinutes: c.MatchDurationMinutes,
+			MatchDurationMinutes: c.MatchDurationMinutes, CourtFee: c.CourtFee,
 		}
 	}
 	if err := s.store.Create(ctx, t, cats); err != nil {
@@ -386,6 +391,8 @@ func drawError(err error) error {
 		return &ValidationError{Errors: map[string]string{"group_size": "the paid pairs cannot be split into groups with the category's group size and qualifiers"}}
 	case errors.Is(err, tournamentstore.ErrHasResults):
 		return &ConflictError{Message: "a result was already loaded, the draw can no longer change"}
+	case errors.Is(err, tournamentstore.ErrHasCharges):
+		return &ConflictError{Message: "a court fee was already charged, undo it before changing the draw"}
 	case errors.Is(err, tournamentstore.ErrNoDraw):
 		return &StateError{Message: "the draw was not generated yet"}
 	case errors.Is(err, tournamentstore.ErrUnknownPair):

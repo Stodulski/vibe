@@ -36,9 +36,9 @@ RETURNING *;
 -- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
     tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
-    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING *;
 
 -- name: GetTournamentCategory :one
@@ -235,3 +235,44 @@ SELECT * FROM tournament_pairs WHERE group_id = $1 ORDER BY seed, id;
 
 -- name: ListCategoryPairs :many
 SELECT * FROM tournament_pairs WHERE category_id = $1 ORDER BY seed NULLS LAST, id;
+
+-- name: SetCategoryCourtFee :exec
+-- The fee a pair pays per match, in centavos (0 is none). A charge already
+-- recorded keeps its own amount.
+UPDATE tournament_categories SET court_fee = $2 WHERE id = $1;
+
+-- name: ListTournamentMatchFees :many
+-- The court fees that stand in a tournament: a charge whose income movement has
+-- not been voided. A voided one reads as not charged.
+SELECT f.*
+FROM tournament_match_fees f
+JOIN tournament_matches m ON m.id = f.match_id
+JOIN tournament_categories c ON c.id = m.category_id
+WHERE c.tournament_id = $1
+  AND NOT EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id)
+ORDER BY f.match_id, f.side;
+
+-- name: GetMatchFeeForUpdate :one
+-- The row of a (match, side) with whether its charge was voided. Locked: the
+-- caller holds the category lock, this keeps the row put while it is rewritten.
+SELECT f.*,
+       EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id) AS voided
+FROM tournament_match_fees f
+WHERE f.match_id = $1 AND f.side = $2
+FOR UPDATE OF f;
+
+-- name: UpsertMatchFee :one
+-- Records a charge; after a void it rewrites the row of the voided one.
+INSERT INTO tournament_match_fees (complex_id, match_id, side, pair_id, amount, method, cash_movement_id, charged_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (match_id, side) DO UPDATE
+SET pair_id = EXCLUDED.pair_id, amount = EXCLUDED.amount, method = EXCLUDED.method,
+    cash_movement_id = EXCLUDED.cash_movement_id, charged_by = EXCLUDED.charged_by, charged_at = NOW()
+RETURNING *;
+
+-- name: CountCategoryLiveFees :one
+-- The charges that stand in a category; a draw change is refused while there are any.
+SELECT count(*)::int FROM tournament_match_fees f
+JOIN tournament_matches m ON m.id = f.match_id
+WHERE m.category_id = $1
+  AND NOT EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id);

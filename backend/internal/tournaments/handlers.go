@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -108,15 +109,16 @@ func (h *Handler) courtNames(ctx context.Context, complexID uuid.UUID) map[uuid.
 	return out
 }
 
-// ownerDetail is a tournament with everything the owner sees.
-func (h *Handler) ownerDetail(ctx context.Context, complexID uuid.UUID, d *tournamentstore.Detail) wireDetail {
+// ownerDetail is a tournament with everything the owner sees, the court fees
+// included.
+func (h *Handler) ownerDetail(ctx context.Context, complexID uuid.UUID, d *tournamentstore.Detail) wireOwnerDetail {
 	pairs := make([]wireOwnerPair, len(d.Pairs))
 	for i, p := range d.Pairs {
 		pairs[i] = toWireOwnerPair(p)
 	}
-	return wireDetail{
-		Tournament: toWireTournament(&d.Tournament), Categories: toWireCategories(d.Categories, nil), Pairs: pairs,
-		Groups: toWireGroups(d), Matches: toWireMatches(d.Matches, h.courtNames(ctx, complexID)),
+	return wireOwnerDetail{
+		Tournament: toWireTournament(&d.Tournament), Categories: toWireOwnerCategories(d.Categories), Pairs: pairs,
+		Groups: toWireGroups(d), Matches: toWireOwnerMatches(d, h.courtNames(ctx, complexID)),
 	}
 }
 
@@ -161,6 +163,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 			GamesPerSet          int    `json:"games_per_set"`
 			SuperTiebreakDecider *bool  `json:"super_tiebreak_decider"`
 			MatchDurationMinutes int    `json:"match_duration_minutes"`
+			CourtFee             int    `json:"court_fee"`
 		} `json:"categories"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
@@ -207,9 +210,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		h.refuse(w, r, err)
 		return
 	}
-	out := make([]wireSummary, len(sums))
+	out := make([]wireOwnerSummary, len(sums))
 	for i, s := range sums {
-		out[i] = wireSummary{toWireTournament(s.Tournament), toWireCategories(s.Categories, nil)}
+		out[i] = wireOwnerSummary{toWireTournament(s.Tournament), toWireOwnerCategories(s.Categories)}
 	}
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"tournaments": out})
 }
@@ -439,6 +442,92 @@ func (h *Handler) SetResult(w http.ResponseWriter, r *http.Request) {
 		in.Sets = append(in.Sets, drawSet(s))
 	}
 	d, err := h.svc.SetResult(r.Context(), complex.Complex, h.actor(r), ids[0], ids[1], in)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, envelopeOf(h.ownerDetail(r.Context(), complex.ID, d)))
+}
+
+// SetCourtFee handles PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee.
+func (h *Handler) SetCourtFee(w http.ResponseWriter, r *http.Request) {
+	complex, ok := h.complex(w, r)
+	if !ok {
+		return
+	}
+	ids, ok := h.ids(w, r, "tournamentID", "categoryID")
+	if !ok {
+		return
+	}
+	var input struct {
+		CourtFee int `json:"court_fee"`
+	}
+	if err := httpx.ReadJSON(w, r, &input); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+	d, err := h.svc.SetCourtFee(r.Context(), complex.Complex, h.actor(r), ids[0], ids[1], input.CourtFee)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, envelopeOf(h.ownerDetail(r.Context(), complex.ID, d)))
+}
+
+// side reads the {side} path parameter, 1 or 2, answering 404 for anything else.
+func (h *Handler) side(w http.ResponseWriter, r *http.Request) (int, bool) {
+	side, err := strconv.Atoi(r.PathValue("side"))
+	if err != nil || (side != 1 && side != 2) {
+		h.respond.NotFound(w, r)
+		return 0, false
+	}
+	return side, true
+}
+
+// ChargeCourtFee handles PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}.
+func (h *Handler) ChargeCourtFee(w http.ResponseWriter, r *http.Request) {
+	complex, ok := h.complex(w, r)
+	if !ok {
+		return
+	}
+	ids, ok := h.ids(w, r, "tournamentID", "matchID")
+	if !ok {
+		return
+	}
+	side, ok := h.side(w, r)
+	if !ok {
+		return
+	}
+	var input struct {
+		Method string `json:"method"`
+	}
+	if err := httpx.ReadJSON(w, r, &input); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return
+	}
+	d, err := h.svc.ChargeCourtFee(r.Context(), complex.Complex, h.actor(r), ids[0], ids[1], side, input.Method)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, envelopeOf(h.ownerDetail(r.Context(), complex.ID, d)))
+}
+
+// UndoCourtFee handles DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}.
+func (h *Handler) UndoCourtFee(w http.ResponseWriter, r *http.Request) {
+	complex, ok := h.complex(w, r)
+	if !ok {
+		return
+	}
+	ids, ok := h.ids(w, r, "tournamentID", "matchID")
+	if !ok {
+		return
+	}
+	side, ok := h.side(w, r)
+	if !ok {
+		return
+	}
+	d, err := h.svc.UndoCourtFee(r.Context(), complex.Complex, h.actor(r), ids[0], ids[1], side)
 	if err != nil {
 		h.refuse(w, r, err)
 		return

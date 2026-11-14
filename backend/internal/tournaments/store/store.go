@@ -66,6 +66,21 @@ var (
 	ErrNotPair = errors.New("the registration is not a tournament pair")
 	// ErrNotActive is returned when cancelling something already cancelled.
 	ErrNotActive = errors.New("already cancelled")
+	// ErrNoCourtFee is returned when a court fee is charged in a category that has none.
+	ErrNoCourtFee = errors.New("the category has no court fee")
+	// ErrNotChargeable is returned for a side that owes no court fee: a bye, a
+	// walkover, or a side whose pair is not known yet.
+	ErrNotChargeable = errors.New("this pair owes no court fee for the match")
+	// ErrFeeCharged is returned when the pair was already charged for the match.
+	ErrFeeCharged = errors.New("the court fee was already charged")
+	// ErrFeeNotCharged is returned when undoing a charge that does not stand.
+	ErrFeeNotCharged = errors.New("the court fee was not charged")
+	// ErrNoOpenCashSession is returned when a charge or its undo has no open cash
+	// session to land in.
+	ErrNoOpenCashSession = errors.New("no cash session is open")
+	// ErrHasCharges is returned when a draw change is asked while a court fee
+	// charge stands: it belongs to the pair that was in the match.
+	ErrHasCharges = errors.New("a court fee was already charged")
 )
 
 // Tournament is a tournament of a complex.
@@ -100,7 +115,10 @@ type Category struct {
 	GamesPerSet          int
 	SuperTiebreakDecider bool
 	MatchDurationMinutes int
-	DrawGeneratedAt      *time.Time
+	// CourtFee is centavos each pair pays per match, charged at the complex;
+	// 0 is none.
+	CourtFee        int
+	DrawGeneratedAt *time.Time
 	// Capacity is pairs; Price is centavos per pair.
 	Capacity       int
 	Price          int
@@ -225,6 +243,30 @@ type Detail struct {
 	Pairs      []*PairRow
 	Groups     []*Group
 	Matches    []*Match
+	// Fees are the court fee charges that stand.
+	Fees []*MatchFee
+}
+
+// MatchFee is a court fee a pair paid at the complex for a match. Side is 1 or
+// 2, the match's pair1 or pair2; Amount is what it was charged at.
+type MatchFee struct {
+	ID             uuid.UUID
+	MatchID        uuid.UUID
+	Side           int
+	PairID         uuid.UUID
+	Amount         int
+	Method         string
+	CashMovementID uuid.UUID
+	ChargedAt      time.Time
+	ChargedBy      uuid.UUID
+}
+
+func matchFeeFromDB(f db.TournamentMatchFee) *MatchFee {
+	return &MatchFee{
+		ID: data.PgToUUID(f.ID), MatchID: data.PgToUUID(f.MatchID), Side: int(f.Side), PairID: data.PgToUUID(f.PairID),
+		Amount: int(f.Amount), Method: string(f.Method), CashMovementID: data.PgToUUID(f.CashMovementID),
+		ChargedAt: data.PgToTime(f.ChargedAt), ChargedBy: data.PgToUUID(f.ChargedBy),
+	}
 }
 
 // Outcome is the figures of a played match of the given format, from its stored
@@ -255,8 +297,8 @@ func categoryFromRow(r db.ListTournamentCategoriesRow) *Category {
 		EventID: data.PgToUUID(r.EventID), Name: r.Name, Format: r.Format,
 		GroupSize: int(r.GroupSize), QualifiersPerGroup: int(r.QualifiersPerGroup),
 		SetsToWin: int(r.SetsToWin), GamesPerSet: int(r.GamesPerSet), SuperTiebreakDecider: r.SuperTiebreakDecider,
-		MatchDurationMinutes: int(r.MatchDurationMinutes),
-		DrawGeneratedAt:      data.PgToTimePtr(r.DrawGeneratedAt), Capacity: int(r.Capacity), Price: int(r.Price),
+		MatchDurationMinutes: int(r.MatchDurationMinutes), CourtFee: int(r.CourtFee),
+		DrawGeneratedAt: data.PgToTimePtr(r.DrawGeneratedAt), Capacity: int(r.Capacity), Price: int(r.Price),
 		Cancelled: r.EventStatus != "active", ConfirmedCount: int(r.ConfirmedCount), HeldCount: int(r.HeldCount),
 	}
 }

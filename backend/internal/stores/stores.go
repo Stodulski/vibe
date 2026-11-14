@@ -676,6 +676,11 @@ type TournamentWriter interface {
 	WithdrawPair(ctx context.Context, registrationID uuid.UUID) error
 	Schedule(ctx context.Context, in tournamentstore.ScheduleInput) (*tournamentstore.Match, error)
 	Unschedule(ctx context.Context, matchID uuid.UUID) (*tournamentstore.Match, error)
+	// SetCourtFee changes what each pair pays per match; ChargeCourtFee and
+	// UndoCourtFee collect and take back that fee at the complex, through the cash.
+	SetCourtFee(ctx context.Context, categoryID uuid.UUID, fee int) error
+	ChargeCourtFee(ctx context.Context, in tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error)
+	UndoCourtFee(ctx context.Context, matchID uuid.UUID, side int, by uuid.UUID) error
 	// PairHooks is what a pair's sign-up adds to the event sign-up.
 	PairHooks(payerPhone string, partner tournamentstore.Player) *eventstore.SignUpHooks
 }

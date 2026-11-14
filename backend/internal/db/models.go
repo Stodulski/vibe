@@ -927,6 +927,7 @@ type TournamentCategory struct {
 	GamesPerSet          int32              `json:"games_per_set"`
 	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
 	MatchDurationMinutes int32              `json:"match_duration_minutes"`
+	CourtFee             int32              `json:"court_fee"`
 	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -968,6 +969,19 @@ type TournamentMatch struct {
 	DurationMinutes pgtype.Int4        `json:"duration_minutes"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TournamentMatchFee struct {
+	ID             pgtype.UUID        `json:"id"`
+	ComplexID      pgtype.UUID        `json:"complex_id"`
+	MatchID        pgtype.UUID        `json:"match_id"`
+	Side           int32              `json:"side"`
+	PairID         pgtype.UUID        `json:"pair_id"`
+	Amount         int32              `json:"amount"`
+	Method         PaymentMethod      `json:"method"`
+	CashMovementID pgtype.UUID        `json:"cash_movement_id"`
+	ChargedAt      pgtype.Timestamptz `json:"charged_at"`
+	ChargedBy      pgtype.UUID        `json:"charged_by"`
 }
 
 type TournamentPair struct {

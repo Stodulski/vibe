@@ -66,6 +66,8 @@ type Querier interface {
 	// arrives late, while the event has room (the caller checks, under the event
 	// lock).
 	ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUID) (OpenPlayRegistration, error)
+	// The charges that stand in a category; a draw change is refused while there are any.
+	CountCategoryLiveFees(ctx context.Context, categoryID pgtype.UUID) (int32, error)
 	// Matches of a category that were played (a bye is not a result).
 	CountCategoryResults(ctx context.Context, categoryID pgtype.UUID) (int32, error)
 	// The spots of an event that are not free: registrations paid for, and holds
@@ -264,6 +266,9 @@ type Querier interface {
 	// public. Runs under the cross-tenant bypass of the public route.
 	GetGoneComplexBySlug(ctx context.Context, slug string) (GetGoneComplexBySlugRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
+	// The row of a (match, side) with whether its charge was voided. Locked: the
+	// caller holds the category lock, this keeps the row put while it is rewritten.
+	GetMatchFeeForUpdate(ctx context.Context, arg GetMatchFeeForUpdateParams) (GetMatchFeeForUpdateRow, error)
 	// Kept for backwards compatibility with generated code. No longer used by business logic.
 	GetNextBookingByClientPhone(ctx context.Context) (Booking, error)
 	// The read-only "current session" lookup — GET /current — never locks.
@@ -504,6 +509,9 @@ type Querier interface {
 	ListTournamentCategories(ctx context.Context, tournamentID pgtype.UUID) ([]ListTournamentCategoriesRow, error)
 	ListTournamentGroups(ctx context.Context, categoryID pgtype.UUID) ([]TournamentGroup, error)
 	ListTournamentGroupsByTournament(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentGroup, error)
+	// The court fees that stand in a tournament: a charge whose income movement has
+	// not been voided. A voided one reads as not charged.
+	ListTournamentMatchFees(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatchFee, error)
 	// Every match of every category of a tournament, bracket after group stage.
 	ListTournamentMatches(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatch, error)
 	// Every pair of a tournament with its registration (the payer, the state of the
@@ -562,6 +570,9 @@ type Querier interface {
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error
 	ScheduleMatch(ctx context.Context, arg ScheduleMatchParams) error
+	// The fee a pair pays per match, in centavos (0 is none). A charge already
+	// recorded keeps its own amount.
+	SetCategoryCourtFee(ctx context.Context, arg SetCategoryCourtFeeParams) error
 	// Records that the draw exists, which closes sign-up for good.
 	SetCategoryDraw(ctx context.Context, id pgtype.UUID) error
 	SetEmailVerified(ctx context.Context, id pgtype.UUID) error
@@ -651,6 +662,8 @@ type Querier interface {
 	// that column's own comment in db/migrations/004_pos_catalog_stock.sql.
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (Product, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	// Records a charge; after a void it rewrites the row of the voided one.
+	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)
 	// A repeat capture refreshes the names it has and keeps the ones it does not:
 	// a later capture with an empty field never erases an earlier, fuller one.
 	UpsertRegistrationLead(ctx context.Context, arg UpsertRegistrationLeadParams) error

@@ -293,3 +293,95 @@ func toWireMatches(ms []*tournamentstore.Match, courts map[uuid.UUID]string) []w
 	}
 	return out
 }
+
+// The owner's views carry the court fee, which a visitor never sees: they wrap
+// the shared category and match so the public wire stays as it was.
+
+type wireOwnerCategory struct {
+	wireCategory
+	// CourtFee is centavos each pair pays per match at the complex; 0 is none.
+	CourtFee int `json:"court_fee"`
+}
+
+// wireCourtFeeSide is what one pair of a match owes or paid for the court. While
+// uncharged Amount is the category's current fee; once charged it is what the
+// charge was made at.
+type wireCourtFeeSide struct {
+	Side       int        `json:"side"`
+	Chargeable bool       `json:"chargeable"`
+	Amount     int        `json:"amount"`
+	Charged    bool       `json:"charged"`
+	Method     *string    `json:"method"`
+	ChargedAt  *time.Time `json:"charged_at"`
+	ChargedBy  *uuid.UUID `json:"charged_by"`
+}
+
+type wireOwnerMatch struct {
+	wireMatch
+	CourtFee []wireCourtFeeSide `json:"court_fee"`
+}
+
+type wireOwnerDetail struct {
+	Tournament wireTournament      `json:"tournament"`
+	Categories []wireOwnerCategory `json:"categories"`
+	Pairs      any                 `json:"pairs"`
+	Groups     []wireGroup         `json:"groups"`
+	Matches    []wireOwnerMatch    `json:"matches"`
+}
+
+type wireOwnerSummary struct {
+	wireTournament
+	Categories []wireOwnerCategory `json:"categories"`
+}
+
+func toWireOwnerCategories(cats []*tournamentstore.Category) []wireOwnerCategory {
+	out := make([]wireOwnerCategory, len(cats))
+	for i, c := range cats {
+		out[i] = wireOwnerCategory{wireCategory: toWireCategory(c, nil), CourtFee: c.CourtFee}
+	}
+	return out
+}
+
+// toWireOwnerMatches maps the matches with what each pair owes for the court.
+func toWireOwnerMatches(d *tournamentstore.Detail, courts map[uuid.UUID]string) []wireOwnerMatch {
+	fees := map[uuid.UUID]map[int]*tournamentstore.MatchFee{}
+	for _, f := range d.Fees {
+		if fees[f.MatchID] == nil {
+			fees[f.MatchID] = map[int]*tournamentstore.MatchFee{}
+		}
+		fees[f.MatchID][f.Side] = f
+	}
+	current := map[uuid.UUID]*tournamentstore.Category{}
+	for _, c := range d.Categories {
+		current[c.ID] = c
+	}
+	out := make([]wireOwnerMatch, len(d.Matches))
+	for i, m := range d.Matches {
+		out[i] = wireOwnerMatch{wireMatch: toWireMatch(m, courts), CourtFee: courtFeeSides(m, current[m.CategoryID], fees[m.ID], d.Tournament.Status)}
+	}
+	return out
+}
+
+// courtFeeSides is the court fee of both sides of a match. A side is chargeable
+// while its pair is known, the match is played (not a bye, not a walkover), the
+// category has a fee and neither it nor the tournament was cancelled.
+func courtFeeSides(m *tournamentstore.Match, cat *tournamentstore.Category, charged map[int]*tournamentstore.MatchFee, tournamentStatus string) []wireCourtFeeSide {
+	due := 0
+	live := tournamentStatus == tournamentstore.StatusActive
+	if cat != nil {
+		due, live = cat.CourtFee, live && !cat.Cancelled
+	}
+	played := !m.Bye && m.WalkoverLoser == 0
+	pairs := [2]*uuid.UUID{m.Pair1ID, m.Pair2ID}
+	out := make([]wireCourtFeeSide, 2)
+	for i := range out {
+		side := i + 1
+		out[i] = wireCourtFeeSide{Side: side, Amount: due, Chargeable: live && played && due > 0 && pairs[i] != nil}
+		if f := charged[side]; f != nil {
+			method, at, by := f.Method, f.ChargedAt, f.ChargedBy
+			out[i].Charged, out[i].Amount, out[i].Chargeable = true, f.Amount, false
+			out[i].Method, out[i].ChargedAt, out[i].ChargedBy = &method, &at, &by
+		}
+	}
+	return out
+}

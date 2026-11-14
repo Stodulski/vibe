@@ -54,6 +54,21 @@ func (q *Queries) ClearPairPlacements(ctx context.Context, categoryID pgtype.UUI
 	return err
 }
 
+const countCategoryLiveFees = `-- name: CountCategoryLiveFees :one
+SELECT count(*)::int FROM tournament_match_fees f
+JOIN tournament_matches m ON m.id = f.match_id
+WHERE m.category_id = $1
+  AND NOT EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id)
+`
+
+// The charges that stand in a category; a draw change is refused while there are any.
+func (q *Queries) CountCategoryLiveFees(ctx context.Context, categoryID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countCategoryLiveFees, categoryID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const countCategoryResults = `-- name: CountCategoryResults :one
 SELECT count(*)::int FROM tournament_matches
 WHERE category_id = $1 AND status = 'completed' AND NOT bye
@@ -83,6 +98,54 @@ DELETE FROM tournament_matches WHERE category_id = $1
 func (q *Queries) DeleteTournamentMatches(ctx context.Context, categoryID pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, deleteTournamentMatches, categoryID)
 	return err
+}
+
+const getMatchFeeForUpdate = `-- name: GetMatchFeeForUpdate :one
+SELECT f.id, f.complex_id, f.match_id, f.side, f.pair_id, f.amount, f.method, f.cash_movement_id, f.charged_at, f.charged_by,
+       EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id) AS voided
+FROM tournament_match_fees f
+WHERE f.match_id = $1 AND f.side = $2
+FOR UPDATE OF f
+`
+
+type GetMatchFeeForUpdateParams struct {
+	MatchID pgtype.UUID `json:"match_id"`
+	Side    int32       `json:"side"`
+}
+
+type GetMatchFeeForUpdateRow struct {
+	ID             pgtype.UUID        `json:"id"`
+	ComplexID      pgtype.UUID        `json:"complex_id"`
+	MatchID        pgtype.UUID        `json:"match_id"`
+	Side           int32              `json:"side"`
+	PairID         pgtype.UUID        `json:"pair_id"`
+	Amount         int32              `json:"amount"`
+	Method         PaymentMethod      `json:"method"`
+	CashMovementID pgtype.UUID        `json:"cash_movement_id"`
+	ChargedAt      pgtype.Timestamptz `json:"charged_at"`
+	ChargedBy      pgtype.UUID        `json:"charged_by"`
+	Voided         bool               `json:"voided"`
+}
+
+// The row of a (match, side) with whether its charge was voided. Locked: the
+// caller holds the category lock, this keeps the row put while it is rewritten.
+func (q *Queries) GetMatchFeeForUpdate(ctx context.Context, arg GetMatchFeeForUpdateParams) (GetMatchFeeForUpdateRow, error) {
+	row := q.db.QueryRow(ctx, getMatchFeeForUpdate, arg.MatchID, arg.Side)
+	var i GetMatchFeeForUpdateRow
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.MatchID,
+		&i.Side,
+		&i.PairID,
+		&i.Amount,
+		&i.Method,
+		&i.CashMovementID,
+		&i.ChargedAt,
+		&i.ChargedBy,
+		&i.Voided,
+	)
+	return i, err
 }
 
 const getTournament = `-- name: GetTournament :one
@@ -121,7 +184,7 @@ func (q *Queries) GetTournament(ctx context.Context, arg GetTournamentParams) (T
 }
 
 const getTournamentCategory = `-- name: GetTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -148,6 +211,7 @@ func (q *Queries) GetTournamentCategory(ctx context.Context, arg GetTournamentCa
 		&i.GamesPerSet,
 		&i.SuperTiebreakDecider,
 		&i.MatchDurationMinutes,
+		&i.CourtFee,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -156,7 +220,7 @@ func (q *Queries) GetTournamentCategory(ctx context.Context, arg GetTournamentCa
 }
 
 const getTournamentCategoryByEvent = `-- name: GetTournamentCategoryByEvent :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE event_id = $1
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE event_id = $1
 `
 
 func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgtype.UUID) (TournamentCategory, error) {
@@ -175,6 +239,7 @@ func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgty
 		&i.GamesPerSet,
 		&i.SuperTiebreakDecider,
 		&i.MatchDurationMinutes,
+		&i.CourtFee,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -319,10 +384,10 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 const insertTournamentCategory = `-- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
     tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
-    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at
 `
 
 type InsertTournamentCategoryParams struct {
@@ -337,6 +402,7 @@ type InsertTournamentCategoryParams struct {
 	GamesPerSet          int32       `json:"games_per_set"`
 	SuperTiebreakDecider bool        `json:"super_tiebreak_decider"`
 	MatchDurationMinutes int32       `json:"match_duration_minutes"`
+	CourtFee             int32       `json:"court_fee"`
 }
 
 func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTournamentCategoryParams) (TournamentCategory, error) {
@@ -352,6 +418,7 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		arg.GamesPerSet,
 		arg.SuperTiebreakDecider,
 		arg.MatchDurationMinutes,
+		arg.CourtFee,
 	)
 	var i TournamentCategory
 	err := row.Scan(
@@ -367,6 +434,7 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		&i.GamesPerSet,
 		&i.SuperTiebreakDecider,
 		&i.MatchDurationMinutes,
+		&i.CourtFee,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -706,7 +774,7 @@ func (q *Queries) ListPairsOfGroup(ctx context.Context, groupID pgtype.UUID) ([]
 }
 
 const listTournamentCategories = `-- name: ListTournamentCategories :many
-SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.sets_to_win, c.games_per_set, c.super_tiebreak_decider, c.match_duration_minutes, c.draw_generated_at, c.created_at, c.updated_at,
+SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.sets_to_win, c.games_per_set, c.super_tiebreak_decider, c.match_duration_minutes, c.court_fee, c.draw_generated_at, c.created_at, c.updated_at,
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
@@ -733,6 +801,7 @@ type ListTournamentCategoriesRow struct {
 	GamesPerSet          int32              `json:"games_per_set"`
 	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
 	MatchDurationMinutes int32              `json:"match_duration_minutes"`
+	CourtFee             int32              `json:"court_fee"`
 	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
@@ -768,6 +837,7 @@ func (q *Queries) ListTournamentCategories(ctx context.Context, tournamentID pgt
 			&i.GamesPerSet,
 			&i.SuperTiebreakDecider,
 			&i.MatchDurationMinutes,
+			&i.CourtFee,
 			&i.DrawGeneratedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
@@ -839,6 +909,49 @@ func (q *Queries) ListTournamentGroupsByTournament(ctx context.Context, tourname
 			&i.ComplexID,
 			&i.Name,
 			&i.Position,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTournamentMatchFees = `-- name: ListTournamentMatchFees :many
+SELECT f.id, f.complex_id, f.match_id, f.side, f.pair_id, f.amount, f.method, f.cash_movement_id, f.charged_at, f.charged_by
+FROM tournament_match_fees f
+JOIN tournament_matches m ON m.id = f.match_id
+JOIN tournament_categories c ON c.id = m.category_id
+WHERE c.tournament_id = $1
+  AND NOT EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id)
+ORDER BY f.match_id, f.side
+`
+
+// The court fees that stand in a tournament: a charge whose income movement has
+// not been voided. A voided one reads as not charged.
+func (q *Queries) ListTournamentMatchFees(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatchFee, error) {
+	rows, err := q.db.Query(ctx, listTournamentMatchFees, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TournamentMatchFee
+	for rows.Next() {
+		var i TournamentMatchFee
+		if err := rows.Scan(
+			&i.ID,
+			&i.ComplexID,
+			&i.MatchID,
+			&i.Side,
+			&i.PairID,
+			&i.Amount,
+			&i.Method,
+			&i.CashMovementID,
+			&i.ChargedAt,
+			&i.ChargedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -1108,7 +1221,7 @@ func (q *Queries) LockTournament(ctx context.Context, id pgtype.UUID) (Tournamen
 }
 
 const lockTournamentCategory = `-- name: LockTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE id = $1 FOR UPDATE
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE id = $1 FOR UPDATE
 `
 
 // Every change to a category's draw, matches or results takes this lock first,
@@ -1129,6 +1242,7 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 		&i.GamesPerSet,
 		&i.SuperTiebreakDecider,
 		&i.MatchDurationMinutes,
+		&i.CourtFee,
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
@@ -1183,6 +1297,22 @@ func (q *Queries) ScheduleMatch(ctx context.Context, arg ScheduleMatchParams) er
 		arg.StartTime,
 		arg.DurationMinutes,
 	)
+	return err
+}
+
+const setCategoryCourtFee = `-- name: SetCategoryCourtFee :exec
+UPDATE tournament_categories SET court_fee = $2 WHERE id = $1
+`
+
+type SetCategoryCourtFeeParams struct {
+	ID       pgtype.UUID `json:"id"`
+	CourtFee int32       `json:"court_fee"`
+}
+
+// The fee a pair pays per match, in centavos (0 is none). A charge already
+// recorded keeps its own amount.
+func (q *Queries) SetCategoryCourtFee(ctx context.Context, arg SetCategoryCourtFeeParams) error {
+	_, err := q.db.Exec(ctx, setCategoryCourtFee, arg.ID, arg.CourtFee)
 	return err
 }
 
@@ -1296,6 +1426,54 @@ WHERE id = $1
 func (q *Queries) UnscheduleMatch(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, unscheduleMatch, id)
 	return err
+}
+
+const upsertMatchFee = `-- name: UpsertMatchFee :one
+INSERT INTO tournament_match_fees (complex_id, match_id, side, pair_id, amount, method, cash_movement_id, charged_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+ON CONFLICT (match_id, side) DO UPDATE
+SET pair_id = EXCLUDED.pair_id, amount = EXCLUDED.amount, method = EXCLUDED.method,
+    cash_movement_id = EXCLUDED.cash_movement_id, charged_by = EXCLUDED.charged_by, charged_at = NOW()
+RETURNING id, complex_id, match_id, side, pair_id, amount, method, cash_movement_id, charged_at, charged_by
+`
+
+type UpsertMatchFeeParams struct {
+	ComplexID      pgtype.UUID   `json:"complex_id"`
+	MatchID        pgtype.UUID   `json:"match_id"`
+	Side           int32         `json:"side"`
+	PairID         pgtype.UUID   `json:"pair_id"`
+	Amount         int32         `json:"amount"`
+	Method         PaymentMethod `json:"method"`
+	CashMovementID pgtype.UUID   `json:"cash_movement_id"`
+	ChargedBy      pgtype.UUID   `json:"charged_by"`
+}
+
+// Records a charge; after a void it rewrites the row of the voided one.
+func (q *Queries) UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error) {
+	row := q.db.QueryRow(ctx, upsertMatchFee,
+		arg.ComplexID,
+		arg.MatchID,
+		arg.Side,
+		arg.PairID,
+		arg.Amount,
+		arg.Method,
+		arg.CashMovementID,
+		arg.ChargedBy,
+	)
+	var i TournamentMatchFee
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.MatchID,
+		&i.Side,
+		&i.PairID,
+		&i.Amount,
+		&i.Method,
+		&i.CashMovementID,
+		&i.ChargedAt,
+		&i.ChargedBy,
+	)
+	return i, err
 }
 
 const withdrawTournamentPair = `-- name: WithdrawTournamentPair :one

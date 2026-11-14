@@ -33,6 +33,10 @@ type stubStore struct {
 	results     []tournamentstore.ResultInput
 	hooksFor    []string
 	drawn       bool
+	feeErr      error
+	feeSet      []int
+	charges     []tournamentstore.ChargeInput
+	undone      []int
 }
 
 func (s *stubStore) Create(_ context.Context, t *tournamentstore.Tournament, cats []tournamentstore.NewCategory) error {
@@ -44,7 +48,7 @@ func (s *stubStore) Create(_ context.Context, t *tournamentstore.Tournament, cat
 			ID: uuid.New(), TournamentID: t.ID, ComplexID: t.ComplexID, EventID: uuid.New(), Name: c.Name, Format: c.Format,
 			Capacity: c.Capacity, Price: c.Price, GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
 			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: c.SuperTiebreakDecider,
-			MatchDurationMinutes: c.MatchDurationMinutes,
+			MatchDurationMinutes: c.MatchDurationMinutes, CourtFee: c.CourtFee,
 		})
 	}
 	return nil
@@ -118,6 +122,29 @@ func (s *stubStore) SetResult(_ context.Context, in tournamentstore.ResultInput)
 }
 
 func (s *stubStore) WithdrawPair(context.Context, uuid.UUID) error { return nil }
+
+func (s *stubStore) SetCourtFee(_ context.Context, categoryID uuid.UUID, fee int) error {
+	s.feeSet = append(s.feeSet, fee)
+	for _, c := range s.detail.Categories {
+		if c.ID == categoryID && s.feeErr == nil {
+			c.CourtFee = fee
+		}
+	}
+	return s.feeErr
+}
+
+func (s *stubStore) ChargeCourtFee(_ context.Context, in tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error) {
+	s.charges = append(s.charges, in)
+	if s.feeErr != nil {
+		return nil, s.feeErr
+	}
+	return &tournamentstore.MatchFee{ID: uuid.New(), MatchID: in.MatchID, Side: in.Side, Method: in.Method, Amount: 1}, nil
+}
+
+func (s *stubStore) UndoCourtFee(_ context.Context, _ uuid.UUID, side int, _ uuid.UUID) error {
+	s.undone = append(s.undone, side)
+	return s.feeErr
+}
 
 func (s *stubStore) Schedule(_ context.Context, in tournamentstore.ScheduleInput) (*tournamentstore.Match, error) {
 	s.scheduled = append(s.scheduled, in)

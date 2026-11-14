@@ -40,6 +40,9 @@ func (m *Store) GenerateDraw(ctx context.Context, in DrawInput) error {
 		if results > 0 {
 			return ErrHasResults
 		}
+		if err := e.noLiveFees(cat.ID); err != nil {
+			return err
+		}
 		pairs, err := e.q.ListDrawablePairs(e.ctx, cat.ID)
 		if err != nil {
 			return fmt.Errorf("tournaments: list pairs: %w", err)
@@ -261,6 +264,9 @@ func (m *Store) MovePair(ctx context.Context, categoryID, pairA, pairB uuid.UUID
 		if results > 0 {
 			return ErrHasResults
 		}
+		if err := e.noLiveFees(cat.ID); err != nil {
+			return err
+		}
 		a, err := e.drawnPair(cat, pairA)
 		if err != nil {
 			return err
@@ -347,6 +353,18 @@ func (e *engine) reapplyByes(categoryID pgtype.UUID) error {
 				return err
 			}
 		}
+	}
+	return nil
+}
+
+// noLiveFees refuses a draw change while a court fee charge stands in the category.
+func (e *engine) noLiveFees(categoryID pgtype.UUID) error {
+	n, err := e.q.CountCategoryLiveFees(e.ctx, categoryID)
+	if err != nil {
+		return fmt.Errorf("tournaments: count court fees: %w", err)
+	}
+	if n > 0 {
+		return ErrHasCharges
 	}
 	return nil
 }

@@ -117,3 +117,13 @@ func (m *mockTournamentStore) Unschedule(context.Context, uuid.UUID) (*tournamen
 func (m *mockTournamentStore) PairHooks(string, tournamentstore.Player) *eventstore.SignUpHooks {
 	return nil
 }
+
+func (m *mockTournamentStore) SetCourtFee(context.Context, uuid.UUID, int) error { return nil }
+
+func (m *mockTournamentStore) ChargeCourtFee(context.Context, tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error) {
+	return &tournamentstore.MatchFee{}, nil
+}
+
+func (m *mockTournamentStore) UndoCourtFee(context.Context, uuid.UUID, int, uuid.UUID) error {
+	return nil
+}

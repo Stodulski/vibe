@@ -2917,7 +2917,7 @@ paths:
                 properties:
                   tournaments:
                     type: array
-                    items: {$ref: "#/components/schemas/TournamentSummary"}
+                    items: {$ref: "#/components/schemas/TournamentOwnerSummary"}
         "400":
           description: Missing or malformed dates, or a range over 366 days.
           content:
@@ -2977,6 +2977,7 @@ paths:
                       games_per_set: {type: integer, minimum: 4, maximum: 9, default: 6}
                       super_tiebreak_decider: {type: boolean, default: true, description: "The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1."}
                       match_duration_minutes: {type: integer, minimum: 30, maximum: 480, default: 90, description: "Court time given to a match scheduled without a duration."}
+                      court_fee: {type: integer, minimum: 0, default: 0, description: "Centavos each pair pays per match, charged at the complex on match day (not online); 0 is no fee. Changed later with `tournamentsCategoryCourtFee`."}
       responses:
         "201":
           description: The created tournament.
@@ -3350,6 +3351,131 @@ paths:
         "404": {$ref: "#/components/responses/NotFound"}
         "409":
           description: The next match already has a result, so this one can no longer change.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee:
+    put:
+      tags: [tournaments]
+      operationId: tournamentsCategoryCourtFee
+      summary: Set the court fee of a category
+      description: >-
+        The fixed amount each of the two pairs of a match pays for the court, charged at the complex
+        on match day and not online (`0` is no fee). It can change at any time while the tournament
+        is active: a charge already recorded keeps the amount it was made at (`match.court_fee[].amount`),
+        every match not charged yet uses the new one. Responds with the whole tournament.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [court_fee]
+              properties:
+                court_fee: {type: integer, minimum: 0, description: "Centavos per pair per match; 0 is none."}
+      responses:
+        "200":
+          description: The tournament with the new fee.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: Malformed body, or the tournament or category was cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}:
+    put:
+      tags: [tournaments]
+      operationId: tournamentsMatchCourtFeeCharge
+      summary: Collect a pair's court fee for a match
+      description: >-
+        Records that the pair on `side` (1 is `pair1_id`, 2 is `pair2_id`) paid its court fee at the
+        complex, by `cash` or `transfer` like a booking charged at the venue. The amount is the
+        category's current `court_fee` and is kept. The money lands in the complex's open cash
+        session as an income movement of the `tournaments` category, so it is in the session totals
+        and the monthly report. A pair is charged once per match (`409` otherwise), and `409` when
+        no cash session is open. `400` when the category has no fee, the match is a bye or a
+        walkover, or the pair is not known yet. Responds with the whole tournament.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/MatchID"}
+        - {$ref: "#/components/parameters/CourtFeeSide"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [method]
+              properties:
+                method: {type: string, enum: [cash, transfer]}
+      responses:
+        "200":
+          description: The tournament with the charge recorded.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "400":
+          description: No court fee, a bye or walkover, a pair not known yet, or the tournament or category was cancelled.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The pair was already charged for the match, or no cash session is open.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    delete:
+      tags: [tournaments]
+      operationId: tournamentsMatchCourtFeeUndo
+      summary: Undo a court fee charge recorded by mistake
+      description: >-
+        Voids the charge's income movement in the complex's open cash session, the way voiding a
+        sale does, so the pair can be charged again. `409` when no charge stands for the pair, or
+        when no cash session is open (the void needs one). Works on a cancelled tournament too.
+        Responds with the whole tournament.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/MatchID"}
+        - {$ref: "#/components/parameters/CourtFeeSide"}
+      responses:
+        "200":
+          description: The tournament without the charge.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/TournamentDetail"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: No charge stands for the pair, or no cash session is open.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -5930,6 +6056,12 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    CourtFeeSide:
+      name: side
+      in: path
+      required: true
+      description: "1 is the match's pair1, 2 its pair2."
+      schema: {type: integer, enum: [1, 2]}
     SeriesID:
       name: seriesID
       in: path
@@ -7071,6 +7203,27 @@ components:
         status: {type: string, enum: [open, closed, cancelled]}
         draw_generated: {type: boolean}
 
+    TournamentOwnerCategory:
+      description: >-
+        A category as its owner reads it: `court_fee` is centavos each pair pays per match at the
+        complex (0 is none). A visitor's category never carries it.
+      allOf:
+        - {$ref: "#/components/schemas/TournamentCategory"}
+        - type: object
+          required: [court_fee]
+          properties:
+            court_fee: {type: integer}
+
+    TournamentOwnerSummary:
+      allOf:
+        - {$ref: "#/components/schemas/Tournament"}
+        - type: object
+          required: [categories]
+          properties:
+            categories:
+              type: array
+              items: {$ref: "#/components/schemas/TournamentOwnerCategory"}
+
     TournamentSummary:
       allOf:
         - {$ref: "#/components/schemas/Tournament"}
@@ -7218,6 +7371,38 @@ components:
             end_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
             duration_minutes: {type: integer}
 
+    TournamentCourtFee:
+      type: object
+      description: >-
+        What the pair on one side of a match owes or paid for the court, at the complex. While not
+        `charged`, `amount` is the category's current `court_fee`; once `charged` it is what the
+        charge was made at and never changes. `chargeable` is true while the pair is known, the
+        match is played (not a bye, not a walkover), the category has a fee, nothing was cancelled
+        and the pair was not charged yet.
+      required: [side, chargeable, amount, charged, method, charged_at, charged_by]
+      properties:
+        side: {type: integer, enum: [1, 2]}
+        chargeable: {type: boolean}
+        amount: {type: integer, description: Centavos.}
+        charged: {type: boolean}
+        method: {type: [string, "null"], description: "`cash` or `transfer` once charged."}
+        charged_at: {type: [string, "null"], format: date-time}
+        charged_by: {type: [string, "null"], format: uuid, description: The user who collected it.}
+
+    TournamentOwnerMatch:
+      description: A match as its owner reads it, with the court fee of each of its two pairs.
+      allOf:
+        - {$ref: "#/components/schemas/TournamentMatch"}
+        - type: object
+          required: [court_fee]
+          properties:
+            court_fee:
+              type: array
+              minItems: 2
+              maxItems: 2
+              description: Side 1 then side 2.
+              items: {$ref: "#/components/schemas/TournamentCourtFee"}
+
     TournamentSource:
       type: [object, "null"]
       description: "Where a bracket slot's pair comes from: the Nth of a group."
@@ -7233,7 +7418,7 @@ components:
         tournament: {$ref: "#/components/schemas/Tournament"}
         categories:
           type: array
-          items: {$ref: "#/components/schemas/TournamentCategory"}
+          items: {$ref: "#/components/schemas/TournamentOwnerCategory"}
         pairs:
           type: array
           items: {$ref: "#/components/schemas/TournamentOwnerPair"}
@@ -7242,7 +7427,7 @@ components:
           items: {$ref: "#/components/schemas/TournamentGroup"}
         matches:
           type: array
-          items: {$ref: "#/components/schemas/TournamentMatch"}
+          items: {$ref: "#/components/schemas/TournamentOwnerMatch"}
 
     PublicTournamentDetail:
       type: object

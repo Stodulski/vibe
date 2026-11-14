@@ -40,6 +40,8 @@ type NewCategory struct {
 	GamesPerSet          int
 	SuperTiebreakDecider bool
 	MatchDurationMinutes int
+	// CourtFee is centavos each pair pays per match; 0 is none.
+	CourtFee int
 }
 
 // Create writes a tournament and its categories, each with its sign-up
@@ -99,6 +101,8 @@ func insertCategory(ctx context.Context, q *db.Queries, t db.Tournament, c NewCa
 		//nolint:gosec // G115: validated by the service (1..2, 4..9, 30..480).
 		SetsToWin: int32(c.SetsToWin), GamesPerSet: int32(c.GamesPerSet),
 		SuperTiebreakDecider: c.SuperTiebreakDecider, MatchDurationMinutes: int32(c.MatchDurationMinutes),
+		//nolint:gosec // G115: validated by the service (0..MaxPrice).
+		CourtFee: int32(c.CourtFee),
 	}); err != nil {
 		return fmt.Errorf("tournaments: insert category: %w", err)
 	}
@@ -207,6 +211,13 @@ func (m *Store) Detail(ctx context.Context, id uuid.UUID) (*Detail, error) {
 	}
 	for _, mt := range matches {
 		d.Matches = append(d.Matches, matchFromDB(mt))
+	}
+	fees, err := m.Q.ListTournamentMatchFees(ctx, data.UUIDToPg(id))
+	if err != nil {
+		return nil, fmt.Errorf("tournaments: list court fees: %w", err)
+	}
+	for _, f := range fees {
+		d.Fees = append(d.Fees, matchFeeFromDB(f))
 	}
 	return d, nil
 }
