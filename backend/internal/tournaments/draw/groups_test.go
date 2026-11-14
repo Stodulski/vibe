@@ -12,10 +12,11 @@ func TestSplitGroups(t *testing.T) {
 		n, size, qualifiers int
 		want                []int
 	}{
-		{3, 3, 2, []int{3}}, {6, 3, 2, []int{3, 3}}, {7, 4, 2, []int{7}}, {10, 4, 2, []int{5, 5}},
-		{10, 3, 1, []int{4, 3, 3}}, {12, 4, 2, []int{4, 4, 4}}, {11, 4, 2, []int{6, 5}},
-		{8, 5, 2, []int{8}}, {5, 5, 2, []int{5}}, {9, 3, 2, []int{3, 3, 3}},
-		// group_size is the target: leftovers join existing groups.
+		{3, 3, 2, []int{3}}, {6, 3, 2, []int{3, 3}}, {7, 4, 2, []int{4, 3}}, {10, 4, 2, []int{4, 3, 3}},
+		{10, 3, 1, []int{3, 3, 2, 2}}, {12, 4, 2, []int{4, 4, 4}}, {11, 4, 2, []int{4, 4, 3}},
+		{8, 5, 2, []int{4, 4}}, {5, 5, 2, []int{5}}, {9, 3, 2, []int{3, 3, 3}},
+		// group_size is the largest a group gets; when that would leave a group
+		// no larger than its qualifiers, fewer groups take the leftover pairs.
 		{7, 3, 2, []int{4, 3}}, {8, 3, 2, []int{4, 4}}, {5, 3, 2, []int{5}}, {4, 3, 2, []int{4}},
 	}
 	for _, c := range cases {
@@ -33,9 +34,9 @@ func TestSplitGroups(t *testing.T) {
 }
 
 func TestGroupCount(t *testing.T) {
-	for _, c := range [][3]int{{3, 3, 1}, {2, 3, 1}, {4, 3, 1}, {7, 3, 2}, {8, 3, 2}, {10, 4, 2}, {12, 4, 3}, {13, 4, 3}} {
-		if got := draw.GroupCount(c[0], c[1]); got != c[2] {
-			t.Errorf("GroupCount(%d,%d) = %d, want %d", c[0], c[1], got, c[2])
+	for _, c := range [][4]int{{3, 3, 2, 1}, {2, 3, 1, 1}, {4, 3, 1, 2}, {7, 3, 2, 2}, {7, 4, 2, 2}, {8, 3, 2, 2}, {10, 4, 2, 3}, {12, 4, 3, 3}, {13, 4, 3, 3}} {
+		if got := draw.GroupCount(c[0], c[1], c[2]); got != c[3] {
+			t.Errorf("GroupCount(%d,%d,%d) = %d, want %d", c[0], c[1], c[2], got, c[3])
 		}
 	}
 }
@@ -49,7 +50,10 @@ func TestSplitGroupsRange(t *testing.T) {
 		size, q := cfg[0], cfg[1]
 		for n := 2; n <= 33; n++ {
 			got, err := draw.SplitGroups(n, size, q)
-			groups := max(1, n/size)
+			groups := (n + size - 1) / size
+			for groups > 1 && n/groups <= q {
+				groups--
+			}
 			if err != nil {
 				if n/groups > q && groups*q >= 2 {
 					t.Errorf("SplitGroups(%d,%d,%d) refused although %d groups work: %v", n, size, q, groups, err)

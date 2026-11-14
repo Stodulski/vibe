@@ -10,14 +10,20 @@ import (
 // category's settings allow.
 var ErrGroupCount = errors.New("the pairs cannot be split into groups with those settings")
 
-// GroupCount is how many groups n pairs make when groupSize is the target
-// size of a group: as many as fit whole groups, never fewer than one, so the
-// pairs left over join existing groups instead of forming one too small.
-func GroupCount(n, groupSize int) int {
+// GroupCount is how many groups n pairs make when groupSize is the largest a
+// group should get: enough groups that none passes groupSize, unless that
+// leaves a group no larger than its qualifiers, in which case fewer groups
+// take the pairs left over (7 pairs, groups of 3, 2 qualify: 4 and 3, never
+// 3, 2 and 2).
+func GroupCount(n, groupSize, qualifiers int) int {
 	if groupSize < 1 {
 		return 0
 	}
-	return max(1, n/groupSize)
+	groups := (n + groupSize - 1) / groupSize
+	for groups > 1 && n/groups <= qualifiers {
+		groups--
+	}
+	return groups
 }
 
 // SplitGroups splits n pairs into GroupCount groups, sizes differing by at
@@ -25,7 +31,7 @@ func GroupCount(n, groupSize int) int {
 // group must be larger than qualifiers, so someone is left out of each, and
 // the knockout needs at least two qualifiers in all.
 func SplitGroups(n, groupSize, qualifiers int) ([]int, error) {
-	groups := GroupCount(n, groupSize)
+	groups := GroupCount(n, groupSize, qualifiers)
 	if groups < 1 || qualifiers < 1 || qualifiers >= groupSize {
 		return nil, fmt.Errorf("%w: %d pairs, groups of %d, %d qualify", ErrGroupCount, n, groupSize, qualifiers)
 	}

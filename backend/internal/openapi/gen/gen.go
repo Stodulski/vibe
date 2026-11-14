@@ -4246,7 +4246,7 @@ type TournamentCategory struct {
 	// GamesPerSet Games that make a set (4 to 9, 6 is standard).
 	GamesPerSet int `json:"games_per_set"`
 
-	// GroupSize Most pairs per group (groups format).
+	// GroupSize Target pairs per group (groups format).
 	GroupSize int                `json:"group_size"`
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
@@ -4369,7 +4369,7 @@ type TournamentOwnerCategory struct {
 	// GamesPerSet Games that make a set (4 to 9, 6 is standard).
 	GamesPerSet int `json:"games_per_set"`
 
-	// GroupSize Most pairs per group (groups format).
+	// GroupSize Target pairs per group (groups format).
 	GroupSize int                `json:"group_size"`
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`

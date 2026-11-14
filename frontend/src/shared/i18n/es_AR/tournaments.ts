@@ -46,7 +46,7 @@ export const tournaments = {
     price: 'Precio por pareja',
     priceHint: 'Paga una sola persona por la pareja y el costo del servicio de pago se suma aparte.',
     groupSize: 'Parejas por zona',
-    groupSizeHint: 'Es el tamaño buscado: si sobran parejas, se suman a las zonas que ya hay.',
+    groupSizeHint: 'Máximo de parejas por zona. Si una zona quedara muy chica, sus parejas se suman a las otras.',
     qualifiers: 'Pasan por zona',
     qualifiersHint: 'Las mejores de cada zona juegan el cuadro.',
     matchFormat: 'Formato de partido',

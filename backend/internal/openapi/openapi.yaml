@@ -3116,8 +3116,8 @@ paths:
       description: >-
         Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes
         to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into
-        as many groups as fit whole `group_size` groups (at least one; the leftover pairs join existing
-        groups), sizes differing by at most one, deals them
+        groups of at most `group_size` pairs (fewer, bigger groups only when that would leave a group
+        no larger than `qualifiers_per_group`), sizes differing by at most one, deals them
         snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play
         (group winners as top seeds, groupmates apart in the first round where possible, byes when the
         qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest
