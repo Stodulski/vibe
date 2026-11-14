@@ -76,7 +76,7 @@ export const events = {
   participant: {
     held: 'Pagando',
     confirmed: 'Pagó',
-    cancelledUnpaid: 'Canceló',
+    cancelledUnpaid: 'Sin pago',
     refunded: 'Reembolsado',
     refundPending: 'Reembolso en curso',
     partialRefund: 'Reembolso parcial',

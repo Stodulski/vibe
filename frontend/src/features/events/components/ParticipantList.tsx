@@ -6,11 +6,11 @@ import type { OpenPlayParticipant } from '@/shared/types/api.types';
 const t = ES_AR.events;
 
 // Same colours as the booking payment statuses: amber is money still moving,
-// green is paid, red is cancelled.
+// green is paid, grey is a spot that never paid or was refunded.
 const STATUS_STYLES: Record<ParticipantStatusKey, string> = {
   held: 'text-warning-text',
   confirmed: 'text-success-text',
-  cancelledUnpaid: 'text-error-text',
+  cancelledUnpaid: 'text-text-secondary',
   refunded: 'text-text-secondary',
   refundPending: 'text-warning-text',
   partialRefund: 'text-warning-text',

@@ -106,6 +106,24 @@ describe('EventDetail', () => {
     expect(rows[0]).toHaveTextContent(t.participant.paid('$5.200'));
   });
 
+  it('shows a spot that was only held and then cancelled by the owner as unpaid, not as a cancellation', async () => {
+    const unpaid = participant({
+      id: 'r4',
+      first_name: 'Dani',
+      last_name: 'Paz',
+      phone: '+5491155550004',
+      status: 'cancelled',
+      cancelled_by: 'owner',
+      payment: null,
+    });
+    await renderDetail({ ...EVENT, status: 'cancelled', cancelled_at: '2026-11-14T15:00:00Z' }, [unpaid]);
+
+    const row = within(await screen.findByRole('list', { name: t.detail.participants })).getByRole('listitem');
+    expect(row).toHaveTextContent(t.participant.cancelledUnpaid);
+    expect(row).toHaveTextContent(t.participant.cancelledByOwner);
+    expect(row).not.toHaveTextContent('Canceló');
+  });
+
   it('says so when nobody signed up yet', async () => {
     await renderDetail(EVENT, []);
     expect(await screen.findByText(t.detail.noParticipants)).toBeInTheDocument();

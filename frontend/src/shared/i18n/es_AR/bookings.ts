@@ -133,6 +133,7 @@ export const bookings = {
   createBookingStep3: 'Pago',
   // Turnos fijos: a booking that repeats every week on the same weekday and hour.
   fixedBooking: 'Turno fijo',
+  openPlayEventSlotTaken: 'Ese horario es parte de un evento de canchas libres.',
   series: {
     repeatWeekly: 'Repetir todas las semanas',
     endLabel: 'Hasta cuándo',

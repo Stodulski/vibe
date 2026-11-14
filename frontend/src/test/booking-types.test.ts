@@ -42,6 +42,10 @@ export type BookingTypeChecks = [
   Assert<Mutual<Booking.RefundStatus, App.RefundStatus>>,
   Assert<Mutual<Booking.RefundEnvelope, App.RefundEnvelope>>,
   Assert<Mutual<Booking.PublicCancelBookingResponse, App.PublicCancelBookingResponse>>,
+  Assert<Mutual<Booking.PublicOpenPlayEvent, App.PublicOpenPlayEvent>>,
+  Assert<Mutual<Booking.PublicEventSignUp, App.PublicEventSignUp>>,
+  Assert<Mutual<Booking.PublicEventCancellation, App.PublicEventCancellation>>,
+  Assert<Mutual<Booking.PublicEventRegistration, App.PublicEventRegistration>>,
 ];
 
 describe('booking package types', () => {

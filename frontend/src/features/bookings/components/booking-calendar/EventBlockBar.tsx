@@ -60,9 +60,9 @@ export function EventBlockBar({
     >
       {tall ? (
         <>
-          <span className="flex min-w-0 items-center gap-1">
-            <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />
-            <span className="text-text-primary truncate text-xs font-medium">{label}</span>
+          <span className="flex min-w-0 items-start gap-1">
+            <CalendarDays className="text-text-primary mt-0.5 size-3 shrink-0" aria-hidden="true" />
+            <span className="text-text-primary min-w-0 text-xs leading-tight font-medium break-words">{label}</span>
           </span>
           <span className="text-text-primary/80 truncate text-xs">{block.name}</span>
         </>

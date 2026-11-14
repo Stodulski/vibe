@@ -1,4 +1,4 @@
-import type { Body, Ok, Spec } from './spec';
+import type { Body, Ok, Open, Spec } from './spec';
 
 // ─── Open-play events (canchas libres) ───
 
@@ -16,3 +16,27 @@ export type CreateOpenPlayEventRequest = Body<'eventsCreate'>;
 export type OpenPlayEventDetailResponse = Ok<'eventsGet'>;
 
 export type CancelOpenPlayEventResponse = Ok<'eventsCancel'>;
+
+// ─── Public side of the events, as the booking package reads them ───
+
+/**
+ * An event as a visitor sees it. `sport` and `status` are read through
+ * {@link Open}: an event in a sport or state this build predates must cost
+ * that one card its label, not the whole list.
+ */
+export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 'status'> & {
+  sport: Open<Spec<'PublicOpenPlayEvent'>['sport']>;
+  status: Open<Spec<'PublicOpenPlayEvent'>['status']>;
+};
+
+/** `POST .../registrations`: the held spot and the checkout that pays for it. */
+export type PublicEventSignUp = Omit<Spec<'PublicEventSignUp'>, 'event'> & { event: PublicOpenPlayEvent };
+
+/** Whether and how a person can still cancel their own spot. */
+export type PublicEventCancellation = Spec<'PublicEventRegistration'>['cancellation'];
+
+/** A person's own spot, read through the token the checkout returns them with. */
+export type PublicEventRegistration = Omit<Spec<'PublicEventRegistration'>, 'event' | 'status'> & {
+  event: PublicOpenPlayEvent;
+  status: Open<Spec<'PublicEventRegistration'>['status']>;
+};
