@@ -101,11 +101,11 @@ function wireControl(children: ReactNode, htmlFor: string, errorId: string, hasE
  * the icon carries the meaning for anyone who does not see the red.
  *
  * That placement has one cost: in a two-column row, the field with an error
- * is one line taller than its neighbour, and since a grid stretches every
- * cell to the row's height the extra line pushed that field's input below
- * the other one. `self-end` keeps the inputs on one baseline instead — the
- * field sits at the bottom of its cell and the error stacks above its own
- * input only. It is a no-op in the ordinary single-column stack.
+ * is one line taller than its neighbour. `self-start` keeps the LABELS on one
+ * line across the row (bottom alignment pushed the neighbour's label down by
+ * the height of the error or help text). The help text sits below the control
+ * so it never moves the input; only an error, which must be read first, does.
+ * It is a no-op in the ordinary single-column stack.
  *
  * `w-full` on the wrapper: every control this wraps (`Input`/`Select`
  * trigger/`Textarea`) already fills its own box, but that box is only ever
@@ -129,7 +129,7 @@ export function FormField({
   const control = wireControl(children, htmlFor, errorId, !!error);
 
   return (
-    <div className={cn('w-full self-end', className)}>
+    <div className={cn('w-full self-start', className)}>
       {labelSuffix ? (
         <div className="flex items-baseline justify-between">
           <Label htmlFor={htmlFor} className="text-xs">
@@ -142,7 +142,6 @@ export function FormField({
           {label}
         </Label>
       )}
-      {helpText && <p className="text-micro text-text-tertiary">{helpText}</p>}
       {error && (
         <p id={errorId} role="alert" className="text-error-text flex items-center gap-1.5 text-xs">
           <AlertCircle className="size-3.5 shrink-0" aria-hidden="true" />
@@ -156,6 +155,7 @@ export function FormField({
       ) : (
         control
       )}
+      {helpText && <p className="text-micro text-text-tertiary">{helpText}</p>}
     </div>
   );
 }

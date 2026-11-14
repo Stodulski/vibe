@@ -1,3 +1,4 @@
+import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -32,7 +33,10 @@ export function UpcomingPastSwitch({
           type="button"
           variant={value === option.value ? 'default' : 'outline'}
           aria-pressed={value === option.value}
-          className="h-10 flex-1 rounded-xl sm:flex-none sm:px-5"
+          className={cn(
+            'h-10 flex-1 rounded-xl border sm:flex-none sm:px-5',
+            value === option.value && 'border-transparent',
+          )}
           onClick={() => {
             onChange(option.value);
           }}

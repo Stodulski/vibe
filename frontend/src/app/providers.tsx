@@ -28,7 +28,7 @@ export function Providers({ children }: ProvidersProps) {
         {children}
         <Toaster
           position="bottom-right"
-          richColors
+          theme="dark"
           toastOptions={{
             classNames: {
               toast: 'toast-base',

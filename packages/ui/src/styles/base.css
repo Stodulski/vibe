@@ -47,11 +47,14 @@ body {
   outline-offset: 2px;
 }
 
-
+/* A link inside running text (a phone number in a list, a mailto in a
+   paragraph) is not a tap target of its own and must not stretch its line to
+   44px on touch: add `inline-link` to it. Real buttons and nav links keep the
+   floor below. */
 @media (pointer: coarse) {
   button,
   [role='button'],
-  a,
+  a:not(.inline-link),
   input,
   select,
   textarea {
@@ -153,7 +156,6 @@ html body[data-scroll-locked] {
   width: 0;
   height: 0;
 }
-
 
 .animate-spring-scale {
   animation: fade-in 300ms var(--ease-out) backwards;

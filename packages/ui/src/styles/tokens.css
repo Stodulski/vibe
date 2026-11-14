@@ -502,6 +502,21 @@
   border-color: var(--color-border-default);
   color: var(--color-text-primary);
 }
+/* Sonner's own toast font is not the app's; the title outweighs the body and
+   the icon sits on the first line instead of the vertical middle. */
+[data-sonner-toast].toast-base {
+  font-family: var(--font-sans, inherit);
+  align-items: flex-start;
+}
+[data-sonner-toast].toast-base [data-icon] {
+  margin-top: 0.125rem;
+}
+[data-sonner-toast].toast-base [data-title] {
+  font-weight: 600;
+}
+[data-sonner-toast].toast-base [data-description] {
+  font-weight: 400;
+}
 [data-sonner-toast].toast-error {
   background: var(--color-error-bg);
   border-color: var(--color-error-border);
