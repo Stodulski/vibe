@@ -81,11 +81,9 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
         <DrawControls
           complexId={complexId}
           tournamentId={detail.tournament.id}
-          categoryId={category.id}
+          category={category}
           drawn={drawn}
           view={view}
-          groupSize={category.group_size}
-          qualifiers={category.qualifiers_per_group}
         />
       )}
       {open && <CategoryActions dialogs={dialogs} />}

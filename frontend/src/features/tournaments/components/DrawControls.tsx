@@ -3,21 +3,19 @@ import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useGenerateDraw } from '../hooks/useTournamentChanges';
-import { drawErrorMessage, type GroupSettings } from '../lib/tournamentErrors';
+import { drawErrorMessage } from '../lib/tournamentErrors';
 import type { CategoryView } from '../lib/categoryView';
 import { SeedOrderEditor } from './SeedOrderEditor';
-import type { TournamentOwnerPair } from '@/shared/types/api.types';
+import type { TournamentOwnerCategory, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.draw;
 
 interface DrawControlsProps {
   complexId: string;
   tournamentId: string;
-  categoryId: string;
+  category: TournamentOwnerCategory;
   drawn: boolean;
   view: CategoryView;
-  groupSize: number;
-  qualifiers: number;
 }
 
 /** Paid pairs best seed first: the existing seeds when drawn before, otherwise the order they signed up. */
@@ -41,16 +39,8 @@ function moved(order: TournamentOwnerPair[], pairId: string, direction: -1 | 1):
  * The draw: how many pairs paid, an optional seed order, and the button that
  * generates (or regenerates, until a result is loaded) the groups and bracket.
  */
-export function DrawControls({
-  complexId,
-  tournamentId,
-  categoryId,
-  drawn,
-  view,
-  groupSize,
-  qualifiers,
-}: DrawControlsProps) {
-  const generate = useGenerateDraw(complexId, tournamentId, categoryId);
+export function DrawControls({ complexId, tournamentId, category, drawn, view }: DrawControlsProps) {
+  const generate = useGenerateDraw(complexId, tournamentId, category.id);
   const [order, setOrder] = useState<TournamentOwnerPair[] | null>(null);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const enough = view.paidPairs.length >= 2;
@@ -68,7 +58,7 @@ export function DrawControls({
           }}
         />
       )}
-      <DrawError error={generate.error} settings={{ pairs: view.paidPairs.length, groupSize, qualifiers }} />
+      <DrawError error={generate.error} category={category} pairs={view.paidPairs.length} />
       <DrawButtons
         drawn={drawn}
         showSeedToggle={!view.locked && enough}
@@ -131,11 +121,15 @@ function DrawButtons({ drawn, showSeedToggle, seedOn, disabled, onToggleSeed, on
   );
 }
 
-function DrawError({ error, settings }: { error: unknown; settings: GroupSettings }) {
+function DrawError({ error, category, pairs }: { error: unknown; category: TournamentOwnerCategory; pairs: number }) {
   if (!error) return null;
   return (
     <p role="alert" className="text-error-text text-sm">
-      {drawErrorMessage(error, settings)}
+      {drawErrorMessage(error, {
+        pairs,
+        groupSize: category.group_size,
+        qualifiers: category.qualifiers_per_group,
+      })}
     </p>
   );
 }

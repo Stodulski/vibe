@@ -25,6 +25,38 @@ function whenText(match: TournamentOwnerMatch): string {
   return t.scheduledAt(schedule.court_name, formatDateShort(schedule.date), formatTime(schedule.start_time));
 }
 
+function ResultButton({
+  match,
+  actions,
+  locked,
+}: {
+  match: TournamentOwnerMatch;
+  actions: MatchActions;
+  locked: boolean;
+}) {
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        className="rounded-lg"
+        disabled={locked}
+        aria-describedby={locked ? `locked-${match.id}` : undefined}
+        onClick={() => {
+          actions.onResult(match.id);
+        }}
+      >
+        {match.status === 'completed' ? t.correctResult : t.loadResult}
+      </Button>
+      {locked && (
+        <span id={`locked-${match.id}`} className="text-text-tertiary self-center text-xs">
+          {t.correctLocked}
+        </span>
+      )}
+    </>
+  );
+}
+
 function MatchButtons({
   match,
   actions,
@@ -67,25 +99,7 @@ function MatchButtons({
         </Button>
       )}
       {ready ? (
-        <>
-          <Button
-            type="button"
-            size="sm"
-            className="rounded-lg"
-            disabled={locked}
-            aria-describedby={locked ? `locked-${match.id}` : undefined}
-            onClick={() => {
-              actions.onResult(match.id);
-            }}
-          >
-            {done ? t.correctResult : t.loadResult}
-          </Button>
-          {locked && (
-            <span id={`locked-${match.id}`} className="text-text-tertiary self-center text-xs">
-              {t.correctLocked}
-            </span>
-          )}
-        </>
+        <ResultButton match={match} actions={actions} locked={locked} />
       ) : (
         <span className="text-text-tertiary self-center text-xs">{t.notReady}</span>
       )}
