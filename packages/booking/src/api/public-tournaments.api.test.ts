@@ -80,6 +80,7 @@ describe('public tournaments api writes', () => {
             tournament: TOURNAMENT,
             category: CAT_OPEN,
             mp_init_point: 'https://mp.test/x',
+            mp_preference_id: 'pref-1',
             service_fee: 200_000,
             total_price: 2_200_000,
           },

@@ -39,6 +39,9 @@ const tournamentObject = z
     start_date: z.string(),
     end_date: z.string(),
     status: z.string(),
+    cancel_reason: z.string().nullable(),
+    cancelled_at: z.string().nullable(),
+    created_at: z.string(),
   })
   .loose();
 
@@ -56,8 +59,14 @@ export const publicTournamentCategorySchema = exact<PublicTournamentCategory>(
       service_fee: z.number().optional(),
       total_price: z.number().optional(),
       spots_left: z.number(),
+      confirmed_count: z.number(),
+      held_count: z.number(),
       group_size: z.number(),
       qualifiers_per_group: z.number(),
+      sets_to_win: z.union([z.literal(1), z.literal(2)]),
+      games_per_set: z.number(),
+      super_tiebreak_decider: z.boolean(),
+      match_duration_minutes: z.number(),
       status: z.string(),
       draw_generated: z.boolean(),
     })
@@ -151,7 +160,7 @@ const matchSchema = exact<PublicTournamentMatch>(
       status: z.string(),
       winner_pair_id: z.string().nullable(),
       sets: list(setSchema),
-      walkover_loser: z.number(),
+      walkover_loser: z.union([z.literal(0), z.literal(1), z.literal(2)]),
       schedule: scheduleSchema.nullable(),
     })
     .loose(),
@@ -178,8 +187,8 @@ export const publicPairSignUpSchema = exact<PublicPairSignUp>(
       token: z.string().min(1),
       tournament: publicTournamentSchema,
       category: publicTournamentCategorySchema,
-      mp_init_point: z.string().optional(),
-      mp_preference_id: z.string().optional(),
+      mp_init_point: z.string(),
+      mp_preference_id: z.string(),
       service_fee: z.number(),
       total_price: z.number(),
     })

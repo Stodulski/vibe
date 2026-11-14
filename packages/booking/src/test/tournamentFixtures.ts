@@ -16,6 +16,9 @@ export const TOURNAMENT: PublicTournament = {
   start_date: '2099-12-05',
   end_date: '2099-12-06',
   status: 'active',
+  cancel_reason: null,
+  cancelled_at: null,
+  created_at: '2099-11-01T12:00:00Z',
 };
 
 /** Open category in the groups format: nothing is drawn yet. */
@@ -29,8 +32,14 @@ export const CAT_OPEN: PublicTournamentCategory = {
   service_fee: 200_000,
   total_price: 2_200_000,
   spots_left: 5,
+  confirmed_count: 7,
+  held_count: 0,
   group_size: 3,
   qualifiers_per_group: 2,
+  sets_to_win: 2,
+  games_per_set: 6,
+  super_tiebreak_decider: true,
+  match_duration_minutes: 90,
   status: 'open',
   draw_generated: false,
 };

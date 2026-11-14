@@ -23,6 +23,22 @@ export function formatLabel(format: string): string {
   return FORMAT_LABELS[format] ?? format;
 }
 
+const STANDARD_GAMES_PER_SET = 6;
+
+/**
+ * How a category's matches are played, e.g. "Al mejor de 3 sets · super
+ * tie-break" or "A 1 set de 4 games". The games are named only when they are
+ * not the standard 6 of a best of three.
+ */
+export function matchFormatLabel(
+  category: Pick<PublicTournamentCategory, 'sets_to_win' | 'games_per_set' | 'super_tiebreak_decider'>,
+): string {
+  const games = `${t.matchGamesPrefix} ${String(category.games_per_set)} ${t.matchGamesSuffix}`;
+  if (category.sets_to_win === 1) return `${t.matchSingleSet} ${games}`;
+  const sets = category.games_per_set === STANDARD_GAMES_PER_SET ? t.matchBestOfThree : `${t.matchBestOfThree} ${games}`;
+  return category.super_tiebreak_decider ? `${sets} \u00b7 ${t.matchSuperTiebreak}` : sets;
+}
+
 export function spotsLeftLabel(spotsLeft: number): string {
   if (spotsLeft === 1) return t.spotsLeftOne;
   return `${t.spotsLeftPrefix} ${String(spotsLeft)} ${t.spotsLeftSuffix}`;

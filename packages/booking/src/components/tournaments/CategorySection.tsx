@@ -7,7 +7,7 @@ import { BracketView } from './BracketView';
 import { GroupSection } from './GroupSection';
 import { PairSignUpForm } from './PairSignUpForm';
 import { ScheduleList } from './ScheduleList';
-import { formatLabel, isOpenForSignUp, spotsLeftLabel } from './tournamentModel';
+import { formatLabel, isOpenForSignUp, matchFormatLabel, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -87,6 +87,7 @@ export function CategorySection({ slug, detail, category }: CategorySectionProps
           {category.name}
         </h2>
         <p className="text-text-secondary text-sm">{formatLabel(category.format)}</p>
+        <p className="text-text-secondary text-sm">{matchFormatLabel(category)}</p>
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pt-1">
           <p className="text-text-primary text-base font-semibold tabular-nums">
             {formatPrice(category.total_price ?? category.price)}{' '}

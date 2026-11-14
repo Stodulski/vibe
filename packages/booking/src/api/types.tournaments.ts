@@ -17,6 +17,10 @@ export interface PublicTournament {
   start_date: string;
   end_date: string;
   status: Open<TournamentStatus>;
+  /** Why it was cancelled, `null` while active. */
+  cancel_reason: string | null;
+  cancelled_at: string | null;
+  created_at: string;
 }
 
 export interface PublicTournamentCategory {
@@ -33,8 +37,20 @@ export interface PublicTournamentCategory {
   /** Centavos ARS: `price` plus `service_fee`. */
   total_price?: number;
   spots_left: number;
+  /** Pairs that paid. */
+  confirmed_count: number;
+  /** Pairs holding a spot while they pay. */
+  held_count: number;
   group_size: number;
   qualifiers_per_group: number;
+  /** `1` is a single set, `2` is best of three. */
+  sets_to_win: 1 | 2;
+  /** Games that make a set (4 to 9, 6 is standard). */
+  games_per_set: number;
+  /** The third set is a match tiebreak to 10 points; only meaningful when `sets_to_win` is 2. */
+  super_tiebreak_decider: boolean;
+  /** Court time a match gets when scheduled without a duration. */
+  match_duration_minutes: number;
   status: Open<TournamentCategoryStatus>;
   draw_generated: boolean;
 }
@@ -129,7 +145,7 @@ export interface PublicTournamentMatch {
   winner_pair_id: string | null;
   sets: PublicTournamentSet[];
   /** `1` or `2` for a walkover, `0` otherwise. */
-  walkover_loser: number;
+  walkover_loser: 0 | 1 | 2;
   schedule: PublicTournamentSchedule | null;
 }
 
@@ -148,7 +164,7 @@ export interface PublicTournamentPartnerRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string;
+  email?: string | undefined;
 }
 
 /** One person signs up both players and pays the whole entry. */
@@ -156,7 +172,7 @@ export interface PublicPairSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string;
+  email?: string | undefined;
   partner: PublicTournamentPartnerRequest;
 }
 
@@ -166,8 +182,8 @@ export interface PublicPairSignUp {
   token: string;
   tournament: PublicTournament;
   category: PublicTournamentCategory;
-  mp_init_point?: string;
-  mp_preference_id?: string;
+  mp_init_point: string;
+  mp_preference_id: string;
   service_fee: number;
   total_price: number;
 }

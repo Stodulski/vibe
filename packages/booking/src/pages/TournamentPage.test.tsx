@@ -57,6 +57,7 @@ describe('TournamentPage detail', () => {
     expect(await screen.findByRole('heading', { level: 1, name: TOURNAMENT.name })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '8va' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '6ta' })).toBeInTheDocument();
+    expect(screen.getAllByText('Al mejor de 3 sets \u00b7 super tie-break').length).toBeGreaterThan(0);
     expect(screen.getByRole('heading', { name: '7ma' })).toBeInTheDocument();
     expect(screen.getAllByText(t.tournaments.formatGroups)).toHaveLength(2);
     expect(screen.getByText(t.tournaments.formatElimination)).toBeInTheDocument();
@@ -151,6 +152,7 @@ describe('TournamentPage sign-up', () => {
             tournament: TOURNAMENT,
             category: CAT_OPEN,
             mp_init_point: 'https://mp.test/checkout',
+            mp_preference_id: 'pref-1',
             service_fee: 200_000,
             total_price: 2_200_000,
           },
