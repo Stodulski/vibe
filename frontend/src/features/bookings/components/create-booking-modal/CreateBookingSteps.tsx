@@ -34,6 +34,7 @@ function SeriesConflictsView({
   const { seriesSubmit } = form;
   return (
     <SeriesConflictsPanel
+      courtName={form.courtName}
       conflicts={seriesSubmit.conflicts}
       endless={form.series.endMode === 'never'}
       pending={seriesSubmit.createSeries.isPending}

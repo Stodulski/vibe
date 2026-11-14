@@ -1,3 +1,6 @@
+/** "sin esos 3 días" / "sin ese día": what the owner gives up by staying on the court. */
+const skipPhrase = (count: number) => (count === 1 ? 'sin ese día' : `sin esos ${String(count)} días`);
+
 export const bookings = {
   title: 'Reservas',
   create: 'Nueva reserva',
@@ -151,33 +154,41 @@ export const bookings = {
     untilBeforeStart: 'La fecha de fin no puede ser anterior a la primera fecha',
     weeksRange: 'Ingresá entre 2 y 52 semanas',
     paymentNote: 'Cada turno se cobra como una reserva normal.',
-    conflictsTitle: (count: number) =>
-      count === 1 ? 'Esta fecha ya está ocupada:' : `Estas ${String(count)} fechas ya están ocupadas:`,
+    conflictsTitle: (court: string, count: number, weekdayPlural: string, weekdaySingular: string) =>
+      `${court} está ocupada ${String(count)} ${count === 1 ? weekdaySingular : weekdayPlural}`,
+    // One line under the title: the two ways out, led by the one that fits the courts on offer.
+    conflictsHintFree: (court: string, count: number) =>
+      `Elegí otra cancha libre todas las semanas, o creá el turno fijo en ${court} ${skipPhrase(count)}.`,
+    conflictsHintFewer: (court: string, count: number) =>
+      `Elegí otra cancha con menos días ocupados, o creá el turno fijo en ${court} ${skipPhrase(count)}.`,
+    conflictsHintNone: (court: string, count: number) =>
+      `Creá el turno fijo en ${court} ${skipPhrase(count)}, o volvé y cambiá el horario.`,
     // A series with no end is only checked for the year ahead, the booking horizon.
     conflictsEndless: 'Como el turno fijo no tiene fecha de fin, revisamos las fechas del próximo año.',
-    // What holds a date that collides, when the server says (`held_by`).
-    heldBy: {
-      booking: 'ocupada por una reserva',
-      fixed: 'ocupada por otro turno fijo',
-      event: 'ocupada por un evento',
-      match: 'ocupada por un partido de torneo',
+    // Option 1: another court (`alternatives`, the same complex and sport, best first).
+    changeCourtTitle: 'Cambiar de cancha',
+    alternativeAllFree: (weekdayPlural: string) => `Libre todos los ${weekdayPlural}`,
+    alternativeBusy: (count: number, weekdayPlural: string, weekdaySingular: string) =>
+      `Ocupada ${String(count)} ${count === 1 ? weekdaySingular : weekdayPlural}`,
+    useCourt: (court: string) => `Usar ${court}`,
+    // Option 2: the same court without the colliding dates.
+    stayOnCourtTitle: (court: string) => `Quedarte en ${court}`,
+    skippedDaysLabel: 'Estos días no se reserva:',
+    // What holds a date that collides, as a short tag: `held_by` when the server says, else the reason.
+    conflictTags: {
+      booking: 'Reserva',
+      fixed: 'Otro turno fijo',
+      event: 'Evento',
+      match: 'Partido de torneo',
+      overlap: 'Ocupada',
+      blocked: 'Bloqueo',
+      cancelled_by_owner: 'Liberada',
+      closed_day: 'Complejo cerrado',
+      no_price: 'Sin precio',
+      client_blocked: 'Cliente bloqueado',
+      missed: 'No se pudo crear',
     },
-    conflictReasons: {
-      cancelled_by_owner: 'liberada',
-      overlap: 'ocupada',
-      blocked: 'ocupada por un bloqueo',
-      closed_day: 'el complejo está cerrado',
-      no_price: 'sin precio para ese horario',
-      client_blocked: 'cliente bloqueado',
-      missed: 'no se pudo crear',
-    },
-    // Other courts of the same complex and sport the refused series fits (`alternatives`).
-    alternativesFree: 'Canchas libres para este turno fijo:',
-    alternativesFewer: 'Otras canchas con menos fechas ocupadas:',
-    alternativeAllFree: 'todas las semanas libres',
-    alternativeBusy: (count: number) => (count === 1 ? '1 fecha ocupada' : `${String(count)} fechas ocupadas`),
-    useCourt: 'Usar esta cancha',
-    skipConflicts: 'Crear salteando estas fechas',
+    skipConflicts: (count: number) => (count === 1 ? 'Crear sin ese día' : `Crear sin esos ${String(count)} días`),
     conflictsBack: 'Volver',
     createSuccess: (weekdayPlural: string, time: string, skipped: number) => {
       const created = `Turno fijo creado: todos los ${weekdayPlural} a las ${time}`;
@@ -198,6 +209,7 @@ export const bookings = {
     // Indexed by weekday, 0 = Sunday, as the API sends it. Plural and lower
     // case because it follows "todos los".
     weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
+    weekdaysSingular: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
     label: (weekdayPlural: string, time: string) => `Turno fijo · todos los ${weekdayPlural} a las ${time}`,
     cancelOne: 'Cancelar solo esta fecha',
     skipConfirmTitle: 'Liberar esta fecha',

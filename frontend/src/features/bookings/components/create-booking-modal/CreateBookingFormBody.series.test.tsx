@@ -38,6 +38,7 @@ describe('CreateBookingFormBody — last step', () => {
 
     expect(await screen.findByText('Todos los lunes')).toBeInTheDocument();
     expect(screen.getByText('18:00 a 19:30')).toBeInTheDocument();
+    expect(screen.getByText('Lunes 5 de enero de 2099')).toBeInTheDocument();
     expect(screen.getByText('Sin fecha de fin')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: t.series.createLabel })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.create })).not.toBeInTheDocument();

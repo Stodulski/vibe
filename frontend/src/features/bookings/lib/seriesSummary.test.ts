@@ -10,7 +10,7 @@ describe('seriesSummaryRows', () => {
       { label: 'Repite', value: 'Todos los lunes' },
       { label: 'Horario', value: '18:00 a 19:30' },
       { label: 'Cancha', value: 'Cancha\u00A01' },
-      { label: 'Desde', value: '05/01/2099' },
+      { label: 'Desde', value: 'Lunes 5 de enero de 2099' },
       { label: 'Hasta', value: 'Sin fecha de fin' },
     ]);
   });
@@ -18,13 +18,13 @@ describe('seriesSummaryRows', () => {
   it('gives the last date of a series that ends on a date', () => {
     expect(seriesSummaryRows({ ...base, end: { ends_on: '2099-03-30' } }).at(-1)).toEqual({
       label: 'Hasta',
-      value: '30/03/2099',
+      value: 'Lunes 30 de marzo de 2099',
     });
   });
 
   it('gives the last date of a series counted in weeks', () => {
     // Four weeks: the 5th, 12th, 19th and 26th of January.
-    expect(seriesSummaryRows({ ...base, end: { weeks: 4 } }).at(-1)?.value).toBe('26/01/2099');
+    expect(seriesSummaryRows({ ...base, end: { weeks: 4 } }).at(-1)?.value).toBe('Lunes 26 de enero de 2099');
   });
 
   it('writes an end past midnight as the clock reads', () => {
