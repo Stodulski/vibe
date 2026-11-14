@@ -22,32 +22,55 @@ function categoryOf(name: string): string {
 }
 
 /**
- * The second line and the accessible name of a block: for a match whose pairs are
- * known "{categoría} · {pareja} vs {pareja}" (the name keeps the tournament too),
- * otherwise "Torneo · {nombre}" or "Canchas libres · {nombre}".
+ * What a block says under its hours, kind and name on lines of their own:
+ * "Canchas libres" over the event's name; "Torneo · {categoría}" over
+ * "{pareja} vs {pareja}" for a match whose pairs are known, else "Torneo" over
+ * the tournament's name. The accessible name keeps everything on one line.
  */
-function blockLabels(block: CourtEventBlock): { line: string; accessible: string } {
+function blockLabels(block: CourtEventBlock): { kind: string; name: string; accessible: string } {
   if (!('match_id' in block)) {
-    const label = t.events.blockLabel(block.name);
-    return { line: label, accessible: label };
+    return { kind: t.events.blockLabelCompact, name: block.name, accessible: t.events.blockLabel(block.name) };
   }
   if (block.pair1 === null || block.pair2 === null) {
-    const label = t.tournaments.blockLabel(block.name);
-    return { line: label, accessible: label };
+    return {
+      kind: t.tournaments.blockLabelCompact,
+      name: block.name,
+      accessible: t.tournaments.blockLabel(block.name),
+    };
   }
   return {
-    line: t.events.matchBlockLine(categoryOf(block.name), block.pair1, block.pair2),
+    kind: t.tournaments.blockLabel(categoryOf(block.name)),
+    name: t.events.matchPairs(block.pair1, block.pair2),
     accessible: t.tournaments.blockLabel(t.events.matchBlockLine(block.name, block.pair1, block.pair2)),
   };
+}
+
+/** A tall block's three lines: the hours, the kind of event with its icon, the name. */
+function BlockLines({ hours, kind, name }: { hours: string; kind: string; name: string }) {
+  return (
+    <>
+      <span data-line className="score-text text-text-primary/80 text-[0.6875rem]">
+        {hours}
+      </span>
+      <span className="flex min-w-0 items-center gap-1">
+        <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />
+        <span data-line className="text-text-primary truncate text-xs font-medium">
+          {kind}
+        </span>
+      </span>
+      <span data-line className="text-text-primary/90 truncate text-xs">
+        {name}
+      </span>
+    </>
+  );
 }
 
 /**
  * The hours an open-play event or a tournament match holds on a court. Drawn
  * like a fixed block's bar, dashed, in a colour of its own per kind (blue for
  * an event, teal for a match) with a calendar icon in place of the repeat one.
- * Laid out like a booking's block: the hours on the first line, then "Canchas
- * libres · {nombre}", or "{categoría} · {pareja} vs {pareja}" for a match whose pairs are known
- * (else "Torneo · {nombre}"), truncated on one line. On the day after it started it draws the
+ * Laid out like a booking's block: the hours on the first line, then the kind
+ * of event and its name each on its own line (see `blockLabels`), truncated. On the day after it started it draws the
  * tail of hours that ran past midnight.
  */
 export function EventBlockBar({
@@ -74,7 +97,7 @@ export function EventBlockBar({
   const tall = heightPx >= TWO_LINE_MIN_HEIGHT_PX;
   const isMatch = 'match_id' in block;
   const compactLabel = isMatch ? t.tournaments.blockLabelCompact : t.events.blockLabelCompact;
-  const { line, accessible } = blockLabels(block);
+  const { kind, name, accessible } = blockLabels(block);
   const ariaLabel = `${keepTogether(courtName)}, ${formatEventTimeRange(block.start_time, block.end_time)}, ${accessible}`;
 
   return (
@@ -93,17 +116,7 @@ export function EventBlockBar({
       style={{ top: `calc(${String(topPct)}% + 1px)`, height: `calc(${String(heightPct)}% - 2px)` }}
     >
       {tall ? (
-        <>
-          <span data-line className="score-text text-text-primary/80 text-[0.6875rem]">
-            {formatEventTimeRange(block.start_time, block.end_time)}
-          </span>
-          <span className="flex min-w-0 items-center gap-1">
-            <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />
-            <span data-line className="text-text-primary truncate text-xs font-medium">
-              {line}
-            </span>
-          </span>
-        </>
+        <BlockLines hours={formatEventTimeRange(block.start_time, block.end_time)} kind={kind} name={name} />
       ) : (
         <span className="flex min-w-0 items-center gap-1">
           <CalendarDays className="text-text-primary size-3 shrink-0" aria-hidden="true" />

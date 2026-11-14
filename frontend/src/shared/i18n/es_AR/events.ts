@@ -20,6 +20,7 @@ export const events = {
   blockLabel: (name: string) => `Canchas libres · ${name}`,
   blockLabelCompact: 'Canchas libres',
   // The grid bar of a tournament match whose pairs are known: "{categoría} · {pareja} vs {pareja}".
+  matchPairs: (pair1: string, pair2: string) => `${pair1} vs ${pair2}`,
   matchBlockLine: (category: string, pair1: string, pair2: string) => `${category} · ${pair1} vs ${pair2}`,
 
   // Create form
