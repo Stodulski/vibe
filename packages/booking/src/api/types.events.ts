@@ -43,7 +43,9 @@ export interface PublicEventSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string;
+  email?: string | undefined;
+  /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
+  turnstile_token?: string | undefined;
 }
 
 /** `POST .../registrations`: the spot is held; pay at `mp_init_point`. */

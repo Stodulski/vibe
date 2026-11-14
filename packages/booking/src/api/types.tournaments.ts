@@ -174,6 +174,8 @@ export interface PublicPairSignUpRequest {
   phone: string;
   email?: string | undefined;
   partner: PublicTournamentPartnerRequest;
+  /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
+  turnstile_token?: string | undefined;
 }
 
 export interface PublicPairSignUp {

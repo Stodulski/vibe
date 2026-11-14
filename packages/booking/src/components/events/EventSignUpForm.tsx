@@ -4,10 +4,13 @@ import { submitHandler, toDisplayDate, useAppForm } from '@vibe/ui';
 import { format } from 'date-fns/format';
 import { es } from 'date-fns/locale/es';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
+import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
+import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
 import { keepTogether } from '../../lib/keepTogether';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
 import { eventTimeRange, endsNextDay, sportLabel } from './eventFormat';
+import { TurnstileField } from '../booking-form/TurnstileField';
 import { FormErrorAlert } from '../booking-form/FormErrorAlert';
 import { PrivacyNotice } from '../booking-form/PrivacyNotice';
 import { SubmitFooter } from '../booking-form/SubmitFooter';
@@ -48,9 +51,15 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
   const signUp = useEventSignUp(slug, event.id, setErrorMessage);
 
+  // The booking hold's bot check: one invisible challenge, one token per sign-up.
+  const { challenge, generation, onTokenChange } = useHoldChallenge();
+  const submitWithChallenge = useChallengedSubmit<EventSignUpFormData>(challenge, (data, token) => {
+    signUp.mutate({ data, token }, { onSettled: challenge.reset });
+  });
+
   function onSubmit(data: EventSignUpFormData) {
     setErrorMessage(null);
-    signUp.mutate(data);
+    submitWithChallenge(data);
   }
 
   return (
@@ -73,6 +82,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
         <EventSignUpFields register={register} control={control} errors={errors} />
+        <TurnstileField key={generation} onTokenChange={onTokenChange} />
         <SubmitFooter isLoading={signUp.isPending} totalOnline={event.total_price} type="submit" />
         <PrivacyNotice text={t.events.privacyNotice} />
       </form>

@@ -3,8 +3,11 @@ import type { FieldErrors, UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { submitHandler, useAppForm } from '@vibe/ui';
 import { useTournamentSignUp } from '../../hooks/useTournamentSignUp';
+import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
+import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
 import { BOOKING_MESSAGES } from '../../messages';
 import { PersonFields } from '../signup/PersonFields';
+import { TurnstileField } from '../booking-form/TurnstileField';
 import { FormErrorAlert } from '../booking-form/FormErrorAlert';
 import { PrivacyNotice } from '../booking-form/PrivacyNotice';
 import { SubmitFooter } from '../booking-form/SubmitFooter';
@@ -71,9 +74,15 @@ export function PairSignUpForm({ slug, tournament, category }: PairSignUpFormPro
   });
   const signUp = useTournamentSignUp(slug, tournament.id, category.id, setErrorMessage);
 
+  // The booking hold's bot check: one invisible challenge, one token per sign-up.
+  const { challenge, generation, onTokenChange } = useHoldChallenge();
+  const submitWithChallenge = useChallengedSubmit<PairSignUpFormData>(challenge, (data, token) => {
+    signUp.mutate({ data, token }, { onSettled: challenge.reset });
+  });
+
   function onSubmit(data: PairSignUpFormData) {
     setErrorMessage(null);
-    signUp.mutate(data);
+    submitWithChallenge(data);
   }
 
   const serviceFee = category.service_fee ?? 0;
@@ -94,6 +103,7 @@ export function PairSignUpForm({ slug, tournament, category }: PairSignUpFormPro
       />
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
         <PlayersFieldsets register={register} control={control} errors={errors} categoryId={category.id} />
+        <TurnstileField key={generation} onTokenChange={onTokenChange} />
         <SubmitFooter isLoading={signUp.isPending} totalOnline={total} type="submit" />
         <PrivacyNotice text={t.tournaments.privacyNotice} />
       </form>

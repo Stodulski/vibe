@@ -21,7 +21,7 @@ export function useTournamentSignUp(
   const api = usePublicBookingApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: PairSignUpFormData) =>
+    mutationFn: ({ data, token }: { data: PairSignUpFormData; token?: string | undefined }) =>
       api.signUpPairForTournament(slug, tournamentId, categoryId, {
         first_name: data.first_name,
         last_name: data.last_name,
@@ -32,6 +32,7 @@ export function useTournamentSignUp(
           last_name: data.partner.last_name,
           phone: data.partner.phone,
         },
+        ...(token ? { turnstile_token: token } : {}),
       }),
     onSuccess: (result) => {
       if (!result.mp_init_point) {

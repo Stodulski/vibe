@@ -29,6 +29,8 @@ export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 's
   status: Open<Spec<'PublicOpenPlayEvent'>['status']>;
 };
 
+export type PublicEventSignUpRequest = Body<'eventsPublicSignUp'>;
+
 /** `POST .../registrations`: the held spot and the checkout that pays for it. */
 export type PublicEventSignUp = Omit<Spec<'PublicEventSignUp'>, 'event'> & { event: PublicOpenPlayEvent };
 

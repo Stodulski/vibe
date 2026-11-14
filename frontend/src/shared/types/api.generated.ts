@@ -7868,6 +7868,8 @@ export interface operations {
                         /** @description Optional. */
                         email?: string;
                     };
+                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+                    turnstile_token?: string;
                 };
             };
         };
@@ -8086,6 +8088,8 @@ export interface operations {
                     phone: string;
                     /** @description Optional. */
                     email?: string;
+                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+                    turnstile_token?: string;
                 };
             };
         };

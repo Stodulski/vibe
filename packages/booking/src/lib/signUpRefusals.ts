@@ -2,6 +2,7 @@ import { HTTPError } from 'ky';
 import { BOOKING_MESSAGES } from '../messages';
 import { getProblem } from './ApiError';
 import { getHttpErrorMessage } from './httpErrors';
+import { turnstileCopy } from './bookingRefusals';
 
 /** The Spanish sentence each way a sign-up can be refused answers with. */
 export interface RefusalCopy {
@@ -43,6 +44,9 @@ export function refusalCopy(error: unknown, copy: RefusalCopy): string {
         return conflictCopy(getProblem(error)?.kind, copy);
       case 403:
         return BOOKING_MESSAGES.publicBooking.accountBlocked;
+      case 422:
+        // The bot check, worded as the booking hold words it.
+        return turnstileCopy(error) ?? copy.fallback;
       case 429:
         return copy.tooManyUnpaid;
       case 503:
