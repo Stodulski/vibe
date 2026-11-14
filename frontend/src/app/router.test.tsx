@@ -75,6 +75,7 @@ describe('platform routes', () => {
     '/dashboard',
     '/bookings',
     '/open-play',
+    '/tournaments',
     '/cash',
     '/courts',
     '/clients',

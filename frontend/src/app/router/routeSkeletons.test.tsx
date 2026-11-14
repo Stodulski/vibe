@@ -11,6 +11,8 @@ const CASES = [
   ['/dashboard', '/dashboard'],
   ['/bookings', '/bookings'],
   ['/open-play', '/open-play'],
+  ['/tournaments', '/tournaments'],
+  ['/tournaments/t-1', '/tournaments/:tournamentId'],
   ['/cash', '/cash'],
   ['/cash/sell', '/cash/sell'],
   ['/cash/sessions/s-1', '/cash/sessions/:sessionId'],

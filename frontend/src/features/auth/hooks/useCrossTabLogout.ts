@@ -27,6 +27,7 @@ export const PROTECTED_PATH_PREFIXES = [
   '/dashboard',
   '/bookings',
   '/open-play',
+  '/tournaments',
   '/cash',
   '/courts',
   '/clients',

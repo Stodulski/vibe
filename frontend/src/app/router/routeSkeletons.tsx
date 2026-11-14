@@ -11,6 +11,8 @@ import { CourtsPageSkeleton } from '@/features/courts/pages/CourtsPageSkeleton';
 import { DashboardPageSkeleton } from '@/features/dashboard/pages/DashboardPageSkeleton';
 import { ReportsPageSkeleton } from '@/features/dashboard/pages/ReportsPageSkeleton';
 import { EventsPageSkeleton } from '@/features/events/pages/EventsPageSkeleton';
+import { TournamentDetailPageSkeleton } from '@/features/tournaments/pages/TournamentDetailPageSkeleton';
+import { TournamentsPageSkeleton } from '@/features/tournaments/pages/TournamentsPageSkeleton';
 import { ProductDetailPageSkeleton } from '@/features/products/pages/ProductDetailPageSkeleton';
 import { ProductsPageSkeleton } from '@/features/products/pages/ProductsPageSkeleton';
 
@@ -27,6 +29,8 @@ const OWNER_ROUTE_SKELETONS = {
   '/dashboard': () => <DashboardPageSkeleton />,
   '/bookings': () => <BookingsPageSkeleton />,
   '/open-play': () => <EventsPageSkeleton />,
+  '/tournaments': () => <TournamentsPageSkeleton />,
+  '/tournaments/:tournamentId': () => <TournamentDetailPageSkeleton />,
   '/cash': () => <CashPageSkeleton />,
   '/cash/sell': () => <CashSellPageSkeleton />,
   '/cash/sessions/:sessionId': () => <CashSessionDetailPageSkeleton />,

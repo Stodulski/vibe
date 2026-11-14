@@ -63,6 +63,9 @@ describe('courtsApi response envelopes', () => {
     expect(result.success).toBe(true);
   });
 
+});
+
+describe('courtsApi blocked-slots held hours', () => {
   it('reads the hours open-play events hold from event_blocks', () => {
     const eventBlock = {
       event_id: 'ev1',

@@ -9,6 +9,7 @@ import { DateNavStrip } from './bookings/DateNavStrip';
 import { BookingsPageModals } from './bookings/BookingsPageModals';
 import { useBlockSlotSection } from './bookings/useBlockSlotSection';
 import { DATE_NAV_SECTION_CLASS } from './bookings/bookingsLayout';
+import type { CourtEventBlock } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -23,6 +24,11 @@ export default function BookingsPage() {
   if (!selectedComplexId) return null;
 
   return <BookingsPageContent complexId={selectedComplexId} />;
+}
+
+/** Cancelling or reading an event or a tournament is their pages' job: the grid block opens it there. */
+function eventBlockPath(block: CourtEventBlock): string {
+  return 'match_id' in block ? `/tournaments/${block.tournament_id}` : `/open-play?event=${block.event_id}`;
 }
 
 function BookingsPageContent({ complexId }: { complexId: string }) {
@@ -79,11 +85,8 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           onOpenCreate={state.handleOpenCreate}
           onSelectBlockedSlot={blockSlot.setSelectedSlot}
           onSelectFixedBlock={blockSlot.setSelectedFixedBlock}
-          // Cancelling or reading an event or a tournament is their pages' job: the block opens it there.
           onSelectEventBlock={(block) => {
-            void navigate(
-              'match_id' in block ? `/tournaments/${block.tournament_id}` : `/open-play?event=${block.event_id}`,
-            );
+            void navigate(eventBlockPath(block));
           }}
         />
       </div>
