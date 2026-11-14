@@ -2,6 +2,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { cn, formatDateShort, formatTime } from '@/shared/lib/utils';
 import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
+import { isCorrectionLocked } from '../lib/correctionLock';
 import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
 import type { TournamentOwnerMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
@@ -28,10 +29,13 @@ function MatchButtons({
   match,
   actions,
   ready,
+  locked,
 }: {
   match: TournamentOwnerMatch;
   actions: MatchActions;
   ready: boolean;
+  /** The played match cannot be corrected: what comes next already has a result. */
+  locked: boolean;
 }) {
   const done = match.status === 'completed';
   return (
@@ -63,16 +67,25 @@ function MatchButtons({
         </Button>
       )}
       {ready ? (
-        <Button
-          type="button"
-          size="sm"
-          className="rounded-lg"
-          onClick={() => {
-            actions.onResult(match.id);
-          }}
-        >
-          {done ? t.correctResult : t.loadResult}
-        </Button>
+        <>
+          <Button
+            type="button"
+            size="sm"
+            className="rounded-lg"
+            disabled={locked}
+            aria-describedby={locked ? `locked-${match.id}` : undefined}
+            onClick={() => {
+              actions.onResult(match.id);
+            }}
+          >
+            {done ? t.correctResult : t.loadResult}
+          </Button>
+          {locked && (
+            <span id={`locked-${match.id}`} className="text-text-tertiary self-center text-xs">
+              {t.correctLocked}
+            </span>
+          )}
+        </>
       ) : (
         <span className="text-text-tertiary self-center text-xs">{t.notReady}</span>
       )}
@@ -86,12 +99,14 @@ function MatchRow({
   actions,
   courtFee,
   editable,
+  locked,
 }: {
   match: TournamentOwnerMatch;
   lookups: Lookups;
   actions: MatchActions;
   courtFee: { fee: number; actions: CourtFeeActions };
   editable: boolean;
+  locked: boolean;
 }) {
   const score = resultText(match, lookups.pairs);
   const ready = !!match.pair1_id && !!match.pair2_id;
@@ -126,7 +141,7 @@ function MatchRow({
         actions={courtFee.actions}
         editable={editable}
       />
-      {editable && <MatchButtons match={match} actions={actions} ready={ready} />}
+      {editable && <MatchButtons match={match} actions={actions} ready={ready} locked={locked} />}
     </li>
   );
 }
@@ -183,6 +198,7 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
                 actions={actions}
                 courtFee={courtFee}
                 editable={editable}
+                locked={match.status === 'completed' && isCorrectionLocked(match, matches)}
               />
             ))}
           </ul>

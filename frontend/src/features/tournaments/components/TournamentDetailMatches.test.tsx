@@ -73,6 +73,42 @@ describe('TournamentDetail: matches', () => {
   });
 });
 
+describe('TournamentDetail: correcting a result', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('disables the correction, and says why, when the next match already has a result', async () => {
+    const detail = makeDrawnDetail();
+    detail.matches = [
+      makeMatch({
+        id: 's1',
+        round: 1,
+        position: 0,
+        pair1Id: 'p1',
+        pair2Id: 'p2',
+        status: 'completed',
+        winnerPairId: 'p1',
+      }),
+      makeMatch({
+        id: 'f',
+        round: 2,
+        position: 0,
+        pair1Id: 'p1',
+        pair2Id: 'p3',
+        status: 'completed',
+        winnerPairId: 'p1',
+      }),
+    ];
+    await renderMatches(detail);
+
+    const buttons = screen.getAllByRole('button', { name: t.matches.correctResult });
+    expect(buttons[0]).toBeDisabled();
+    expect(buttons[1]).toBeEnabled();
+    expect(screen.getAllByText(t.matches.correctLocked)).toHaveLength(1);
+  });
+});
+
 describe('TournamentDetail: match readiness and scheduling', () => {
   beforeEach(() => {
     vi.clearAllMocks();

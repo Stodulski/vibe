@@ -89,8 +89,7 @@ export const tournaments = {
     capacity: 'Cupo',
     price: 'Precio',
     formatLabel: 'Formato',
-    groupsSetup: (size: number, qualifiers: number) =>
-      `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
+    groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1
         ? `Un set de ${String(games)} games`
@@ -209,6 +208,7 @@ export const tournaments = {
     unschedule: 'Sacar de la cancha',
     loadResult: 'Cargar resultado',
     correctResult: 'Corregir resultado',
+    correctLocked: 'No se puede corregir: el partido siguiente ya tiene resultado.',
     matchday: (round: number) => `Fecha ${String(round)}`,
     versus: 'vs',
     walkoverNote: (name: string) => `W.O.: ${name} no se presentó`,
