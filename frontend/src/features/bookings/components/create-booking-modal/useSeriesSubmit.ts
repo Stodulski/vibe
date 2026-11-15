@@ -1,29 +1,24 @@
 import { useRef, useState } from 'react';
-import type { UseFormSetValue } from 'react-hook-form';
 import { useCreateBookingSeries } from '../../hooks/useCreateBookingSeries';
-import { courtAlternativesFrom, seriesConflictsFrom } from '../../lib/seriesConflicts';
+import { seriesConflictsFrom } from '../../lib/seriesConflicts';
 import { buildSeriesPayload } from './buildSeriesPayload';
 import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { SeriesOptions } from './useSeriesOptions';
-import type { BookingSeriesConflict, CourtAlternative, CreateBookingSeriesRequest } from '@/shared/types/api.types';
+import type { BookingSeriesConflict, CreateBookingSeriesRequest } from '@/shared/types/api.types';
+
+type DateCourt = NonNullable<CreateBookingSeriesRequest['date_courts']>[number];
 
 /**
- * Sends the create-booking form as a weekly series, and keeps what the
- * "create skipping these dates" retry needs: the request the server refused
- * and the dates it named. The dates live in state of their own (not read off
+ * Sends the create-booking form as a weekly series, and keeps what the retry
+ * needs: the request the server refused and the dates it named, each with the
+ * courts free that day. The dates live in state of their own (not read off
  * the mutation's error) so the list stays on screen while the retry is in
  * flight instead of blinking back to the form.
  */
-export function useSeriesSubmit(
-  complexId: string,
-  series: SeriesOptions,
-  /** Puts the court the owner switched to into the form, so "Volver" shows it. */
-  setValue: UseFormSetValue<CreateBookingDto>,
-) {
+export function useSeriesSubmit(complexId: string, series: SeriesOptions) {
   const createSeries = useCreateBookingSeries(complexId);
   const lastRequest = useRef<CreateBookingSeriesRequest | null>(null);
   const [conflicts, setConflicts] = useState<BookingSeriesConflict[]>([]);
-  const [alternatives, setAlternatives] = useState<CourtAlternative[]>([]);
 
   const send = (request: CreateBookingSeriesRequest, onDone: () => void) => {
     lastRequest.current = request;
@@ -31,7 +26,6 @@ export function useSeriesSubmit(
       onSuccess: onDone,
       onError: (error) => {
         setConflicts(seriesConflictsFrom(error));
-        setAlternatives(courtAlternativesFrom(error));
       },
     });
   };
@@ -40,25 +34,24 @@ export function useSeriesSubmit(
     createSeries,
     /** The dates the server refused, while the owner decides what to do about them. */
     conflicts,
-    /** Other courts the server says fit the series better, best first. */
-    alternatives,
     submit: (data: CreateBookingDto, onDone: () => void) => {
       setConflicts([]);
-      setAlternatives([]);
       send(buildSeriesPayload(data, series.toEnd()), onDone);
     },
-    submitSkippingConflicts: (onDone: () => void) => {
-      if (lastRequest.current) send({ ...lastRequest.current, skip_conflicts: true }, onDone);
-    },
-    /** Sends the refused series again on another court, without skipping any date. */
-    switchCourt: (courtId: string, onDone: () => void) => {
+    /**
+     * Sends the refused series again, on the same court: the dates in
+     * `dateCourts` are booked on the court picked for them, every other
+     * refused date is left out.
+     */
+    submitWithChoices: (dateCourts: DateCourt[], onDone: () => void) => {
       if (!lastRequest.current) return;
-      setValue('court_id', courtId);
-      send({ ...lastRequest.current, court_id: courtId }, onDone);
+      send(
+        { ...lastRequest.current, skip_conflicts: true, ...(dateCourts.length > 0 ? { date_courts: dateCourts } : {}) },
+        onDone,
+      );
     },
     dismissConflicts: () => {
       setConflicts([]);
-      setAlternatives([]);
       createSeries.reset();
     },
   };

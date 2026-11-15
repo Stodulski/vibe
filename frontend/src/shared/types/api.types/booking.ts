@@ -109,8 +109,8 @@ export type BookingSeries = Spec<'BookingSeries'>;
 
 export type BookingSeriesConflict = Spec<'BookingSeriesConflict'>;
 
-/** Another court the refused series fits better, as the create-series 409 offers it. */
-export type CourtAlternative = Spec<'CourtAlternative'>;
+/** A court free on a conflict date of the refused series, as the create-series 409 lists it. */
+export type BookingSeriesFreeCourt = Spec<'BookingSeriesFreeCourt'>;
 
 /** Same `duration_minutes` narrowing as {@link CreateBookingRequest}. */
 export type CreateBookingSeriesRequest = Omit<Body<'bookingSeriesCreate'>, 'duration_minutes'> & {

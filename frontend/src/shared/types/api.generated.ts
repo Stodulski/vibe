@@ -467,7 +467,7 @@ export interface paths {
         put?: never;
         /**
          * Create a fixed weekly booking (turno fijo)
-         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
+         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`; each conflict of the `409` lists the other courts free that date (`free_courts`), and `date_courts` books some of those dates on another court instead of skipping them. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
          */
         post: operations["bookingSeriesCreate"];
         delete?: never;
@@ -2449,16 +2449,6 @@ export interface components {
             errors?: components["schemas"]["FieldError"][];
             /** @description Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked. */
             conflicts?: components["schemas"]["BookingSeriesConflict"][];
-            /** @description Present with `conflicts`: other active courts of the same complex and sport that the series fits better, free ones first, the most alike (same surface, covered or open, lighting) first within each. At most three. */
-            alternatives?: components["schemas"]["CourtAlternative"][];
-        };
-        /** @description Another court offered when the chosen one holds the series' dates. */
-        CourtAlternative: {
-            /** Format: uuid */
-            court_id: string;
-            court_name: string;
-            /** @description Dates of the series something else holds on this court; 0 when it is free every week. */
-            conflicts: number;
         };
         /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
         PaymentsExport: {
@@ -3117,6 +3107,14 @@ export interface components {
              * @enum {string}
              */
             held_by?: "booking" | "fixed" | "event" | "match";
+            /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
+            free_courts?: components["schemas"]["BookingSeriesFreeCourt"][];
+        };
+        /** @description A court that is free on a date of a fixed weekly booking. */
+        BookingSeriesFreeCourt: {
+            /** Format: uuid */
+            court_id: string;
+            court_name: string;
         };
         /** @description One upcoming date of a series. */
         BookingSeriesUpcoming: {
@@ -5352,6 +5350,13 @@ export interface operations {
                     weeks?: number;
                     /** @description Create the series turning the dates something else holds into exceptions. */
                     skip_conflicts?: boolean;
+                    /** @description With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions. */
+                    date_courts?: {
+                        /** Format: date */
+                        date: string;
+                        /** Format: uuid */
+                        court_id: string;
+                    }[];
                 };
             };
         };

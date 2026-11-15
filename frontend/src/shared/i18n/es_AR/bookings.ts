@@ -1,6 +1,3 @@
-/** "sin esos 3 días" / "sin ese día": what the owner gives up by staying on the court. */
-const skipPhrase = (count: number) => (count === 1 ? 'sin ese día' : `sin esos ${String(count)} días`);
-
 export const bookings = {
   title: 'Reservas',
   create: 'Nueva reserva',
@@ -156,24 +153,23 @@ export const bookings = {
     paymentNote: 'Cada turno se cobra como una reserva normal.',
     conflictsTitle: (court: string, count: number, weekdayPlural: string, weekdaySingular: string) =>
       `${court} está ocupada ${String(count)} ${count === 1 ? weekdaySingular : weekdayPlural}`,
-    // One line under the title: the two ways out, led by the one that fits the courts on offer.
-    conflictsHintFree: (court: string, count: number) =>
-      `Elegí otra cancha libre todas las semanas, o creá el turno fijo en ${court} ${skipPhrase(count)}.`,
-    conflictsHintFewer: (court: string, count: number) =>
-      `Elegí otra cancha con menos días ocupados, o creá el turno fijo en ${court} ${skipPhrase(count)}.`,
-    conflictsHintNone: (court: string, count: number) =>
-      `Creá el turno fijo en ${court} ${skipPhrase(count)}, o volvé y cambiá el horario.`,
+    // One line under the title: each occupied date gets its own answer.
+    conflictsHint: 'Para cada día ocupado, elegí si no se reserva o si ese turno va en otra cancha libre.',
     // A series with no end is only checked for the year ahead, the booking horizon.
     conflictsEndless: 'Como el turno fijo no tiene fecha de fin, revisamos las fechas del próximo año.',
-    // Option 1: another court (`alternatives`, the same complex and sport, best first).
-    changeCourtTitle: 'Cambiar de cancha',
-    alternativeAllFree: (weekdayPlural: string) => `Libre todos los ${weekdayPlural}`,
-    alternativeBusy: (count: number, weekdayPlural: string, weekdaySingular: string) =>
-      `Ocupada ${String(count)} ${count === 1 ? weekdaySingular : weekdayPlural}`,
-    useCourt: (court: string) => `Usar ${court}`,
-    // Option 2: the same court without the colliding dates.
-    stayOnCourtTitle: (court: string) => `Quedarte en ${court}`,
-    skippedDaysLabel: 'Estos días no se reserva:',
+    // The occupied dates of the court, one row each with its own selector.
+    occupiedDaysTitle: (court: string) => `Días ocupados en ${court}`,
+    dayChoiceLabel: 'Ese día:',
+    skipDayOption: 'No reservar ese día',
+    noOtherCourtFree: 'No hay otra cancha libre ese día',
+    // Above the buttons: what creating the series will do with the occupied dates.
+    choicesSummary: (moved: number, skipped: number) =>
+      [
+        moved > 0 ? `${String(moved)} ${moved === 1 ? 'día' : 'días'} en otra cancha` : '',
+        skipped > 0 ? `${String(skipped)} ${skipped === 1 ? 'día' : 'días'} sin reservar` : '',
+      ]
+        .filter(Boolean)
+        .join(', '),
     // What holds a date that collides, as a short tag: `held_by` when the server says, else the reason.
     conflictTags: {
       booking: 'Reserva',
@@ -188,7 +184,6 @@ export const bookings = {
       client_blocked: 'Cliente bloqueado',
       missed: 'No se pudo crear',
     },
-    skipConflicts: (count: number) => (count === 1 ? 'Crear sin ese día' : `Crear sin esos ${String(count)} días`),
     conflictsBack: 'Volver',
     createSuccess: (weekdayPlural: string, time: string, skipped: number) => {
       const created = `Turno fijo creado: todos los ${weekdayPlural} a las ${time}`;

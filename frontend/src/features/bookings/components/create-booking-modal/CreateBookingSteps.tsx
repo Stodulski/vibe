@@ -21,7 +21,7 @@ const STEP_FIELDS = {
   2: ['client_first_name', 'client_last_name', 'client_phone', 'client_email'],
 } as const satisfies Record<1 | 2, (keyof CreateBookingDto)[]>;
 
-/** The dates a weekly series could not take, with the two ways out (see `SeriesConflictsPanel`). */
+/** The dates a weekly series could not take, with an answer for each (see `SeriesConflictsPanel`). */
 function SeriesConflictsView({
   form,
   onClose,
@@ -38,12 +38,8 @@ function SeriesConflictsView({
       conflicts={seriesSubmit.conflicts}
       endless={form.series.endMode === 'never'}
       pending={seriesSubmit.createSeries.isPending}
-      alternatives={seriesSubmit.alternatives}
-      onUseCourt={(courtId) => {
-        seriesSubmit.switchCourt(courtId, onClose);
-      }}
-      onSkip={() => {
-        seriesSubmit.submitSkippingConflicts(onClose);
+      onCreate={(dateCourts) => {
+        seriesSubmit.submitWithChoices(dateCourts, onClose);
       }}
       onBack={() => {
         seriesSubmit.dismissConflicts();
