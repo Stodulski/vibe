@@ -19,7 +19,7 @@ export function ProductCategoryChips({ categories, value, onSelect, ariaLabel }:
   const normalizedValue = value.trim().toLowerCase();
 
   return (
-    <ChipList aria-label={ariaLabel}>
+    <ChipList aria-label={ariaLabel} wrap>
       {categories.map((category) => {
         const selected = normalizedValue !== '' && category.toLowerCase() === normalizedValue;
         return (
