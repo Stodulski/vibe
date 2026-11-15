@@ -16,11 +16,15 @@ const STATUS_STYLES: Record<ParticipantStatusKey, string> = {
   partialRefund: 'text-warning-text',
 };
 
+// A confirmed participant with a partial refund (made from Mercado Pago's panel)
+// still holds the spot, so the line keeps what they paid next to what came back.
 function moneyLine(participant: OpenPlayParticipant): string | null {
   const payment = participant.payment;
   if (!payment) return null;
-  if (payment.refund_amount > 0) return t.participant.refundedAmount(formatPrice(payment.refund_amount));
-  return participant.status === 'confirmed' ? t.participant.paid(formatPrice(payment.amount)) : null;
+  const paid = participant.status === 'confirmed' ? t.participant.paid(formatPrice(payment.amount)) : null;
+  const refunded = payment.refund_amount > 0 ? t.participant.refundedAmount(formatPrice(payment.refund_amount)) : null;
+  const parts = [paid, refunded].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function cancelledBy(participant: OpenPlayParticipant): string | null {

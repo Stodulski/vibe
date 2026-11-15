@@ -29,11 +29,15 @@ function PhoneLink({ name, phone }: { name: string; phone: string }) {
   );
 }
 
+// A confirmed pair with a partial refund (made from Mercado Pago's panel) still
+// holds the spot, so the line keeps what they paid next to what came back.
 function moneyLine(pair: TournamentOwnerPair): string | null {
   const payment = pair.payment;
   if (!payment) return null;
-  if (payment.refund_amount > 0) return t.refundedAmount(formatPrice(payment.refund_amount));
-  return pair.registration.status === 'confirmed' ? t.paid(formatPrice(payment.amount)) : null;
+  const paid = pair.registration.status === 'confirmed' ? t.paid(formatPrice(payment.amount)) : null;
+  const refunded = payment.refund_amount > 0 ? t.refundedAmount(formatPrice(payment.refund_amount)) : null;
+  const parts = [paid, refunded].filter(Boolean);
+  return parts.length > 0 ? parts.join(' · ') : null;
 }
 
 function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; groupName?: string; onSwap?: () => void }) {
