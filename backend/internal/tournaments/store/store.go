@@ -3,7 +3,7 @@
 // and results of those matches.
 //
 // A category's sign-up container is an open-play event row, and a pair's sign-up
-// an open-play registration (see migration 029); this package owns what a pair
+// an open-play registration (see migration 030); this package owns what a pair
 // adds and every rule that changes a draw, a result or a schedule, each under
 // the category's row lock so two writers never interleave on one bracket.
 package store

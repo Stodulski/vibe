@@ -224,7 +224,7 @@ type Booking struct {
 	SeriesID *uuid.UUID `json:"series_id,omitempty"`
 	// AttendedAt is when the owner marked the client as present (MarkAttended);
 	// nil when nobody did. Only a completed booking carries one
-	// (bookings_attended_only_completed, db/migrations/030_booking_attendance.sql),
+	// (bookings_attended_only_completed, db/migrations/031_booking_attendance.sql),
 	// so a completed booking without it reads "Turno finalizado".
 	AttendedAt *time.Time `json:"attended_at"`
 
