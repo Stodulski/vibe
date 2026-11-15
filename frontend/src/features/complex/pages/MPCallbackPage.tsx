@@ -4,7 +4,7 @@ import { MPCallbackStatus } from './mp-callback-page/MPCallbackStatus';
 import { useMPCallback } from './mp-callback-page/useMPCallback';
 
 export default function MPCallbackPage() {
-  usePageTitle('MercadoPago');
+  usePageTitle('Mercado Pago');
   const { status, errorReason, returnPath } = useMPCallback();
 
   return (

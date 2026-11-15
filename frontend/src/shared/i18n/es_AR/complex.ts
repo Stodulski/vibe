@@ -92,7 +92,7 @@ export const complex = {
   onboardingNeedsCourt: 'Creá al menos una cancha para continuar',
   onboardingStep2Description: 'Sin canchas no hay nada que reservar.',
   onboardingStep3: 'Cobros online',
-  onboardingStep3Description: 'Conectá MercadoPago para cobrar las reservas online.',
+  onboardingStep3Description: 'Conectá Mercado Pago para cobrar las reservas online.',
   onboardingStepShort1: 'Complejo',
   onboardingStepShort2: 'Canchas',
   onboardingStepShort3: 'Pagos',

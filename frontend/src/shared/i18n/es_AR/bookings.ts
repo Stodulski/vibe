@@ -51,7 +51,7 @@ export const bookings = {
   refundOwner: {
     none: 'No había ningún pago para devolver.',
     not_eligible: 'La cancelación quedó fuera del plazo, así que no corresponde devolver la seña.',
-    issued: 'La devolución se envió a MercadoPago y se acredita en los próximos días hábiles.',
+    issued: 'La devolución se envió a Mercado Pago y se acredita en los próximos días hábiles.',
     already_issued: 'La devolución ya se había enviado.',
     queued: 'La devolución está en curso. Te avisamos por mail cuando se complete.',
     manual: 'Tenés que devolverle esta plata al cliente a mano.',
@@ -102,7 +102,7 @@ export const bookings = {
     debit_card: 'Débito',
     credit_card: 'Crédito',
     qr_wallet: 'QR / billetera',
-    mercadopago: 'MercadoPago',
+    mercadopago: 'Mercado Pago',
   },
   previousDay: 'Día anterior',
   nextDay: 'Día siguiente',

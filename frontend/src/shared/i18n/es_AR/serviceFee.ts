@@ -7,7 +7,7 @@
 // sentence and not for a block, use the joined `ownerInfo` below. Composed
 // rather than written twice, so the two forms cannot drift apart.
 const ownerInfoClients = 'Tus clientes pagan un cargo de servicio fijo de $1.000 por reserva.';
-const ownerInfoYou = 'Vos solo pagás la comisión de MercadoPago.';
+const ownerInfoYou = 'Vos solo pagás la comisión de Mercado Pago.';
 
 export const serviceFee = {
   label: 'Cargo de servicio',

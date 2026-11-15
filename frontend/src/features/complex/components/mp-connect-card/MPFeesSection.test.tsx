@@ -54,7 +54,7 @@ describe('MPFeesSection', () => {
     renderWithProviders(<MPFeesSection province="Buenos Aires" />);
 
     await waitFor(() => {
-      expect(screen.getByText(/no pudimos cargar los costos de mercadopago/i)).toBeInTheDocument();
+      expect(screen.getByText(/no pudimos cargar los costos de mercado pago/i)).toBeInTheDocument();
     });
   });
 });

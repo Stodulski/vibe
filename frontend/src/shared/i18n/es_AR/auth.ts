@@ -4,7 +4,7 @@ export const auth = {
   loginMetaDescription:
     'Accedé a tu panel de gestión de canchas y reservas. Administrá tu complejo deportivo desde un solo lugar.',
   registerMetaDescription:
-    'Registrate gratis y empezá a gestionar tu complejo deportivo. Reservas online, cobros con MercadoPago y más.',
+    'Registrate gratis y empezá a gestionar tu complejo deportivo. Reservas online, cobros con Mercado Pago y más.',
   login: 'Iniciar sesión',
   register: 'Crear cuenta',
   logout: 'Cerrar sesión',

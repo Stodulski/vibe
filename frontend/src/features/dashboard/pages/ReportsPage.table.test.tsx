@@ -37,7 +37,7 @@ describe('ReportsPage table rendering', () => {
     );
     renderReportsPage(<ReportsPage />);
 
-    expect(screen.getAllByText('MercadoPago').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('Mercado Pago').length).toBeGreaterThanOrEqual(1);
     expect(screen.getAllByText('Efectivo').length).toBeGreaterThanOrEqual(1);
     const totalElements = screen.getAllByText('Total');
     expect(totalElements.length).toBeGreaterThanOrEqual(1);
