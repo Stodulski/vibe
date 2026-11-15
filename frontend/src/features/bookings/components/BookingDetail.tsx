@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from 'react';
-import { Sheet, SheetContent, SheetFooter } from '@/shared/components/ui/sheet';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
+import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useBooking } from '../hooks/useBooking';
@@ -76,14 +77,14 @@ function BookingDetailFooter({
   if (!canConfirmPayment && !canMarkManualRefund) return null;
 
   return (
-    <SheetFooter className="items-start sm:px-6">
+    <DetailSheetFooter>
       <DetailFooterActions
         booking={booking}
         onConfirmPayment={canConfirmPayment ? onConfirmPayment : undefined}
         onManualRefund={canMarkManualRefund ? onManualRefund : undefined}
         manualRefundAmount={manualRefundAmount}
       />
-    </SheetFooter>
+    </DetailSheetFooter>
   );
 }
 

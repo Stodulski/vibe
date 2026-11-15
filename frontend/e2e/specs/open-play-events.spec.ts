@@ -266,7 +266,8 @@ test('cancelling shows the paid count and frees the grid', async ({ page: visito
   await page.goto(`/events/open-play?event=${eventId}`);
   const sheet = page.getByRole('dialog');
   await expect(sheet.getByText('Participantes · 3 confirmados')).toBeVisible({ timeout: 10_000 });
-  await sheet.getByRole('button', { name: 'Cancelar evento' }).click();
+  await sheet.getByRole('button', { name: 'Más acciones' }).click();
+  await page.getByRole('menuitem', { name: 'Cancelar evento' }).click();
 
   const confirm = page.getByRole('alertdialog');
   await expect(confirm.getByText('Cancelar el evento')).toBeVisible();

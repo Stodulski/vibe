@@ -1,6 +1,5 @@
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetFooter } from '@/shared/components/ui/sheet';
-import { Button } from '@/shared/components/ui/button';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
@@ -14,6 +13,7 @@ import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
 import { paidCount, sortParticipants } from '../lib/participantStatus';
 import { CancelEventDialog } from './CancelEventDialog';
+import { EventDetailMenu } from './EventDetailMenu';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { ParticipantList } from './ParticipantList';
 import type { OpenPlayEvent, OpenPlayParticipant } from '@/shared/types/api.types';
@@ -64,19 +64,9 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
   );
 }
 
-function CancelEventFooter({ onCancel }: { onCancel: () => void }) {
-  return (
-    <SheetFooter className="items-start sm:px-6">
-      <Button variant="destructive" className="rounded-lg" onClick={onCancel}>
-        {t.cancel.action}
-      </Button>
-    </SheetFooter>
-  );
-}
-
 /**
  * The owner's view of one event: its facts, everyone who held a spot with their
- * payment, and the cancel action while the event is still ahead.
+ * payment; the cancel action sits in the header menu while the event is still ahead.
  */
 export function EventDetail({ open, onClose, complexId, eventId }: EventDetailProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -108,6 +98,15 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
             subtitle={
               event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
             }
+            menu={
+              canCancel && (
+                <EventDetailMenu
+                  onCancel={() => {
+                    setCancelOpen(true);
+                  }}
+                />
+              )
+            }
           />
           {isLoading && <EventDetailSkeleton />}
           {!!error && (
@@ -116,13 +115,6 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
             </p>
           )}
           {event && <EventBody event={event} participants={participants} />}
-          {canCancel && (
-            <CancelEventFooter
-              onCancel={() => {
-                setCancelOpen(true);
-              }}
-            />
-          )}
         </SheetContent>
       </Sheet>
       {shownId && (
