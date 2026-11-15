@@ -61,4 +61,16 @@ describe('SectionFooter', () => {
       expect(submitButton.querySelector('svg.animate-spin')).toBeInTheDocument();
     });
   });
+
+  describe('pinning on full-screen mobile dialogs', () => {
+    it('pins itself to the bottom without depending on a wrapping form', () => {
+      const { container } = render(<SectionFooter onCancel={vi.fn()} submitLabel="Guardar" />);
+      expect(container.firstElementChild).toHaveClass('mt-auto', 'sm:mt-0');
+    });
+
+    it('does not pin a page-form footer aligned to the start', () => {
+      const { container } = render(<SectionFooter align="start" submitLabel="Guardar" />);
+      expect(container.firstElementChild).not.toHaveClass('mt-auto');
+    });
+  });
 });

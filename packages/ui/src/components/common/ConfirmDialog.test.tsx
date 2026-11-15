@@ -50,4 +50,26 @@ describe('ConfirmDialog', () => {
       expect(btn).toBeDisabled();
     });
   });
+
+  it('renders children between the description and the buttons', () => {
+    render(
+      <ConfirmDialog {...defaultProps}>
+        <label htmlFor="reason">Motivo</label>
+        <textarea id="reason" />
+      </ConfirmDialog>,
+    );
+    const field = screen.getByLabelText('Motivo');
+    const confirm = screen.getByRole('button', { name: /confirmar/i });
+    expect(field).toBeInTheDocument();
+    expect(
+      screen.getByText('Are you sure you want to delete this item?').compareDocumentPosition(field) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(field.compareDocumentPosition(confirm) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('uses the destructive button variant for a destructive confirmation', () => {
+    render(<ConfirmDialog {...defaultProps} variant="destructive" confirmLabel="Eliminar" />);
+    expect(screen.getByRole('button', { name: 'Eliminar' })).toHaveAttribute('data-variant', 'destructive');
+  });
 });

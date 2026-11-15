@@ -38,7 +38,12 @@ describe('VoidMovementDialog', () => {
     const onClose = vi.fn();
     render(<VoidMovementDialog movement={makeCashMovement()} onClose={onClose} complexId="c1" sessionId="s1" />);
 
-    await user.click(screen.getByRole('button', { name: 'Cancelar' }));
+    await user.click(screen.getByRole('button', { name: 'Volver' }));
     expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it('confirms with the destructive variant', () => {
+    render(<VoidMovementDialog movement={makeCashMovement()} onClose={vi.fn()} complexId="c1" sessionId="s1" />);
+    expect(screen.getByRole('button', { name: 'Anular' })).toHaveAttribute('data-variant', 'destructive');
   });
 });

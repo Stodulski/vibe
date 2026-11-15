@@ -1,14 +1,7 @@
 import { useState } from 'react';
 import Cropper from 'react-easy-crop';
-import { Button } from '@/shared/components/ui/button';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/shared/components/ui/dialog';
+import { SectionFooter } from '@/shared/components/common/SectionFooter';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/shared/components/ui/dialog';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { CropArea } from '../../lib/cropImage';
 
@@ -95,20 +88,15 @@ export function ImageCropDialog({
           />
         </div>
         <ZoomSlider zoom={zoom} onChange={setZoom} />
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onCancel}>
-            {t.complex.cropCancel}
-          </Button>
-          <Button
-            type="button"
-            disabled={!area}
-            onClick={() => {
-              if (area) onConfirm(area);
-            }}
-          >
-            {t.complex.cropSave}
-          </Button>
-        </DialogFooter>
+        <SectionFooter
+          onCancel={onCancel}
+          cancelLabel={t.complex.cropCancel}
+          submitLabel={t.complex.cropSave}
+          submitDisabled={!area}
+          onSubmit={() => {
+            if (area) onConfirm(area);
+          }}
+        />
       </DialogContent>
     </Dialog>
   );

@@ -100,7 +100,6 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
         title={t.confirmTitle}
         description={drawn ? t.confirmRegenerate : t.confirmDescription}
         confirmLabel={t.confirmLabel}
-        cancelLabel={t.back}
         isLoading={generate.isPending}
       />
     </div>

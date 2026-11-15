@@ -1,14 +1,5 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { AlertDialog, AlertDialogContent } from '@/shared/components/common/AppAlertDialog';
-import {
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/shared/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
@@ -54,48 +45,35 @@ export function CancelBookingModal({ open, onClose, onConfirm, isLoading, bookin
   }
 
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose();
+      onClose={onClose}
+      onConfirm={() => {
+        onConfirm(reason.trim() || undefined);
       }}
+      title={t.bookings.cancel}
+      description={t.bookings.cancelConfirm}
+      confirmLabel={t.bookings.confirmCancel}
+      // "Cancelar" next to a primary that is itself a cancellation would read
+      // as the same action.
+      cancelLabel={t.common.back}
+      variant="destructive"
+      isLoading={isLoading}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t.bookings.cancel}</AlertDialogTitle>
-          <AlertDialogDescription>{t.bookings.cancelConfirm}</AlertDialogDescription>
-        </AlertDialogHeader>
+      {shown && <BookingSummaryCard booking={shown} />}
 
-        {shown && <BookingSummaryCard booking={shown} />}
-
-        <div className="space-y-2">
-          <Label htmlFor="cancel-reason">{`${t.bookings.cancelReason} (${t.common.optional})`}</Label>
-          <Textarea
-            id="cancel-reason"
-            value={reason}
-            onChange={(e) => {
-              setReason(e.target.value);
-            }}
-            placeholder={t.bookings.cancelReasonPlaceholder}
-            maxLength={500}
-          />
-        </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={isLoading}>{t.common.back}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              onConfirm(reason.trim() || undefined);
-            }}
-            disabled={isLoading}
-            className="bg-destructive hover:bg-destructive/90 text-white"
-          >
-            {isLoading && <Loader2 className="size-4 animate-spin" />}
-            {t.bookings.confirmCancel}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <div className="space-y-2">
+        <Label htmlFor="cancel-reason">{`${t.bookings.cancelReason} (${t.common.optional})`}</Label>
+        <Textarea
+          id="cancel-reason"
+          value={reason}
+          onChange={(e) => {
+            setReason(e.target.value);
+          }}
+          placeholder={t.bookings.cancelReasonPlaceholder}
+          maxLength={500}
+        />
+      </div>
+    </ConfirmDialog>
   );
 }

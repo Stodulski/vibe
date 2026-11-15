@@ -49,7 +49,6 @@ export function UndoCourtFeeDialog({
       title={t.undoTitle}
       description={t.undoDescription(pairName, formatPrice(amount))}
       confirmLabel={t.undoConfirm}
-      cancelLabel={ES_AR.tournaments.cancel.back}
       variant="destructive"
       isLoading={undo.isPending}
     />

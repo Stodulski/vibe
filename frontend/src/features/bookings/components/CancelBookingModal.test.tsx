@@ -71,4 +71,12 @@ describe('CancelBookingModal', () => {
 
     expect(screen.getByPlaceholderText(/motivo de la cancelaci.n/i)).toHaveValue('');
   });
+
+  it('confirms with the destructive variant', () => {
+    render(<CancelBookingModal {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+  });
 });
