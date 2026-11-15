@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Ban, CalendarX, Repeat } from 'lucide-react';
+import { Ban, CalendarX } from 'lucide-react';
 import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { Button } from '@/shared/components/ui/button';
 import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
@@ -12,6 +12,7 @@ import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { SkipDateDialog } from './booking-detail/SkipDateDialog';
 import { EndSeriesDialog } from './booking-detail/EndSeriesDialog';
+import { SeriesRepeatRow } from './booking-detail/BookingSeriesLabel';
 import { weekdayOf } from '../lib/seriesDates';
 import { todayInArgentina } from '../lib/today';
 import type { FixedBlock } from '@/shared/types/api.types';
@@ -33,12 +34,11 @@ function FixedBlockFacts({ block, date, courtName }: { block: FixedBlock; date: 
   return (
     <div className="min-h-0 flex-1 space-y-8 overflow-y-auto px-4 pt-4 pb-8 sm:px-6">
       <div className="space-y-4">
-        <div className="flex h-5 items-center gap-2">
-          <Repeat className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-          <p className="text-text-secondary min-w-0 text-sm break-words">
-            {t.bookings.series.label(weekday, block.start_time.slice(0, 5))}
-          </p>
-        </div>
+        <SeriesRepeatRow
+          label={t.bookings.series.summaryRepeats}
+          weekday={weekday}
+          time={block.start_time.slice(0, 5)}
+        />
         <InfoRow label={t.bookings.client}>
           <p className="break-words">{block.client_name}</p>
         </InfoRow>

@@ -45,7 +45,8 @@ describe('FixedBlockDetail', () => {
   it('names the weekly rule, the client, the court and the date', async () => {
     await renderDetail();
 
-    expect(await screen.findByText(t.label('martes', '21:00'))).toBeInTheDocument();
+    expect(await screen.findByText(t.everyWeekdayAt('martes', '21:00'))).toBeInTheDocument();
+    expect(screen.getByText(t.summaryRepeats, { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('Ana Gomez')).toBeInTheDocument();
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
@@ -53,7 +54,7 @@ describe('FixedBlockDetail', () => {
   it('offers both cancellations as visible footer buttons, the series one destructive, with no overflow menu', async () => {
     await renderDetail();
 
-    await screen.findByText(t.label('martes', '21:00'));
+    await screen.findByText(t.everyWeekdayAt('martes', '21:00'));
     const one = screen.getByRole('button', { name: t.cancelOne });
     const series = screen.getByRole('button', { name: t.endFromHere });
     expect(one).toHaveAttribute('data-variant', 'outline');
@@ -138,7 +139,7 @@ describe('FixedBlockDetail, cancelling the whole fixed booking', () => {
   it('offers no cancellation for a date already in the past', async () => {
     await renderDetail({ date: '2020-01-07' });
 
-    await screen.findByText(t.label('martes', '21:00'));
+    await screen.findByText(t.everyWeekdayAt('martes', '21:00'));
     expect(screen.queryByRole('button', { name: t.cancelOne })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.endFromHere })).not.toBeInTheDocument();
   });

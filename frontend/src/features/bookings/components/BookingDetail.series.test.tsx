@@ -63,7 +63,9 @@ describe('BookingDetail — fixed weekly bookings', () => {
   it('names the weekday and hour of the series for one of its occurrences', async () => {
     const { bookingSeriesApi } = await renderDetail(makeBooking({ date: DATE, series_id: 'ser1' }));
 
-    expect(await screen.findByText(t.series.label('martes', '21:00'))).toBeInTheDocument();
+    expect(await screen.findByText(t.series.everyWeekdayAt('martes', '21:00'))).toBeInTheDocument();
+    // "Turno fijo" over the weekday and hour, in a column like the other facts.
+    expect(screen.getByText(t.fixedBooking, { selector: 'p' })).toBeInTheDocument();
     expect(bookingSeriesApi.get).toHaveBeenCalledWith('c1', 'ser1', expect.anything());
   });
 

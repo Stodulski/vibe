@@ -94,7 +94,7 @@ test('every future matching date shows "Turno fijo · {cliente}" on the grid', a
   // The block opens a sheet that says which weekly booking it is and offers the two actions.
   await fixedBlock().click();
   const sheet = page.getByRole('dialog');
-  await expect(sheet.getByText('Turno fijo · todos los lunes a las 19:00')).toBeVisible();
+  await expect(sheet.getByText('Todos los lunes a las 19:00')).toBeVisible();
   await expect(sheet.getByText('Serie Fijo')).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Cancelar solo esta fecha' })).toBeVisible();
   await expect(sheet.getByRole('button', { name: 'Cancelar turno fijo' })).toBeVisible();

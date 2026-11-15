@@ -210,7 +210,8 @@ export const bookings = {
     // case because it follows "todos los".
     weekdaysPlural: ['domingos', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados'],
     weekdaysSingular: ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'],
-    label: (weekdayPlural: string, time: string) => `Turno fijo · todos los ${weekdayPlural} a las ${time}`,
+    // "Todos los martes a las 21:00", under a "Turno fijo" or "Repite" label.
+    everyWeekdayAt: (weekdayPlural: string, time: string) => `Todos los ${weekdayPlural} a las ${time}`,
     cancelOne: 'Cancelar solo esta fecha',
     skipConfirmTitle: 'Liberar esta fecha',
     skipConfirmDescription: 'Esta fecha queda libre. El turno fijo sigue en las demás semanas.',
