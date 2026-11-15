@@ -90,7 +90,7 @@ export const bookings = {
     unpaid: 'Sin pagar',
     deposit_paid: 'Seña pagada',
     fully_paid: 'Pago completo',
-    refunded: 'Reembolsada',
+    refunded: 'Reembolso total',
     refund_pending: 'Reembolso pendiente',
     partial_refund: 'Reembolso parcial',
   },
