@@ -36,7 +36,7 @@ type stubSeries struct {
 
 func dateKey(id uuid.UUID, d time.Time) string { return id.String() + "|" + d.Format(time.DateOnly) }
 
-func (s *stubSeries) InsertSeries(_ context.Context, ser *bookingstore.Series, exceptions []bookingstore.SeriesException) error {
+func (s *stubSeries) InsertSeriesWithBookings(ctx context.Context, ser *bookingstore.Series, exceptions []bookingstore.SeriesException, moved []*bookingstore.Booking) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -46,6 +46,21 @@ func (s *stubSeries) InsertSeries(_ context.Context, ser *bookingstore.Series, e
 	for _, e := range exceptions {
 		reason := e.Reason
 		s.dates[dateKey(ser.ID, e.Date)] = bookingstore.SeriesDate{Date: e.Date, Outcome: bookingstore.SeriesDateException, Reason: &reason}
+	}
+	inserted := len(s.store.inserted)
+	for _, b := range moved {
+		b.SeriesID = &ser.ID
+		if err := s.store.InsertSafeWithPayment(ctx, b, nil); err != nil {
+			// The real store writes the series and its bookings in one transaction.
+			delete(s.series, ser.ID)
+			for k := range s.dates {
+				if strings.HasPrefix(k, ser.ID.String()) {
+					delete(s.dates, k)
+				}
+			}
+			s.store.inserted = s.store.inserted[:inserted]
+			return err
+		}
 	}
 	return nil
 }
@@ -175,7 +190,7 @@ func newSeriesFixture(t *testing.T) *seriesFx {
 		start := slots.At(timezone.Day(b.Date), b.StartTime)
 		end := start.Add(time.Duration(b.DurationMinutes) * time.Minute)
 		for _, sp := range f.store.booked {
-			if slots.OverlapAt(start, end, sp.StartsAt, sp.EndsAt) {
+			if sp.CourtID == b.CourtID && slots.OverlapAt(start, end, sp.StartsAt, sp.EndsAt) {
 				return bookingstore.ErrDuplicateBooking
 			}
 		}

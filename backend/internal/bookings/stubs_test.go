@@ -527,7 +527,12 @@ type blockedQuery struct {
 	date    string
 }
 
-func (s *stubCourts) GetByID(context.Context, uuid.UUID) (*courtstore.Court, error) {
+func (s *stubCourts) GetByID(_ context.Context, id uuid.UUID) (*courtstore.Court, error) {
+	for _, c := range s.all {
+		if c.ID == id {
+			return c, nil
+		}
+	}
 	if s.court == nil {
 		return nil, data.ErrRecordNotFound
 	}

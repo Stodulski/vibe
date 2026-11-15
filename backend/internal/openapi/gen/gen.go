@@ -2991,6 +2991,9 @@ type BookingSeriesStatus string
 type BookingSeriesConflict struct {
 	Date openapi_types.Date `json:"date"`
 
+	// FreeCourts Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`.
+	FreeCourts *[]BookingSeriesFreeCourt `json:"free_courts,omitempty"`
+
 	// HeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
 	HeldBy *BookingSeriesConflictHeldBy `json:"held_by,omitempty"`
 	Reason BookingSeriesConflictReason  `json:"reason"`
@@ -3001,6 +3004,12 @@ type BookingSeriesConflictHeldBy string
 
 // BookingSeriesConflictReason defines model for BookingSeriesConflict.Reason.
 type BookingSeriesConflictReason string
+
+// BookingSeriesFreeCourt A court that is free on a date of a fixed weekly booking.
+type BookingSeriesFreeCourt struct {
+	CourtId   openapi_types.UUID `json:"court_id"`
+	CourtName string             `json:"court_name"`
+}
 
 // BookingSeriesUpcoming One upcoming date of a series.
 type BookingSeriesUpcoming struct {
@@ -3249,14 +3258,6 @@ type CourtCourtType string
 
 // CourtSport defines model for Court.Sport.
 type CourtSport string
-
-// CourtAlternative Another court offered when the chosen one holds the series' dates.
-type CourtAlternative struct {
-	// Conflicts Dates of the series something else holds on this court; 0 when it is free every week.
-	Conflicts int                `json:"conflicts"`
-	CourtId   openapi_types.UUID `json:"court_id"`
-	CourtName string             `json:"court_name"`
-}
 
 // CourtPrice defines model for CourtPrice.
 type CourtPrice struct {
@@ -3654,9 +3655,6 @@ type PlaceDetails struct {
 
 // Problem An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording.
 type Problem struct {
-	// Alternatives Present with `conflicts`: other active courts of the same complex and sport that the series fits better, free ones first, the most alike (same surface, covered or open, lighting) first within each. At most three.
-	Alternatives *[]CourtAlternative `json:"alternatives,omitempty"`
-
 	// Conflicts Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
 	Conflicts *[]BookingSeriesConflict `json:"conflicts,omitempty"`
 
@@ -5072,7 +5070,13 @@ type BookingSeriesCreateJSONBody struct {
 	ClientLastName  string             `json:"client_last_name"`
 	ClientPhone     string             `json:"client_phone"`
 	CourtId         openapi_types.UUID `json:"court_id"`
-	DurationMinutes int                `json:"duration_minutes"`
+
+	// DateCourts With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions.
+	DateCourts *[]struct {
+		CourtId openapi_types.UUID `json:"court_id"`
+		Date    openapi_types.Date `json:"date"`
+	} `json:"date_courts,omitempty"`
+	DurationMinutes int `json:"duration_minutes"`
 
 	// EndsOn Last day, inclusive.
 	EndsOn *openapi_types.Date `json:"ends_on,omitempty"`

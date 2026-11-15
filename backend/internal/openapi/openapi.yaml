@@ -1214,7 +1214,9 @@ paths:
         otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold
         dates up to the booking horizon (365 days) the call answers `409` with every such date and
         writes nothing, unless `skip_conflicts` is true, in which case those dates become
-        exceptions and are returned under `skipped`. A weekday the venue is closed, or an hour no
+        exceptions and are returned under `skipped`; each conflict of the `409` lists the other
+        courts free that date (`free_courts`), and `date_courts` books some of those dates on
+        another court instead of skipping them. A weekday the venue is closed, or an hour no
         price rule covers without a manual `price`, is a `422` on the series as a whole. Send at
         most one of `ends_on` and `weeks`; with neither the series has no end.
       security: [{cookieAuth: [], csrfHeader: []}]
@@ -1272,6 +1274,20 @@ paths:
                 ends_on: {type: [string, "null"], format: date, description: "Last day, inclusive."}
                 weeks: {type: integer, minimum: 1, maximum: 156, description: "Alternative to ends_on: the number of weekly occurrences."}
                 skip_conflicts: {type: boolean, description: "Create the series turning the dates something else holds into exceptions."}
+                date_courts:
+                  type: array
+                  description: >-
+                    With `skip_conflicts`: conflict dates to book on another court instead of skipping them.
+                    The series stays on `court_id`; each listed date is booked as a normal booking of the series
+                    on the given court (same client, same hours, priced like any occurrence) and no longer
+                    holds `court_id` that day. The court must be another active court of the same sport and still
+                    free that date (`409` otherwise, nothing written). Dates not listed become exceptions.
+                  items:
+                    type: object
+                    required: [date, court_id]
+                    properties:
+                      date: {type: string, format: date}
+                      court_id: {type: string, format: uuid}
 
   /api/v1/complexes/{id}/booking-series/{seriesID}:
     get:
@@ -6282,22 +6298,6 @@ components:
           type: array
           description: Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked.
           items: {$ref: "#/components/schemas/BookingSeriesConflict"}
-        alternatives:
-          type: array
-          description: >-
-            Present with `conflicts`: other active courts of the same complex and sport that the
-            series fits better, free ones first, the most alike (same surface, covered or open,
-            lighting) first within each. At most three.
-          items: {$ref: "#/components/schemas/CourtAlternative"}
-
-    CourtAlternative:
-      type: object
-      description: Another court offered when the chosen one holds the series' dates.
-      required: [court_id, court_name, conflicts]
-      properties:
-        court_id: {type: string, format: uuid}
-        court_name: {type: string}
-        conflicts: {type: integer, description: "Dates of the series something else holds on this court; 0 when it is free every week."}
 
     PaymentsExport:
       type: object
@@ -7026,6 +7026,22 @@ components:
           description: >-
             What holds the date when `reason` is `overlap`: a booking, another fixed weekly
             booking, an open-play event or a tournament match. Absent for any other reason.
+        free_courts:
+          type: array
+          description: >-
+            Present on the `409` that refuses a series: the other active courts of the same complex
+            and sport that are free that date at the series' hours, the most alike the chosen court
+            first (same surface, covered or open, lighting). Empty when none is free. Absent from
+            `skipped`.
+          items: {$ref: "#/components/schemas/BookingSeriesFreeCourt"}
+
+    BookingSeriesFreeCourt:
+      type: object
+      description: A court that is free on a date of a fixed weekly booking.
+      required: [court_id, court_name]
+      properties:
+        court_id: {type: string, format: uuid}
+        court_name: {type: string}
 
     BookingSeriesUpcoming:
       type: object

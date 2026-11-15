@@ -312,6 +312,10 @@ type BookingSeriesStore interface {
 	// transaction, refusing with ErrSlotUnavailable when a booking now covers a
 	// date it holds.
 	InsertSeries(ctx context.Context, s *bookingstore.Series, exceptions []bookingstore.SeriesException) error
+	// InsertSeriesWithBookings is InsertSeries that also books, in the same
+	// transaction and linked to the new series, the dates the owner moved to
+	// other courts. Those dates are settled in the ledger as booked.
+	InsertSeriesWithBookings(ctx context.Context, s *bookingstore.Series, exceptions []bookingstore.SeriesException, moved []*bookingstore.Booking) error
 	GetSeries(ctx context.Context, id uuid.UUID) (*bookingstore.Series, error)
 	// EndExpiredSeries marks ended the active series whose last day is before day.
 	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)

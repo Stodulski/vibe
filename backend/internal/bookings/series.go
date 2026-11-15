@@ -79,7 +79,7 @@ const fixedBookingMessage = "the selected time belongs to a fixed weekly booking
 
 // SeriesStore is the persistence a series needs beyond the booking store's.
 type SeriesStore interface {
-	InsertSeries(ctx context.Context, s *Series, exceptions []bookingstore.SeriesException) error
+	InsertSeriesWithBookings(ctx context.Context, s *Series, exceptions []bookingstore.SeriesException, moved []*bookingstore.Booking) error
 	GetSeries(ctx context.Context, id uuid.UUID) (*Series, error)
 	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)
 	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*Series, error)
@@ -95,6 +95,24 @@ type SeriesConflict struct {
 	// HeldBy says what holds the date when Reason is overlap: one of the HeldBy
 	// constants. Empty for every other reason.
 	HeldBy string
+	// FreeCourts are the other courts of the same sport free on this date at the
+	// series' hours, the most alike the chosen court first. Only a refusal fills
+	// it; see seriesFreeCourts.
+	FreeCourts []CourtRef
+}
+
+// CourtRef names a court.
+type CourtRef struct {
+	CourtID   uuid.UUID
+	CourtName string
+}
+
+// SeriesDateCourt is a date of the series the owner books on another court:
+// that one occurrence is a normal booking there, the series itself stays on
+// its own court.
+type SeriesDateCourt struct {
+	Date    time.Time
+	CourtID uuid.UUID
 }
 
 // What holds a date of a series that collides with something.
@@ -110,8 +128,6 @@ const (
 // written.
 type SeriesConflictsError struct {
 	Conflicts []SeriesConflict
-	// Alternatives are other courts the series fits better; see seriesAlternatives.
-	Alternatives []CourtAlternative
 }
 
 func (e *SeriesConflictsError) Error() string {
@@ -136,10 +152,14 @@ type SeriesInput struct {
 	EndsOn        *time.Time
 	Weeks         int
 	SkipConflicts bool
+	// DateCourts moves some of the conflicting dates to another court of the
+	// same sport instead of skipping them. Needs SkipConflicts.
+	DateCourts []SeriesDateCourt
 }
 
-// SeriesResult is what creating a series produced. Bookings is empty unless the
-// first date was already due, in which case its booking was created at once.
+// SeriesResult is what creating a series produced. Bookings holds the bookings
+// of the dates moved to other courts and, when the first date was already due,
+// its booking, created at once.
 type SeriesResult struct {
 	Series   *Series
 	Bookings []*bookingstore.Booking
@@ -578,7 +598,12 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 		return nil, err
 	}
 	if len(conflicts) > 0 && !in.SkipConflicts {
-		return nil, &SeriesConflictsError{Conflicts: conflicts, Alternatives: s.seriesAlternatives(ctx, ser, len(conflicts))}
+		s.seriesFreeCourts(ctx, ser, conflicts)
+		return nil, &SeriesConflictsError{Conflicts: conflicts}
+	}
+	moves, err := s.checkDateCourts(ctx, ser, conflicts, in.DateCourts)
+	if err != nil {
+		return nil, err
 	}
 
 	client, err := s.clients.GetOrCreate(ctx, complex.ID, in.ClientFirstName, in.ClientLastName, in.ClientPhone, in.ClientEmail, true)
@@ -590,12 +615,13 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 	}
 	ser.ClientID = client.ID
 
-	exceptions := make([]bookingstore.SeriesException, len(conflicts))
-	for i, c := range conflicts {
-		exceptions[i] = bookingstore.SeriesException{Date: c.Date, Reason: c.Reason}
+	moved, err := s.movedBookings(ctx, complex, ser, client, moves)
+	if err != nil {
+		return nil, err
 	}
-	if err := s.series.InsertSeries(ctx, ser, exceptions); err != nil {
-		if errors.Is(err, bookingstore.ErrSlotUnavailable) {
+	skipped, exceptions := skippedAndExceptions(conflicts, moves)
+	if err := s.series.InsertSeriesWithBookings(ctx, ser, exceptions, moved); err != nil {
+		if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrDuplicateBooking) {
 			return nil, &ConflictError{Message: "a booking was made on one of the series' dates while it was being created, please try again"}
 		}
 		return nil, err
@@ -605,7 +631,7 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 		EntityType: "booking_series", EntityID: &ser.ID, NewValue: ser, IPAddress: actor.IP,
 	})
 
-	result := &SeriesResult{Series: ser, Skipped: conflicts}
+	result := &SeriesResult{Series: ser, Bookings: moved, Skipped: skipped}
 	if err := s.settleDueFirstDate(ctx, complex, ser, client, result); err != nil {
 		return nil, err
 	}
@@ -617,7 +643,8 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 // settleDueFirstDate creates the booking of the series' first date when it is
 // already due, recording a date that cannot be booked as skipped.
 func (s *Service) settleDueFirstDate(ctx context.Context, complex *complexstore.Complex, ser *Series, client *clientstore.Client, result *SeriesResult) error {
-	if slices.ContainsFunc(result.Skipped, func(c SeriesConflict) bool { return c.Date.Equal(ser.StartsOn) }) {
+	if slices.ContainsFunc(result.Skipped, func(c SeriesConflict) bool { return c.Date.Equal(ser.StartsOn) }) ||
+		slices.ContainsFunc(result.Bookings, func(b *bookingstore.Booking) bool { return seriesDay(b.Date).Equal(ser.StartsOn) }) {
 		return nil
 	}
 	now := s.now()

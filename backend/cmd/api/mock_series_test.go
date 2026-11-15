@@ -23,6 +23,10 @@ func (m *mockBookingSeriesStore) InsertSeries(context.Context, *bookingstore.Ser
 	return nil
 }
 
+func (m *mockBookingSeriesStore) InsertSeriesWithBookings(context.Context, *bookingstore.Series, []bookingstore.SeriesException, []*bookingstore.Booking) error {
+	return nil
+}
+
 func (m *mockBookingSeriesStore) GetSeries(ctx context.Context, id uuid.UUID) (*bookingstore.Series, error) {
 	if m.GetSeriesFn != nil {
 		return m.GetSeriesFn(ctx, id)

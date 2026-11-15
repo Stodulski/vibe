@@ -119,17 +119,12 @@ type Problem struct {
 	// Conflicts is present on the 409 that refuses a fixed weekly booking:
 	// one entry per date that cannot be booked, with the reason.
 	Conflicts []DateConflict `json:"conflicts,omitempty"`
-	// Alternatives accompanies Conflicts: other courts that hold the request's
-	// dates better, free ones first.
-	Alternatives []CourtAlternative `json:"alternatives,omitempty"`
 }
 
-// CourtAlternative is another court offered when the chosen one is taken.
-// Conflicts counts the dates something else holds there; 0 means free.
-type CourtAlternative struct {
+// FreeCourt is another court that is free on a conflict date.
+type FreeCourt struct {
 	CourtID   string `json:"court_id"`
 	CourtName string `json:"court_name"`
-	Conflicts int    `json:"conflicts"`
 }
 
 // DateConflict is one calendar date a request could not be honoured on, and why.
@@ -141,6 +136,10 @@ type DateConflict struct {
 	// HeldBy says what holds the date when Reason is overlap: booking, fixed,
 	// event or match. Omitted for any other reason.
 	HeldBy string `json:"held_by,omitempty"`
+	// FreeCourts are the other courts of the same sport free that day at the
+	// request's hours, the most alike the chosen one first. Always present, empty
+	// when none is free.
+	FreeCourts []FreeCourt `json:"free_courts"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors
@@ -183,10 +182,10 @@ func (rs *Responder) writeProblem(w http.ResponseWriter, r *http.Request, status
 
 // ConflictDates answers 409 with the dates the request could not be honoured
 // on. Nothing was written.
-func (rs *Responder) ConflictDates(w http.ResponseWriter, r *http.Request, detail string, conflicts []DateConflict, alternatives []CourtAlternative) {
+func (rs *Responder) ConflictDates(w http.ResponseWriter, r *http.Request, detail string, conflicts []DateConflict) {
 	rs.writeProblemWith(w, r, Problem{
 		Type: KindConflict.URI(), Title: titles[KindConflict], Status: http.StatusConflict,
-		Detail: detail, Conflicts: conflicts, Alternatives: alternatives,
+		Detail: detail, Conflicts: conflicts,
 	})
 }
 
