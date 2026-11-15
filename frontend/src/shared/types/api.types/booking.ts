@@ -50,6 +50,20 @@ export type BookingRefundStatus = Spec<'RefundStatus'>;
  */
 export type PaymentDisplayStatus = CollectionStatus | 'refund_pending' | 'partial_refund' | 'refunded';
 
+// The booking status as the owner reads it. A booking closes on its own once
+// its hours are over ('completed'), paid or not; until it is paid in full it
+// reads "Falta confirmar pago" rather than "Se presentó", so the money still
+// to collect does not hide behind a green "done".
+export type BookingDisplayStatus = BookingStatus | 'awaiting_payment';
+
+export function bookingDisplayStatus(booking: {
+  status: BookingStatus;
+  collection_status: CollectionStatus;
+}): BookingDisplayStatus {
+  if (booking.status === 'completed' && booking.collection_status !== 'fully_paid') return 'awaiting_payment';
+  return booking.status;
+}
+
 export function paymentDisplayStatus(payment: {
   collection_status: CollectionStatus;
   refund_status: BookingRefundStatus;

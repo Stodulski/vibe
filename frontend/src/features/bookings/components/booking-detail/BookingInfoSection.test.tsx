@@ -173,3 +173,27 @@ describe('BookingInfoSection payment status', () => {
     expect(screen.getByText(ES_AR.bookings.paymentStatuses.fully_paid)).toBeInTheDocument();
   });
 });
+
+describe('BookingInfoSection, a played booking not paid in full', () => {
+  it('asks to confirm the payment instead of saying the client came', () => {
+    const booking = createBooking({ status: 'completed', collection_status: 'unpaid' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
+
+    expect(screen.getByText(ES_AR.bookings.statuses.awaiting_payment)).toHaveClass('text-warning-text');
+    expect(screen.queryByText(ES_AR.bookings.statuses.completed)).not.toBeInTheDocument();
+  });
+
+  it('counts a booking with only its deposit paid as not paid yet', () => {
+    const booking = createBooking({ status: 'completed', collection_status: 'deposit_paid', deposit_amount: 5000 });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
+
+    expect(screen.getByText(ES_AR.bookings.statuses.awaiting_payment)).toBeInTheDocument();
+  });
+
+  it('says the client came once the booking is paid in full', () => {
+    const booking = createBooking({ status: 'completed', collection_status: 'fully_paid' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[createPayment()]} />);
+
+    expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
+  });
+});

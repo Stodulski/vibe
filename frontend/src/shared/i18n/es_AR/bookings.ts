@@ -89,6 +89,7 @@ export const bookings = {
     cancelled: 'Cancelada',
     completed: 'Se presentó',
     no_show: 'No se presentó',
+    awaiting_payment: 'Falta confirmar pago',
   },
   paymentStatuses: {
     unpaid: 'Sin pagar',

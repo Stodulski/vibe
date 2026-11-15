@@ -8,7 +8,7 @@ import { STATUS_BAR_STYLES } from '../BookingStatusBadge';
 import { BLOCK_BASE_CLASSES, BLOCK_NAME_CLASSES, BLOCK_TIME_CLASSES, TWO_LINE_MIN_HEIGHT_PX } from './blockStyles';
 import { barPosition } from './timelineGeometry';
 import { DAY_START_MIN, DAY_END_MIN, SLOT_HEIGHT_PX, SLOT_MINUTES } from './gridLayout';
-import { paymentDisplayStatus } from '@/shared/types/api.types';
+import { bookingDisplayStatus, paymentDisplayStatus } from '@/shared/types/api.types';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -52,7 +52,7 @@ function bookingAriaLabel(booking: Booking, courtName: string): string {
     keepTogether(courtName),
     hoursWithNote,
     booking.client_name,
-    `${t.bookings.status}: ${t.bookings.statuses[booking.status]}`,
+    `${t.bookings.status}: ${t.bookings.statuses[bookingDisplayStatus(booking)]}`,
     `${t.bookings.paymentStatus}: ${t.bookings.paymentStatuses[paymentDisplayStatus(booking)]}`,
     ...(booking.series_id ? [t.bookings.fixedBooking] : []),
   ].join(', ');
@@ -100,7 +100,7 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
   // grid, where the same rule squares the top.
   const runsOnPastToday = endMin > DAY_END_MIN;
   const beganBeforeToday = startMin < DAY_START_MIN;
-  const styles = STATUS_BAR_STYLES[booking.status];
+  const styles = STATUS_BAR_STYLES[bookingDisplayStatus(booking)];
 
   const ariaLabel = bookingAriaLabel(booking, courtName);
 
