@@ -46,13 +46,13 @@ export function ScheduleDayRow({
   // `setValue` is stable across renders and `index` never changes for a row.
   const setOpen = useCallback(
     (v: string) => {
-      setValue(scheduleField(index, 'open_time'), v);
+      setValue(scheduleField(index, 'open_time'), v, { shouldDirty: true });
     },
     [setValue, index],
   );
   const setClose = useCallback(
     (v: string) => {
-      setValue(scheduleField(index, 'close_time'), v);
+      setValue(scheduleField(index, 'close_time'), v, { shouldDirty: true });
     },
     [setValue, index],
   );
@@ -84,7 +84,7 @@ export function ScheduleDayRow({
         checked={isClosed}
         dayName={dayName}
         onChange={(v) => {
-          setValue(scheduleField(index, 'is_closed'), v);
+          setValue(scheduleField(index, 'is_closed'), v, { shouldDirty: true });
         }}
       />
     </div>

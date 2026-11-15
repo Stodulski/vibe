@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
+import { Link } from 'react-router-dom';
+import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-utils';
 import { ScheduleConfig } from './ScheduleConfig';
 import type { Schedule } from '@/shared/types/api.types';
 
@@ -136,5 +137,64 @@ describe('ScheduleConfig', () => {
       expect(screen.getByRole('combobox', { name: 'Sábado: Apertura' })).toHaveValue('09:00');
     });
     expect(screen.getByRole('combobox', { name: 'Sábado: Cierre' })).toHaveValue('22:00');
+  });
+
+  it('asks before leaving when an opening time was changed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <ScheduleConfig complexId="c1" slug="padel-club" />
+        <Link to="/otra">Salir</Link>
+      </>,
+    );
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Lunes: Apertura' }), '09:00');
+    await user.click(screen.getByRole('link', { name: 'Salir' }));
+    expect(await screen.findByText('Tenés cambios sin guardar')).toBeInTheDocument();
+  });
+
+  it('asks before leaving when a day was marked closed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <ScheduleConfig complexId="c1" slug="padel-club" />
+        <Link to="/otra">Salir</Link>
+      </>,
+    );
+    await user.click(await screen.findByRole('checkbox', { name: 'Lunes: Cerrado' }));
+    await user.click(screen.getByRole('link', { name: 'Salir' }));
+    expect(await screen.findByText('Tenés cambios sin guardar')).toBeInTheDocument();
+  });
+
+  it('leaves without asking when nothing changed', async () => {
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <ScheduleConfig complexId="c1" slug="padel-club" />
+        <Link to="/otra">Salir</Link>
+      </>,
+    );
+    await screen.findByRole('combobox', { name: 'Lunes: Apertura' });
+    await user.click(screen.getByRole('link', { name: 'Salir' }));
+    expect(screen.queryByText('Tenés cambios sin guardar')).not.toBeInTheDocument();
+  });
+
+  it('leaves without asking once the changes were saved', async () => {
+    mockMutate.mockImplementation((_data: unknown, options?: { onSuccess?: () => void }) => {
+      options?.onSuccess?.();
+    });
+    const user = userEvent.setup();
+    renderWithProviders(
+      <>
+        <ScheduleConfig complexId="c1" slug="padel-club" />
+        <Link to="/otra">Salir</Link>
+      </>,
+    );
+    await user.selectOptions(await screen.findByRole('combobox', { name: 'Lunes: Apertura' }), '09:00');
+    await user.click(screen.getByRole('button', { name: /guardar/i }));
+    await waitFor(() => {
+      expect(mockMutate).toHaveBeenCalledTimes(1);
+    });
+    await user.click(screen.getByRole('link', { name: 'Salir' }));
+    expect(screen.queryByText('Tenés cambios sin guardar')).not.toBeInTheDocument();
   });
 });
