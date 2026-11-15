@@ -11,7 +11,15 @@ const t = ES_AR;
  * `CoverCard` (slice 10, max-lines decomposition — both cards had an
  * identical block, so this also removes a DRY violation).
  */
-export function ImageDeleteConfirm({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+export function ImageDeleteConfirm({
+  label,
+  disabled,
+  onConfirm,
+}: {
+  label: string;
+  disabled: boolean;
+  onConfirm: () => void;
+}) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -19,6 +27,7 @@ export function ImageDeleteConfirm({ disabled, onConfirm }: { disabled: boolean;
         variant="ghost"
         size="sm"
         disabled={disabled}
+        aria-label={label}
         onClick={() => {
           setOpen(true);
         }}

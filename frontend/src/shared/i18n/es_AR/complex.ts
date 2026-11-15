@@ -135,6 +135,8 @@ export const complex = {
   noCover: 'Sin portada',
   coverLabel: 'Portada',
   deleteImage: 'Eliminar',
+  deleteLogo: 'Eliminar logo',
+  deleteCover: 'Eliminar portada',
   imageUploaded: 'Imagen actualizada',
   imageDeleted: 'Imagen eliminada',
   imageUploadError: 'Error al subir la imagen',

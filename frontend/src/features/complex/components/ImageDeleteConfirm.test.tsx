@@ -6,18 +6,15 @@ import { ImageDeleteConfirm } from './ImageDeleteConfirm';
 async function openDialog() {
   const user = userEvent.setup();
   const onConfirm = vi.fn();
-  render(<ImageDeleteConfirm disabled={false} onConfirm={onConfirm} />);
-  await user.click(screen.getByRole('button'));
+  render(<ImageDeleteConfirm label="Eliminar logo" disabled={false} onConfirm={onConfirm} />);
+  await user.click(screen.getByRole('button', { name: 'Eliminar logo' }));
   return { user, onConfirm };
 }
 
 describe('ImageDeleteConfirm', () => {
   it('confirms deletion with the destructive variant', async () => {
     await openDialog();
-    expect(screen.getByRole('button', { name: /^Eliminar$/ })).toHaveAttribute(
-      'data-variant',
-      'destructive',
-    );
+    expect(screen.getByRole('button', { name: /^Eliminar$/ })).toHaveAttribute('data-variant', 'destructive');
   });
 
   it('calls onConfirm when the owner confirms', async () => {
