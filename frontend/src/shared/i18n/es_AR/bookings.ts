@@ -90,6 +90,7 @@ export const bookings = {
     cancelled: 'Cancelada',
     completed: 'Se presentó',
     no_show: 'No se presentó',
+    finished: 'Turno finalizado',
   },
   paymentStatuses: {
     unpaid: 'Sin pagos',

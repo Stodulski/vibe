@@ -1,14 +1,24 @@
 import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { BookingSecondaryActions } from './BookingSecondaryActions';
-import { showsSecondaryButtons } from './secondaryActions';
+import { showsSecondaryButtons, type BookingSecondaryActionProps } from './secondaryActions';
 import { DetailFooterActions } from './DetailFooterActions';
 import type { Booking } from '@/shared/types/api.types';
+
+interface BookingDetailFooterProps extends BookingSecondaryActionProps {
+  canConfirmPayment: boolean;
+  canMarkManualRefund: boolean;
+  manualRefundAmount: number;
+  onConfirmPayment: (booking: Booking) => void;
+  onManualRefund: (booking: Booking, amount: number) => void;
+}
 
 export function BookingDetailFooter({
   booking,
   canMarkNoShow,
+  canMarkAttended,
   canCancel,
   onNoShow,
+  onAttended,
   onCancel,
   isSeries,
   onEndSeries,
@@ -17,22 +27,9 @@ export function BookingDetailFooter({
   manualRefundAmount,
   onConfirmPayment,
   onManualRefund,
-}: {
-  booking: Booking;
-  canMarkNoShow: boolean;
-  canCancel: boolean;
-  onNoShow: (booking: Booking) => void;
-  onCancel: (booking: Booking) => void;
-  isSeries: boolean;
-  onEndSeries: (() => void) | undefined;
-  canConfirmPayment: boolean;
-  canMarkManualRefund: boolean;
-  manualRefundAmount: number;
-  onConfirmPayment: (booking: Booking) => void;
-  onManualRefund: (booking: Booking, amount: number) => void;
-}) {
+}: BookingDetailFooterProps) {
   const hasPrimary = canConfirmPayment || canMarkManualRefund;
-  const showSecondary = showsSecondaryButtons({ canMarkNoShow, canCancel, onEndSeries });
+  const showSecondary = showsSecondaryButtons({ canMarkNoShow, canMarkAttended, canCancel, onEndSeries });
 
   return (
     <DetailSheetFooter
@@ -41,8 +38,10 @@ export function BookingDetailFooter({
           <BookingSecondaryActions
             booking={booking}
             canMarkNoShow={canMarkNoShow}
+            canMarkAttended={canMarkAttended}
             canCancel={canCancel}
             onNoShow={onNoShow}
+            onAttended={onAttended}
             onCancel={onCancel}
             isSeries={isSeries}
             onEndSeries={onEndSeries}

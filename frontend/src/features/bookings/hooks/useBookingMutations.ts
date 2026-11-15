@@ -3,6 +3,7 @@ import { useCancelBooking } from '@/features/bookings/hooks/useCancelBooking';
 import { useConfirmPayment } from '@/features/bookings/hooks/useConfirmPayment';
 import { useUpdateBooking } from '@/features/bookings/hooks/useUpdateBooking';
 import { useMarkManualRefund } from '@/features/bookings/hooks/useMarkManualRefund';
+import { useMarkAttended } from '@/features/bookings/hooks/useMarkAttended';
 
 // `selectedComplexId` may be `null` before the owner's complex resolves.
 // The mutation hooks below are only ever invoked from user-triggered
@@ -29,6 +30,7 @@ export function useBookingMutations(selectedComplexId: string | null, selectedDa
   const confirmPaymentMutation = useConfirmPayment(selectedComplexId ?? '', selectedDate);
   const updateBookingMutation = useUpdateBooking(selectedComplexId ?? '');
   const markManualRefundMutation = useMarkManualRefund(selectedComplexId ?? '', selectedDate);
+  const markAttendedMutation = useMarkAttended(selectedComplexId ?? '');
 
   const isReady = selectedComplexId !== null;
 
@@ -37,5 +39,6 @@ export function useBookingMutations(selectedComplexId: string | null, selectedDa
     confirmPayment: isReady ? confirmPaymentMutation : disabledMutation(confirmPaymentMutation),
     updateBooking: isReady ? updateBookingMutation : disabledMutation(updateBookingMutation),
     markManualRefund: isReady ? markManualRefundMutation : disabledMutation(markManualRefundMutation),
+    markAttended: isReady ? markAttendedMutation : disabledMutation(markAttendedMutation),
   };
 }

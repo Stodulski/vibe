@@ -14,14 +14,19 @@ import { NotesSection } from './booking-detail/NotesSection';
 import { BookingDetailFooter } from './booking-detail/BookingDetailFooter';
 import { manualRefundOwed } from '../lib/manualRefundOwed';
 import { mercadoPagoRefundInFlight } from '../lib/mercadoPagoRefundInFlight';
+import { bookingDisplayStatus } from '@/shared/types/api.types';
 import type { Booking, BookingSeries, Client, Payment } from '@/shared/types/api.types';
 
 function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   const isCancelled = b.status === 'cancelled';
   const isCompleted = b.status === 'completed';
   const isNoShow = b.status === 'no_show';
-  const canCancel = !isCancelled && !isCompleted && !isNoShow;
+  // Once the hours are over there is nothing left to cancel: the owner marks
+  // whether the client came instead.
+  const isFinished = bookingDisplayStatus(b) === 'finished';
+  const canCancel = !isCancelled && !isCompleted && !isNoShow && !isFinished;
   const canMarkNoShow = b.status === 'confirmed' || b.status === 'completed';
+  const canMarkAttended = isFinished;
   // The server refuses a payment on a no-show (the deposit is kept) and a
   // manual refund while Mercado Pago is still sending its part back, so
   // neither button is offered then.
@@ -30,7 +35,7 @@ function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   const canMarkManualRefund = isCancelled && b.refund_status === 'partial' && !mercadoPagoRefundInFlight(payments);
   const manualRefundAmount = canMarkManualRefund ? manualRefundOwed(payments) : 0;
 
-  return { canCancel, canMarkNoShow, canConfirmPayment, canMarkManualRefund, manualRefundAmount };
+  return { canCancel, canMarkNoShow, canMarkAttended, canConfirmPayment, canMarkManualRefund, manualRefundAmount };
 }
 
 /** The detail query plus the "keep showing the last thing while it exits"
@@ -71,6 +76,7 @@ interface BookingDetailProps {
   onCancel: (booking: Booking) => void;
   onConfirmPayment: (booking: Booking) => void;
   onNoShow: (booking: Booking) => void;
+  onAttended: (booking: Booking) => void;
   onManualRefund: (booking: Booking, amount: number) => void;
   /** Hides the client row — the drawer underneath is already that client. */
   hideClient?: boolean | undefined;
@@ -95,8 +101,10 @@ interface BookingDetailBodyProps {
   isDetailError: boolean;
   refetchDetail: () => unknown;
   canMarkNoShow: boolean;
+  canMarkAttended: boolean;
   canCancel: boolean;
   onNoShow: (booking: Booking) => void;
+  onAttended: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   canConfirmPayment: boolean;
   canMarkManualRefund: boolean;
@@ -186,12 +194,9 @@ export function BookingDetail({
   onClose,
   booking,
   complexId,
-  onCancel,
-  onConfirmPayment,
-  onNoShow,
-  onManualRefund,
   hideClient,
   onOpenClient,
+  ...handlers
 }: BookingDetailProps) {
   const { b, client, payments, isDetailPending, isDetailError, refetchDetail, series, isSeriesPending } =
     useBookingDetailState(complexId, open, booking);
@@ -227,10 +232,7 @@ export function BookingDetail({
             isDetailError={isDetailError}
             refetchDetail={refetchDetail}
             {...flags}
-            onNoShow={onNoShow}
-            onCancel={onCancel}
-            onConfirmPayment={onConfirmPayment}
-            onManualRefund={onManualRefund}
+            {...handlers}
           />
         </SheetContent>
       </Sheet>

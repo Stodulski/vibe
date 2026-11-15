@@ -2,28 +2,21 @@ import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader'
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatEventDay } from '@/shared/lib/eventDates';
 import { BookingDetailMenu } from './BookingDetailMenu';
-import { usesActionsMenu } from './secondaryActions';
-import type { Booking } from '@/shared/types/api.types';
+import { usesActionsMenu, type BookingSecondaryActionProps } from './secondaryActions';
 
 const t = ES_AR;
 
 export function BookingDetailSheetHeader({
   booking,
   canMarkNoShow,
+  canMarkAttended,
   canCancel,
   onNoShow,
+  onAttended,
   onCancel,
   isSeries,
   onEndSeries,
-}: {
-  booking: Booking;
-  canMarkNoShow: boolean;
-  canCancel: boolean;
-  onNoShow: (booking: Booking) => void;
-  onCancel: (booking: Booking) => void;
-  isSeries?: boolean | undefined;
-  onEndSeries?: (() => void) | undefined;
-}) {
+}: BookingSecondaryActionProps) {
   return (
     <DetailSheetHeader
       title={t.publicBooking.bookingRef}
@@ -31,12 +24,14 @@ export function BookingDetailSheetHeader({
         <span className="inline-block first-letter:uppercase">{formatEventDay(booking.date.slice(0, 10))}</span>
       }
       menu={
-        usesActionsMenu({ canMarkNoShow, canCancel, onEndSeries }) && (
+        usesActionsMenu({ canMarkNoShow, canMarkAttended, canCancel, onEndSeries }) && (
           <BookingDetailMenu
             booking={booking}
             canMarkNoShow={canMarkNoShow}
+            canMarkAttended={canMarkAttended}
             canCancel={canCancel}
             onNoShow={onNoShow}
+            onAttended={onAttended}
             onCancel={onCancel}
             isSeries={isSeries}
             onEndSeries={onEndSeries}

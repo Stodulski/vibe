@@ -658,6 +658,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/bookings/{bookingID}/attended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark that the client of a finished booking showed up
+         * @description Legal on a `confirmed` booking whose `ends_at` has passed, or a `completed` one without `attended_at`: the booking becomes `completed` with `attended_at` set. Marking a booking already attended is idempotent and answers `200` unchanged.
+         */
+        post: operations["bookingsMarkAttended"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund": {
         parameters: {
             query?: never;
@@ -3665,6 +3685,11 @@ export interface components {
              * @description The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
              */
             series_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the owner marked the client as present (`bookingsMarkAttended`). Only a `completed` booking carries one; a completed booking without it finished with nobody confirming attendance ("Turno finalizado").
+             */
+            attended_at?: string | null;
         };
         Payment: {
             /** Format: uuid */
@@ -5905,6 +5930,55 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingsMarkAttended: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                bookingID: components["parameters"]["BookingID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The booking as marked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booking: components["schemas"]["Booking"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The booking's status changed before attendance could be marked. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Field `status`: the booking has not finished yet, or it is pending, cancelled or a no-show. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
         };

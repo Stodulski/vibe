@@ -6,7 +6,7 @@ import { BookingStatusText, PaymentStatusText } from '../BookingStatusBadge';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { paymentDisplayStatus } from '@/shared/types/api.types';
+import { bookingDisplayStatus, paymentDisplayStatus } from '@/shared/types/api.types';
 import type { Booking, BookingRefundStatus, Payment } from '@/shared/types/api.types';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { manualRefundOwed } from '../../lib/manualRefundOwed';
@@ -250,7 +250,7 @@ export function BookingInfoSection({
   return (
     <div className="space-y-3">
       <InfoRow label={t.bookings.status}>
-        <BookingStatusText status={booking.status} />
+        <BookingStatusText status={bookingDisplayStatus(booking)} />
       </InfoRow>
       <PaymentStatusRow booking={booking} payments={payments} />
       <PriceAndDepositRows booking={booking} payments={payments} />

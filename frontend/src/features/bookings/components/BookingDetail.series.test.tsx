@@ -49,6 +49,7 @@ async function renderDetail(booking: Booking) {
       onCancel={vi.fn()}
       onConfirmPayment={vi.fn()}
       onNoShow={vi.fn()}
+      onAttended={vi.fn()}
       onManualRefund={vi.fn()}
     />,
   );

@@ -9,7 +9,15 @@ vi.mock('../api/bookings.api', () => ({ bookingsApi: { getById: vi.fn() } }));
 
 const t = ES_AR.bookings;
 
-async function renderDetail(booking: Booking, payments: Payment[] = []) {
+// A booking whose hours are still ahead: once they are over the detail offers
+// attendance instead of cancelling.
+const hourAhead = Date.now() + 3_600_000;
+const upcoming = {
+  starts_at: new Date(hourAhead).toISOString(),
+  ends_at: new Date(hourAhead + 3_600_000).toISOString(),
+};
+
+async function renderDetail(booking: Booking, payments: Payment[] = [], onAttended = vi.fn()) {
   const { bookingsApi } = await import('../api/bookings.api');
   vi.mocked(bookingsApi.getById).mockResolvedValue({ booking, payments });
   renderWithProviders(
@@ -21,6 +29,7 @@ async function renderDetail(booking: Booking, payments: Payment[] = []) {
       onCancel={vi.fn()}
       onConfirmPayment={vi.fn()}
       onNoShow={vi.fn()}
+      onAttended={onAttended}
       onManualRefund={vi.fn()}
     />,
   );
@@ -32,7 +41,9 @@ describe('BookingDetail footer', () => {
   });
 
   it('pins the positive primary in the shared footer, with the standard button radius', async () => {
-    await renderDetail(makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none' }));
+    await renderDetail(
+      makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...upcoming }),
+    );
 
     const button = await screen.findByRole('button', { name: t.confirmPayment });
     expect(button.parentElement).toHaveAttribute('data-slot', 'sheet-footer');
@@ -41,14 +52,18 @@ describe('BookingDetail footer', () => {
   });
 
   it('has no positive action in the footer when the booking is fully paid', async () => {
-    await renderDetail(makeBooking({ status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none' }));
+    await renderDetail(
+      makeBooking({ status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none', ...upcoming }),
+    );
 
     await screen.findByRole('button', { name: t.cancel });
     expect(screen.queryByRole('button', { name: t.confirmPayment })).not.toBeInTheDocument();
   });
 
   it('shows two secondary actions as footer buttons, with no overflow menu', async () => {
-    await renderDetail(makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none' }));
+    await renderDetail(
+      makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...upcoming }),
+    );
 
     const cancel = await screen.findByRole('button', { name: t.cancel });
     const noShow = screen.getByRole('button', { name: t.statuses.no_show });
@@ -118,5 +133,47 @@ describe('BookingDetail footer, actions the server would refuse', () => {
     await screen.findByText(t.refundOwedLabel);
     expect(screen.queryByRole('button', { name: t.markManualRefund })).not.toBeInTheDocument();
     expect(screen.getByText(t.refundWaitsForMp)).toBeInTheDocument();
+  });
+});
+
+describe('BookingDetail footer, a booking whose hours are over', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('asks whether the client came instead of offering to cancel', async () => {
+    const onAttended = vi.fn();
+    const booking = makeBooking({ status: 'completed', collection_status: 'fully_paid', refund_status: 'none' });
+    await renderDetail(booking, [], onAttended);
+
+    const attended = await screen.findByRole('button', { name: t.statuses.completed });
+    expect(screen.getByRole('button', { name: t.statuses.no_show })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.cancel })).not.toBeInTheDocument();
+
+    attended.click();
+    expect(onAttended).toHaveBeenCalledWith(booking);
+  });
+
+  it('no longer asks once the client was marked as come', async () => {
+    await renderDetail(
+      makeBooking({
+        status: 'completed',
+        collection_status: 'fully_paid',
+        refund_status: 'none',
+        attended_at: '2026-03-18T15:00:00Z',
+      }),
+    );
+
+    await screen.findByRole('button', { name: t.statuses.no_show });
+    expect(screen.queryByRole('button', { name: t.statuses.completed })).not.toBeInTheDocument();
+  });
+
+  it('offers no attendance while the hours are still ahead', async () => {
+    await renderDetail(
+      makeBooking({ status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none', ...upcoming }),
+    );
+
+    await screen.findByRole('button', { name: t.cancel });
+    expect(screen.queryByRole('button', { name: t.statuses.completed })).not.toBeInTheDocument();
   });
 });

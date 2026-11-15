@@ -176,7 +176,11 @@ describe('BookingInfoSection payment status', () => {
 
 describe('BookingInfoSection, a played booking not paid in full', () => {
   it('keeps the booking status about the booking and puts the money owed in the payment status', () => {
-    const booking = createBooking({ status: 'completed', collection_status: 'unpaid' });
+    const booking = createBooking({
+      status: 'completed',
+      collection_status: 'unpaid',
+      attended_at: '2026-03-18T15:00:00Z',
+    });
     renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
 
     expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
@@ -192,11 +196,55 @@ describe('BookingInfoSection, a played booking not paid in full', () => {
   });
 
   it('reads paid in full once the booking is paid in full', () => {
-    const booking = createBooking({ status: 'completed', collection_status: 'fully_paid' });
+    const booking = createBooking({
+      status: 'completed',
+      collection_status: 'fully_paid',
+      attended_at: '2026-03-18T15:00:00Z',
+    });
     renderWithProviders(<BookingInfoSection booking={booking} payments={[createPayment()]} />);
 
     expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
     expect(screen.queryByText(ES_AR.bookings.paymentStatuses.outstanding)).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingInfoSection, a booking whose hours are over', () => {
+  it('reads "Turno finalizado" until someone marks whether the client came', () => {
+    renderWithProviders(
+      <BookingInfoSection
+        booking={createBooking({ status: 'completed', collection_status: 'fully_paid' })}
+        payments={[]}
+      />,
+    );
+
+    expect(screen.getByText(ES_AR.bookings.statuses.finished)).toHaveClass('text-warning-text');
+    expect(screen.queryByText(ES_AR.bookings.statuses.completed)).not.toBeInTheDocument();
+  });
+
+  it('reads "Turno finalizado" for a confirmed booking the completion sweep has not reached yet', () => {
+    const ended = new Date(Date.now() - 60_000).toISOString();
+    renderWithProviders(
+      <BookingInfoSection
+        booking={createBooking({ status: 'confirmed', collection_status: 'deposit_paid', ends_at: ended })}
+        payments={[]}
+      />,
+    );
+
+    expect(screen.getByText(ES_AR.bookings.statuses.finished)).toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.outstanding)).toBeInTheDocument();
+  });
+
+  it('keeps an upcoming confirmed booking as confirmed', () => {
+    const ahead = new Date(Date.now() + 3_600_000).toISOString();
+    renderWithProviders(
+      <BookingInfoSection
+        booking={createBooking({ status: 'confirmed', collection_status: 'unpaid', ends_at: ahead })}
+        payments={[]}
+      />,
+    );
+
+    expect(screen.getByText(ES_AR.bookings.statuses.confirmed)).toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.unpaid)).toBeInTheDocument();
   });
 });
 

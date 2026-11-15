@@ -1,6 +1,6 @@
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import type { BookingBarStatus, BookingStatus, PaymentDisplayStatus } from '@/shared/types/api.types';
+import type { BookingBarStatus, BookingDisplayStatus, PaymentDisplayStatus } from '@/shared/types/api.types';
 
 // Colour alone carries the state — no pill behind it. The filled shape read as
 // something you could press, and on a card already full of chips it competed
@@ -9,12 +9,13 @@ import type { BookingBarStatus, BookingStatus, PaymentDisplayStatus } from '@/sh
 // Amber means "money still owed" (a deposit, a refund on its way, a no-show to
 // settle), green means "done", red means "cancelled". Nothing else is used, so
 // the same colour means the same thing on every screen.
-const STATUS_STYLES: Record<BookingStatus, string> = {
+const STATUS_STYLES: Record<BookingDisplayStatus, string> = {
   pending: 'text-warning-text',
   confirmed: 'text-success-text',
   cancelled: 'text-error-text',
   completed: 'text-success-text',
   no_show: 'text-warning-text',
+  finished: 'text-warning-text',
 };
 
 // The same three semantics as `STATUS_STYLES`, as a solid filled shape for
@@ -33,6 +34,7 @@ export const STATUS_BAR_STYLES: Record<BookingBarStatus, { bg: string; border: s
   cancelled: { bg: 'bg-error-border', border: 'border-error-icon' },
   completed: { bg: 'bg-success-border', border: 'border-success-icon' },
   no_show: { bg: 'bg-warning-border', border: 'border-warning-icon' },
+  finished: { bg: 'bg-warning-border', border: 'border-warning-icon' },
   outstanding: { bg: 'bg-warning-border', border: 'border-warning-icon' },
 };
 
@@ -51,7 +53,7 @@ const PAYMENT_STYLES: Record<PaymentDisplayStatus, string> = {
 
 // Same colours at the weight a labelled detail row wants, where the value sits
 // under its own label rather than beside other statuses.
-export function BookingStatusText({ status, className }: { status: BookingStatus; className?: string }) {
+export function BookingStatusText({ status, className }: { status: BookingDisplayStatus; className?: string }) {
   return <span className={cn('font-medium', STATUS_STYLES[status], className)}>{ES_AR.bookings.statuses[status]}</span>;
 }
 

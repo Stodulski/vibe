@@ -61,6 +61,7 @@ export const bookingSchema = exact<Booking>(
       status: bookingStatusSchema,
       collection_status: collectionStatusSchema,
       refund_status: bookingRefundStatusSchema,
+      attended_at: z.string().nullable().optional(),
       notes: z.string().nullable().optional(),
       court_name: z.string(),
       client_name: z.string(),

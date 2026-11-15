@@ -80,6 +80,13 @@ export const bookingsApi = {
       .json()
       .then(parseWith(bookingEnvelopeSchema, 'bookingsApi.update')),
 
+  /** Marks that the client came to a booking whose hours are over ("Se presentó"). Idempotent on the server. */
+  markAttended: (complexId: string, bookingId: string): Promise<{ booking: Booking }> =>
+    api
+      .post(`complexes/${complexId}/bookings/${bookingId}/attended`, { json: {} })
+      .json()
+      .then(parseWith(bookingEnvelopeSchema, 'bookingsApi.markAttended')),
+
   /** `idempotencyKey`: see `useIdempotentMutation` — a retry must not refund twice. */
   markManualRefund: (complexId: string, bookingId: string, idempotencyKey: string): Promise<ManualRefundResponse> =>
     api
