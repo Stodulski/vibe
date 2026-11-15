@@ -175,26 +175,28 @@ describe('BookingInfoSection payment status', () => {
 });
 
 describe('BookingInfoSection, a played booking not paid in full', () => {
-  it('asks to confirm the payment instead of saying the client came', () => {
+  it('keeps the booking status about the booking and puts the money owed in the payment status', () => {
     const booking = createBooking({ status: 'completed', collection_status: 'unpaid' });
     renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
 
-    expect(screen.getByText(ES_AR.bookings.statuses.awaiting_payment)).toHaveClass('text-warning-text');
-    expect(screen.queryByText(ES_AR.bookings.statuses.completed)).not.toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.outstanding)).toHaveClass('text-warning-text');
+    expect(screen.queryByText(ES_AR.bookings.paymentStatuses.unpaid)).not.toBeInTheDocument();
   });
 
-  it('counts a booking with only its deposit paid as not paid yet', () => {
+  it('counts a booking with only its deposit paid as money still owed', () => {
     const booking = createBooking({ status: 'completed', collection_status: 'deposit_paid', deposit_amount: 5000 });
     renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
 
-    expect(screen.getByText(ES_AR.bookings.statuses.awaiting_payment)).toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.outstanding)).toBeInTheDocument();
   });
 
-  it('says the client came once the booking is paid in full', () => {
+  it('reads paid in full once the booking is paid in full', () => {
     const booking = createBooking({ status: 'completed', collection_status: 'fully_paid' });
     renderWithProviders(<BookingInfoSection booking={booking} payments={[createPayment()]} />);
 
     expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
+    expect(screen.queryByText(ES_AR.bookings.paymentStatuses.outstanding)).not.toBeInTheDocument();
   });
 });
 

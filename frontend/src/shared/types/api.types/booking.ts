@@ -48,23 +48,25 @@ export type BookingRefundStatus = Spec<'RefundStatus'>;
  * `refund_status` directly: this projection is lossy on purpose and is the
  * exact loss the payment_status split removed from the database.
  */
-export type PaymentDisplayStatus = CollectionStatus | 'refund_pending' | 'partial_refund' | 'refunded';
+export type PaymentDisplayStatus = CollectionStatus | 'outstanding' | 'refund_pending' | 'partial_refund' | 'refunded';
 
-// The booking status as the owner reads it. A booking closes on its own once
+// The colour a booking takes on the court grid. A booking closes on its own once
 // its hours are over ('completed'), paid or not; until it is paid in full it
-// reads "Falta confirmar pago" rather than "Se presentó", so the money still
-// to collect does not hide behind a green "done".
-export type BookingDisplayStatus = BookingStatus | 'awaiting_payment';
+// keeps the amber of money still to collect instead of a green "done". The
+// words stay apart: the booking status says "Se presentó", the payment status
+// says "Falta cobrar".
+export type BookingBarStatus = BookingStatus | 'outstanding';
 
-export function bookingDisplayStatus(booking: {
+export function bookingBarStatus(booking: {
   status: BookingStatus;
   collection_status: CollectionStatus;
-}): BookingDisplayStatus {
-  if (booking.status === 'completed' && booking.collection_status !== 'fully_paid') return 'awaiting_payment';
-  return booking.status;
+  refund_status: BookingRefundStatus;
+}): BookingBarStatus {
+  return paymentDisplayStatus(booking) === 'outstanding' ? 'outstanding' : booking.status;
 }
 
 export function paymentDisplayStatus(payment: {
+  status: BookingStatus;
   collection_status: CollectionStatus;
   refund_status: BookingRefundStatus;
 }): PaymentDisplayStatus {
@@ -76,6 +78,9 @@ export function paymentDisplayStatus(payment: {
     case 'full':
       return 'refunded';
     default:
+      // A played booking not paid in full: the money is now due, not just
+      // partly collected.
+      if (payment.status === 'completed' && payment.collection_status !== 'fully_paid') return 'outstanding';
       return payment.collection_status;
   }
 }

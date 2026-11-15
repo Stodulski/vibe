@@ -2,7 +2,7 @@ import { ChevronRight } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatDateShort } from '@/shared/lib/utils';
 import { BookingStatusText } from '@/shared/components/common/StatusBadges';
-import { bookingDisplayStatus, type Booking } from '@/shared/types/api.types';
+import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -36,7 +36,7 @@ export function ClientRecentBookings({ bookings, onSelect, className }: ClientRe
                 <span className="text-text-secondary truncate">{b.court_name}</span>
               </div>
               <div className="flex shrink-0 items-center gap-1">
-                <BookingStatusText status={bookingDisplayStatus(b)} className="text-xs" />
+                <BookingStatusText status={b.status} className="text-xs" />
                 <ChevronRight className="text-text-tertiary size-3.5" aria-hidden="true" />
               </div>
             </button>
