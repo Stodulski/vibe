@@ -35,9 +35,9 @@ export function PriceBreakdown({ depositPercentage, pricing, feeNote = t.service
         </div>
         <p className="text-text-inverse mt-1 text-xs">{feeNote}</p>
       </div>
-      <div className="bg-text-inverse/10 flex items-center justify-between gap-1 rounded-2xl px-3 py-3.5 sm:px-4">
+      <div className="bg-text-inverse/10 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-2xl px-3 py-3.5 sm:px-4">
         <dt className="text-text-inverse font-semibold whitespace-nowrap">{t.publicBooking.totalOnline}</dt>
-        <dd className="text-text-inverse min-w-0 text-xl font-bold tabular-nums sm:text-2xl">{formatPrice(totalOnline)}</dd>
+        <dd className="text-text-inverse text-xl font-bold whitespace-nowrap tabular-nums sm:text-2xl">{formatPrice(totalOnline)}</dd>
       </div>
       {remainingAmount > 0 && (
         <div className="pt-3">

@@ -54,11 +54,12 @@ describe('BookingSummaryCard remainder note', () => {
 });
 
 describe('BookingSummaryCard, the amount due now', () => {
-  it('keeps the label and the amount on one line, even in a 320px ticket', () => {
+  it('never breaks the label or the amount, and lets the amount drop under the label when a 320px ticket is too narrow', () => {
     renderCard(baseSlotInfo);
 
     const label = screen.getByText('Pagás ahora');
     expect(label).toHaveClass('whitespace-nowrap');
-    expect(label.parentElement).toHaveClass('gap-1');
+    expect(label.nextElementSibling).toHaveClass('whitespace-nowrap');
+    expect(label.parentElement).toHaveClass('flex-wrap');
   });
 });
