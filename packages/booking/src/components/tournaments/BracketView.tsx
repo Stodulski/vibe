@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournamentMatch, PublicTournamentPair } from '../../api/types';
 import { bracketRounds, pairLookup, scheduleLabel, scoreCells, slotLabel, type PairLookup, type Slot } from './tournamentModel';
@@ -106,43 +107,91 @@ interface BracketViewProps {
   groupNames: ReadonlyMap<string, string>;
 }
 
+/** A column never gets narrower than this; below it the bracket scrolls inside its card. */
+const COLUMN_MIN_REM = 9.5;
+const COLUMN_GAP_REM = 1;
+
+interface Overflow {
+  start: boolean;
+  end: boolean;
+}
+
+/** Which edges of the scroller have more bracket hidden behind them. */
+function useOverflowEdges() {
+  const ref = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState<Overflow>({ start: false, end: false });
+
+  const measure = useCallback(() => {
+    const el = ref.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const next = { start: max > 1 && el.scrollLeft > 1, end: max > 1 && el.scrollLeft < max - 1 };
+    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
+  }, []);
+
+  useEffect(() => {
+    measure();
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => {
+      observer.disconnect();
+    };
+  }, [measure]);
+
+  return { ref, edges, measure };
+}
+
+const FADE = 'from-bg-base pointer-events-none absolute inset-y-px z-10 w-8 to-transparent';
+
 /**
- * The knockout bracket, one column per round. It scrolls sideways inside its
- * own container so a wide bracket never widens the page (320 px included).
+ * The knockout bracket, one column per round. The columns share the card's
+ * width when the bracket fits; when it truly does not, it scrolls sideways
+ * inside its own card (so a wide bracket never widens the page, 320 px
+ * included) and a fade on the cut edge says there is more.
  */
 export function BracketView({ matches, pairs, groupNames }: BracketViewProps) {
+  const { ref, edges, measure } = useOverflowEdges();
   const rounds = bracketRounds(matches);
   if (rounds.length === 0) return null;
   const lookup = pairLookup(pairs);
+  const minWidth = `${String(rounds.length * COLUMN_MIN_REM + (rounds.length - 1) * COLUMN_GAP_REM)}rem`;
 
   return (
-    <div
-      role="region"
-      aria-label={t.bracketTitle}
-      // A scrollable region must be reachable by keyboard to scroll it.
-      // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
-      tabIndex={0}
-      className="border-border-subtle max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-xl border p-3"
-    >
-      <div className="flex min-w-max gap-4">
-        {rounds.map((round, roundIndex) => (
-          <section key={round.round} className="flex w-60 shrink-0 flex-col gap-2">
-            <h4 className="text-text-secondary text-sm font-semibold">{round.label}</h4>
-            <ol className="flex flex-1 flex-col">
-              {round.matches.map((match, position) => (
-                <BracketMatch
-                  key={match.id}
-                  match={match}
-                  label={round.label}
-                  pairs={lookup}
-                  groupNames={groupNames}
-                  connectors={connectorsOf(rounds, roundIndex, position)}
-                />
-              ))}
-            </ol>
-          </section>
-        ))}
+    <div className="relative max-w-full min-w-0">
+      <div
+        ref={ref}
+        onScroll={measure}
+        role="region"
+        aria-label={t.bracketTitle}
+        // A scrollable region must be reachable by keyboard to scroll it.
+        // eslint-disable-next-line jsx-a11y/no-noninteractive-tabindex
+        tabIndex={0}
+        className="border-border-subtle max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-xl border p-3"
+      >
+        <div className="flex gap-4" style={{ minWidth }}>
+          {rounds.map((round, roundIndex) => (
+            <section key={round.round} className="flex min-w-0 flex-1 basis-0 flex-col gap-2">
+              <h4 className="text-text-secondary text-sm font-semibold">{round.label}</h4>
+              <ol className="flex flex-1 flex-col">
+                {round.matches.map((match, position) => (
+                  <BracketMatch
+                    key={match.id}
+                    match={match}
+                    label={round.label}
+                    pairs={lookup}
+                    groupNames={groupNames}
+                    connectors={connectorsOf(rounds, roundIndex, position)}
+                  />
+                ))}
+              </ol>
+            </section>
+          ))}
+        </div>
       </div>
+      {edges.start && <span aria-hidden="true" data-bracket-fade="start" className={`${FADE} left-px rounded-l-xl bg-gradient-to-r`} />}
+      {edges.end && <span aria-hidden="true" data-bracket-fade="end" className={`${FADE} right-px rounded-r-xl bg-gradient-to-l`} />}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import { DETAIL, MATCHES, PAIRS, matchById } from '../../test/tournamentFixtures';
 import { BracketView } from './BracketView';
@@ -74,5 +74,33 @@ describe('BracketView', () => {
     );
     render(<BracketView matches={matches} pairs={PAIRS} groupNames={groupNames} />);
     expect(screen.getAllByText('Cancha 1 \u00b7 sábado 5 de diciembre \u00b7 10:00').length).toBeGreaterThan(0);
+  });
+});
+
+describe('BracketView, fitting the card', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('lets the columns share the card width instead of a fixed 15rem each', () => {
+    bracketOf('c-groups');
+    const columns = screen.getAllByRole('heading', { level: 4 }).map((heading) => heading.parentElement);
+    for (const column of columns) {
+      expect(column).toHaveClass('flex-1', 'basis-0');
+      expect(column?.className).not.toMatch(/\bw-60\b/);
+    }
+  });
+
+  it('shows no edge fade while the bracket fits', () => {
+    bracketOf('c-groups');
+    expect(document.querySelector('[data-bracket-fade]')).toBeNull();
+  });
+
+  it('shows a fade on the cut edge when the bracket is wider than its card', () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(900);
+    vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(500);
+    bracketOf('c-groups');
+    expect(document.querySelector('[data-bracket-fade="end"]')).not.toBeNull();
+    expect(document.querySelector('[data-bracket-fade="start"]')).toBeNull();
   });
 });
