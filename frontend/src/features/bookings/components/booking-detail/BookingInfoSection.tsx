@@ -145,21 +145,15 @@ function PaymentLedgerError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
-// The one screen with room for both halves, so it shows both. Under the
-// single payment_status field a deposit-only booking being refunded read
-// just "Reembolso pendiente" and the deposit half was gone; the server keeps
-// the two apart now (collection_status / refund_status) and so does this row. The refund half is
-// omitted entirely when there is nothing to give back, which is every
-// booking that never got refunded.
+// One status, never two side by side: once a refund is open it is the state
+// that matters ("Reembolso parcial"), and what was collected is already on the
+// price rows below. Until then, the collection status.
 function PaymentStatusRow({ booking }: { booking: Booking }) {
   return (
     <InfoRow label={t.bookings.paymentStatus}>
-      {/* One status per line: side by side, "Pago completo · Reembolso
-          parcial" read as two verdicts fighting over the same money. */}
-      <span className="flex flex-col items-start gap-0.5">
-        <PaymentStatusText status={booking.collection_status} />
-        {booking.refund_status !== 'none' && <PaymentStatusText status={REFUND_DISPLAY[booking.refund_status]} />}
-      </span>
+      <PaymentStatusText
+        status={booking.refund_status === 'none' ? booking.collection_status : REFUND_DISPLAY[booking.refund_status]}
+      />
     </InfoRow>
   );
 }

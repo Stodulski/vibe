@@ -157,3 +157,19 @@ describe('BookingInfoSection refund summary', () => {
     expect(screen.queryByText(ES_AR.bookings.refundOwedLabel)).not.toBeInTheDocument();
   });
 });
+
+describe('BookingInfoSection payment status', () => {
+  it('shows only the refund status once a refund is open', () => {
+    const booking = createBooking({ status: 'cancelled', collection_status: 'fully_paid', refund_status: 'partial' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[createPayment()]} />);
+
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.partial_refund)).toBeInTheDocument();
+    expect(screen.queryByText(ES_AR.bookings.paymentStatuses.fully_paid)).not.toBeInTheDocument();
+  });
+
+  it('shows the collection status while nothing is owed back', () => {
+    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[createPayment()]} />);
+
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.fully_paid)).toBeInTheDocument();
+  });
+});
