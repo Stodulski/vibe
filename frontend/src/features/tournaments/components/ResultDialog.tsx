@@ -70,7 +70,7 @@ function ResultBody({ onClose, complexId, tournamentId, category, match, pairs }
         className="space-y-4"
         noValidate
       >
-        <SegmentedTabs items={MODES} active={form.mode} onChange={form.setMode} ariaLabel={t.modeLabel} />
+        <SegmentedTabs items={MODES} active={form.mode} onChange={form.setMode} ariaLabel={t.modeLabel} wrap />
         {form.mode === 'sets' && <SetRows rows={form.rows} format={form.format} names={names} onChange={form.setRow} />}
         {form.mode === 'winner' && (
           <SidePicker

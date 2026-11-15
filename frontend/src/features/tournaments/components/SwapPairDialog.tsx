@@ -82,7 +82,7 @@ function SwapBody({ onClose, complexId, tournamentId, categoryId, pair, pairs, n
       <FormField label={t.swapWith} htmlFor="swap-with">
         <Select value={withId} onValueChange={setWithId}>
           <SelectTrigger id="swap-with">
-            <SelectValue />
+            <SelectValue placeholder={t.swapPlaceholder} />
           </SelectTrigger>
           <SelectContent>
             {options.map((other) => (

@@ -50,9 +50,11 @@ body {
 /* A link inside running text (a phone number in a list, a mailto in a
    paragraph) is not a tap target of its own and must not stretch its line to
    44px on touch: add `inline-link` to it. Real buttons and nav links keep the
-   floor below. */
+   floor below. A calendar day (`data-day`) is square, so a 44px height would
+   widen it too and push the seventh column out of a 320px popover: the grid of
+   days is the tap target there. */
 @media (pointer: coarse) {
-  button,
+  button:not([data-day]),
   [role='button'],
   a:not(.inline-link),
   input,

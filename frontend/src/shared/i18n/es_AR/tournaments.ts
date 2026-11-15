@@ -120,6 +120,7 @@ export const tournaments = {
     swapTitle: 'Intercambiar pareja',
     swapDescription: (name: string) => `Elegí con qué pareja intercambia lugar ${name}.`,
     swapWith: 'Intercambiar con',
+    swapPlaceholder: 'Elegí una pareja',
     swapConfirm: 'Intercambiar',
     swapLocked: 'Hay resultados cargados: ya no se pueden mover las parejas.',
     swapError: 'No pudimos intercambiar las parejas',

@@ -8,15 +8,23 @@ interface SegmentedTabsProps<T extends string> {
   active: T;
   onChange: (value: T) => void;
   ariaLabel: string;
+  /** Wrap onto more lines instead of scrolling sideways: for a few choices inside a narrow dialog. */
+  wrap?: boolean;
 }
 
 /**
  * A row of toggle buttons. When the labels do not fit (320 px, long category
  * names) the row scrolls inside its own container, never the page.
  */
-export function SegmentedTabs<T extends string>({ items, active, onChange, ariaLabel }: SegmentedTabsProps<T>) {
+export function SegmentedTabs<T extends string>({
+  items,
+  active,
+  onChange,
+  ariaLabel,
+  wrap = false,
+}: SegmentedTabsProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={SEGMENTED_TABS_CLASS}>
+    <div role="group" aria-label={ariaLabel} className={cn(SEGMENTED_TABS_CLASS, wrap && 'flex-wrap overflow-visible')}>
       {items.map((item) => (
         <Button
           key={item.value}
