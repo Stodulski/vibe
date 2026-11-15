@@ -127,7 +127,6 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 			chargebackNote = *booking.Notes + " | " + chargebackNote
 		}
 		booking.Notes = &chargebackNote
-		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CHARGEBACK processed: booking_id=%s mp_payment_id=%s", booking.ID, mpPaymentID))
 	}
 
 	// Update payment status.
@@ -218,6 +217,12 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	}
 
 	s.realtime.PublishBookingChanged(booking.ComplexID)
+
+	// Reported only once the write landed: a webhook that stood down above
+	// recorded nothing, so it must not say a chargeback was processed.
+	if mpPayment.Status == "charged_back" {
+		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CHARGEBACK processed: booking_id=%s mp_payment_id=%s", booking.ID, mpPaymentID))
+	}
 
 	s.logger.Info("mp webhook: refund/chargeback processed",
 		"mp_payment_id", mpPaymentID,
