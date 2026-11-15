@@ -177,8 +177,8 @@ test('an owner booking inside the event is refused', async () => {
 });
 
 test('the participants list shows each spot with its payment state', async () => {
-  seedPaidRegistration(world.complexId, eventId, person(1), PRICE_PESOS * 100, 250);
-  seedPaidRegistration(world.complexId, eventId, person(2), PRICE_PESOS * 100, 250);
+  await seedPaidRegistration(world.complexId, eventId, person(1), PRICE_PESOS * 100, 250);
+  await seedPaidRegistration(world.complexId, eventId, person(2), PRICE_PESOS * 100, 250);
   seedHeldRegistration(world.complexId, eventId, person(3), PRICE_PESOS * 100);
 
   await page.goto(`/events/open-play?event=${eventId}`);
@@ -221,7 +221,7 @@ test('public: the complex page lists the event and the event page shows the sign
 });
 
 test('public: a full event closes sign-up on both pages', async ({ page: visitor }) => {
-  seedPaidRegistration(world.complexId, eventId, person(4), PRICE_PESOS * 100, 250);
+  await seedPaidRegistration(world.complexId, eventId, person(4), PRICE_PESOS * 100, 250);
   // Two paid, one still being paid and this one: 4 of 4 (a held spot counts).
   await visitor.goto(landingComplexUrl(world.slug, `/events/${eventId}`));
   await waitForStorefrontHydration(visitor);

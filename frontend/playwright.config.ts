@@ -134,6 +134,10 @@ export default defineConfig({
         // their own (helpers/events-fixtures.ts provisionWorld), so they need
         // neither the shared login nor the single-worker storefront project.
         'mp-storefront-payments.spec.ts',
+        // Its own complex and its own seller at the fake, whose tokens it
+        // expires: what the fake does like Mercado Pago (credentials, expiry,
+        // refund webhooks) and what the backend does with it.
+        'mp-fake-fidelity.spec.ts',
       ],
     },
   ],

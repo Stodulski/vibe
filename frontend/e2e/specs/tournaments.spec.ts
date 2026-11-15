@@ -46,11 +46,11 @@ let closeContext: () => Promise<void>;
 let tournamentId = '';
 const categoryIds: Record<string, string> = {};
 
-function seedPairs(category: string, prefix: string, count: number, price: number): void {
+async function seedPairs(category: string, prefix: string, count: number, price: number): Promise<void> {
   const categoryId = categoryIds[category];
   if (!categoryId) throw new Error(`no category ${category}`);
   for (let i = 1; i <= count; i++) {
-    seedPaidPair(
+    await seedPaidPair(
       world.complexId,
       categoryId,
       {
@@ -180,8 +180,8 @@ test('the owner creates a tournament with a groups category and an elimination c
 });
 
 test('the paid pairs show with their payment, seed and contact', async () => {
-  seedPairs(GROUPS, 'Zeta', GROUPS_PAIRS, ENTRY_GROUPS);
-  seedPairs(KNOCKOUT, 'Omega', KNOCKOUT_PAIRS, ENTRY_KNOCKOUT);
+  await seedPairs(GROUPS, 'Zeta', GROUPS_PAIRS, ENTRY_GROUPS);
+  await seedPairs(KNOCKOUT, 'Omega', KNOCKOUT_PAIRS, ENTRY_KNOCKOUT);
 
   await openTournament();
   await expect(page.getByText(`${String(GROUPS_PAIRS)} de ${String(GROUPS_PAIRS)} parejas`)).toBeVisible();

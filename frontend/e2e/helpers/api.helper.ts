@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { request as apiRequest } from '@playwright/test';
 import type { APIRequestContext, APIResponse } from '@playwright/test';
-import { MP_FAKE_COLLECTOR_ID } from '../mp-fake/client';
+import { MP_FAKE_COLLECTOR_ID, MP_FAKE_SEED_SELLER } from '../mp-fake/client';
 import {
   TEST_OWNER,
   TEST_COMPLEX,
@@ -378,7 +378,7 @@ export class ApiHelper {
         '-d',
         dbName,
         '-c',
-        `UPDATE complexes SET mp_user_id = '${MP_FAKE_COLLECTOR_ID}', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complex.id}';`,
+        `UPDATE complexes SET mp_user_id = '${MP_FAKE_COLLECTOR_ID}', mp_access_token = '${MP_FAKE_SEED_SELLER.access_token}', mp_refresh_token = '${MP_FAKE_SEED_SELLER.refresh_token}' WHERE id = '${complex.id}';`,
       ],
       { stdio: 'pipe', env: { ...process.env, PGPASSWORD: dbPassword } },
     );

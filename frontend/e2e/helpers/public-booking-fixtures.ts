@@ -3,7 +3,7 @@ import type { APIRequestContext, Locator } from '@playwright/test';
 import { typedJson } from './api.helper';
 import type { ApiComplex, ApiCourt } from './api.helper';
 import { E2E_DB_DSN, runE2eSql } from './e2e-db';
-import { MP_FAKE_COLLECTOR_ID } from '../mp-fake/client';
+import { MP_FAKE_COLLECTOR_ID, MP_FAKE_SEED_SELLER, mpFake, type FakeSeller } from '../mp-fake/client';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
@@ -168,16 +168,20 @@ export async function findAndClickAvailableSlot(dateBtns: Locator): Promise<bool
  * (`cmd/mpcredkey seal`, backend) the app uses for real credential
  * rotation, under the same key `make e2e`'s isolated API is built with.
  *
- * `mp_user_id` is the fake Mercado Pago's numeric collector id
- * (`e2e/mp-fake`): the webhook drops any payment whose `collector_id` does not
- * match it.
+ * The credentials are the fake Mercado Pago's seeded seller (`e2e/mp-fake`)
+ * unless `seller` names another one (`connectOwnFakeSeller`). The fake checks
+ * every call's token, and `mp_user_id` is that seller's numeric collector id:
+ * the webhook drops any payment whose `collector_id` does not match it.
  */
-export async function fakeMercadoPagoConnection(complexId: string): Promise<void> {
+export async function fakeMercadoPagoConnection(
+  complexId: string,
+  seller: FakeSeller = { collector_id: Number(MP_FAKE_COLLECTOR_ID), ...MP_FAKE_SEED_SELLER },
+): Promise<void> {
   const { execFileSync } = await import('child_process');
   const path = await import('path');
 
   runE2eSql(
-    `UPDATE complexes SET mp_user_id = '${MP_FAKE_COLLECTOR_ID}', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complexId}';`,
+    `UPDATE complexes SET mp_user_id = '${String(seller.collector_id)}', mp_access_token = '${seller.access_token}', mp_refresh_token = '${seller.refresh_token}' WHERE id = '${complexId}';`,
   );
 
   // Same key scripts/e2e-run.sh (backend) passes the isolated API via
@@ -195,6 +199,22 @@ export async function fakeMercadoPagoConnection(complexId: string): Promise<void
   } else {
     execFileSync('go', ['run', './cmd/mpcredkey', ...sealArgs], { cwd: serverDir, stdio: 'pipe' });
   }
+}
+
+/**
+ * Connects a complex to a seller of its own at the fake Mercado Pago, rather
+ * than the seeded one every other complex shares, so a spec can expire its
+ * tokens (`mpFake.expireSeller`) without touching anyone else's checkout.
+ */
+export async function connectOwnFakeSeller(complexId: string): Promise<FakeSeller> {
+  const seller = await mpFake.registerSeller();
+  await fakeMercadoPagoConnection(complexId, seller);
+  // The expiry a real OAuth connect records. Without one, the backend's token
+  // sweep (cronRefreshMPTokens, first run within 30 s of boot) refreshes the
+  // seller on its own and can swap an expired token for a fresh one before the
+  // spec's call sees the 401.
+  runE2eSql(`UPDATE complexes SET mp_token_expires_at = now() + interval '180 days' WHERE id = '${complexId}';`);
+  return seller;
 }
 
 /**

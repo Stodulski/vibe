@@ -3,6 +3,7 @@ import { MP_FAKE_CHECKOUT, MP_FAKE_URL, mpFake, type FakePayment, type FakeRefun
 import { PublicBookingPage } from '../pages/public-booking.page';
 import { findAndClickAvailableSlot } from './public-booking-fixtures';
 import { waitForStorefrontHydration } from './landing';
+import { queryE2e, type EventsWorld } from './events-fixtures';
 
 /**
  * Paying through the fake Mercado Pago (e2e/mp-fake) from a spec: reaching its
@@ -109,4 +110,110 @@ export async function waitForRefundOf(paymentId: number, amount: number): Promis
     )
     .toBe(amount);
   return refunds;
+}
+
+/** A booking as the owner's API reads it. */
+export interface OwnerBooking {
+  id: string;
+  date: string;
+  status: string;
+  collection_status: string;
+  refund_status: string;
+  deposit_amount: number;
+  price: number;
+}
+
+export async function ownerBooking(world: EventsWorld, bookingId: string): Promise<OwnerBooking> {
+  const { booking } = await world.api.get<{ booking: OwnerBooking }>(
+    `/complexes/${world.complexId}/bookings/${bookingId}`,
+  );
+  return booking;
+}
+
+/** Waits until the webhook worked the booking into `status`, and returns it. */
+export async function waitForBookingStatus(
+  world: EventsWorld,
+  bookingId: string,
+  status: string,
+): Promise<OwnerBooking> {
+  await expect
+    .poll(async () => (await ownerBooking(world, bookingId)).status, {
+      timeout: 30_000,
+      message: `booking ${bookingId} reaching ${status}`,
+    })
+    .toBe(status);
+  return ownerBooking(world, bookingId);
+}
+
+/** Books, pays "Aprobar pago" and waits for the confirmation. Returns the booking, its payment and the link token. */
+export async function bookAndPay(page: Page, world: EventsWorld, client: StorefrontClient) {
+  const preferenceId = await bookStorefrontUpToCheckout(page, world.slug, client);
+  const bookingId = await referenceOfPreference(preferenceId);
+  await payAtCheckout(page, 'approve');
+  await expect(page).toHaveURL(new RegExp(`${world.slug}/book/success\\?token=`), { timeout: 15_000 });
+  const token = new URL(page.url()).searchParams.get('token') ?? '';
+  expect(token).not.toBe('');
+  const payment = await paymentOfPreference(preferenceId);
+  expect(payment.status).toBe('approved');
+  const booking = await waitForBookingStatus(world, bookingId, 'confirmed');
+  return { booking, payment, token };
+}
+
+/** The backend's own record of a Mercado Pago payment (its `payments` row). Amounts are centavos. */
+export interface RecordedPayment {
+  status: string;
+  amount: number;
+  serviceFee: number;
+  refundAmount: number;
+  statusDetail: string;
+}
+
+export function recordedPayment(mpPaymentId: number): RecordedPayment | null {
+  const [row] = queryE2e(
+    `SELECT status || '|' || amount || '|' || service_fee || '|' || refund_amount || '|' || coalesce(status_detail, '')
+     FROM payments WHERE mp_payment_id = '${String(mpPaymentId)}';`,
+  );
+  if (!row) return null;
+  const [status = '', amount = '0', serviceFee = '0', refundAmount = '0', statusDetail = ''] = row.split('|');
+  return {
+    status,
+    amount: Number(amount),
+    serviceFee: Number(serviceFee),
+    refundAmount: Number(refundAmount),
+    statusDetail,
+  };
+}
+
+/**
+ * Waits until the backend has worked `count` webhook deliveries for a payment
+ * (its durable inbox, `webhook_events`, marks each one processed).
+ */
+export async function waitForProcessedWebhooks(mpPaymentId: number, count: number): Promise<void> {
+  await expect
+    .poll(
+      () =>
+        Number(
+          queryE2e(
+            `SELECT count(*) FROM webhook_events WHERE external_id = '${String(mpPaymentId)}' AND status = 'processed';`,
+          )[0] ?? '0',
+        ),
+      { timeout: 30_000, message: `${String(count)} processed webhooks of payment ${String(mpPaymentId)}` },
+    )
+    .toBeGreaterThanOrEqual(count);
+}
+
+/**
+ * Waits until the fake has delivered a webhook with `action` for a payment and
+ * the API accepted it (HTTP 2xx).
+ */
+export async function waitForDeliveredWebhook(mpPaymentId: number, action: string): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        (await mpFake.webhooksOf(mpPaymentId)).some(
+          (w) => w.action === action && w.status !== null && w.status >= 200 && w.status < 300,
+        ),
+      { timeout: 15_000, message: `a delivered ${action} webhook for payment ${String(mpPaymentId)}` },
+    )
+    .toBe(true);
 }

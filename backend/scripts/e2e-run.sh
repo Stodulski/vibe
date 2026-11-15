@@ -43,6 +43,12 @@ E2E_MP_CREDENTIAL_KEYS="e2e:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
 # the fixtures seed it as the complex's mp_user_id (the webhook drops a payment
 # whose collector does not match). E2E-only values, not real secrets.
 E2E_MP_WEBHOOK_SECRET="e2e-mp-webhook-secret"
+# The marketplace's own token and OAuth client. The fake authenticates every
+# call like MercadoPago (frontend/e2e/mp-fake/auth.ts), so the API and the fake
+# must agree on them. Placeholders, not real credentials.
+E2E_MP_PLATFORM_TOKEN="e2e-fake-platform-token"
+E2E_MP_APP_ID="e2e-fake-app"
+E2E_MP_CLIENT_SECRET="e2e-fake-client-secret"
 MP_FAKE_COLLECTOR_ID="${MP_FAKE_COLLECTOR_ID:-20260001}"
 MP_FAKE_PORT="${MP_FAKE_PORT:-8090}"
 NODE="${NODE:-node}"
@@ -117,6 +123,9 @@ MP_FAKE_PORT="$MP_FAKE_PORT" \
 MP_FAKE_PUBLIC_URL="$MP_FAKE_URL" \
 MP_FAKE_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECRET" \
 MP_FAKE_COLLECTOR_ID="$MP_FAKE_COLLECTOR_ID" \
+MP_FAKE_PLATFORM_TOKEN="$E2E_MP_PLATFORM_TOKEN" \
+MP_FAKE_APP_ID="$E2E_MP_APP_ID" \
+MP_FAKE_CLIENT_SECRET="$E2E_MP_CLIENT_SECRET" \
 "$NODE" "$CLIENT_DIR/e2e/mp-fake/server.ts" &
 MP_FAKE_PID=$!
 
@@ -144,7 +153,7 @@ echo "[e2e] starting API on :${E2E_API_PORT} against E2E db (:${E2E_DB_PORT}) an
 # or charges anyone for real — construct-a-minimal-env, not copy-the-real-one.
 # MercadoPago is configured end to end, but every call goes to the fake
 # (MP_API_BASE_URL); the platform token, app id and client secret are
-# placeholders the fake accepts. BACKEND_URL is where the fake posts webhooks.
+# placeholders the fake checks every call against. BACKEND_URL is where the fake posts webhooks.
 DATABASE_URL="$E2E_DSN" \
 JWT_SECRET="e2e-test-secret-key-32-bytes-long!" \
 ENV=development \
@@ -153,8 +162,8 @@ PUBLIC_URL="$LANDING_BASE_URL" \
 BACKEND_URL="$API_BASE_URL" \
 REDIS_URL="redis://localhost:${E2E_REDIS_PORT}" \
 COOKIE_DOMAIN="" \
-MP_ACCESS_TOKEN="e2e-fake-platform-token" MP_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECRET" \
-MP_APP_ID="e2e-fake-app" MP_CLIENT_SECRET="e2e-fake-client-secret" \
+MP_ACCESS_TOKEN="$E2E_MP_PLATFORM_TOKEN" MP_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECRET" \
+MP_APP_ID="$E2E_MP_APP_ID" MP_CLIENT_SECRET="$E2E_MP_CLIENT_SECRET" \
 MP_API_BASE_URL="$MP_FAKE_URL" \
 MP_CREDENTIAL_KEYS="$E2E_MP_CREDENTIAL_KEYS" \
 WHATSAPP_TOKEN="" WHATSAPP_PHONE_NUMBER_ID="" WHATSAPP_VERIFY_TOKEN="" WHATSAPP_APP_SECRET="" \

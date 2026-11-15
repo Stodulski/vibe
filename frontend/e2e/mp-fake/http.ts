@@ -5,6 +5,9 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { BODY_LIMIT, isObject } from './store.ts';
 import type { Json } from './store.ts';
 
+export type Handler = (req: IncomingMessage, res: ServerResponse, param: string) => void | Promise<void>;
+export type Route = [method: string, path: RegExp, handler: Handler];
+
 export async function readBody(req: IncomingMessage): Promise<string> {
   const chunks: Buffer[] = [];
   let size = 0;

@@ -15,7 +15,15 @@
  *   MP_FAKE_PORT            port to listen on (default 8090)
  *   MP_FAKE_PUBLIC_URL      base URL the browser reaches it on (default http://localhost:<port>)
  *   MP_FAKE_WEBHOOK_SECRET  secret the webhook is signed with; must equal the backend's MP_WEBHOOK_SECRET
- *   MP_FAKE_COLLECTOR_ID    numeric seller id put on every payment; must equal the seeded complex's mp_user_id
+ *   MP_FAKE_COLLECTOR_ID    numeric id of the seeded seller; must equal the seeded complex's mp_user_id
+ *   MP_FAKE_PLATFORM_TOKEN  the marketplace's own token; must equal the backend's MP_ACCESS_TOKEN
+ *   MP_FAKE_APP_ID, MP_FAKE_CLIENT_SECRET  the OAuth client; must equal the backend's MP_APP_ID / MP_CLIENT_SECRET
+ *
+ * Every API call is authenticated like Mercado Pago's (see ./auth.ts):
+ * preferences and refunds take the collecting seller's token, a payment is read
+ * by the platform or its collector, anything else is 401/403. A preference past
+ * its expiration_date_to cannot be paid, and every refund is followed by a
+ * signed payment.updated webhook.
  *
  * State lives in memory and dies with the process.
  */
@@ -26,37 +34,72 @@ import {
   COLLECTOR_ID,
   PORT,
   PUBLIC_URL,
-  STATUS_DETAIL,
+  applyRefund,
   createPayment,
   isObject,
+  isPreferenceExpired,
   now,
   preferenceAmount,
-  resetState,
-  round2,
+  refundView,
   sendWebhook,
-  settle,
   state,
 } from './store.ts';
+import { authenticate, describeBearer, grant } from './auth.ts';
+import type { Party } from './auth.ts';
+import { CONTROL_ROUTES } from './control.ts';
 import { escapeHtml, readBody, readJson, sendError, sendJson } from './http.ts';
-import type { Json, PaymentStatus, Preference, Refund } from './store.ts';
+import type { Route } from './http.ts';
+import type { Json, Payment, Preference } from './store.ts';
 
 // --- Mercado Pago API ------------------------------------------------------
 
+// Mercado Pago's own refusals: 401 when the token is missing, unknown or
+// expired, 403 when a valid token belongs to a party that may not act on the
+// resource (the platform creating a seller's preference, another seller
+// refunding a payment it did not collect).
+
+/** The caller's party, or the 401 already answered. */
+function authorize(req: IncomingMessage, res: ServerResponse): Party | null {
+  const auth = authenticate(req);
+  if (!auth.ok) {
+    sendJson(res, 401, { message: auth.reason, error: 'unauthorized', status: 401, cause: [] });
+    return null;
+  }
+  return auth.party;
+}
+
+function forbid(res: ServerResponse, message: string): void {
+  sendJson(res, 403, { message, error: 'forbidden', status: 403, cause: [] });
+}
+
+function isCollector(party: Party, collectorId: number): boolean {
+  return party.kind === 'seller' && party.collectorId === collectorId;
+}
+
 async function createPreference(req: IncomingMessage, res: ServerResponse): Promise<void> {
+  const party = authorize(req, res);
+  if (!party) return;
+  if (party.kind !== 'seller') {
+    // The real API would take it and pay the marketplace; the backend must
+    // never ask (mp.ErrPlatformCannotSell), so the fake refuses it loudly.
+    forbid(res, 'a checkout preference must be created with the seller access token');
+    return;
+  }
   const key = req.headers['x-idempotency-key'];
   const idempotencyKey = typeof key === 'string' && key !== '' ? key : null;
   if (idempotencyKey) {
     const existingID = state.preferenceByIdempotencyKey.get(idempotencyKey);
     const existing = existingID ? state.preferences.get(existingID) : undefined;
-    if (existing) {
+    if (existing?.collector_id === party.collectorId) {
       sendJson(res, 201, preferenceView(existing));
       return;
     }
   }
   const body = await readJson(req);
-  const id = `${String(COLLECTOR_ID)}-${randomUUID()}`;
+  const id = `${String(party.collectorId)}-${randomUUID()}`;
   const pref: Preference = {
     id,
+    collector_id: party.collectorId,
     init_point: `${PUBLIC_URL}/checkout/${id}`,
     sandbox_init_point: `${PUBLIC_URL}/checkout/${id}`,
     date_created: now(),
@@ -73,34 +116,54 @@ function preferenceView(pref: Preference): Json {
     id: pref.id,
     init_point: pref.init_point,
     sandbox_init_point: pref.sandbox_init_point,
-    collector_id: COLLECTOR_ID,
+    collector_id: pref.collector_id,
     date_created: pref.date_created,
   };
 }
 
 async function updatePreference(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
+  const party = authorize(req, res);
+  if (!party) return;
   const pref = state.preferences.get(id);
   if (!pref) {
     sendError(res, 404, `preference ${id} not found`);
+    return;
+  }
+  if (!isCollector(party, pref.collector_id)) {
+    forbid(res, `preference ${id} belongs to another collector`);
     return;
   }
   pref.body = { ...pref.body, ...(await readJson(req)) };
   sendJson(res, 200, preferenceView(pref));
 }
 
-function getPayment(res: ServerResponse, id: number): void {
+function getPayment(req: IncomingMessage, res: ServerResponse, id: number): void {
+  const party = authorize(req, res);
+  if (!party) return;
   const payment = state.payments.get(id);
   if (!payment) {
     sendError(res, 404, `payment ${String(id)} not found`);
+    return;
+  }
+  // The platform reads every payment made under its application; a seller only its own.
+  if (party.kind !== 'platform' && !isCollector(party, payment.collector_id)) {
+    forbid(res, `payment ${String(id)} belongs to another collector`);
     return;
   }
   sendJson(res, 200, payment);
 }
 
 async function refundPayment(req: IncomingMessage, res: ServerResponse, id: number): Promise<void> {
+  const party = authorize(req, res);
+  if (!party) return;
   const payment = state.payments.get(id);
   if (!payment) {
     sendError(res, 404, `payment ${String(id)} not found`);
+    return;
+  }
+  // The money comes out of whoever authorized the refund: only the collector may.
+  if (!isCollector(party, payment.collector_id)) {
+    forbid(res, `payment ${String(id)} can only be refunded by its collector`);
     return;
   }
   const key = req.headers['x-idempotency-key'];
@@ -110,51 +173,38 @@ async function refundPayment(req: IncomingMessage, res: ServerResponse, id: numb
     sendJson(res, 201, refundView(replay));
     return;
   }
-  if (payment.status !== 'approved') {
-    sendError(res, 400, `payment ${String(id)} is ${payment.status} and cannot be refunded`);
+  const result = applyRefund(payment, (await readJson(req)).amount, idempotencyKey, 'api');
+  if (!result.ok) {
+    sendError(res, result.status, result.message);
     return;
   }
-  const body = await readJson(req);
-  const remaining = round2(payment.transaction_amount - payment.transaction_amount_refunded);
-  const amount = body.amount === undefined ? remaining : round2(Number(body.amount));
-  if (!(amount > 0) || amount > remaining) {
-    sendError(res, 400, `invalid refund amount ${String(body.amount)} (remaining ${String(remaining)})`);
-    return;
-  }
-  const refund: Refund = {
-    id: state.nextRefundId++,
-    payment_id: id,
-    amount,
-    status: 'approved',
-    date_created: now(),
-    idempotency_key: idempotencyKey,
-  };
-  state.refunds.push(refund);
-  payment.transaction_amount_refunded = round2(payment.transaction_amount_refunded + amount);
-  if (payment.transaction_amount_refunded >= payment.transaction_amount) {
-    payment.status = 'refunded';
-    payment.status_detail = STATUS_DETAIL.refunded;
-  }
-  payment.date_last_updated = now();
-  sendJson(res, 201, refundView(refund));
+  sendJson(res, 201, refundView(result.refund));
+  notifyLater(payment);
 }
 
-function refundView(refund: Refund): Json {
-  return { id: refund.id, payment_id: refund.payment_id, amount: refund.amount, status: refund.status };
+/**
+ * Mercado Pago tells the seller about a refund with a payment.updated
+ * notification a moment after answering the refund call; the backend has
+ * already recorded it by then, and must not record it twice.
+ */
+function notifyLater(payment: Payment): void {
+  setTimeout(() => {
+    void sendWebhook(payment, 'payment.updated');
+  }, 300);
 }
 
 async function oauthToken(req: IncomingMessage, res: ServerResponse): Promise<void> {
-  const body = await readJson(req);
-  if (body.grant_type !== 'authorization_code' && body.grant_type !== 'refresh_token') {
-    sendError(res, 400, 'invalid_grant');
+  const result = grant(await readJson(req));
+  if (!result.ok) {
+    sendJson(res, result.status, { error: result.error, message: result.message, status: result.status, cause: [] });
     return;
   }
   sendJson(res, 200, {
-    access_token: `APP_USR-fake-${randomUUID()}`,
-    refresh_token: `TG-fake-${randomUUID()}`,
+    access_token: result.credentials.access_token,
+    refresh_token: result.credentials.refresh_token,
     token_type: 'Bearer',
     scope: 'offline_access read write',
-    user_id: COLLECTOR_ID,
+    user_id: result.credentials.collector_id,
     expires_in: 15_552_000,
     live_mode: false,
   });
@@ -178,6 +228,18 @@ function checkoutPage(res: ServerResponse, id: string): void {
   if (!pref) {
     res.writeHead(404, { 'Content-Type': 'text/html; charset=utf-8' });
     res.end('<!doctype html><title>Preferencia inexistente</title><h1>Preferencia inexistente</h1>');
+    return;
+  }
+  if (isPreferenceExpired(pref)) {
+    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+    res.end(`<!doctype html>
+<html lang="es">
+  <head><meta charset="utf-8"><title>Mercado Pago (fake)</title></head>
+  <body>
+    <h1>Link de pago vencido</h1>
+    <p data-testid="mp-fake-expired">Este link de pago ya no está disponible.</p>
+  </body>
+</html>`);
     return;
   }
   const items = Array.isArray(pref.body.items) ? (pref.body.items as unknown[]) : [];
@@ -207,13 +269,17 @@ async function checkoutSubmit(req: IncomingMessage, res: ServerResponse, id: str
     sendError(res, 404, `preference ${id} not found`);
     return;
   }
+  if (isPreferenceExpired(pref)) {
+    sendError(res, 403, `preference ${id} expired`);
+    return;
+  }
   const outcome = new URLSearchParams(await readBody(req)).get('outcome') ?? '';
   if (!isOutcome(outcome)) {
     sendError(res, 400, `unknown outcome "${outcome}"`);
     return;
   }
   const payment = createPayment(pref, outcome);
-  await sendWebhook(payment);
+  await sendWebhook(payment, 'payment.created');
 
   const backURLs = isObject(pref.body.back_urls) ? pref.body.back_urls : {};
   const target = backURLs[OUTCOMES[outcome].backURL];
@@ -231,38 +297,16 @@ async function checkoutSubmit(req: IncomingMessage, res: ServerResponse, id: str
   res.end();
 }
 
-// --- Control API -----------------------------------------------------------
-
-async function setPaymentStatus(req: IncomingMessage, res: ServerResponse, id: number): Promise<void> {
-  const payment = state.payments.get(id);
-  if (!payment) {
-    sendError(res, 404, `payment ${String(id)} not found`);
-    return;
-  }
-  const status = (await readJson(req)).status;
-  if (typeof status !== 'string' || !Object.hasOwn(STATUS_DETAIL, status)) {
-    sendError(res, 400, `unknown status "${String(status)}"`);
-    return;
-  }
-  const pref = state.preferences.get(payment.preference_id);
-  payment.status = status as PaymentStatus;
-  if (pref) settle(payment, pref);
-  const webhook = await sendWebhook(payment);
-  sendJson(res, 200, { payment, webhook });
-}
-
 // --- Router ----------------------------------------------------------------
 
-type Handler = (req: IncomingMessage, res: ServerResponse, param: string) => void | Promise<void>;
-
-const ROUTES: [method: string, path: RegExp, handler: Handler][] = [
+const ROUTES: Route[] = [
   ['POST', /^\/checkout\/preferences$/, createPreference],
   ['PUT', /^\/checkout\/preferences\/([^/]+)$/, updatePreference],
   [
     'GET',
     /^\/v1\/payments\/(\d+)$/,
-    (_req, res, id) => {
-      getPayment(res, Number(id));
+    (req, res, id) => {
+      getPayment(req, res, Number(id));
     },
   ],
   ['POST', /^\/v1\/payments\/(\d+)\/refunds$/, (req, res, id) => refundPayment(req, res, Number(id))],
@@ -275,44 +319,11 @@ const ROUTES: [method: string, path: RegExp, handler: Handler][] = [
     },
   ],
   ['POST', /^\/checkout\/([^/]+)$/, checkoutSubmit],
-  [
-    'GET',
-    /^\/__fake\/preferences$/,
-    (_req, res) => {
-      sendJson(res, 200, [...state.preferences.values()]);
-    },
-  ],
-  [
-    'GET',
-    /^\/__fake\/payments$/,
-    (_req, res) => {
-      sendJson(res, 200, [...state.payments.values()]);
-    },
-  ],
-  [
-    'GET',
-    /^\/__fake\/refunds$/,
-    (_req, res) => {
-      sendJson(res, 200, state.refunds.map(refundView));
-    },
-  ],
-  [
-    'GET',
-    /^\/__fake\/webhooks$/,
-    (_req, res) => {
-      sendJson(res, 200, state.webhooks);
-    },
-  ],
-  [
-    'POST',
-    /^\/__fake\/reset$/,
-    (_req, res) => {
-      resetState();
-      sendJson(res, 200, { ok: true });
-    },
-  ],
-  ['POST', /^\/__fake\/payments\/(\d+)\/status$/, (req, res, id) => setPaymentStatus(req, res, Number(id))],
+  ...CONTROL_ROUTES,
 ];
+
+/** The Mercado Pago API surface the backend calls, as opposed to the checkout page and the control API. */
+const API_PATH = /^\/(checkout\/preferences|v1\/payments|oauth\/token)(\/|$)/;
 
 async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const method = req.method ?? 'GET';
@@ -320,6 +331,12 @@ async function route(req: IncomingMessage, res: ServerResponse): Promise<void> {
   for (const [routeMethod, pattern, handler] of ROUTES) {
     const match = routeMethod === method ? pattern.exec(path) : null;
     if (match) {
+      if (API_PATH.test(path)) {
+        const bearer = describeBearer(req);
+        res.on('finish', () => {
+          state.requests.push({ method, path, status: res.statusCode, bearer, date_created: now() });
+        });
+      }
       await handler(req, res, decodeURIComponent(match[1] ?? ''));
       return;
     }

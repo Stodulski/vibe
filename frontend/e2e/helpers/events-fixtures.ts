@@ -3,6 +3,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import { expect, request as apiRequest, type Browser, type BrowserContext, type Page } from '@playwright/test';
 import { createApiHelper, type ApiCourt, type ApiHelper } from './api.helper';
 import { TURNSTILE_TEST_TOKEN } from './test-data';
+import { mpFake } from '../mp-fake/client';
 
 /**
  * Fixtures shared by the turnos fijos, canchas libres and torneos specs.
@@ -147,11 +148,12 @@ export function pesos(amount: number): string {
 // Paid participants and pairs as setup: written straight into the E2E
 // database in the exact shape the webhook leaves behind (a `confirmed`
 // registration plus its approved `mercadopago` payment), for specs that need
-// many of them and are not about paying. Their `mp_payment_id` is not a
-// payment the fake Mercado Pago knows, so it cannot refund them; a payment a
-// spec asserts on goes through the fake checkout instead (`open-play-payments`,
-// `tournament-payments`). The `vibe` role bypasses row level security, so no
-// tenant setting is needed.
+// many of them and are not about paying. Each payment is also seeded at the
+// fake Mercado Pago (`mpFake.seedPayment`, credited to the seeded seller the
+// complex is connected with), so the refund a cancellation sends for it
+// succeeds like a real one; the checkout itself is covered by
+// `open-play-payments` and `tournament-payments`. The `vibe` role bypasses row
+// level security, so no tenant setting is needed.
 
 const DB = {
   host: process.env.E2E_DB_HOST ?? 'localhost',
@@ -188,27 +190,36 @@ export interface SeedPerson {
 /**
  * A confirmed, paid registration of `eventId` (a canchas libres event, or a
  * tournament category's container event): the registration plus its approved
- * Mercado Pago payment. Amounts are centavos. Returns the registration id.
+ * Mercado Pago payment, which the fake Mercado Pago knows too. Amounts are
+ * centavos. Returns the registration id.
  */
-export function seedPaidRegistration(
+export async function seedPaidRegistration(
   complexId: string,
   eventId: string,
   person: SeedPerson,
   price: number,
   serviceFee = 0,
-): string {
+): Promise<string> {
   const tokenHash = randomBytes(32).toString('hex');
+  const registrationId = randomUUID();
+  // The shape the backend's checkout gives a sign-up's payment (internal/mp checkoutIdentity).
+  const payment = await mpFake.seedPayment({
+    transaction_amount: (price + serviceFee) / 100,
+    external_reference: registrationId,
+    metadata: { registration_id: registrationId },
+    notification_url: `${API}/webhooks/mercadopago?source_news=webhooks`,
+  });
   const rows = queryE2e(`
     WITH r AS (
       INSERT INTO open_play_registrations
-        (event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, confirmed_at)
-      VALUES ('${eventId}', '${complexId}', '${esc(person.firstName)}', '${esc(person.lastName)}', '${person.phone}',
+        (id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, confirmed_at)
+      VALUES ('${registrationId}', '${eventId}', '${complexId}', '${esc(person.firstName)}', '${esc(person.lastName)}', '${person.phone}',
               ${person.email ? `'${esc(person.email)}'` : 'NULL'}, 'confirmed', ${String(price)}, ${String(serviceFee)},
               now() + interval '15 minutes', decode('${tokenHash}', 'hex'), now())
       RETURNING id
     ), p AS (
       INSERT INTO payments (complex_id, amount, service_fee, method, status, registration_id, mp_payment_id)
-      SELECT '${complexId}', ${String(price)}, ${String(serviceFee)}, 'mercadopago', 'fully_paid', r.id, 'e2e-' || r.id
+      SELECT '${complexId}', ${String(price)}, ${String(serviceFee)}, 'mercadopago', 'fully_paid', r.id, '${String(payment.id)}'
       FROM r RETURNING 1
     )
     SELECT id FROM r;
@@ -219,16 +230,16 @@ export function seedPaidRegistration(
 }
 
 /** A paid pair of a tournament category: its payer registration plus the partner row. Returns the pair id. */
-export function seedPaidPair(
+export async function seedPaidPair(
   complexId: string,
   categoryId: string,
   payer: SeedPerson,
   partner: SeedPerson,
   price: number,
-): string {
+): Promise<string> {
   const [eventId] = queryE2e(`SELECT event_id FROM tournament_categories WHERE id = '${categoryId}';`);
   if (!eventId) throw new Error(`seedPaidPair: category ${categoryId} not found`);
-  const registrationId = seedPaidRegistration(complexId, eventId, payer, price);
+  const registrationId = await seedPaidRegistration(complexId, eventId, payer, price);
   const rows = queryE2e(`
     INSERT INTO tournament_pairs (category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email)
     VALUES ('${categoryId}', '${complexId}', '${registrationId}', '${esc(partner.firstName)}', '${esc(partner.lastName)}', '${partner.phone}',
@@ -261,7 +272,7 @@ export function seedHeldRegistration(complexId: string, eventId: string, person:
 export async function pickCalendarDate(page: Page, isoDate: string): Promise<void> {
   const day = page.locator(`[data-day="${isoDate}"] button`).first();
   for (let i = 0; i < 24 && !(await day.isVisible()); i++) {
-    await page.getByRole('button', { name: /next month|mes siguiente|siguiente/i }).click();
+    await page.getByRole('button', { name: /next month|mes siguiente/i }).click();
   }
   await day.click();
 }

@@ -1,15 +1,19 @@
-import { test, expect, request as apiRequest, type Browser, type Page } from '@playwright/test';
+import { test, expect, request as apiRequest, type Browser } from '@playwright/test';
 import { ES_AR } from '../../src/shared/i18n/es_AR';
 import { BOOKING_MESSAGES } from '../../../packages/booking/src/messages';
 import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 import { openOwnerPage, provisionWorld, type EventsWorld } from '../helpers/events-fixtures';
 import { waitForOnlineBooking } from '../helpers/public-booking-fixtures';
 import {
+  bookAndPay,
   bookStorefrontUpToCheckout,
+  ownerBooking,
   payAtCheckout,
   paymentOfPreference,
   referenceOfPreference,
+  waitForBookingStatus,
   waitForRefundOf,
+  type OwnerBooking,
   type StorefrontClient,
 } from '../helpers/mp-checkout';
 import { mpFake } from '../mp-fake/client';
@@ -31,16 +35,6 @@ test.describe.configure({ mode: 'serial' });
 const t = ES_AR.bookings;
 const pb = BOOKING_MESSAGES.publicBooking;
 
-interface OwnerBooking {
-  id: string;
-  date: string;
-  status: string;
-  collection_status: string;
-  refund_status: string;
-  deposit_amount: number;
-  price: number;
-}
-
 let depositWorld: EventsWorld;
 let fullWorld: EventsWorld;
 
@@ -48,38 +42,6 @@ let fullWorld: EventsWorld;
 function newClient(firstName: string): StorefrontClient {
   const stamp = String(Date.now()).slice(-8);
   return { firstName, lastName: `Mp${stamp}`, phone: `11${stamp}`, email: `mp${stamp}@test.com` };
-}
-
-async function ownerBooking(world: EventsWorld, bookingId: string): Promise<OwnerBooking> {
-  const { booking } = await world.api.get<{ booking: OwnerBooking }>(
-    `/complexes/${world.complexId}/bookings/${bookingId}`,
-  );
-  return booking;
-}
-
-/** Waits until the webhook worked the booking into `status`, and returns it. */
-async function waitForBookingStatus(world: EventsWorld, bookingId: string, status: string): Promise<OwnerBooking> {
-  await expect
-    .poll(async () => (await ownerBooking(world, bookingId)).status, {
-      timeout: 30_000,
-      message: `booking ${bookingId} reaching ${status}`,
-    })
-    .toBe(status);
-  return ownerBooking(world, bookingId);
-}
-
-/** Books, pays "Aprobar pago" and waits for the confirmation. Returns the booking, its payment and the link token. */
-async function bookAndPay(page: Page, world: EventsWorld, client: StorefrontClient) {
-  const preferenceId = await bookStorefrontUpToCheckout(page, world.slug, client);
-  const bookingId = await referenceOfPreference(preferenceId);
-  await payAtCheckout(page, 'approve');
-  await expect(page).toHaveURL(new RegExp(`${world.slug}/book/success\\?token=`), { timeout: 15_000 });
-  const token = new URL(page.url()).searchParams.get('token') ?? '';
-  expect(token).not.toBe('');
-  const payment = await paymentOfPreference(preferenceId);
-  expect(payment.status).toBe('approved');
-  const booking = await waitForBookingStatus(world, bookingId, 'confirmed');
-  return { booking, payment, token };
 }
 
 /** Signs the owner in and opens the booking's detail from the day's grid. */
@@ -198,7 +160,12 @@ test('the owner cancels a paid booking: the refund reaches Mercado Pago and the 
   await expect(recent).toBeVisible({ timeout: 10_000 });
   await recent.getByRole('button').filter({ hasText: t.statuses.cancelled }).first().click();
   await expect(
-    p.getByRole('dialog').filter({ hasText: ES_AR.publicBooking.bookingRef }).getByText(t.paymentStatuses.refunded),
+    // The status reads in the payment summary and on the payment row alike.
+    p
+      .getByRole('dialog')
+      .filter({ hasText: ES_AR.publicBooking.bookingRef })
+      .getByText(t.paymentStatuses.refunded)
+      .first(),
   ).toBeVisible({ timeout: 10_000 });
   await owner.context.close();
 });
