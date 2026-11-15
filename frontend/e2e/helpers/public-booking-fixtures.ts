@@ -3,6 +3,7 @@ import type { APIRequestContext, Locator } from '@playwright/test';
 import { typedJson } from './api.helper';
 import type { ApiComplex, ApiCourt } from './api.helper';
 import { E2E_DB_DSN, runE2eSql } from './e2e-db';
+import { MP_FAKE_COLLECTOR_ID } from '../mp-fake/client';
 
 const API = `${process.env.E2E_BASE_URL ?? 'http://localhost:5173'}/api/v1`;
 
@@ -166,13 +167,17 @@ export async function findAndClickAvailableSlot(dateBtns: Locator): Promise<bool
  * value, then seal it into the v1 envelope with the same operator tool
  * (`cmd/mpcredkey seal`, backend) the app uses for real credential
  * rotation, under the same key `make e2e`'s isolated API is built with.
+ *
+ * `mp_user_id` is the fake Mercado Pago's numeric collector id
+ * (`e2e/mp-fake`): the webhook drops any payment whose `collector_id` does not
+ * match it.
  */
 export async function fakeMercadoPagoConnection(complexId: string): Promise<void> {
   const { execFileSync } = await import('child_process');
   const path = await import('path');
 
   runE2eSql(
-    `UPDATE complexes SET mp_user_id = 'fake-e2e-mp-user', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complexId}';`,
+    `UPDATE complexes SET mp_user_id = '${MP_FAKE_COLLECTOR_ID}', mp_access_token = 'fake-e2e-access-token', mp_refresh_token = 'fake-e2e-refresh-token' WHERE id = '${complexId}';`,
   );
 
   // Same key scripts/e2e-run.sh (backend) passes the isolated API via
@@ -190,6 +195,18 @@ export async function fakeMercadoPagoConnection(complexId: string): Promise<void
   } else {
     execFileSync('go', ['run', './cmd/mpcredkey', ...sealArgs], { cwd: serverDir, stdio: 'pipe' });
   }
+}
+
+/**
+ * Points an already connected complex at the fake Mercado Pago's collector.
+ *
+ * `ensureTestComplex` seeds only on first creation, so a complex left in a
+ * reused E2E database by an older run still carries the pre-fake, non-numeric
+ * `mp_user_id`, and every payment to it would fail the collector check.
+ * Idempotent; specs that pay call it in `beforeAll`.
+ */
+export function pointComplexAtFakeMercadoPago(slug: string): void {
+  runE2eSql(`UPDATE complexes SET mp_user_id = '${MP_FAKE_COLLECTOR_ID}' WHERE slug = '${slug}';`);
 }
 
 /**

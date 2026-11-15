@@ -100,7 +100,12 @@ export default defineConfig({
       name: 'storefront',
       use: { ...devices['Desktop Chrome'] },
       workers: 1,
-      testMatch: ['public-booking-form.spec.ts', 'public-booking.spec.ts', 'public-booking-keyboard.spec.ts'],
+      testMatch: [
+        'public-booking-form.spec.ts',
+        'public-booking.spec.ts',
+        'public-booking-keyboard.spec.ts',
+        'mp-fake-smoke.spec.ts',
+      ],
     },
     {
       name: 'public',

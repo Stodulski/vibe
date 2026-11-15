@@ -3,7 +3,8 @@
 # vibe-e2e db (:5433), vibe-e2e redis (:6380), a
 # purpose-built API instance (:8081) bound to both, the client's own
 # `--mode e2e` production build served by `vite preview` (:5174), and the
-# landing's dev server for the public pages (:4322). Playwright starts both
+# landing's dev server for the public pages (:4322), plus a fake MercadoPago
+# (:8090, frontend/e2e/mp-fake) the API pays through. Playwright starts both
 # web servers itself via its `webServer` config.
 #
 # Never touches the developer's running dev API (:8080), dev Vite (:5173),
@@ -35,6 +36,16 @@ E2E_REDIS_PORT="${E2E_REDIS_PORT:-6380}"
 # otherwise reach the Playwright process and seal a token this API cannot
 # read — payments_enabled false, every public booking spec failing.
 E2E_MP_CREDENTIAL_KEYS="e2e:MDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDA="
+# The fake MercadoPago (frontend/e2e/mp-fake/server.ts) stands in for the real
+# API: the backend reaches it through MP_API_BASE_URL, the browser pays on its
+# checkout page, and it signs its webhooks with this secret, which the backend
+# verifies. The collector id is the seller every fake payment is credited to;
+# the fixtures seed it as the complex's mp_user_id (the webhook drops a payment
+# whose collector does not match). E2E-only values, not real secrets.
+E2E_MP_WEBHOOK_SECRET="e2e-mp-webhook-secret"
+MP_FAKE_COLLECTOR_ID="${MP_FAKE_COLLECTOR_ID:-20260001}"
+MP_FAKE_PORT="${MP_FAKE_PORT:-8090}"
+NODE="${NODE:-node}"
 
 # The client and API ports must be free, and not merely "something answers
 # there". Playwright reuses whatever already listens on the client port, so a
@@ -58,11 +69,13 @@ pick_free_port() {
 E2E_API_PORT="$(pick_free_port "$E2E_API_PORT" API)"
 E2E_CLIENT_PORT="$(pick_free_port "$E2E_CLIENT_PORT" client)"
 E2E_LANDING_PORT="$(pick_free_port "$E2E_LANDING_PORT" landing)"
+MP_FAKE_PORT="$(pick_free_port "$MP_FAKE_PORT" "MercadoPago fake")"
 
 E2E_DSN="postgres://vibe:vibe_e2e@localhost:${E2E_DB_PORT}/vibe_e2e?sslmode=disable"
 API_BASE_URL="http://localhost:${E2E_API_PORT}"
 CLIENT_BASE_URL="http://localhost:${E2E_CLIENT_PORT}"
 LANDING_BASE_URL="http://localhost:${E2E_LANDING_PORT}"
+MP_FAKE_URL="http://localhost:${MP_FAKE_PORT}"
 
 # Optional spec filter, e.g. E2E_SPECS="e2e/specs/public-booking.spec.ts". Empty
 # runs the whole suite; the value is split on whitespace.
@@ -82,14 +95,45 @@ CGO_ENABLED=0 go build -o "$ROOT_DIR/bin/vibe-api-e2e" "$ROOT_DIR/cmd/api"
 CGO_ENABLED=0 go build -o "$ROOT_DIR/bin/vibe-mpcredkey-e2e" "$ROOT_DIR/cmd/mpcredkey"
 
 API_PID=""
+MP_FAKE_PID=""
 cleanup() {
   if [ -n "$API_PID" ] && kill -0 "$API_PID" 2>/dev/null; then
     echo "[e2e] stopping API (pid $API_PID)..."
     kill "$API_PID" 2>/dev/null || true
     wait "$API_PID" 2>/dev/null || true
   fi
+  if [ -n "$MP_FAKE_PID" ] && kill -0 "$MP_FAKE_PID" 2>/dev/null; then
+    echo "[e2e] stopping MercadoPago fake (pid $MP_FAKE_PID)..."
+    kill "$MP_FAKE_PID" 2>/dev/null || true
+    wait "$MP_FAKE_PID" 2>/dev/null || true
+  fi
 }
 trap cleanup EXIT INT TERM
+
+# Node 24+ runs the fake's TypeScript directly (type stripping), so it needs
+# no build step and no dependencies.
+echo "[e2e] starting MercadoPago fake on :${MP_FAKE_PORT}..."
+MP_FAKE_PORT="$MP_FAKE_PORT" \
+MP_FAKE_PUBLIC_URL="$MP_FAKE_URL" \
+MP_FAKE_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECRET" \
+MP_FAKE_COLLECTOR_ID="$MP_FAKE_COLLECTOR_ID" \
+"$NODE" "$CLIENT_DIR/e2e/mp-fake/server.ts" &
+MP_FAKE_PID=$!
+
+for _ in $(seq 1 20); do
+  if curl -sf "${MP_FAKE_URL}/__fake/payments" >/dev/null 2>&1; then
+    break
+  fi
+  if ! kill -0 "$MP_FAKE_PID" 2>/dev/null; then
+    echo "[e2e] MercadoPago fake exited before answering (Node 24+ is required)." >&2
+    exit 1
+  fi
+  sleep 0.5
+done
+if ! curl -sf "${MP_FAKE_URL}/__fake/payments" >/dev/null 2>&1; then
+  echo "[e2e] MercadoPago fake never answered at ${MP_FAKE_URL}." >&2
+  exit 1
+fi
 
 echo "[e2e] starting API on :${E2E_API_PORT} against E2E db (:${E2E_DB_PORT}) and E2E redis (:${E2E_REDIS_PORT})..."
 # The Makefile does `-include .env; export`, so if the developer has a real
@@ -98,6 +142,9 @@ echo "[e2e] starting API on :${E2E_API_PORT} against E2E db (:${E2E_DB_PORT}) an
 # external service is set here explicitly (overriding anything inherited),
 # so this instance never touches the dev DB/Redis and never emails, WhatsApps
 # or charges anyone for real — construct-a-minimal-env, not copy-the-real-one.
+# MercadoPago is configured end to end, but every call goes to the fake
+# (MP_API_BASE_URL); the platform token, app id and client secret are
+# placeholders the fake accepts. BACKEND_URL is where the fake posts webhooks.
 DATABASE_URL="$E2E_DSN" \
 JWT_SECRET="e2e-test-secret-key-32-bytes-long!" \
 ENV=development \
@@ -106,7 +153,9 @@ PUBLIC_URL="$LANDING_BASE_URL" \
 BACKEND_URL="$API_BASE_URL" \
 REDIS_URL="redis://localhost:${E2E_REDIS_PORT}" \
 COOKIE_DOMAIN="" \
-MP_ACCESS_TOKEN="" MP_WEBHOOK_SECRET="" MP_APP_ID="" MP_CLIENT_SECRET="" \
+MP_ACCESS_TOKEN="e2e-fake-platform-token" MP_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECRET" \
+MP_APP_ID="e2e-fake-app" MP_CLIENT_SECRET="e2e-fake-client-secret" \
+MP_API_BASE_URL="$MP_FAKE_URL" \
 MP_CREDENTIAL_KEYS="$E2E_MP_CREDENTIAL_KEYS" \
 WHATSAPP_TOKEN="" WHATSAPP_PHONE_NUMBER_ID="" WHATSAPP_VERIFY_TOKEN="" WHATSAPP_APP_SECRET="" \
 BREVO_API_KEY="" SMTP_HOST="" SMTP_USERNAME="" SMTP_PASSWORD="" \
@@ -163,6 +212,8 @@ set +e
   VITE_TURNSTILE_SITE_KEY="1x00000000000000000000AA" \
   SERVER_DIR="$ROOT_DIR" \
   E2E_MPCREDKEY_BIN="$ROOT_DIR/bin/vibe-mpcredkey-e2e" \
+  MP_FAKE_URL="$MP_FAKE_URL" \
+  MP_FAKE_COLLECTOR_ID="$MP_FAKE_COLLECTOR_ID" \
   "$PNPM" test:e2e --workers="${PLAYWRIGHT_WORKERS:-2}" ${E2E_SPEC_ARGS[@]+"${E2E_SPEC_ARGS[@]}"}
 )
 STATUS=$?
