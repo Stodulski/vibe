@@ -120,6 +120,15 @@ func TestVerifyWebhookSignature(t *testing.T) {
 		}
 	})
 
+	t.Run("timestamps that are neither now in seconds nor now in milliseconds", func(t *testing.T) {
+		for _, ts := range []string{"999999999999", "1000000000000", "-1", "0", "9223372036854775807",
+			fmt.Sprintf("%d", time.Now().Add(10*time.Minute).UnixMilli())} {
+			if err := client.VerifyWebhookSignature(signed("12345", "req-edge", ts), "12345"); err == nil {
+				t.Errorf("ts=%s: expected a refusal", ts)
+			}
+		}
+	})
+
 	t.Run("missing X-Signature header", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhook", nil)
 		err := client.VerifyWebhookSignature(req, "12345")

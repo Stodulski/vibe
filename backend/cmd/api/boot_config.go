@@ -193,8 +193,9 @@ func dsnHost(dsn string) (string, bool) {
 // checkMPAPIBaseURL guards the switch that sends every payment, refund and
 // OAuth call somewhere other than MercadoPago. Whatever answers there receives
 // the platform token and sellers' access and refresh tokens, so it is honoured
-// only in development (not merely "not production": an unset, misspelled or
-// staging ENV must not qualify) and only for a fake on this machine.
+// only in development (not merely "not production": a misspelled or staging
+// ENV does not qualify; an unset ENV defaults to development, so the loopback
+// rule is what still holds there) and only for a fake on this machine.
 func checkMPAPIBaseURL(cfg config.Config) error {
 	const refusal = "invalid boot configuration: mp-api-base-url/MP_API_BASE_URL"
 	if cfg.Env != "development" {

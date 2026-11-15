@@ -317,6 +317,8 @@ func TestMPAPIBaseURLIsRefusedInProduction(t *testing.T) {
 		"remote host":            {"development", "https://mp.example.com"},
 		"credentials in the URL": {"development", "http://user:pass@localhost:8090"},
 		"not a URL":              {"development", "localhost:8090"},
+		"lookalike host":         {"development", "http://localhost.evil.com"},
+		"userinfo trick":         {"development", "http://127.0.0.1@evil.com"},
 	}
 	for name, c := range refused {
 		t.Run(name+": fatal", func(t *testing.T) {
