@@ -164,7 +164,7 @@ test('"Dejar pendiente" shows the payment under review, and its later approval c
   expect(booking.collection_status).toBe('deposit_paid');
 });
 
-test('the owner cancels a paid booking: the refund reaches Mercado Pago and the detail reads "Reembolso total"', async ({
+test('the owner cancels a paid booking: the refund reaches Mercado Pago and the detail reads "Reembolsado"', async ({
   page,
   browser,
 }) => {

@@ -175,7 +175,7 @@ export const BOOKING_MESSAGES = {
     confirmCancelNoRefund: 'Cancelar sin devolución',
     confirmCancelTitle: '¿Cancelar la reserva?',
     confirmCancelRefundDetail: 'Lo que pagaste se devuelve automáticamente.',
-    confirmCancelRefundManualDetail: 'El complejo te devuelve en mano lo que pagaste.',
+    confirmCancelRefundManualDetail: 'El complejo te devuelve lo que pagaste.',
     confirmCancelYes: 'Sí, cancelar',
     allSports: 'Todos',
     morning: 'Mañana',

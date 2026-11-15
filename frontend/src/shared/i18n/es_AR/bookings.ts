@@ -55,11 +55,11 @@ export const bookings = {
   refundOwnerManualPart: 'La parte en efectivo se la tenés que devolver a mano.',
   // The detail sheet's refund summary: what a cancelled booking still owes
   // the client by hand, and how it gets there.
-  refundOwedLabel: 'Falta devolver',
-  refundOwedHint: 'Se lo devolvés al cliente en mano. Cuando lo hagas, marcá la devolución como realizada.',
+  refundOwedLabel: 'Monto a devolver',
+  refundOwedHint: 'Devolvéselo al cliente. Cuando lo hagas, marcá la devolución como realizada.',
   refundInProgressLabel: 'Devolución',
   refundWaitsForMp:
-    'Primero tiene que terminar la devolución de Mercado Pago. Después marcás como realizada la parte que devolvés en mano.',
+    'Primero tiene que terminar la devolución de Mercado Pago. Después marcás como realizada la parte que devolvés vos.',
   cancelError: 'Error al cancelar la reserva',
   confirmPaymentError: 'Error al confirmar el pago',
   updateError: 'Error al actualizar la reserva',
@@ -97,9 +97,9 @@ export const bookings = {
     deposit_paid: 'Seña pagada',
     outstanding: 'Pago incompleto',
     fully_paid: 'Pago completo',
-    refunded: 'Reembolso total',
+    refunded: 'Reembolsado',
     refund_pending: 'Reembolso en curso',
-    partial_refund: 'Reembolso parcial',
+    partial_refund: 'Falta devolver',
   },
   paymentMethods: {
     cash: 'Efectivo',
@@ -131,7 +131,7 @@ export const bookings = {
   minutesShort: 'min',
   markManualRefund: 'Marcar devolución realizada',
   manualRefundConfirmBefore: 'Confirmás que le devolviste',
-  manualRefundConfirmAfter: 'al cliente en mano?',
+  manualRefundConfirmAfter: 'al cliente?',
   manualRefundSuccess: 'Devolución registrada',
   manualRefundError: 'Error al registrar la devolución',
   createBookingStepProgress: 'Progreso de la nueva reserva',

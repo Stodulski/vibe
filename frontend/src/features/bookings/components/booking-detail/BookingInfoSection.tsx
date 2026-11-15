@@ -147,7 +147,7 @@ function refundState(booking: Booking, payments: Payment[]): BookingRefundStatus
 }
 
 // One status, never two side by side: once a refund is open it is the state
-// that matters ("Reembolso parcial"), and what was collected is already on the
+// that matters ("Falta devolver"), and what was collected is already on the
 // price rows below. Until then, the collection status.
 function PaymentStatusRow({ booking, payments }: { booking: Booking; payments: Payment[] }) {
   const status = paymentDisplayStatus({ ...booking, refund_status: refundState(booking, payments) });

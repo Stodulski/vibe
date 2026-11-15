@@ -5,6 +5,7 @@ import { bookFirstFreeHour } from '../helpers/booking-fixtures';
 import { createApiHelper } from '../helpers/api.helper';
 import type { ApiBooking } from '../helpers/api.helper';
 import { getFutureDate } from '../helpers/test-data';
+import { ES_AR } from '../../src/shared/i18n/es_AR';
 
 /**
  * A booking paid at the counter in cash and then cancelled by staff owes that
@@ -63,7 +64,9 @@ test.describe('Manual refund', () => {
 
     await openCancelledBookingFromClient(page, lastName);
     await page.getByRole('button', { name: 'Marcar devolución realizada' }).click();
-    const confirm = page.getByRole('alertdialog').or(page.getByRole('dialog').filter({ hasText: 'en mano' }));
+    const confirm = page
+      .getByRole('alertdialog')
+      .or(page.getByRole('dialog').filter({ hasText: ES_AR.bookings.manualRefundConfirmBefore }));
     await expect(confirm).toBeVisible({ timeout: 5_000 });
 
     const response = page.waitForResponse(
