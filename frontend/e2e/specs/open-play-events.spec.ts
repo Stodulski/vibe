@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { ES_AR } from '../../src/shared/i18n/es_AR';
 import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 import {
   addDays,
@@ -135,8 +136,12 @@ test('the owner creates the event for all courts in the free window', async () =
 test('the grid shows "Canchas libres · {nombre}" on every court', async () => {
   await gotoGrid(DATE);
   await expect(eventBlocks(page)).toHaveCount(2, { timeout: 10_000 });
+  // "{cancha}, 20:00 a 22:00, Canchas libres · {nombre}" (EventBlockBar): the
+  // court first, the range spelled with "a" (formatEventTimeRange). The court
+  // name is kept on one line with no-break spaces, hence `\s`.
+  const courtName = (world.courts[0]?.name ?? '').replace(/ /g, '\\s');
   await expect(eventBlocks(page).first()).toHaveAccessibleName(
-    new RegExp(`20:00–22:00, Canchas libres · ${EVENT_NAME}`),
+    new RegExp(`^${courtName}, 20:00 a 22:00, Canchas libres · ${EVENT_NAME}$`),
   );
 });
 
@@ -212,8 +217,9 @@ test('public: the complex page lists the event and the event page shows the sign
   await waitForStorefrontHydration(visitor);
   await expect(visitor).toHaveURL(new RegExp(`/c/${world.slug}/events/${eventId}`));
   await expect(visitor.getByRole('heading', { level: 1, name: EVENT_NAME })).toBeVisible({ timeout: 15_000 });
-  await expect(visitor.getByText('20:00 a 22:00 hs')).toBeVisible();
-  await expect(visitor.getByText('Tus datos', { exact: true })).toBeVisible();
+  await expect(visitor.getByText('20:00 a 22:00', { exact: true })).toBeVisible();
+  // The sign-up has no "Tus datos" title any more, the way the booking form has none.
+  await expect(visitor.getByRole('textbox', { name: 'Nombre (requerido)' })).toBeVisible();
   await expect(visitor.getByRole('button', { name: /Pagar de manera segura/ })).toBeVisible();
   // Nobody else's data is on a public page.
   await expect(visitor.getByText('Jugador1')).toHaveCount(0);
@@ -269,13 +275,8 @@ test('cancelling shows the paid count and frees the grid', async ({ page: visito
 
   const confirm = page.getByRole('alertdialog');
   await expect(confirm.getByText('Cancelar el evento')).toBeVisible();
-  await expect(
-    confirm.getByText(
-      'A las 3 personas que ya pagaron les devolvemos el pago completo por Mercado Pago, servicio incluido, y les avisamos por email si dejaron uno.',
-      { exact: false },
-    ),
-  ).toBeVisible();
-  await confirm.getByRole('button', { name: 'Cancelar evento' }).click();
+  await expect(confirm.getByText(ES_AR.events.cancel.confirmDescriptionPaid(3))).toBeVisible();
+  await confirm.getByRole('button', { name: ES_AR.events.cancel.confirmLabel }).click();
   await expect(page.getByText(/^Evento cancelado/)).toBeVisible({ timeout: 10_000 });
 
   await gotoGrid(DATE);

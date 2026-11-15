@@ -1,4 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
+import { ES_AR } from '../../src/shared/i18n/es_AR';
 import { addDays, futureWeekday, openOwnerPage, provisionWorld, type EventsWorld } from '../helpers/events-fixtures';
 
 /**
@@ -79,7 +80,8 @@ test('the owner creates a weekly fixed booking from the new booking dialog', asy
 
   // Step 3: nothing to pay up front ("Cada turno se cobra como una reserva normal").
   const created = page.waitForResponse((r) => r.url().endsWith('/booking-series') && r.request().method() === 'POST');
-  await dialog.getByRole('button', { name: 'Nueva reserva' }).click();
+  // A repeating booking's submit names what it creates ("Crear turno fijo").
+  await dialog.getByRole('button', { name: ES_AR.bookings.series.createLabel }).click();
   expect((await created).status()).toBe(201);
 
   await expect(page.getByText('Turno fijo creado: todos los lunes a las 19:00')).toBeVisible({ timeout: 10_000 });
@@ -104,6 +106,8 @@ test('"Cancelar solo esta fecha" frees that date and leaves the others blocked',
   await gotoDay(THIRD);
   await fixedBlock().click();
   await page.getByRole('dialog').getByRole('button', { name: 'Cancelar solo esta fecha' }).click();
+  // Freeing a date asks first ("Liberar esta fecha").
+  await page.getByRole('alertdialog').getByRole('button', { name: ES_AR.bookings.series.skipConfirmLabel }).click();
   await expect(page.getByText(/^Fecha liberada: /)).toBeVisible({ timeout: 10_000 });
   await expect(fixedBlock()).toHaveCount(0);
 

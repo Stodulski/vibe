@@ -8,6 +8,7 @@ import {
   waitForOnlineBooking,
 } from '../helpers/public-booking-fixtures';
 import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
+import { PublicBookingPage } from '../pages/public-booking.page';
 
 const SLUG = 'complejo-publico-e2e';
 
@@ -129,5 +130,6 @@ test.describe('Public booking flow, keyboard only', () => {
     await tabTo(page, court);
     await page.keyboard.press('Enter');
     await expect(page).toHaveURL(/\/book\/confirm/, { timeout: 15_000 });
+    await new PublicBookingPage(page).releaseHold();
   });
 });

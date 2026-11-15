@@ -124,6 +124,7 @@ test.describe('Public Booking Flow', () => {
     expect(hold.status()).toBe(201);
     await expect(page).toHaveURL(new RegExp(`${SLUG}/book/confirm`));
     await expect(publicPage.holdCountdown).toHaveText(/^\d{2}:\d{2}$/);
+    await publicPage.releaseHold();
   });
 });
 

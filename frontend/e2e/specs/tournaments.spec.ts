@@ -1,5 +1,6 @@
 /* eslint-disable max-lines -- one serial story (create, draw, schedule, results, fee, cancel) that shares its tournament */
 import { test, expect, type Locator, type Page } from '@playwright/test';
+import { ES_AR } from '../../src/shared/i18n/es_AR';
 import { landingComplexUrl, waitForStorefrontHydration } from '../helpers/landing';
 import {
   addDays,
@@ -281,7 +282,8 @@ test('scheduling a match puts it on the grid; a booking, or another match, in th
   await page.getByRole('option', { name: '10:00', exact: true }).click();
   await dialog.getByRole('button', { name: 'Guardar horario' }).click();
   await expect(page.getByText('Partido programado')).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByText(/Cancha 1 · .* · 10:00/).first()).toBeVisible();
+  // The court name is kept on one line with no-break spaces (keepTogether), hence `\s`.
+  await expect(page.getByText(/Cancha\s1 · .* · 10:00/).first()).toBeVisible();
 
   // A second match overlapping 10:00-11:00 on the same court.
   await page
@@ -298,7 +300,10 @@ test('scheduling a match puts it on the grid; a booking, or another match, in th
 
   await page.goto(`/bookings?date=${DAY1}`);
   await expect(page.getByRole('heading', { name: 'Reservas', exact: true })).toBeVisible({ timeout: 10_000 });
-  await expect(page.getByRole('button', { name: /Cancha 1, 10:00–11:00, Torneo · / })).toBeVisible({ timeout: 10_000 });
+  // EventBlockBar: "{cancha}, 10:00 a 11:00, Torneo · {nombre}" (ranges are spelled with "a").
+  await expect(page.getByRole('button', { name: /Cancha\s1, 10:00 a 11:00, Torneo · / })).toBeVisible({
+    timeout: 10_000,
+  });
 });
 
 let winnerOnly = '';
@@ -404,8 +409,9 @@ test('public: after the draw the page shows zones, bracket, schedule and results
   await expect(category.getByRole('table', { name: 'Posiciones de la zona A' })).toBeVisible();
   await expect(category.getByRole('table', { name: 'Posiciones de la zona B' })).toBeVisible();
   await expect(category.getByText('Cuadro', { exact: true })).toBeVisible();
-  await expect(category.getByText('Partidos y resultados')).toBeVisible();
-  await expect(category.getByText(/Cancha 1/).first()).toBeVisible();
+  // A zone's matches are listed inside the zone, one heading per round ("Fecha 1").
+  await expect(category.getByRole('heading', { name: 'Fecha 1' }).first()).toBeVisible();
+  await expect(category.getByText(/Cancha\s1/).first()).toBeVisible();
   await expect(category.getByText('Ganó').first()).toBeVisible();
   await expect(category.getByText('6-4 6-3')).toBeVisible();
 
@@ -422,10 +428,8 @@ test('cancelling a category shows the paid pairs it refunds', async () => {
   await page.getByRole('button', { name: 'Cancelar categoría' }).click();
   const confirm = page.getByRole('alertdialog');
   await expect(confirm.getByText('Cancelar la categoría Mixto')).toBeVisible();
-  await expect(confirm).toContainText(
-    'A las 5 parejas que ya pagaron les devolvemos el pago completo por Mercado Pago',
-  );
-  await confirm.getByRole('button', { name: 'Cancelar categoría' }).click();
+  await expect(confirm).toContainText(ES_AR.tournaments.cancel.categoryDescriptionPaid(5));
+  await confirm.getByRole('button', { name: ES_AR.tournaments.cancel.categoryConfirmLabel }).click();
   await expect(page.getByText(/^Categoría cancelada/)).toBeVisible({ timeout: 10_000 });
   await expect(
     page.getByRole('group', { name: 'Categorías' }).getByRole('button', { name: /Mixto · Cancelada/ }),
