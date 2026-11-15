@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -437,7 +438,8 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		if existingPayment.RegistrationID != nil {
 			return s.processRecordedRegistrationPayment(existingPayment, mpPayment, mpPaymentID)
 		}
-		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" {
+		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
+			refundedBeyondRecorded(existingPayment, mpPayment) {
 			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
 		s.logger.Info("mp webhook: payment already processed, skipping",
@@ -521,4 +523,15 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		)
 	}
 	return nil
+}
+
+// refundedBeyondRecorded reports a refund the payment row does not hold yet on a
+// payment MercadoPago still calls 'approved': a partial refund, which keeps that
+// status (status_detail partially_refunded) and only moves
+// transaction_amount_refunded. Made from MercadoPago's own panel it reaches Vibe
+// through this webhook alone. A refund Vibe issued itself is already on the row by
+// the time its echo arrives, so the echo moves nothing and is not routed again.
+func refundedBeyondRecorded(payment *paymentstore.Payment, mpPayment *mp.Payment) bool {
+	refunded := int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+	return refunded > payment.RefundAmount
 }
