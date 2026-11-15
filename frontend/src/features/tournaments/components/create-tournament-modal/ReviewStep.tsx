@@ -51,7 +51,9 @@ export function ReviewStep({ values, error, pending, onBack }: Props) {
               {ES_AR.courts.sportTypes[values.sport as keyof typeof ES_AR.courts.sportTypes]}
             </InfoRow>
             <InfoRow label={c.daysLabel}>
-              <span className="first-letter:uppercase">{tournamentDays(values.start_date, values.end_date)}</span>
+              <span className="inline-block first-letter:uppercase">
+                {tournamentDays(values.start_date, values.end_date)}
+              </span>
             </InfoRow>
           </div>
         </section>

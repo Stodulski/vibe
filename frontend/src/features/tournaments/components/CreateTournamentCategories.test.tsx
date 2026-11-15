@@ -115,6 +115,9 @@ describe('CreateTournamentModal: category rows', () => {
     expect(row).toHaveTextContent(c.capacityShort(16));
     expect(row).toHaveTextContent(formatPrice(2000000));
     expect(button(c.editCategoryLabel('6ta'))).toBeInTheDocument();
+    // Touch targets: the standard 40 px button, not the 32 px small one.
+    expect(button(c.editCategoryLabel('6ta'))).toHaveAttribute('data-size', 'lg');
+    expect(button(c.removeCategoryLabel('6ta'))).toHaveAttribute('data-size', 'lg');
   });
 
   it('edits a saved category in the same step and keeps the change', async () => {

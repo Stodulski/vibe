@@ -33,7 +33,8 @@ export function CategorySummaryList({ categories, onEdit, onRemove, onAdd, error
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="lg"
+                  className="px-3"
                   aria-label={t.createSteps.editCategoryLabel(category.name)}
                   onClick={() => {
                     onEdit(index);
@@ -44,7 +45,8 @@ export function CategorySummaryList({ categories, onEdit, onRemove, onAdd, error
                 <Button
                   type="button"
                   variant="ghost"
-                  size="sm"
+                  size="lg"
+                  className="px-3"
                   aria-label={t.createSteps.removeCategoryLabel(category.name)}
                   onClick={() => {
                     onRemove(index);

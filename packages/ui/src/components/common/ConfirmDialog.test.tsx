@@ -72,4 +72,10 @@ describe('ConfirmDialog', () => {
     render(<ConfirmDialog {...defaultProps} variant="destructive" confirmLabel="Eliminar" />);
     expect(screen.getByRole('button', { name: 'Eliminar' })).toHaveAttribute('data-variant', 'destructive');
   });
+
+  it('gives the title a readable line height so a wrapped title does not collapse', () => {
+    render(<ConfirmDialog {...defaultProps} />);
+    expect(screen.getByText('Delete Item')).toHaveClass('leading-snug');
+    expect(screen.getByText('Delete Item')).not.toHaveClass('leading-none');
+  });
 });

@@ -38,4 +38,15 @@ describe('BlockedSlotDetail', () => {
 
     expect(screen.getByRole('button', { name: ES_AR.courts.unblockSlot })).toBeDisabled();
   });
+
+  it('capitalizes the date and does not call the read-only reason "opcional"', () => {
+    renderDetail();
+
+    expect(screen.getByText('martes 6 de enero', { selector: 'p span' })).toHaveClass(
+      'inline-block',
+      'first-letter:uppercase',
+    );
+    expect(screen.getByText('Motivo')).toBeInTheDocument();
+    expect(screen.queryByText(/opcional/)).not.toBeInTheDocument();
+  });
 });

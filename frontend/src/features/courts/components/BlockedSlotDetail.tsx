@@ -51,7 +51,7 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
       <SheetContent side="right" className="sm:max-w-lg" showCloseButton={false}>
         <DetailSheetHeader
           title={t.bookings.blockedSlot}
-          subtitle={<span className="first-letter:uppercase">{dateFormatted}</span>}
+          subtitle={<span className="inline-block first-letter:uppercase">{dateFormatted}</span>}
         />
 
         {/* Only the body scrolls; the header stays put. */}
@@ -61,7 +61,7 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
           </InfoRow>
           <InfoRow label={t.bookings.court}>{keepTogether(shown.court_name ?? '')}</InfoRow>
           {shown.reason && (
-            <InfoRow label={t.courts.blockReason}>
+            <InfoRow label={t.courts.blockReasonRead}>
               <p className="break-words">{shown.reason}</p>
             </InfoRow>
           )}

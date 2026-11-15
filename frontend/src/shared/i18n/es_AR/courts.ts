@@ -29,6 +29,8 @@ export const courts = {
   block: 'Bloquear horario',
   blockDescription: 'Bloquea un horario para que no se pueda reservar',
   blockReason: 'Motivo (opcional)',
+  /** The same field read-only, where "opcional" has no meaning. */
+  blockReasonRead: 'Motivo',
   blockSuccess: 'Horario bloqueado',
   blockDate: 'Fecha',
   blockStartTime: 'Hora inicio',
