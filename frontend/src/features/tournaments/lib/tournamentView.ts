@@ -42,6 +42,26 @@ export function bracketRounds<M extends TournamentMatch>(matches: M[]): M[][] {
     .map(([, list]) => list.sort((a, b) => a.position - b.position));
 }
 
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+/**
+ * The shared row grid of a bracket: every round column spans the same `rows`,
+ * and each match of a round takes `spans[round]` of them. A match then sits on
+ * the midpoint of the two matches that feed it, because their rows are exactly
+ * its rows split in half.
+ */
+export interface BracketGrid {
+  rows: number;
+  spans: number[];
+}
+
+export function bracketGrid(counts: readonly number[]): BracketGrid {
+  const rows = counts.reduce((acc, count) => (count > 0 ? (acc * count) / gcd(acc, count) : acc), 1);
+  return { rows, spans: counts.map((count) => (count > 0 ? rows / count : rows)) };
+}
+
 /** Whether a played match exists: the draw can be repeated and pairs moved only while it does not. A bye is "completed" from the start. */
 export function hasResults(matches: TournamentMatch[]): boolean {
   return matches.some((match) => match.status === 'completed' && !match.bye);
