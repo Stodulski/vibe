@@ -154,16 +154,11 @@ function PaymentLedgerError({ onRetry }: { onRetry: () => void }) {
 function PaymentStatusRow({ booking }: { booking: Booking }) {
   return (
     <InfoRow label={t.bookings.paymentStatus}>
-      <span className="flex flex-wrap items-center gap-x-1.5">
+      {/* One status per line: side by side, "Pago completo · Reembolso
+          parcial" read as two verdicts fighting over the same money. */}
+      <span className="flex flex-col items-start gap-0.5">
         <PaymentStatusText status={booking.collection_status} />
-        {booking.refund_status !== 'none' && (
-          <>
-            <span aria-hidden="true" className="text-text-disabled">
-              ·
-            </span>
-            <PaymentStatusText status={REFUND_DISPLAY[booking.refund_status]} />
-          </>
-        )}
+        {booking.refund_status !== 'none' && <PaymentStatusText status={REFUND_DISPLAY[booking.refund_status]} />}
       </span>
     </InfoRow>
   );
