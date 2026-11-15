@@ -532,6 +532,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 // through this webhook alone. A refund Vibe issued itself is already on the row by
 // the time its echo arrives, so the echo moves nothing and is not routed again.
 func refundedBeyondRecorded(payment *paymentstore.Payment, mpPayment *mp.Payment) bool {
-	refunded := int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+	// refund_amount can never exceed the row's own total (a CHECK caps it), so
+	// MercadoPago's figure is compared at most up to that total; otherwise a row
+	// that understates the charge would be routed again on every webhook.
+	refunded := min(int(math.Round(mpPayment.TransactionAmountRefunded*100)), payment.Amount+payment.ServiceFee)
 	return refunded > payment.RefundAmount
 }

@@ -217,14 +217,19 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 
 	// A partial refund is money the client got back, and they were told nothing
 	// about it: the notification used to be gated on isFullRefund, so somebody
-	// refunded half their deposit and heard from nobody. The amount written to the
-	// row is what is announced, which for a partial refund is MercadoPago's own
-	// running total rather than this instalment.
+	// refunded half their deposit and heard from nobody. What is announced is what
+	// moved on this event: a second partial refund of 300 after one of 500 reads
+	// "$300", not the running total of 800. An event that moved nothing new (a
+	// chargeback with no figure) falls back to the amount the row now holds.
 	//
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	s.sendRefundNotification(ctx, booking, payment.RefundAmount, refundKey(mpPaymentID, payment.RefundAmount))
+	announced := movedNow
+	if announced <= 0 {
+		announced = payment.RefundAmount
+	}
+	s.sendRefundNotification(ctx, booking, announced, refundKey(mpPaymentID, payment.RefundAmount))
 	if cancelledByRefund {
 		s.announceRefundedCancellation(ctx, booking)
 	}

@@ -71,3 +71,37 @@ func TestTheEchoOfARecordedPartialRefundWritesNothing(t *testing.T) {
 		t.Errorf("an already recorded refund must not be written again; got %+v", f.payments.updated)
 	}
 }
+
+// A second partial refund tells the client what came back this time, not the
+// running total: 500 then 300 must not read as 500 then 800.
+func TestASecondPanelRefundAnnouncesOnlyWhatMovedThisTime(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, payment := paidBooking(complexID)
+	payment.RefundAmount = 50_000
+	f.bookings.booking = booking
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
+
+	err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
+		ID: 123, Status: "approved", StatusDetail: "partially_refunded",
+		TransactionAmount: 1500, TransactionAmountRefunded: 800,
+	}, "mp-123")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(f.notify.refunds) != 1 || f.notify.refunds[0].Amount != "$300" {
+		t.Fatalf("want one notice of $300; got %+v", f.notify.refunds)
+	}
+}
+
+// A row that already holds everything it can hold (refund_amount is capped at
+// the row's own total) is not routed again on every later webhook just because
+// MercadoPago's figure is larger than the row could ever store.
+func TestARefundAboveWhatTheRowCanHoldIsNotRoutedAgain(t *testing.T) {
+	_, payment := paidBooking(uuid.New())
+	payment.RefundAmount = payment.Amount + payment.ServiceFee
+	if refundedBeyondRecorded(payment, &mp.Payment{TransactionAmountRefunded: 9_999}) {
+		t.Error("a row already holding its whole total must not be routed again")
+	}
+}
