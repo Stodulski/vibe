@@ -3,7 +3,6 @@ export const bookings = {
   create: 'Nueva reserva',
   edit: 'Editar reserva',
   cancel: 'Cancelar reserva',
-  confirm: 'Confirmar reserva',
   confirmPayment: 'Confirmar pago',
   confirmRemainingPayment: 'Confirmar pago restante',
   remainingBalance: 'Saldo restante',
@@ -59,6 +58,8 @@ export const bookings = {
   refundOwedLabel: 'Falta devolver',
   refundOwedHint: 'Se lo devolvés al cliente en mano. Cuando lo hagas, marcá la devolución como realizada.',
   refundInProgressLabel: 'Devolución',
+  refundWaitsForMercadoPago:
+    'Primero tiene que terminar la devolución de Mercado Pago. Después marcás como realizada la parte que devolvés en mano.',
   cancelError: 'Error al cancelar la reserva',
   confirmPaymentError: 'Error al confirmar el pago',
   updateError: 'Error al actualizar la reserva',

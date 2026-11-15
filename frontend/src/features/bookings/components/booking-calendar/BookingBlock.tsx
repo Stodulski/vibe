@@ -120,7 +120,6 @@ export function BookingBlock({ booking, courtName, date, onSelect }: BookingBloc
         beganBeforeToday && 'rounded-t-none border-t-0',
         styles.bg,
         styles.border,
-        booking.status === 'cancelled' && 'opacity-40',
       )}
       // Inset 1px per side on the time axis: two back-to-back bookings share
       // an edge, and two 1px borders meeting there read as a doubled line

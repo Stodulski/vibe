@@ -13,6 +13,7 @@ import { ClientInfoRow } from './booking-detail/ClientInfoRow';
 import { NotesSection } from './booking-detail/NotesSection';
 import { BookingDetailFooter } from './booking-detail/BookingDetailFooter';
 import { manualRefundOwed } from '../lib/manualRefundOwed';
+import { mercadoPagoRefundInFlight } from '../lib/mercadoPagoRefundInFlight';
 import type { Booking, BookingSeries, Client, Payment } from '@/shared/types/api.types';
 
 function getBookingDetailFlags(b: Booking, payments: Payment[]) {
@@ -21,8 +22,12 @@ function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   const isNoShow = b.status === 'no_show';
   const canCancel = !isCancelled && !isCompleted && !isNoShow;
   const canMarkNoShow = b.status === 'confirmed' || b.status === 'completed';
-  const canConfirmPayment = b.collection_status !== 'fully_paid' && b.refund_status === 'none' && !isCancelled;
-  const canMarkManualRefund = isCancelled && b.refund_status === 'partial';
+  // The server refuses a payment on a no-show (the deposit is kept) and a
+  // manual refund while Mercado Pago is still sending its part back, so
+  // neither button is offered then.
+  const canConfirmPayment =
+    b.collection_status !== 'fully_paid' && b.refund_status === 'none' && !isCancelled && !isNoShow;
+  const canMarkManualRefund = isCancelled && b.refund_status === 'partial' && !mercadoPagoRefundInFlight(payments);
   const manualRefundAmount = canMarkManualRefund ? manualRefundOwed(payments) : 0;
 
   return { canCancel, canMarkNoShow, canConfirmPayment, canMarkManualRefund, manualRefundAmount };

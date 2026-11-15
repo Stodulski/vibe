@@ -10,6 +10,7 @@ import { bookingDisplayStatus } from '@/shared/types/api.types';
 import type { Booking, BookingRefundStatus, PaymentDisplayStatus, Payment } from '@/shared/types/api.types';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { manualRefundOwed } from '../../lib/manualRefundOwed';
+import { mercadoPagoRefundInFlight } from '../../lib/mercadoPagoRefundInFlight';
 
 // The refund half of the pair, in the vocabulary the badge already has labels,
 // colours and icons for. 'none' is absent because that half is not rendered at
@@ -146,15 +147,22 @@ function PaymentLedgerError({ onRetry }: { onRetry: () => void }) {
   );
 }
 
+// The refund state as it really stands. The booking row keeps 'none' while a
+// Mercado Pago refund is in flight (only the payment row moves), which read
+// "Seña pagada" on a cancelled booking whose money was on its way back.
+function refundState(booking: Booking, payments: Payment[]): BookingRefundStatus {
+  if (booking.refund_status === 'none' && mercadoPagoRefundInFlight(payments)) return 'pending';
+  return booking.refund_status;
+}
+
 // One status, never two side by side: once a refund is open it is the state
 // that matters ("Reembolso parcial"), and what was collected is already on the
 // price rows below. Until then, the collection status.
-function PaymentStatusRow({ booking }: { booking: Booking }) {
+function PaymentStatusRow({ booking, payments }: { booking: Booking; payments: Payment[] }) {
+  const refund = refundState(booking, payments);
   return (
     <InfoRow label={t.bookings.paymentStatus}>
-      <PaymentStatusText
-        status={booking.refund_status === 'none' ? booking.collection_status : REFUND_DISPLAY[booking.refund_status]}
-      />
+      <PaymentStatusText status={refund === 'none' ? booking.collection_status : REFUND_DISPLAY[refund]} />
     </InfoRow>
   );
 }
@@ -184,20 +192,23 @@ function PriceAndDepositRows({ booking, payments }: { booking: Booking; payments
 // 'partial' refund is the cash or transfer part the owner hands back in
 // person; 'pending' is Mercado Pago still sending it.
 function RefundSummaryRow({ booking, payments }: { booking: Booking; payments: Payment[] }) {
-  if (booking.refund_status === 'pending') {
+  const refund = refundState(booking, payments);
+  if (refund === 'pending') {
     return (
       <InfoRow label={t.bookings.refundInProgressLabel}>
         <span className="text-text-secondary text-sm">{t.bookings.refundOwner.queued}</span>
       </InfoRow>
     );
   }
-  if (booking.refund_status !== 'partial') return null;
+  if (refund !== 'partial') return null;
   const owed = manualRefundOwed(payments);
   if (owed <= 0) return null;
   return (
     <InfoRow label={t.bookings.refundOwedLabel}>
       <span className="score-text text-warning-text font-medium">{formatPrice(owed)}</span>
-      <p className="text-text-tertiary mt-0.5 text-xs">{t.bookings.refundOwedHint}</p>
+      <p className="text-text-tertiary mt-0.5 text-xs">
+        {mercadoPagoRefundInFlight(payments) ? t.bookings.refundWaitsForMercadoPago : t.bookings.refundOwedHint}
+      </p>
     </InfoRow>
   );
 }
@@ -250,7 +261,7 @@ export function BookingInfoSection({
       <InfoRow label={t.bookings.status}>
         <BookingStatusText status={bookingDisplayStatus(booking)} />
       </InfoRow>
-      <PaymentStatusRow booking={booking} />
+      <PaymentStatusRow booking={booking} payments={payments} />
       <PriceAndDepositRows booking={booking} payments={payments} />
       <PaymentLedger
         payments={payments}

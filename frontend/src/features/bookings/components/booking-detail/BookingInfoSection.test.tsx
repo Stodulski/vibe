@@ -197,3 +197,15 @@ describe('BookingInfoSection, a played booking not paid in full', () => {
     expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
   });
 });
+
+describe('BookingInfoSection, a Mercado Pago refund in flight', () => {
+  it('reads as a pending refund even before the booking row says so', () => {
+    const booking = createBooking({ status: 'cancelled', collection_status: 'deposit_paid', refund_status: 'none' });
+    const payment = createPayment({ method: 'mercadopago', status: 'refund_pending', mp_payment_id: 'mp1' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[payment]} />);
+
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.refund_pending)).toBeInTheDocument();
+    expect(screen.queryByText(ES_AR.bookings.paymentStatuses.deposit_paid)).not.toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.refundOwner.queued)).toBeInTheDocument();
+  });
+});

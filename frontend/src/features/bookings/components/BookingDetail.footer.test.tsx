@@ -3,15 +3,15 @@ import { renderWithProviders, screen } from '@/test/test-utils';
 import { makeBooking } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { BookingDetail } from './BookingDetail';
-import type { Booking } from '@/shared/types/api.types';
+import type { Booking, Payment } from '@/shared/types/api.types';
 
 vi.mock('../api/bookings.api', () => ({ bookingsApi: { getById: vi.fn() } }));
 
 const t = ES_AR.bookings;
 
-async function renderDetail(booking: Booking) {
+async function renderDetail(booking: Booking, payments: Payment[] = []) {
   const { bookingsApi } = await import('../api/bookings.api');
-  vi.mocked(bookingsApi.getById).mockResolvedValue({ booking, payments: [] });
+  vi.mocked(bookingsApi.getById).mockResolvedValue({ booking, payments });
   renderWithProviders(
     <BookingDetail
       open
@@ -66,5 +66,57 @@ describe('BookingDetail footer', () => {
     expect(cancel.closest('[data-slot="sheet-footer"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: t.statuses.no_show })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingDetail footer, actions the server would refuse', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('offers no payment to confirm on a no-show, which the server refuses', async () => {
+    await renderDetail(makeBooking({ status: 'no_show', collection_status: 'deposit_paid', refund_status: 'none' }));
+
+    await screen.findByText(t.statuses.no_show);
+    expect(screen.queryByRole('button', { name: t.confirmPayment })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.confirmRemainingPayment })).not.toBeInTheDocument();
+  });
+
+  it('waits for a Mercado Pago refund in flight before offering to close the cash part', async () => {
+    const payments: Payment[] = [
+      {
+        id: 'p1',
+        booking_id: 'b1',
+        complex_id: 'c1',
+        amount: 5000,
+        service_fee: 0,
+        method: 'mercadopago',
+        status: 'refund_pending',
+        refund_amount: 0,
+        mp_payment_id: 'mp1',
+        created_at: '',
+        updated_at: '',
+      },
+      {
+        id: 'p2',
+        booking_id: 'b1',
+        complex_id: 'c1',
+        amount: 5000,
+        service_fee: 0,
+        method: 'cash',
+        status: 'fully_paid',
+        refund_amount: 0,
+        created_at: '',
+        updated_at: '',
+      },
+    ];
+    await renderDetail(
+      makeBooking({ id: 'b1', status: 'cancelled', collection_status: 'fully_paid', refund_status: 'partial' }),
+      payments,
+    );
+
+    await screen.findByText(t.refundOwedLabel);
+    expect(screen.queryByRole('button', { name: t.markManualRefund })).not.toBeInTheDocument();
+    expect(screen.getByText(t.refundWaitsForMercadoPago)).toBeInTheDocument();
   });
 });
