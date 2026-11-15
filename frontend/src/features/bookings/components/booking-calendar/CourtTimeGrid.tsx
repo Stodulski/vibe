@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { occupiesCourt } from '@/shared/lib/courtOccupancy';
 import { getNowMinutesInBuenosAires } from './nowIndicator';
 import { useTimelineColumns } from './useTimelineColumns';
 import { useColumnScroller } from './useColumnScroller';
@@ -42,13 +43,14 @@ interface CourtTimeGridProps {
 
 /**
  * A block means "this court is taken", so the rule is exactly the one
- * `isSlotOccupied` uses for free slots: everything but a cancellation. Any
+ * `isSlotOccupied` uses for free slots (`occupiesCourt`): everything but a
+ * cancellation or a no-show. Any
  * other filter here would let a slot show as free while a booking still
  * holds it — or the reverse — with the two disagreeing on the same screen.
  */
 function useGridColumns(input: Parameters<typeof useTimelineColumns>[0]) {
   const { bookings } = input;
-  const occupyingBookings = useMemo(() => bookings.filter((b) => b.status !== 'cancelled'), [bookings]);
+  const occupyingBookings = useMemo(() => bookings.filter(occupiesCourt), [bookings]);
   return useTimelineColumns({ ...input, bookings: occupyingBookings });
 }
 

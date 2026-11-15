@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { occupiesCourt } from '@/shared/lib/courtOccupancy';
 import { generateTimeSlots, timeToMinutes } from '@/shared/lib/time';
 import { overlaps, spanOnDay, toSpan } from '@/shared/lib/instants';
 import { useBookings } from '../../hooks/useBookings';
@@ -42,7 +43,7 @@ export function useBookingTimeSlots({
 
     // Filter slots occupied by active bookings for the selected court.
     if (courtId && existingBookings?.length) {
-      const courtBookings = existingBookings.filter((b) => b.court_id === courtId && b.status !== 'cancelled');
+      const courtBookings = existingBookings.filter((b) => b.court_id === courtId && occupiesCourt(b));
 
       // One span against another, on instants.
       //
