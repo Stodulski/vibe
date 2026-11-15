@@ -628,6 +628,13 @@ func TestApprovedPaymentOfTheWholePriceSettlesTheBookingAsFullyPaid(t *testing.T
 			if booking.Status != "confirmed" || booking.CollectionStatus != bookingstore.CollectionStatusFullyPaid {
 				t.Errorf("want confirmed and fully_paid; got status=%q collection_status=%q", booking.Status, booking.CollectionStatus)
 			}
+			written := f.payments.inserted
+			if withCheckoutRow {
+				written = f.payments.confirmed
+			}
+			if written == nil || written.Status != "fully_paid" {
+				t.Errorf("want the payment row written as fully_paid; got %+v", written)
+			}
 		})
 	}
 }
