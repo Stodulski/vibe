@@ -10,6 +10,14 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/
 import { FormField } from '@/shared/components/common/FormField';
 import { cn } from '@/shared/lib/utils';
 
+/**
+ * Held to the room Radix measures on the chosen side, so at 320px the calendar neither runs past
+ * the right edge nor, opened upward from a field low in a dialog, past the top: it scrolls inside
+ * itself instead.
+ */
+const POPOVER_CLASS =
+  'max-h-(--radix-popover-content-available-height) w-auto max-w-(--radix-popover-content-available-width) overflow-y-auto p-0';
+
 interface DatePickerFieldProps {
   id: string;
   /** Accepts JSX so a caller can append the "(requerido)" marker. */
@@ -78,10 +86,10 @@ export function DatePickerField({
             </span>
           </button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto max-w-[calc(100vw-2rem)] p-0" align="start" side={side} collisionPadding={16}>
+        <PopoverContent className={POPOVER_CLASS} align="start" side={side} collisionPadding={8}>
           <Calendar
-            // 36px days on a phone (seven of them still fit the 288px popover at 320px), 40px from sm.
-            className="[--cell-size:--spacing(9)] sm:[--cell-size:--spacing(10)]"
+            // 36px days on a phone, 40px from sm, never wider than seven days fit the viewport.
+            className="[--cell-size:min(--spacing(9),calc((100vw-3rem)/7))] sm:[--cell-size:--spacing(10)]"
             mode="single"
             selected={selected}
             {...(defaultMonth ? { defaultMonth } : {})}
