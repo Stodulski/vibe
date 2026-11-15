@@ -95,6 +95,31 @@ func TestVerifyWebhookSignature(t *testing.T) {
 		}
 	})
 
+	// Mercado Pago documents ts in milliseconds (ts=1742505638683); a value in
+	// seconds is still accepted. Either way the signed string carries ts as sent.
+	signed := func(dataID, requestID, ts string) *http.Request {
+		mac := hmac.New(sha256.New, []byte(secret))
+		mac.Write([]byte(fmt.Sprintf("id:%s;request-id:%s;ts:%s;", dataID, requestID, ts)))
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhook", nil)
+		req.Header.Set("X-Signature", fmt.Sprintf("ts=%s,v1=%s", ts, hex.EncodeToString(mac.Sum(nil))))
+		req.Header.Set("X-Request-Id", requestID)
+		return req
+	}
+
+	t.Run("valid signature with ts in milliseconds", func(t *testing.T) {
+		ts := fmt.Sprintf("%d", time.Now().UnixMilli())
+		if err := client.VerifyWebhookSignature(signed("12345", "req-ms", ts), "12345"); err != nil {
+			t.Errorf("expected a millisecond timestamp to verify; got %v", err)
+		}
+	})
+
+	t.Run("stale ts in milliseconds", func(t *testing.T) {
+		ts := fmt.Sprintf("%d", time.Now().Add(-10*time.Minute).UnixMilli())
+		if err := client.VerifyWebhookSignature(signed("12345", "req-ms", ts), "12345"); err == nil {
+			t.Error("expected a ten-minute-old millisecond timestamp to be refused")
+		}
+	})
+
 	t.Run("missing X-Signature header", func(t *testing.T) {
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhook", nil)
 		err := client.VerifyWebhookSignature(req, "12345")

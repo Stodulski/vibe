@@ -758,7 +758,13 @@ func (c *MPClient) VerifyWebhookSignature(r *http.Request, dataID string) error 
 	if now == nil {
 		now = time.Now
 	}
+	// Mercado Pago documents ts in milliseconds (ts=1742505638683). A value
+	// below 1e12 is read as seconds, which is any date before 2001 in
+	// milliseconds and so never a real notification of either kind.
 	tsTime := time.Unix(tsInt, 0)
+	if tsInt >= 1e12 {
+		tsTime = time.UnixMilli(tsInt)
+	}
 	if now().Sub(tsTime).Abs() > 5*time.Minute {
 		return fmt.Errorf("mp: webhook timestamp too old or in the future (ts=%s)", ts)
 	}
