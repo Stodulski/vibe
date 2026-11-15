@@ -4,7 +4,6 @@ export const createSteps = {
   step1: 'Torneo',
   step2: 'Categorías',
   step3: 'Revisar',
-  categoriesHint: 'Cada categoría tiene su cupo, su precio por pareja y su formato.',
   noCategories: 'Todavía no agregaste categorías.',
   editCategory: 'Editar',
   editCategoryLabel: (name: string) => `Editar ${name}`,

@@ -28,6 +28,13 @@ describe('CreateTournamentModal: categories step', () => {
     vi.clearAllMocks();
   });
 
+  it('says what a category holds once, not in the header and again in the section', async () => {
+    const { user } = await renderModal();
+    await toCategories(user);
+
+    expect(screen.getAllByText(t.form.description)).toHaveLength(1);
+  });
+
   it('opens a new category on its first view with the category fields only', async () => {
     const { user } = await renderModal();
     await toCategories(user);

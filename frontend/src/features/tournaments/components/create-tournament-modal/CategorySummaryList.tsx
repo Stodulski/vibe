@@ -18,10 +18,7 @@ interface Props {
 export function CategorySummaryList({ categories, onEdit, onRemove, onAdd, error }: Props) {
   return (
     <div className="space-y-4">
-      <div className="space-y-1">
-        <h3 className="text-text-primary text-sm font-semibold">{t.createSteps.step2}</h3>
-        <p className="text-text-tertiary text-xs">{t.createSteps.categoriesHint}</p>
-      </div>
+      <h3 className="text-text-primary text-sm font-semibold">{t.createSteps.step2}</h3>
       {categories.length === 0 ? (
         <p className="text-text-tertiary text-sm">{t.createSteps.noCategories}</p>
       ) : (
