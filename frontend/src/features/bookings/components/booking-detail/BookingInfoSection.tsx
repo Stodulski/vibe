@@ -6,20 +6,11 @@ import { BookingStatusText, PaymentStatusText } from '../BookingStatusBadge';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { bookingDisplayStatus } from '@/shared/types/api.types';
-import type { Booking, BookingRefundStatus, PaymentDisplayStatus, Payment } from '@/shared/types/api.types';
+import { paymentDisplayStatus } from '@/shared/types/api.types';
+import type { Booking, BookingRefundStatus, Payment } from '@/shared/types/api.types';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { manualRefundOwed } from '../../lib/manualRefundOwed';
 import { mercadoPagoRefundInFlight } from '../../lib/mercadoPagoRefundInFlight';
-
-// The refund half of the pair, in the vocabulary the badge already has labels,
-// colours and icons for. 'none' is absent because that half is not rendered at
-// all when there is nothing owed back.
-const REFUND_DISPLAY: Record<Exclude<BookingRefundStatus, 'none'>, PaymentDisplayStatus> = {
-  pending: 'refund_pending',
-  partial: 'partial_refund',
-  full: 'refunded',
-};
 
 const t = ES_AR;
 
@@ -159,10 +150,10 @@ function refundState(booking: Booking, payments: Payment[]): BookingRefundStatus
 // that matters ("Reembolso parcial"), and what was collected is already on the
 // price rows below. Until then, the collection status.
 function PaymentStatusRow({ booking, payments }: { booking: Booking; payments: Payment[] }) {
-  const refund = refundState(booking, payments);
+  const status = paymentDisplayStatus({ ...booking, refund_status: refundState(booking, payments) });
   return (
     <InfoRow label={t.bookings.paymentStatus}>
-      <PaymentStatusText status={refund === 'none' ? booking.collection_status : REFUND_DISPLAY[refund]} />
+      <PaymentStatusText status={status} />
     </InfoRow>
   );
 }
@@ -207,7 +198,7 @@ function RefundSummaryRow({ booking, payments }: { booking: Booking; payments: P
     <InfoRow label={t.bookings.refundOwedLabel}>
       <span className="score-text text-warning-text font-medium">{formatPrice(owed)}</span>
       <p className="text-text-tertiary mt-0.5 text-xs">
-        {mercadoPagoRefundInFlight(payments) ? t.bookings.refundWaitsForMercadoPago : t.bookings.refundOwedHint}
+        {mercadoPagoRefundInFlight(payments) ? t.bookings.refundWaitsForMp : t.bookings.refundOwedHint}
       </p>
     </InfoRow>
   );
@@ -259,7 +250,7 @@ export function BookingInfoSection({
   return (
     <div className="space-y-3">
       <InfoRow label={t.bookings.status}>
-        <BookingStatusText status={bookingDisplayStatus(booking)} />
+        <BookingStatusText status={booking.status} />
       </InfoRow>
       <PaymentStatusRow booking={booking} payments={payments} />
       <PriceAndDepositRows booking={booking} payments={payments} />

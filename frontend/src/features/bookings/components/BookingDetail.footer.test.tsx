@@ -117,6 +117,6 @@ describe('BookingDetail footer, actions the server would refuse', () => {
 
     await screen.findByText(t.refundOwedLabel);
     expect(screen.queryByRole('button', { name: t.markManualRefund })).not.toBeInTheDocument();
-    expect(screen.getByText(t.refundWaitsForMercadoPago)).toBeInTheDocument();
+    expect(screen.getByText(t.refundWaitsForMp)).toBeInTheDocument();
   });
 });
