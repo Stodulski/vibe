@@ -43,7 +43,7 @@ export function ImageDeleteConfirm({
           setOpen(false);
           onConfirm();
         }}
-        title={t.complex.deleteImageConfirm}
+        title={t.complex.deleteImageConfirm(label)}
         description={t.complex.deleteImageConfirmDescription}
         confirmLabel={t.complex.deleteImage}
         variant="destructive"

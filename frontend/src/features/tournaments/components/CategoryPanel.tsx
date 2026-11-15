@@ -40,7 +40,7 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
 /** What the owner can do to the category itself: change its court fee, or cancel it. */
 function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
   return (
-    <div className="flex shrink-0 gap-2">
+    <div className="flex flex-wrap gap-2">
       <Button
         type="button"
         variant="outline"

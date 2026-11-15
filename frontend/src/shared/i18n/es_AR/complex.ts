@@ -144,8 +144,9 @@ export const complex = {
   imageTooLarge: 'La imagen no puede superar 5MB',
   imageUnreadable: 'No pudimos abrir la imagen. Probá con otro archivo.',
   imageInvalidType: 'Solo se permiten imagenes JPG, PNG o WebP',
-  deleteImageConfirm: 'Eliminar imagen',
-  deleteImageConfirmDescription: 'Se eliminara la imagen del complejo.',
+  // "¿Eliminar logo?" / "¿Eliminar portada?", from the slot's own label.
+  deleteImageConfirm: (label: string) => `¿${label}?`,
+  deleteImageConfirmDescription: 'Se va a quitar de la página del complejo. Podés subir otra cuando quieras.',
   descriptionPlaceholder: 'Contá cómo es tu complejo: las canchas, los servicios y qué lo hace distinto.',
   descriptionMinHint: (min: number) => `Con ${String(min)} caracteres o más, tu perfil la cuenta como completa.`,
   descriptionCount: (count: number, max: number) => `${String(count)} de ${String(max)}`,

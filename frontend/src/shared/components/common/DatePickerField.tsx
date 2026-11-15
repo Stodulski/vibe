@@ -89,7 +89,7 @@ export function DatePickerField({
         <PopoverContent className={POPOVER_CLASS} align="start" side={side} collisionPadding={8}>
           <Calendar
             // 36px days on a phone, 40px from sm, never wider than seven days fit the viewport.
-            className="[--cell-size:min(--spacing(9),calc((100vw-3rem)/7))] sm:[--cell-size:--spacing(10)]"
+            className="[--cell-size:min(--spacing(9),calc((100vw-5rem)/7))] sm:[--cell-size:--spacing(10)]"
             mode="single"
             selected={selected}
             {...(defaultMonth ? { defaultMonth } : {})}
