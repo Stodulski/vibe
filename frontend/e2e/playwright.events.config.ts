@@ -4,14 +4,15 @@ import { defineConfig, devices } from '@playwright/test';
 import base from '../playwright.config';
 
 /**
- * Runs only the three specs for turnos fijos, canchas libres and torneos
- * (`fixed-bookings`, `open-play-events`, `tournaments`). They each provision
- * their own owner and complex (see helpers/events-fixtures.ts), so they need
+ * Runs only the specs for turnos fijos, canchas libres and torneos
+ * (`fixed-bookings`, `open-play-events`, `tournaments`, and the sign-ups paid
+ * through the fake Mercado Pago: `open-play-payments`, `tournament-payments`).
+ * They each provision their own owner and complex (see helpers/events-fixtures.ts), so they need
  * neither the shared `setup` project nor a single-worker project.
  *
  *   E2E_SPECS="--config=e2e/playwright.events.config.ts" make e2e   (backend/)
  *
- * `playwright.config.ts` lists the other specs by project; adding the three
+ * `playwright.config.ts` lists the other specs by project; adding these
  * files to its `authenticated` project's `testMatch` runs them in the normal
  * suite as well, and makes this file unnecessary.
  */
@@ -31,7 +32,13 @@ export default defineConfig({
     {
       name: 'events',
       use: { ...devices['Desktop Chrome'] },
-      testMatch: ['fixed-bookings.spec.ts', 'open-play-events.spec.ts', 'tournaments.spec.ts'],
+      testMatch: [
+        'fixed-bookings.spec.ts',
+        'open-play-events.spec.ts',
+        'tournaments.spec.ts',
+        'open-play-payments.spec.ts',
+        'tournament-payments.spec.ts',
+      ],
     },
   ],
 });

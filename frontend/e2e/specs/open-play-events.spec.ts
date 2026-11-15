@@ -16,13 +16,12 @@ import {
  * Canchas libres (open-play events), owner and public side
  * (odd/tasks/open-play-events.md S1, S2, S4, S5, S7, S8).
  *
- * MERCADO PAGO IS FAKE HERE. The complex carries a sealed dummy credential, so
- * a public sign-up can take its spot but there is no checkout to pay at and no
- * webhook to confirm it. Paid participants are therefore seeded straight into
- * the E2E database in the shape the webhook leaves behind (a confirmed
+ * Paid participants are setup here, not the subject: they are seeded straight
+ * into the E2E database in the shape the webhook leaves behind (a confirmed
  * registration plus its approved `mercadopago` payment, see
  * `seedPaidRegistration`); everything the owner and the public see about them
- * is read through the real API and pages.
+ * is read through the real API and pages. Paying a sign-up through the fake
+ * Mercado Pago, and its refund, is `open-play-payments.spec.ts`.
  *
  * One owner and complex of their own with two courts, so an event holding
  * "todas las canchas" cannot collide with any other spec. Tests run in order

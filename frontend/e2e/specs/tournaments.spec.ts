@@ -14,11 +14,11 @@ import {
 /**
  * Torneos, owner and public side (odd/tasks/tournaments.md S1-S9).
  *
- * MERCADO PAGO IS FAKE HERE. A public pair sign-up can take its spot but there
- * is no checkout to pay at and no webhook to confirm it, so the paid pairs are
- * seeded straight into the E2E database in the shape the webhook leaves behind
- * (the payer's confirmed registration with its approved `mercadopago` payment
- * plus the partner row, see `seedPaidPair`). The tournament itself, its draws,
+ * The paid pairs are setup here, not the subject: they are seeded straight into
+ * the E2E database in the shape the webhook leaves behind (the payer's
+ * confirmed registration with its approved `mercadopago` payment plus the
+ * partner row, see `seedPaidPair`). Paying a pair through the fake Mercado Pago,
+ * and its refund, is `tournament-payments.spec.ts`. The tournament itself, its draws,
  * schedule, results, court fees and cancellation all go through the real owner
  * app and API, and the public page is read as a visitor.
  *

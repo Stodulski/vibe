@@ -66,12 +66,18 @@ function hash(text: string): number {
 /**
  * A fresh owner with a complex that takes online payments and `courtCount`
  * priced courts open every day (08:00-23:00 weekdays, 09:00-22:00 weekends).
+ * `complexOverrides` go into the complex's create call (e.g. its
+ * `deposit_percentage` or `cancellation_hours`).
  */
-export async function provisionWorld(key: string, courtCount = 2): Promise<EventsWorld> {
+export async function provisionWorld(
+  key: string,
+  courtCount = 2,
+  complexOverrides: Record<string, unknown> = {},
+): Promise<EventsWorld> {
   const owner = await registerOwner(key);
   const api = await createApiHelper(undefined, owner);
   const slug = `e2e-${key}`;
-  const { complex, court } = await api.setupFullComplex({ name: `Complejo ${key}`, slug });
+  const { complex, court } = await api.setupFullComplex({ name: `Complejo ${key}`, slug, ...complexOverrides });
   const courts = [court];
   for (let i = 2; i <= courtCount; i++) {
     const extra = await api.createCourt(complex.id, { name: `Cancha ${String(i)}` });
@@ -138,13 +144,14 @@ export function pesos(amount: number): string {
 // ---------------------------------------------------------------------------
 // Database seeding
 // ---------------------------------------------------------------------------
-// Mercado Pago is fake in this stack: the complex carries a sealed dummy
-// credential, so a public sign-up can create its held spot but the payment
-// never completes (there is no checkout to pay and no webhook to call back).
-// The paid participants and pairs of these specs are therefore written
-// straight into the E2E database in the exact shape the webhook leaves behind
-// (a `confirmed` registration plus its approved `mercadopago` payment). The
-// `vibe` role bypasses row level security, so no tenant setting is needed.
+// Paid participants and pairs as setup: written straight into the E2E
+// database in the exact shape the webhook leaves behind (a `confirmed`
+// registration plus its approved `mercadopago` payment), for specs that need
+// many of them and are not about paying. Their `mp_payment_id` is not a
+// payment the fake Mercado Pago knows, so it cannot refund them; a payment a
+// spec asserts on goes through the fake checkout instead (`open-play-payments`,
+// `tournament-payments`). The `vibe` role bypasses row level security, so no
+// tenant setting is needed.
 
 const DB = {
   host: process.env.E2E_DB_HOST ?? 'localhost',
