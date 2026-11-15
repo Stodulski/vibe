@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -846,4 +847,63 @@ func TestExchangeOAuthCode(t *testing.T) {
 			t.Errorf("want ErrOAuthUnavailable; got %v", err)
 		}
 	})
+}
+
+// TestWithBaseURLRoutesPreferencesAndOAuth pins the end-to-end suite's seam:
+// an override reaches both the checkout preference and the OAuth exchange, so
+// a fake MercadoPago sees every call the backend makes.
+func TestWithBaseURLRoutesPreferencesAndOAuth(t *testing.T) {
+	var paths []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		paths = append(paths, r.Method+" "+r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/checkout/preferences":
+			w.WriteHeader(http.StatusCreated)
+			_, _ = io.WriteString(w, `{"id":"pref-1","init_point":"http://fake/checkout/pref-1"}`)
+		case "/oauth/token":
+			_, _ = io.WriteString(w, `{"access_token":"a","refresh_token":"r","user_id":42,"expires_in":60}`)
+		default:
+			w.WriteHeader(http.StatusNotFound)
+		}
+	}))
+	defer ts.Close()
+
+	client := NewMPClient("token", "secret", "app", "client", nil, WithBaseURL(ts.URL+"/"))
+
+	seller, err := AsSeller("seller-token")
+	if err != nil {
+		t.Fatalf("AsSeller: %v", err)
+	}
+	pref, err := client.CreatePreference(t.Context(), CreatePreferenceInput{
+		BookingID: uuid.New(), Amount: 1000, Caller: seller, BackendURL: "http://localhost:8080",
+	})
+	if err != nil {
+		t.Fatalf("CreatePreference: %v", err)
+	}
+	if pref.ID != "pref-1" {
+		t.Errorf("preference id = %q, want pref-1", pref.ID)
+	}
+
+	tokens, err := client.ExchangeOAuthCode(t.Context(), "code", "http://localhost/cb", "")
+	if err != nil {
+		t.Fatalf("ExchangeOAuthCode: %v", err)
+	}
+	if tokens.UserID != 42 {
+		t.Errorf("user id = %d, want 42", tokens.UserID)
+	}
+
+	want := []string{"POST /checkout/preferences", "POST /oauth/token"}
+	if strings.Join(paths, ",") != strings.Join(want, ",") {
+		t.Errorf("fake saw %v, want %v", paths, want)
+	}
+}
+
+// TestWithBaseURLEmptyKeepsTheRealAPI keeps an unset override from pointing
+// the client at nothing.
+func TestWithBaseURLEmptyKeepsTheRealAPI(t *testing.T) {
+	client := NewMPClient("token", "secret", "app", "client", nil, WithBaseURL(""))
+	if client.baseURL != DefaultBaseURL {
+		t.Errorf("baseURL = %q, want %q", client.baseURL, DefaultBaseURL)
+	}
 }

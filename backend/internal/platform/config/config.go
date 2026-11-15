@@ -196,6 +196,11 @@ type MP struct {
 	AppID          string
 	ClientSecret   string
 	CredentialKeys string
+	// APIBaseURL replaces https://api.mercadopago.com for every MercadoPago
+	// call, OAuth included. It exists for the end-to-end suite's fake
+	// MercadoPago; empty means the real API, and production refuses to boot
+	// with it set.
+	APIBaseURL string
 }
 
 // WhatsApp is the Meta Cloud API configuration.

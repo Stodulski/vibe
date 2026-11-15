@@ -30,6 +30,17 @@ import (
 // above are already handled — development intentionally runs without every
 // MercadoPago secret set.
 func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
+	if cfg.MP.APIBaseURL != "" {
+		// Unlike the checks below this is not a missing piece but a switch
+		// that sends every payment, refund and OAuth call somewhere other
+		// than MercadoPago. Production refuses it outright, whatever else is
+		// configured; anywhere else it is said once, loudly.
+		if cfg.Env == "production" {
+			return fmt.Errorf("invalid boot configuration: mp-api-base-url/MP_API_BASE_URL must not be set in production")
+		}
+		logger.Warn("MercadoPago calls go to a non-default base URL", "mp_api_base_url", cfg.MP.APIBaseURL)
+	}
+
 	var missing []string
 
 	if cfg.MP.AccessToken != "" {

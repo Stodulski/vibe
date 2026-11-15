@@ -292,8 +292,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	blacklist := auth.NewTokenBlacklist(d.rdb, d.logger, cfg.Env)
 	events := realtime.NewHub(d.rdb, d.logger, cfg.Env)
 
-	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB)
-	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB)
+	mpBaseURL := mp.WithBaseURL(cfg.MP.APIBaseURL)
+	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB, mpBaseURL)
+	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB, mpBaseURL)
 	waClient := whatsapp.NewWAClient(cfg.WhatsApp.Token, cfg.WhatsApp.PhoneID, cfg.WhatsApp.VerifyToken, cfg.WhatsApp.AppSecret, waCB)
 	mailerClient := mailer.New(mailer.Config{
 		BrevoAPIKey:  cfg.Brevo.APIKey,
