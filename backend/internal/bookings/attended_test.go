@@ -171,3 +171,28 @@ func TestUpdateToNoShowClearsAttendance(t *testing.T) {
 		t.Errorf("want no_show with attended_at cleared; got status %q attended_at %v", got.Status, got.AttendedAt)
 	}
 }
+
+// A cancellation that commits between the service's read and the store's write
+// leaves nothing to mark: the request is answered 409 so the owner refreshes,
+// and nothing is broadcast because nothing was written.
+func TestMarkAttendedAnswersConflictWhenTheBookingMovesUnderneath(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := endedBooking(complexID)
+	f.store.booking = booking
+	f.store.markAttendedRace = func(b *bookingstore.Booking) {
+		b.Status = bookingstore.BookingStatusCancelled
+	}
+
+	w := markAttended(t, f, complexID, booking)
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	if booking.AttendedAt != nil {
+		t.Errorf("want no attendance written on a cancelled booking; got %v", booking.AttendedAt)
+	}
+	if len(f.realtime.published) != 0 {
+		t.Errorf("want no broadcast when nothing was written; got %v", f.realtime.published)
+	}
+}

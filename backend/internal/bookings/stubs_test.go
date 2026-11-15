@@ -52,6 +52,9 @@ type stubStore struct {
 
 	// markAttendedErr is what MarkAttended answers instead of writing.
 	markAttendedErr error
+	// markAttendedRace runs inside MarkAttended before its predicate, standing in
+	// for a writer that commits between the service's read and the store's write.
+	markAttendedRace func(b *bookingstore.Booking)
 
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
@@ -244,6 +247,9 @@ func (s *stubStore) MarkAttended(_ context.Context, complexID, bookingID uuid.UU
 	b := s.booking
 	if b == nil || b.ID != bookingID || b.ComplexID != complexID {
 		return false, nil
+	}
+	if s.markAttendedRace != nil {
+		s.markAttendedRace(b)
 	}
 	now := time.Now()
 	ended := !b.EndsAt.After(now)

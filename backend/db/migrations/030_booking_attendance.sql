@@ -21,7 +21,10 @@ SET LOCAL lock_timeout = '3s';
 -- booking that is not 'completed' cannot carry an attendance mark, so the
 -- owner's completed -> no_show correction must clear attended_at in the same
 -- write (UpdateBooking / UpdateBookingIfUnchanged in db/queries/bookings.sql).
--- Every existing row has attended_at NULL and passes it untouched. The new
+-- Every existing row has attended_at NULL and passes it untouched. It is added
+-- NOT VALID, which is instant, and validated by 031 in a transaction of its
+-- own, the way 006/007 do it: validating here would scan the whole bookings
+-- table under the ACCESS EXCLUSIVE lock this ALTER TABLE holds until commit. The new
 -- column inherits the table's grants and row-level security policy from
 -- 001_init.sql's ACCESS section; nothing to add there.
 
@@ -29,7 +32,7 @@ ALTER TABLE bookings ADD COLUMN attended_at TIMESTAMPTZ;
 
 ALTER TABLE bookings ADD CONSTRAINT bookings_attended_only_completed CHECK (
     attended_at IS NULL OR status = 'completed'
-);
+) NOT VALID;
 
 -- +goose Down
 
