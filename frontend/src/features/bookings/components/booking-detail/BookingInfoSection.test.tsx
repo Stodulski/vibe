@@ -132,3 +132,28 @@ describe('BookingInfoSection — how the rows are written', () => {
     expect(screen.queryByText('16/03/2026')).not.toBeInTheDocument();
   });
 });
+
+describe('BookingInfoSection refund summary', () => {
+  it('says how much is still owed back by hand on a cancelled cash booking', () => {
+    const booking = createBooking({ status: 'cancelled', refund_status: 'partial', price: 3_600_000 });
+    const payment = createPayment({ amount: 3_600_000, method: 'cash' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[payment]} />);
+
+    expect(screen.getByText(ES_AR.bookings.refundOwedLabel)).toBeInTheDocument();
+    expect(screen.getByText('$36.000')).toBeInTheDocument();
+    expect(screen.getByText(ES_AR.bookings.refundOwedHint)).toBeInTheDocument();
+  });
+
+  it('says a Mercado Pago refund is on its way', () => {
+    const booking = createBooking({ status: 'cancelled', refund_status: 'pending' });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[createPayment({ method: 'mercadopago' })]} />);
+
+    expect(screen.getByText(ES_AR.bookings.refundOwner.queued)).toBeInTheDocument();
+  });
+
+  it('shows no refund summary when nothing is owed back', () => {
+    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[createPayment()]} />);
+
+    expect(screen.queryByText(ES_AR.bookings.refundOwedLabel)).not.toBeInTheDocument();
+  });
+});

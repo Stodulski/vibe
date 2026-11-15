@@ -54,6 +54,11 @@ export const bookings = {
     manual: 'Tenés que devolverle esta plata al cliente a mano.',
   },
   refundOwnerManualPart: 'La parte en efectivo se la tenés que devolver a mano.',
+  // The detail sheet's refund summary: what a cancelled booking still owes
+  // the client by hand, and how it gets there.
+  refundOwedLabel: 'Falta devolver',
+  refundOwedHint: 'Se lo devolvés al cliente en mano. Cuando lo hagas, marcá la devolución como realizada.',
+  refundInProgressLabel: 'Devolución',
   cancelError: 'Error al cancelar la reserva',
   confirmPaymentError: 'Error al confirmar el pago',
   updateError: 'Error al actualizar la reserva',

@@ -8,6 +8,7 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import type { Booking, BookingRefundStatus, PaymentDisplayStatus, Payment } from '@/shared/types/api.types';
 import { keepTogether } from '@/shared/lib/keepTogether';
+import { manualRefundOwed } from '../../lib/manualRefundOwed';
 
 // The refund half of the pair, in the vocabulary the badge already has labels,
 // colours and icons for. 'none' is absent because that half is not rendered at
@@ -188,6 +189,29 @@ function PriceAndDepositRows({ booking, payments }: { booking: Booking; payments
   );
 }
 
+// What happens to the money of a cancelled booking, in words: the status pair
+// above says a refund is open, this says how much and who moves it. A
+// 'partial' refund is the cash or transfer part the owner hands back in
+// person; 'pending' is Mercado Pago still sending it.
+function RefundSummaryRow({ booking, payments }: { booking: Booking; payments: Payment[] }) {
+  if (booking.refund_status === 'pending') {
+    return (
+      <InfoRow label={t.bookings.refundInProgressLabel}>
+        <span className="text-text-secondary text-sm">{t.bookings.refundOwner.queued}</span>
+      </InfoRow>
+    );
+  }
+  if (booking.refund_status !== 'partial') return null;
+  const owed = manualRefundOwed(payments);
+  if (owed <= 0) return null;
+  return (
+    <InfoRow label={t.bookings.refundOwedLabel}>
+      <span className="score-text text-warning-text font-medium">{formatPrice(owed)}</span>
+      <p className="text-text-tertiary mt-0.5 text-xs">{t.bookings.refundOwedHint}</p>
+    </InfoRow>
+  );
+}
+
 function PaymentLedger({
   payments,
   booking,
@@ -250,6 +274,7 @@ export function BookingInfoSection({
           })
         }
       />
+      {!paymentsPending && !paymentsError && <RefundSummaryRow booking={booking} payments={payments} />}
       <InfoRow label={t.bookings.time}>
         <span className="score-text font-medium">{formatHourRange(booking.starts_at, booking.ends_at)}</span>
       </InfoRow>
