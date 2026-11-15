@@ -21,17 +21,21 @@ function renderDetail(props: Partial<React.ComponentProps<typeof BlockedSlotDeta
 }
 
 describe('BlockedSlotDetail', () => {
-  it('keeps "Desbloquear" in the header menu as a destructive item, with no footer', async () => {
+  it('shows "Desbloquear" as a destructive outline button in the footer, with no overflow menu', async () => {
     const { user, onDelete } = renderDetail();
 
-    expect(screen.queryByRole('button', { name: ES_AR.courts.unblockSlot })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="sheet-footer"]')).toBeNull();
+    const button = screen.getByRole('button', { name: ES_AR.courts.unblockSlot });
+    expect(button).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(button.closest('[data-slot="sheet-footer"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
-    const item = await screen.findByRole('menuitem', { name: ES_AR.courts.unblockSlot });
-    expect(item).toHaveAttribute('data-variant', 'destructive');
-
-    await user.click(item);
+    await user.click(button);
     expect(onDelete).toHaveBeenCalledWith('s1');
+  });
+
+  it('disables the button while the slot is being unblocked', () => {
+    renderDetail({ isDeleting: true });
+
+    expect(screen.getByRole('button', { name: ES_AR.courts.unblockSlot })).toBeDisabled();
   });
 });

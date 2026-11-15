@@ -1,6 +1,9 @@
 import { useState } from 'react';
+import { Ban } from 'lucide-react';
 import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
+import { Button } from '@/shared/components/ui/button';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
+import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
@@ -13,7 +16,6 @@ import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
 import { paidCount, sortParticipants } from '../lib/participantStatus';
 import { CancelEventDialog } from './CancelEventDialog';
-import { EventDetailMenu } from './EventDetailMenu';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { ParticipantList } from './ParticipantList';
 import type { OpenPlayEvent, OpenPlayParticipant } from '@/shared/types/api.types';
@@ -64,9 +66,23 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
   );
 }
 
+/** The pinned footer: the one destructive action, which still asks for confirmation. */
+function EventFooter({ onCancel }: { onCancel: () => void }) {
+  return (
+    <DetailSheetFooter
+      secondary={
+        <Button type="button" variant="destructive-outline" onClick={onCancel}>
+          <Ban className="size-3.5" />
+          {t.cancel.action}
+        </Button>
+      }
+    />
+  );
+}
+
 /**
  * The owner's view of one event: its facts, everyone who held a spot with their
- * payment; the cancel action sits in the header menu while the event is still ahead.
+ * payment; the cancel action is a destructive button in the footer while the event is still ahead.
  */
 export function EventDetail({ open, onClose, complexId, eventId }: EventDetailProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -98,15 +114,6 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
             subtitle={
               event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
             }
-            menu={
-              canCancel && (
-                <EventDetailMenu
-                  onCancel={() => {
-                    setCancelOpen(true);
-                  }}
-                />
-              )
-            }
           />
           {isLoading && <EventDetailSkeleton />}
           {!!error && (
@@ -115,6 +122,13 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
             </p>
           )}
           {event && <EventBody event={event} participants={participants} />}
+          {canCancel && (
+            <EventFooter
+              onCancel={() => {
+                setCancelOpen(true);
+              }}
+            />
+          )}
         </SheetContent>
       </Sheet>
       {shownId && (

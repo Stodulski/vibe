@@ -115,6 +115,12 @@ describe('CourtCard - actions', () => {
     expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument();
   });
 
+  it('keeps delete as the one visible button on every width, with no overflow menu for a single action', () => {
+    render(<CourtCard {...defaultProps} />);
+    expect(screen.getAllByRole('button', { name: /eliminar/i })).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: /más acciones/i })).not.toBeInTheDocument();
+  });
+
   it('calls onEdit when edit button is clicked', async () => {
     const user = userEvent.setup();
     render(<CourtCard {...defaultProps} />);

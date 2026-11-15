@@ -96,16 +96,14 @@ test('every future matching date shows "Turno fijo · {cliente}" on the grid', a
   const sheet = page.getByRole('dialog');
   await expect(sheet.getByText('Turno fijo · todos los lunes a las 19:00')).toBeVisible();
   await expect(sheet.getByText('Serie Fijo')).toBeVisible();
-  await sheet.getByRole('button', { name: 'Más acciones' }).click();
-  await expect(page.getByRole('menuitem', { name: 'Cancelar solo esta fecha' })).toBeVisible();
-  await expect(page.getByRole('menuitem', { name: 'Cancelar turno fijo' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Cancelar solo esta fecha' })).toBeVisible();
+  await expect(sheet.getByRole('button', { name: 'Cancelar turno fijo' })).toBeVisible();
 });
 
 test('"Cancelar solo esta fecha" frees that date and leaves the others blocked', async () => {
   await gotoDay(THIRD);
   await fixedBlock().click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Más acciones' }).click();
-  await page.getByRole('menuitem', { name: 'Cancelar solo esta fecha' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar solo esta fecha' }).click();
   await expect(page.getByText(/^Fecha liberada: /)).toBeVisible({ timeout: 10_000 });
   await expect(fixedBlock()).toHaveCount(0);
 
@@ -161,8 +159,7 @@ test('a booking over a blocked occurrence is refused, and the freed date takes i
 test('"Cancelar turno fijo" ends the series from that date on', async () => {
   await gotoDay(FOURTH);
   await fixedBlock().click();
-  await page.getByRole('dialog').getByRole('button', { name: 'Más acciones' }).click();
-  await page.getByRole('menuitem', { name: 'Cancelar turno fijo' }).click();
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancelar turno fijo' }).click();
   const confirm = page.getByRole('alertdialog');
   await expect(confirm.getByText('Cancelar el turno fijo')).toBeVisible();
   await expect(

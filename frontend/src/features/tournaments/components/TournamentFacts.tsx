@@ -1,9 +1,9 @@
 import { useState } from 'react';
+import { Button } from '@/shared/components/ui/button';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { tournamentDays } from '../lib/tournamentView';
 import { CancelTournamentDialog } from './CancelDialogs';
-import { MoreMenu } from './MoreMenu';
 import type { Tournament } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
@@ -17,7 +17,7 @@ interface TournamentFactsProps {
   canCancel: boolean;
 }
 
-/** The tournament's days and state, and the overflow menu with the action that cancels all of it. */
+/** The tournament's days and state, and the button that cancels all of it. */
 export function TournamentFacts({ tournament, complexId, paidCount, canCancel }: TournamentFactsProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   return (
@@ -35,18 +35,17 @@ export function TournamentFacts({ tournament, complexId, paidCount, canCancel }:
           </span>
         </InfoRow>
         {canCancel && (
-          <MoreMenu
-            label={t.detail.moreTournament}
-            items={[
-              {
-                label: t.cancel.action,
-                destructive: true,
-                onSelect: () => {
-                  setCancelOpen(true);
-                },
-              },
-            ]}
-          />
+          <Button
+            type="button"
+            variant="destructive-outline"
+            size="sm"
+            className="shrink-0"
+            onClick={() => {
+              setCancelOpen(true);
+            }}
+          >
+            {t.cancel.action}
+          </Button>
         )}
       </div>
       <CancelTournamentDialog

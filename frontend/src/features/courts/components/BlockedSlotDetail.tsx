@@ -1,6 +1,8 @@
 import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
-import { BlockedSlotDetailMenu } from './BlockedSlotDetailMenu';
+import { LockOpen } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -21,8 +23,8 @@ interface BlockedSlotDetailProps {
 
 /**
  * Built from the same pieces as the booking and client drawers —
- * `DetailSheetHeader`, bare `InfoRow`s, the destructive action in the header's
- * ⋯ menu (there is no positive action, so no footer) — rather
+ * `DetailSheetHeader`, bare `InfoRow`s, the destructive action as a
+ * footer button (there is no positive action, so it stands alone) — rather
  * than its own header and its own boxed-icon rows. It was the only detail
  * sheet still carrying the icon treatment the others dropped.
  */
@@ -50,14 +52,6 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
         <DetailSheetHeader
           title={t.bookings.blockedSlot}
           subtitle={<span className="first-letter:uppercase">{dateFormatted}</span>}
-          menu={
-            <BlockedSlotDetailMenu
-              disabled={isDeleting}
-              onUnblock={() => {
-                onDelete(shown.id);
-              }}
-            />
-          }
         />
 
         {/* Only the body scrolls; the header stays put. */}
@@ -72,6 +66,22 @@ export function BlockedSlotDetail({ open, onClose, slot, onDelete, isDeleting }:
             </InfoRow>
           )}
         </div>
+
+        <DetailSheetFooter
+          secondary={
+            <Button
+              type="button"
+              variant="destructive-outline"
+              disabled={isDeleting ?? false}
+              onClick={() => {
+                onDelete(shown.id);
+              }}
+            >
+              <LockOpen className="size-3.5" />
+              {t.courts.unblockSlot}
+            </Button>
+          }
+        />
       </SheetContent>
     </Sheet>
   );

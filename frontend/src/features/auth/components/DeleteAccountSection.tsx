@@ -1,4 +1,4 @@
-import { DangerActionsMenu } from '@/shared/components/common/DangerActionsMenu';
+import { DangerZone } from '@/shared/components/common/DangerZone';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useState } from 'react';
@@ -13,9 +13,10 @@ export function DeleteAccountSection() {
 
   return (
     <>
-      <DangerActionsMenu
-        label={t.profile.deleteAccount}
-        onSelect={() => {
+      <DangerZone
+        description={t.profile.deleteAccountDescription}
+        actionLabel={t.profile.deleteAccount}
+        onAction={() => {
           setOpen(true);
         }}
       />

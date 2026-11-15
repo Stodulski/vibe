@@ -1,6 +1,8 @@
 import { useState } from 'react';
-import { Repeat } from 'lucide-react';
+import { Ban, CalendarX, Repeat } from 'lucide-react';
 import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
+import { Button } from '@/shared/components/ui/button';
+import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
@@ -8,7 +10,6 @@ import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
-import { FixedBlockMenu } from './booking-detail/FixedBlockMenu';
 import { SkipDateDialog } from './booking-detail/SkipDateDialog';
 import { EndSeriesDialog } from './booking-detail/EndSeriesDialog';
 import { weekdayOf } from '../lib/seriesDates';
@@ -92,10 +93,29 @@ function FixedBlockDialogs({
   );
 }
 
+/** The two cancellations: just this date (outline), or the whole turno fijo (destructive). */
+function FixedBlockFooter({ onSkip, onEnd }: { onSkip: () => void; onEnd: () => void }) {
+  return (
+    <DetailSheetFooter
+      secondary={
+        <Button type="button" variant="destructive-outline" onClick={onEnd}>
+          <CalendarX className="size-3.5" />
+          {t.bookings.series.endFromHere}
+        </Button>
+      }
+    >
+      <Button type="button" variant="outline" onClick={onSkip}>
+        <Ban className="size-3.5" />
+        {t.bookings.series.cancelOne}
+      </Button>
+    </DetailSheetFooter>
+  );
+}
+
 /**
  * What a fixed weekly booking's date offers while it has no booking yet:
  * free just this date, or cancel the whole turno fijo from it on. Laid out like
- * the booking sheet: the two cancellations sit in the header menu.
+ * the booking sheet: the two cancellations are footer buttons.
  */
 export function FixedBlockDetail({ open, onClose, block, courtName, complexId }: FixedBlockDetailProps) {
   const [endOpen, setEndOpen] = useState(false);
@@ -126,21 +146,19 @@ export function FixedBlockDetail({ open, onClose, block, courtName, complexId }:
           <DetailSheetHeader
             title={t.bookings.series.blockDetailTitle}
             subtitle={<span className="inline-block first-letter:uppercase">{formatEventDay(date)}</span>}
-            menu={
-              canCancel && (
-                <FixedBlockMenu
-                  onSkip={() => {
-                    setSkipOpen(true);
-                  }}
-                  onEnd={() => {
-                    setEndOpen(true);
-                  }}
-                />
-              )
-            }
           />
 
           <FixedBlockFacts block={shown} date={date} courtName={courtName} />
+          {canCancel && (
+            <FixedBlockFooter
+              onSkip={() => {
+                setSkipOpen(true);
+              }}
+              onEnd={() => {
+                setEndOpen(true);
+              }}
+            />
+          )}
         </SheetContent>
       </Sheet>
       <FixedBlockDialogs

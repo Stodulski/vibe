@@ -10,7 +10,6 @@ import { CategoryFacts } from './CategoryFacts';
 import { DrawControls } from './DrawControls';
 import { GroupsSection } from './GroupsSection';
 import { MatchesSection } from './MatchesSection';
-import { MoreMenu } from './MoreMenu';
 import { PairsSection } from './PairsSection';
 import { SegmentedTabs } from './SegmentedTabs';
 import { useCategoryDialogs, type CategoryDialogs } from './useCategoryDialogs';
@@ -38,7 +37,7 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
   ];
 }
 
-/** What the owner can do to the category itself: change its court fee, or cancel it from its options menu. */
+/** What the owner can do to the category itself: change its court fee, or cancel it. */
 function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
   return (
     <div className="flex shrink-0 gap-2">
@@ -53,18 +52,16 @@ function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; cour
       >
         {courtFee > 0 ? t.courtFee.edit : t.courtFee.add}
       </Button>
-      <MoreMenu
-        label={t.detail.moreCategory}
-        items={[
-          {
-            label: t.cancel.categoryAction,
-            destructive: true,
-            onSelect: () => {
-              dialogs.setCancelOpen(true);
-            },
-          },
-        ]}
-      />
+      <Button
+        type="button"
+        variant="destructive-outline"
+        size="sm"
+        onClick={() => {
+          dialogs.setCancelOpen(true);
+        }}
+      >
+        {t.cancel.categoryAction}
+      </Button>
     </div>
   );
 }

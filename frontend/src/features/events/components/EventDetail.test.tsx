@@ -76,10 +76,9 @@ async function renderDetail(event: OpenPlayEvent = EVENT, participants: OpenPlay
   return { eventsApi, user: userEvent.setup() };
 }
 
-/** The cancel lives in the header menu: open it and return its item. */
-async function openCancelItem(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
-  return screen.findByRole('menuitem', { name: t.cancel.action });
+/** The cancel is a visible button in the pinned footer. */
+async function findCancelButton() {
+  return screen.findByRole('button', { name: t.cancel.action });
 }
 
 describe('EventDetail', () => {
@@ -174,7 +173,7 @@ describe('EventDetail cancel dialog', () => {
   it('says it in two short sentences, and confirms with "Sí, cancelar evento"', async () => {
     const { user } = await renderDetail();
 
-    await user.click(await openCancelItem(user));
+    await user.click(await findCancelButton());
     const dialog = await screen.findByRole('alertdialog');
 
     const sentences = t.cancel.confirmDescriptionPaid(3).split(/(?<=\.)\s+/);
@@ -184,12 +183,13 @@ describe('EventDetail cancel dialog', () => {
     expect(within(dialog).getByRole('button', { name: 'Volver' })).toBeInTheDocument();
   });
 
-  it('keeps the cancel in the header menu as a destructive item, with no footer', async () => {
-    const { user } = await renderDetail();
+  it('shows the cancel as a destructive outline button in the footer, with no overflow menu', async () => {
+    await renderDetail();
 
+    const button = await findCancelButton();
+    expect(button).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(button.closest('[data-slot="sheet-footer"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
-    expect(document.querySelector('[data-slot="sheet-footer"]')).toBeNull();
-    expect(await openCancelItem(user)).toHaveAttribute('data-variant', 'destructive');
   });
 });
 
@@ -201,7 +201,7 @@ describe('EventDetail cancel', () => {
   it('explains that every paid participant is refunded, counting them, before cancelling', async () => {
     const { user } = await renderDetail();
 
-    await user.click(await openCancelItem(user));
+    await user.click(await findCancelButton());
 
     expect(await screen.findByText(t.cancel.confirmDescriptionPaid(1))).toBeInTheDocument();
   });
@@ -213,7 +213,7 @@ describe('EventDetail cancel', () => {
       refunds: [{ registration_id: 'r1', refund: { status: 'issued', message: 'ok', amount: 520000 } }],
     });
 
-    await user.click(await openCancelItem(user));
+    await user.click(await findCancelButton());
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
@@ -232,7 +232,7 @@ describe('EventDetail cancel', () => {
       await makeConsumedHttpError(400, { title: 'Bad Request', detail: 'el evento ya está cancelado' }),
     );
 
-    await user.click(await openCancelItem(user));
+    await user.click(await findCancelButton());
     const dialog = await screen.findByRole('alertdialog');
     await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
@@ -245,13 +245,13 @@ describe('EventDetail cancel', () => {
     await renderDetail({ ...EVENT, status: 'cancelled', cancelled_at: '2026-11-14T15:00:00Z' });
 
     expect(await screen.findByText(new RegExp(t.detail.cancelledNote))).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.cancel.action })).not.toBeInTheDocument();
   });
 
   it('offers no cancel for an event whose day is over', async () => {
     await renderDetail({ ...EVENT, date: '2020-01-02' });
 
     await screen.findByText('Americano de viernes');
-    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.cancel.action })).not.toBeInTheDocument();
   });
 });

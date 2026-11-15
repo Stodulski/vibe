@@ -67,11 +67,14 @@ describe('owner tournament layout', () => {
     expect(words.className).toContain('tabular-nums');
   });
 
-  it('names the tournament and category menus differently, in plain sight', async () => {
+  it('shows both cancellations as visible destructive outline buttons, with no options menus', async () => {
     await renderDetail(makeDetail());
-    expect(screen.getByRole('button', { name: t.detail.moreTournament })).toHaveTextContent(t.detail.moreTournament);
-    expect(screen.getByRole('button', { name: t.detail.moreCategory })).toHaveTextContent(t.detail.moreCategory);
-    expect(t.detail.moreTournament).not.toBe(t.detail.moreCategory);
+    for (const name of [t.cancel.action, t.cancel.categoryAction]) {
+      expect(screen.getByRole('button', { name })).toHaveAttribute('data-variant', 'destructive-outline');
+    }
+    expect(t.cancel.action).not.toBe(t.cancel.categoryAction);
+    expect(screen.queryByRole('button', { name: /^Opciones/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
   });
 
   it('writes the tournament days with a capital letter on their own line', async () => {
