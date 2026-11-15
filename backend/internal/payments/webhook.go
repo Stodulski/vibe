@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -436,7 +435,7 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	// that require action (refund/chargeback). Skip everything else.
 	if existingPayment != nil {
 		if existingPayment.RegistrationID != nil {
-			return s.processRecordedRegistrationPayment(existingPayment, mpPayment, mpPaymentID)
+			return s.processRecordedRegistrationPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
 		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
 			refundedBeyondRecorded(existingPayment, mpPayment) {
@@ -535,6 +534,6 @@ func refundedBeyondRecorded(payment *paymentstore.Payment, mpPayment *mp.Payment
 	// refund_amount can never exceed the row's own total (a CHECK caps it), so
 	// MercadoPago's figure is compared at most up to that total; otherwise a row
 	// that understates the charge would be routed again on every webhook.
-	refunded := min(int(math.Round(mpPayment.TransactionAmountRefunded*100)), payment.Amount+payment.ServiceFee)
+	refunded := min(refundedTotalOf(mpPayment), payment.Amount+payment.ServiceFee)
 	return refunded > payment.RefundAmount
 }

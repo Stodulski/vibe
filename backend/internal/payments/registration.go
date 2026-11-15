@@ -368,11 +368,12 @@ func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID,
 }
 
 // processRecordedRegistrationPayment is a webhook for a registration payment we
-// already recorded. A redelivery of the approval is the no-op. A refund or
+// already recorded. A redelivery of the approval is the no-op. A full refund or
 // chargeback the provider reports is either our own refund coming back to us
 // (already recorded by the refund lifecycle) or money moved from outside, which
-// nothing here may guess at: it is alerted for a person to review.
-func (s *Service) processRecordedRegistrationPayment(payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
+// nothing here may guess at: it is alerted for a person to review. A partial
+// refund made from MercadoPago's own panel is recorded.
+func (s *Service) processRecordedRegistrationPayment(ctx context.Context, payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
 	if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" {
 		if payment.Status != "refunded" {
 			s.logger.Error("mp webhook: registration payment refunded or charged back at the provider — review required",
@@ -382,7 +383,52 @@ func (s *Service) processRecordedRegistrationPayment(payment *paymentstore.Payme
 		}
 		return nil
 	}
+	if refundedBeyondRecorded(payment, mpPayment) {
+		return s.recordRegistrationPanelRefund(ctx, payment, mpPayment, mpPaymentID)
+	}
 	s.logger.Info("mp webhook: registration payment already processed, skipping",
 		"mp_payment_id", mpPaymentID, "mp_status", mpPayment.Status)
+	return nil
+}
+
+// recordRegistrationPanelRefund records a partial refund made from MercadoPago's
+// own panel on a registration payment MercadoPago still calls 'approved'. The row
+// takes the running total, the trail takes what moved this time, and the
+// registration stays as it is: money is still held for it, and whether the spot
+// goes with the refund is the owner's call, not the webhook's. Nothing is refunded
+// from here.
+//
+// The participant is not told: the only notice a registration has about its
+// money is the cancellation notice, and the spot is not cancelled.
+func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
+	// A claim of ours holds this refund: the refund lifecycle records it, as on
+	// the booking path. One refund, one owner.
+	if payment.Status == "refund_pending" {
+		s.logger.Info("mp webhook: a claim of ours already holds this registration refund, leaving the record to it",
+			"mp_payment_id", mpPaymentID, "payment_id", payment.ID)
+		return nil
+	}
+
+	movedNow := recordRefundedTotal(payment, refundedTotalOf(mpPayment))
+	payment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
+	if err := s.ledger.Update(ctx, payment); err != nil {
+		return fmt.Errorf("record the partial refund of registration payment %s: %w", mpPaymentID, err)
+	}
+
+	s.logger.Info("mp webhook: partial refund of a registration payment recorded",
+		"mp_payment_id", mpPaymentID,
+		"payment_id", payment.ID,
+		"registration_id", *payment.RegistrationID,
+		"refund_centavos", movedNow,
+		"refunded_total_centavos", payment.RefundAmount,
+	)
+	s.recordEntity(payment.ComplexID, registrationEntity, *payment.RegistrationID, providerRefundAction(mpPayment.Status), moneyEvent{
+		Actor:          actorProvider,
+		PaymentID:      &payment.ID,
+		MPPaymentID:    mpPaymentID,
+		AmountCentavos: movedNow,
+		Result:         string(paymentstore.RefundIssued),
+		Reason:         mpPayment.StatusDetail,
+	})
 	return nil
 }

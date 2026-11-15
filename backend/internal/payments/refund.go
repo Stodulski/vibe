@@ -111,7 +111,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		totalPaid = charged
 	}
 
-	refundCentavos := int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+	refundCentavos := refundedTotalOf(mpPayment)
 	if refundCentavos <= 0 {
 		// MercadoPago reports a refund with no amount on it — a chargeback, most
 		// often, where the field is not populated at all. The money is gone either
@@ -141,12 +141,11 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// refunded on the payment so far, so this instalment is the difference from what
 	// the row already holds. Reading the total as the instalment is what made the
 	// trail record a later partial refund as everything refunded to date.
-	movedNow := max(refundCentavos-payment.RefundAmount, 0)
+	movedNow := recordRefundedTotal(payment, refundCentavos)
 
 	if isFullRefund {
 		payment.Status = "refunded"
 	}
-	payment.RefundAmount = min(refundCentavos, recordedTotal)
 	payment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
 	// Only a live booking can be cancelled by this refund, so only one is announced
@@ -225,11 +224,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	announced := movedNow
-	if announced <= 0 {
-		announced = payment.RefundAmount
-	}
-	s.sendRefundNotification(ctx, booking, announced, refundKey(mpPaymentID, payment.RefundAmount))
+	s.sendRefundNotification(ctx, booking, announcedRefund(movedNow, payment), refundKey(mpPaymentID, payment.RefundAmount))
 	if cancelledByRefund {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -1445,4 +1440,34 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 	}
 
 	s.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
+}
+
+// refundedTotalOf is MercadoPago's running total refunded on a payment, in
+// centavos: transaction_amount_refunded counts every refund made so far, not
+// the one this event is about.
+func refundedTotalOf(mpPayment *mp.Payment) int {
+	return int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+}
+
+// recordRefundedTotal writes MercadoPago's running refunded total onto the row
+// and returns what this event moved: the difference from what the row already
+// held. refund_amount is capped at the row's own amount + service_fee, because
+// the payments_refund_within_amount_paid CHECK refuses anything larger and the
+// write would fail outright. Booking and registration payments share it so an
+// instalment is computed one way only.
+func recordRefundedTotal(payment *paymentstore.Payment, refundedTotal int) (movedNow int) {
+	movedNow = max(refundedTotal-payment.RefundAmount, 0)
+	payment.RefundAmount = min(refundedTotal, payment.Amount+payment.ServiceFee)
+	return movedNow
+}
+
+// announcedRefund is the figure a person is told came back: what moved on this
+// event, so a second partial refund of 300 after one of 500 reads "$300", not
+// the running total of 800. An event that moved nothing new (a chargeback with
+// no figure) falls back to the amount the row now holds.
+func announcedRefund(movedNow int, payment *paymentstore.Payment) int {
+	if movedNow > 0 {
+		return movedNow
+	}
+	return payment.RefundAmount
 }
