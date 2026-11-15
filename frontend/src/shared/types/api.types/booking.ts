@@ -54,7 +54,7 @@ export type PaymentDisplayStatus = CollectionStatus | 'outstanding' | 'refund_pe
 // its hours are over ('completed'), paid or not; until it is paid in full it
 // keeps the amber of money still to collect instead of a green "done". The
 // words stay apart: the booking status says "Se presentó", the payment status
-// says "Falta cobrar".
+// says "Pago incompleto".
 export type BookingBarStatus = BookingStatus | 'outstanding';
 
 export function bookingBarStatus(booking: {

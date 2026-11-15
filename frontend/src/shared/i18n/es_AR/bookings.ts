@@ -94,7 +94,7 @@ export const bookings = {
   paymentStatuses: {
     unpaid: 'Sin pagos',
     deposit_paid: 'Seña pagada',
-    outstanding: 'Falta cobrar',
+    outstanding: 'Pago incompleto',
     fully_paid: 'Pago completo',
     refunded: 'Reembolso total',
     refund_pending: 'Reembolso en curso',
