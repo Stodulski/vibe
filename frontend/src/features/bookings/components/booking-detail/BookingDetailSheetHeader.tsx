@@ -2,6 +2,7 @@ import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader'
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatEventDay } from '@/shared/lib/eventDates';
 import { BookingDetailMenu } from './BookingDetailMenu';
+import { usesActionsMenu } from './secondaryActions';
 import type { Booking } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -30,7 +31,7 @@ export function BookingDetailSheetHeader({
         <span className="inline-block first-letter:uppercase">{formatEventDay(booking.date.slice(0, 10))}</span>
       }
       menu={
-        (canMarkNoShow || canCancel || onEndSeries) && (
+        usesActionsMenu({ canMarkNoShow, canCancel, onEndSeries }) && (
           <BookingDetailMenu
             booking={booking}
             canMarkNoShow={canMarkNoShow}

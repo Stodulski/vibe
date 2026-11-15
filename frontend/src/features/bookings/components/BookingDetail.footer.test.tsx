@@ -40,10 +40,31 @@ describe('BookingDetail footer', () => {
     expect(button).not.toHaveClass('rounded-lg');
   });
 
-  it('has no footer when there is no positive action', async () => {
+  it('has no positive action in the footer when the booking is fully paid', async () => {
     await renderDetail(makeBooking({ status: 'confirmed', collection_status: 'fully_paid', refund_status: 'none' }));
 
-    await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel });
-    expect(document.querySelector('[data-slot="sheet-footer"]')).toBeNull();
+    await screen.findByRole('button', { name: t.cancel });
+    expect(screen.queryByRole('button', { name: t.confirmPayment })).not.toBeInTheDocument();
+  });
+
+  it('shows two secondary actions as footer buttons, with no overflow menu', async () => {
+    await renderDetail(makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none' }));
+
+    const cancel = await screen.findByRole('button', { name: t.cancel });
+    const noShow = screen.getByRole('button', { name: t.statuses.no_show });
+    expect(cancel).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(noShow).toHaveAttribute('data-variant', 'outline');
+    expect(cancel.closest('[data-slot="sheet-footer"]')).not.toBeNull();
+    expect(noShow.closest('[data-slot="sheet-footer"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+  });
+
+  it('puts a lone cancel in the footer for a pending booking', async () => {
+    await renderDetail(makeBooking({ status: 'pending', collection_status: 'fully_paid', refund_status: 'none' }));
+
+    const cancel = await screen.findByRole('button', { name: t.cancel });
+    expect(cancel.closest('[data-slot="sheet-footer"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: t.statuses.no_show })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
   });
 });

@@ -1,6 +1,5 @@
 import { useState, type ReactNode } from 'react';
 import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
-import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useBooking } from '../hooks/useBooking';
@@ -12,7 +11,7 @@ import { BookingDetailSheetHeader } from './booking-detail/BookingDetailSheetHea
 import { BookingInfoSection } from './booking-detail/BookingInfoSection';
 import { ClientInfoRow } from './booking-detail/ClientInfoRow';
 import { NotesSection } from './booking-detail/NotesSection';
-import { DetailFooterActions } from './booking-detail/DetailFooterActions';
+import { BookingDetailFooter } from './booking-detail/BookingDetailFooter';
 import { manualRefundOwed } from '../lib/manualRefundOwed';
 import type { Booking, BookingSeries, Client, Payment } from '@/shared/types/api.types';
 
@@ -57,35 +56,6 @@ function useBookingDetailState(complexId: string, open: boolean, booking: Bookin
     isDetailError,
     refetchDetail,
   };
-}
-
-function BookingDetailFooter({
-  booking,
-  canConfirmPayment,
-  canMarkManualRefund,
-  manualRefundAmount,
-  onConfirmPayment,
-  onManualRefund,
-}: {
-  booking: Booking;
-  canConfirmPayment: boolean;
-  canMarkManualRefund: boolean;
-  manualRefundAmount: number;
-  onConfirmPayment: (booking: Booking) => void;
-  onManualRefund: (booking: Booking, amount: number) => void;
-}) {
-  if (!canConfirmPayment && !canMarkManualRefund) return null;
-
-  return (
-    <DetailSheetFooter>
-      <DetailFooterActions
-        booking={booking}
-        onConfirmPayment={canConfirmPayment ? onConfirmPayment : undefined}
-        onManualRefund={canMarkManualRefund ? onManualRefund : undefined}
-        manualRefundAmount={manualRefundAmount}
-      />
-    </DetailSheetFooter>
-  );
 }
 
 interface BookingDetailProps {
@@ -138,27 +108,13 @@ function BookingDetailBody({
   isDetailPending,
   isDetailError,
   refetchDetail,
-  canMarkNoShow,
-  canCancel,
-  onNoShow,
-  onCancel,
-  canConfirmPayment,
-  canMarkManualRefund,
-  manualRefundAmount,
-  onConfirmPayment,
-  onManualRefund,
+  ...actions
 }: BookingDetailBodyProps) {
+  const isSeries = seriesDetail !== null;
+  const onEndSeries = seriesDetail?.onEnd;
   return (
     <>
-      <BookingDetailSheetHeader
-        booking={booking}
-        canMarkNoShow={canMarkNoShow}
-        canCancel={canCancel}
-        onNoShow={onNoShow}
-        onCancel={onCancel}
-        isSeries={seriesDetail !== null}
-        onEndSeries={seriesDetail?.onEnd}
-      />
+      <BookingDetailSheetHeader booking={booking} {...actions} isSeries={isSeries} onEndSeries={onEndSeries} />
 
       {/* Only the body scrolls: the header and the action footer stay put, and
           the bottom padding keeps the last row off the edge. */}
@@ -179,14 +135,7 @@ function BookingDetailBody({
         {booking.notes && <NotesSection notes={booking.notes} />}
       </div>
 
-      <BookingDetailFooter
-        booking={booking}
-        canConfirmPayment={canConfirmPayment}
-        canMarkManualRefund={canMarkManualRefund}
-        manualRefundAmount={manualRefundAmount}
-        onConfirmPayment={onConfirmPayment}
-        onManualRefund={onManualRefund}
-      />
+      <BookingDetailFooter booking={booking} {...actions} isSeries={isSeries} onEndSeries={onEndSeries} />
     </>
   );
 }

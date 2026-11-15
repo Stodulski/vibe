@@ -85,9 +85,10 @@ describe('BookingDetail — fixed weekly bookings', () => {
     });
     expect(screen.queryByText(/Turno fijo/)).not.toBeInTheDocument();
     expect(bookingSeriesApi.get).not.toHaveBeenCalled();
-    await userEvent.setup().click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
-    expect(screen.getByRole('menuitem', { name: t.cancel })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: t.series.endFromHere })).not.toBeInTheDocument();
+    // Two secondary actions are visible buttons, never a menu.
+    expect(screen.getByRole('button', { name: t.cancel })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.series.endFromHere })).not.toBeInTheDocument();
   });
 
   it('labels the cancel action as covering only this date', async () => {
