@@ -51,6 +51,9 @@ type Store interface {
 	// carries the updated_at the caller read, and answers data.ErrEditConflict
 	// when it does not.
 	UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error
+	// MarkAttended stamps attendance on a finished booking and reports whether
+	// this call wrote it; false means the row no longer qualified.
+	MarkAttended(ctx context.Context, complexID, bookingID uuid.UUID) (bool, error)
 
 	// The scheduled sweeps.
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)

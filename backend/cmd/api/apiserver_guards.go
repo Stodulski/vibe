@@ -124,6 +124,7 @@ var routeGuards = map[string]routeGuard{
 	"PUT /api/v1/complexes/{id}/bookings/{bookingID}":                                               {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel":                                       {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment":                              {kind: guardOwner, idempotentKey: "confirm-payment"},
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/attended":                                     {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund":                                {kind: guardOwner, idempotentKey: "manual-refund"},
 	"GET /api/v1/complexes/{id}/cash-session":                                                       {kind: guardOwner},
 	"GET /api/v1/complexes/{id}/cash-sessions":                                                      {kind: guardOwner},

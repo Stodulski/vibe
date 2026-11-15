@@ -225,6 +225,7 @@ func toGenBooking(b *bookingstore.Booking) gen.Booking {
 		RefundStatus:     gen.RefundStatus(b.RefundStatus),
 		ReminderSent2h:   b.ReminderSent2h,
 		SeriesId:         b.SeriesID,
+		AttendedAt:       b.AttendedAt,
 		StartTime:        b.StartTime,
 		StartsAt:         b.StartsAt,
 		Status:           gen.BookingStatus(b.Status),

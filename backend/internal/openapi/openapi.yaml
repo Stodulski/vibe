@@ -1762,6 +1762,47 @@ paths:
                 method: {type: string, enum: [cash, transfer, debit_card, credit_card, qr_wallet]}
                 amount: {type: integer, minimum: 1, maximum: 99999999, description: "Centavos ARS."}
 
+  /api/v1/complexes/{id}/bookings/{bookingID}/attended:
+    post:
+      tags: [bookings]
+      operationId: bookingsMarkAttended
+      summary: Mark that the client of a finished booking showed up
+      description: >-
+        Legal on a `confirmed` booking whose `ends_at` has passed, or a `completed` one
+        without `attended_at`: the booking becomes `completed` with `attended_at` set.
+        Marking a booking already attended is idempotent and answers `200` unchanged.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/BookingID"}
+      responses:
+        "200":
+          description: The booking as marked.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [booking]
+                properties:
+                  booking: {$ref: "#/components/schemas/Booking"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The booking's status changed before attendance could be marked.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422":
+          description: >-
+            Field `status`: the booking has not finished yet, or it is pending, cancelled
+            or a no-show.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
   /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund:
     post:
       tags: [bookings]
@@ -7647,6 +7688,13 @@ components:
           description: >-
             The fixed weekly series this booking is an occurrence of (fetch it with
             `bookingSeriesGet`). Absent or null for an ordinary booking.
+        attended_at:
+          type: [string, "null"]
+          format: date-time
+          description: >-
+            When the owner marked the client as present (`bookingsMarkAttended`). Only a
+            `completed` booking carries one; a completed booking without it finished with
+            nobody confirming attendance ("Turno finalizado").
 
     Payment:
       type: object

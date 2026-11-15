@@ -247,6 +247,7 @@ var routePolicies = map[string]policy{
 	"PUT /api/v1/complexes/{id}/bookings/{bookingID}":                                             complexOwner,
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel":                                     complexOwner,
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment":                            complexOwner,
+	"POST /api/v1/complexes/{id}/bookings/{bookingID}/attended":                                   complexOwner,
 	"POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund":                              complexOwner,
 	"GET /api/v1/complexes/{id}/clients":                                                          complexOwner,
 	"GET /api/v1/complexes/{id}/clients/{clientID}":                                               complexOwner,

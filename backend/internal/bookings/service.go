@@ -257,17 +257,10 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 			bookingstore.BookingStatusCompleted: {bookingstore.BookingStatusNoShow: true},
 			bookingstore.BookingStatusNoShow:    {},
 		}
-		statusLabels := map[bookingstore.BookingStatus]string{
-			bookingstore.BookingStatusPending:   "pendiente",
-			bookingstore.BookingStatusConfirmed: "confirmada",
-			bookingstore.BookingStatusCancelled: "cancelada",
-			bookingstore.BookingStatusCompleted: "completada",
-			bookingstore.BookingStatusNoShow:    "ausente",
-		}
 		if allowed, ok := allowedTransitions[booking.Status]; ok {
 			if !allowed[wantStatus] && wantStatus != booking.Status {
-				fromLabel := statusLabels[booking.Status]
-				toLabel := statusLabels[wantStatus]
+				fromLabel := bookingStatusLabels[booking.Status]
+				toLabel := bookingStatusLabels[wantStatus]
 				v.AddError("status", fmt.Sprintf("cannot change from '%s' to '%s'", fromLabel, toLabel))
 			}
 		}
@@ -287,6 +280,12 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		}
 
 		booking.Status = wantStatus
+		// Attendance belongs to a completed booking only
+		// (bookings_attended_only_completed); the store's write drops it the
+		// same way, and the booking answered here has to agree with the row.
+		if wantStatus != bookingstore.BookingStatusCompleted {
+			booking.AttendedAt = nil
+		}
 	}
 	if in.CollectionStatus != nil {
 		wantCollection := bookingstore.CollectionStatus(*in.CollectionStatus)
@@ -402,6 +401,74 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	s.realtime.PublishBookingChanged(complexID)
 
 	return booking, nil
+}
+
+// bookingStatusLabels names each status the way the owner's refusals spell it.
+var bookingStatusLabels = map[bookingstore.BookingStatus]string{
+	bookingstore.BookingStatusPending:   "pendiente",
+	bookingstore.BookingStatusConfirmed: "confirmada",
+	bookingstore.BookingStatusCancelled: "cancelada",
+	bookingstore.BookingStatusCompleted: "completada",
+	bookingstore.BookingStatusNoShow:    "ausente",
+}
+
+// notFinishedMessage refuses marking attendance on a booking whose hours are
+// still ahead or under way: nobody can have shown up for all of it yet.
+const notFinishedMessage = "the booking has not finished yet"
+
+// markAttendedRaceMessage is what the owner is told when the booking moved
+// between the read that allowed the mark and the write that would record it.
+const markAttendedRaceMessage = "this booking's status changed before attendance could be marked, refresh and check it"
+
+// MarkAttended records that the client of a finished booking came: the booking
+// ends 'completed' with attended_at stamped. It accepts a confirmed booking
+// whose hours are over (the completion sweep runs every 30 minutes and may not
+// have reached it) and a completed one nobody marked. A booking already marked
+// answers as it stands, so a retried request changes nothing. Any other status,
+// or hours still ahead, is a 422 on status.
+//
+// The checks on the read are what the owner is answered with; the store's
+// UPDATE decides them again on the row itself, so a cancellation or no-show
+// that commits in between is never overwritten.
+func (s *Service) MarkAttended(ctx context.Context, complexID uuid.UUID, actor Actor, bookingID uuid.UUID) (*bookingstore.Booking, error) {
+	booking, err := s.ownedBooking(ctx, complexID, bookingID)
+	if err != nil {
+		return nil, err
+	}
+
+	switch {
+	case booking.Status == bookingstore.BookingStatusCompleted && booking.AttendedAt != nil:
+		return booking, nil
+	case booking.Status != bookingstore.BookingStatusConfirmed && booking.Status != bookingstore.BookingStatusCompleted:
+		return nil, &FieldError{Field: "status", Message: fmt.Sprintf(
+			"cannot mark attendance on a booking that is '%s'", bookingStatusLabels[booking.Status])}
+	case booking.Status == bookingstore.BookingStatusConfirmed && booking.EndsAt.After(s.now()):
+		return nil, &FieldError{Field: "status", Message: notFinishedMessage}
+	}
+
+	marked, err := s.store.MarkAttended(ctx, complexID, bookingID)
+	if err != nil {
+		return nil, err
+	}
+
+	// Re-read either way: a write needs the row as it now stands (status and
+	// attended_at as the database stamped them), and no write needs telling a
+	// concurrent mark, which is this request's own outcome, from a booking
+	// that moved somewhere attendance cannot follow.
+	current, err := s.ownedBooking(ctx, complexID, bookingID)
+	if err != nil {
+		return nil, err
+	}
+	if !marked {
+		if current.Status == bookingstore.BookingStatusCompleted && current.AttendedAt != nil {
+			return current, nil
+		}
+		return nil, &ConflictError{Message: markAttendedRaceMessage}
+	}
+
+	s.record(actor, complexID, "attended", &current.ID, current)
+	s.realtime.PublishBookingChanged(complexID)
+	return current, nil
 }
 
 // unpricedSlotMessage is what both write paths tell a client who asked for a

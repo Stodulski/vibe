@@ -95,7 +95,11 @@ SET status = $2,
     refund_status = $4,
     notes = $5,
     deposit_amount = $6,
-    refund_intent_at = $7
+    refund_intent_at = $7,
+    -- An attendance mark belongs to a completed booking only
+    -- (bookings_attended_only_completed): the owner's completed -> no_show
+    -- correction drops it in the same write instead of tripping the CHECK.
+    attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
 RETURNING *;
 
@@ -116,7 +120,11 @@ SET status = $2,
     refund_status = $4,
     notes = $5,
     deposit_amount = $6,
-    refund_intent_at = $7
+    refund_intent_at = $7,
+    -- An attendance mark belongs to a completed booking only
+    -- (bookings_attended_only_completed): the owner's completed -> no_show
+    -- correction drops it in the same write instead of tripping the CHECK.
+    attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
   AND updated_at = sqlc.arg(expected_updated_at)
 RETURNING *;

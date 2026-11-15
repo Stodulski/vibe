@@ -338,6 +338,12 @@ func (s *apiServer) BookingsConfirmPayment(w http.ResponseWriter, r *http.Reques
 	s.app.bookings.ConfirmPayment(w, r)
 }
 
+// BookingsMarkAttended implements gen.ServerInterface for bookingsMarkAttended
+// (POST /api/v1/complexes/{id}/bookings/{bookingID}/attended). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsMarkAttended(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID) {
+	s.app.bookings.MarkAttended(w, r)
+}
+
 // BookingsManualRefund implements gen.ServerInterface for bookingsManualRefund
 // (POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsManualRefund(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID, params gen.BookingsManualRefundParams) {

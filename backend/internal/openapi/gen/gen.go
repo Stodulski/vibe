@@ -2919,6 +2919,9 @@ type BlockedSlot struct {
 
 // Booking defines model for Booking.
 type Booking struct {
+	// AttendedAt When the owner marked the client as present (`bookingsMarkAttended`). Only a `completed` booking carries one; a completed booking without it finished with nobody confirming attendance ("Turno finalizado").
+	AttendedAt *time.Time `json:"attended_at,omitempty"`
+
 	// ClientId Absent while a storefront booking waits for its payment: its client is created, or matched by phone, only once the payment is approved. client_name and client_phone still carry who it is for.
 	ClientId *openapi_types.UUID `json:"client_id,omitempty"`
 
@@ -6380,6 +6383,9 @@ type ServerInterface interface {
 	// BookingsUpdate Update a booking's status or notes
 	// (PUT /api/v1/complexes/{id}/bookings/{bookingID})
 	BookingsUpdate(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID)
+	// BookingsMarkAttended Mark that the client of a finished booking showed up
+	// (POST /api/v1/complexes/{id}/bookings/{bookingID}/attended)
+	BookingsMarkAttended(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID)
 	// BookingsCancel Staff-cancel a booking, refunding if money was collected
 	// (POST /api/v1/complexes/{id}/bookings/{bookingID}/cancel)
 	BookingsCancel(w http.ResponseWriter, r *http.Request, id PathID, bookingID BookingID)
@@ -7743,6 +7749,41 @@ func (siw *ServerInterfaceWrapper) BookingsUpdate(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BookingsUpdate(w, r, id, bookingID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsMarkAttended operation middleware
+func (siw *ServerInterfaceWrapper) BookingsMarkAttended(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "bookingID" -------------
+	var bookingID BookingID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "bookingID", r.PathValue("bookingID"), &bookingID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "bookingID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsMarkAttended(w, r, id, bookingID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11732,6 +11773,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsUpdate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/cancel", wrapper.BookingsCancel)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment", wrapper.BookingsConfirmPayment)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/attended", wrapper.BookingsMarkAttended)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund", wrapper.BookingsManualRefund)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions", wrapper.CashSessionsList)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/cash-sessions", wrapper.CashSessionsOpen)

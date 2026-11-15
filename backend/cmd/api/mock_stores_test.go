@@ -816,6 +816,10 @@ func (m *mockBookingStore) MarkManualBalanceOwed(context.Context, *bookingstore.
 	return nil
 }
 
+func (m *mockBookingStore) MarkAttended(context.Context, uuid.UUID, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
 func (m *mockBookingStore) GetBookedSlotsByCourtIDs(ctx context.Context, courtIDs []uuid.UUID, date time.Time) ([]bookingstore.BookedSpan, error) {
 	return nil, nil
 }

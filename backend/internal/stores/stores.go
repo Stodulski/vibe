@@ -362,6 +362,9 @@ type BookingUpdater interface {
 	// MarkManualBalanceOwed moves refund_status from 'none' to 'partial' and
 	// writes no other column.
 	MarkManualBalanceOwed(ctx context.Context, booking *bookingstore.Booking) error
+	// MarkAttended sets status 'completed' and attended_at on a finished
+	// booking nobody marked yet, and reports whether this call wrote it.
+	MarkAttended(ctx context.Context, complexID, bookingID uuid.UUID) (bool, error)
 }
 
 // BookingStatsQuerier computes dashboard and reporting aggregates over bookings.

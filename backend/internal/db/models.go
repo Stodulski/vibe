@@ -433,6 +433,7 @@ type Booking struct {
 	HoldTokenHash    []byte                           `json:"hold_token_hash"`
 	HoldIp           pgtype.Text                      `json:"hold_ip"`
 	SeriesID         pgtype.UUID                      `json:"series_id"`
+	AttendedAt       pgtype.Timestamptz               `json:"attended_at"`
 }
 
 type BookingLinkToken struct {

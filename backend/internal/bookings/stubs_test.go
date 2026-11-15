@@ -50,6 +50,9 @@ type stubStore struct {
 	// sweep can be shown surviving one row the database refuses.
 	updateErrFor func(*bookingstore.Booking) error
 
+	// markAttendedErr is what MarkAttended answers instead of writing.
+	markAttendedErr error
+
 	inserted []*bookingstore.Booking
 	updated  []*bookingstore.Booking
 
@@ -229,6 +232,29 @@ func (s *stubStore) InsertSafeWithPayment(ctx context.Context, b *bookingstore.B
 // needs a racing writer uses its own store (see racingStore).
 func (s *stubStore) UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error {
 	return s.Update(ctx, b)
+}
+
+// MarkAttended applies the real store's predicate to the stub's own row: a
+// confirmed booking whose span ended, or a completed one nobody marked yet.
+// markAttendedErr fails it the way a database error would.
+func (s *stubStore) MarkAttended(_ context.Context, complexID, bookingID uuid.UUID) (bool, error) {
+	if s.markAttendedErr != nil {
+		return false, s.markAttendedErr
+	}
+	b := s.booking
+	if b == nil || b.ID != bookingID || b.ComplexID != complexID {
+		return false, nil
+	}
+	now := time.Now()
+	ended := !b.EndsAt.After(now)
+	if (b.Status == bookingstore.BookingStatusConfirmed && ended) ||
+		(b.Status == bookingstore.BookingStatusCompleted && b.AttendedAt == nil) {
+		b.Status = bookingstore.BookingStatusCompleted
+		b.AttendedAt = &now
+		s.updated = append(s.updated, b)
+		return true, nil
+	}
+	return false, nil
 }
 
 // MarkManualBalanceOwed applies the same single-column write the real store
