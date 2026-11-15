@@ -86,6 +86,7 @@ export function CancelRegistration({ withinWindow, deadline, walkover = false, c
         title={copy.confirmTitle}
         description={description ?? ''}
         confirmLabel={t.events.cancelConfirmYes}
+        cancelLabel={t.common.back}
         variant="destructive"
         isLoading={cancel.isPending}
       />
