@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournamentMatch, PublicTournamentPair } from '../../api/types';
-import { bracketRounds, pairLookup, scheduleLabel, scoreCells, slotLabel, type PairLookup, type Slot } from './tournamentModel';
+import { bracketGrid, bracketRounds, pairLookup, scheduleLabel, scoreCells, slotLabel, type PairLookup, type Slot } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -18,7 +18,7 @@ function SlotRow({ slot, withdrawn, winner, cells }: SlotRowProps) {
       <div className={winner ? 'text-text-primary min-w-0 font-semibold' : 'text-text-secondary min-w-0'}>
         {slot.kind === 'pair' ? (
           slot.lines.map((line) => (
-            <span key={line} className="block truncate text-sm">
+            <span key={line} className="line-clamp-2 block text-sm break-words">
               {line}
             </span>
           ))
@@ -57,13 +57,16 @@ function connectorsOf(rounds: readonly { matches: readonly unknown[] }[], roundI
 
 interface BracketMatchProps {
   connectors: Connectors;
+  /** First grid row of the match and how many it spans: the share that centres it between its feeders. */
+  rowStart: number;
+  rowSpan: number;
   match: PublicTournamentMatch;
   label: string;
   pairs: PairLookup;
   groupNames: ReadonlyMap<string, string>;
 }
 
-function BracketMatch({ match, label, pairs, groupNames, connectors }: BracketMatchProps) {
+function BracketMatch({ match, label, pairs, groupNames, connectors, rowStart, rowSpan }: BracketMatchProps) {
   const side = (n: 1 | 2) => {
     const id = n === 1 ? match.pair1_id : match.pair2_id;
     const pair = id ? pairs.get(id) : undefined;
@@ -77,9 +80,13 @@ function BracketMatch({ match, label, pairs, groupNames, connectors }: BracketMa
     );
   };
   return (
-    <li aria-label={`${label}, ${t.matchLabel} ${String(match.position)}`} className="relative flex flex-1 items-center py-1.5">
+    <li
+      aria-label={`${label}, ${t.matchLabel} ${String(match.position)}`}
+      className="relative flex items-center py-1.5"
+      style={{ gridRow: `${String(rowStart)} / span ${String(rowSpan)}` }}
+    >
       {connectors.in && (
-        <span aria-hidden="true" data-bracket-connector="in" className={`${CONNECTOR} top-1/2 -left-2 w-2 border-t`} />
+        <span aria-hidden="true" data-bracket-connector="in" className={`${CONNECTOR} top-1/2 -left-3 w-3 border-t`} />
       )}
       <div className="border-border-subtle bg-bg-subtle w-full rounded-xl border">
         {side(1)}
@@ -93,7 +100,7 @@ function BracketMatch({ match, label, pairs, groupNames, connectors }: BracketMa
         <span
           aria-hidden="true"
           data-bracket-connector="out"
-          className={`${CONNECTOR} -right-2 h-1/2 w-2 border-r ${connectors.out === 'first' ? 'top-1/2 border-t' : 'bottom-1/2 border-b'}`}
+          className={`${CONNECTOR} -right-3 h-1/2 w-3 ${connectors.out === 'first' ? 'top-1/2 border-t border-r' : 'bottom-1/2 border-b border-r'}`}
         />
       )}
     </li>
@@ -109,7 +116,7 @@ interface BracketViewProps {
 
 /** A column never gets narrower than this; below it the bracket scrolls inside its card. */
 const COLUMN_MIN_REM = 9.5;
-const COLUMN_GAP_REM = 1;
+const COLUMN_GAP_REM = 1.5;
 
 interface Overflow {
   start: boolean;
@@ -156,6 +163,7 @@ export function BracketView({ matches, pairs, groupNames }: BracketViewProps) {
   const rounds = bracketRounds(matches);
   if (rounds.length === 0) return null;
   const lookup = pairLookup(pairs);
+  const grid = bracketGrid(rounds.map((round) => round.matches.length));
   const minWidth = `${String(rounds.length * COLUMN_MIN_REM + (rounds.length - 1) * COLUMN_GAP_REM)}rem`;
 
   return (
@@ -170,24 +178,41 @@ export function BracketView({ matches, pairs, groupNames }: BracketViewProps) {
         tabIndex={0}
         className="border-border-subtle max-w-full min-w-0 overflow-x-auto overscroll-x-contain rounded-xl border p-3"
       >
-        <div className="flex gap-4" style={{ minWidth }}>
-          {rounds.map((round, roundIndex) => (
-            <section key={round.round} className="flex min-w-0 flex-1 basis-0 flex-col gap-2">
-              <h4 className="text-text-secondary text-sm font-semibold">{round.label}</h4>
-              <ol className="flex flex-1 flex-col">
-                {round.matches.map((match, position) => (
-                  <BracketMatch
-                    key={match.id}
-                    match={match}
-                    label={round.label}
-                    pairs={lookup}
-                    groupNames={groupNames}
-                    connectors={connectorsOf(rounds, roundIndex, position)}
-                  />
-                ))}
-              </ol>
-            </section>
-          ))}
+        <div
+          className="grid"
+          style={{
+            minWidth,
+            columnGap: `${String(COLUMN_GAP_REM)}rem`,
+            gridTemplateColumns: `repeat(${String(rounds.length)}, minmax(0, 1fr))`,
+            gridTemplateRows: `auto repeat(${String(grid.rows)}, 1fr)`,
+          }}
+        >
+          {rounds.map((round, roundIndex) => {
+            const span = grid.spans[roundIndex] ?? 1;
+            return (
+              <section
+                key={round.round}
+                className="grid min-w-0"
+                style={{ gridRow: `1 / span ${String(grid.rows + 1)}`, gridTemplateRows: 'subgrid' }}
+              >
+                <h4 className="text-text-secondary pb-2 text-sm font-semibold">{round.label}</h4>
+                <ol className="grid" style={{ gridRow: `2 / span ${String(grid.rows)}`, gridTemplateRows: 'subgrid' }}>
+                  {round.matches.map((match, position) => (
+                    <BracketMatch
+                      key={match.id}
+                      match={match}
+                      label={round.label}
+                      pairs={lookup}
+                      groupNames={groupNames}
+                      connectors={connectorsOf(rounds, roundIndex, position)}
+                      rowStart={position * span + 1}
+                      rowSpan={span}
+                    />
+                  ))}
+                </ol>
+              </section>
+            );
+          })}
         </div>
       </div>
       {edges.start && <span aria-hidden="true" data-bracket-fade="start" className={`${FADE} left-px rounded-l-xl bg-gradient-to-r`} />}

@@ -98,6 +98,26 @@ export function bracketRounds(matches: readonly PublicTournamentMatch[]): Bracke
   }));
 }
 
+function gcd(a: number, b: number): number {
+  return b === 0 ? a : gcd(b, a % b);
+}
+
+/**
+ * The shared row grid of a bracket: every round column spans the same `rows`,
+ * and each match of a round takes `spans[round]` of them. A match then sits on
+ * the midpoint of the two matches that feed it, because their rows are exactly
+ * its rows split in half.
+ */
+export interface BracketGrid {
+  rows: number;
+  spans: number[];
+}
+
+export function bracketGrid(counts: readonly number[]): BracketGrid {
+  const rows = counts.reduce((acc, count) => (count > 0 ? (acc * count) / gcd(acc, count) : acc), 1);
+  return { rows, spans: counts.map((count) => (count > 0 ? rows / count : rows)) };
+}
+
 export type Slot =
   | { kind: 'pair'; lines: string[] }
   | { kind: 'source' | 'bye' | 'tbd'; text: string };

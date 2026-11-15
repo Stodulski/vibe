@@ -2,6 +2,7 @@
 import { describe, it, expect } from 'vitest';
 import { DETAIL, MATCHES, PAIRS, matchById } from '../../test/tournamentFixtures';
 import {
+  bracketGrid,
   bracketRounds,
   groupMatchdays,
   matchFormatLabel,
@@ -169,5 +170,17 @@ describe('scheduleLabel', () => {
     expect(
       scheduleLabel({ court_name: 'Cancha 1', date: '2026-12-12', start_time: '10:00' }),
     ).toBe('Cancha\u00a01 \u00b7 sábado 12 de diciembre \u00b7 10:00');
+  });
+});
+
+describe('bracketGrid', () => {
+  it('gives every round the same rows, each match spanning its share', () => {
+    expect(bracketGrid([4, 2, 1])).toEqual({ rows: 4, spans: [1, 2, 4] });
+    expect(bracketGrid([2, 1])).toEqual({ rows: 2, spans: [1, 2] });
+    expect(bracketGrid([1])).toEqual({ rows: 1, spans: [1] });
+  });
+
+  it('keeps rounds that do not halve on a common grid', () => {
+    expect(bracketGrid([3, 2])).toEqual({ rows: 6, spans: [2, 3] });
   });
 });
