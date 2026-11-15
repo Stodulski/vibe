@@ -3,6 +3,7 @@ import { Switch } from '@/shared/components/ui/switch';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { DeactivateCourtDialog } from '../court-card/DeactivateCourtDialog';
 import { useCourtRowActions } from '../court-card/useCourtRowActions';
 import { courtDetailsLine } from '../../lib/courtDetails';
 import { CourtDescriptionCell } from './CourtDescriptionCell';
@@ -27,8 +28,7 @@ interface CourtTableRowProps {
  * can never disagree about what either action does.
  */
 export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTableRowProps) {
-  const { deleteOpen, setDeleteOpen, handleToggleActive, isTogglePending, handleDelete, isDeleting } =
-    useCourtRowActions(court, complexId);
+  const actions = useCourtRowActions(court, complexId);
 
   return (
     <>
@@ -50,8 +50,8 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
         <TableCell>
           <Switch
             checked={court.is_active}
-            onCheckedChange={handleToggleActive}
-            disabled={isTogglePending}
+            onCheckedChange={actions.handleToggleActive}
+            disabled={actions.isTogglePending}
             aria-label={`${keepTogether(court.name)}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
           />
         </TableCell>
@@ -66,23 +66,25 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
               onPrices(court);
             }}
             onDelete={() => {
-              setDeleteOpen(true);
+              actions.setDeleteOpen(true);
             }}
           />
         </TableCell>
       </TableRow>
 
+      <DeactivateCourtDialog courtName={court.name} actions={actions} />
+
       <ConfirmDialog
-        open={deleteOpen}
+        open={actions.deleteOpen}
         onClose={() => {
-          setDeleteOpen(false);
+          actions.setDeleteOpen(false);
         }}
-        onConfirm={handleDelete}
+        onConfirm={actions.handleDelete}
         title={t.courts.delete}
         description={t.courts.deleteConfirm}
         confirmLabel={t.common.delete}
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={actions.isDeleting}
       />
     </>
   );

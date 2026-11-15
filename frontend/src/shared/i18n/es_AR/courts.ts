@@ -11,6 +11,10 @@ export const courts = {
   name: 'Nombre',
   sport: 'Deporte',
   courtType: 'Tipo de cancha',
+  deactivateTitle: (name: string) => `¿Desactivar ${name}?`,
+  deactivateConfirm:
+    'Deja de aparecer en la reserva online y en la grilla, y no se le pueden cargar reservas nuevas. Las reservas que ya tiene no se cancelan y siguen vigentes.',
+  deactivate: 'Desactivar',
   active: 'Activa',
   inactive: 'Inactiva',
   prices: 'Precios',
