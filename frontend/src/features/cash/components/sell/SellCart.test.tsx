@@ -98,3 +98,32 @@ describe('SellCart — checkout controls', () => {
     expect(screen.getByLabelText(/^Nota/)).toHaveValue('Paga el lunes');
   });
 });
+
+describe('SellCart — placement', () => {
+  const lines = [{ productId: 'p1', quantity: 2 }];
+
+  it('in the sheet pins the total, method and "Cobrar" in the sheet footer, apart from the lines', () => {
+    renderCart({ placement: 'sheet', lines, balanceLines: [] });
+
+    const footer = document.querySelector('[data-slot="sheet-footer"]');
+    expect(footer).not.toBeNull();
+    expect(footer).toContainElement(screen.getByTestId('sell-cart-total'));
+    expect(footer).toContainElement(
+      screen.getByRole('button', { name: `${t.cash.cartChargeActionPrefix} ${formatPrice(350000)}` }),
+    );
+    expect(footer).not.toContainElement(screen.getByText('Agua'));
+  });
+
+  it('in the column keeps the footer inside the panel, with no sheet footer', () => {
+    renderCart({ lines, balanceLines: [] });
+
+    expect(document.querySelector('[data-slot="sheet-footer"]')).toBeNull();
+    expect(screen.getByTestId('sell-cart')).toContainElement(screen.getByTestId('sell-cart-total'));
+  });
+
+  it('in the sheet has no footer while the cart is empty', () => {
+    renderCart({ placement: 'sheet', lines: [], balanceLines: [] });
+
+    expect(document.querySelector('[data-slot="sheet-footer"]')).toBeNull();
+  });
+});
