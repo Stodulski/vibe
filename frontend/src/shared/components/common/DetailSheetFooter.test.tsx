@@ -47,4 +47,28 @@ describe('DetailSheetFooter', () => {
     expect(footer).not.toHaveClass('sm:items-end');
     expect(footer?.className).not.toContain('sm:[&>button]:w-auto');
   });
+
+  it('puts the destructive action on the left and the primary on the right, stacked with the primary on top on mobile', () => {
+    renderFooter(
+      <DetailSheetFooter secondary={<Button variant="destructive-outline">Cancelar evento</Button>}>
+        <Button>Confirmar pago</Button>
+      </DetailSheetFooter>,
+    );
+
+    const destructive = screen.getByRole('button', { name: 'Cancelar evento' });
+    const footer = destructive.parentElement;
+    expect(destructive).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(footer).toHaveClass('px-4', 'flex-col-reverse', 'sm:flex-row', 'sm:justify-between');
+    expect(footer?.firstElementChild).toBe(destructive);
+    expect(footer?.lastElementChild).toBe(screen.getByRole('button', { name: 'Confirmar pago' }));
+  });
+
+  it('renders a lone destructive action with no primary', () => {
+    renderFooter(<DetailSheetFooter secondary={<Button variant="destructive-outline">Desbloquear</Button>} />);
+
+    expect(screen.getByRole('button', { name: 'Desbloquear' }).parentElement).toHaveAttribute(
+      'data-slot',
+      'sheet-footer',
+    );
+  });
 });

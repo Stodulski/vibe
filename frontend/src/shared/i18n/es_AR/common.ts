@@ -5,6 +5,7 @@ export const common = {
   delete: 'Eliminar',
   edit: 'Editar',
   rowActionsLabel: 'Más acciones',
+  dangerZone: 'Zona de peligro',
   create: 'Crear',
   search: 'Buscar...',
   loading: 'Cargando...',
