@@ -819,8 +819,9 @@ func TestEndingFromADateStopsHoldingAndCancelsOnlyUnpaidCreatedBookings(t *testi
 	if f.store.inserted[1].Status != bookingstore.BookingStatusCancelled || paid.Status == bookingstore.BookingStatusCancelled {
 		t.Errorf("statuses: %s / %s", f.store.inserted[1].Status, paid.Status)
 	}
-	if ser.EndsOn == nil || !ser.EndsOn.Equal(from.AddDate(0, 0, -1)) || ser.Status != bookingstore.SeriesStatusEnded {
-		t.Errorf("series = %+v, want ended the day before from_date", ser)
+	// Its last day is still ahead, so it stays active until the job ends it.
+	if ser.EndsOn == nil || !ser.EndsOn.Equal(from.AddDate(0, 0, -1)) || ser.Status != bookingstore.SeriesStatusActive {
+		t.Errorf("series = %+v, want active with its last day the day before from_date", ser)
 	}
 	if len(f.notify.cancelled) != 0 {
 		t.Error("ending a series must not message the client per booking")
@@ -832,6 +833,31 @@ func TestEndingFromADateStopsHoldingAndCancelsOnlyUnpaidCreatedBookings(t *testi
 	f.runJob(f.at(21, "00:05"))
 	if len(f.store.inserted) != 3 {
 		t.Error("an ended series must not be materialized")
+	}
+}
+
+// Ending from a later date keeps every date before it held: those are still
+// the client's, and the job still books them on their day.
+func TestEndingFromALaterDateKeepsHoldingTheDatesBeforeIt(t *testing.T) {
+	f := newSeriesFixture(t)
+	f.create(t, f.day(0), "") // booked today
+	ser := f.onlySeries(t)
+
+	from := f.day(14)
+	if w := f.end(t, f.complexID, ser.ID, from); w.Code != http.StatusOK {
+		t.Fatalf("want 200, got %d (%s)", w.Code, w.Body.String())
+	}
+	held := f.series.occurrences(nil, nil, f.day(1), from.AddDate(0, 1, 0))
+	if len(held) != 1 || held[0].Date.Format(time.DateOnly) != f.day(7).Format(time.DateOnly) {
+		t.Fatalf("want only next week's date held, got %+v", held)
+	}
+	f.runJob(f.at(7, "00:05"))
+	if len(f.store.inserted) != 2 {
+		t.Errorf("the date before from_date must still be booked on its day; got %d bookings", len(f.store.inserted))
+	}
+	f.runJob(f.at(14, "00:05"))
+	if len(f.store.inserted) != 2 {
+		t.Errorf("from_date on must not be booked; got %d bookings", len(f.store.inserted))
 	}
 }
 

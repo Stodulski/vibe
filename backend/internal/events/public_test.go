@@ -145,9 +145,12 @@ func TestSignUpReleasesTheSpotWhenTheCheckoutCannotBeCreated(t *testing.T) {
 // event starting in `startsIn`.
 func signedUpAndPaid(t *testing.T, f *fixture, age, startsIn time.Duration) string {
 	t.Helper()
-	start := time.Now().Add(startsIn)
+	// The date and the start time are both read in Argentina's zone: taking the
+	// date from the process's own clock put the event a day later whenever UTC
+	// had already rolled over (after 21:00 in Argentina), and CI runs in UTC.
+	start := time.Now().Add(startsIn).In(timezoneAR())
 	f.store.event.Date = time.Date(start.Year(), start.Month(), start.Day(), 0, 0, 0, 0, time.UTC)
-	f.store.event.StartTime = start.In(timezoneAR()).Format("15:04")
+	f.store.event.StartTime = start.Format("15:04")
 	reg := &eventstore.Registration{
 		ID: uuid.New(), EventID: f.store.event.ID, ComplexID: f.complex.ID, FirstName: "Ana", Phone: "+5491100000000",
 		Status: eventstore.RegistrationConfirmed, Price: 800_000, ServiceFee: 20_000, CreatedAt: time.Now().Add(-age),
