@@ -308,4 +308,33 @@ func TestMPAPIBaseURLIsRefusedInProduction(t *testing.T) {
 			t.Errorf("warning does not name the URL; logs: %s", logs.String())
 		}
 	})
+
+	// The override hands seller and platform tokens to whatever answers, so it
+	// is honoured only in development and only for a local fake.
+	refused := map[string]struct{ env, url string }{
+		"staging environment":    {"staging", "http://localhost:8090"},
+		"misspelled environment": {"prod", "http://localhost:8090"},
+		"remote host":            {"development", "https://mp.example.com"},
+		"credentials in the URL": {"development", "http://user:pass@localhost:8090"},
+		"not a URL":              {"development", "localhost:8090"},
+	}
+	for name, c := range refused {
+		t.Run(name+": fatal", func(t *testing.T) {
+			cfg := testConfig()
+			cfg.Env = c.env
+			cfg.MP.APIBaseURL = c.url
+			if err := validateBootConfig(cfg, slog.New(slog.NewTextHandler(io.Discard, nil))); err == nil {
+				t.Fatalf("expected a refusal for env %q url %q; got nil", c.env, c.url)
+			}
+		})
+	}
+
+	t.Run("development on 127.0.0.1: allowed", func(t *testing.T) {
+		cfg := testConfig()
+		cfg.Env = "development"
+		cfg.MP.APIBaseURL = "http://127.0.0.1:8090"
+		if err := validateBootConfig(cfg, slog.New(slog.NewTextHandler(io.Discard, nil))); err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+	})
 }

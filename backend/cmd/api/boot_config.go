@@ -31,14 +31,10 @@ import (
 // MercadoPago secret set.
 func validateBootConfig(cfg config.Config, logger *slog.Logger) error {
 	if cfg.MP.APIBaseURL != "" {
-		// Unlike the checks below this is not a missing piece but a switch
-		// that sends every payment, refund and OAuth call somewhere other
-		// than MercadoPago. Production refuses it outright, whatever else is
-		// configured; anywhere else it is said once, loudly.
-		if cfg.Env == "production" {
-			return fmt.Errorf("invalid boot configuration: mp-api-base-url/MP_API_BASE_URL must not be set in production")
+		if err := checkMPAPIBaseURL(cfg); err != nil {
+			return err
 		}
-		logger.Warn("MercadoPago calls go to a non-default base URL", "mp_api_base_url", cfg.MP.APIBaseURL)
+		logger.Warn("MercadoPago calls go to a local fake", "mp_api_base_url", cfg.MP.APIBaseURL)
 	}
 
 	var missing []string
@@ -192,4 +188,28 @@ func dsnHost(dsn string) (string, bool) {
 		return "", false
 	}
 	return u.Hostname(), true
+}
+
+// checkMPAPIBaseURL guards the switch that sends every payment, refund and
+// OAuth call somewhere other than MercadoPago. Whatever answers there receives
+// the platform token and sellers' access and refresh tokens, so it is honoured
+// only in development (not merely "not production": an unset, misspelled or
+// staging ENV must not qualify) and only for a fake on this machine.
+func checkMPAPIBaseURL(cfg config.Config) error {
+	const refusal = "invalid boot configuration: mp-api-base-url/MP_API_BASE_URL"
+	if cfg.Env != "development" {
+		return fmt.Errorf("%s is only allowed with ENV=development, got %q", refusal, cfg.Env)
+	}
+	u, err := url.Parse(cfg.MP.APIBaseURL)
+	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+		return fmt.Errorf("%s must be an http(s) URL", refusal)
+	}
+	if u.User != nil {
+		return fmt.Errorf("%s must not carry credentials", refusal)
+	}
+	switch u.Hostname() {
+	case "localhost", "127.0.0.1", "::1":
+		return nil
+	}
+	return fmt.Errorf("%s must point at localhost, 127.0.0.1 or ::1", refusal)
 }

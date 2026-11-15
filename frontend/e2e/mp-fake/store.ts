@@ -185,7 +185,8 @@ export async function sendWebhook(payment: Payment): Promise<WebhookDelivery> {
   delivery.url = url.toString();
 
   const requestID = randomUUID();
-  const ts = String(Math.floor(Date.now() / 1000));
+  // Milliseconds, as Mercado Pago documents and sends it (ts=1742505638683).
+  const ts = String(Date.now());
   const signed = `id:${dataID.toLowerCase()};request-id:${requestID};ts:${ts};`;
   const v1 = createHmac('sha256', WEBHOOK_SECRET).update(signed).digest('hex');
 
