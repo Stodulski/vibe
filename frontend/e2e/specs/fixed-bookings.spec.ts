@@ -181,16 +181,10 @@ test('"Cancelar turno fijo" ends the series from that date on', async () => {
   }
 });
 
-// PRODUCT BUG (found by this spec): ending a series from a date sets status
-// 'ended' next to the new ends_on, but booking_series_occurrences keeps only
-// `status = 'active'` series (backend/db/migrations/027_booking_series.sql:174),
-// so the dates BEFORE the one cancelled stop holding their hours too, and the
-// daily job (which reads the same function) never turns them into bookings.
-// recurring-bookings.md S6 says only the dates from `from_date` on are freed.
-// `test.fail` keeps the suite green while the bug stands and turns red the day
-// it is fixed: then drop the annotation.
+// Ending a series from a date frees only that date and the ones after it
+// (recurring-bookings.md S6): the series stays active while a date before it is
+// still to be played, so those dates keep holding their hours (029).
 test('the dates before the cancelled one keep holding their hours', async () => {
-  test.fail(true, 'booking_series_occurrences ignores an ended series even for dates up to its ends_on');
   await gotoDay(SECOND);
   await expect(fixedBlock()).toBeVisible({ timeout: 10_000 });
   await gotoDay(FIRST);
