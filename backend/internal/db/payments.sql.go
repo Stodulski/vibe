@@ -402,3 +402,59 @@ func (q *Queries) UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (P
 	)
 	return i, err
 }
+
+const updatePaymentUnlessRefundPending = `-- name: UpdatePaymentUnlessRefundPending :one
+UPDATE payments
+SET status = $1,
+    mp_payment_id = $2,
+    mp_preference_id = $3,
+    refund_amount = $4,
+    status_detail = $5
+WHERE id = $6
+  AND status <> 'refund_pending'
+RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at, registration_id
+`
+
+type UpdatePaymentUnlessRefundPendingParams struct {
+	Status         PaymentStatus `json:"status"`
+	MpPaymentID    pgtype.Text   `json:"mp_payment_id"`
+	MpPreferenceID pgtype.Text   `json:"mp_preference_id"`
+	RefundAmount   int32         `json:"refund_amount"`
+	StatusDetail   pgtype.Text   `json:"status_detail"`
+	ID             pgtype.UUID   `json:"id"`
+}
+
+// UpdatePayment for the webhook's record of a refund MercadoPago reports. The
+// webhook read the row before it asked MercadoPago, and a ClaimRefund that
+// committed meanwhile moved it to 'refund_pending': that claim owns the refund
+// from then on, so the write is refused (no row) instead of overwriting it.
+func (q *Queries) UpdatePaymentUnlessRefundPending(ctx context.Context, arg UpdatePaymentUnlessRefundPendingParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, updatePaymentUnlessRefundPending,
+		arg.Status,
+		arg.MpPaymentID,
+		arg.MpPreferenceID,
+		arg.RefundAmount,
+		arg.StatusDetail,
+		arg.ID,
+	)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.ComplexID,
+		&i.Amount,
+		&i.ServiceFee,
+		&i.Method,
+		&i.Status,
+		&i.MpPaymentID,
+		&i.MpPreferenceID,
+		&i.RefundAmount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
+		&i.RegistrationID,
+	)
+	return i, err
+}

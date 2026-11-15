@@ -161,22 +161,23 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// booking with a counter payment still cancels it as before.
 	paidElsewhere := false
 	if isFullRefund && booking.Status != bookingstore.BookingStatusCancelled {
-		var err error
 		paidElsewhere, err = s.bookingHoldsOtherMercadoPagoMoney(ctx, booking.ID, mpPaymentID)
 		if err != nil {
 			return fmt.Errorf("check the other payments of booking %s for a refunded payment: %w", booking.ID, err)
 		}
 	}
 
+	// Every branch below writes conditionally, and written says whether it did.
+	var written bool
 	switch {
 	case paidElsewhere && mpPayment.Status == "charged_back":
 		// The booking's status and refund state are written back unchanged; the write
 		// is for the chargeback note added above.
-		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the chargeback of payment %s on a booking paid by another: %w", mpPaymentID, err)
 		}
 	case paidElsewhere:
-		if err := s.ledger.Update(ctx, payment); err != nil {
+		if written, err = s.ledger.UpdateUnlessRefundPending(ctx, payment); err != nil {
 			return fmt.Errorf("record the refund of payment %s on a booking paid by another: %w", mpPaymentID, err)
 		}
 	case isFullRefund && booking.Status != "completed" && booking.Status != "no_show":
@@ -184,7 +185,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
 		booking.Status = "cancelled"
 		booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
 		cancelledByRefund = wasLive
@@ -192,14 +193,28 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
 			booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-			if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+			if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 				return fmt.Errorf("record the refund of payment %s on a played booking: %w", mpPaymentID, err)
 			}
 		} else {
-			if err := s.ledger.Update(ctx, payment); err != nil {
+			if written, err = s.ledger.UpdateUnlessRefundPending(ctx, payment); err != nil {
 				return fmt.Errorf("record the partial refund of payment %s: %w", mpPaymentID, err)
 			}
 		}
+	}
+
+	// The row was read before MercadoPago was asked about it. A claim of ours that
+	// committed in between moved it to 'refund_pending', and the write above was
+	// refused rather than overwrite that: the claim owns the refund, the same as
+	// when the guard at the top of this function sees refund_pending. Nothing was
+	// written, so nothing is announced, published or recorded.
+	if !written {
+		s.logger.Info("mp webhook: a claim of ours took this refund while the webhook was reading it, leaving the record to it",
+			"mp_payment_id", mpPaymentID,
+			"booking_id", payment.BookingID,
+			"mp_status", mpPayment.Status,
+		)
+		return nil
 	}
 
 	s.realtime.PublishBookingChanged(booking.ComplexID)

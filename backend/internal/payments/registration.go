@@ -411,9 +411,18 @@ func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *pa
 
 	movedNow := recordRefundedTotal(payment, refundedTotalOf(mpPayment))
 	payment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
-	if err := s.ledger.Update(ctx, payment); err != nil {
+	written, err := s.ledger.UpdateUnlessRefundPending(ctx, payment)
+	if err != nil {
 		return fmt.Errorf("record the partial refund of registration payment %s: %w", mpPaymentID, err)
 	}
+	// A claim that committed after the row was read owns the refund now, as in the
+	// guard above: the write was refused, and nothing is recorded or published.
+	if !written {
+		s.logger.Info("mp webhook: a claim of ours took this registration refund while the webhook was reading it, leaving the record to it",
+			"mp_payment_id", mpPaymentID, "payment_id", payment.ID)
+		return nil
+	}
+	s.realtime.PublishBookingChanged(payment.ComplexID)
 
 	s.logger.Info("mp webhook: partial refund of a registration payment recorded",
 		"mp_payment_id", mpPaymentID,

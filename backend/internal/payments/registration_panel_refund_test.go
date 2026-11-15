@@ -68,6 +68,22 @@ func TestAPartialPanelRefundOnARegistrationPaymentIsRecorded(t *testing.T) {
 	}
 }
 
+// S1i: recording the panel refund pushes the change to the owner's open screens,
+// the way every other registration write does, so an open participant list shows
+// the refund without a reload.
+func TestAPartialPanelRefundOnARegistrationIsPublished(t *testing.T) {
+	f, reg, paid, _ := registrationFixture(t)
+	f.payments.byMPID = recordedRegistrationPayment(reg, "deposit_paid", 0)
+	f.provider.payment = panelRefund(paid, 2000)
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.realtime.published) != 1 || f.realtime.published[0] != reg.ComplexID {
+		t.Errorf("want one change published for complex %s; got %v", reg.ComplexID, f.realtime.published)
+	}
+}
+
 // A second partial refund records the new running total on the row and only the
 // difference as what moved.
 func TestASecondPanelRefundOnARegistrationRecordsOnlyTheDifference(t *testing.T) {

@@ -648,6 +648,11 @@ type Querier interface {
 	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error)
 	UpdateCourtPrice(ctx context.Context, arg UpdateCourtPriceParams) (CourtPrice, error)
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (Payment, error)
+	// UpdatePayment for the webhook's record of a refund MercadoPago reports. The
+	// webhook read the row before it asked MercadoPago, and a ClaimRefund that
+	// committed meanwhile moved it to 'refund_pending': that claim owns the refund
+	// from then on, so the write is refused (no row) instead of overwriting it.
+	UpdatePaymentUnlessRefundPending(ctx context.Context, arg UpdatePaymentUnlessRefundPendingParams) (Payment, error)
 	// expected_version is the caller's optimistic-concurrency precondition and is
 	// optional (API-08): NULL is last-write-wins. Zero rows means either the
 	// product is gone or somebody else wrote it first; products/store.Store.Update

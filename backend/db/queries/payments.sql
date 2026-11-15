@@ -36,6 +36,21 @@ SET status = $1,
 WHERE id = $6
 RETURNING *;
 
+-- name: UpdatePaymentUnlessRefundPending :one
+-- UpdatePayment for the webhook's record of a refund MercadoPago reports. The
+-- webhook read the row before it asked MercadoPago, and a ClaimRefund that
+-- committed meanwhile moved it to 'refund_pending': that claim owns the refund
+-- from then on, so the write is refused (no row) instead of overwriting it.
+UPDATE payments
+SET status = $1,
+    mp_payment_id = $2,
+    mp_preference_id = $3,
+    refund_amount = $4,
+    status_detail = $5
+WHERE id = $6
+  AND status <> 'refund_pending'
+RETURNING *;
+
 -- name: MarkPaymentManuallyRefunded :one
 -- Written by applyManualRefundRows (internal/payments/store/refunds.go),
 -- once per unrefunded cash/transfer row a manual refund closes out, in the

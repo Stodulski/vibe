@@ -488,6 +488,10 @@ type PaymentWriter interface {
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	Update(ctx context.Context, payment *paymentstore.Payment) error
+	// UpdateUnlessRefundPending and RecordWebhookRefund are the webhook's refund
+	// writes; see payments.PaymentWriter.
+	UpdateUnlessRefundPending(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
+	RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (written bool, err error)
 }
 
 // PaymentRefunder runs the refund lifecycle: claim, then call the provider, then

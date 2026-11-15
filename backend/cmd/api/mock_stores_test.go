@@ -1175,6 +1175,22 @@ func (m *mockPaymentStore) Update(ctx context.Context, payment *paymentstore.Pay
 	return nil
 }
 
+// UpdateUnlessRefundPending and RecordWebhookRefund always write here, through
+// the same hooks as Update and ConfirmWebhookPayment.
+func (m *mockPaymentStore) UpdateUnlessRefundPending(ctx context.Context, payment *paymentstore.Payment) (bool, error) {
+	if err := m.Update(ctx, payment); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+func (m *mockPaymentStore) RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (bool, error) {
+	if err := m.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 // The refund lifecycle. Each default refuses rather than succeeding: a mock that
 // silently reports a refund done is how a broken money path passes its tests.
 func (m *mockPaymentStore) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
