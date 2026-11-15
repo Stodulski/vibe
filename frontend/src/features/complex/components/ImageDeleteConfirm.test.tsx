@@ -14,7 +14,7 @@ async function openDialog() {
 describe('ImageDeleteConfirm', () => {
   it('confirms deletion with the destructive variant', async () => {
     await openDialog();
-    expect(screen.getByRole('button', { name: 'Eliminar', exact: true })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: /^Eliminar$/ })).toHaveAttribute(
       'data-variant',
       'destructive',
     );
@@ -22,7 +22,7 @@ describe('ImageDeleteConfirm', () => {
 
   it('calls onConfirm when the owner confirms', async () => {
     const { user, onConfirm } = await openDialog();
-    await user.click(screen.getByRole('button', { name: 'Eliminar', exact: true }));
+    await user.click(screen.getByRole('button', { name: /^Eliminar$/ }));
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
