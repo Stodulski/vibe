@@ -33,8 +33,9 @@ export const faq: FaqItem[] = [
     anim: 'anim-d2',
     question: '¿Vibe es solo para reservas?',
     answer: 'No. Reservas online con seña, cobros en el mostrador, caja por turno con arqueo, venta de '
-      + 'productos con stock y reportes con Excel. Todo en el mismo panel, sin pasar datos de un lado a '
-      + 'otro.',
+      + 'productos con stock y reportes con Excel. También turnos fijos semanales, canchas libres con '
+      + 'inscripción y torneos con cuadro y resultados. Todo en el mismo panel, sin pasar datos de un lado '
+      + 'a otro.',
   },
   {
     anim: 'anim-d3',

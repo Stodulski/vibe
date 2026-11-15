@@ -49,7 +49,11 @@ export const homeJsonLd: string[] = [
       "Reporte mensual con exportación a Excel",
       "Reservas online 24/7 con página pública del complejo",
       "Cobro de señas con MercadoPago y reembolso automático",
-      "Precios por cancha, día y franja horaria"
+      "Precios por cancha, día y franja horaria",
+      "Turnos fijos semanales",
+      "Canchas libres con inscripción y pago online",
+      "Torneos con inscripción, cuadro y resultados",
+      "Asistencia de cada turno"
     ],
     "author": ${JSON.stringify(ORGANIZATION_REF)},
     "publisher": ${JSON.stringify(ORGANIZATION_REF)},

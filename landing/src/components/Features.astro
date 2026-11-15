@@ -6,7 +6,7 @@ import Screenshot from './Screenshot.astro';
  <div class="container">
   <div class="features-header">
    <div class="section-label anim">Módulos</div>
-   <h2 class="section-title anim anim-d1">Cinco módulos. Un panel.<br><em>$0 para tu complejo.</em></h2>
+   <h2 class="section-title anim anim-d1">Ocho módulos. Un panel.<br><em>$0 para tu complejo.</em></h2>
    <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar. Y lo que hoy hacés a mano, pasa solo.</p>
   </div>
 
@@ -16,7 +16,7 @@ import Screenshot from './Screenshot.astro';
     <div class="ft-stack">
      <!-- Decorative-only clone of Vender (2nd-to-last), so the Reportes wrap-target clone
           right after it has something to peek at on its own left during the transition. -->
-     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="decorative" aria-hidden="true">
+     <div class="ft-block ft-block--clone" data-clone="decorative" aria-hidden="true">
       <div class="ft-block-text">
        <h3>El bar, con el stock siempre al día</h3>
        <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
@@ -35,7 +35,7 @@ import Screenshot from './Screenshot.astro';
 
      <!-- Loop clone of the last slide (Reportes), peeks on the left of slide 1 — this is
           the one goToFeature actually animates onto when wrapping backward from slide 1. -->
-     <div class="ft-block ft-block--clone" data-clone="before" aria-hidden="true">
+     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="before" aria-hidden="true">
       <div class="ft-block-text">
        <h3>El mes, cerrado solo</h3>
        <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
@@ -56,7 +56,7 @@ import Screenshot from './Screenshot.astro';
      <div class="ft-block active" aria-current="true">
       <div class="ft-block-text">
        <h3>Reservas que entran solas, a cualquier hora</h3>
-       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña con MercadoPago al reservar.</p>
+       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña o el total con Mercado Pago al reservar.</p>
        <ul class="ft-bullets">
         <li>Sin app ni registro para el que reserva</li>
         <li>Nunca dos reservas en el mismo turno</li>
@@ -88,8 +88,62 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 3: Caja -->
+     <!-- Feature 3: Turnos fijos -->
      <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>El turno de todas las semanas, cargado una vez</h3>
+       <p>Cargás el turno fijo de un cliente y Vibe lo reserva cada semana. La cancha queda tomada en la grilla.</p>
+       <ul class="ft-bullets">
+        <li>Cancelás una fecha sin tocar las demás</li>
+        <li>Terminás el turno fijo desde la fecha que elijas</li>
+        <li>Cada fecha se cobra como una reserva más</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="turnos-fijos" alt="Grilla de reservas de Vibe con un turno fijo semanal que ocupa la misma cancha y el mismo horario cada semana" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 4: Canchas libres (reversed) -->
+     <div class="ft-block ft-block--reverse">
+      <div class="ft-block-text">
+       <h3>Canchas libres para que se armen partidos</h3>
+       <p>Publicás un horario con las canchas que quieras y los jugadores se anotan desde tu página. Pagan al anotarse con Mercado Pago.</p>
+       <ul class="ft-bullets">
+        <li>Elegís cupo, precio y canchas</li>
+        <li>Esas canchas quedan bloqueadas para otras reservas</li>
+        <li>Si cancelás, a cada uno le vuelve lo que pagó</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="canchas-libres" alt="Cancha libre publicada en Vibe con su horario, sus canchas, el cupo y la lista de jugadores anotados" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 5: Torneos -->
+     <div class="ft-block">
+      <div class="ft-block-text">
+       <h3>Torneos con inscripción, cuadro y resultados</h3>
+       <p>Armás las categorías, las parejas se inscriben y pagan desde tu página, y Vibe arma el cuadro.</p>
+       <ul class="ft-bullets">
+        <li>Zonas y eliminación directa</li>
+        <li>Cada partido ocupa su cancha en la grilla</li>
+        <li>Los jugadores siguen el cuadro y los resultados desde tu página</li>
+       </ul>
+      </div>
+      <div class="ft-block-visual">
+       <div class="browser-frame">
+        <Screenshot name="torneos-cuadro" alt="Cuadro de un torneo en Vibe con las zonas, los partidos de eliminación directa y sus resultados" />
+       </div>
+      </div>
+     </div>
+
+     <!-- Feature 6: Caja (reversed) -->
+     <div class="ft-block ft-block--reverse">
       <div class="ft-block-text">
        <h3>Una caja que cierra</h3>
        <p>Abrís el turno con el efectivo del cajón. Al cerrar, Vibe ya hizo la cuenta.</p>
@@ -106,8 +160,8 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 4: Vender (reversed) -->
-     <div class="ft-block ft-block--reverse">
+     <!-- Feature 7: Vender -->
+     <div class="ft-block">
       <div class="ft-block-text">
        <h3>El bar, con el stock siempre al día</h3>
        <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
@@ -124,8 +178,8 @@ import Screenshot from './Screenshot.astro';
       </div>
      </div>
 
-     <!-- Feature 5: Reportes -->
-     <div class="ft-block">
+     <!-- Feature 8: Reportes (reversed) -->
+     <div class="ft-block ft-block--reverse">
       <div class="ft-block-text">
        <h3>El mes, cerrado solo</h3>
        <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
@@ -147,7 +201,7 @@ import Screenshot from './Screenshot.astro';
      <div class="ft-block ft-block--clone" data-clone="after" aria-hidden="true">
       <div class="ft-block-text">
        <h3>Reservas que entran solas, a cualquier hora</h3>
-       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña con MercadoPago al reservar.</p>
+       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña o el total con Mercado Pago al reservar.</p>
        <ul class="ft-bullets">
         <li>Sin app ni registro para el que reserva</li>
         <li>Nunca dos reservas en el mismo turno</li>
@@ -187,6 +241,9 @@ import Screenshot from './Screenshot.astro';
   <div class="ft-dots">
    <button type="button" class="ft-dot active" aria-current="true" aria-label="Ir a: Reservas que entran solas, a cualquier hora"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: Lo que falta, cobralo en el mostrador"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: El turno de todas las semanas, cargado una vez"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Canchas libres para que se armen partidos"></button>
+   <button type="button" class="ft-dot" aria-label="Ir a: Torneos con inscripción, cuadro y resultados"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: Una caja que cierra"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: El bar, con el stock siempre al día"></button>
    <button type="button" class="ft-dot" aria-label="Ir a: El mes, cerrado solo"></button>
