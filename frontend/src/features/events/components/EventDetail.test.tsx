@@ -241,6 +241,12 @@ describe('EventDetail cancel', () => {
     });
   });
 
+  it('dates the cancellation in the long form every other date of the detail uses', async () => {
+    await renderDetail({ ...EVENT, status: 'cancelled', cancelled_at: '2026-11-14T15:00:00Z' });
+
+    expect(await screen.findByText('Cancelado el sábado 14 de noviembre')).toBeInTheDocument();
+  });
+
   it('offers no cancel for an event that is already cancelled', async () => {
     await renderDetail({ ...EVENT, status: 'cancelled', cancelled_at: '2026-11-14T15:00:00Z' });
 

@@ -8,7 +8,7 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateShort, formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
+import { formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { todayInArgentina } from '@/shared/lib/today';
@@ -37,7 +37,7 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
         <div className="text-error-text flex flex-col gap-0.5 text-sm">
           <p>{t.detail.cancelledNote}</p>
           <p>{t.detail.cancelledFreeCourts}</p>
-          {event.cancelled_at && <p>{t.detail.cancelledAt(formatDateShort(event.cancelled_at))}</p>}
+          {event.cancelled_at && <p>{t.detail.cancelledAt(formatEventDay(event.cancelled_at))}</p>}
         </div>
       )}
       <InfoRow label={t.detail.time}>

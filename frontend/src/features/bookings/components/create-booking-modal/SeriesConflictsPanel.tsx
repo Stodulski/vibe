@@ -133,7 +133,7 @@ function OccupiedDays({
       <h4 id={listId} className="text-text-primary text-sm font-medium">
         {s.occupiedDaysTitle(court)}
       </h4>
-      <ul aria-labelledby={listId} className="max-h-72 space-y-2 overflow-y-auto">
+      <ul aria-labelledby={listId} className="space-y-2">
         {conflicts.map((conflict) => (
           <DayChoice
             key={conflict.date}
