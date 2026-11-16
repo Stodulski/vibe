@@ -20,7 +20,7 @@ describe('translateServerError', () => {
       ES_AR.courts.deleteHasActiveBookings,
     );
     expect(
-      translateServerError('cannot delete court while it has an open-play event (canchas libres), cancel it first'),
+      translateServerError('cannot delete court while it has an open-play event (canchas abiertas), cancel it first'),
     ).toBe(ES_AR.courts.deleteHasOpenPlay);
     expect(translateServerError('client is blocked, cannot create booking')).toBe(ES_AR.bookings.clientBlocked);
   });

@@ -14,7 +14,7 @@ const OPTIONS: { value: UpcomingPast; label: string }[] = [
 
 /**
  * Próximos / Pasados, as two toggle buttons that share the width on a phone.
- * One switch for every list that splits by time (canchas libres, torneos), so
+ * One switch for every list that splits by time (canchas abiertas, torneos), so
  * the same choice is never drawn two ways. 40px tall: the buttons are the
  * control, not a decoration, and 32px is under a comfortable touch target.
  */

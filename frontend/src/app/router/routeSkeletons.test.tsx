@@ -10,8 +10,7 @@ function html(node: ReactNode) {
 const CASES = [
   ['/dashboard', '/dashboard'],
   ['/bookings', '/bookings'],
-  ['/events/open-play', '/events/open-play'],
-  ['/events/tournaments', '/events/tournaments'],
+  ['/events', '/events'],
   ['/events/tournaments/t-1', '/events/tournaments/:tournamentId'],
   ['/cash', '/cash'],
   ['/cash/sell', '/cash/sell'],
@@ -36,14 +35,6 @@ describe('skeletonForPath', () => {
     const rendered = new Set(CASES.map(([, pattern]) => html(routeSkeleton(pattern))));
     expect(rendered.size).toBe(CASES.length);
   });
-
-  it.each(['/events/open-play', '/events/tournaments'] as const)(
-    '%s skeleton carries the events tab bar',
-    (pattern) => {
-      const { container } = render(<>{routeSkeleton(pattern)}</>);
-      expect(container.querySelectorAll('.border-b .h-11')).toHaveLength(2);
-    },
-  );
 
   it('tolerates a trailing slash', () => {
     expect(html(skeletonForPath('/cash/'))).toBe(html(routeSkeleton('/cash')));

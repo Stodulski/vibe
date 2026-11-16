@@ -2375,7 +2375,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
             titulo: 'Creá el turno fijo',
             texto:
               'Tocá Crear turno fijo. Si la cancha ya está ocupada algún día, Vibe te muestra esos días y '
-              + 'elegís, para cada uno, si no se reserva o si ese turno va en otra cancha libre.',
+              + 'elegís, para cada uno, si no se reserva o si ese turno va en otra cancha abierta.',
             imagen: {
               src: '/tutoriales/pasos/turnos-fijos/04-crear-turno-fijo',
               alt: 'Botón Crear turno fijo en el último paso de Nueva reserva, marcado con el número 4.',
@@ -2463,7 +2463,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         question: '¿Qué pasa si la cancha ya está ocupada alguna semana?',
         answer:
           'Al crearlo, Vibe te muestra los días ocupados y elegís para cada uno si no se reserva o si ese '
-          + 'turno va en otra cancha libre. Si el turno fijo no tiene fecha de fin, revisa las fechas del '
+          + 'turno va en otra cancha abierta. Si el turno fijo no tiene fecha de fin, revisa las fechas del '
           + 'próximo año.',
       },
       {
@@ -2478,23 +2478,23 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           'No. Las fechas de un turno fijo no le mandan una confirmación de reserva por semana.',
       },
     ],
-    relacionados: ['grilla-de-reservas', 'cancelar-una-reserva-y-devolver', 'base-de-clientes', 'canchas-libres'],
+    relacionados: ['grilla-de-reservas', 'cancelar-una-reserva-y-devolver', 'base-de-clientes', 'canchas-abiertas'],
     guia: {
       slug: 'como-llenar-los-horarios-vacios-de-un-complejo',
       texto: 'Cómo llenar los horarios vacíos de un complejo',
     },
   },
   {
-    slug: 'canchas-libres',
-    title: 'Canchas libres: publicá un horario y que los jugadores se anoten',
-    seoTitle: 'Canchas libres con inscripción y pago online | Vibe',
+    slug: 'canchas-abiertas',
+    title: 'Canchas abiertas: publicá un horario y que los jugadores se anoten',
+    seoTitle: 'Canchas abiertas con inscripción y pago online | Vibe',
     metaDescription:
-      'Cómo publicar canchas libres en Vibe: elegís canchas, cupo y precio por persona, los jugadores '
+      'Cómo publicar canchas abiertas en Vibe: elegís canchas, cupo y precio por persona, los jugadores '
       + 'se anotan y pagan desde tu página, y si cancelás se les devuelve.',
     excerpt: 'Publicás un horario con cupo y precio, los jugadores se anotan y pagan desde tu página, y ves quién viene.',
     datePublished: '2026-11-16',
     respuesta:
-      'Canchas libres es un evento con horario, canchas, cupo y precio por persona. Lo creás en '
+      'Canchas abiertas es un evento con horario, canchas, cupo y precio por persona. Lo creás en '
       + 'Eventos, y las canchas que elegís quedan bloqueadas para otras reservas durante ese horario. El '
       + 'evento aparece en tu página: cada jugador se anota con sus datos y paga su lugar con Mercado '
       + 'Pago. En el detalle del evento ves quién se anotó y quién pagó. Si cancelás el evento, las '
@@ -2510,13 +2510,13 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           {
             titulo: 'Tocá Crear evento',
             texto:
-              'En la pestaña Canchas libres, tocá Crear evento.',
+              'En la pestaña Canchas abiertas, tocá Crear evento.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/01-crear-evento',
-              alt: 'Botón Crear evento en la pestaña Canchas libres de Eventos, marcado con el número 1.',
+              src: '/tutoriales/pasos/canchas-abiertas/01-crear-evento',
+              alt: 'Botón Crear evento en la pestaña Canchas abiertas de Eventos, marcado con el número 1.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-01-crear-evento', width: 342, height: 125 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-01-crear-evento', width: 342, height: 125 },
             },
           },
           {
@@ -2525,11 +2525,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               'Escribí el nombre del evento, por ejemplo Americano de los sábados, y elegí el deporte, la fecha'
               + ' y el horario, desde y hasta. Un evento dura entre 30 minutos y 12 horas.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/02-nombre-fecha-horario',
+              src: '/tutoriales/pasos/canchas-abiertas/02-nombre-fecha-horario',
               alt: 'Campos Nombre del evento, Deporte, Fecha, Desde y Hasta del formulario Crear evento, marcados con el número 2.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-02-nombre-fecha-horario', width: 517, height: 361 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-02-nombre-fecha-horario', width: 517, height: 361 },
             },
           },
           {
@@ -2538,11 +2538,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               'Viene marcado Todas las canchas. Si querés usar solo algunas, desmarcalo y elegí cuáles. Durante'
               + ' el evento, esas canchas no reciben reservas.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/03-canchas',
+              src: '/tutoriales/pasos/canchas-abiertas/03-canchas',
               alt: 'Lista de canchas con Pádel 3 y Pádel 4 elegidas en Crear evento, marcada con el número 3.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-03-canchas', width: 517, height: 207 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-03-canchas', width: 517, height: 207 },
             },
           },
           {
@@ -2551,11 +2551,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               'En Cupo ponés cuántas personas se pueden anotar. En Precio por persona, lo que paga cada una por'
               + ' su lugar. El costo del servicio de pago se suma aparte.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/04-cupo-y-precio',
+              src: '/tutoriales/pasos/canchas-abiertas/04-cupo-y-precio',
               alt: 'Campos Cupo y Precio por persona de Crear evento, marcados con el número 4.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-04-cupo-y-precio', width: 517, height: 155 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-04-cupo-y-precio', width: 517, height: 155 },
             },
           },
           {
@@ -2564,38 +2564,38 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               'Tocá Crear evento. Si alguna cancha ya tiene una reserva, un bloqueo, un turno fijo u otro '
               + 'evento en ese horario, Vibe te dice en cuál, para que cambies el horario o la saques del evento.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/05-crear',
+              src: '/tutoriales/pasos/canchas-abiertas/05-crear',
               alt: 'Botón Crear evento al pie del formulario, marcado con el número 5.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-05-crear', width: 364, height: 147 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-05-crear', width: 364, height: 147 },
             },
           },
           {
             titulo: 'Mirá las canchas tomadas en la grilla',
             texto:
-              'En Reservas, ese día cada cancha del evento muestra Canchas libres con el nombre del evento y el'
+              'En Reservas, ese día cada cancha del evento muestra Canchas abiertas con el nombre del evento y el'
               + ' horario. Nadie puede reservarlas en ese horario.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/06-en-la-grilla',
-              alt: 'Bloques Canchas libres de un evento en las columnas de Pádel 3 y Pádel 4 de la grilla, marcados con el número 6.',
+              src: '/tutoriales/pasos/canchas-abiertas/06-en-la-grilla',
+              alt: 'Bloques Canchas abiertas de un evento en las columnas de Pádel 3 y Pádel 4 de la grilla, marcados con el número 6.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-06-en-la-grilla', width: 464, height: 177 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-06-en-la-grilla', width: 464, height: 177 },
             },
           },
           {
             titulo: 'Los jugadores se anotan desde tu página',
             texto:
-              'El evento aparece en tu página, en Canchas libres, con la fecha, el horario y las canchas. Cada '
+              'El evento aparece en tu página, en Canchas abiertas, con la fecha, el horario y las canchas. Cada '
               + 'jugador toca Inscribirme, carga su nombre, apellido y teléfono, y paga su lugar con Mercado '
               + 'Pago.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/07-pagina-publica',
+              src: '/tutoriales/pasos/canchas-abiertas/07-pagina-publica',
               alt: 'Página pública de un evento con la fecha, el horario, el nombre y las canchas, marcada con el número 7.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-07-pagina-publica', width: 419, height: 327 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-07-pagina-publica', width: 419, height: 327 },
             },
           },
           {
@@ -2604,11 +2604,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               'Tocá el evento en Eventos. El detalle muestra el horario, las canchas, el cupo y la lista de '
               + 'participantes, con el teléfono de cada uno y si ya pagó.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/08-participantes',
+              src: '/tutoriales/pasos/canchas-abiertas/08-participantes',
               alt: 'Participantes de un evento con el primer jugador y la marca Pagó, marcados con el número 8.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-08-participantes', width: 518, height: 159 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-08-participantes', width: 518, height: 159 },
             },
           },
           {
@@ -2618,11 +2618,11 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
               + 'libres y a cada persona que pagó se le devuelve todo por Mercado Pago, servicio incluido. Si '
               + 'dejó un email, le llega el aviso.',
             imagen: {
-              src: '/tutoriales/pasos/canchas-libres/09-cancelar-evento',
+              src: '/tutoriales/pasos/canchas-abiertas/09-cancelar-evento',
               alt: 'Botón Sí, cancelar evento del diálogo Cancelar el evento, marcado con el número 9.',
               width: 1440,
               height: 900,
-              recorte: { src: '/tutoriales/pasos/canchas-libres/zoom-09-cancelar-evento', width: 496, height: 205 },
+              recorte: { src: '/tutoriales/pasos/canchas-abiertas/zoom-09-cancelar-evento', width: 496, height: 205 },
             },
           },
         ],
@@ -2869,7 +2869,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           + 'cargado.',
       },
     ],
-    relacionados: ['canchas-libres', 'grilla-de-reservas', 'turnos-fijos'],
+    relacionados: ['canchas-abiertas', 'grilla-de-reservas', 'turnos-fijos'],
   },
   {
     slug: 'agregar-y-editar-canchas',
@@ -3001,7 +3001,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
             titulo: 'Eliminala si ya no la usás',
             texto:
               'En los tres puntos, tocá Eliminar y confirmá. No se puede deshacer. Si la cancha tiene reservas,'
-              + ' canchas libres o turnos fijos por delante, Vibe no la deja eliminar hasta que los canceles.',
+              + ' canchas abiertas o turnos fijos por delante, Vibe no la deja eliminar hasta que los canceles.',
             imagen: {
               src: '/tutoriales/pasos/agregar-y-editar-canchas/09-eliminar',
               alt: 'Botón Eliminar del aviso Eliminar cancha, marcado con el número 9.',
@@ -3027,7 +3027,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         answer:
           'Desactivarla la saca de tu página y de la grilla por un tiempo, y la volvés a activar con el '
           + 'mismo interruptor. Sus reservas siguen vigentes. Eliminarla la saca para siempre, y solo se '
-          + 'puede si no tiene reservas, canchas libres ni turnos fijos por delante.',
+          + 'puede si no tiene reservas, canchas abiertas ni turnos fijos por delante.',
       },
       {
         question: '¿Puedo cerrar un horario de una cancha sin desactivarla?',
@@ -3054,7 +3054,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     datePublished: '2026-11-16',
     respuesta:
       'Bloquear a un cliente cuida tus horarios: mientras esté bloqueado, no puede reservar online ni '
-      + 'anotarse en canchas libres o torneos desde tu página. Lo hacés desde Clientes, en los tres '
+      + 'anotarse en canchas abiertas o torneos desde tu página. Lo hacés desde Clientes, en los tres '
       + 'puntos de su fila, con Bloquear. Si intenta pagar una reserva, la página le pide que se '
       + 'comunique con el complejo. Las reservas que ya tenía siguen igual. Para levantar el bloqueo, '
       + 'tocás Desbloquear en el mismo menú.',
@@ -3181,7 +3181,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
       {
         question: '¿Al cliente le llega un aviso cuando lo bloqueo?',
         answer:
-          'No. Lo ve recién si intenta reservar online o anotarse en canchas libres o un torneo: la página '
+          'No. Lo ve recién si intenta reservar online o anotarse en canchas abiertas o un torneo: la página '
           + 'le pide que se comunique con el complejo.',
       },
     ],

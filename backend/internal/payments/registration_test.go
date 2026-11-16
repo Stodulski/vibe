@@ -56,7 +56,7 @@ func registrationFixture(t *testing.T) (*fixture, *eventstore.Registration, *mp.
 		Phone: "+5491100000000", Email: &email, Status: eventstore.RegistrationHeld, Price: 800_000, ServiceFee: 20_000,
 	}
 	ev := &eventstore.Event{
-		ID: reg.EventID, ComplexID: complexID, Name: "Canchas libres", Date: time.Now().AddDate(0, 0, 3),
+		ID: reg.EventID, ComplexID: complexID, Name: "Canchas abiertas", Date: time.Now().AddDate(0, 0, 3),
 		StartTime: "19:00", DurationMinutes: 120, Capacity: 20, Price: 800_000,
 	}
 	notifier := &stubRegistrationNotifier{}
@@ -90,7 +90,7 @@ func TestAnApprovedRegistrationPaymentConfirmsTheSpotAndTellsThePerson(t *testin
 	if f.payments.regConfirmed != checkout || checkout.Status != "deposit_paid" || checkout.MPPaymentID == nil || *checkout.MPPaymentID != "mp-123" {
 		t.Errorf("the checkout row must be settled with the provider's payment id; got %+v", f.payments.regConfirmed)
 	}
-	if len(notifier.registered) != 1 || notifier.registered[0].Email != "ana@example.com" || notifier.registered[0].EventName != "Canchas libres" {
+	if len(notifier.registered) != 1 || notifier.registered[0].Email != "ana@example.com" || notifier.registered[0].EventName != "Canchas abiertas" {
 		t.Errorf("the person must be told their spot is confirmed; got %+v", notifier.registered)
 	}
 	if len(f.provider.refunds) != 0 {

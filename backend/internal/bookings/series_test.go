@@ -560,8 +560,8 @@ func TestTheOwnerCannotBookHoursAFixedBookingHoldsButCanOnceTheDateIsSkipped(t *
 // a tournament match each have their own sentence, and the way out differs.
 func TestTheOwnerIsToldWhetherAnEventOrAMatchHoldsTheHours(t *testing.T) {
 	for _, tc := range []struct{ kind, want, notWant string }{
-		{bookingstore.OccupancyEvent, "open-play event (canchas libres)", "tournament match"},
-		{bookingstore.OccupancyMatch, "tournament match", "canchas libres"},
+		{bookingstore.OccupancyEvent, "open-play event (canchas abiertas)", "tournament match"},
+		{bookingstore.OccupancyMatch, "tournament match", "canchas abiertas"},
 	} {
 		f := newSeriesFixture(t)
 		date := f.day(3)

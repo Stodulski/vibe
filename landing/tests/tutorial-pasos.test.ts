@@ -16,7 +16,7 @@ const CON_PASOS = [
   SLUG, 'grilla-de-reservas', 'precios-por-horario', 'configuracion-del-complejo', 'panel-de-control',
   'abrir-y-cerrar-la-caja', 'ingresos-egresos-y-anulaciones', 'vender-desde-el-mostrador', 'productos-y-stock',
   'reportes-de-facturacion', 'base-de-clientes', 'cobrar-una-reserva-en-el-mostrador', 'asistencia-de-cada-turno',
-  'cancelar-una-reserva-y-devolver', 'turnos-fijos', 'canchas-libres', 'torneos', 'agregar-y-editar-canchas',
+  'cancelar-una-reserva-y-devolver', 'turnos-fijos', 'canchas-abiertas', 'torneos', 'agregar-y-editar-canchas',
   'bloquear-un-cliente', 'perfil-del-complejo-y-link-publico', 'conectar-mercado-pago',
 ];
 const PUBLIC = new URL('../public/', import.meta.url);

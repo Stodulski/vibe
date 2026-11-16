@@ -1,10 +1,10 @@
-/** The copy of the open-play events (canchas libres) pages. Part of `BOOKING_MESSAGES.events`. */
+/** The copy of the open-play events (canchas abiertas) pages. Part of `BOOKING_MESSAGES.events`. */
 export const EVENT_MESSAGES = {
-  sectionTitle: 'Canchas libres',
+  sectionTitle: 'Canchas abiertas',
   sectionDescription: 'Eventos con cupo limitado. Te inscribís, pagás tu lugar y jugás.',
+  pickerTitle: 'Eventos',
   signUp: 'Inscribirme',
   perPerson: 'por persona',
-  perPersonPlusFee: 'por persona + cargo de servicio',
   paidPrefix: 'Pagaste',
   courtsLabel: 'Canchas',
   spotsLeftOne: 'Queda 1 lugar',

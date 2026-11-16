@@ -241,7 +241,7 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
   });
 });
 
-describe('BookingCalendar — open-play events (canchas libres)', () => {
+describe('BookingCalendar — open-play events (canchas abiertas)', () => {
   // 2027-03-20 is a Saturday.
   const eventBlock: EventBlock = {
     event_id: 'ev1',
@@ -265,9 +265,9 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /19:00 a 21:00, Canchas libres · Americano de sabado/ });
+    const block = screen.getByRole('button', { name: /19:00 a 21:00, Canchas abiertas · Americano de sabado/ });
     const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
-    expect(lines).toEqual(['19:00 a 21:00', 'Canchas libres', 'Americano de sabado']);
+    expect(lines).toEqual(['19:00 a 21:00', 'Canchas abiertas', 'Americano de sabado']);
     await user.click(block);
 
     expect(onSelectEventBlock).toHaveBeenCalledWith(eventBlock);
@@ -282,7 +282,7 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /23:00 a 01:00, Canchas libres · Americano de sabado/ });
+    const block = screen.getByRole('button', { name: /23:00 a 01:00, Canchas abiertas · Americano de sabado/ });
     expect(block.style.top).toContain('95.83');
   });
 
@@ -296,7 +296,7 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
 
   it('draws nothing on a court the event does not hold', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...eventBlock, court_id: 'other' }]} />);
-    expect(screen.queryByRole('button', { name: /Canchas libres/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Canchas abiertas/ })).not.toBeInTheDocument();
   });
 });
 

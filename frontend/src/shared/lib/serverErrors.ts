@@ -70,6 +70,10 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   // The fixed-bookings delete refusal is not here: `useDeleteCourt` matches its
   // raw text.
   'cannot delete court while it has active bookings, cancel them first': ES_AR.courts.deleteHasActiveBookings,
+  'cannot delete court while it has an open-play event (canchas abiertas), cancel it first':
+    ES_AR.courts.deleteHasOpenPlay,
+  // The wording the API sent before the canchas libres -> canchas abiertas rename,
+  // kept while a deploy of the API and the app can be out of step.
   'cannot delete court while it has an open-play event (canchas libres), cancel it first':
     ES_AR.courts.deleteHasOpenPlay,
   'client is blocked, cannot create booking': ES_AR.bookings.clientBlocked,

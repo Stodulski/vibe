@@ -1,14 +1,14 @@
 {
   "title": "Vibe",
-  "description": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes en un solo panel.",
-  "summary": "Vibe es el sistema de gestión gratis para complejos deportivos de Argentina. Tiene reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball. Creás tu cuenta y podés recibir reservas el mismo día. Tus clientes reservan desde el celular, con la seña por Mercado Pago.",
+  "description": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas abiertas, torneos, caja, bar y reportes en un solo panel.",
+  "summary": "Vibe es el sistema de gestión gratis para complejos deportivos de Argentina. Tiene reservas con seña, turnos fijos, canchas abiertas, torneos, caja, bar y reportes. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball. Creás tu cuenta y podés recibir reservas el mismo día. Tus clientes reservan desde el celular, con la seña por Mercado Pago.",
   "updated": "2026-11-16",
   "pages": [
     {
       "title": "Sistema de gestión gratis para complejos deportivos | Vibe",
       "url": "https://vibe.com.ar/",
       "md": "https://vibe.com.ar/index.md",
-      "note": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes en un solo panel."
+      "note": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas abiertas, torneos, caja, bar y reportes en un solo panel."
     },
     {
       "title": "Guías para dueños de complejos deportivos | Vibe",
@@ -107,10 +107,10 @@
       "note": "Cómo cancelar una reserva desde el panel de Vibe, qué pasa con la seña pagada con Mercado Pago y con lo cobrado a mano, y cuándo cancela el cliente."
     },
     {
-      "title": "Canchas libres con inscripción y pago online | Vibe",
-      "url": "https://vibe.com.ar/tutoriales/canchas-libres",
-      "md": "https://vibe.com.ar/tutoriales-canchas-libres.md",
-      "note": "Cómo publicar canchas libres en Vibe: elegís canchas, cupo y precio por persona, los jugadores se anotan y pagan desde tu página, y si cancelás se les devuelve."
+      "title": "Canchas abiertas con inscripción y pago online | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/canchas-abiertas",
+      "md": "https://vibe.com.ar/tutoriales-canchas-abiertas.md",
+      "note": "Cómo publicar canchas abiertas en Vibe: elegís canchas, cupo y precio por persona, los jugadores se anotan y pagan desde tu página, y si cancelás se les devuelve."
     },
     {
       "title": "Cómo cobrar una reserva en el mostrador | Vibe",

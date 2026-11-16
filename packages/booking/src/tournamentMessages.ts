@@ -14,7 +14,6 @@ export const TOURNAMENT_MESSAGES = {
   matchGamesSuffix: 'games',
   matchSuperTiebreak: 'súper tie-break',
   perPair: 'por pareja',
-  perPairPlusFee: 'por pareja + cargo de servicio',
   paidPrefix: 'Pagaste',
   categoryStatusClosed: 'Inscripción cerrada',
   categoryStatusCancelled: 'Cancelada',

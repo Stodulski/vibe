@@ -1,6 +1,6 @@
 import type { Body, Ok, Open, Spec } from './spec';
 
-// ─── Open-play events (canchas libres) ───
+// ─── Open-play events (canchas abiertas) ───
 
 /** An event that holds its courts for a window while people sign up one by one. `end_time` is earlier than `start_time` when it runs past midnight. */
 export type OpenPlayEvent = Spec<'OpenPlayEvent'>;

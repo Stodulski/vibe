@@ -70,7 +70,7 @@ const blockedSlotHeldByFixedBookingMessage = "this time range belongs to a fixed
 
 // blockedSlotHeldByEventMessage is the same refusal when an open-play event
 // holds the hours: the way out is cancelling the event.
-const blockedSlotHeldByEventMessage = "this time range belongs to an open-play event (canchas libres), cancel the event to free it"
+const blockedSlotHeldByEventMessage = "this time range belongs to an open-play event (canchas abiertas), cancel the event to free it"
 
 // blockedSlotHeldByMatchMessage is the same refusal when a scheduled tournament
 // match holds the hours: the way out is unscheduling the match.

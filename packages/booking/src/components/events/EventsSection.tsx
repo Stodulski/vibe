@@ -1,24 +1,20 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import { useComplexEvents } from '../../hooks/useComplexEvents';
+import type { PublicOpenPlayEvent } from '../../api/types';
 import { EventCard } from './EventCard';
 
 const t = BOOKING_MESSAGES.events;
 
 /**
- * The upcoming open-play events on the complex's page, each with the link to
- * its own sign-up page. Nothing renders while loading, on a failure, or when
- * there are no upcoming events, so a complex without events shows no section.
+ * The open-play events the complex's page lists once one is picked, each with
+ * the link to its own sign-up page.
  */
-export function EventsSection({ slug }: { slug: string }) {
-  const { data: events } = useComplexEvents(slug);
-  if (!events || events.length === 0) return null;
-
+export function EventsSection({ events, slug }: { events: PublicOpenPlayEvent[]; slug: string }) {
   return (
-    <section aria-labelledby="open-play-events-title" className="mt-8 flex flex-col gap-4 sm:mt-12">
+    <section aria-labelledby="open-play-events-title" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 id="open-play-events-title" className="text-text-primary text-xl font-bold">
+        <h3 id="open-play-events-title" className="text-text-primary text-xl font-bold">
           {t.sectionTitle}
-        </h2>
+        </h3>
         <p className="text-text-secondary text-sm">{t.sectionDescription}</p>
       </div>
       <ul className={`grid grid-cols-1 gap-3 ${events.length > 1 ? 'md:grid-cols-2' : ''}`}>

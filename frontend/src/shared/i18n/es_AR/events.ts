@@ -1,14 +1,23 @@
 export const events = {
-  title: 'Canchas libres',
+  title: 'Canchas abiertas',
   create: 'Crear evento',
   createDescription: 'Bloquea las canchas en ese horario. La gente se anota de a una y paga online.',
   upcoming: 'Próximos',
   past: 'Pasados',
   listLabel: 'Eventos',
   noUpcoming: 'No hay eventos próximos',
-  noUpcomingDescription:
-    'Creá un evento de canchas libres: las canchas quedan reservadas y la gente se anota y paga online.',
+  noUpcomingDescription: 'Creá una cancha abierta o un torneo para que la gente se anote online.',
   noPast: 'No hay eventos pasados',
+  // The type badge on each card of the one list (torneos use the same words).
+  kindLabel: { openPlay: 'Cancha abierta', tournament: 'Torneo' },
+  // The dialog Crear evento opens first: which kind to create.
+  typePicker: {
+    title: '¿Qué querés crear?',
+    openPlay: 'Cancha abierta',
+    openPlayHint: 'La gente se anota de a una y paga su lugar.',
+    tournament: 'Torneo',
+    tournamentHint: 'Parejas por categoría, con zonas y cuadro.',
+  },
   loadError: 'No pudimos cargar los eventos',
   spotsTaken: (taken: number, capacity: number) => `${String(taken)} de ${String(capacity)} anotados`,
   courtsCount: (count: number) => (count === 1 ? '1 cancha' : `${String(count)} canchas`),
@@ -16,9 +25,9 @@ export const events = {
   fullBadge: 'Completo',
   pricePerPerson: (price: string) => `${price} por persona`,
   endsNextDay: 'Termina al día siguiente',
-  // The grid bar, under the hours: "Canchas libres · {nombre}".
-  blockLabel: (name: string) => `Canchas libres · ${name}`,
-  blockLabelCompact: 'Canchas libres',
+  // The grid bar, under the hours: "Canchas abiertas · {nombre}".
+  blockLabel: (name: string) => `Canchas abiertas · ${name}`,
+  blockLabelCompact: 'Canchas abiertas',
   // The grid bar of a tournament match whose pairs are known: "{categoría} · {pareja} vs {pareja}".
   matchPairs: (pair1: string, pair2: string) => `${pair1} vs ${pair2}`,
   matchBlockLine: (category: string, pair1: string, pair2: string) => `${category} · ${pair1} vs ${pair2}`,

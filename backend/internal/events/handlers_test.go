@@ -84,14 +84,14 @@ func TestCreateAnswers201WithTheEvent(t *testing.T) {
 	f := newFixture(t)
 	h := newHandler(f)
 	w := httptest.NewRecorder()
-	h.Create(w, f.ownerRequest(t, http.MethodPost, "/", `{"name":"Canchas libres","date":"`+tomorrowDate()+
+	h.Create(w, f.ownerRequest(t, http.MethodPost, "/", `{"name":"Canchas abiertas","date":"`+tomorrowDate()+
 		`","start_time":"19:00","end_time":"21:00","capacity":20,"price":800000}`, nil))
 
 	if w.Code != http.StatusCreated {
 		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
 	}
 	event := decodeBody(t, w)["event"].(map[string]any)
-	if event["name"] != "Canchas libres" || event["end_time"] != "21:00" || event["duration_minutes"] != float64(120) ||
+	if event["name"] != "Canchas abiertas" || event["end_time"] != "21:00" || event["duration_minutes"] != float64(120) ||
 		event["capacity"] != float64(20) || event["spots_left"] != float64(20) || event["price"] != float64(800000) {
 		t.Errorf("event = %v", event)
 	}
@@ -110,7 +110,7 @@ func TestCreateAnswers422ForAnInvalidEventAnd409ForOccupiedHours(t *testing.T) {
 
 	f.store.createErr = &eventstore.ConflictError{Reason: eventstore.ConflictBooking, CourtID: f.courts.courts[0].ID}
 	w = httptest.NewRecorder()
-	h.Create(w, f.ownerRequest(t, http.MethodPost, "/", `{"name":"Canchas libres","date":"`+tomorrowDate()+
+	h.Create(w, f.ownerRequest(t, http.MethodPost, "/", `{"name":"Canchas abiertas","date":"`+tomorrowDate()+
 		`","start_time":"19:00","end_time":"21:00","capacity":20,"price":800000}`, nil))
 	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "a booking already holds those hours on Cancha 1") {
 		t.Fatalf("want 409 saying what holds the hours; got %d (%s)", w.Code, w.Body.String())

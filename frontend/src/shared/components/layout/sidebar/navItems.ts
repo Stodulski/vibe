@@ -5,7 +5,7 @@ const t = ES_AR;
 export const mainNavItems = [
   { to: '/dashboard', label: t.navigation.dashboard },
   { to: '/bookings', label: t.navigation.bookings },
-  { to: '/events/open-play', label: t.navigation.events },
+  { to: '/events', label: t.navigation.events },
   { to: '/cash', label: t.navigation.cash },
   { to: '/courts', label: t.navigation.courts },
   { to: '/clients', label: t.navigation.clients },

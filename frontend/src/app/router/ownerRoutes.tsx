@@ -49,15 +49,8 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), routeSkeleton('/bookings')),
       },
       {
-        path: '/events/open-play',
-        element: ownerPage(() => import('@/features/events/pages/EventsPage'), routeSkeleton('/events/open-play')),
-      },
-      {
-        path: '/events/tournaments',
-        element: ownerPage(
-          () => import('@/features/tournaments/pages/TournamentsPage'),
-          routeSkeleton('/events/tournaments'),
-        ),
+        path: '/events',
+        element: ownerPage(() => import('./EventsHubPage'), routeSkeleton('/events')),
       },
       {
         path: '/events/tournaments/:tournamentId',

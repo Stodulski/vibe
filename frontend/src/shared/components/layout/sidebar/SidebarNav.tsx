@@ -17,8 +17,8 @@ interface SidebarNavProps {
 // with no new sidebar item — "Caja" stays the active nav item on all of
 // them). Every other item matches its own path exactly.
 //
-// `/events/open-play` is the Eventos link's target, but the item owns the whole
-// `/events` section (Canchas libres, Torneos, a tournament's detail).
+// `/events` is the Eventos link's target, and the item owns the whole
+// `/events` section (the list and a tournament's detail).
 const PREFIX_MATCHED_ROOTS = ['/settings', '/cash', '/events'];
 
 /** The root an item's active state is resolved against: its section, or its own path. */

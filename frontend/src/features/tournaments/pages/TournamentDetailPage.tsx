@@ -10,7 +10,7 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { todayInArgentina } from '@/shared/lib/today';
 import { CategoryPanel } from '../components/CategoryPanel';
-import { SegmentedTabs } from '../components/SegmentedTabs';
+import { CategoryTabs } from '../components/CategoryTabs';
 import { TournamentDetailBodySkeleton } from '../components/TournamentDetailBodySkeleton';
 import { TournamentFacts } from '../components/TournamentFacts';
 import { useTournament } from '../hooks/useTournament';
@@ -34,7 +34,7 @@ export function TournamentDetailContent({ complexId, tournamentId }: { complexId
 
   return (
     <div className={TOURNAMENT_DETAIL_CLASS}>
-      <BackLink to="/events/tournaments">{t.tournaments.backToList}</BackLink>
+      <BackLink to="/events">{t.tournaments.backToList}</BackLink>
       {query.isLoading ? (
         <TournamentDetailBodySkeleton />
       ) : !query.data ? (
@@ -79,7 +79,7 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
         paidCount={paidPairCount(detail.pairs)}
         canCancel={live}
       />
-      <SegmentedTabs
+      <CategoryTabs
         items={categories.map((c) => ({
           value: c.id,
           label: c.status === 'cancelled' ? `${c.name} · ${t.tournaments.categoryStatus.cancelled}` : c.name,

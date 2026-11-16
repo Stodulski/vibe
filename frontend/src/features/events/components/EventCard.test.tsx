@@ -43,6 +43,11 @@ describe('EventCard', () => {
     expect(screen.getByText(t.cancelledBadge)).toHaveClass('text-error-text');
   });
 
+  it('labels the card as a cancha abierta, so it reads apart from a tournament in the one list', () => {
+    render(<EventCard event={EVENT} onSelect={vi.fn()} />);
+    expect(screen.getByText(t.kindLabel.openPlay)).toBeInTheDocument();
+  });
+
   it('capitalises the weekday on a block of its own, not on an inline span', () => {
     render(<EventCard event={EVENT} onSelect={vi.fn()} />);
     expect(screen.getByText('viernes 2 de enero')).toHaveClass('inline-block', 'first-letter:uppercase');

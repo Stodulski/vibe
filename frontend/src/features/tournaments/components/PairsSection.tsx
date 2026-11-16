@@ -1,20 +1,22 @@
+import { Phone } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { pairFullName, pairName, pairPaymentKey, type PairPaymentKey } from '../lib/tournamentView';
 import { Button } from '@/shared/components/ui/button';
+import { Tag } from '@/shared/components/common/Tag';
 import type { TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.pairs;
 
 // Same colours as the booking payment statuses: amber is money still moving,
 // green is paid, grey is a spot that never paid or was refunded.
-const STATE_STYLES: Record<PairPaymentKey, string> = {
-  held: 'text-warning-text',
-  confirmed: 'text-success-text',
-  cancelledUnpaid: 'text-text-secondary',
-  refunded: 'text-text-secondary',
-  refundPending: 'text-warning-text',
-  partialRefund: 'text-warning-text',
+const STATE_BADGES: Record<PairPaymentKey, { tone: 'success' | 'neutral'; className?: string }> = {
+  held: { tone: 'neutral', className: 'bg-warning-bg text-warning-text' },
+  confirmed: { tone: 'success' },
+  cancelledUnpaid: { tone: 'neutral' },
+  refunded: { tone: 'neutral' },
+  refundPending: { tone: 'neutral', className: 'bg-warning-bg text-warning-text' },
+  partialRefund: { tone: 'neutral', className: 'bg-warning-bg text-warning-text' },
 };
 
 function PhoneLink({ name, phone }: { name: string; phone: string }) {
@@ -22,45 +24,51 @@ function PhoneLink({ name, phone }: { name: string; phone: string }) {
     <a
       href={`tel:${phone}`}
       aria-label={`${t.call} ${name}`}
-      className="inline-link text-text-tertiary score-text text-xs break-all hover:underline"
+      className="inline-link text-text-tertiary score-text inline-flex items-center gap-1 text-xs break-all hover:underline"
     >
+      <Phone className="size-3 shrink-0" aria-hidden="true" />
       {phone}
     </a>
   );
 }
 
-// A confirmed pair with a partial refund (made from Mercado Pago's panel) still
-// holds the spot, so the line keeps what they paid next to what came back.
-function moneyLine(pair: TournamentOwnerPair): string | null {
-  const payment = pair.payment;
-  if (!payment) return null;
-  const paid = pair.registration.status === 'confirmed' ? t.paid(formatPrice(payment.amount)) : null;
-  const refunded = payment.refund_amount > 0 ? t.refundedAmount(formatPrice(payment.refund_amount)) : null;
-  const parts = [paid, refunded].filter(Boolean);
-  return parts.length > 0 ? parts.join(' · ') : null;
+/** The amount a confirmed pair paid: the badge carries it, so the payment is named once. */
+function paidAmount(pair: TournamentOwnerPair): string | null {
+  return pair.payment && pair.registration.status === 'confirmed' ? formatPrice(pair.payment.amount) : null;
+}
+
+/** What came back, on the detail line: the badge already names the payment state. */
+function refundedLine(pair: TournamentOwnerPair): string | null {
+  const refund = pair.payment?.refund_amount ?? 0;
+  return refund > 0 ? t.refundedAmount(formatPrice(refund)) : null;
 }
 
 function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; groupName?: string; onSwap?: () => void }) {
   const key = pairPaymentKey(pair);
+  const paid = paidAmount(pair);
+  const badge = paid ? t.paid(paid) : t.state[key];
+  const { tone, className } = STATE_BADGES[key];
   const tags = [
     pair.seed !== null ? t.seed(pair.seed) : null,
     groupName ? t.group(groupName) : null,
     pair.status === 'withdrawn' ? t.withdrawn : null,
-    moneyLine(pair),
+    refundedLine(pair),
   ].filter(Boolean);
 
   return (
     <li className="border-border-subtle flex items-baseline justify-between gap-3 border-b py-3 last:border-b-0">
-      <div className="min-w-0 space-y-0.5">
+      <div className="min-w-0 space-y-1">
         <p className="text-text-primary text-sm font-medium break-words">{pairFullName(pair)}</p>
-        <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="flex flex-wrap gap-x-3 gap-y-1">
           <PhoneLink name={`${pair.payer.first_name} ${pair.payer.last_name}`} phone={pair.payer.phone} />
           <PhoneLink name={`${pair.partner.first_name} ${pair.partner.last_name}`} phone={pair.partner.phone} />
         </div>
         {tags.length > 0 && <p className="text-text-tertiary text-xs">{tags.join(' · ')}</p>}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-1.5">
-        <span className={cn('text-xs font-medium', STATE_STYLES[key])}>{t.state[key]}</span>
+      <div className="flex shrink-0 flex-col items-end gap-2">
+        <Tag tone={tone} className={cn('text-xs', className)}>
+          {badge}
+        </Tag>
         {onSwap && (
           <Button
             type="button"

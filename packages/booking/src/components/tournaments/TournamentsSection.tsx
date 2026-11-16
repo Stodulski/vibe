@@ -1,24 +1,21 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import { useComplexTournaments } from '../../hooks/useComplexTournaments';
+import type { PublicTournamentSummary } from '../../api/types';
 import { TournamentCard } from './TournamentCard';
 
 const t = BOOKING_MESSAGES.tournaments;
 
 /**
- * The upcoming tournaments on the complex's page, each with the link to its
- * own page. Nothing renders while loading, on a failure, or when there are
- * none, so a complex without tournaments shows no section.
+ * The tournaments the complex's page lists once one is picked, each with the
+ * link to its own page. The caller passes only those worth listing: see
+ * `listedTournaments`.
  */
-export function TournamentsSection({ slug }: { slug: string }) {
-  const { data: tournaments } = useComplexTournaments(slug);
-  if (!tournaments || tournaments.length === 0) return null;
-
+export function TournamentsSection({ tournaments, slug }: { tournaments: PublicTournamentSummary[]; slug: string }) {
   return (
-    <section aria-labelledby="tournaments-title" className="mt-8 flex flex-col gap-4 sm:mt-12">
+    <section aria-labelledby="tournaments-title" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
-        <h2 id="tournaments-title" className="text-text-primary text-xl font-bold">
+        <h3 id="tournaments-title" className="text-text-primary text-xl font-bold">
           {t.sectionTitle}
-        </h2>
+        </h3>
         <p className="text-text-secondary text-sm">{t.sectionDescription}</p>
       </div>
       <ul className={`grid grid-cols-1 gap-3 ${tournaments.length > 1 ? 'md:grid-cols-2' : ''}`}>

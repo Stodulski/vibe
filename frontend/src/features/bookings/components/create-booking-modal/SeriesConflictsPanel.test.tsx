@@ -135,7 +135,7 @@ describe('SeriesConflictsPanel, what to do each day', () => {
   it('says so, with no selector, on a day no other court is free', () => {
     renderPanel();
 
-    const row = screen.getByText('No hay otra cancha libre ese día').closest('li');
+    const row = screen.getByText('No hay otra cancha abierta ese día').closest('li');
     expect(row).not.toBeNull();
     expect(within(row as HTMLElement).queryByRole('combobox')).not.toBeInTheDocument();
     expect(screen.getAllByRole('combobox')).toHaveLength(2);

@@ -26,7 +26,7 @@ export const homeJsonLd: string[] = [
     "@type": "SoftwareApplication",
     "@id": "${SOFTWARE_ID}",
     "name": "Vibe",
-    "description": "Sistema de gestión gratis para complejos deportivos: reservas online con seña, turnos fijos, canchas libres, torneos, caja por turno con arqueo, bar con stock y reportes.",
+    "description": "Sistema de gestión gratis para complejos deportivos: reservas online con seña, turnos fijos, canchas abiertas, torneos, caja por turno con arqueo, bar con stock y reportes.",
     "url": "https://vibe.com.ar/",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -50,7 +50,7 @@ export const homeJsonLd: string[] = [
       "Cobro de señas con Mercado Pago y reembolso automático",
       "Precios por cancha, día y franja horaria",
       "Turnos fijos semanales",
-      "Canchas libres con inscripción y pago online",
+      "Canchas abiertas con inscripción y pago online",
       "Torneos con inscripción, cuadro y resultados",
       "Asistencia de cada turno"
     ],

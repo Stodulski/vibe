@@ -6,7 +6,7 @@ import { BracketView } from './BracketView';
 import { GroupSection } from './GroupSection';
 import { PairSignUpForm } from './PairSignUpForm';
 import { ScheduleList } from './ScheduleList';
-import { formatLabel, isOpenForSignUp, matchFormatLabel, pairPriceSuffix, spotsLeftLabel } from './tournamentModel';
+import { formatLabel, isOpenForSignUp, matchFormatLabel, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -86,7 +86,7 @@ function CategoryHeader({ headingId, category, showOffer }: CategoryHeaderProps)
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 pt-1">
             <p className="text-text-primary text-base font-semibold tabular-nums">
               {formatPrice(category.price)}{' '}
-              <span className="text-text-secondary text-sm font-normal">{pairPriceSuffix(category)}</span>
+              <span className="text-text-secondary text-sm font-normal">{t.perPair}</span>
             </p>
             {showOffer && <p className="text-primary-400 text-sm font-medium">{spotsLeftLabel(category.spots_left)}</p>}
           </div>

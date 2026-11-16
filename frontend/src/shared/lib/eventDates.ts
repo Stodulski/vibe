@@ -2,7 +2,7 @@ import { formatDateFull, formatTime } from '@/shared/lib/utils';
 
 /**
  * How an event's day and hours read wherever one is listed: "viernes 20 de
- * noviembre · 19:00 a 21:00". Canchas libres and torneos share it so the same
+ * noviembre · 19:00 a 21:00". Canchas abiertas and torneos share it so the same
  * kind of thing is never dated two ways; a screen styles the day and the hours
  * apart by using the two parts, or takes the whole line from `formatEventWhen`.
  */

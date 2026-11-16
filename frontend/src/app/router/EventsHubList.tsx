@@ -1,25 +1,29 @@
 import { AlertTriangle, CalendarX2 } from 'lucide-react';
+import { EVENT_LIST_CLASS, EventCard, EventListSkeleton } from '@/features/events';
+import { TournamentCard } from '@/features/tournaments';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { EVENT_LIST_CLASS } from '../lib/eventLayout';
-import { EventCard } from './EventCard';
-import { EventListSkeleton } from './EventListSkeleton';
-import type { OpenPlayEvent } from '@/shared/types/api.types';
+import type { AgendaItem, AgendaTab } from './eventsHubAgenda';
 
 const t = ES_AR;
 
-interface EventListProps {
-  events: OpenPlayEvent[];
+interface EventsHubListProps {
+  items: AgendaItem[];
   isLoading: boolean;
   isError: boolean;
   onRetry: () => void;
   onSelect: (eventId: string) => void;
   /** Which tab this is: an empty upcoming list invites creating one, an empty past list does not. */
-  kind: 'upcoming' | 'past';
+  kind: AgendaTab;
   onCreate: () => void;
 }
 
-export function EventList({ events, isLoading, isError, onRetry, onSelect, kind, onCreate }: EventListProps) {
+/**
+ * Cancha abierta and torneo cards in one grid, in the order the agenda gives them. The
+ * empty upcoming list is the one empty state of the page; its action is outlined because
+ * the header already carries the primary Crear evento button.
+ */
+export function EventsHubList({ items, isLoading, isError, onRetry, onSelect, kind, onCreate }: EventsHubListProps) {
   if (isLoading) return <EventListSkeleton />;
 
   if (isError) {
@@ -34,7 +38,7 @@ export function EventList({ events, isLoading, isError, onRetry, onSelect, kind,
     );
   }
 
-  if (events.length === 0) {
+  if (items.length === 0) {
     return kind === 'upcoming' ? (
       <EmptyState
         icon={CalendarX2}
@@ -42,6 +46,7 @@ export function EventList({ events, isLoading, isError, onRetry, onSelect, kind,
         description={t.events.noUpcomingDescription}
         actionLabel={t.events.create}
         onAction={onCreate}
+        actionVariant="outline"
       />
     ) : (
       <EmptyState icon={CalendarX2} title={t.events.noPast} description="" />
@@ -50,9 +55,13 @@ export function EventList({ events, isLoading, isError, onRetry, onSelect, kind,
 
   return (
     <ul className={EVENT_LIST_CLASS} aria-label={t.events.listLabel}>
-      {events.map((event) => (
-        <li key={event.id} className="flex">
-          <EventCard event={event} onSelect={onSelect} />
+      {items.map((item) => (
+        <li key={item.key} className="flex">
+          {item.kind === 'openPlay' ? (
+            <EventCard event={item.event} onSelect={onSelect} />
+          ) : (
+            <TournamentCard tournament={item.tournament} />
+          )}
         </li>
       ))}
     </ul>

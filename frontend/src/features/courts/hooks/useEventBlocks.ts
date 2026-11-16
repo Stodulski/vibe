@@ -3,7 +3,7 @@ import { courtsApi } from '../api/courts.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
 
 /**
- * The hours open-play events hold in the range ("canchas libres"). Same request
+ * The hours open-play events hold in the range ("canchas abiertas"). Same request
  * and cache entry as `useBlockedSlots` and `useFixedBlocks`: the server sends
  * the three lists in one response.
  */

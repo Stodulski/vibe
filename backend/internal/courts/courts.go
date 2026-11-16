@@ -118,7 +118,7 @@ var refusals = httpx.Refusals{
 	courtstore.ErrCourtHasActiveBookings: httpx.Conflict(
 		"cannot delete court while it has active bookings, cancel them first"),
 	courtstore.ErrCourtHasActiveEvent: httpx.Conflict(
-		"cannot delete court while it has an open-play event (canchas libres), cancel it first"),
+		"cannot delete court while it has an open-play event (canchas abiertas), cancel it first"),
 	courtstore.ErrCourtHasActiveSeries: httpx.Conflict(
 		"cannot delete court while it has fixed weekly bookings (turnos fijos), cancel them first"),
 	courtstore.ErrSlotAlreadyBlocked: httpx.Conflict("this time range already has a blocked slot"),

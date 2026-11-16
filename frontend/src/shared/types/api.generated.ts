@@ -545,12 +545,12 @@ export interface paths {
         };
         /**
          * List a complex's open-play events in a date range
-         * @description Events ("canchas libres") whose date is in the range, cancelled ones included, soonest first, with how many spots are taken. At most 200; not paginated.
+         * @description Events ("canchas abiertas") whose date is in the range, cancelled ones included, soonest first, with how many spots are taken. At most 200; not paginated.
          */
         get: operations["eventsList"];
         put?: never;
         /**
-         * Publish an open-play event (canchas libres)
+         * Publish an open-play event (canchas abiertas)
          * @description Takes the event's courts off sale for its window: the storefront, the owner's booking and blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the hours as taken until the event is cancelled. `court_ids` absent or empty means every active court. An `end_time` not after `start_time` means the event runs past midnight. When a booking, a blocked slot, a fixed weekly booking or another event already holds the hours on any of the courts the call answers `409` naming what and where, and writes nothing. People sign up one by one and pay `price` (plus the service fee) online until the event is full or begins.
          */
         post: operations["eventsCreate"];
@@ -3156,7 +3156,7 @@ export interface components {
              */
             reason?: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
         };
-        /** @description An open-play event ("canchas libres"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
+        /** @description An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
         OpenPlayEvent: {
             /** Format: uuid */
             id: string;
@@ -3314,7 +3314,7 @@ export interface components {
                 deadline: string;
             };
         };
-        /** @description Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+        /** @description Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas abiertas · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
         EventBlock: {
             /** Format: uuid */
             event_id: string;

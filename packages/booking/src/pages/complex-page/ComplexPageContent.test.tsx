@@ -2,9 +2,11 @@ import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../test/msw/server';
 import { EVENT } from '../../test/eventFixtures';
+import { CAT_GROUPS, CAT_OPEN, SUMMARY } from '../../test/tournamentFixtures';
 import { createBookingWrapper, renderBooking } from '../../test/booking';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
@@ -144,13 +146,97 @@ describe('ComplexPageContent placement of the services', () => {
   });
 });
 
+/** Lets both queries settle, so an absence is not mistaken for a list still loading. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+const eventsOption = () => screen.findByRole('button', { name: BOOKING_MESSAGES.events.sectionTitle });
+const tournamentsOption = () => screen.findByRole('button', { name: BOOKING_MESSAGES.tournaments.sectionTitle });
+
 describe('ComplexPageContent events', () => {
-  it('lists the events after the booking flow, not before it', async () => {
+  it('offers no option and no heading when there are no events or tournaments', async () => {
+    renderBooking(<ComplexPageContent {...baseProps} />);
+    await settle();
+
+    expect(screen.queryByRole('heading', { name: BOOKING_MESSAGES.events.pickerTitle })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: BOOKING_MESSAGES.events.sectionTitle })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: BOOKING_MESSAGES.tournaments.sectionTitle })).not.toBeInTheDocument();
+  });
+
+  it('offers only the option that has something to list', async () => {
     server.use(http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })));
     renderBooking(<ComplexPageContent {...baseProps} />);
 
-    const events = await screen.findByRole('heading', { level: 2, name: BOOKING_MESSAGES.events.sectionTitle });
+    expect(await eventsOption()).toBeInTheDocument();
+    await settle();
+    expect(screen.queryByRole('button', { name: BOOKING_MESSAGES.tournaments.sectionTitle })).not.toBeInTheDocument();
+  });
+
+  it('offers no tournaments option when every category of the only tournament is closed', async () => {
+    server.use(
+      http.get('*/public/complexes/:slug/tournaments', () =>
+        HttpResponse.json({ tournaments: [{ ...SUMMARY, categories: [CAT_GROUPS] }] }),
+      ),
+    );
+    renderBooking(<ComplexPageContent {...baseProps} />);
+    await settle();
+
+    expect(screen.queryByRole('button', { name: BOOKING_MESSAGES.tournaments.sectionTitle })).not.toBeInTheDocument();
+  });
+
+  it('lists the picked events after the booking flow, not before it', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })));
+    renderBooking(<ComplexPageContent {...baseProps} />);
+
+    await user.click(await eventsOption());
+
+    const events = await screen.findByRole('heading', { level: 3, name: BOOKING_MESSAGES.events.sectionTitle });
     const dates = screen.getByRole('radiogroup', { name: BOOKING_MESSAGES.publicBooking.dateStripLabel });
     expect(follows(dates, events)).toBe(true);
+  });
+
+});
+
+describe('ComplexPageContent tournament options', () => {
+  it('lists nothing until an option is picked, switches on the other, and closes on the same one again', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })),
+      http.get('*/public/complexes/:slug/tournaments', () => HttpResponse.json({ tournaments: [SUMMARY] })),
+    );
+    renderBooking(<ComplexPageContent {...baseProps} />);
+
+    const events = await eventsOption();
+    const tournaments = await tournamentsOption();
+    expect(events).toHaveAttribute('aria-pressed', 'false');
+    expect(tournaments).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('heading', { name: EVENT.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+
+    await user.click(events);
+    expect(events).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('heading', { name: EVENT.name })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+
+    await user.click(tournaments);
+    expect(events).toHaveAttribute('aria-pressed', 'false');
+    expect(tournaments).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('heading', { name: SUMMARY.name })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: EVENT.name })).not.toBeInTheDocument();
+
+    await user.click(tournaments);
+    expect(tournaments).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+  });
+
+  it('hides a category whose sign-up is closed from the tournament list', async () => {
+    const user = userEvent.setup();
+    server.use(http.get('*/public/complexes/:slug/tournaments', () => HttpResponse.json({ tournaments: [SUMMARY] })));
+    renderBooking(<ComplexPageContent {...baseProps} />);
+
+    await user.click(await tournamentsOption());
+
+    expect(await screen.findByText(CAT_OPEN.name)).toBeInTheDocument();
+    expect(screen.queryByText(CAT_GROUPS.name)).not.toBeInTheDocument();
+    expect(screen.queryByText(BOOKING_MESSAGES.tournaments.categoryStatusClosed)).not.toBeInTheDocument();
   });
 });
