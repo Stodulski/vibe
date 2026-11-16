@@ -2,6 +2,7 @@ import { AlertCircle } from 'lucide-react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { landingTutorialUrl } from '@/shared/lib/publicPaths';
 import { StatusIndicator } from './mp-connect-card/StatusIndicator';
 import { InfoSection } from './mp-connect-card/InfoSection';
 import { ConnectAction } from './mp-connect-card/ConnectAction';
@@ -99,6 +100,18 @@ export function MPConnectCard({ complexId, province }: MPConnectCardProps) {
     <div className="space-y-5">
       <MPConnectCardStatus complexId={complexId} />
       <MPFeesSection province={province} />
+      {/* The release period is a setting of the owner's Mercado Pago account, not
+          of Vibe: the fees table above depends on it, and this is how to change it. */}
+      <p className="text-xs">
+        <a
+          href={landingTutorialUrl('plazo-de-acreditacion-mercado-pago')}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary-400 underline"
+        >
+          {t.mp.releasePeriodTutorial}
+        </a>
+      </p>
     </div>
   );
 }
