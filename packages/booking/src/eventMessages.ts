@@ -2,7 +2,7 @@
 export const EVENT_MESSAGES = {
   sectionTitle: 'Canchas abiertas',
   stepCourt: 'Cancha abierta',
-  backToOffers: 'Volver a canchas abiertas',
+  backToOffers: 'Volver',
   /** The ticket counts the courts of an entry beyond two instead of naming them. */
   courtsCount: (count: number) => `${String(count)} canchas`,
   sectionDescription: 'Eventos con cupo limitado. Te inscribís, pagás tu lugar y jugás.',

@@ -7,7 +7,7 @@ export const TOURNAMENT_MESSAGES = {
   categoriesLabel: 'Categorías',
   pageTitle: 'Torneo',
   stepCategory: 'Categoría',
-  backToTournamentLink: 'Volver al torneo',
+  backToTournamentLink: 'Volver',
   formatGroups: 'Zonas y cuadro',
   formatElimination: 'Eliminación directa',
   matchBestOfThree: 'Al mejor de 3 sets',
