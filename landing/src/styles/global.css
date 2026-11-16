@@ -820,7 +820,7 @@ body {
 .tutorial-paso-titulo {
   font-weight: 700; font-size: 1.125rem; line-height: 1.4; color: var(--text); margin-bottom: 10px;
 }
-.tutorial-paso-numero { color: var(--green); }
+.tutorial-paso-numero { display: block; color: var(--green); }
 .tutorial-paso-ampliar { display: block; border-radius: 12px; }
 .tutorial-paso-ampliar:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .tutorial-paso-captura {
@@ -848,7 +848,9 @@ body {
 .tutorial-index-meta { font-size: 0.75rem; color: var(--muted); opacity: 0.7; }
 
 @media (max-width: 640px) {
-  .tutorial { padding: 110px 20px 64px; }
+  /* The container already keeps a 16px gutter on phones; a second one here
+     left the captures 36px from each edge. */
+  .tutorial { padding: 110px 0 64px; }
   .tutorial-cta { padding: 24px; }
 }
 
