@@ -29,7 +29,7 @@ function PairSummary({ registration }: { registration: PublicPairRegistration })
       <p className="text-text-primary text-base font-bold">{tournamentDates(tournament)}</p>
       <p className="text-text-secondary text-sm">
         <span className="text-text-tertiary">{t.tournaments.categoryName}: </span>
-        {categoryTitle(category)}
+        {categoryTitle(category, tournament.sport)}
         <span className="text-text-tertiary">{` \u00b7 ${formatLabel(category.format)}`}</span>
       </p>
       <div className="text-text-primary text-sm">

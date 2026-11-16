@@ -1,7 +1,7 @@
 import { Fragment } from 'react';
 import { Button, cn, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import { publicTournamentPath } from '../../lib/publicPaths';
+import { publicTournamentSignUpPath } from '../../lib/publicPaths';
 import { dayParts, spotsNotice, type AgendaRow as AgendaRowData } from './agendaModel';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -91,7 +91,7 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
       </div>
 
       <Button asChild size="lg" className="min-h-12 w-full sm:w-auto sm:shrink-0">
-        <a href={publicTournamentPath(slug, row.tournamentId, category.id)}>
+        <a href={publicTournamentSignUpPath(slug, row.tournamentId, category.id)}>
           {t.signUpCategory}
           <span className="sr-only">{`: ${row.title}`}</span>
         </a>

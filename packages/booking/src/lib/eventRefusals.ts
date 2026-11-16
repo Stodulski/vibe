@@ -1,7 +1,6 @@
-import type { PublicOpenPlayEvent } from '../api/types';
 import { BOOKING_MESSAGES } from '../messages';
 import { getProblem } from './ApiError';
-import { declarationRefusalCopy } from './declaredPlayers';
+import { declarationRefusalCopy, type EventTraits } from './declaredPlayers';
 import { refusalCopy, type RefusalCopy } from './signUpRefusals';
 
 const t = BOOKING_MESSAGES.events;
@@ -21,7 +20,7 @@ const EVENT_REFUSALS: RefusalCopy = {
  */
 export function signUpRefusalCopy(
   error: unknown,
-  event?: Pick<PublicOpenPlayEvent, 'modality' | 'level_min' | 'level_max'>,
+  event?: EventTraits,
 ): string {
   const declared = event ? declarationRefusalCopy(getProblem(error), { kind: 'event', event }) : undefined;
   return declared ?? refusalCopy(error, EVENT_REFUSALS);

@@ -1,6 +1,10 @@
 /** The copy of the open-play events (canchas abiertas) pages. Part of `BOOKING_MESSAGES.events`. */
 export const EVENT_MESSAGES = {
   sectionTitle: 'Canchas abiertas',
+  stepCourt: 'Cancha abierta',
+  backToOffers: 'Volver a canchas abiertas',
+  /** The ticket counts the courts of an entry beyond two instead of naming them. */
+  courtsCount: (count: number) => `${String(count)} canchas`,
   sectionDescription: 'Eventos con cupo limitado. Te inscribís, pagás tu lugar y jugás.',
   pickerTitle: 'Eventos',
   signUp: 'Inscribirme',

@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { Problem } from './ApiError';
 import {
   declarationRefusalCopy,
+  openPlayDeclaresLevel,
   openPlayIssues,
   openPlayRequirement,
+  pairDeclaresLevel,
   pairIssues,
   pairRequirement,
   toDeclared,
@@ -12,11 +14,11 @@ import { BOOKING_MESSAGES } from '../messages';
 
 const t = BOOKING_MESSAGES.declaration;
 
-const legacy = { modality: null, level: null, suma: null };
-const men8 = { modality: 'men' as const, level: 8, suma: null };
-const men7 = { modality: 'men' as const, level: 7, suma: null };
-const mixedSuma15 = { modality: 'mixed' as const, level: null, suma: 15 };
-const womenFourth = { modality: 'women' as const, level: 4, suma: null };
+const legacy = { sport: 'padel', modality: null, level: null, suma: null };
+const men8 = { sport: 'padel', modality: 'men' as const, level: 8, suma: null };
+const men7 = { sport: 'padel', modality: 'men' as const, level: 7, suma: null };
+const mixedSuma15 = { sport: 'padel', modality: 'mixed' as const, level: null, suma: 15 };
+const womenFourth = { sport: 'padel', modality: 'women' as const, level: 4, suma: null };
 
 function problem(errors: { field: string; message: string }[], status = 422): Pick<Problem, 'status' | 'errors'> {
   return { status, errors };
@@ -29,21 +31,28 @@ describe('pairIssues', () => {
 
   it('needs two men for a men category', () => {
     expect(pairIssues(men8, { gender: 'men', level: 8 }, { gender: 'women', level: 8 })).toEqual([
-      { field: 'partner.gender', message: t.pairMenOnly },
+      { field: 'partner.gender', message: t.pairOnly('Caballeros', 'caballeros') },
     ]);
   });
 
   it('needs two women for a women category', () => {
     const issues = pairIssues(womenFourth, { gender: 'women', level: 4 }, { gender: 'men', level: 4 });
-    expect(issues).toEqual([{ field: 'partner.gender', message: t.pairWomenOnly }]);
+    expect(issues).toEqual([{ field: 'partner.gender', message: t.pairOnly('Damas', 'damas') }]);
   });
 
   it('needs one man and one woman for a mixed category', () => {
-    const mixed = { modality: 'mixed' as const, level: 6, suma: null };
+    const mixed = { sport: 'padel', modality: 'mixed' as const, level: 6, suma: null };
     expect(pairIssues(mixed, { gender: 'men', level: 6 }, { gender: 'men', level: 6 })).toEqual([
-      { field: 'partner.gender', message: t.pairMixed },
+      { field: 'partner.gender', message: t.pairMixed('un caballero y una dama') },
     ]);
     expect(pairIssues(mixed, { gender: 'men', level: 6 }, { gender: 'women', level: 6 })).toEqual([]);
+  });
+
+  it('words a fútbol category with its own modality and players', () => {
+    const soccerMen = { sport: 'soccer', modality: 'men' as const, level: null, suma: null };
+    expect(pairIssues(soccerMen, { gender: 'men' }, { gender: 'women' })).toEqual([
+      { field: 'partner.gender', message: 'Esta categoría es de Masculino: los dos jugadores tienen que ser masculinos.' },
+    ]);
   });
 
   it('refuses a player stronger than a level category, the way a 6ta cannot enter an 8va', () => {
@@ -75,28 +84,37 @@ describe('pairIssues', () => {
 
 describe('openPlayIssues', () => {
   it('takes anyone for an event without a modality', () => {
-    expect(openPlayIssues({ modality: null, level_min: null, level_max: null }, { gender: 'women', level: 9 })).toEqual([]);
+    expect(
+      openPlayIssues({ sport: 'padel', modality: null, level_min: null, level_max: null }, { gender: 'women', level: 9 }),
+    ).toEqual([]);
   });
 
   it('refuses a gender the modality does not take', () => {
-    const men = { modality: 'men' as const, level_min: null, level_max: null };
+    const men = { sport: 'padel', modality: 'men' as const, level_min: null, level_max: null };
     expect(openPlayIssues(men, { gender: 'women', level: 3 })).toEqual([
       { field: 'gender', message: 'Esta cancha abierta es solo de Caballeros.' },
     ]);
-    const women = { modality: 'women' as const, level_min: null, level_max: null };
+    const women = { sport: 'padel', modality: 'women' as const, level_min: null, level_max: null };
     expect(openPlayIssues(women, { gender: 'men', level: 3 })).toEqual([
       { field: 'gender', message: 'Esta cancha abierta es solo de Damas.' },
     ]);
   });
 
+  it('names the gender of a fútbol event with its own words', () => {
+    const soccerWomen = { sport: 'soccer', modality: 'women' as const, level_min: null, level_max: null };
+    expect(openPlayIssues(soccerWomen, { gender: 'men' })).toEqual([
+      { field: 'gender', message: 'Esta cancha abierta es solo de Femenino.' },
+    ]);
+  });
+
   it('takes both genders in a mixed event', () => {
-    const mixed = { modality: 'mixed' as const, level_min: null, level_max: null };
+    const mixed = { sport: 'padel', modality: 'mixed' as const, level_min: null, level_max: null };
     expect(openPlayIssues(mixed, { gender: 'women', level: 3 })).toEqual([]);
     expect(openPlayIssues(mixed, { gender: 'men', level: 3 })).toEqual([]);
   });
 
   it('keeps the level inside the range, both ends included', () => {
-    const range = { modality: 'men' as const, level_min: 6, level_max: 8 };
+    const range = { sport: 'padel', modality: 'men' as const, level_min: 6, level_max: 8 };
     expect(openPlayIssues(range, { gender: 'men', level: 6 })).toEqual([]);
     expect(openPlayIssues(range, { gender: 'men', level: 8 })).toEqual([]);
     expect(openPlayIssues(range, { gender: 'men', level: 5 })).toEqual([
@@ -108,9 +126,23 @@ describe('openPlayIssues', () => {
   });
 
   it('names a single level as the only one', () => {
-    const solo = { modality: null, level_min: 4, level_max: 4 };
+    const solo = { sport: 'padel', modality: null, level_min: 4, level_max: 4 };
     expect(openPlayIssues(solo, { level: 5 })).toEqual([{ field: 'level', message: 'Esta cancha abierta es solo de 4ta.' }]);
     expect(openPlayIssues(solo, { level: 4 })).toEqual([]);
+  });
+});
+
+describe('level declarations', () => {
+  it('asks a level only of a category with a level or a Suma', () => {
+    expect(pairDeclaresLevel(men7)).toBe(true);
+    expect(pairDeclaresLevel(mixedSuma15)).toBe(true);
+    expect(pairDeclaresLevel({ sport: 'soccer', modality: 'men', level: null, suma: null })).toBe(false);
+    expect(pairDeclaresLevel(legacy)).toBe(false);
+  });
+
+  it('asks a level only of an event with a range', () => {
+    expect(openPlayDeclaresLevel({ sport: 'padel', modality: 'men', level_min: 6, level_max: 8 })).toBe(true);
+    expect(openPlayDeclaresLevel({ sport: 'soccer', modality: 'men', level_min: null, level_max: null })).toBe(false);
   });
 });
 
@@ -129,10 +161,20 @@ describe('requirements', () => {
     expect(pairRequirement(legacy)).toBeNull();
   });
 
+  it('states a fútbol category by its modality alone', () => {
+    expect(pairRequirement({ sport: 'soccer', modality: 'men', level: null, suma: null })).toBe('Masculino');
+  });
+
   it('states an open play by its modality and range', () => {
-    expect(openPlayRequirement({ modality: 'men', level_min: 6, level_max: 8 })).toBe('Caballeros · de 6ta a 8va');
-    expect(openPlayRequirement({ modality: 'women', level_min: 4, level_max: 4 })).toBe('Damas · solo 4ta');
-    expect(openPlayRequirement({ modality: null, level_min: null, level_max: null })).toBeNull();
+    expect(openPlayRequirement({ sport: 'padel', modality: 'men', level_min: 6, level_max: 8 })).toBe(
+      'Caballeros · de 6ta a 8va',
+    );
+    expect(openPlayRequirement({ sport: 'padel', modality: 'women', level_min: 4, level_max: 4 })).toBe('Damas · solo 4ta');
+    expect(openPlayRequirement({ sport: 'padel', modality: null, level_min: null, level_max: null })).toBeNull();
+  });
+
+  it('states a fútbol open play by its modality alone', () => {
+    expect(openPlayRequirement({ sport: 'soccer', modality: 'women', level_min: null, level_max: null })).toBe('Femenino');
   });
 });
 
@@ -158,11 +200,11 @@ describe('declarationRefusalCopy', () => {
       kind: 'pair',
       category: men8,
     });
-    expect(copy).toBe(t.pairMenOnly);
+    expect(copy).toBe(t.pairOnly('Caballeros', 'caballeros'));
   });
 
   it('maps an open-play range and gender the server refused', () => {
-    const event = { modality: 'women' as const, level_min: 6, level_max: 8 };
+    const event = { sport: 'padel', modality: 'women' as const, level_min: 6, level_max: 8 };
     expect(declarationRefusalCopy(problem([{ field: 'level', message: 'level_out_of_range' }]), { kind: 'event', event })).toBe(
       'Esta cancha abierta es de 6ta a 8va.',
     );

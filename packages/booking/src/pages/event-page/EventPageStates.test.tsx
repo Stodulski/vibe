@@ -31,8 +31,6 @@ describe('status notices', () => {
           slug="test-club"
           detail={DETAIL}
           category={{ ...CAT_OPEN, status: c.status, spots_left: c.spots_left }}
-          openFormId={null}
-          onOpenFormChange={() => undefined}
         />,
       );
       expect(container.querySelector('[role="status"] svg')?.getAttribute('class')).toContain(c.icon);

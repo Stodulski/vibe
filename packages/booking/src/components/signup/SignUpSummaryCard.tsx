@@ -4,7 +4,6 @@ import { cancellationWindowText } from '../booking-confirmed/cancellationCopy';
 import { TicketCourt, TicketPriceRow, TicketStub } from '../ticket/TicketParts';
 import { TicketCourtList, type TicketCourtRow } from './TicketCourtList';
 
-
 interface SignUpSummaryCardProps {
   ariaLabel: string;
   /** The complex, on the ticket's first line. */
@@ -13,13 +12,15 @@ interface SignUpSummaryCardProps {
   dateLabel: string;
   /** The hours in large type, when the entry has them. */
   timeLabel?: string | undefined;
-  /** What the person signs up for: the event or the tournament. It is the page's `h1`. */
+  /** The small line above the title: what kind of entry it is, "Torneo de pádel". */
+  kicker?: string | undefined;
+  /** What the person signs up for: the event or the category. It is the page's `h1`. */
   title: string;
-  /** Chips under the title (sport, category, format). */
+  /** Chips under the title (sport, format). */
   tags: string[];
   /** Free lines under the chips (how it is played). */
   details?: string[];
-  /** The courts, one per row under `courtsLabel`: the name, then what a player compares ("Techada · Césped sintético"). */
+  /** The courts, one per row under `courtsLabel`: the name as text, then its facts as chips. */
   courts?: TicketCourtRow[];
   courtsLabel?: string;
   /** What the entry is called on the first money row: "Lugar", "Inscripción de la pareja". */
@@ -45,6 +46,7 @@ export function SignUpSummaryCard({
   venue,
   dateLabel,
   timeLabel,
+  kicker,
   title,
   tags,
   details = [],
@@ -76,6 +78,7 @@ export function SignUpSummaryCard({
           {timeLabel && <p className="text-text-inverse text-3xl font-bold tabular-nums">{timeLabel}</p>}
         </div>
         <div className="space-y-2">
+          {kicker && <p className="text-text-inverse text-sm">{kicker}</p>}
           <TicketCourt name={title} tags={tags} as="h1" />
           {details.map((line) => (
             <p key={line} className="text-text-inverse text-sm">

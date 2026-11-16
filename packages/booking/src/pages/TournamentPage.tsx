@@ -80,17 +80,13 @@ function TournamentDetailPage({
   slug,
   tournamentId,
   paymentFailed,
-  preselectedCategoryId,
 }: {
   slug: string;
   tournamentId: string;
   paymentFailed: boolean;
-  /** The category an agenda row signed up to (`?category=`): its sign-up opens on arrival. */
-  preselectedCategoryId: string | null;
 }) {
   const [, setParams] = useQueryParams();
   const [showFailure, setShowFailure] = useState(paymentFailed);
-  const [openFormId, setOpenFormId] = useState<string | null>(preselectedCategoryId);
   const { data: detail, isLoading, error, refetch } = useTournament(slug, tournamentId);
   const { pending, retry } = usePaymentRetry(tournamentId, () => {
     setShowFailure(false);
@@ -120,15 +116,7 @@ function TournamentDetailPage({
       </header>
       {tournament.status === 'cancelled' && <CancelledTournamentNotice />}
       {detail.categories.map((category) => (
-        <CategorySection
-          key={category.id}
-          slug={slug}
-          detail={detail}
-          category={category}
-          openFormId={openFormId}
-          onOpenFormChange={setOpenFormId}
-          arrivedFor={category.id === preselectedCategoryId}
-        />
+        <CategorySection key={category.id} slug={slug} detail={detail} category={category} />
       ))}
       <BackToComplexButton slug={slug} />
     </>
@@ -137,7 +125,7 @@ function TournamentDetailPage({
 
 /**
  * `/c/<slug>/tournaments/<id>`: the tournament with its categories, groups,
- * bracket and schedule, the pair sign-up while a category is open and, when
+ * bracket and schedule, each open category linking to its own sign-up page and, when
  * the checkout returns here (`?token=...&registered=1`, `&status=pending`, or
  * `?error=payment_failed`), what became of the payment.
  */
@@ -155,12 +143,7 @@ export default function TournamentPage({ slug, tournamentId }: { slug: string; t
   }
   return (
     <div className={PAGE}>
-      <TournamentDetailPage
-        slug={slug}
-        tournamentId={tournamentId}
-        paymentFailed={paymentFailed}
-        preselectedCategoryId={params.get('category')}
-      />
+      <TournamentDetailPage slug={slug} tournamentId={tournamentId} paymentFailed={paymentFailed} />
     </div>
   );
 }

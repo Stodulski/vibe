@@ -7,7 +7,7 @@ import { http, HttpResponse } from 'msw';
 import { server } from '../../test/msw/server';
 import { EVENT } from '../../test/eventFixtures';
 import { CAT_GROUPS, CAT_OPEN, SUMMARY } from '../../test/tournamentFixtures';
-import { createBookingWrapper, renderBooking } from '../../test/booking';
+import { createBookingWrapper, renderBooking, setBookingUrl } from '../../test/booking';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
 import { ComplexPageContent } from './ComplexPageContent';
@@ -238,5 +238,16 @@ describe('ComplexPageContent tournament options', () => {
     expect(await screen.findByText(CAT_OPEN.name)).toBeInTheDocument();
     expect(screen.queryByText(CAT_GROUPS.name)).not.toBeInTheDocument();
     expect(screen.queryByText(BOOKING_MESSAGES.tournaments.categoryStatusClosed)).not.toBeInTheDocument();
+  });
+});
+
+describe('ComplexPageContent offer from a link', () => {
+  it('opens the option the link asked for with ?offer=events, already picked', async () => {
+    server.use(http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })));
+    setBookingUrl('/c/test-club?offer=events');
+    renderBooking(<ComplexPageContent {...baseProps} />);
+
+    expect(await eventsOption()).toHaveAttribute('aria-pressed', 'true');
+    expect(await screen.findByRole('heading', { name: 'Cancha abierta de pádel' })).toBeInTheDocument();
   });
 });

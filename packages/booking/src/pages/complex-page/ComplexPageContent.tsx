@@ -17,6 +17,7 @@ import { EventsSection } from '../../components/events/EventsSection';
 import { TournamentsSection } from '../../components/tournaments/TournamentsSection';
 import { agendaRows } from '../../components/tournaments/agendaModel';
 import { useComplexEvents } from '../../hooks/useComplexEvents';
+import { useQueryParams } from '../../lib/navigation';
 import { useComplexTournaments } from '../../hooks/useComplexTournaments';
 import { BOOKING_MESSAGES } from '../../messages';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
@@ -154,17 +155,24 @@ export function ComplexPageContent({
 
 type OfferKind = 'events' | 'tournaments';
 
+/** The option a link picked, `?offer=events` or `?offer=tournaments`. Anything else picks none. */
+function offerFromUrl(value: string | null): OfferKind | null {
+  return value === 'events' || value === 'tournaments' ? value : null;
+}
+
 /**
  * The complex's events under one question, "Eventos": canchas abiertas or
  * torneos. An option is offered only when it has something to list, nothing
  * lists until one is picked, and picking the one on screen again closes it.
+ * A link may pick one already (`?offer=`), as a checkout's way back does.
  * Renders nothing while loading, on a failure, or when neither has anything to
  * list.
  */
 function ComplexOffers({ slug }: { slug: string }) {
   const { data: events } = useComplexEvents(slug);
   const { data: tournaments } = useComplexTournaments(slug);
-  const [picked, setPicked] = useState<OfferKind | null>(null);
+  const [params] = useQueryParams();
+  const [picked, setPicked] = useState<OfferKind | null>(() => offerFromUrl(params.get('offer')));
 
   const eventList = events ?? [];
   const agenda = agendaRows(tournaments ?? []);

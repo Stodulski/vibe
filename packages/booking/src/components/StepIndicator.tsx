@@ -1,25 +1,27 @@
 import { Check } from 'lucide-react';
 import { cn } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../messages';
+import { BOOKING_STEPS } from './checkoutSteps';
 
 const t = BOOKING_MESSAGES;
 
-const STEPS = [t.publicBooking.stepSelect, t.publicBooking.stepData, t.publicBooking.stepPay] as const;
-
 interface StepIndicatorProps {
-  currentStep: 1 | 2 | 3;
+  /** The step on screen, counted from 1. */
+  currentStep: number;
+  /** The labels of the flow's steps, in order. Defaults to a booking's. */
+  steps?: readonly string[];
 }
 
-export function StepIndicator({ currentStep }: StepIndicatorProps) {
+export function StepIndicator({ currentStep, steps = BOOKING_STEPS }: StepIndicatorProps) {
   // On mobile every step's label is hidden except the active one's (below,
   // as its own line) — the circles alone answer "how many steps", not "which
   // one am I on now", and that is the one a phone screen has room to keep.
-  const activeLabel = STEPS[currentStep - 1];
+  const activeLabel = steps[currentStep - 1];
 
   return (
     <div className="flex flex-col items-center gap-1.5">
       <nav aria-label={t.publicBooking.stepProgress} className="flex items-center justify-center gap-0">
-        {STEPS.map((label, i) => {
+        {steps.map((label, i) => {
           const step = i + 1;
           const isActive = step === currentStep;
           const isCompleted = step < currentStep;
@@ -61,7 +63,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
         })}
       </nav>
       <p className="text-text-primary text-xs font-semibold sm:hidden">
-        {t.publicBooking.stepOfPrefix} {currentStep} {t.publicBooking.stepOfMiddle} {STEPS.length}: {activeLabel}
+        {t.publicBooking.stepOfPrefix} {currentStep} {t.publicBooking.stepOfMiddle} {steps.length}: {activeLabel}
       </p>
     </div>
   );

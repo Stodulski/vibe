@@ -4,7 +4,7 @@ import { usePublicBookingApi } from '../api/context';
 import type { PublicTournamentCategory } from '../api/types';
 import { BOOKING_MESSAGES } from '../messages';
 import { tournamentRefusalCopy } from '../lib/tournamentRefusals';
-import { toDeclared } from '../lib/declaredPlayers';
+import { pairDeclaresLevel, toDeclared } from '../lib/declaredPlayers';
 import { isModality } from '../lib/traitLabels';
 import { storeTournamentRegistrationToken } from '../lib/tournamentRegistrationStorage';
 import { navigateTo } from '../lib/navigation';
@@ -20,12 +20,12 @@ import type { PairSignUpFormData } from '../schemas/pair-signup.schema';
 export function useTournamentSignUp(
   slug: string,
   tournamentId: string,
-  category: PublicTournamentCategory,
+  category: PublicTournamentCategory & { sport: string },
   onMessage: (message: string) => void,
 ) {
   const api = usePublicBookingApi();
   const queryClient = useQueryClient();
-  const declares = isModality(category.modality);
+  const declares = isModality(category.modality) || pairDeclaresLevel(category);
   return useMutation({
     mutationFn: ({ data, token }: { data: PairSignUpFormData; token?: string | undefined }) => {
       const payer = declares ? toDeclared(data.gender, data.level) : {};

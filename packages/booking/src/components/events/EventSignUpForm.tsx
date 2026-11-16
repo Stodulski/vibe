@@ -6,10 +6,10 @@ import { es } from 'date-fns/locale/es';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
 import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
 import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
-import { courtFactsLine } from '../../lib/courtFacts';
+import { courtFactParts } from '../../lib/courtFacts';
 import { keepTogether } from '../../lib/keepTogether';
 import { openPlayRequirement } from '../../lib/declaredPlayers';
-import { openPlayTitle, isModality } from '../../lib/traitLabels';
+import { openPlayTitle } from '../../lib/traitLabels';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
 import { eventTimeRange, endsNextDay, sportLabel } from './eventFormat';
@@ -32,9 +32,9 @@ function eventDetails(event: PublicOpenPlayEvent): string[] {
   return endsNextDay(event) ? [t.events.nextDayNote] : [];
 }
 
-/** One row per court: its name kept together, then roof, surface and lighting the way the booking flow words them. */
+/** One row per court: its name kept together, then roof, surface and lighting as chips, the way the booking ticket shows a court. */
 function eventCourts(event: PublicOpenPlayEvent) {
-  return event.courts.map((court) => ({ id: court.id, name: keepTogether(court.name), facts: courtFactsLine(court) }));
+  return event.courts.map((court) => ({ id: court.id, name: keepTogether(court.name), tags: courtFactParts(court) }));
 }
 
 /**
@@ -45,7 +45,6 @@ function eventCourts(event: PublicOpenPlayEvent) {
  */
 export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const declares = isModality(event.modality);
   const schema = useMemo(() => eventSignUpSchema(event), [event]);
 
   const {
@@ -94,7 +93,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
         {requirement && <p className="text-text-secondary text-sm">{requirement}</p>}
-        <EventSignUpFields register={register} control={control} errors={errors} declares={declares} />
+        <EventSignUpFields register={register} control={control} errors={errors} event={event} />
         <TurnstileField key={generation} onTokenChange={onTokenChange} />
         <SubmitFooter isLoading={signUp.isPending} totalOnline={event.total_price} type="submit" />
         <PrivacyNotice text={t.events.privacyNotice} />

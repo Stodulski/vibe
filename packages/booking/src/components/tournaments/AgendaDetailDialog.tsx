@@ -7,7 +7,7 @@ import {
   formatPrice,
 } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import { publicTournamentPath } from '../../lib/publicPaths';
+import { publicTournamentSignUpPath } from '../../lib/publicPaths';
 import { categoryWhen, formatDetailLabel, type AgendaRow } from './agendaModel';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -45,7 +45,7 @@ function DetailBody({ row, slug, onClose }: { row: AgendaRow; slug: string; onCl
 
       <div className="flex flex-col gap-2 pt-2 sm:flex-row">
         <Button asChild size="lg" className="min-h-12 w-full sm:w-auto">
-          <a href={publicTournamentPath(slug, row.tournamentId, category.id)}>{t.signUpCategory}</a>
+          <a href={publicTournamentSignUpPath(slug, row.tournamentId, category.id)}>{t.signUpCategory}</a>
         </Button>
         <Button variant="outline" size="lg" className="min-h-12 w-full sm:w-auto" onClick={onClose}>
           {t.closeDetail}

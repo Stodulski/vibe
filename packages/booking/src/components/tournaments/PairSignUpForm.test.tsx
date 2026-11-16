@@ -225,7 +225,7 @@ describe('PairSignUpForm declarations: refusals', () => {
     await declarePlayer(user, 1, 'Dama', '8');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
-    expect(await screen.findByText(BOOKING_MESSAGES.declaration.pairMenOnly)).toBeInTheDocument();
+    expect(await screen.findByText(BOOKING_MESSAGES.declaration.pairOnly('Caballeros', 'caballeros'))).toBeInTheDocument();
     expect(bodies).toHaveLength(0);
   });
 
@@ -254,7 +254,7 @@ describe('PairSignUpForm declarations: refusals', () => {
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     // One message for each player who has not chosen a gender yet.
-    expect(await screen.findAllByText(BOOKING_MESSAGES.declaration.genderRequired)).toHaveLength(2);
+    expect(await screen.findAllByText(BOOKING_MESSAGES.declaration.genderRequired('caballero o dama'))).toHaveLength(2);
     expect(bodies).toHaveLength(0);
   });
 
@@ -296,6 +296,61 @@ describe('PairSignUpForm without a modality', () => {
       expect(bodies).toHaveLength(1);
     });
     expect(bodies[0]).not.toHaveProperty('gender');
+    expect(bodies[0]).not.toHaveProperty('level');
+  });
+});
+
+describe('PairSignUpForm by sport', () => {
+  beforeEach(resetTurnstile);
+
+  const SOCCER = { ...TOURNAMENT, sport: 'soccer' as const };
+  const SOCCER_MEN: PublicTournamentCategory = { ...CAT_OPEN, modality: 'men', level: null, suma: null };
+
+  it('asks a fútbol category with a modality for the gender alone, in the words of the sport', () => {
+    renderBooking(<PairSignUpForm slug="test-club" tournament={SOCCER} category={SOCCER_MEN} />, { config: BASE_CONFIG });
+
+    expect(screen.getAllByRole('radio', { name: 'Masculino' })).toHaveLength(2);
+    expect(screen.queryByRole('radio', { name: 'Caballero' })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument();
+  });
+
+  it('asks a pádel category with a modality for the gender alone when it has no level or Suma', () => {
+    renderBooking(
+      <PairSignUpForm slug="test-club" tournament={TOURNAMENT} category={{ ...CAT_OPEN, modality: 'men', level: null, suma: null }} />,
+      { config: BASE_CONFIG },
+    );
+
+    expect(screen.getAllByRole('radio', { name: 'Caballero' })).toHaveLength(2);
+    expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument();
+  });
+
+  it('does not ask for a level before the gender of a fútbol category', async () => {
+    const user = userEvent.setup();
+    renderBooking(<PairSignUpForm slug="test-club" tournament={SOCCER} category={SOCCER_MEN} />, { config: BASE_CONFIG });
+
+    await fillPlayers(user);
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findAllByText(BOOKING_MESSAGES.declaration.genderRequired('masculino o femenino'))).toHaveLength(2);
+    expect(screen.queryByText(BOOKING_MESSAGES.declaration.levelRequired)).not.toBeInTheDocument();
+  });
+
+  it('sends a fútbol declaration with each gender and no level', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<PairSignUpForm slug="test-club" tournament={SOCCER} category={SOCCER_MEN} />, { config: BASE_CONFIG });
+
+    await fillPlayers(user);
+    const [payer, partner] = screen.getAllByRole('radio', { name: 'Masculino' });
+    if (!payer || !partner) throw new Error('no gender choice');
+    await user.click(payer);
+    await user.click(partner);
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).toMatchObject({ gender: 'men', partner: { gender: 'men' } });
     expect(bodies[0]).not.toHaveProperty('level');
   });
 });

@@ -16,7 +16,7 @@ describe('TournamentsSection', () => {
     expect(screen.getByRole('heading', { level: 3, name: CAT_OPEN.name })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Inscribirme/ })).toHaveAttribute(
       'href',
-      `/c/test-club/tournaments/t1?category=${CAT_OPEN.id}`,
+      `/c/test-club/tournaments/t1/inscripcion?category=${CAT_OPEN.id}`,
     );
   });
 

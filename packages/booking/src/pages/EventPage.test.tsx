@@ -277,8 +277,10 @@ describe('EventPage checkout parity with a booking', () => {
     expect(within(ticket).getByRole('heading', { level: 1, name: 'Cancha abierta de pádel' })).toBeInTheDocument();
     expect(within(ticket).getByText('Club Norte')).toBeInTheDocument();
     expect(within(ticket).getByText('19:00 a 22:00')).toBeInTheDocument();
-    expect(within(ticket).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(ticket).getByText('Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
+    expect(within(ticket).getByText(/, /)).toBeInTheDocument();
+    for (const chip of ['Techada', 'Césped sintético', 'Con iluminación']) {
+      expect(within(ticket).getByText(chip)).toBeInTheDocument();
+    }
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();
     expect(within(ticket).getByText(/24h/)).toBeInTheDocument();

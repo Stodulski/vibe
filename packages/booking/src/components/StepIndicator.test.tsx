@@ -40,4 +40,17 @@ describe('StepIndicator', () => {
       ),
     ).toBeInTheDocument();
   });
+
+  // Open play and tournament checkouts name their first step after what was
+  // chosen before it, so the labels come from the flow, not from the booking.
+  it('names the steps of the flow it is given', () => {
+    const steps = [t.events.stepCourt, t.publicBooking.stepData, t.publicBooking.stepPay];
+    render(<StepIndicator currentStep={2} steps={steps} />);
+    const nav = screen.getByRole('navigation', { name: t.publicBooking.stepProgress });
+    expect(nav).toHaveTextContent(t.events.stepCourt);
+    expect(nav).not.toHaveTextContent(t.publicBooking.stepSelect);
+    expect(
+      screen.getByText(`${t.publicBooking.stepOfPrefix} 2 ${t.publicBooking.stepOfMiddle} 3: ${t.publicBooking.stepData}`),
+    ).toBeInTheDocument();
+  });
 });

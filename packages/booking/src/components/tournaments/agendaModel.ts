@@ -89,7 +89,7 @@ export function agendaRows(tournaments: readonly PublicTournamentSummary[]): Age
         label: tournamentLabel(tournament.sport),
         date: category.starts_on ?? tournament.start_date,
         time: category.starts_at,
-        title: categoryTitle(category),
+        title: categoryTitle(category, tournament.sport),
       });
     }
   }

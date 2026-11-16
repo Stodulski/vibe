@@ -13,6 +13,7 @@
     "./book-cancel": "./src/entries/book-cancel.tsx",
     "./event-page": "./src/entries/event-page.tsx",
     "./tournament-page": "./src/entries/tournament-page.tsx",
+    "./tournament-signup": "./src/entries/tournament-signup.tsx",
     "./payment-failed": "./src/entries/payment-failed.tsx",
     "./config": "./src/config.ts",
     "./messages": "./src/messages.ts",

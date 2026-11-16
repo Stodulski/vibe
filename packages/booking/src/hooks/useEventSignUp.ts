@@ -4,7 +4,7 @@ import { usePublicBookingApi } from '../api/context';
 import type { PublicOpenPlayEvent } from '../api/types';
 import { BOOKING_MESSAGES } from '../messages';
 import { signUpRefusalCopy } from '../lib/eventRefusals';
-import { toDeclared } from '../lib/declaredPlayers';
+import { openPlayDeclaresLevel, toDeclared } from '../lib/declaredPlayers';
 import { isModality } from '../lib/traitLabels';
 import { storeEventRegistrationToken } from '../lib/eventRegistrationStorage';
 import { navigateTo } from '../lib/navigation';
@@ -20,13 +20,13 @@ import type { EventSignUpFormData } from '../schemas/event-signup.schema';
  */
 export function useEventSignUp(
   slug: string,
-  event: Pick<PublicOpenPlayEvent, 'id' | 'modality' | 'level_min' | 'level_max'>,
+  event: Pick<PublicOpenPlayEvent, 'id' | 'sport' | 'modality' | 'level_min' | 'level_max'>,
   onMessage: (message: string) => void,
 ) {
   const api = usePublicBookingApi();
   const queryClient = useQueryClient();
   const eventId = event.id;
-  const declares = isModality(event.modality);
+  const declares = isModality(event.modality) || openPlayDeclaresLevel(event);
   return useMutation({
     mutationFn: ({ data, token }: { data: EventSignUpFormData; token?: string | undefined }) =>
       api.signUpForEvent(slug, eventId, {

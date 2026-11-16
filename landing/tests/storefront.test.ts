@@ -48,6 +48,12 @@ test('the page of a tournament is a booking step: never indexable, whatever the 
   }
 });
 
+test('the pair sign-up of a tournament is a booking step: never indexable, whatever the switch says', () => {
+  const path = '/c/club-sur/tournaments/6f1c2a0e/inscripcion';
+  assert.equal(storefrontRobots(path, 200), 'noindex', path);
+  assert.equal(isBookPath(path), true, path);
+});
+
 test('a slug that is called tournaments is the complex page, not a tournament', () => {
   assert.equal(isBookPath('/c/tournaments'), false);
   assert.equal(storefrontRobots('/c/tournamentsclub', 200), robotsDirective(200));

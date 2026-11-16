@@ -63,7 +63,7 @@ describe('TournamentAgenda rows', () => {
     expect(screen.getAllByText('Torneo de pádel')).toHaveLength(2);
     expect(screen.getByRole('link', { name: /Inscribirme.*Caballeros 8va/ })).toHaveAttribute(
       'href',
-      '/c/test-club/tournaments/t1?category=c-men8',
+      '/c/test-club/tournaments/t1/inscripcion?category=c-men8',
     );
   });
 
@@ -159,7 +159,7 @@ describe('TournamentAgenda detail', () => {
     expect(within(dialog).getByText(`${t.formatGroups} · ${t.zonesOf} 3 ${t.pairsPassed} 2`)).toBeInTheDocument();
     expect(within(dialog).getByRole('link', { name: t.signUpCategory })).toHaveAttribute(
       'href',
-      '/c/test-club/tournaments/t1?category=c-men8',
+      '/c/test-club/tournaments/t1/inscripcion?category=c-men8',
     );
 
     await user.click(within(dialog).getByRole('button', { name: t.closeDetail }));

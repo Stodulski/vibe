@@ -1,13 +1,13 @@
 import { BOOKING_MESSAGES } from '../messages';
 import type { DeclaredGender, Modality, PublicOpenPlayEvent, PublicTournamentCategory } from '../api/types';
 import type { Problem } from './ApiError';
-import { isModality, levelLabel, levelRangeLabel, modalityLabel } from './traitLabels';
+import { declarationWords, hasLevels, isModality, levelLabel, levelRangeLabel, modalityLabel } from './traitLabels';
 
 /**
  * The rules a player's declaration (gender and level) is checked against, in
  * the browser before anything is sent, and by the server, which refuses with
  * the same four codes. Each rule answers with the field it is about, so a form
- * can show the message beside it.
+ * can show the message beside it. The words of the copy follow the sport.
  */
 
 const t = BOOKING_MESSAGES.declaration;
@@ -27,8 +27,10 @@ export interface DeclarationIssue {
   message: string;
 }
 
-type PairCategory = Pick<PublicTournamentCategory, 'modality' | 'level' | 'suma'>;
-type EventTraits = Pick<PublicOpenPlayEvent, 'modality' | 'level_min' | 'level_max'>;
+/** A category with the sport it is played in, which decides the words its modality is named in. */
+export type PairCategory = Pick<PublicTournamentCategory, 'modality' | 'level' | 'suma'> & { sport: string };
+/** An open-play event, with the sport that decides the words of its modality. */
+export type EventTraits = Pick<PublicOpenPlayEvent, 'sport' | 'modality' | 'level_min' | 'level_max'>;
 
 /** Men's both men, women's both women, mixed one of each. */
 function pairFits(modality: Modality, payer: DeclaredGender, partner: DeclaredGender): boolean {
@@ -37,17 +39,16 @@ function pairFits(modality: Modality, payer: DeclaredGender, partner: DeclaredGe
   return payer !== partner;
 }
 
-function pairModalityMessage(modality: Modality): string {
-  if (modality === 'men') return t.pairMenOnly;
-  if (modality === 'women') return t.pairWomenOnly;
-  return t.pairMixed;
+function pairModalityMessage(modality: Modality, sport: string): string {
+  const words = declarationWords(sport);
+  if (modality === 'mixed') return t.pairMixed(words.mixedPair);
+  return t.pairOnly(words.modality[modality], words.playersOf[modality]);
 }
 
 /** A gender the modality takes. Mixed takes both, so it has no copy. */
-function eventGenderMessage(modality: Modality): string | undefined {
-  if (modality === 'men') return t.openPlayMenOnly;
-  if (modality === 'women') return t.openPlayWomenOnly;
-  return undefined;
+function eventGenderMessage(modality: Modality, sport: string): string | undefined {
+  if (modality === 'mixed') return undefined;
+  return t.openPlayOnly(declarationWords(sport).modality[modality]);
 }
 
 function eventGenderFits(modality: Modality, gender: DeclaredGender): boolean {
@@ -66,6 +67,16 @@ function sumaTooLowMessage(suma: number): string {
   return t.sumaTooLow(suma);
 }
 
+/** Whether a category asks its players' level: only one with a level or a Suma does. */
+export function pairDeclaresLevel(category: PairCategory): boolean {
+  return typeof category.level === 'number' || typeof category.suma === 'number';
+}
+
+/** Whether an open-play event asks the person's level: only one with a range does. */
+export function openPlayDeclaresLevel(event: EventTraits): boolean {
+  return typeof event.level_min === 'number' && typeof event.level_max === 'number';
+}
+
 /**
  * Why a pair does not fit its category, field by field. A category that
  * predates the traits takes any pair. Missing declarations are not answered
@@ -75,7 +86,7 @@ export function pairIssues(category: PairCategory, payer: Declared, partner: Dec
   if (!isModality(category.modality)) return [];
   const issues: DeclarationIssue[] = [];
   if (payer.gender && partner.gender && !pairFits(category.modality, payer.gender, partner.gender)) {
-    issues.push({ field: 'partner.gender', message: pairModalityMessage(category.modality) });
+    issues.push({ field: 'partner.gender', message: pairModalityMessage(category.modality, category.sport) });
   }
   if (typeof category.level === 'number') {
     if (typeof payer.level === 'number' && payer.level < category.level) {
@@ -100,7 +111,7 @@ export function pairIssues(category: PairCategory, payer: Declared, partner: Dec
 export function openPlayIssues(event: EventTraits, player: Declared): DeclarationIssue[] {
   const issues: DeclarationIssue[] = [];
   if (isModality(event.modality) && player.gender && !eventGenderFits(event.modality, player.gender)) {
-    const message = eventGenderMessage(event.modality);
+    const message = eventGenderMessage(event.modality, event.sport);
     if (message) issues.push({ field: 'gender', message });
   }
   const { level_min: min, level_max: max } = event;
@@ -112,10 +123,15 @@ export function openPlayIssues(event: EventTraits, player: Declared): Declaratio
   return issues;
 }
 
-/** The line under a pair sign-up's heading: "Caballeros · 7ma o menor", or the Suma it needs. `null` when there is none. */
+/**
+ * The line under a pair sign-up's heading: "Caballeros · 7ma o menor", or the
+ * Suma it needs. A sport without levels states its modality alone, "Masculino".
+ * `null` when there is none.
+ */
 export function pairRequirement(category: PairCategory): string | null {
   if (!isModality(category.modality)) return null;
-  const who = modalityLabel(category.modality);
+  const who = modalityLabel(category.modality, category.sport);
+  if (!hasLevels(category.sport)) return who;
   if (typeof category.level === 'number') return `${who} · ${t.levelOrWeaker(levelLabel(category.level))}`;
   if (typeof category.suma === 'number') return `${who} · ${t.sumaRequirement(category.suma)}`;
   return who;
@@ -124,9 +140,9 @@ export function pairRequirement(category: PairCategory): string | null {
 /** The line under an open-play sign-up's heading: "Caballeros · de 6ta a 8va", or "Damas · solo 4ta". `null` when there is none. */
 export function openPlayRequirement(event: EventTraits): string | null {
   const parts: string[] = [];
-  if (isModality(event.modality)) parts.push(modalityLabel(event.modality));
+  if (isModality(event.modality)) parts.push(modalityLabel(event.modality, event.sport));
   const { level_min: min, level_max: max } = event;
-  if (typeof min === 'number' && typeof max === 'number') {
+  if (hasLevels(event.sport) && typeof min === 'number' && typeof max === 'number') {
     const range = levelRangeLabel(min, max);
     parts.push(min === max ? range : `de ${range}`);
   }
@@ -147,13 +163,15 @@ export type DeclarationSubject = { kind: 'pair'; category: PairCategory } | { ki
 function refusalFor(code: string, subject: DeclarationSubject): string | undefined {
   if (subject.kind === 'pair') {
     const { category } = subject;
-    if (code === 'modality_mismatch' && isModality(category.modality)) return pairModalityMessage(category.modality);
+    if (code === 'modality_mismatch' && isModality(category.modality)) {
+      return pairModalityMessage(category.modality, category.sport);
+    }
     if (code === 'level_too_strong' && typeof category.level === 'number') return levelTooStrongMessage(category.level);
     if (code === 'suma_too_low' && typeof category.suma === 'number') return sumaTooLowMessage(category.suma);
     return undefined;
   }
   const { event } = subject;
-  if (code === 'modality_mismatch' && isModality(event.modality)) return eventGenderMessage(event.modality);
+  if (code === 'modality_mismatch' && isModality(event.modality)) return eventGenderMessage(event.modality, event.sport);
   if (code === 'level_out_of_range' && typeof event.level_min === 'number' && typeof event.level_max === 'number') {
     return eventRangeMessage(event.level_min, event.level_max);
   }

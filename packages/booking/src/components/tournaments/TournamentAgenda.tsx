@@ -17,9 +17,9 @@ const t = BOOKING_MESSAGES.tournaments;
 /** The modality filters, in the order the agenda offers them. */
 const MODALITY_FILTERS: { value: ModalityFilter; label: string }[] = [
   { value: 'all', label: t.filterAll },
-  { value: 'women', label: modalityLabel('women') },
-  { value: 'men', label: modalityLabel('men') },
-  { value: 'mixed', label: modalityLabel('mixed') },
+  { value: 'women', label: modalityLabel('women', 'padel') },
+  { value: 'men', label: modalityLabel('men', 'padel') },
+  { value: 'mixed', label: modalityLabel('mixed', 'padel') },
 ];
 
 interface ChipProps {

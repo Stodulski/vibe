@@ -1,19 +1,19 @@
-import { useEffect, useRef } from 'react';
-import { Ban, Info, Lock, type LucideIcon } from 'lucide-react';
+import { type LucideIcon } from 'lucide-react';
 import { Button, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournament, PublicTournamentDetail, PublicTournamentCategory } from '../../api/types';
 import { categoryTitle } from '../../lib/traitLabels';
+import { publicTournamentSignUpPath } from '../../lib/publicPaths';
 import { BracketView } from './BracketView';
+import { noticeFor } from './signUpNotice';
 import { GroupSection } from './GroupSection';
-import { PairSignUpForm } from './PairSignUpForm';
 import { ScheduleList } from './ScheduleList';
 import { categoryWhen } from './agendaModel';
 import { formatLabel, isOpenForSignUp, matchFormatLabel, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
-function Notice({ icon: Icon, children }: { icon: LucideIcon; children: string }) {
+export function Notice({ icon: Icon, children }: { icon: LucideIcon; children: string }) {
   return (
     <p role="status" className="text-text-secondary text-sm">
       <Icon className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
@@ -22,26 +22,15 @@ function Notice({ icon: Icon, children }: { icon: LucideIcon; children: string }
   );
 }
 
-/** Why a category takes no pairs, with a neutral icon: none of these is a success. */
-function noticeFor(category: PublicTournamentCategory): { icon: LucideIcon; text: string } {
-  if (category.status === 'cancelled') return { icon: Ban, text: t.categoryCancelled };
-  if (category.status === 'closed' || category.draw_generated) return { icon: Lock, text: t.signUpClosedCategory };
-  return { icon: Info, text: t.categoryFull };
-}
-
 interface SignUpAreaProps {
   slug: string;
   tournament: PublicTournament;
   category: PublicTournamentCategory;
   tournamentActive: boolean;
-  formOpen: boolean;
-  /** Another category's form is open: this category's button steps back to a secondary one. */
-  otherFormOpen: boolean;
-  onFormOpenChange: (open: boolean) => void;
 }
 
-/** The open category offers its form on demand; any other says why it does not. */
-function SignUpArea({ slug, tournament, category, tournamentActive, formOpen, otherFormOpen, onFormOpenChange }: SignUpAreaProps) {
+/** The open category links to its own sign-up page; any other says why it does not. */
+function SignUpArea({ slug, tournament, category, tournamentActive }: SignUpAreaProps) {
   if (!tournamentActive) return null;
   if (!isOpenForSignUp(category)) {
     const notice = noticeFor(category);
@@ -49,41 +38,31 @@ function SignUpArea({ slug, tournament, category, tournamentActive, formOpen, ot
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {!formOpen && (
-        <Button
-          size="lg"
-          variant={otherFormOpen ? 'outline' : 'default'}
-          className="min-h-12 w-full sm:w-auto"
-          onClick={() => {
-            onFormOpenChange(true);
-          }}
-        >
-          {t.signUp}
-        </Button>
-      )}
-      {formOpen && <PairSignUpForm slug={slug} tournament={tournament} category={category} />}
-    </div>
+    <Button asChild size="lg" className="min-h-12 w-full sm:w-auto sm:self-start">
+      <a href={publicTournamentSignUpPath(slug, tournament.id, category.id)}>{t.signUp}</a>
+    </Button>
   );
 }
 
 interface CategoryHeaderProps {
   headingId: string;
   category: PublicTournamentCategory;
+  /** The tournament's sport: it decides the words of the category's title. */
+  sport: string;
   /** The category takes pairs now: the spots left are worth saying. */
   showOffer: boolean;
 }
 
 /**
- * The category's title, its day and prizes when it has them, its format, and,
+ * The category's title, its day and prizes when it has them, its format and,
  * unless it was cancelled, how it is played, its price and its spots.
  */
-function CategoryHeader({ headingId, category, showOffer }: CategoryHeaderProps) {
+function CategoryHeader({ headingId, category, sport, showOffer }: CategoryHeaderProps) {
   const cancelled = category.status === 'cancelled';
   return (
     <div className="flex flex-col gap-1">
       <h2 id={headingId} className="text-text-primary text-lg font-bold">
-        {categoryTitle(category)}
+        {categoryTitle(category, sport)}
       </h2>
       {category.starts_on && (
         <p className="text-text-secondary text-sm first-letter:uppercase">
@@ -117,11 +96,6 @@ interface CategorySectionProps {
   slug: string;
   detail: PublicTournamentDetail;
   category: PublicTournamentCategory;
-  /** The category whose sign-up form is open on the page, if any. */
-  openFormId: string | null;
-  onOpenFormChange: (categoryId: string | null) => void;
-  /** The visitor came here to sign up to this category (`?category=`): its section is brought into view. */
-  arrivedFor?: boolean;
 }
 
 /** The pairs, groups and matches of one category, out of the tournament's whole detail. */
@@ -133,25 +107,8 @@ function sliceOf(detail: PublicTournamentDetail, categoryId: string) {
   };
 }
 
-/** Brings the section into view once when the visitor arrived to sign up to it. The section is scrolled to, not focused. */
-function useArrivalScroll(arrivedFor: boolean) {
-  const ref = useRef<HTMLElement>(null);
-  useEffect(() => {
-    if (arrivedFor) ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
-  }, [arrivedFor]);
-  return ref;
-}
-
 /** One category: its format, price and spots, the sign-up while open, and its groups, bracket and schedule once drawn. */
-export function CategorySection({
-  slug,
-  detail,
-  category,
-  openFormId,
-  onOpenFormChange,
-  arrivedFor = false,
-}: CategorySectionProps) {
-  const sectionRef = useArrivalScroll(arrivedFor);
+export function CategorySection({ slug, detail, category }: CategorySectionProps) {
   const { tournament, groups } = detail;
   const headingId = `tournament-category-${category.id}`;
   const own = sliceOf(detail, category.id);
@@ -166,22 +123,16 @@ export function CategorySection({
 
   return (
     <section
-      ref={sectionRef}
       aria-labelledby={headingId}
       className="border-border-subtle bg-bg-subtle flex min-w-0 flex-col gap-5 rounded-2xl border p-4 sm:p-5"
     >
-      <CategoryHeader headingId={headingId} category={category} showOffer={open} />
+      <CategoryHeader headingId={headingId} category={category} sport={tournament.sport} showOffer={open} />
 
       <SignUpArea
         slug={slug}
         tournament={tournament}
         category={category}
         tournamentActive={tournament.status === 'active'}
-        formOpen={openFormId === category.id}
-        otherFormOpen={openFormId !== null && openFormId !== category.id}
-        onFormOpenChange={(next) => {
-          onOpenFormChange(next ? category.id : null);
-        }}
       />
 
       {!cancelled && own.groups.length > 0 && (

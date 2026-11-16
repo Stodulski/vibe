@@ -6,6 +6,8 @@ export const TOURNAMENT_MESSAGES = {
   datesSeparator: 'al',
   categoriesLabel: 'Categorías',
   pageTitle: 'Torneo',
+  stepCategory: 'Categoría',
+  backToTournamentLink: 'Volver al torneo',
   formatGroups: 'Zonas y cuadro',
   formatElimination: 'Eliminación directa',
   matchBestOfThree: 'Al mejor de 3 sets',
