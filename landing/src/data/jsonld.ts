@@ -238,6 +238,25 @@ export function tutorialJsonLd(t: Tutorial): string[] {
     ],
   };
 
+  /* The steps travel inside the Article as an ordered list, each with its capture.
+     Not as a HowTo: Google retired that rich result and the seo-gate rejects it.
+     They are numbered across the page the same way the page numbers them. */
+  const pasos = t.bloques.flatMap(b => (b.tipo === 'pasos' ? b.pasos : []));
+  if (pasos.length) {
+    articulo.hasPart = {
+      '@type': 'ItemList',
+      itemListOrder: 'https://schema.org/ItemListOrderAscending',
+      numberOfItems: pasos.length,
+      itemListElement: pasos.map((p, i) => ({
+        '@type': 'ListItem',
+        position: i + 1,
+        name: p.titulo,
+        description: p.texto,
+        image: `https://vibe.com.ar${p.imagen.src}.webp`,
+      })),
+    };
+  }
+
   return [articulo, faqSchema, breadcrumb].map(o => JSON.stringify(o, null, 2));
 }
 

@@ -814,6 +814,20 @@ body {
 
 .tutorial-nota { font-size: 0.8125rem !important; opacity: 0.8; margin-top: 14px; }
 
+/* Pasos: number and title, the text, then the capture with its markers. The border
+   sits on the <img> itself, so the frame always has the capture's own ratio. */
+.tutorial-pasos { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 44px; }
+.tutorial-paso-titulo {
+  font-weight: 700; font-size: 1.125rem; line-height: 1.4; color: var(--text); margin-bottom: 10px;
+}
+.tutorial-paso-numero { color: var(--green); }
+.tutorial-paso-ampliar { display: block; border-radius: 12px; }
+.tutorial-paso-ampliar:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.tutorial-paso-captura {
+  display: block; width: 100%; height: auto; margin-top: 16px;
+  border: 1px solid var(--border); border-radius: 12px;
+}
+
 .tutorial-faq { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .tutorial-faq-item { width: 100%; }
 

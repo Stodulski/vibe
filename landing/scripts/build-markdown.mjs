@@ -187,6 +187,21 @@ turndown.addRule('guia-meta', {
   },
 });
 
+/* A tutorial step is a list item holding a heading, a paragraph and a picture. As a
+   plain list item it came out as "1.  ### Paso 1..." with the text and the image
+   indented under it. Each step stands as its own heading instead, and the capture
+   points at the WebP every browser gets, not at the PNG fallback. */
+turndown.addRule('tutorial-paso', {
+  filter: n => n.nodeName === 'LI' && hasClass(n, 'tutorial-paso'),
+  replacement(_, node) {
+    const img = node.querySelector('img');
+    const src = (img?.getAttribute('src') || '').replace(/\.png$/i, '.webp');
+    const alt = img?.getAttribute('alt') || '';
+    return `\n\n### ${esc(txt(node.querySelector('h3')))}\n\n${esc(txt(node.querySelector('p')))}\n\n`
+      + (src ? `![${esc(alt)}](${src})\n\n` : '');
+  },
+});
+
 /* Question and answer were two loose paragraphs with nothing tying them. */
 turndown.addRule('faq', {
   filter: n => n.nodeName === 'DETAILS' && hasClass(n, 'faq-item'),

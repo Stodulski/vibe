@@ -463,6 +463,114 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     },
   },
   {
+    /* Steps checked on 2026-11-16 against the owner's own captures of the Mercado Pago
+       panel and https://www.mercadopago.com.ar/ayuda/33399 ("Los costos varían de
+       acuerdo a [...] El plazo que definas para recibir tu dinero"). No rate is
+       written here: the captures show Mercado Pago's own figures, the copy never does. */
+    slug: 'plazo-de-acreditacion-mercado-pago',
+    title: 'Cambiá el plazo de acreditación de Mercado Pago',
+    seoTitle: 'Cómo cambiar el plazo de acreditación de Mercado Pago | Vibe',
+    metaDescription:
+      'Paso a paso para elegir cuándo te queda disponible la plata de cada cobro con Mercado Pago, '
+      + 'y qué cambia en lo que te cobra según el plazo.',
+    excerpt: 'Cuándo te queda disponible la plata de cada seña, y cómo cambiarlo en tu cuenta de Mercado Pago.',
+    datePublished: '2026-11-16',
+    respuesta:
+      'El plazo de acreditación es cuánto tarda en quedarte disponible la plata de cada cobro con '
+      + 'Mercado Pago. Se cambia en tu cuenta de Mercado Pago, no en Vibe: en Costos y cuotas entrás a '
+      + 'Checkout, después a Por cobro y a Configurar costos por cobro, elegís el plazo y tocás Guardar. '
+      + 'Mercado Pago cobra según el plazo que elijas: cuanto antes querés la plata, más alto es su '
+      + 'costo por cobro. Las señas de tus reservas se cobran con Checkout, así que este es el plazo '
+      + 'que les aplica.',
+    bloques: [
+      {
+        tipo: 'pasos',
+        heading: 'Paso a paso, en tu cuenta de Mercado Pago',
+        intro:
+          'Entrá a Mercado Pago desde la computadora, con la cuenta que conectaste a Vibe. Los números '
+          + 'de cada captura marcan dónde tocar.',
+        pasos: [
+          {
+            titulo: 'Entrá a Costos y cuotas',
+            texto: 'En el menú de la izquierda, dentro de Negocio, tocá Costos y cuotas (1).',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/01-costos-y-cuotas',
+              alt: 'Inicio de la cuenta de Mercado Pago en la computadora, con Costos y cuotas marcado '
+                + 'con el número 1 en el menú de la izquierda, dentro de Negocio.',
+              width: 1898,
+              height: 862,
+            },
+          },
+          {
+            titulo: 'Abrí la configuración de Checkout por cobro',
+            texto:
+              'Elegí la pestaña Checkout (2), quedate en Por cobro (3) y tocá Configurar costos por '
+              + 'cobro (4). Arriba de ese botón ves lo que te cobra Mercado Pago con el plazo que tenés hoy.',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/02-checkout-por-cobro',
+              alt: 'Pantalla Costos y cuotas de Mercado Pago con la pestaña Checkout marcada con el número 2, '
+                + 'la opción Por cobro con el 3 y Configurar costos por cobro con el 4.',
+              width: 1907,
+              height: 860,
+            },
+          },
+          {
+            titulo: 'Elegí el plazo y guardá',
+            texto:
+              'En Dinero disponible en, elegí cuándo querés tener la plata de cada cobro (5): al instante '
+              + 'o unos días después. Cada opción muestra su costo. Después tocá Guardar (6).',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/03-elegir-plazo',
+              alt: 'Pantalla Elegí tus plazos de acreditación con Checkout: las opciones de Dinero '
+                + 'disponible en, al instante, 10, 18 y 35 días, marcadas con el número 5, y el botón '
+                + 'Guardar con el 6.',
+              width: 1908,
+              height: 859,
+            },
+          },
+        ],
+      },
+      {
+        tipo: 'parrafos',
+        heading: 'Antes o más barato',
+        parrafos: [
+          'Mercado Pago cobra según el plazo que elijas. Cuanto antes querés tener la plata, más alto '
+            + 'es su costo por cobro. Si podés esperar unos días, te queda más de cada seña.',
+          'El costo también depende de la provincia de tu domicilio y no incluye IVA ni retenciones. '
+            + 'La tabla vigente está en la '
+            + '<a href="https://www.mercadopago.com.ar/ayuda/33399" rel="noopener">ayuda de Mercado Pago</a>, '
+            + 'y en Vibe la ves en Configuración, en la pestaña Cobros.',
+        ],
+      },
+    ],
+    faq: [
+      {
+        question: '¿El plazo se cambia desde Vibe?',
+        answer:
+          'No. El plazo es una opción de tu cuenta de Mercado Pago, así que se cambia allá. En Vibe, en '
+          + 'Configuración y en la pestaña Cobros, ves lo que cobra Mercado Pago en cada plazo y un '
+          + 'enlace a este tutorial.',
+      },
+      {
+        question: '¿Qué plazo me conviene?',
+        answer:
+          'Depende de cuándo necesitás la plata. Si la usás en el día a día del complejo, al instante '
+          + 'te la deja disponible enseguida. Si podés esperar, un plazo más largo te deja más de cada seña.',
+      },
+      {
+        question: '¿Cuánto cobra Mercado Pago en cada plazo?',
+        answer:
+          'Depende del plazo y de la provincia de tu domicilio. La tabla vigente, con la fuente de '
+          + 'Mercado Pago, está en la guía sobre cuánto cobra Mercado Pago por una seña.',
+      },
+    ],
+    relacionados: ['configuracion-del-complejo', 'reportes-de-facturacion'],
+    guia: {
+      slug: 'cuanto-cobra-mercadopago-por-una-sena',
+      texto: 'Cuánto cobra Mercado Pago por una seña',
+    },
+  },
+  {
     slug: 'abrir-y-cerrar-la-caja',
     title: 'Abrí la caja del turno, cerrala con la cuenta hecha',
     seoTitle: 'Cómo abrir y cerrar la caja de tu complejo | Vibe',

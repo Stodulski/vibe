@@ -20,6 +20,15 @@ export function getStaticPaths() {
 const { t } = Astro.props;
 const canonical = `https://vibe.com.ar/tutoriales/${t.slug}`;
 const relacionados = getRelacionados(t);
+
+/* Steps are numbered across the whole page, the same numbering the HowTo in the
+   JSON-LD uses, so two step blocks never both start at 1. */
+let pasosAntes = 0;
+const primerPaso = t.bloques.map(b => {
+  const inicio = pasosAntes + 1;
+  if (b.tipo === 'pasos') pasosAntes += b.pasos.length;
+  return inicio;
+});
 ---
 <BaseLayout
   title={t.seoTitle}
@@ -61,7 +70,7 @@ const relacionados = getRelacionados(t);
           <span>Actualizado el {fechaEnTexto(t.dateModified)}</span>
         </p>
 
-        {t.bloques.map((bloque) => (
+        {t.bloques.map((bloque, b) => (
           <section class="tutorial-bloque">
             <h2>{bloque.heading}</h2>
 
@@ -71,6 +80,44 @@ const relacionados = getRelacionados(t);
               <>
                 {bloque.intro && <p>{bloque.intro}</p>}
                 <ul class="tutorial-lista">{bloque.items.map(i => <li>{i}</li>)}</ul>
+              </>
+            )}
+
+            {bloque.tipo === 'pasos' && (
+              <>
+                {bloque.intro && <p>{bloque.intro}</p>}
+                <ol class="tutorial-pasos" start={primerPaso[b]}>
+                  {bloque.pasos.map((paso, i) => (
+                    <li class="tutorial-paso">
+                      <h3 class="tutorial-paso-titulo">
+                        <span class="tutorial-paso-numero">Paso {primerPaso[b]! + i}.</span> {paso.titulo}
+                      </h3>
+                      <p>{paso.texto}</p>
+                      {/* The capture's own size on the <img>: the frame is the image, with
+                          the image's ratio, never a box of another shape around it. */}
+                      {/* At 320px the capture is a quarter of its size: the markers show, the
+                          labels inside them do not. A tap opens it at full size. */}
+                      <a class="tutorial-paso-ampliar" href={`${paso.imagen.src}.webp`}>
+                      <picture>
+                        <source
+                          type="image/webp"
+                          srcset={`${paso.imagen.src}-960.webp 960w, ${paso.imagen.src}.webp ${paso.imagen.width}w`}
+                          sizes="(max-width: 860px) calc(100vw - 40px), 772px"
+                        />
+                        <img
+                          class="tutorial-paso-captura"
+                          src={`${paso.imagen.src}.png`}
+                          width={paso.imagen.width}
+                          height={paso.imagen.height}
+                          alt={paso.imagen.alt}
+                          loading="lazy"
+                          decoding="async"
+                        />
+                      </picture>
+                      </a>
+                    </li>
+                  ))}
+                </ol>
               </>
             )}
 
