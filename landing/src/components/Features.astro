@@ -2,8 +2,8 @@
 import Screenshot from './Screenshot.astro';
 
 /*
- * The seven modules, one at a time: a named button per module picks which one shows,
- * and the arrows walk through them in a loop.
+ * The seven modules, one slide each, on a full-width track: the current slide in the
+ * middle with its neighbours peeking dimmed at the sides. main.js moves the track.
  *
  * Each capture is shown at a fixed scale where the panel's own type reads at about
  * 12px, starting at the top-left corner of the part the text talks about: `focus` is
@@ -11,7 +11,9 @@ import Screenshot from './Screenshot.astro';
  * shows less, but never smaller. See .shot--focus in home.css.
  *
  * Every module is in the markup, so the page reads complete without JavaScript and in
- * the Markdown twin; main.js only decides which one is on screen.
+ * the Markdown twin. The clones around them only exist for the loop: they repeat a
+ * slide a reader already met, so they are hidden from assistive tech, their captures
+ * carry no alt, and scripts/build-markdown.mjs drops them (ft-block--clone).
  */
 const MODULES = [
   {
@@ -85,68 +87,93 @@ const MODULES = [
     focus: { x: 200, y: 76 },
   },
 ];
+
+type Module = (typeof MODULES)[number];
+const last = MODULES.length - 1;
+/* Two clones on each side. The ones right next to the real slides are where a wrap
+   lands before main.js snaps to the matching real slide; the outer ones are only there
+   so those have a neighbour to peek at while they are centred. */
+const before: Array<{ m: Module; kind: string }> = [
+  { m: MODULES[last - 1], kind: 'decorative' },
+  { m: MODULES[last], kind: 'before' },
+];
+const after: Array<{ m: Module; kind: string }> = [
+  { m: MODULES[0], kind: 'after' },
+  { m: MODULES[1], kind: 'decorative' },
+];
 ---
 <!-- ========== MÓDULOS ========== -->
 <section class="features" id="funcionalidades">
  <div class="container">
   <div class="features-header">
    <div class="section-label anim">Módulos</div>
-   <h2 class="section-title anim anim-d1">Siete módulos en un solo panel, <em>gratis para tu complejo</em></h2>
+   <h2 class="section-title anim anim-d1">Siete módulos en un solo panel,<br><em>gratis para tu complejo.</em></h2>
    <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar.</p>
   </div>
 
   <div class="ft-carousel">
-   <!-- The picker. `ft-dots`/`ft-dot` are the names scripts/build-markdown.mjs drops as
-        controls (they say nothing a reader of the Markdown twin needs) and the ones
-        tests/smoke.mjs drives; `ft-tabs`/`ft-tab` are what the styles use. -->
-   <div class="ft-tabs ft-dots" role="group" aria-label="Módulos">
-    {MODULES.map((m, i) => (
-     <button type="button" class:list={['ft-tab', 'ft-dot', i === 0 && 'active']} aria-current={i === 0 ? 'true' : undefined} aria-controls={`modulo-${m.id}`}>{m.tab}</button>
-    ))}
-   </div>
-
+   <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
    <div class="ft-viewport">
     <div class="ft-stack">
+     {before.map(({ m, kind }) => (
+      <div class="ft-block ft-block--clone" data-clone={kind} aria-hidden="true">
+       <div class="ft-block-text">
+        <h3>{m.title}</h3>
+        <p>{m.text}</p>
+        <ul class="ft-bullets">{m.bullets.map(b => <li>{b}</li>)}</ul>
+       </div>
+       <div class="ft-block-visual">
+        <div class="browser-frame shot shot--focus" style={`--fx:${m.focus.x};--fy:${m.focus.y}`}>
+         <div class="shot-canvas"><Screenshot name={m.shot} alt="" /></div>
+        </div>
+       </div>
+      </div>
+     ))}
+
      {MODULES.map((m, i) => (
       <div class:list={['ft-block', i === 0 && 'active']} id={`modulo-${m.id}`} aria-current={i === 0 ? 'true' : undefined}>
        <div class="ft-block-text">
         <h3>{m.title}</h3>
         <p>{m.text}</p>
-        <ul class="ft-bullets">
-         {m.bullets.map(b => <li>{b}</li>)}
-        </ul>
+        <ul class="ft-bullets">{m.bullets.map(b => <li>{b}</li>)}</ul>
        </div>
        <div class="ft-block-visual">
-        <div class="shot shot--focus" style={`--fx:${m.focus.x};--fy:${m.focus.y}`}>
-         <div class="shot-canvas">
-          <Screenshot variant="desktop" name={m.shot} alt={m.alt} />
-         </div>
+        <div class="browser-frame shot shot--focus" style={`--fx:${m.focus.x};--fy:${m.focus.y}`}>
+         <div class="shot-canvas"><Screenshot name={m.shot} alt={m.alt} /></div>
+        </div>
+       </div>
+      </div>
+     ))}
+
+     {after.map(({ m, kind }) => (
+      <div class="ft-block ft-block--clone" data-clone={kind} aria-hidden="true">
+       <div class="ft-block-text">
+        <h3>{m.title}</h3>
+        <p>{m.text}</p>
+        <ul class="ft-bullets">{m.bullets.map(b => <li>{b}</li>)}</ul>
+       </div>
+       <div class="ft-block-visual">
+        <div class="browser-frame shot shot--focus" style={`--fx:${m.focus.x};--fy:${m.focus.y}`}>
+         <div class="shot-canvas"><Screenshot name={m.shot} alt="" /></div>
         </div>
        </div>
       </div>
      ))}
     </div>
    </div>
-
-   <div class="ft-foot">
-    <p class="ft-tutoriales">
-     Mirá cada pantalla explicada paso a paso en los <a href="/tutoriales">tutoriales</a>.
-    </p>
-    <div class="ft-nav">
-     <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
-     <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-    </div>
-   </div>
+   <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
   </div>
+
+  <!-- One dot per module, named after it. `ft-dots` is a name scripts/build-markdown.mjs
+       drops as a control. -->
+  <div class="ft-dots" role="group" aria-label="Módulos">
+   {MODULES.map((m, i) => (
+    <button type="button" class:list={['ft-dot', i === 0 && 'active']} aria-current={i === 0 ? 'true' : undefined} aria-controls={`modulo-${m.id}`} aria-label={`Ir a: ${m.tab}`}></button>
+   ))}
+  </div>
+
+  <p class="ft-tutoriales anim anim-d4">
+   Mirá cada pantalla explicada paso a paso en los <a href="/tutoriales">tutoriales</a>.
+  </p>
  </div>
 </section>
-
-<!-- Without JavaScript nothing can pick a module, so all eight show one under the
-     other and the controls go away. -->
-<noscript>
- <style>
-  .ft-block { display: grid !important; }
-  .ft-stack { display: flex; flex-direction: column; gap: 64px; }
-  .ft-tabs, .ft-nav { display: none !important; }
- </style>
-</noscript>

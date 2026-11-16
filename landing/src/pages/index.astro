@@ -34,20 +34,27 @@ import { homeJsonLd } from '../data/jsonld';
   twitterImage="https://vibe.com.ar/og-image.png"
   twitterImageAlt="Vibe - Sistema de gestión para complejos deportivos"
   jsonLd={homeJsonLd}
-  blobs={0}
+  blobs={2}
   skipLink={true}
   tracking={true}
 >
  <Nav />
  <main class="home">
   <Hero />
-  <Problems />
-  <Features />
-  <HowItWorks />
-  <Pricing />
-  <Comparison />
   <WhatIsVibe />
+  <div aria-hidden="true" class="section-divider"></div>
+  <Problems />
+  <div aria-hidden="true" class="section-divider"></div>
+  <Features />
+  <div aria-hidden="true" class="section-divider"></div>
+  <HowItWorks />
+  <div aria-hidden="true" class="section-divider"></div>
+  <Pricing />
+  <div aria-hidden="true" class="section-divider"></div>
+  <Comparison />
+  <div aria-hidden="true" class="section-divider"></div>
   <Faq />
+  <div aria-hidden="true" class="section-divider"></div>
   <FinalCta />
  </main>
  <Footer />

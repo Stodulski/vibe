@@ -3,490 +3,819 @@
  * what only the home uses lives here and ships with the home alone (index.astro
  * imports it).
  *
- * The rules this sheet is built on:
- *
- * - Type: seven sizes (14, 16, 18, 24, 32, 44, 64px) and two weights, regular and
- *   bold, with extra-bold kept for the big headings. Body text is 16px or 18px and
- *   does not shrink on a phone; nothing is set under 14px.
- * - Colour: the green is for what can be clicked, the one word the headline is
- *   about, and the line icons of the six changes. Labels and bullets are white or grey.
- * - Space: every section has the same padding (96px, 64px on a phone) and sections
- *   alternate between two backgrounds instead of being fenced by a rule each.
- * - Alignment: left, everywhere but the closing call to action.
- * - Targets: every control is at least 48px tall.
+ * This is the home's original design: a centered hero with the floating sport emojis
+ * and a green glow, green eyebrow labels over big headings, court-line dividers between
+ * sections, the modules on a full-width carousel, the steps on a timeline and the price
+ * on a centered card. Every product capture sits in a .shot--focus frame, so the app's
+ * own text reads at about 12px at every width.
  */
+
+/* The original, quieter edges: on this design the lines are drawn, not boxed. */
+.home { --border: rgba(255, 255, 255, 0.06); }
 
 /* ========== SHARED PIECES ========== */
 .section-label {
-  font-size: 0.875rem;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--green);
   margin-bottom: 16px;
 }
 
 .section-title {
   font-weight: 800;
-  font-size: clamp(1.625rem, 1rem + 2.4vw, 2.75rem);
+  font-size: clamp(2rem, 5vw, 3.25rem);
   line-height: 1.1;
   letter-spacing: -0.03em;
-  max-width: 760px;
-  margin: 0 0 16px;
-  text-wrap: balance;
+  max-width: 850px;
+  margin: 0 auto 20px;
 }
-/* The font ships upright only, so an <em> would be a slanted fake. The emphasis is the
-   brand colour instead, on the word the heading is about. */
-.section-title em, .hero h1 em { font-style: normal; color: var(--green); }
+/* The hero's emphasis is the brand gradient. A section title's <em> keeps the
+   original design's slanted white. */
+.hero h1 em {
+  font-style: normal;
+  background: linear-gradient(135deg, var(--green) 20%, #4ade80 80%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+}
 
 .section-desc {
   font-size: 1.125rem;
   color: var(--muted);
   max-width: 560px;
-  line-height: 1.6;
-  text-wrap: pretty;
+  line-height: 1.7;
 }
 
-.problems, .features, .how, .pricing, .comparison, .faq { padding: 96px 0; position: relative; }
-.problems, .how, .comparison, .faq {
-  background: var(--bg-alt);
-  border-block: 1px solid var(--border);
+/* Court-line motif: a thin double rule, like a padel court's service line. */
+.section-divider {
+  max-width: 600px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
-.problems-header, .features-header, .how-header, .comparison-header { margin-bottom: 48px; }
-
-/* ----- Court lines (see CourtLines.astro) ----- */
-.court-lines { display: block; height: auto; pointer-events: none; }
-.court-lines rect, .court-lines line {
-  stroke: rgba(255, 255, 255, 0.1); stroke-width: 1;
-  vector-effect: non-scaling-stroke;
+.section-divider::before,
+.section-divider::after {
+  content: '';
+  display: block;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--border-hover), transparent);
 }
-.court-lines .court-net { stroke: rgba(29, 185, 84, 0.4); stroke-dasharray: 6 6; }
+.section-divider::after { opacity: 0.45; }
 
-/* ----- Screenshots -----
-   A frame that shows one region of a capture. `--rw` is how many of the capture's
-   pixels fit across the frame, `--rx`/`--ry` where that region starts, and `--nw`/`--nh`
-   the capture's own size. The canvas inside is the whole capture, scaled so that region
-   fills the frame and shifted so it starts at the frame's corner; whatever is drawn on
-   the canvas (the hero's overlay) moves with it. With no variables it shows the capture
-   whole. */
+/* Section headers: left-aligned, the eyebrow underlined by a short green rule. */
+.problems-header, .features-header, .how-header, .comparison-header { text-align: left; }
+.problems-header .section-label,
+.features-header .section-label,
+.how-header .section-label,
+.comparison-header .section-label {
+  display: inline-block; width: fit-content;
+  padding-bottom: 14px; margin-bottom: 20px;
+  border-bottom: 1px solid var(--border-hover);
+}
+.problems-header .section-title,
+.features-header .section-title,
+.how-header .section-title,
+.comparison-header .section-title { margin: 0 0 16px; max-width: 640px; }
+/* Wide enough for "Siete módulos en un solo panel," on one line, as the original's
+   two-line title was. */
+.features-header .section-title { max-width: 880px; }
+.problems-header .section-desc,
+.features-header .section-desc,
+.how-header .section-desc,
+.comparison-header .section-desc { margin: 0; max-width: 560px; }
+
+/* ========== SCROLL REVEALS ========== */
+/* The original motion: a longer rise and a slower fade than the rest of the site. */
+.home .anim {
+  opacity: 0;
+  transform: translateY(36px);
+  transition: opacity 0.8s var(--ease), transform 0.8s var(--ease);
+}
+.home .anim.visible { opacity: 1; transform: translateY(0); }
+.home .anim-d1 { transition-delay: 0.08s; }
+.home .anim-d2 { transition-delay: 0.16s; }
+.home .anim-d3 { transition-delay: 0.24s; }
+.home .anim-d4 { transition-delay: 0.32s; }
+.home .anim-d5 { transition-delay: 0.4s; }
+.home .anim-d6 { transition-delay: 0.48s; }
+.home .anim-d7 { transition-delay: 0.56s; }
+.home .anim-d8 { transition-delay: 0.64s; }
+.home .anim-d9 { transition-delay: 0.72s; }
+.home .anim-d10 { transition-delay: 0.8s; }
+/* The hero is the first screen: it shows at once, so nothing shifts while it loads. */
+.home .hero .anim { opacity: 1; transform: none; }
+@media (prefers-reduced-motion: reduce) {
+  .home .anim { opacity: 1; transform: none; transition: none; }
+}
+
+/* ========== SCREENSHOTS ========== */
+/* The frame around an owner's capture: a subtle edge and the brand glow, no fake
+   window chrome. */
+.browser-frame {
+  border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15), 0 0 48px -12px var(--green-glow);
+}
+
+/* A frame that shows one region of a capture and keeps the capture's own shape, so
+   what it shows has that shape too. The canvas inside is the whole capture. */
 .shot {
   position: relative; overflow: hidden;
   aspect-ratio: 1669 / 869;
-  /* A brighter edge and a deep shadow lift the capture off the dark page; at the
-     page's own border colour it sank into the background. */
-  border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 16px;
   background: var(--bg);
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55);
 }
-.shot-canvas {
-  position: absolute; top: 0; left: 0;
-  width: calc(100% * var(--nw, 1669) / var(--rw, 1669));
-  transform: translate(
-    calc(-100% * var(--rx, 0) / var(--nw, 1669)),
-    calc(-100% * var(--ry, 0) / var(--nh, 869))
-  );
-}
-/* A frame that keeps the capture at one scale, where the app's own type reads at about
-   12px, whatever the frame's width: `--s` is that scale (the capture's CSS pixels to
-   the page's) and `--fx`/`--fy` the point of the capture at the frame's top-left
-   corner, so the header of a table or the top of a panel stays in view. A wide frame
-   shows more past the point and a phone less, never smaller; near the capture's edge
-   it stops at the frame's edge instead of leaving a gap. The frame keeps the
-   capture's shape, so what it shows has that shape too. */
+.shot-canvas { position: absolute; top: 0; left: 0; width: 100%; }
+/* The capture at one scale, where the app's own type reads at about 12px, whatever the
+   frame's width: `--s` is that scale (the capture's CSS pixels to the page's) and
+   `--fx`/`--fy` the point of the capture at the frame's top-left corner, so the header
+   of a table or the top of a panel stays in view. A wide frame shows more past the
+   point and a phone less, never smaller; near the capture's edge it stops at the
+   frame's edge instead of leaving a gap. */
 .shot--focus .shot-canvas {
   --s-px: calc(var(--s, 0.92) * 1px);
   width: calc(var(--nw, 1669) * var(--s-px));
-  transform: none;
   left: clamp(calc(100% - var(--nw, 1669) * var(--s-px)), calc(-1 * var(--fx) * var(--s-px)), 0px);
   top: clamp(calc(100% - var(--nh, 869) * var(--s-px)), calc(-1 * var(--fy) * var(--s-px)), 0px);
 }
 .shot-canvas picture { display: block; }
 .shot-canvas img { display: block; width: 100%; height: auto; }
 
-/* A phone, for the page a player books from. */
-.phone {
-  border: 2px solid #3a3a3a; border-radius: 28px;
-  padding: 6px; background: #050505; overflow: hidden;
-  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.95);
-}
-.phone img { display: block; width: 100%; height: auto; border-radius: 20px; }
-
 /* ========== HERO ========== */
-.hero { position: relative; overflow: hidden; padding: 120px 0 56px; }
+.hero {
+  min-height: 100vh;
+  display: flex; align-items: center;
+  padding: 120px 24px 80px;
+  position: relative; overflow: hidden;
+}
 .hero-inner {
-  position: relative; z-index: 1;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  column-gap: 56px; row-gap: 56px; align-items: center;
+  max-width: 1140px; margin: 0 auto; width: 100%;
+  position: relative;
+  display: flex; justify-content: center;
+  text-align: center;
 }
-.hero-copy { position: relative; z-index: 1; }
-/* The court lies flat under the picture, tipped away from the viewer, so the grid and
-   the phone stand on it. It is brightest at its near edge and fades with distance and
-   toward the copy. */
-.hero-court {
-  position: absolute; left: 50%; bottom: -24px; z-index: 0;
-  width: 1500px; max-width: none;
-  transform-origin: 50% 100%;
-  transform: translateX(-50%) perspective(900px) rotateX(62deg);
-  -webkit-mask-image: radial-gradient(ellipse 62% 105% at 56% 100%, #000 30%, transparent 100%);
-  mask-image: radial-gradient(ellipse 62% 105% at 56% 100%, #000 30%, transparent 100%);
+.hero-content {
+  position: relative; z-index: 2;
+  max-width: 760px;
+  display: flex; flex-direction: column; align-items: center;
 }
-.hero-court rect, .hero-court line { stroke: rgba(255, 255, 255, 0.2); }
 
 .hero h1 {
   font-weight: 800;
-  font-size: clamp(2.75rem, 4.6vw, 4rem);
+  font-size: clamp(2.5rem, 5.5vw, 3.75rem);
   line-height: 1.08; letter-spacing: -0.03em;
-  margin-bottom: 20px;
-  text-wrap: balance;
+  margin-bottom: 24px;
 }
 .hero-subtitle {
-  font-size: 1.125rem; color: var(--muted); line-height: 1.6;
-  max-width: 34rem; margin-bottom: 32px;
-  text-wrap: pretty;
+  font-size: 1.125rem; color: var(--muted); line-height: 1.7;
+  margin: 0 auto 40px; max-width: 560px;
 }
-.hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+
+.hero-ctas { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
+.hero-ctas .btn-primary { padding: 14px 36px; box-shadow: 0 2px 12px rgba(29, 185, 84, 0.15); }
+
+/* Secondary hero action: a link, not a competing button. A full 48px target; the
+   underline is drawn on the text, not on the box. */
+.hero-link-secondary {
+  display: inline-flex; align-items: center; min-height: 48px; padding: 0 8px;
+  font-family: var(--font); font-size: 0.9375rem; font-weight: 600;
+  color: var(--muted);
+  text-decoration: underline; text-decoration-color: var(--border);
+  text-decoration-thickness: 1px; text-underline-offset: 6px;
+  transition: color 0.3s, text-decoration-color 0.3s;
+}
+.hero-link-secondary:hover { color: var(--text); text-decoration-color: var(--border-hover); }
+.hero-link-secondary:focus-visible { outline-offset: 3px; border-radius: 4px; }
+
 /* Small clarifying note under the hero CTAs: who actually pays */
-.hero-note { font-size: 0.875rem; color: var(--muted); line-height: 1.6; max-width: 30rem; }
-
-/* The owner's grid with the player's phone standing in front of its corner. */
-.hero-visual { position: relative; padding-bottom: 40px; }
-/* Where the screen has room past the column, the picture runs into it: the product is
-   the largest thing in the first screen. */
-@media (min-width: 1280px) { .hero-visual { margin-right: -80px; } }
-.hero-panel { z-index: 1; }
-.hero-phone { position: absolute; right: -12px; bottom: 0; z-index: 2; width: 172px; }
-
-
-/* The grid fills in turn by turn. Each cover hides one booking and fades out in the
-   order the turns start (--i), so the capture underneath comes through one booking at
-   a time. See Hero.astro. */
-.grid-paint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.grid-paint-cover {
-  animation: grid-paint-in 0.45s ease-out both;
-  animation-delay: calc(0.6s + var(--i) * 0.09s);
-}
-@keyframes grid-paint-in {
-  from { opacity: 1; }
-  to { opacity: 0; }
+.hero-note {
+  font-size: 0.875rem; color: var(--muted); line-height: 1.6;
+  max-width: 480px; margin: 0 auto 32px;
 }
 
-/* Under the two columns: who it is for, and how the money comes in. */
-.hero-foot {
-  grid-column: 1 / -1;
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
-  column-gap: 56px; row-gap: 24px; align-items: start;
-  padding-top: 32px; border-top: 1px solid var(--border);
-}
-.hero-proof-text { font-size: 1rem; color: var(--muted); line-height: 1.6; }
-.hero-proof-text strong { color: var(--text); font-weight: 700; }
+.hero-proof { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+.hero-proof-text { font-size: 0.875rem; color: var(--muted); }
+.hero-proof-text strong { color: var(--text); font-weight: 600; }
 
-.pay-strip { display: flex; gap: 24px 40px; }
-.integration-bar { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
-.integration-label { font-size: 0.875rem; color: var(--muted); line-height: 1.4; }
-/* Mercado Pago's own mark, in its own colours, on the light plate it is drawn for. */
-.mp-logo { background: #fff; border-radius: 8px; padding: 6px 12px; width: fit-content; }
-.mp-logo img { display: block; height: 24px; width: auto; }
-
-/* ========== WHAT CHANGES (six cards) ========== */
-/* Court-line grid: no card, a line above each and a line icon for what it is about. */
-.problems-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 48px; }
-.problem { padding: 24px 0 40px; border-top: 1px solid var(--border); }
-.problem-icon { display: block; width: 24px; height: 24px; color: var(--green); margin-bottom: 16px; }
-.problem h3 { font-weight: 700; font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; text-wrap: balance; }
-.problem p { font-size: 1rem; color: var(--muted); line-height: 1.6; }
-
-/* ========== MODULES ========== */
-.ft-carousel { position: relative; }
-
-/* The picker: one named button per module, on a rule the active one underlines. On a
-   phone the row scrolls sideways inside itself; the page never does. */
-.ft-tabs {
-  display: flex; gap: 4px;
-  border-bottom: 1px solid var(--border); margin-bottom: 48px;
-  /* Positioned so main.js can read each button's offset inside the row. */
-  position: relative; overflow-x: auto; scrollbar-width: none;
+/* Mercado Pago's mark, centered like the rest of the hero copy; each wrapped line
+   stays centered on a phone. */
+.integration-bar {
+  display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap;
+  margin-top: 20px;
 }
-.ft-tabs::-webkit-scrollbar { display: none; }
-.ft-tab {
-  flex: 0 0 auto; min-height: 48px; padding: 0 16px;
-  border: 0; border-bottom: 2px solid transparent; background: none;
-  font-family: var(--font); font-size: 1rem; font-weight: 700; color: var(--muted);
-  white-space: nowrap; cursor: pointer;
-  transition: color 0.2s, border-color 0.2s;
+.integration-label {
+  font-size: 0.75rem; font-weight: 600; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--muted);
 }
-.ft-tab:hover { color: var(--text); }
-.ft-tab.active { color: var(--text); border-bottom-color: var(--green); }
-.ft-tab:focus-visible { outline-offset: -2px; }
+.mp-logo {
+  opacity: 0.85; transition: opacity 0.3s;
+  background: #fff; border-radius: 8px; padding: 6px 12px;
+}
+.mp-logo:hover { opacity: 1; }
+.mp-logo img { height: 24px; width: auto; display: block; }
 
-/* Tall enough for the longest module's text, so the arrows under it do not jump
-   between tabs; the frame itself is 324px at full width. */
-.ft-viewport { min-height: 340px; }
-.ft-block {
-  display: none;
-  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
-  gap: 56px; align-items: start;
+/* ----- The floating sport emojis -----
+   Four, one pair on each side of the centered copy: equal size, mirrored positions,
+   each bobbing gently on its own beat. Quiet on purpose, so the headline leads and the
+   emojis only add warmth. Below 1000px the copy takes the full width, so they are
+   hidden there instead of crossing it. */
+.hero-orbit {
+  position: absolute; top: -6%; bottom: -6%; left: 50%; z-index: 0;
+  /* Sized to the viewport, not the copy, so the outer emojis never run off a narrower
+     desktop screen. */
+  width: min(1180px, calc(100vw - 48px));
+  transform: translateX(-50%);
+  pointer-events: none;
 }
-.ft-block.active { display: grid; animation: ft-in 0.3s ease-out; }
-@keyframes ft-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.hero-orbit-glow {
+  position: absolute; top: 50%; left: 50%;
+  width: min(640px, 90vw); aspect-ratio: 1;
+  transform: translate(-50%, -50%);
+  background: radial-gradient(circle, rgba(29, 185, 84, 0.10) 0%, rgba(29, 185, 84, 0.03) 45%, transparent 70%);
+  border-radius: 50%;
 }
+/* A zero-size anchor; the emoji centers on it and bobs around it. */
+.orbit-item {
+  position: absolute; width: 0; height: 0;
+  --size: 4.5rem; --bob: 10px; --period: 7s;
+}
+/* A vertical bob on the transform only, so the browser never repaints. */
+.orbit-path {
+  position: absolute; top: 0; left: 0;
+  translate: -50% -50%;
+  animation: orbit-bob var(--period) ease-in-out infinite;
+}
+@keyframes orbit-bob {
+  0%, 100% { transform: translateY(calc(var(--bob) * -0.5)); }
+  50% { transform: translateY(calc(var(--bob) * 0.5)); }
+}
+/* The glow lives on this static child so it is rasterized once and only the finished
+   layer moves. Two tight shadows draw the outline, the wide one is the glow. */
+.sport-emoji {
+  display: block;
+  /* The Fluent artwork leaves transparent margin inside its square, so it draws a
+     third larger than a font emoji of the same --size would. */
+  width: calc(var(--size) * 2.275); height: calc(var(--size) * 2.275);
+  filter:
+    drop-shadow(0 0 1px var(--green))
+    drop-shadow(0 0 1px var(--green))
+    drop-shadow(0 0 18px rgba(29, 185, 84, 0.55));
+}
+/* Mirrored pairs: soccer ball / basketball up high, tennis / volleyball lower.
+   Different periods and negative delays keep the four from bobbing in step. */
+.orbit-item-1 { left: 5%;  top: 22%; --period: 7s; }
+.orbit-item-2 { left: 95%; top: 22%; --period: 8s; }
+.orbit-item-3 { left: 11%; top: 64%; --period: 9s; }
+.orbit-item-4 { left: 89%; top: 64%; --period: 6.5s; }
+.orbit-item-1 .orbit-path { animation-delay: -2s; }
+.orbit-item-2 .orbit-path { animation-delay: -5s; }
+.orbit-item-3 .orbit-path { animation-delay: -1s; }
+.orbit-item-4 .orbit-path { animation-delay: -4s; }
+
 @media (prefers-reduced-motion: reduce) {
-  .ft-block.active { animation: none; }
+  .orbit-path { animation: none; }
+}
+/* Narrower desktop: the H1 reaches closer to the gutters, so the emojis shrink and hug
+   the edges to stay clear of the copy. */
+@media (min-width: 1001px) and (max-width: 1200px) {
+  .sport-emoji { width: calc(var(--size) * 1.5); height: calc(var(--size) * 1.5); }
+  .orbit-item-1 { left: 3%; }
+  .orbit-item-2 { left: 97%; }
+  .orbit-item-3 { left: 8%; }
+  .orbit-item-4 { left: 92%; }
+}
+/* Tablet and phone: the copy column is (nearly) full width. No emojis. */
+@media (max-width: 1000px) {
+  .hero-orbit { display: none; }
 }
 
-.ft-block-text h3 { font-weight: 700; font-size: 1.5rem; line-height: 1.25; margin-bottom: 12px; text-wrap: balance; }
-.ft-block-text > p { font-size: 1.125rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+/* ========== WHAT CHANGES ========== */
+.problems { padding: 100px 24px; position: relative; }
+.problems-header { margin-bottom: 64px; }
+
+/* Court-line grid: no card, no icon. Two columns with a faint rule between them and
+   under every row but the last. */
+.problems-grid { display: grid; grid-template-columns: 1fr 1fr; column-gap: 64px; row-gap: 0; }
+.problem { position: relative; padding: 28px 0; transition: opacity 0.3s; }
+.problem:hover { opacity: 0.8; }
+.problem::after {
+  content: ''; position: absolute; top: 10%; right: -32px;
+  height: 80%; width: 1px;
+  background: linear-gradient(180deg, transparent, var(--border), transparent);
+}
+.problem:nth-child(even)::after { display: none; }
+.problem:not(:nth-last-child(-n+2)) { border-bottom: 1px solid var(--border); }
+.problem h3 { font-weight: 700; font-size: 1.0625rem; margin-bottom: 8px; }
+.problem p { font-size: 0.9375rem; color: var(--muted); line-height: 1.6; }
+
+/* ========== MODULES: FULL-WIDTH CAROUSEL ========== */
+.features { padding: 120px 24px; position: relative; }
+.features-header { margin-bottom: 80px; }
+
+/* Desktop: a full-bleed horizontal track, one slide centered with its neighbours
+   peeking and dimmed at the sides; phone: every slide stacked (see max-width:768px).
+   main.js drives the position with a transform, not native scrolling: Chromium
+   under-reports scrollWidth for trailing space in a scrollable flex row, which makes
+   the first and last slide impossible to center. */
+.ft-carousel {
+  position: relative;
+  width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+  /* Anchored to the viewport, not to an ancestor's content box: a percentage here and
+     the track math would otherwise shrink each other in a feedback loop. */
+  --ft-slide: min(82vw, 895px);
+}
+/* overflow:hidden clips the track sideways; the vertical padding (cancelled by the
+   negative margin, so the layout does not shift) keeps it from also clipping the
+   screenshots' glow. */
+.ft-viewport { overflow: hidden; padding: 40px 0; margin: -40px 0; }
+
+.ft-stack {
+  display: flex; flex-direction: row; align-items: flex-start; gap: 32px;
+  transition: transform 0.5s var(--ease);
+}
+@media (prefers-reduced-motion: reduce) { .ft-stack { transition: none; } }
+
+.ft-block {
+  display: flex; flex-direction: column; gap: 32px;
+  flex: 0 0 auto; width: var(--ft-slide);
+  opacity: 0.3; transform: scale(0.82);
+  transition: opacity 0.4s ease, transform 0.4s ease;
+}
+.ft-block.active { opacity: 1; transform: scale(1); }
+/* Set for a single frame while the loop swaps a clone for its real slide (ftSnapToReal). */
+.ft-block.ft-no-anim { transition: none; }
+
+/* The screenshot always sits above the text, regardless of markup order. */
+.ft-block-visual { order: -1; display: flex; flex-direction: column; }
+
+/* Arrows are offset from the centered slide's own edges, not the full-bleed carousel's,
+   so they stay near the main slide instead of out over the dimmed neighbours. */
+.ft-arrow {
+  position: absolute; top: 40%; transform: translateY(-50%); z-index: 2;
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--border); background: var(--surface); color: var(--text);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; backdrop-filter: blur(8px);
+  transition: transform 0.2s var(--ease), background-color 0.2s ease,
+              border-color 0.2s ease, color 0.2s ease;
+}
+.ft-arrow:hover, .ft-arrow:focus-visible {
+  background: var(--green); border-color: var(--green); color: var(--bg);
+  transform: translateY(-50%) scale(1.08);
+}
+.ft-arrow-prev { left: calc((100vw - var(--ft-slide)) / 2 - 56px); }
+.ft-arrow-next { right: calc((100vw - var(--ft-slide)) / 2 - 56px); }
+
+/* Progress dots, centered below the carousel. The visible dot is an 8x8 (24x8 when
+   active) pill painted into the content box; the padding pads the button out to a 48px
+   target without changing how it looks. border-radius is on the border box (24px =
+   20px padding + the 4px pill radius) because background-clip:content-box also clips
+   the corners. */
+.ft-dots { display: flex; align-items: center; justify-content: center; gap: 0; margin-top: 24px; }
+.ft-dot {
+  box-sizing: content-box;
+  width: 8px; height: 8px; padding: 20px; border: none; border-radius: 24px;
+  background: var(--border); background-clip: content-box;
+  cursor: pointer; transition: background 0.2s, width 0.2s;
+}
+.ft-dots .ft-dot { background-color: rgba(255, 255, 255, 0.2); }
+/* background-color, not the shorthand: the shorthand would reset background-clip and
+   paint the whole target green. */
+.ft-dots .ft-dot.active { background-color: var(--green); width: 24px; }
+.ft-dot:focus-visible { outline-offset: -12px; border-radius: 24px; }
+
+.ft-block-text h3 { font-weight: 700; font-size: 1.5rem; line-height: 1.25; margin-bottom: 12px; }
+.ft-block-text > p { font-size: 1rem; color: var(--muted); line-height: 1.7; margin-bottom: 20px; }
 .ft-bullets { list-style: none; display: flex; flex-direction: column; gap: 10px; }
 .ft-bullets li {
-  display: flex; align-items: flex-start; gap: 12px;
-  font-size: 1rem; color: var(--muted); line-height: 1.5;
+  display: flex; align-items: flex-start; gap: 10px;
+  font-size: 0.9375rem; color: var(--muted); line-height: 1.5;
 }
 .ft-bullets li::before {
   content: ''; width: 6px; height: 6px; border-radius: 50%;
-  background: rgba(255, 255, 255, 0.5); margin-top: 9px; flex-shrink: 0;
+  background: var(--green); margin-top: 7px; flex-shrink: 0;
 }
 
-/* Cierra los módulos: es el único lugar del home donde un enlace a los tutoriales
-   sigue el hilo de lo que el visitante está mirando. Las flechas van a su lado. */
-.ft-foot {
-  display: flex; align-items: center; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap;
-  margin-top: 40px;
+/* Closes the modules: the one place on the home where a link to the tutorials follows
+   what the visitor is looking at. Muted on purpose, so the link carries its own
+   underline. */
+.ft-tutoriales {
+  margin-top: 26px; text-align: center;
+  font-size: 0.875rem; color: var(--muted); line-height: 1.6;
 }
-.ft-tutoriales { font-size: 1rem; color: var(--muted); line-height: 1.6; }
 .ft-tutoriales a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
-.ft-tutoriales a:hover { color: var(--text); }
-.ft-nav { display: flex; gap: 8px; }
-.ft-arrow {
-  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
-  border: 1px solid var(--stroke); background: transparent; color: var(--text);
-  display: inline-flex; align-items: center; justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease, border-color 0.2s ease;
-}
-.ft-arrow:hover { border-color: var(--text); background: var(--surface); }
 
-/* ========== HOW IT WORKS ========== */
-/* Two by two: in four columns each picture was a third of its capture's size and
-   could not be read. */
-.how-steps { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 56px 48px; }
-.how-step { display: flex; flex-direction: column; align-items: flex-start; }
-/* The picture comes after the step in the markup and first on screen. */
-.how-step-shot { order: -1; width: 100%; margin-bottom: 20px; }
-.how-step-node { margin-bottom: 12px; }
+/* ========== HOW IT WORKS: VERTICAL TIMELINE ========== */
+.how { padding: 120px 24px; position: relative; }
+.how-header { margin-bottom: 64px; }
+
+.how-timeline {
+  position: relative; padding: 20px 0 0;
+  /* The right-hand card enters from translateX(50px), which reaches past the viewport
+     between 1024px and 1199px. `clip` rather than `hidden` so this does not become a
+     scroll container. */
+  overflow-x: clip;
+}
+
+/* Vertical spine, filled in green as the page scrolls (main.js). */
+.how-spine {
+  position: absolute; left: 50%; top: 0; bottom: 0;
+  width: 2px; background: var(--border);
+  transform: translateX(-50%);
+}
+.how-spine-fill {
+  width: 100%; height: 0%;
+  background: var(--green);
+  box-shadow: 0 0 8px rgba(29, 185, 84, 0.4);
+  transition: height 0.15s linear;
+  border-radius: 0 0 1px 1px;
+}
+
+.how-step {
+  display: grid; grid-template-columns: 1fr 48px 1fr;
+  align-items: center; gap: 0;
+  margin-bottom: 100px; position: relative;
+}
+.how-step:last-child { margin-bottom: 0; }
+
+.how-step-node { grid-column: 2; justify-self: center; position: relative; z-index: 2; }
 .how-step-num {
-  display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; border-radius: 50%;
-  border: 1px solid var(--stroke);
-  font-size: 0.875rem; font-weight: 700; color: var(--text);
+  width: 48px; height: 48px; border-radius: 50%;
+  background: var(--surface-solid); border: 2px solid var(--border);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 800; font-size: 1rem; color: var(--muted);
+  position: relative; z-index: 1;
+  transition: border-color 0.5s var(--ease), color 0.5s var(--ease), background 0.5s var(--ease);
 }
-.how-step h3 { font-weight: 700; font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
-.how-step p { font-size: 1rem; color: var(--muted); line-height: 1.6; }
-/* What the step leaves in place. Plain text: a pill here read as a button. */
-.how-step .step-detail { margin-top: 12px; font-size: 0.875rem; color: var(--text); overflow-wrap: anywhere; }
+.how-step.visible .how-step-num {
+  border-color: rgba(29, 185, 84, 0.6); color: var(--green);
+  background: #0e1710;
+  box-shadow: 0 0 16px rgba(29, 185, 84, 0.2);
+}
 
-/* ========== PRICING ========== */
+/* Pulsing ring */
+.how-step-pulse {
+  position: absolute; inset: -8px; border-radius: 50%;
+  border: 2px solid rgba(29, 185, 84, 0.3);
+  opacity: 0; pointer-events: none;
+}
+.how-step.visible .how-step-pulse { animation: step-pulse 2.5s ease-out infinite; }
+@keyframes step-pulse {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.how-step-card {
+  position: relative; padding: 36px 40px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border); border-radius: 20px;
+  overflow: hidden;
+  transition: transform 0.7s var(--ease), opacity 0.7s var(--ease);
+}
+.how-step-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(29, 185, 84, 0.35), transparent);
+  opacity: 0; transition: opacity 0.6s;
+}
+.how-step.visible .how-step-card::before { opacity: 1; }
+
+/* Steps 1 and 3: card on the left */
+.how-step[data-step="1"] .how-step-card,
+.how-step[data-step="3"] .how-step-card {
+  grid-column: 1; grid-row: 1;
+  text-align: right; margin-right: 24px;
+  transform: translateX(-50px); opacity: 0;
+}
+.how-step[data-step="1"] .how-step-card .how-step-icon,
+.how-step[data-step="3"] .how-step-card .how-step-icon { margin-left: auto; }
+/* Steps 2 and 4: card on the right */
+.how-step[data-step="2"] .how-step-card,
+.how-step[data-step="4"] .how-step-card {
+  grid-column: 3; grid-row: 1;
+  text-align: left; margin-left: 24px;
+  transform: translateX(50px); opacity: 0;
+}
+.how-step.visible .how-step-card { transform: translateX(0); opacity: 1; }
+
+/* Large background numeral */
+.how-step-big {
+  position: absolute; font-weight: 900;
+  font-size: clamp(80px, 12vw, 140px);
+  color: rgba(29, 185, 84, 0.04); line-height: 1;
+  pointer-events: none; user-select: none; top: -20px;
+}
+.how-step[data-step="1"] .how-step-big,
+.how-step[data-step="3"] .how-step-big { right: 40px; }
+.how-step[data-step="2"] .how-step-big,
+.how-step[data-step="4"] .how-step-big { left: 40px; }
+
+.how-step-card h3 {
+  font-weight: 800; font-size: clamp(1.25rem, 3vw, 1.5rem);
+  margin-bottom: 12px; line-height: 1.2;
+}
+.how-step-card p { font-size: 1rem; color: var(--muted); line-height: 1.7; margin-bottom: 16px; }
+
+.step-detail {
+  display: inline-block; margin-top: 4px; max-width: 100%;
+  font-size: 0.8125rem; font-weight: 600; color: var(--green);
+  background: #0e1710; padding: 6px 16px;
+  border-radius: 100px; border: 1px solid rgba(29, 185, 84, 0.15);
+  box-shadow: 0 0 12px rgba(29, 185, 84, 0.06);
+  overflow-wrap: anywhere;
+}
+
+.how-step-icon {
+  width: 48px; height: 48px; margin-bottom: 16px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 14px;
+  background: rgba(29, 185, 84, 0.06);
+}
+.how-step-icon svg {
+  width: 26px; height: 26px; stroke: var(--green); fill: none;
+  stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+
+/* Each icon moves a few times once its step is in view. */
+.how-step[data-step="1"].visible .how-step-icon svg { animation: gear-spin 8s linear 3; }
+@keyframes gear-spin { to { transform: rotate(360deg); } }
+.how-step[data-step="2"].visible .how-step-icon svg { animation: link-float 2.5s var(--ease) 3; }
+@keyframes link-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-5px); }
+}
+.how-step[data-step="3"].visible .how-step-icon svg {
+  animation: bell-ring 2s var(--ease-spring) 3;
+  transform-origin: top center;
+}
+@keyframes bell-ring {
+  0%, 80%, 100% { transform: rotate(0); }
+  10% { transform: rotate(12deg); }
+  20% { transform: rotate(-10deg); }
+  30% { transform: rotate(6deg); }
+  40% { transform: rotate(-3deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .how-step-pulse { animation: none !important; opacity: 0 !important; }
+  .how-step-icon svg { animation: none !important; }
+  .how-step-card { transition: none !important; opacity: 1 !important; transform: none !important; }
+}
+
+/* ========== PRICING: CENTERED CARD ========== */
+.pricing { padding: 120px 24px; position: relative; }
+
 .pricing-card {
-  max-width: 960px; margin: 0 auto;
-  background: var(--surface-1);
-  border: 1px solid var(--border); border-radius: 24px;
+  max-width: 720px; margin: 0 auto;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(29, 185, 84, 0.1);
+  border-radius: 32px; padding: 0;
+  position: relative; overflow: hidden;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.3);
 }
-.pricing-top {
-  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 32px 56px; align-items: center;
-  padding: 56px;
+/* Top green line */
+.pricing-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent 5%, var(--green) 50%, transparent 95%);
 }
-.pricing-top .section-label { margin-bottom: 12px; }
-/* One heading, two lines: the word "Gratis" big, and what it covers under it. */
-.pricing-title { margin: 0; font-weight: inherit; }
+.pricing-card-glow {
+  position: absolute; top: -80px; left: 50%; transform: translateX(-50%);
+  width: 500px; max-width: 100%; height: 400px;
+  background: radial-gradient(ellipse 70% 50%, rgba(29, 185, 84, 0.07), transparent 70%);
+  pointer-events: none;
+}
+
+/* The word centered, everything below it left-aligned. */
+.pricing-top { padding: 56px 48px 40px; position: relative; z-index: 2; }
+.pricing-hero { text-align: center; }
+.pricing-top .section-label { margin-bottom: 20px; }
+.pricing-title { margin: 0 0 28px; font-weight: inherit; }
 .pricing-title span { display: block; }
 .pricing-amount {
-  font-weight: 800; font-size: clamp(2.75rem, 2rem + 4vw, 3.75rem);
-  letter-spacing: -0.04em; line-height: 1; margin-bottom: 12px;
-  color: var(--text);
+  font-weight: 800; font-size: clamp(3.5rem, 9vw, 5.5rem);
+  letter-spacing: -0.04em; line-height: 1.05; margin-bottom: 8px;
+  background: linear-gradient(180deg, var(--text) 40%, var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
 }
-.pricing-period { font-size: 1.125rem; color: var(--muted); line-height: 1.5; }
-.pricing-desc { font-size: 1rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
-.pricing-trust { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
-.trust-badge { display: flex; align-items: flex-start; gap: 10px; font-size: 1rem; color: var(--text); line-height: 1.5; }
-.trust-badge svg { width: 20px; height: 20px; margin-top: 2px; color: var(--muted); flex-shrink: 0; }
-.pricing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
-/* The processor's mark sits apart from the button, so the white plate does not pull
-   the eye off the one action of the card. */
-.pricing-processor { display: flex; align-items: center; gap: 12px; margin-top: 24px; }
-.pricing-processor .integration-label { margin: 0; }
+.pricing-period { font-size: 1.125rem; color: var(--muted); font-weight: 500; }
+.pricing-body { max-width: 480px; margin: 0 auto; }
+.pricing-desc { font-size: 0.9375rem; color: var(--muted); line-height: 1.7; margin-bottom: 28px; }
+.pricing-top .btn-primary { width: 100%; justify-content: center; font-size: 1.0625rem; padding: 14px 40px; margin-top: 24px; }
+
+.pricing-trust { display: flex; flex-direction: column; gap: 10px; margin-top: 24px; }
+.trust-badge { display: flex; align-items: center; gap: 8px; font-size: 0.875rem; font-weight: 500; color: var(--muted); }
+.trust-badge svg { width: 16px; height: 16px; stroke: var(--green); fill: none; flex-shrink: 0; }
+.pricing-processor { margin-top: 24px; }
 
 /* ========== COMPARISON ========== */
+.comparison { padding: 100px 24px; position: relative; }
+.comparison-header { margin-bottom: 48px; }
 .comparison-tabs { display: none; }
-/* Laid out as a grid rather than by the table algorithm, so the columns stay equal;
-   the markup stays a real table, so the row and column relationships survive for a
-   screen reader. */
+/* Laid out as a grid rather than by the table algorithm, so the three option columns
+   stay equal; the markup stays a real table, so the row and column relationships
+   survive for a screen reader. */
 .comparison-table {
-  display: grid; grid-template-columns: minmax(140px, max-content) repeat(3, minmax(0, 1fr));
-  width: 100%; text-align: left;
+  display: grid; grid-template-columns: minmax(120px, max-content) repeat(3, minmax(0, 1fr));
+  width: 100%;
 }
 .comparison-table thead,
 .comparison-table tbody,
 .comparison-table tr { display: contents; }
 .comparison-table th,
-.comparison-table td { padding: 20px 24px; text-align: left; font-size: 1rem; line-height: 1.5; }
-.comparison-table thead th { padding: 24px; font-weight: inherit; }
-/* Each column's mark sits on the same baseline whatever its shape, with its name in
-   words under it. The other two options are drawn in grey: this is Vibe's page, and
-   their colours would pull the eye to their columns. */
-.comparison-th-inner { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; height: 80px; }
-.comparison-th-inner img { display: block; height: 40px; width: auto; align-self: flex-start; }
-.comparison-th-inner svg { color: var(--muted); }
-.comparison-th-inner .comparison-th-rival { height: 30px; filter: grayscale(1) brightness(1.7); }
-.comparison-th-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+.comparison-table td { padding-left: 24px; padding-right: 24px; text-align: center; }
+.comparison-table th:first-child,
+.comparison-table td:first-child { padding-left: 0; }
+.comparison-table th:last-child,
+.comparison-table td:last-child { padding-right: 0; }
+/* Each cell draws its own left edge; together they make one full-height separator
+   between the options. */
+.comparison-table [data-col] { border-left: 1px solid rgba(255, 255, 255, 0.14); }
+.comparison-table thead th { padding-top: 0; padding-bottom: 0; font-weight: inherit; vertical-align: top; }
+.comparison-th-inner {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 10px;
+  height: 104px; margin-bottom: 24px;
+}
+.comparison-th-inner img { display: block; height: 56px; width: auto; }
+.comparison-th-inner .comparison-th-rival { height: 40px; }
+.comparison-th-inner svg { color: #25D366; width: 52px; height: 52px; }
+.comparison-th-name { font-size: 0.875rem; font-weight: 600; color: var(--muted); }
 
 .comparison-table tbody th,
-.comparison-table tbody td { border-top: 1px solid var(--border); }
-/* The row label: what the three cells beside it answer. */
-.comparison-table .comparison-criterio { font-weight: 700; color: var(--text); padding-left: 0; }
+.comparison-table tbody td {
+  position: relative;
+  padding-top: 20px; padding-bottom: 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+  font-size: 0.9375rem; line-height: 1.6;
+}
+/* The row label: what the three answers beside it are about. */
+.comparison-table .comparison-criterio { text-align: left; font-weight: 700; color: var(--text); }
 .comparison-table td.comparison-neutral { color: var(--muted); }
-/* Vibe's column is the highlighted one, by more than colour: a lifted panel runs behind
-   the whole column and each answer carries a check. The panel's edges are inset
-   shadows, not borders, so the phone layout below has nothing to undo. */
-.comparison-table td.comparison-good { position: relative; color: var(--text); padding-left: 56px; }
-.comparison-check { position: absolute; left: 24px; top: 22px; color: var(--green); }
-.comparison-table [data-col="vibe"] {
-  background: var(--surface-2);
-  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover);
-}
-.comparison-table thead [data-col="vibe"] {
-  border-radius: 16px 16px 0 0;
-  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover), inset 0 1px 0 var(--border-hover);
-}
-.comparison-table tbody tr:last-child [data-col="vibe"] {
-  border-radius: 0 0 16px 16px;
-  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover), inset 0 -1px 0 var(--border-hover);
-}
+/* An answer that does the job: green, with a check beside it. */
+.comparison-table td.comparison-good { color: var(--green); }
+.comparison-check { display: inline-block; vertical-align: -4px; margin-right: 6px; }
 
 /* ========== FAQ ========== */
+.faq { padding: 120px 24px; position: relative; }
 .faq-inner { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 64px; align-items: start; }
-.faq-header { position: sticky; top: 104px; }
+.faq-header { position: sticky; top: 100px; }
+.faq-header .section-desc { margin-top: 8px; }
 .faq-header .section-desc a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
 .faq-header .section-desc a:hover { color: var(--text); }
-.faq-list { display: flex; flex-direction: column; gap: 12px; }
+.faq-list { display: flex; flex-direction: column; gap: 10px; }
+.home .faq-item { background: rgba(255, 255, 255, 0.02); }
+.home .faq-item[open] {
+  background: rgba(29, 185, 84, 0.025);
+  border-color: rgba(29, 185, 84, 0.15);
+  box-shadow: 0 4px 24px rgba(29, 185, 84, 0.04);
+}
 
 /* ========== FINAL CTA ========== */
-.final-cta { position: relative; overflow: hidden; padding: 96px 0; text-align: center; }
-.final-cta .container { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
-/* The same court from above, as a frame around the closing words: the middle is
-   masked out so no line runs behind the text, and only its outline, its service lines
-   and the two ends of the net show. */
-.final-cta-court {
-  position: absolute; top: 50%; left: 50%; z-index: 0;
-  width: 920px; max-width: none;
+.final-cta { padding: 140px 24px; text-align: center; position: relative; overflow: hidden; }
+.final-cta::before {
+  content: ''; position: absolute; top: 50%; left: 50%;
   transform: translate(-50%, -50%);
-  -webkit-mask-image: radial-gradient(ellipse 38% 46% at 50% 50%, transparent 92%, #000 100%);
-  mask-image: radial-gradient(ellipse 38% 46% at 50% 50%, transparent 92%, #000 100%);
+  width: 500px; max-width: 100%; height: 300px;
+  background: radial-gradient(ellipse 60% 50%, rgba(29, 185, 84, 0.08), transparent 70%);
+  pointer-events: none;
+  animation: cta-glow 6s ease-in-out infinite alternate;
 }
-.final-cta .section-title { max-width: 640px; margin: 0 auto 16px; }
-.final-cta .section-desc { margin: 0 auto 32px; }
-.cta-note { font-size: 0.875rem; color: var(--muted); margin-top: 16px; }
+@keyframes cta-glow {
+  0% { opacity: 0.4; transform: translate(-50%, -50%) scale(1); }
+  100% { opacity: 0.9; transform: translate(-50%, -50%) scale(1.15); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .final-cta::before { animation: none; }
+}
+.final-cta .container { position: relative; }
+.final-cta .section-title { font-size: clamp(2.25rem, 5vw, 3.5rem); max-width: 640px; margin: 0 auto 20px; }
+.final-cta .section-desc { margin: 0 auto 40px; text-align: center; }
+.final-cta .btn-primary { padding: 14px 44px; font-size: 1.0625rem; }
+.cta-note { font-size: 0.875rem; color: var(--muted); margin-top: 20px; }
 
 /* ========== RESPONSIVE ========== */
-@media (max-width: 1023px) {
-  /* One column: the copy, then the picture. */
-  .hero { padding: 120px 0 64px; }
-  .hero-inner { grid-template-columns: minmax(0, 1fr); row-gap: 48px; }
-  .hero h1 { font-size: clamp(2rem, 1.1rem + 4.4vw, 3.5rem); }
-  .hero-visual { max-width: 720px; }
-  .hero-foot { grid-template-columns: minmax(0, 1fr); }
-
-  .problems-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .how-steps { gap: 40px 32px; }
-
-  .ft-viewport { min-height: 0; }
-  .ft-block { grid-template-columns: minmax(0, 1fr); gap: 32px; }
-  /* Screenshot always sits above the text, regardless of markup order */
-  .ft-block-visual { order: -1; max-width: 720px; }
-
-  .faq-inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
-  .faq-header { position: static; }
+@media (max-width: 1024px) {
+  .hero-subtitle { margin: 0 auto 36px; }
+  .problems-grid { grid-template-columns: 1fr; }
+  .problem::after { display: none; }
+  .problem:not(:nth-last-child(-n+2)) { border-bottom: none; }
+  .problem:not(:last-child) { border-bottom: 1px solid var(--border); }
 }
 
 @media (max-width: 768px) {
-  .problems, .features, .how, .pricing, .comparison, .faq { padding: 64px 0; }
-  .final-cta { padding: 64px 0; }
-  .problems-header, .features-header, .how-header, .comparison-header { margin-bottom: 32px; }
+  .section-title { font-size: clamp(1.75rem, 5vw, 2.5rem); }
+  .section-desc { font-size: 1rem; }
+  .hero { padding: 120px 16px 80px; min-height: 0; }
+  .hero-subtitle { font-size: 1rem; }
+  .hero-ctas { margin-bottom: 16px; }
+  .problems, .features, .how, .pricing, .comparison, .faq { padding: 60px 0; }
+  .final-cta { padding: 80px 0; }
+  .final-cta .section-title { font-size: clamp(1.75rem, 5vw, 2.75rem); }
+  .features-header, .how-header { margin-bottom: 40px; }
+  .problems-header { margin-bottom: 40px; }
+  .problem { padding: 20px 0; }
 
-  .ft-block-visual { max-width: none; }
+  /* Modules: every slide stacked full width, no carousel. */
+  .ft-carousel { width: auto; margin-left: 0; margin-right: 0; }
+  .ft-viewport { overflow: visible; padding: 0; margin: 0; }
+  .ft-stack { flex-direction: column; gap: 28px; transform: none !important; }
+  /* Full width: the frame has no width of its own (only a ratio), so a block sized to
+     its content would shrink with the text. */
+  .ft-block { width: 100%; opacity: 1; transform: none; }
+  .ft-block--clone { display: none; }
+  .ft-block:not(.ft-block--clone) + .ft-block:not(.ft-block--clone) { border-top: 1px solid var(--border); padding-top: 56px; }
+  .ft-block-text h3 { font-size: 1.25rem; }
+  .ft-arrow, .ft-dots { display: none; }
 
-  /* Hero: the owner's grid, with the player's phone smaller in front of its corner. */
-  .hero { padding: 96px 0 48px; }
-  .hero-inner { row-gap: 40px; }
-  .hero-subtitle { margin-bottom: 24px; }
-  .hero-visual { padding-bottom: 32px; }
-  .hero-phone { right: -4px; width: 30%; max-width: 120px; border-radius: 20px; padding: 4px; }
-  .hero-phone img { border-radius: 16px; }
-  .hero-court { width: 900px; }
-  /* Wider than the screen on a phone: what shows is the court's two long lines, above
-     and below the closing words. */
-  .final-cta-court { width: 800px; }
-  .pay-strip { flex-direction: column; gap: 24px; }
+  /* Timeline: the spine down the left, every card to its right. */
+  .how-spine { left: 24px; }
+  .how-step { grid-template-columns: 48px 1fr; margin-bottom: 48px; }
+  .how-step-spacer { display: none; }
+  .how-step[data-step="1"] .how-step-card,
+  .how-step[data-step="2"] .how-step-card,
+  .how-step[data-step="3"] .how-step-card,
+  .how-step[data-step="4"] .how-step-card {
+    grid-column: 2; grid-row: 1;
+    text-align: left; margin: 0 0 0 20px;
+    transform: translateX(0);
+  }
+  .how-step[data-step="1"] .how-step-card .how-step-icon,
+  .how-step[data-step="3"] .how-step-card .how-step-icon { margin-left: 0; }
+  .how-step-node { grid-column: 1; grid-row: 1; }
+  .how-step-card { padding: 24px 20px; }
+  .how-step-big { display: none; }
 
-  .pricing-top { grid-template-columns: minmax(0, 1fr); padding: 32px 24px; }
-  .pricing-card { border-radius: 16px; }
-  .pricing-actions .btn-primary { width: 100%; }
+  /* Pricing: full bleed; side borders and rounding only read as clutter edge to edge. */
+  .pricing-card {
+    width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
+    border-radius: 0; border-left: none; border-right: none;
+  }
+  .pricing-top { padding: 40px 24px 32px; }
+  .pricing-trust { gap: 14px; }
 
-  .ft-tabs { margin-bottom: 32px; }
-  .ft-foot { margin-top: 32px; }
-
-  /* Comparison: one column at a time, picked with the tabs. */
+  /* Comparison: one option at a time, picked with the tabs; each answer under the
+     label of what it answers. */
   .comparison-tabs {
     display: flex; gap: 4px; padding: 4px;
-    border: 1px solid var(--stroke); border-radius: 16px;
-    background: var(--surface-1);
+    border: 1px solid var(--border);
+    background: var(--surface);
+    width: 100vw; margin-left: calc(50% - 50vw); margin-right: calc(50% - 50vw);
   }
   .comparison-tab {
-    flex: 1; min-height: 48px; padding: 4px 6px; border: none; border-radius: 8px;
+    flex: 1; min-height: 48px; padding: 4px 8px; border: none;
     background: transparent; color: var(--muted);
-    font-family: inherit; font-size: 0.875rem; font-weight: 700; line-height: 1.2;
+    font-family: inherit; font-size: 0.875rem; font-weight: 600; line-height: 1.2;
     cursor: pointer; transition: background 0.2s, color 0.2s;
   }
-  .comparison-tab.active { background: var(--green); color: #000; }
-  .comparison-table { margin-top: 24px; grid-template-columns: minmax(0, 1fr); }
+  .comparison-tab.active { background: var(--green); color: var(--bg); }
+  .comparison-table { margin-top: 28px; grid-template-columns: minmax(0, 1fr); }
   .comparison-table th,
-  .comparison-table td { padding-left: 0; padding-right: 0; }
-  .comparison-table thead th { padding: 0 0 8px; }
-  .comparison-th-inner { height: auto; flex-direction: row; align-items: center; justify-content: flex-start; }
+  .comparison-table td { padding-left: 0; padding-right: 0; text-align: left; }
+  .comparison-table [data-col] { border-left: none; }
   .comparison-corner { display: none; }
-  /* Stacked on a phone: the label on top, the chosen column's answer under it, one
-     rule above each pair instead of between them. */
+  .comparison-th-inner { height: auto; flex-direction: row; justify-content: flex-start; margin-bottom: 8px; }
+  .comparison-th-inner img { height: 40px; }
+  .comparison-th-inner .comparison-th-rival { height: 30px; }
+  .comparison-th-inner svg { width: 40px; height: 40px; }
   .comparison-table .comparison-criterio { padding-top: 16px; padding-bottom: 0; font-size: 0.875rem; color: var(--muted); }
   .comparison-table tbody td { padding-top: 4px; padding-bottom: 16px; border-top: none; }
-  .comparison-table td.comparison-good { padding-left: 30px; }
-  .comparison-check { left: 0; top: 6px; }
-  .comparison-table [data-col="vibe"],
-  .comparison-table thead [data-col="vibe"],
-  .comparison-table tbody tr:last-child [data-col="vibe"] { background: none; box-shadow: none; border-radius: 0; }
   .comparison-table[data-shown="vibe"] [data-col]:not([data-col="vibe"]),
   .comparison-table[data-shown="whatsapp"] [data-col]:not([data-col="whatsapp"]),
   .comparison-table[data-shown="atc"] [data-col]:not([data-col="atc"]) { display: none; }
-}
 
-@media (max-width: 640px) {
-  .problems-grid { grid-template-columns: minmax(0, 1fr); }
-  .problem { padding: 20px 0 28px; }
-  .how-steps { grid-template-columns: minmax(0, 1fr); }
-  /* 16px for the sub-headings' paragraphs keeps about 36 characters a line at 320px;
-     at 18px it drops under 32. */
-  .section-desc, .hero-subtitle, .ft-block-text > p { font-size: 1rem; }
+  .faq-inner { grid-template-columns: 1fr; gap: 40px; }
+  .faq-header { position: static; text-align: center; }
+  .faq-header .section-desc { margin: 8px auto 0; }
 }
 
 @media (max-width: 480px) {
-  /* The bar is 56px here; start the copy closer to it so the picture reaches the first
-     screen of a small phone. The two buttons stack, each the full width. */
-  .hero { padding-top: 80px; }
-  .hero-ctas { flex-direction: column; }
-  .hero-ctas a { width: 100%; }
+  .hero { padding: 96px 16px 64px; }
+  .hero h1 { font-size: 1.875rem; line-height: 1.2; }
+  .hero-ctas { flex-direction: column; width: 100%; gap: 4px; }
+  .hero-ctas .btn-primary { width: 100%; justify-content: center; }
+  .section-title { font-size: clamp(1.5rem, 6vw, 2rem); }
+  .section-label { font-size: 0.75rem; }
+  .ft-block { gap: 20px; }
+  .ft-block-text h3 { font-size: 1.125rem; }
+  .how-step { grid-template-columns: 40px 1fr; }
+  .how-step-card { padding: 20px 16px; }
+  .how-step-card h3 { font-size: 1.0625rem; }
+  .how-step-num { width: 40px; height: 40px; font-size: 0.875rem; }
+  .how-step-pulse { inset: -6px; }
+  .how-spine { left: 20px; }
+  .pricing-amount { font-size: clamp(3rem, 16vw, 4rem); }
+  .pricing-top { padding: 32px 16px 24px; }
+  .final-cta .section-title { font-size: clamp(1.5rem, 6vw, 2rem); }
 }
 
-/* Last, so it wins over the breakpoint that picks which overlay shows: with reduced
-   motion there is nothing to paint and the grid shows whole from the start. */
-@media (prefers-reduced-motion: reduce) {
-  .grid-paint { display: none; }
+@media (max-width: 360px) {
+  .hero h1 { font-size: 1.625rem; }
+  .how-step { grid-template-columns: 36px 1fr; }
+  .how-step-num { width: 36px; height: 36px; font-size: 0.75rem; }
+  .how-step-card { padding: 16px 14px; border-radius: 14px; }
+  .how-step-card h3 { font-size: 1rem; }
+  .how-spine { left: 18px; }
+  .how-step-icon { width: 40px; height: 40px; }
+  .how-step-icon svg { width: 22px; height: 22px; }
+  .step-detail { padding: 4px 12px; }
 }
