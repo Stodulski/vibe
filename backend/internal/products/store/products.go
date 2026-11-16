@@ -288,10 +288,7 @@ func (m *Store) Restock(ctx context.Context, complexID, productID, actorID uuid.
 		// reading this movement in isolation (it has no product_id of its
 		// own; stock_movements.cash_movement_id is the only link, and it
 		// points the other way) still has to be able to tell what was bought.
-		description := fmt.Sprintf("Restock: %s x%d", lockedProduct.Name, quantity)
-		if note != nil && *note != "" {
-			description = description + " — " + *note
-		}
+		description := restockCashDescription(lockedProduct.Name, quantity, note)
 
 		cashRow, err := qtx.InsertCashMovement(ctx, db.InsertCashMovementParams{
 			ComplexID: data.UUIDToPg(complexID),
@@ -477,4 +474,15 @@ func stockMovementFromDB(m db.StockMovement) *StockMovement {
 		CreatedAt:      data.PgToTime(m.CreatedAt),
 		CreatedBy:      data.PgToUUID(m.CreatedBy),
 	}
+}
+
+// restockCashDescription is the cash expense text of a restock: the product
+// and quantity, then the owner's note after a period. The cash register shows
+// it as stored, so it is in Spanish.
+func restockCashDescription(product string, quantity int, note *string) string {
+	description := fmt.Sprintf("Reposición: %s x%d", product, quantity)
+	if note != nil && *note != "" {
+		description += ". " + *note
+	}
+	return description
 }
