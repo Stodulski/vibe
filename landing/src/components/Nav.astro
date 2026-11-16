@@ -23,10 +23,7 @@ const {
   comoFuncionaLabel = 'Cómo funciona',
 } = Astro.props;
 
-/* `nav--quiet` draws the bar's account button as an outline. Only the homepage starts
-   that way: its hero carries the filled button, and main.js fills this one in once the
-   hero's has scrolled out of view. */
-const navClass = startScrolled ? 'nav scrolled' : 'nav nav--quiet';
+const navClass = startScrolled ? 'nav scrolled' : 'nav';
 ---
 <header>
 <nav aria-label={navAriaLabel} class={navClass}>
