@@ -1,0 +1,505 @@
+/*
+ * The homepage's own styles. global.css is inlined into every page of the site, so
+ * what only the home uses lives here and ships with the home alone (index.astro
+ * imports it).
+ *
+ * The rules this sheet is built on:
+ *
+ * - Type: seven sizes (14, 16, 18, 24, 32, 52, 60px) and two weights, regular and
+ *   bold, with extra-bold kept for the big headings. Body text is 16px or 18px and
+ *   does not shrink on a phone; nothing is set under 14px.
+ * - Colour: the green is for what can be clicked, plus the one word the headline is
+ *   about. Labels, bullets and icons are white or grey.
+ * - Space: every section has the same padding (96px, 64px on a phone) and sections
+ *   alternate between two backgrounds instead of being fenced by a rule each.
+ * - Alignment: left, everywhere but the closing call to action.
+ * - Targets: every control is at least 48px tall.
+ */
+
+/* ========== SHARED PIECES ========== */
+.section-label {
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 16px;
+}
+
+.section-title {
+  font-weight: 800;
+  font-size: clamp(1.625rem, 1rem + 3.2vw, 3.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.03em;
+  max-width: 760px;
+  margin: 0 0 16px;
+  text-wrap: balance;
+}
+/* The font ships upright only, so an <em> would be a slanted fake. The emphasis is the
+   brand colour instead, on the word the heading is about. */
+.section-title em, .hero h1 em { font-style: normal; color: var(--green); }
+
+.section-desc {
+  font-size: 1.125rem;
+  color: var(--muted);
+  max-width: 560px;
+  line-height: 1.6;
+  text-wrap: pretty;
+}
+
+.problems, .features, .how, .pricing, .comparison, .faq { padding: 96px 0; position: relative; }
+.problems, .how, .comparison, .faq {
+  background: var(--bg-alt);
+  border-block: 1px solid var(--border);
+}
+.problems-header, .features-header, .how-header, .comparison-header { margin-bottom: 48px; }
+
+/* ----- Court lines (see CourtLines.astro) ----- */
+.court-lines { display: block; height: auto; pointer-events: none; }
+.court-lines rect, .court-lines line {
+  stroke: rgba(255, 255, 255, 0.1); stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.court-lines .court-net { stroke: rgba(29, 185, 84, 0.4); stroke-dasharray: 6 6; }
+
+/* ----- Screenshots -----
+   A frame that shows one region of a capture. `--rw` is how many of the capture's
+   pixels fit across the frame, `--rx`/`--ry` where that region starts, and `--nw`/`--nh`
+   the capture's own size. The canvas inside is the whole capture, scaled so that region
+   fills the frame and shifted so it starts at the frame's corner; whatever is drawn on
+   the canvas (the hero's overlay) moves with it. With no variables it shows the capture
+   whole. */
+.shot {
+  position: relative; overflow: hidden;
+  aspect-ratio: var(--ar, 16 / 11);
+  border: 1px solid var(--border); border-radius: 12px;
+  background: var(--bg);
+  box-shadow: 0 24px 56px -28px rgba(0, 0, 0, 0.9);
+}
+.shot-canvas {
+  position: absolute; top: 0; left: 0;
+  width: calc(100% * var(--nw, 1669) / var(--rw, 1669));
+  transform: translate(
+    calc(-100% * var(--rx, 0) / var(--nw, 1669)),
+    calc(-100% * var(--ry, 0) / var(--nh, 869))
+  );
+}
+.shot-canvas picture { display: block; }
+.shot-canvas img { display: block; width: 100%; height: auto; }
+
+/* A phone, for the page a player books from. */
+.phone {
+  border: 2px solid #3a3a3a; border-radius: 28px;
+  padding: 6px; background: #050505; overflow: hidden;
+  box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.95);
+}
+.phone img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+
+/* ========== HERO ========== */
+.hero { position: relative; overflow: hidden; padding: 120px 0 56px; }
+.hero-inner {
+  max-width: 1240px; position: relative; z-index: 1;
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  column-gap: 56px; row-gap: 56px; align-items: center;
+}
+.hero-copy { position: relative; z-index: 1; }
+/* The court lies flat under the picture, tipped away from the viewer, so the grid and
+   the phone stand on it. It is brightest at its near edge and fades with distance and
+   toward the copy. */
+.hero-court {
+  position: absolute; left: 50%; bottom: 0; z-index: 0;
+  width: 1500px; max-width: none;
+  transform-origin: 50% 100%;
+  transform: translateX(-50%) perspective(900px) rotateX(62deg);
+  -webkit-mask-image: radial-gradient(ellipse 62% 105% at 56% 100%, #000 30%, transparent 100%);
+  mask-image: radial-gradient(ellipse 62% 105% at 56% 100%, #000 30%, transparent 100%);
+}
+.hero-court rect, .hero-court line { stroke: rgba(255, 255, 255, 0.2); }
+
+.hero h1 {
+  font-weight: 800;
+  font-size: clamp(2.75rem, 4.2vw, 3.75rem);
+  line-height: 1.08; letter-spacing: -0.03em;
+  margin-bottom: 20px;
+  text-wrap: balance;
+}
+.hero-subtitle {
+  font-size: 1.125rem; color: var(--muted); line-height: 1.6;
+  max-width: 34rem; margin-bottom: 32px;
+  text-wrap: pretty;
+}
+.hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 16px; }
+/* Small clarifying note under the hero CTAs: who actually pays */
+.hero-note { font-size: 0.875rem; color: var(--muted); line-height: 1.6; max-width: 30rem; }
+
+/* The owner's grid with the player's phone standing in front of its corner. */
+.hero-visual { position: relative; padding-bottom: 40px; }
+.hero-panel { --ar: 5 / 4; --rw: 860; --rx: 196; --ry: 56; z-index: 1; }
+.hero-phone { position: absolute; right: -12px; bottom: 0; z-index: 2; width: 172px; aspect-ratio: 172 / 352; }
+/* The capture is the whole booking page; the phone shows the stretch with the day and
+   the times to pick from. */
+.hero-phone img { object-position: 50% 94%; }
+
+/* The grid fills in turn by turn. Each cover hides one booking and fades out in the
+   order the turns start (--i), so the capture underneath comes through one booking at
+   a time. See Hero.astro. */
+.grid-paint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.grid-paint--mobile { display: none; }
+.grid-paint-cover {
+  animation: grid-paint-in 0.45s ease-out both;
+  animation-delay: calc(0.6s + var(--i) * 0.09s);
+}
+@keyframes grid-paint-in {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* Under the two columns: who it is for, and how the money comes in. */
+.hero-foot {
+  grid-column: 1 / -1;
+  display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  column-gap: 56px; row-gap: 24px; align-items: start;
+  padding-top: 32px; border-top: 1px solid var(--border);
+}
+.hero-proof-text { font-size: 1rem; color: var(--muted); line-height: 1.6; }
+.hero-proof-text strong { color: var(--text); font-weight: 700; }
+
+/* The two ways money comes in, side by side: online through Mercado Pago, and at the
+   counter by whichever method the customer picks. */
+.pay-strip { display: flex; gap: 24px 40px; }
+.integration-bar, .pay-counter { display: flex; flex-direction: column; gap: 10px; }
+.integration-bar { flex: 0 0 auto; }
+.pay-counter { flex: 1 1 0; min-width: 0; }
+.integration-label { font-size: 0.875rem; color: var(--muted); line-height: 1.4; }
+/* Mercado Pago's own mark, in its own colours, on the light plate it is drawn for. */
+.mp-logo { background: #fff; border-radius: 8px; padding: 6px 12px; width: fit-content; }
+.mp-logo img { display: block; height: 28px; width: auto; }
+.pay-methods { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; min-height: 40px; align-items: center; }
+.pay-methods li { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; color: var(--text); }
+.pay-methods svg { color: var(--muted); flex-shrink: 0; }
+
+/* ========== WHAT CHANGES (six cards) ========== */
+/* Court-line grid: no card, no icon, just a line above each. */
+.problems-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0 48px; }
+.problem { padding: 24px 0 40px; border-top: 1px solid var(--border); }
+.problem h3 { font-weight: 700; font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; text-wrap: balance; }
+.problem p { font-size: 1rem; color: var(--muted); line-height: 1.6; }
+
+/* ========== MODULES ========== */
+.ft-carousel { position: relative; }
+
+/* The picker: one named button per module, on a rule the active one underlines. On a
+   phone the row scrolls sideways inside itself; the page never does. */
+.ft-tabs {
+  display: flex; gap: 4px;
+  border-bottom: 1px solid var(--border); margin-bottom: 48px;
+  /* Positioned so main.js can read each button's offset inside the row. */
+  position: relative; overflow-x: auto; scrollbar-width: none;
+}
+.ft-tabs::-webkit-scrollbar { display: none; }
+.ft-tab {
+  flex: 0 0 auto; min-height: 48px; padding: 0 16px;
+  border: 0; border-bottom: 2px solid transparent; background: none;
+  font-family: var(--font); font-size: 1rem; font-weight: 700; color: var(--muted);
+  white-space: nowrap; cursor: pointer;
+  transition: color 0.2s, border-color 0.2s;
+}
+.ft-tab:hover { color: var(--text); }
+.ft-tab.active { color: var(--text); border-bottom-color: var(--green); }
+.ft-tab:focus-visible { outline-offset: -2px; }
+
+.ft-viewport { min-height: 432px; }
+.ft-block {
+  display: none;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  gap: 56px; align-items: center;
+}
+.ft-block.active { display: grid; animation: ft-in 0.3s ease-out; }
+@keyframes ft-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ft-block.active { animation: none; }
+}
+
+.ft-block-text h3 { font-weight: 700; font-size: 1.5rem; line-height: 1.25; margin-bottom: 12px; text-wrap: balance; }
+.ft-block-text > p { font-size: 1.125rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.ft-bullets { list-style: none; display: flex; flex-direction: column; gap: 10px; }
+.ft-bullets li {
+  display: flex; align-items: flex-start; gap: 12px;
+  font-size: 1rem; color: var(--muted); line-height: 1.5;
+}
+.ft-bullets li::before {
+  content: ''; width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5); margin-top: 9px; flex-shrink: 0;
+}
+
+/* Cierra los módulos: es el único lugar del home donde un enlace a los tutoriales
+   sigue el hilo de lo que el visitante está mirando. Las flechas van a su lado. */
+.ft-foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px 32px; flex-wrap: wrap;
+  margin-top: 40px;
+}
+.ft-tutoriales { font-size: 1rem; color: var(--muted); line-height: 1.6; }
+.ft-tutoriales a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.ft-tutoriales a:hover { color: var(--text); }
+.ft-nav { display: flex; gap: 8px; }
+.ft-arrow {
+  width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+  border: 1px solid var(--stroke); background: transparent; color: var(--text);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+.ft-arrow:hover { border-color: var(--text); background: var(--surface); }
+
+/* ========== HOW IT WORKS ========== */
+.how-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 32px; }
+.how-step { display: flex; flex-direction: column; align-items: flex-start; }
+/* The picture comes after the step in the markup and first on screen. */
+.how-step-shot { --ar: 16 / 10; order: -1; width: 100%; border-radius: 10px; margin-bottom: 20px; }
+.how-step-node { margin-bottom: 12px; }
+.how-step-num {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  border: 1px solid var(--stroke);
+  font-size: 0.875rem; font-weight: 700; color: var(--text);
+}
+.how-step h3 { font-weight: 700; font-size: 1.125rem; line-height: 1.3; margin-bottom: 8px; }
+.how-step p { font-size: 1rem; color: var(--muted); line-height: 1.6; }
+/* What the step leaves in place. Plain text: a pill here read as a button. */
+.how-step .step-detail { margin-top: 12px; font-size: 0.875rem; color: var(--text); overflow-wrap: anywhere; }
+
+/* ========== PRICING ========== */
+.pricing-card {
+  max-width: 960px; margin: 0 auto;
+  background: var(--surface-1);
+  border: 1px solid var(--border); border-radius: 24px;
+}
+.pricing-top {
+  display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 32px 56px; align-items: center;
+  padding: 56px;
+}
+.pricing-top .section-label { margin-bottom: 12px; }
+/* One heading, two lines: the word "Gratis" big, and what it covers under it. */
+.pricing-title { margin: 0; font-weight: inherit; }
+.pricing-title span { display: block; }
+.pricing-amount {
+  font-weight: 800; font-size: clamp(2.75rem, 2rem + 4vw, 3.75rem);
+  letter-spacing: -0.04em; line-height: 1; margin-bottom: 12px;
+  color: var(--text);
+}
+.pricing-period { font-size: 1.125rem; color: var(--muted); line-height: 1.5; }
+.pricing-desc { font-size: 1rem; color: var(--muted); line-height: 1.6; margin-bottom: 20px; }
+.pricing-trust { display: flex; flex-direction: column; gap: 12px; margin-bottom: 28px; }
+.trust-badge { display: flex; align-items: flex-start; gap: 10px; font-size: 1rem; color: var(--text); line-height: 1.5; }
+.trust-badge svg { width: 20px; height: 20px; margin-top: 2px; color: var(--muted); flex-shrink: 0; }
+.pricing-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 16px 24px; }
+
+/* ========== COMPARISON ========== */
+.comparison-tabs { display: none; }
+/* Laid out as a grid rather than by the table algorithm, so the columns stay equal;
+   the markup stays a real table, so the row and column relationships survive for a
+   screen reader. */
+.comparison-table {
+  display: grid; grid-template-columns: minmax(140px, max-content) repeat(3, minmax(0, 1fr));
+  width: 100%; text-align: left;
+}
+.comparison-table thead,
+.comparison-table tbody,
+.comparison-table tr { display: contents; }
+.comparison-table th,
+.comparison-table td { padding: 20px 24px; text-align: left; font-size: 1rem; line-height: 1.5; }
+.comparison-table thead th { padding: 24px; font-weight: inherit; }
+/* Each column's mark sits on the same baseline whatever its shape, with its name in
+   words under it. The other two options are drawn in grey: this is Vibe's page, and
+   their colours would pull the eye to their columns. */
+.comparison-th-inner { display: flex; flex-direction: column; justify-content: flex-end; gap: 12px; height: 80px; }
+.comparison-th-inner img { display: block; height: 40px; width: auto; align-self: flex-start; }
+.comparison-th-inner svg { color: var(--muted); }
+.comparison-th-inner .comparison-th-rival { height: 30px; filter: grayscale(1) brightness(1.7); }
+.comparison-th-name { font-size: 1rem; font-weight: 700; color: var(--text); }
+
+.comparison-table tbody th,
+.comparison-table tbody td { border-top: 1px solid var(--border); }
+/* The row label: what the three cells beside it answer. */
+.comparison-table .comparison-criterio { font-weight: 700; color: var(--text); padding-left: 0; }
+.comparison-table td.comparison-neutral { color: var(--muted); }
+/* Vibe's column is the highlighted one, by more than colour: a lifted panel runs behind
+   the whole column and each answer carries a check. The panel's edges are inset
+   shadows, not borders, so the phone layout below has nothing to undo. */
+.comparison-table td.comparison-good { position: relative; color: var(--text); padding-left: 56px; }
+.comparison-check { position: absolute; left: 24px; top: 22px; color: var(--green); }
+.comparison-table [data-col="vibe"] {
+  background: var(--surface-2);
+  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover);
+}
+.comparison-table thead [data-col="vibe"] {
+  border-radius: 16px 16px 0 0;
+  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover), inset 0 1px 0 var(--border-hover);
+}
+.comparison-table tbody tr:last-child [data-col="vibe"] {
+  border-radius: 0 0 16px 16px;
+  box-shadow: inset 1px 0 0 var(--border-hover), inset -1px 0 0 var(--border-hover), inset 0 -1px 0 var(--border-hover);
+}
+
+/* ========== FAQ ========== */
+.faq-inner { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 64px; align-items: start; }
+.faq-header { position: sticky; top: 104px; }
+.faq-header .section-desc a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.faq-header .section-desc a:hover { color: var(--text); }
+.faq-list { display: flex; flex-direction: column; gap: 12px; }
+
+/* ========== FINAL CTA ========== */
+.final-cta { position: relative; overflow: hidden; padding: 96px 0; text-align: center; }
+.final-cta .container { position: relative; z-index: 1; display: flex; flex-direction: column; align-items: center; }
+/* The same court from above, as a frame around the closing words: the middle is
+   masked out so no line runs behind the text, and only its outline, its service lines
+   and the two ends of the net show. */
+.final-cta-court {
+  position: absolute; top: 50%; left: 50%; z-index: 0;
+  width: 920px; max-width: none;
+  transform: translate(-50%, -50%);
+  -webkit-mask-image: radial-gradient(ellipse 38% 46% at 50% 50%, transparent 92%, #000 100%);
+  mask-image: radial-gradient(ellipse 38% 46% at 50% 50%, transparent 92%, #000 100%);
+}
+.final-cta .section-title { max-width: 640px; margin: 0 auto 16px; }
+.final-cta .section-desc { margin: 0 auto 32px; }
+.cta-note { font-size: 0.875rem; color: var(--muted); margin-top: 16px; }
+
+/* ========== RESPONSIVE ========== */
+@media (max-width: 1023px) {
+  /* One column: the copy, then the picture. */
+  .hero { padding: 120px 0 64px; }
+  .hero-inner { grid-template-columns: minmax(0, 1fr); row-gap: 48px; }
+  .hero h1 { font-size: clamp(2rem, 1.1rem + 4.4vw, 3.5rem); }
+  .hero-visual { max-width: 720px; }
+  .hero-panel { --ar: 16 / 10; --rw: 1100; }
+  .hero-foot { grid-template-columns: minmax(0, 1fr); }
+
+  .problems-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .how-steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+  .ft-viewport { min-height: 0; }
+  .ft-block { grid-template-columns: minmax(0, 1fr); gap: 32px; }
+  /* Screenshot always sits above the text, regardless of markup order */
+  .ft-block-visual { order: -1; max-width: 720px; }
+
+  .faq-inner { grid-template-columns: minmax(0, 1fr); gap: 40px; }
+  .faq-header { position: static; }
+}
+
+@media (max-width: 768px) {
+  .problems, .features, .how, .pricing, .comparison, .faq { padding: 64px 0; }
+  .final-cta { padding: 64px 0; }
+  .problems-header, .features-header, .how-header, .comparison-header { margin-bottom: 32px; }
+
+  /* On phones a shot is a phone screenshot, so the frame becomes a handset that runs
+     off the bottom of its block: open at the base, and the screen cropped so the
+     content reads as continuing past the cut instead of just ending. The capture shows
+     whole: the crop is for the desktop one. */
+  .shot--responsive {
+    aspect-ratio: auto; height: 400px;
+    width: 100%; max-width: 320px; margin-inline: auto;
+    padding: 10px 10px 0;
+    border: 2px solid #3a3a3a; border-bottom: none;
+    border-radius: 36px 36px 0 0;
+    background: var(--surface-1);
+    box-shadow: none;
+  }
+  .shot--responsive .shot-canvas {
+    position: relative; width: 100%; transform: none;
+    border-radius: 26px 26px 0 0; overflow: hidden;
+  }
+  /* The handset stands on a line, the way the cut edge needs something to rest on. */
+  .ft-block-visual { border-bottom: 1px solid var(--border); max-width: none; }
+
+  /* Hero: the two phones side by side on one line: the owner's grid, and the player's
+     page in front of its edge. */
+  .hero { padding: 96px 0 48px; }
+  .hero-inner { row-gap: 40px; }
+  .hero-subtitle { margin-bottom: 24px; }
+  .hero-visual {
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 0; border-bottom: 1px solid var(--border);
+  }
+  .hero-panel { height: 340px; width: 62%; max-width: 240px; margin: 0; }
+  .hero-phone {
+    position: relative; right: auto; bottom: auto; z-index: 2;
+    width: 44%; max-width: 172px; height: 280px; aspect-ratio: auto;
+    margin-left: -16px;
+    border-bottom: none; border-radius: 28px 28px 0 0; padding-bottom: 0;
+  }
+  .hero-phone img { border-radius: 20px 20px 0 0; object-position: 50% 92%; }
+  .grid-paint--desktop { display: none; }
+  .grid-paint--mobile { display: block; }
+  .hero-court { width: 900px; }
+  /* Wider than the screen on a phone: what shows is the court's two long lines, above
+     and below the closing words. */
+  .final-cta-court { width: 800px; }
+  .pay-strip { flex-direction: column; gap: 24px; }
+
+  .pricing-top { grid-template-columns: minmax(0, 1fr); padding: 32px 24px; }
+  .pricing-card { border-radius: 16px; }
+  .pricing-actions .btn-primary { width: 100%; }
+
+  .ft-tabs { margin-bottom: 32px; }
+  .ft-foot { margin-top: 32px; }
+
+  /* Comparison: one column at a time, picked with the tabs. */
+  .comparison-tabs {
+    display: flex; gap: 4px; padding: 4px;
+    border: 1px solid var(--stroke); border-radius: 12px;
+    background: var(--surface-1);
+  }
+  .comparison-tab {
+    flex: 1; min-height: 48px; padding: 4px 6px; border: none; border-radius: 8px;
+    background: transparent; color: var(--muted);
+    font-family: inherit; font-size: 0.875rem; font-weight: 700; line-height: 1.2;
+    cursor: pointer; transition: background 0.2s, color 0.2s;
+  }
+  .comparison-tab.active { background: var(--green); color: #000; }
+  .comparison-table { margin-top: 24px; grid-template-columns: minmax(0, 1fr); }
+  .comparison-table th,
+  .comparison-table td { padding-left: 0; padding-right: 0; }
+  .comparison-table thead th { padding: 0 0 8px; }
+  .comparison-th-inner { height: auto; flex-direction: row; align-items: center; justify-content: flex-start; }
+  .comparison-corner { display: none; }
+  /* Stacked on a phone: the label on top, the chosen column's answer under it, one
+     rule above each pair instead of between them. */
+  .comparison-table .comparison-criterio { padding-top: 16px; padding-bottom: 0; font-size: 0.875rem; color: var(--muted); }
+  .comparison-table tbody td { padding-top: 4px; padding-bottom: 16px; border-top: none; }
+  .comparison-table td.comparison-good { padding-left: 30px; }
+  .comparison-check { left: 0; top: 6px; }
+  .comparison-table [data-col="vibe"],
+  .comparison-table thead [data-col="vibe"],
+  .comparison-table tbody tr:last-child [data-col="vibe"] { background: none; box-shadow: none; border-radius: 0; }
+  .comparison-table[data-shown="vibe"] [data-col]:not([data-col="vibe"]),
+  .comparison-table[data-shown="whatsapp"] [data-col]:not([data-col="whatsapp"]),
+  .comparison-table[data-shown="atc"] [data-col]:not([data-col="atc"]) { display: none; }
+}
+
+@media (max-width: 640px) {
+  .problems-grid { grid-template-columns: minmax(0, 1fr); }
+  .problem { padding: 20px 0 28px; }
+  .how-steps { grid-template-columns: minmax(0, 1fr); }
+  /* 16px for the sub-headings' paragraphs keeps about 36 characters a line at 320px;
+     at 18px it drops under 32. */
+  .section-desc, .hero-subtitle, .ft-block-text > p { font-size: 1rem; }
+}
+
+@media (max-width: 480px) {
+  /* The bar is 56px here; start the copy closer to it so the picture reaches the first
+     screen of a small phone. The two buttons stack, each the full width. */
+  .hero { padding-top: 80px; }
+  .hero-ctas { flex-direction: column; }
+  .hero-ctas a { width: 100%; }
+}
+
+/* Last, so it wins over the breakpoint that picks which overlay shows: with reduced
+   motion there is nothing to paint and the grid shows whole from the start. */
+@media (prefers-reduced-motion: reduce) {
+  .grid-paint { display: none; }
+}

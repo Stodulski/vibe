@@ -1,4 +1,43 @@
-<!-- ========== CÓMO FUNCIONA -VERTICAL TIMELINE ========== -->
+---
+import Screenshot from './Screenshot.astro';
+
+/*
+ * Four steps side by side, each opening with the screen it talks about instead of a
+ * generic icon. The pictures are details of real captures: `crop` is the region shown,
+ * in the capture's own pixels (`rx`/`ry` its top-left corner, `rw` its width), and
+ * `natural` is the capture's size when it is not the 1669x869 desktop one.
+ *
+ * `how-step-node` is a name scripts/build-markdown.mjs drops: the number is the order
+ * of the list, which the Markdown twin already states by listing the steps in order.
+ */
+const STEPS = [
+  {
+    title: 'Cargá tu complejo',
+    text: 'Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando.',
+    detail: 'Asistente paso a paso',
+    shot: { name: 'precios-por-cancha-y-horario', alt: 'Canchas cargadas en Vibe, cada una con su deporte y su descripción', crop: { rw: 380, rx: 118, ry: 150 } },
+  },
+  {
+    title: 'Compartí tu link',
+    text: 'Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp.',
+    detail: 'vibe.com.ar/c/tu-complejo',
+    shot: { name: 'reserva-desde-el-celular', alt: 'Página propia de un complejo en Vibe, con su nombre, su dirección y su teléfono', crop: { rw: 320, rx: 0, ry: 196 }, natural: { w: 320, h: 1400 } },
+  },
+  {
+    title: 'Recibí las reservas',
+    text: 'Entran reservas con seña, desde el celular. Las ves en la grilla, con lo que falta cobrar.',
+    detail: 'Confirmación y recordatorio automáticos',
+    shot: { name: 'panel-reservas-canchas', alt: 'Reservas del día en la grilla de Vibe, cada una en su cancha y su horario', crop: { rw: 420, rx: 250, ry: 100 } },
+  },
+  {
+    title: 'Abrí la caja y vendé',
+    text: 'Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha.',
+    detail: 'Arqueo al cierre',
+    shot: { name: 'caja-turno', alt: 'Caja del turno en Vibe con el efectivo esperado y los movimientos del día', crop: { rw: 400, rx: 196, ry: 186 } },
+  },
+];
+---
+<!-- ========== CÓMO FUNCIONA ========== -->
 <section class="how" id="como-funciona">
  <div class="container">
   <div class="how-header">
@@ -7,80 +46,28 @@
    <p class="section-desc anim anim-d2">Si usás WhatsApp, usás Vibe. Lo cargás vos y podés recibir reservas el mismo día.</p>
   </div>
 
-  <div class="how-timeline">
-   <div class="how-spine"><div class="how-spine-fill"></div></div>
-
-   <!-- Step 1 -->
-   <div class="how-step anim" data-step="1">
-    <div class="how-step-card">
-     <span class="how-step-big" aria-hidden="true">01</span>
-     <div class="how-step-icon">
-      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+  <div class="how-steps">
+   {STEPS.map((step, i) => {
+    const { crop, natural } = step.shot;
+    const vars = `--rw:${crop.rw};--rx:${crop.rx};--ry:${crop.ry}` + (natural ? `;--nw:${natural.w};--nh:${natural.h}` : '');
+    return (
+     <div class={`how-step anim anim-d${i + 1}`}>
+      <div class="how-step-node"><span class="how-step-num">{i + 1}</span></div>
+      <h3>{step.title}</h3>
+      <p>{step.text}</p>
+      <p class="step-detail">{step.detail}</p>
+      {/* After its step in the markup, so the page reads heading first; the styles lift
+          it to the top of the column. */}
+      <div class="shot how-step-shot" style={vars}>
+       <div class="shot-canvas">
+        {natural
+         ? <Screenshot variant="single" name={step.shot.name} width={natural.w} height={natural.h} alt={step.shot.alt} />
+         : <Screenshot variant="desktop" name={step.shot.name} alt={step.shot.alt} />}
+       </div>
+      </div>
      </div>
-     <h3>Cargá tu complejo</h3>
-     <p>Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando.</p>
-     <span class="step-detail">Asistente paso a paso</span>
-    </div>
-    <div class="how-step-node">
-     <span class="how-step-num">1</span>
-     <div class="how-step-pulse"></div>
-    </div>
-    <div class="how-step-spacer"></div>
-   </div>
-
-   <!-- Step 2 -->
-   <div class="how-step anim" data-step="2">
-    <div class="how-step-spacer"></div>
-    <div class="how-step-node">
-     <span class="how-step-num">2</span>
-     <div class="how-step-pulse"></div>
-    </div>
-    <div class="how-step-card">
-     <span class="how-step-big" aria-hidden="true">02</span>
-     <div class="how-step-icon">
-      <svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
-     </div>
-     <h3>Compartí tu link</h3>
-     <p>Tu complejo tiene su propia página. Pegala en Instagram, en Google Maps y en el WhatsApp.</p>
-     <span class="step-detail">vibe.com.ar/c/tu-complejo</span>
-    </div>
-   </div>
-
-   <!-- Step 3 -->
-   <div class="how-step anim" data-step="3">
-    <div class="how-step-card">
-     <span class="how-step-big" aria-hidden="true">03</span>
-     <div class="how-step-icon">
-      <svg viewBox="0 0 24 24"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
-     </div>
-     <h3>Recibí las reservas</h3>
-     <p>Entran reservas con seña, desde el celular. Las ves en la grilla, con lo que falta cobrar.</p>
-     <span class="step-detail">Confirmación y recordatorio automáticos</span>
-    </div>
-    <div class="how-step-node">
-     <span class="how-step-num">3</span>
-     <div class="how-step-pulse"></div>
-    </div>
-    <div class="how-step-spacer"></div>
-   </div>
-
-   <!-- Step 4 -->
-   <div class="how-step anim" data-step="4">
-    <div class="how-step-spacer"></div>
-    <div class="how-step-node">
-     <span class="how-step-num">4</span>
-     <div class="how-step-pulse"></div>
-    </div>
-    <div class="how-step-card">
-     <span class="how-step-big" aria-hidden="true">04</span>
-     <div class="how-step-icon">
-      <svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/><path d="M12 12v.01"/></svg>
-     </div>
-     <h3>Abrí la caja y vendé</h3>
-     <p>Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha.</p>
-     <span class="step-detail">Arqueo al cierre</span>
-    </div>
-   </div>
+    );
+   })}
   </div>
  </div>
 </section>

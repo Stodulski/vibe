@@ -17,8 +17,9 @@ const COLUMNAS = [
 
 /*
  * Each row is one criterion, read left to right in column order, under the label in
- * `criterio`. Vibe's column is the highlighted one; the other two stay neutral, so the
- * table describes each option instead of scoring it in red.
+ * `criterio`. Vibe's column is the highlighted one: a lifted panel behind it and a check
+ * beside each answer, so it stands out without leaning on colour alone. The other two
+ * stay neutral, so the table describes each option instead of scoring it in red.
  *
  * The ATC Sports column only says what src/data/competencia.ts records from their own
  * page (plans with a monthly fee, the free trial). Everything else is "Sin dato
@@ -74,20 +75,25 @@ const FILAS = [
    <thead>
     <tr>
      <th scope="col" class="comparison-corner"><span class="sr-only">Criterio</span></th>
+     <!-- Each column is named in words under its mark. Where the mark is an image its
+          alt already says the name, so the visible word is hidden from assistive tech
+          instead of being read twice. -->
      <th scope="col" data-col="vibe">
       <div class="comparison-th-inner">
-       <img src="/logo.svg" width="120" height="84" alt="Vibe" loading="lazy" />
+       <img src="/logo.svg" width="57" height="40" alt="Vibe" loading="lazy" />
+       <span class="comparison-th-name" aria-hidden="true">Vibe</span>
       </div>
      </th>
      <th scope="col" data-col="whatsapp">
       <div class="comparison-th-inner">
-       <svg viewBox="0 0 32 32" width="66" height="66" fill="#25D366" aria-hidden="true"><path d="M16.004 0C7.176 0 .002 7.174.002 16.002c0 2.822.737 5.58 2.137 8.012L.009 32l8.188-2.09a15.95 15.95 0 0 0 7.807 2.032C24.83 31.942 32 24.768 32 15.94 32 7.174 24.83 0 16.004 0zm0 29.314a13.28 13.28 0 0 1-7.1-2.048l-.508-.302-4.87 1.244 1.302-4.732-.338-.533A13.27 13.27 0 0 1 2.63 16.002c0-7.38 6.004-13.374 13.374-13.374 7.38 0 13.368 5.994 13.368 13.374 0 7.37-5.988 13.312-13.368 13.312zm7.326-10.012c-.4-.2-2.372-1.172-2.74-1.306-.368-.132-.636-.2-.904.2s-1.038 1.306-1.272 1.574c-.234.268-.468.3-.868.1s-1.692-.624-3.222-1.988c-1.192-1.062-1.996-2.374-2.23-2.774-.234-.4-.024-.616.176-.816.18-.18.4-.468.6-.702.2-.234.268-.4.4-.668.134-.268.068-.502-.032-.702-.1-.2-.904-2.178-1.238-2.982-.326-.784-.658-.678-.904-.69l-.77-.012c-.268 0-.702.1-1.07.502-.368.4-1.404 1.372-1.404 3.346 0 1.974 1.438 3.882 1.638 4.15.2.268 2.826 4.314 6.852 6.05.958.414 1.704.66 2.286.846.96.306 1.834.262 2.524.16.77-.116 2.372-.97 2.706-1.906.334-.936.334-1.738.234-1.906-.1-.168-.368-.268-.77-.468z"/></svg>
-       <span class="sr-only">WhatsApp y planilla</span>
+       <svg viewBox="0 0 32 32" width="40" height="40" fill="currentColor" aria-hidden="true"><path d="M16.004 0C7.176 0 .002 7.174.002 16.002c0 2.822.737 5.58 2.137 8.012L.009 32l8.188-2.09a15.95 15.95 0 0 0 7.807 2.032C24.83 31.942 32 24.768 32 15.94 32 7.174 24.83 0 16.004 0zm0 29.314a13.28 13.28 0 0 1-7.1-2.048l-.508-.302-4.87 1.244 1.302-4.732-.338-.533A13.27 13.27 0 0 1 2.63 16.002c0-7.38 6.004-13.374 13.374-13.374 7.38 0 13.368 5.994 13.368 13.374 0 7.37-5.988 13.312-13.368 13.312zm7.326-10.012c-.4-.2-2.372-1.172-2.74-1.306-.368-.132-.636-.2-.904.2s-1.038 1.306-1.272 1.574c-.234.268-.468.3-.868.1s-1.692-.624-3.222-1.988c-1.192-1.062-1.996-2.374-2.23-2.774-.234-.4-.024-.616.176-.816.18-.18.4-.468.6-.702.2-.234.268-.4.4-.668.134-.268.068-.502-.032-.702-.1-.2-.904-2.178-1.238-2.982-.326-.784-.658-.678-.904-.69l-.77-.012c-.268 0-.702.1-1.07.502-.368.4-1.404 1.372-1.404 3.346 0 1.974 1.438 3.882 1.638 4.15.2.268 2.826 4.314 6.852 6.05.958.414 1.704.66 2.286.846.96.306 1.834.262 2.524.16.77-.116 2.372-.97 2.706-1.906.334-.936.334-1.738.234-1.906-.1-.168-.368-.268-.77-.468z"/></svg>
+       <span class="comparison-th-name">WhatsApp y planilla</span>
       </div>
      </th>
      <th scope="col" data-col="atc">
       <div class="comparison-th-inner">
-       <img src="/atc-sports-logo.svg" width="183" height="72" alt="ATC Sports" loading="lazy" />
+       <img class="comparison-th-rival" src="/atc-sports-logo.svg" width="78" height="30" alt="ATC Sports" loading="lazy" />
+       <span class="comparison-th-name" aria-hidden="true">ATC Sports</span>
       </div>
      </th>
     </tr>
@@ -97,7 +103,10 @@ const FILAS = [
      <tr>
       <th scope="row" class="comparison-criterio">{fila.criterio}</th>
       {fila.celdas.map((texto, i) => (
-       <td class={i === 0 ? 'comparison-good' : 'comparison-neutral'} data-col={COLUMNAS[i].id}>{texto}</td>
+       <td class={i === 0 ? 'comparison-good' : 'comparison-neutral'} data-col={COLUMNAS[i].id}>
+        {i === 0 && <svg class="comparison-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>}
+        <span>{texto}</span>
+       </td>
       ))}
      </tr>
     ))}
