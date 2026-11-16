@@ -59,7 +59,7 @@ const MODULES = [
   {
     id: 'caja',
     tab: 'Caja',
-    title: 'Una caja que cierra',
+    title: 'Caja por turno y arqueo al cierre',
     text: 'Abrís el turno con el efectivo del cajón. Al cerrar, Vibe ya hizo la cuenta.',
     bullets: ['Ingresos y egresos por categoría: insumos, sueldos, servicios, retiros', 'Los cobros en efectivo y las ventas entran solos', 'Al cerrar: esperado contra contado, con sobrante o faltante'],
     shot: 'caja-turno',
@@ -71,7 +71,7 @@ const MODULES = [
     tab: 'Bar',
     title: 'El bar, con el stock siempre al día',
     text: 'Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.',
-    bullets: ['Carrito y cobro con el método que elija el cliente', 'Si un producto quedó en cero, te avisa y la venta sale igual', 'Aviso de stock bajo en el dashboard, con el mínimo que vos definís'],
+    bullets: ['Armás el carrito y cobrás en el mostrador', 'Si un producto quedó en cero, te avisa y la venta sale igual', 'Aviso de stock bajo en el dashboard, con el mínimo que vos definís'],
     shot: 'vender-mostrador',
     alt: 'Pantalla Vender de Vibe con el catálogo, el carrito y un aviso de stock',
     focus: { x: 1246, y: 144 },
@@ -79,8 +79,8 @@ const MODULES = [
   {
     id: 'reportes',
     tab: 'Reportes',
-    title: 'El mes, cerrado solo',
-    text: 'El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.',
+    title: 'Reportes del día y del mes',
+    text: 'Ves el día en el dashboard y bajás el mes en Excel para tu contador.',
     bullets: ['Ingresos, ocupación por horario y la caja abierta', 'Reporte mensual por método de pago y por cancha', 'Excel con los pagos y la caja del mes'],
     shot: 'dashboard-complejo-deportivo',
     alt: 'Dashboard real de Vibe con las reservas, los ingresos, la ocupación y los medios de pago del día',
@@ -108,11 +108,11 @@ const after: Array<{ m: Module; kind: string }> = [
   <div class="features-header">
    <div class="section-label anim">Módulos</div>
    <h2 class="section-title anim anim-d1">Siete módulos en un solo panel,<br><em>gratis para tu complejo.</em></h2>
-   <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar.</p>
+   <p class="section-desc anim anim-d2">Elegí un módulo y mirá cómo se ve en el panel.</p>
   </div>
 
   <div class="ft-carousel">
-   <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+   <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Módulo anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
    <div class="ft-viewport">
     <div class="ft-stack">
      {before.map(({ m, kind }) => (
@@ -161,7 +161,7 @@ const after: Array<{ m: Module; kind: string }> = [
      ))}
     </div>
    </div>
-   <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+   <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente módulo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
   </div>
 
   <!-- One dot per module, named after it. `ft-dots` is a name scripts/build-markdown.mjs

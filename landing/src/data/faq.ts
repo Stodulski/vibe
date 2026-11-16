@@ -26,16 +26,15 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d1',
     question: '¿Vibe es gratis de verdad?',
-    answer: 'Vibe no le cobra al complejo. El cargo de servicio lo paga quien reserva online, y lo ve antes '
-      + 'de pagar, junto al precio de la cancha. Las comisiones de MercadoPago son aparte.',
+    answer: 'Vibe no le cobra al complejo. Quien reserva online paga un cargo de servicio y lo ve antes de '
+      + 'pagar, junto al precio de la cancha. La comisión de Mercado Pago es aparte.',
   },
   {
     anim: 'anim-d2',
     question: '¿Vibe es solo para reservas?',
-    answer: 'No. Reservas online con seña, cobros en el mostrador, caja por turno con arqueo, venta de '
-      + 'productos con stock y reportes con Excel. También turnos fijos semanales, canchas libres con '
-      + 'inscripción y torneos con cuadro y resultados. Todo en el mismo panel, sin pasar datos de un lado '
-      + 'a otro.',
+    answer: 'No. Tiene reservas online con seña, turnos fijos semanales, canchas libres con inscripción, '
+      + 'torneos con cuadro y resultados, caja por turno con arqueo, venta de productos con stock y '
+      + 'reportes con Excel. Todo en el mismo panel.',
   },
   {
     anim: 'anim-d3',
@@ -71,13 +70,13 @@ export const faq: FaqItem[] = [
   {
     anim: 'anim-d8',
     question: '¿Qué pasa si un cliente cancela?',
-    answer: 'Si cancela dentro del plazo que fijaste, MercadoPago le devuelve la seña solo. Vos no hacés '
+    answer: 'Si cancela dentro del plazo que fijaste, Mercado Pago le devuelve la seña solo. Vos no hacés '
       + 'nada.',
   },
   {
     anim: 'anim-d9',
     question: '¿Dónde cae la plata de las señas?',
-    answer: 'Directo en tu cuenta de MercadoPago. Vibe nunca toca tu plata.',
+    answer: 'Directo en tu cuenta de Mercado Pago. Vibe nunca toca tu plata.',
   },
   {
     anim: 'anim-d10',

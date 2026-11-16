@@ -1,14 +1,14 @@
 {
   "title": "Vibe",
-  "description": "Gestioná tu complejo gratis: reservas con seña, cobros, caja con arqueo, stock del bar y reportes en un solo panel.",
-  "summary": "Vibe es el sistema de gestión gratis para complejos deportivos de Argentina. Manejás reservas, cobros, caja, bar y reportes desde un solo panel. También tiene turnos fijos, canchas libres y torneos. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball. Creás tu cuenta y podés recibir reservas el mismo día. Tus clientes reservan desde el celular, con la seña por Mercado Pago.",
+  "description": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes en un solo panel.",
+  "summary": "Vibe es el sistema de gestión gratis para complejos deportivos de Argentina. Tiene reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball. Creás tu cuenta y podés recibir reservas el mismo día. Tus clientes reservan desde el celular, con la seña por Mercado Pago.",
   "updated": "2026-11-16",
   "pages": [
     {
       "title": "Sistema de gestión gratis para complejos deportivos | Vibe",
       "url": "https://vibe.com.ar/",
       "md": "https://vibe.com.ar/index.md",
-      "note": "Gestioná tu complejo gratis: reservas con seña, cobros, caja con arqueo, stock del bar y reportes en un solo panel."
+      "note": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas libres, torneos, caja, bar y reportes en un solo panel."
     },
     {
       "title": "Guías para dueños de complejos deportivos | Vibe",

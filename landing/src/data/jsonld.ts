@@ -26,7 +26,7 @@ export const homeJsonLd: string[] = [
     "@type": "SoftwareApplication",
     "@id": "${SOFTWARE_ID}",
     "name": "Vibe",
-    "description": "Sistema de gestión gratis para complejos deportivos: cobros en el mostrador, caja por turno con arqueo, venta de productos con stock, clientes, reportes y reservas online con seña.",
+    "description": "Sistema de gestión gratis para complejos deportivos: reservas online con seña, turnos fijos, canchas libres, torneos, caja por turno con arqueo, bar con stock y reportes.",
     "url": "https://vibe.com.ar/",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
@@ -35,10 +35,9 @@ export const homeJsonLd: string[] = [
       "price": "0",
       "priceCurrency": "ARS",
       "availability": "https://schema.org/InStock",
-      "description": "Gratis para el complejo deportivo: sin costo fijo, sin suscripción y sin cargo sobre los cobros en el mostrador ni las ventas."
+      "description": "Gratis para el complejo deportivo: sin costo fijo y sin suscripción."
     },
     "featureList": [
-      "Cobros en el mostrador: efectivo, transferencia, débito, crédito y QR",
       "Caja por turno con arqueo de efectivo",
       "Ingresos y egresos por categoría",
       "Venta de productos con control de stock",
@@ -48,7 +47,7 @@ export const homeJsonLd: string[] = [
       "Dashboard con ocupación por horario",
       "Reporte mensual con exportación a Excel",
       "Reservas online 24/7 con página pública del complejo",
-      "Cobro de señas con MercadoPago y reembolso automático",
+      "Cobro de señas con Mercado Pago y reembolso automático",
       "Precios por cancha, día y franja horaria",
       "Turnos fijos semanales",
       "Canchas libres con inscripción y pago online",
@@ -81,8 +80,8 @@ JSON.stringify({
     acceptedAnswer: { '@type': 'Answer', text: item.answer },
   })),
 }, null, 2),
-`   {"@context":"https://schema.org","@type":"Organization","@id":"${ORGANIZATION_ID}","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, cobros, caja, ventas y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275","https://www.google.com/maps?cid=13495105427874315529"]}`,
-`   {"@context":"https://schema.org","@type":"WebSite","@id":"${WEBSITE_ID}","name":"Vibe","url":"https://vibe.com.ar/","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, cobros, caja y ventas.","inLanguage":"es-AR","publisher":{"@id":"${ORGANIZATION_ID}"},"dateModified":"${SITE_MODIFIED}"}`,
+`   {"@context":"https://schema.org","@type":"Organization","@id":"${ORGANIZATION_ID}","name":"Vibe","url":"https://vibe.com.ar/","logo":"https://vibe.com.ar/logo.png","description":"Sistema de gestión gratis para complejos deportivos en Argentina: reservas, turnos fijos, torneos, caja, bar y reportes.","areaServed":{"@type":"Country","name":"Argentina"},"foundingDate":"2026","email":"hola@vibe.com.ar","telephone":"+5491124638281","contactPoint":{"@type":"ContactPoint","contactType":"customer support","email":"hola@vibe.com.ar","telephone":"+5491124638281","areaServed":"AR","availableLanguage":["Spanish"]},"sameAs":["https://www.instagram.com/vibe.com.ar/","https://www.linkedin.com/company/vibe-reservas/","https://www.youtube.com/@Vibe-reservas","https://www.facebook.com/profile.php?id=61593795719275","https://www.google.com/maps?cid=13495105427874315529"]}`,
+`   {"@context":"https://schema.org","@type":"WebSite","@id":"${WEBSITE_ID}","name":"Vibe","url":"https://vibe.com.ar/","description":"Sistema de gestión para complejos deportivos, gratis para el complejo: reservas, turnos fijos, torneos, caja, bar y reportes.","inLanguage":"es-AR","publisher":{"@id":"${ORGANIZATION_ID}"},"dateModified":"${SITE_MODIFIED}"}`,
 ];
 
 export const privacidadJsonLd: string[] = [
