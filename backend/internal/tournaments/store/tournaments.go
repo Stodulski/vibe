@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/db"
@@ -25,9 +26,18 @@ type Store struct {
 	PaymentExpiry time.Duration
 }
 
-// NewCategory is a category to create with its tournament.
+// NewCategory is a category to create with its tournament. Name is composed by
+// the service from the traits below.
 type NewCategory struct {
-	Name               string
+	Name     string
+	Modality string
+	// Level (1 to 9) or Suma (2 to 18) is set, the other zero. Prizes is nil for
+	// none. StartsOn and StartsAt are when the category begins.
+	Level              int
+	Suma               int
+	Prizes             *string
+	StartsOn           time.Time
+	StartsAt           string
 	Format             string
 	Capacity           int
 	Price              int
@@ -94,6 +104,9 @@ func insertCategory(ctx context.Context, q *db.Queries, t db.Tournament, c NewCa
 	}
 	if _, err := q.InsertTournamentCategory(ctx, db.InsertTournamentCategoryParams{
 		TournamentID: t.ID, ComplexID: t.ComplexID, EventID: ev.ID, Name: c.Name, Format: c.Format,
+		Modality: data.TextToPg(nullableText(c.Modality)), Level: data.Int4PtrToPg(optionalInt(c.Level)),
+		Suma: data.Int4PtrToPg(optionalInt(c.Suma)), Prizes: data.TextToPg(c.Prizes),
+		StartsOn: data.DateToPg(c.StartsOn), StartsAt: data.TimeStrToPg(c.StartsAt),
 		//nolint:gosec // G115: validated by the service (2..12).
 		GroupSize: int32(c.GroupSize),
 		//nolint:gosec // G115: validated by the service (1..11).
@@ -106,9 +119,31 @@ func insertCategory(ctx context.Context, q *db.Queries, t db.Tournament, c NewCa
 		//nolint:gosec // G115: validated by the service (0..MaxPrice).
 		CourtFee: int32(c.CourtFee),
 	}); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == data.SQLStateUniqueViolation && pgErr.ConstraintName == "tournament_categories_name_key" {
+			return ErrCategoryTaken
+		}
 		return fmt.Errorf("tournaments: insert category: %w", err)
 	}
 	return nil
+}
+
+// nullableText is nil for an empty trait: a category without a modality stores
+// NULL, never an empty string that would fail the CHECK.
+func nullableText(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
+// optionalInt is nil for a trait the category does not have: the zero value is
+// stored as NULL, never as 0.
+func optionalInt(n int) *int {
+	if n == 0 {
+		return nil
+	}
+	return &n
 }
 
 // Get returns one tournament, or ErrRecordNotFound. A scoped caller only ever

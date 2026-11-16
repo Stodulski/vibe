@@ -35,6 +35,7 @@ type Handler struct {
 // the events domain's, so a pair is refused for the same reasons, in the same
 // problem kinds, as a person signing up for an event.
 var refusals = httpx.Refusals{
+	tournamentstore.ErrCategoryTaken:  httpx.Unprocessable(httpx.CodeCategoryDuplicate),
 	events.ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	events.ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
 	events.ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
@@ -157,7 +158,12 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		StartDate  string `json:"start_date"`
 		EndDate    string `json:"end_date"`
 		Categories []struct {
-			Name                 string `json:"name"`
+			Modality             string `json:"modality"`
+			Level                int    `json:"level"`
+			Suma                 int    `json:"suma"`
+			Prizes               string `json:"prizes"`
+			StartsOn             string `json:"starts_on"`
+			StartsAt             string `json:"starts_at"`
 			Format               string `json:"format"`
 			Capacity             int    `json:"capacity"`
 			Price                int    `json:"price"`
@@ -183,12 +189,23 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if in.EndDate, err = time.Parse(time.DateOnly, input.EndDate); err != nil {
 		errs["end_date"] = "must be in YYYY-MM-DD format"
 	}
+	for i, c := range input.Categories {
+		startsOn, err := time.Parse(time.DateOnly, c.StartsOn)
+		if err != nil {
+			errs[fmt.Sprintf("categories[%d].starts_on", i)] = "must be in YYYY-MM-DD format"
+		}
+		in.Categories = append(in.Categories, CategoryInput{
+			Modality: c.Modality, Level: c.Level, Suma: c.Suma, Prizes: c.Prizes,
+			StartsOn: startsOn, StartsAt: c.StartsAt,
+			Format: c.Format, Capacity: c.Capacity, Price: c.Price, GroupSize: c.GroupSize,
+			QualifiersPerGroup: c.QualifiersPerGroup, SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet,
+			SuperTiebreakDecider: c.SuperTiebreakDecider, MatchDurationMinutes: c.MatchDurationMinutes,
+			CourtFee: c.CourtFee,
+		})
+	}
 	if len(errs) > 0 {
 		h.respond.FailedValidation(w, r, errs)
 		return
-	}
-	for _, c := range input.Categories {
-		in.Categories = append(in.Categories, CategoryInput(c))
 	}
 	detail, err := h.svc.Create(r.Context(), complex.Complex, h.actor(r), in)
 	if err != nil {

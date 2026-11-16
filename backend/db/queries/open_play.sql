@@ -1,8 +1,9 @@
 -- name: InsertOpenPlayEvent :one
 INSERT INTO open_play_events (
-    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id
+    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id,
+    modality, level_min, level_max
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, sqlc.narg('tournament_id'))
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, sqlc.narg('tournament_id'), $10, $11, $12)
 RETURNING *;
 
 -- name: InsertOpenPlayEventCourt :exec
@@ -79,13 +80,14 @@ WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
 -- capacity count compares held_until against.
 INSERT INTO open_play_registrations (
     event_id, complex_id, first_name, last_name, phone, email,
-    price, service_fee, held_until, access_token_hash, hold_ip
+    price, service_fee, held_until, access_token_hash, hold_ip, player_gender, player_level
 )
 VALUES (
     sqlc.arg(event_id), sqlc.arg(complex_id), sqlc.arg(first_name), sqlc.arg(last_name),
     sqlc.arg(phone), sqlc.arg(email), sqlc.arg(price), sqlc.arg(service_fee),
     NOW() + make_interval(secs => sqlc.arg(hold_seconds)::float8),
-    sqlc.arg(access_token_hash), sqlc.arg(hold_ip)
+    sqlc.arg(access_token_hash), sqlc.arg(hold_ip),
+    sqlc.narg('player_gender')::text, sqlc.narg('player_level')::int
 )
 RETURNING *;
 

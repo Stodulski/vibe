@@ -14,6 +14,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/sports"
 )
 
 // hubCacheControl is how long a crawler or a proxy may reuse a city hub document.
@@ -39,18 +40,6 @@ type cityHub struct {
 	Province  string
 	Complexes []complexstore.HubComplex
 	LastMod   time.Time
-}
-
-// hubSportLabels names the sports a court can carry, in the Spanish the public
-// pages use. It mirrors the frontend's es_AR sport labels.
-var hubSportLabels = map[string]string{
-	"padel":      "Pádel",
-	"tennis":     "Tenis",
-	"soccer":     "Fútbol",
-	"basketball": "Básquet",
-	"volleyball": "Vóley",
-	"hockey":     "Hockey",
-	"pickleball": "Pickleball",
 }
 
 // hubConnectors are the words a Spanish place name keeps lowercase, except as its
@@ -162,20 +151,11 @@ func hubIndexLess(a, b cityHub) bool {
 
 // courtSports is one sport per switched-on court across the hub's complexes.
 func (h cityHub) courtSports() []string {
-	var sports []string
+	var all []string
 	for _, c := range h.Complexes {
-		sports = append(sports, c.CourtSports...)
+		all = append(all, c.CourtSports...)
 	}
-	return sports
-}
-
-// hubSportLabel is the Spanish label of a sport a court carries. A sport with no
-// label is shown as stored.
-func hubSportLabel(sport string) string {
-	if label, ok := hubSportLabels[sport]; ok {
-		return label
-	}
-	return sport
+	return all
 }
 
 // hubSportLabelList returns the distinct label of each sport in courtSports, in the
@@ -185,7 +165,7 @@ func hubSportLabelList(courtSports []string) []string {
 	seen := make(map[string]bool)
 	labels := make([]string, 0, len(courtSports))
 	for _, sport := range courtSports {
-		label := hubSportLabel(sport)
+		label := sports.Label(sport)
 		if !seen[label] {
 			seen[label] = true
 			labels = append(labels, label)
@@ -205,7 +185,7 @@ type hubSportCount struct {
 func courtCountsBySport(courtSports []string) []hubSportCount {
 	counts := make(map[string]int)
 	for _, sport := range courtSports {
-		counts[hubSportLabel(sport)]++
+		counts[sports.Label(sport)]++
 	}
 
 	bySport := make([]hubSportCount, 0, len(counts))

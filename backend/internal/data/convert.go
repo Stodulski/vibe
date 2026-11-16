@@ -96,6 +96,15 @@ func PgToDate(d pgtype.Date) time.Time {
 	return d.Time
 }
 
+// PgToDatePtr unwraps an optional pgtype.Date into a pointer; a NULL becomes nil.
+func PgToDatePtr(d pgtype.Date) *time.Time {
+	if !d.Valid {
+		return nil
+	}
+	day := d.Time
+	return &day
+}
+
 // TextToPg wraps an optional string as a pgtype.Text; nil becomes SQL NULL.
 func TextToPg(s *string) pgtype.Text {
 	if s == nil {

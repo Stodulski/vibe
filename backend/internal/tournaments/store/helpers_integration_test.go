@@ -68,7 +68,7 @@ func (f *fixture) signUp(cat *tournamentstore.Category, n int, ip string) (*even
 	partner := tournamentstore.Player{FirstName: "Beto", LastName: fmt.Sprintf("Socio%d", n), Phone: fmt.Sprintf("+54922000%04d", n)}
 	reg, _, err := f.Stores.Events.SignUp(f.ctx, eventstore.SignUpInput{
 		EventID: cat.EventID, FirstName: "Ana", LastName: fmt.Sprintf("Pagadora%d", n), Phone: payer, ServiceFee: 20_000,
-		IP: ip, MaxHoldsPerIP: 1000, Hooks: f.Stores.Tournaments.PairHooks(payer, partner),
+		IP: ip, MaxHoldsPerIP: 1000, Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, partner),
 	})
 	return reg, err
 }

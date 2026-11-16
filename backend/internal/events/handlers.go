@@ -86,8 +86,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	in := CreateInput{
-		Name: input.Name, Date: input.Date.Time, StartTime: input.StartTime, EndTime: input.EndTime,
+		Name: deref(input.Name), Date: input.Date.Time, StartTime: input.StartTime, EndTime: input.EndTime,
 		Capacity: input.Capacity, Price: input.Price,
+		Modality: string(input.Modality), LevelMin: derefInt(input.LevelMin), LevelMax: derefInt(input.LevelMax),
 	}
 	if input.Sport != nil {
 		in.Sport = string(*input.Sport)
@@ -298,7 +299,15 @@ func envelopeOf(v any) httpx.Envelope {
 // phone is normalized to E.164, and the email, when given, must look like one.
 func signUpInputFrom(body gen.EventsPublicSignUpJSONBody) (SignUpInput, map[string]string) {
 	v := validator.New()
-	in := SignUpInput{FirstName: body.FirstName, LastName: body.LastName, Phone: body.Phone}
+	in := SignUpInput{FirstName: body.FirstName, LastName: body.LastName, Phone: body.Phone, Level: body.Level}
+	if body.Gender != nil {
+		gender := string(*body.Gender)
+		in.Gender = &gender
+		v.Check(gender == GenderMen || gender == GenderWomen, "gender", "must be men or women")
+	}
+	if body.Level != nil {
+		v.Check(*body.Level >= MinLevel && *body.Level <= MaxLevel, "level", "must be between 1 and 9")
+	}
 	v.Check(in.FirstName != "", "first_name", "must be provided")
 	v.Check(in.LastName != "", "last_name", "must be provided")
 	v.Check(len([]rune(in.FirstName)) <= 100 && len([]rune(in.LastName)) <= 100, "first_name", "is too long")
@@ -355,6 +364,14 @@ func (h *Handler) PublicRegistrationCancel(w http.ResponseWriter, r *http.Reques
 		"refunded":     result.Outcome.MoneyReturned(),
 		"refund":       bookings.RefundEnvelope(result.Outcome),
 	})
+}
+
+// derefInt reads an optional integer field, zero when it was left out.
+func derefInt(n *int) int {
+	if n == nil {
+		return 0
+	}
+	return *n
 }
 
 // deref reads an optional string field, empty when it was left out.

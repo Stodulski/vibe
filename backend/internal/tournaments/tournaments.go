@@ -51,7 +51,7 @@ type Store interface {
 	SetCourtFee(ctx context.Context, categoryID uuid.UUID, fee int) error
 	ChargeCourtFee(ctx context.Context, in tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error)
 	UndoCourtFee(ctx context.Context, matchID uuid.UUID, side int, by uuid.UUID) error
-	PairHooks(payerPhone string, partner tournamentstore.Player) *eventstore.SignUpHooks
+	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
 }
 
 // Events is the open-play events domain this one is built on: the sign-up, its

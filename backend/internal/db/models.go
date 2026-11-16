@@ -692,6 +692,9 @@ type OpenPlayEvent struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	TournamentID    pgtype.UUID        `json:"tournament_id"`
+	Modality        pgtype.Text        `json:"modality"`
+	LevelMin        pgtype.Int4        `json:"level_min"`
+	LevelMax        pgtype.Int4        `json:"level_max"`
 }
 
 type OpenPlayEventCourt struct {
@@ -719,6 +722,8 @@ type OpenPlayRegistration struct {
 	CancelledBy     pgtype.Text        `json:"cancelled_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	PlayerGender    pgtype.Text        `json:"player_gender"`
+	PlayerLevel     pgtype.Int4        `json:"player_level"`
 }
 
 type OwnerNudge struct {
@@ -932,6 +937,12 @@ type TournamentCategory struct {
 	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	Modality             pgtype.Text        `json:"modality"`
+	Level                pgtype.Int4        `json:"level"`
+	Suma                 pgtype.Int4        `json:"suma"`
+	Prizes               pgtype.Text        `json:"prizes"`
+	StartsOn             pgtype.Date        `json:"starts_on"`
+	StartsAt             pgtype.Time        `json:"starts_at"`
 }
 
 type TournamentGroup struct {
@@ -1000,6 +1011,8 @@ type TournamentPair struct {
 	WithdrawnAt      pgtype.Timestamptz `json:"withdrawn_at"`
 	CreatedAt        pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+	PartnerGender    pgtype.Text        `json:"partner_gender"`
+	PartnerLevel     pgtype.Int4        `json:"partner_level"`
 }
 
 type User struct {

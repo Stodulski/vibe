@@ -16,6 +16,7 @@ import (
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
+	"github.com/stodulski/vibe-server/internal/sports"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -33,12 +34,29 @@ const (
 	MaxNameLength = 100
 )
 
-var sports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
+// modalities are the modalities an event can carry.
+var modalities = []string{ModalityMen, ModalityWomen, ModalityMixed}
+
+// optionalLevel is nil for a level bound the event does not have.
+func optionalLevel(n int) *int {
+	if n == 0 {
+		return nil
+	}
+	return &n
+}
+
+var allowedSports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
 
 // CreateInput is an owner publishing an event.
 type CreateInput struct {
 	Name  string
 	Sport string
+	// Modality is men, women or mixed. LevelMin and LevelMax bound the level range
+	// a participant must sit in, LevelMin being the strongest (lowest number); both
+	// or neither, zero for none.
+	Modality string
+	LevelMin int
+	LevelMax int
 	// Date is the day the event starts on, midnight UTC like a parsed request date.
 	Date      time.Time
 	StartTime string
@@ -66,14 +84,29 @@ func durationOf(start, end string) int {
 // validate checks the shape of an event, field by field.
 func (in *CreateInput) validate(now time.Time) map[string]string {
 	errs := map[string]string{}
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len([]rune(in.Name)) > MaxNameLength {
-		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
-	}
 	if in.Sport == "" {
 		in.Sport = "padel"
 	}
-	if !slices.Contains(sports, in.Sport) {
+	// The name is optional: an event given none is named after its sport.
+	in.Name = strings.TrimSpace(in.Name)
+	switch {
+	case in.Name == "":
+		in.Name = "Cancha abierta de " + sports.Lowercase(in.Sport)
+	case len([]rune(in.Name)) > MaxNameLength:
+		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
+	}
+	if !slices.Contains(modalities, in.Modality) {
+		errs["modality"] = "must be men, women or mixed"
+	}
+	switch {
+	case (in.LevelMin == 0) != (in.LevelMax == 0):
+		errs["level_max"] = "level_min and level_max must be set together"
+	case in.LevelMin != 0 && (in.LevelMin < MinLevel || in.LevelMin > MaxLevel || in.LevelMax < MinLevel || in.LevelMax > MaxLevel):
+		errs["level_min"] = fmt.Sprintf("levels must be between %d and %d", MinLevel, MaxLevel)
+	case in.LevelMin > in.LevelMax:
+		errs["level_max"] = "must be at least level_min, the strongest level"
+	}
+	if !slices.Contains(allowedSports, in.Sport) {
 		errs["sport"] = "must be a supported sport"
 	}
 	if in.Capacity < 1 || in.Capacity > MaxCapacity {
@@ -157,10 +190,12 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		return nil, err
 	}
 
+	modality := in.Modality
 	ev := &eventstore.Event{
 		ComplexID: complex.ID, Name: in.Name, Sport: in.Sport, Date: timezone.Day(in.Date),
 		StartTime: in.StartTime, DurationMinutes: durationOf(in.StartTime, in.EndTime),
 		Capacity: in.Capacity, Price: in.Price, CreatedBy: *actor.UserID,
+		Modality: &modality, LevelMin: optionalLevel(in.LevelMin), LevelMax: optionalLevel(in.LevelMax),
 	}
 	if err := s.store.CreateEvent(ctx, ev, courtIDs); err != nil {
 		var held *eventstore.ConflictError

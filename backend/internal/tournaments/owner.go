@@ -15,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
@@ -25,12 +26,11 @@ import (
 // has them. The names are short because a category's sign-up container is named
 // "tournament · category" and event names stop at 100 characters.
 const (
-	MaxNameLength         = 60
-	MaxCategoryNameLength = 30
-	MaxCategories         = 20
-	MinCapacity           = 2
-	MaxCapacity           = 128
-	MaxPrice              = events.MaxPrice
+	MaxNameLength = 60
+	MaxCategories = 20
+	MinCapacity   = 2
+	MaxCapacity   = 128
+	MaxPrice      = events.MaxPrice
 	// HorizonDays is how far ahead a tournament may start, the booking horizon.
 	HorizonDays = 365
 	// MaxDays is the longest a tournament may last.
@@ -53,11 +53,23 @@ const (
 	MaxGamesPerSet     = 9
 )
 
-var sports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
+var allowedSports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
 
-// CategoryInput is a category an owner creates with a tournament.
+// CategoryInput is a category an owner creates with a tournament. The owner picks
+// its traits; its name is composed from them and never typed.
 type CategoryInput struct {
-	Name     string
+	// Modality is ModalityMen, ModalityWomen or ModalityMixed.
+	Modality string
+	// Level (MinLevel to MaxLevel) or Suma (MinSuma to MaxSuma) is set, the other
+	// zero: a category is a level or a suma, never both.
+	Level int
+	Suma  int
+	// Prizes is optional free text, at most MaxPrizesLength characters.
+	Prizes string
+	// StartsOn is the day the category starts, within the tournament's dates, and
+	// StartsAt its time as HH:MM.
+	StartsOn time.Time
+	StartsAt string
 	Format   string
 	Capacity int
 	// Price is centavos per pair.
@@ -90,14 +102,18 @@ type CreateInput struct {
 
 func (in *CreateInput) validate(now time.Time) map[string]string {
 	errs := map[string]string{}
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len([]rune(in.Name)) > MaxNameLength {
-		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
-	}
 	if in.Sport == "" {
 		in.Sport = "padel"
 	}
-	if !slices.Contains(sports, in.Sport) {
+	// The name is optional: a tournament given none is named after its sport.
+	in.Name = strings.TrimSpace(in.Name)
+	switch {
+	case in.Name == "":
+		in.Name = defaultTournamentName(in.Sport)
+	case len([]rune(in.Name)) > MaxNameLength:
+		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
+	}
+	if !slices.Contains(allowedSports, in.Sport) {
 		errs["sport"] = "must be a supported sport"
 	}
 	today, start, end := timezone.Day(now), timezone.Day(in.StartDate), timezone.Day(in.EndDate)
@@ -118,21 +134,18 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	}
 	seen := map[string]bool{}
 	for i := range in.Categories {
-		in.Categories[i].validate(i, seen, errs)
+		in.Categories[i].validate(i, start, end, seen, errs)
 	}
 	return errs
 }
 
-func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]string) {
+// validate checks one category of a tournament that runs from start to end. A
+// category is its traits: the modality and a level or suma. Its composed name must
+// be new in the tournament, so a repeated combination is refused.
+func (c *CategoryInput) validate(i int, start, end time.Time, seen map[string]bool, errs map[string]string) {
 	field := func(name string) string { return fmt.Sprintf("categories[%d].%s", i, name) }
-	c.Name = strings.TrimSpace(c.Name)
-	if c.Name == "" || len([]rune(c.Name)) > MaxCategoryNameLength {
-		errs[field("name")] = fmt.Sprintf("must be between 1 and %d characters", MaxCategoryNameLength)
-	} else if key := strings.ToLower(c.Name); seen[key] {
-		errs[field("name")] = "must be different from the other categories"
-	} else {
-		seen[key] = true
-	}
+	c.validateTraits(field, seen, errs)
+	c.validateStart(field, start, end, errs)
 	if c.Format != tournamentstore.FormatElimination && c.Format != tournamentstore.FormatGroups {
 		errs[field("format")] = "must be elimination or groups"
 	}
@@ -159,6 +172,68 @@ func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]st
 	if c.CourtFee < 0 || c.CourtFee > MaxPrice {
 		errs[field("court_fee")] = "must be an amount in centavos, 0 for none"
 	}
+}
+
+// validateTraits checks the modality, the level or suma, and the prizes, and
+// refuses a repeated composed name. The duplicate is reported under the field the
+// category is identified by, with the stable code.
+func (c *CategoryInput) validateTraits(field func(string) string, seen map[string]bool, errs map[string]string) {
+	ok := true
+	if c.Modality != ModalityMen && c.Modality != ModalityWomen && c.Modality != ModalityMixed {
+		errs[field("modality")] = "must be men, women or mixed"
+		ok = false
+	}
+	trait := field("level")
+	if c.Suma != 0 {
+		trait = field("suma")
+	}
+	switch {
+	case c.Level != 0 && c.Suma != 0:
+		errs[field("level")] = "must not be set together with suma: a category is a level or a suma"
+		ok = false
+	case c.Level == 0 && c.Suma == 0:
+		errs[field("level")] = fmt.Sprintf("must be set (%d to %d), or suma (%d to %d) instead", MinLevel, MaxLevel, MinSuma, MaxSuma)
+		ok = false
+	case c.Level != 0 && (c.Level < MinLevel || c.Level > MaxLevel):
+		errs[field("level")] = fmt.Sprintf("must be between %d and %d", MinLevel, MaxLevel)
+		ok = false
+	case c.Suma != 0 && (c.Suma < MinSuma || c.Suma > MaxSuma):
+		errs[field("suma")] = fmt.Sprintf("must be between %d and %d", MinSuma, MaxSuma)
+		ok = false
+	}
+	if ok {
+		if key := strings.ToLower(c.composedName()); seen[key] {
+			errs[trait] = httpx.CodeCategoryDuplicate
+		} else {
+			seen[key] = true
+		}
+	}
+	c.Prizes = strings.TrimSpace(c.Prizes)
+	if len([]rune(c.Prizes)) > MaxPrizesLength {
+		errs[field("prizes")] = fmt.Sprintf("must be at most %d characters", MaxPrizesLength)
+	}
+}
+
+// validateStart checks the day and the time a category starts. Both are required:
+// the day has to fall within the tournament's dates.
+func (c *CategoryInput) validateStart(field func(string) string, start, end time.Time, errs map[string]string) {
+	switch day := timezone.Day(c.StartsOn); {
+	case c.StartsOn.IsZero():
+		errs[field("starts_on")] = "must be provided"
+	case day.Before(start) || day.After(end):
+		errs[field("starts_on")] = "must be within the tournament's dates"
+	}
+	t, err := time.Parse("15:04", c.StartsAt)
+	if err != nil {
+		errs[field("starts_at")] = "must be a time in HH:MM format"
+		return
+	}
+	c.StartsAt = t.Format("15:04")
+}
+
+// composedName is the name the category is stored under, composed from its traits.
+func (c *CategoryInput) composedName() string {
+	return ComposeCategoryName(c.Modality, c.Level, c.Suma)
 }
 
 // validateMatchFormat fills the match format's defaults and refuses a value out
@@ -203,7 +278,9 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	cats := make([]tournamentstore.NewCategory, len(in.Categories))
 	for i, c := range in.Categories {
 		cats[i] = tournamentstore.NewCategory{
-			Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
+			Name: c.composedName(), Modality: c.Modality, Level: c.Level, Suma: c.Suma,
+			Prizes: optionalText(c.Prizes), StartsOn: timezone.Day(c.StartsOn), StartsAt: c.StartsAt,
+			Format: c.Format, Capacity: c.Capacity, Price: c.Price,
 			GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
 			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: *c.SuperTiebreakDecider,
 			MatchDurationMinutes: c.MatchDurationMinutes, CourtFee: c.CourtFee,

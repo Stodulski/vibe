@@ -110,6 +110,12 @@ type Event struct {
 	CancelledBy  *uuid.UUID
 	CreatedBy    uuid.UUID
 	CreatedAt    time.Time
+	// Modality is men, women or mixed, and LevelMin..LevelMax the level range a
+	// participant must sit in (LevelMin is the strongest). All nil for an event
+	// without them, and for a tournament category's container.
+	Modality *string
+	LevelMin *int
+	LevelMax *int
 	// TournamentID is set for the sign-up container of a tournament category: it
 	// holds no courts and is not an open-play event a person lists. Nil for a
 	// canchas abiertas event.
@@ -160,6 +166,10 @@ type Registration struct {
 	Phone     string
 	Email     *string
 	Status    string
+	// Gender and Level are what the person declared at sign-up; nil for an event
+	// that asks for none.
+	Gender *string
+	Level  *int
 	// Price and ServiceFee are what the person is asked to pay, in centavos.
 	Price       int
 	ServiceFee  int

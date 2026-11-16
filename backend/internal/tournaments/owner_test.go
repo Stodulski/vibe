@@ -25,8 +25,8 @@ func validCreate() CreateInput {
 	return CreateInput{
 		Name: "Torneo Vibe", StartDate: day(10), EndDate: day(11),
 		Categories: []CategoryInput{
-			{Name: "6ta", Format: tournamentstore.FormatElimination, Capacity: 16, Price: 1_000_000},
-			{Name: "Mixto", Format: tournamentstore.FormatGroups, Capacity: 12, Price: 800_000},
+			{Modality: ModalityMen, Level: 6, Format: tournamentstore.FormatElimination, Capacity: 16, Price: 1_000_000, StartsOn: day(10), StartsAt: "18:00"},
+			{Modality: ModalityMixed, Suma: 15, Format: tournamentstore.FormatGroups, Capacity: 12, Price: 800_000, StartsOn: day(11), StartsAt: "21:30"},
 		},
 	}
 }
@@ -65,7 +65,8 @@ func TestCreateTakesTheGroupSettingsOfEachCategory(t *testing.T) {
 	f := newFixture(t)
 	in := validCreate()
 	in.Categories = []CategoryInput{{
-		Name: "Libre", Format: tournamentstore.FormatGroups, Capacity: 20, Price: 100, GroupSize: 5, QualifiersPerGroup: 3,
+		Modality: ModalityWomen, Level: 2, Format: tournamentstore.FormatGroups, Capacity: 20, Price: 100, GroupSize: 5, QualifiersPerGroup: 3,
+		StartsOn: day(10), StartsAt: "10:00",
 	}}
 	if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
 		t.Fatal(err)
@@ -80,27 +81,37 @@ func TestCreateRefusesWhatTheRulesRefuse(t *testing.T) {
 		change func(*CreateInput)
 		field  string
 	}{
-		"blank name":            {func(in *CreateInput) { in.Name = "  " }, "name"},
-		"long name":             {func(in *CreateInput) { in.Name = strings.Repeat("x", 61) }, "name"},
-		"unknown sport":         {func(in *CreateInput) { in.Sport = "chess" }, "sport"},
-		"start in the past":     {func(in *CreateInput) { in.StartDate = day(-1) }, "start_date"},
-		"start too far":         {func(in *CreateInput) { in.StartDate = day(400); in.EndDate = day(401) }, "start_date"},
-		"end before start":      {func(in *CreateInput) { in.EndDate = day(9) }, "end_date"},
-		"too many days":         {func(in *CreateInput) { in.EndDate = day(10 + 61) }, "end_date"},
-		"no categories":         {func(in *CreateInput) { in.Categories = nil }, "categories"},
-		"category name":         {func(in *CreateInput) { in.Categories[0].Name = "" }, "categories[0].name"},
-		"long category name":    {func(in *CreateInput) { in.Categories[0].Name = strings.Repeat("x", 31) }, "categories[0].name"},
-		"duplicate category":    {func(in *CreateInput) { in.Categories[1].Name = "6TA" }, "categories[1].name"},
-		"unknown format":        {func(in *CreateInput) { in.Categories[0].Format = "league" }, "categories[0].format"},
-		"capacity of one":       {func(in *CreateInput) { in.Categories[0].Capacity = 1 }, "categories[0].capacity"},
-		"capacity too big":      {func(in *CreateInput) { in.Categories[0].Capacity = 129 }, "categories[0].capacity"},
-		"free entry":            {func(in *CreateInput) { in.Categories[0].Price = 0 }, "categories[0].price"},
-		"group of one":          {func(in *CreateInput) { in.Categories[1].GroupSize = 1 }, "categories[1].group_size"},
-		"group too big":         {func(in *CreateInput) { in.Categories[1].GroupSize = 13 }, "categories[1].group_size"},
-		"everybody qualifies":   {func(in *CreateInput) { in.Categories[1].GroupSize, in.Categories[1].QualifiersPerGroup = 4, 4 }, "categories[1].qualifiers_per_group"},
-		"negative qualifiers":   {func(in *CreateInput) { in.Categories[1].QualifiersPerGroup = -1 }, "categories[1].qualifiers_per_group"},
-		"no categories at all":  {func(in *CreateInput) { in.Categories = []CategoryInput{} }, "categories"},
-		"more than 20 category": {func(in *CreateInput) { in.Categories = make([]CategoryInput, 21) }, "categories"},
+		"long name":              {func(in *CreateInput) { in.Name = strings.Repeat("x", 61) }, "name"},
+		"unknown sport":          {func(in *CreateInput) { in.Sport = "chess" }, "sport"},
+		"start in the past":      {func(in *CreateInput) { in.StartDate = day(-1) }, "start_date"},
+		"start too far":          {func(in *CreateInput) { in.StartDate = day(400); in.EndDate = day(401) }, "start_date"},
+		"end before start":       {func(in *CreateInput) { in.EndDate = day(9) }, "end_date"},
+		"too many days":          {func(in *CreateInput) { in.EndDate = day(10 + 61) }, "end_date"},
+		"no categories":          {func(in *CreateInput) { in.Categories = nil }, "categories"},
+		"no modality":            {func(in *CreateInput) { in.Categories[0].Modality = "" }, "categories[0].modality"},
+		"unknown modality":       {func(in *CreateInput) { in.Categories[0].Modality = "boys" }, "categories[0].modality"},
+		"level and suma":         {func(in *CreateInput) { in.Categories[0].Suma = 10 }, "categories[0].level"},
+		"neither level nor suma": {func(in *CreateInput) { in.Categories[0].Level = 0 }, "categories[0].level"},
+		"level of ten":           {func(in *CreateInput) { in.Categories[0].Level = 10 }, "categories[0].level"},
+		"suma of one":            {func(in *CreateInput) { in.Categories[1].Suma = 1 }, "categories[1].suma"},
+		"suma of nineteen":       {func(in *CreateInput) { in.Categories[1].Suma = 19 }, "categories[1].suma"},
+		"duplicate combination":  {func(in *CreateInput) { in.Categories[1] = traitsCategory(ModalityMen, 6, 0) }, "categories[1].level"},
+		"no start day":           {func(in *CreateInput) { in.Categories[0].StartsOn = time.Time{} }, "categories[0].starts_on"},
+		"start day before":       {func(in *CreateInput) { in.Categories[0].StartsOn = day(9) }, "categories[0].starts_on"},
+		"start day after":        {func(in *CreateInput) { in.Categories[0].StartsOn = day(12) }, "categories[0].starts_on"},
+		"malformed start time":   {func(in *CreateInput) { in.Categories[0].StartsAt = "7pm" }, "categories[0].starts_at"},
+		"no start time":          {func(in *CreateInput) { in.Categories[0].StartsAt = "" }, "categories[0].starts_at"},
+		"prizes over 200":        {func(in *CreateInput) { in.Categories[0].Prizes = strings.Repeat("x", 201) }, "categories[0].prizes"},
+		"unknown format":         {func(in *CreateInput) { in.Categories[0].Format = "league" }, "categories[0].format"},
+		"capacity of one":        {func(in *CreateInput) { in.Categories[0].Capacity = 1 }, "categories[0].capacity"},
+		"capacity too big":       {func(in *CreateInput) { in.Categories[0].Capacity = 129 }, "categories[0].capacity"},
+		"free entry":             {func(in *CreateInput) { in.Categories[0].Price = 0 }, "categories[0].price"},
+		"group of one":           {func(in *CreateInput) { in.Categories[1].GroupSize = 1 }, "categories[1].group_size"},
+		"group too big":          {func(in *CreateInput) { in.Categories[1].GroupSize = 13 }, "categories[1].group_size"},
+		"everybody qualifies":    {func(in *CreateInput) { in.Categories[1].GroupSize, in.Categories[1].QualifiersPerGroup = 4, 4 }, "categories[1].qualifiers_per_group"},
+		"negative qualifiers":    {func(in *CreateInput) { in.Categories[1].QualifiersPerGroup = -1 }, "categories[1].qualifiers_per_group"},
+		"no categories at all":   {func(in *CreateInput) { in.Categories = []CategoryInput{} }, "categories"},
+		"more than 20 category":  {func(in *CreateInput) { in.Categories = make([]CategoryInput, 21) }, "categories"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -126,7 +137,7 @@ func TestCreateRefusesWhatTheRulesRefuse(t *testing.T) {
 func TestDefaultQualifiersFitASmallGroup(t *testing.T) {
 	f := newFixture(t)
 	in := validCreate()
-	in.Categories = []CategoryInput{{Name: "A", Format: tournamentstore.FormatGroups, Capacity: 8, Price: 100, GroupSize: 2}}
+	in.Categories = []CategoryInput{{Modality: ModalityMen, Level: 1, Format: tournamentstore.FormatGroups, Capacity: 8, Price: 100, GroupSize: 2, StartsOn: day(10), StartsAt: "09:00"}}
 	if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
 		t.Fatalf("groups of 2 with the default qualifiers: %v", err)
 	}

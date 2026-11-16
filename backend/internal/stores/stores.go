@@ -694,7 +694,7 @@ type TournamentWriter interface {
 	ChargeCourtFee(ctx context.Context, in tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error)
 	UndoCourtFee(ctx context.Context, matchID uuid.UUID, side int, by uuid.UUID) error
 	// PairHooks is what a pair's sign-up adds to the event sign-up.
-	PairHooks(payerPhone string, partner tournamentstore.Player) *eventstore.SignUpHooks
+	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
 }
 
 // TournamentsStore composes every tournaments capability: one concrete store

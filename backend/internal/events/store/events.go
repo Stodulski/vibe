@@ -86,6 +86,7 @@ func insertEventParams(e *Event) db.InsertOpenPlayEventParams {
 		Price:        int32(e.Price),
 		CreatedBy:    data.UUIDToPg(e.CreatedBy),
 		TournamentID: data.UUIDPtrToPg(e.TournamentID),
+		Modality:     data.TextToPg(e.Modality), LevelMin: data.Int4PtrToPg(e.LevelMin), LevelMax: data.Int4PtrToPg(e.LevelMax),
 	}
 }
 
@@ -321,5 +322,8 @@ func eventFromDB(e db.OpenPlayEvent) *Event {
 		CreatedBy:       data.PgToUUID(e.CreatedBy),
 		CreatedAt:       data.PgToTime(e.CreatedAt),
 		TournamentID:    data.PgToUUIDPtr(e.TournamentID),
+		Modality:        data.PgToTextPtr(e.Modality),
+		LevelMin:        data.PgToInt4Ptr(e.LevelMin),
+		LevelMax:        data.PgToInt4Ptr(e.LevelMax),
 	}
 }
