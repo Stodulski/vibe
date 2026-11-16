@@ -13,6 +13,8 @@ const COURT_TYPE_LABELS: Record<string, string> = t.courts.courtTypes;
 
 interface SlotHeaderRowProps {
   slotInfo: BookingSlotInfo;
+  /** Inside a band that already is the card (see TicketParts). */
+  bare?: boolean;
 }
 
 /**
@@ -22,7 +24,7 @@ interface SlotHeaderRowProps {
  * type as chips and its description below. The tear line follows, and the
  * turn's price opens the money rows.
  */
-export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
+export function SlotHeaderRow({ slotInfo, bare = false }: SlotHeaderRowProps) {
   const dateObj = toDisplayDate(slotInfo.date);
   const courtTags = [
     slotInfo.sport && (SPORT_LABELS[slotInfo.sport] ?? slotInfo.sport),
@@ -41,9 +43,14 @@ export function SlotHeaderRow({ slotInfo }: SlotHeaderRowProps) {
             {`${slotInfo.startTime}\u00A0${t.publicBooking.timeRangeTo}\u00A0${slotInfo.endTime}`}
           </p>
         </div>
-        <TicketCourt name={keepTogether(slotInfo.courtName)} tags={courtTags} description={slotInfo.courtDescription} />
+        <TicketCourt
+          name={keepTogether(slotInfo.courtName)}
+          tags={courtTags}
+          description={slotInfo.courtDescription}
+          bare={bare}
+        />
       </div>
-      <TicketStub />
+      <TicketStub bare={bare} />
       <TicketPriceRow label={t.publicBooking.courtPrice} amount={slotInfo.price} />
     </>
   );

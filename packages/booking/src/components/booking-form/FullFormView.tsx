@@ -2,19 +2,16 @@ import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 
 import { BOOKING_MESSAGES } from '../../messages';
 import { submitHandler } from '@vibe/ui';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
-import { BookingSummaryCard } from './BookingSummaryCard';
 import { SubmitFooter } from './SubmitFooter';
 import { NameFields } from './NameFields';
 import { PhoneAndEmailFields } from './PhoneAndEmailFields';
 import { PrivacyNotice } from './PrivacyNotice';
 import { NotesField } from './NotesField';
 import type { BookingPricing } from './pricing';
-import type { BookingSlotInfo } from './types';
 
 const t = BOOKING_MESSAGES;
 
 interface FullFormViewProps {
-  slotInfo: BookingSlotInfo;
   pricing: BookingPricing;
   isLoading: boolean;
   register: UseFormRegister<PublicBookingFormData>;
@@ -24,8 +21,8 @@ interface FullFormViewProps {
   onSubmit: (data: PublicBookingFormData) => void;
 }
 
+/** The fields and the pay button. The ticket of what is paid for sits above it, in the checkout's band. */
 export function FullFormView({
-  slotInfo,
   pricing,
   isLoading,
   register,
@@ -35,16 +32,12 @@ export function FullFormView({
   onSubmit,
 }: FullFormViewProps) {
   return (
-    <div className="space-y-5">
-      <BookingSummaryCard slotInfo={slotInfo} pricing={pricing} />
-
-      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
-        <NameFields register={register} errors={errors} />
-        <PhoneAndEmailFields register={register} control={control} errors={errors} />
-        <NotesField register={register} />
-        <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
-        <PrivacyNotice text={t.publicBooking.privacyNotice} />
-      </form>
-    </div>
+    <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+      <NameFields register={register} errors={errors} />
+      <PhoneAndEmailFields register={register} control={control} errors={errors} />
+      <NotesField register={register} />
+      <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
+      <PrivacyNotice text={t.publicBooking.privacyNotice} />
+    </form>
   );
 }

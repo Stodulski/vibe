@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { renderBooking } from '../test/booking';
 import userEvent from '@testing-library/user-event';
 import { hasUnsavedWork } from '@vibe/ui';
@@ -46,49 +46,8 @@ beforeEach(() => {
   sessionStorage.clear();
 });
 
-describe('BookingForm summary content', () => {
-  it('renders court name in summary', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByText('Cancha 1')).toBeInTheDocument();
-  });
-
-  it('renders time range in summary', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByText(/10:00/)).toBeInTheDocument();
-    expect(screen.getByText(/11:30/)).toBeInTheDocument();
-  });
-
-  it('renders deposit amount in summary', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByText(/30%/)).toBeInTheDocument();
-  });
-
-  it('renders service fee in summary', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getAllByText(/cargo de servicio/i).length).toBeGreaterThan(0);
-  });
-
-  it('renders total online amount in the summary', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    const summary = screen.getByRole('region', { name: /resumen de la reserva/i });
-    expect(within(summary).getByText(/pag.s ahora/i)).toBeInTheDocument();
-  });
-
-  // U-05: the pay button now restates the total beside itself (moved out of
-  // the button's own label, which used to force it onto two lines), so the
-  // amount is confirmed once in the summary above and once right by the
-  // action — not the same element twice.
-  it('restates the total online amount beside the pay button', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getAllByText(/pag.s ahora/i)).toHaveLength(2);
-  });
-
-  it('renders the service-fee helper line under the fee row instead of the old footnote', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByText(/no se descuenta del precio de la cancha/i)).toBeInTheDocument();
-  });
-});
-
+// The ticket of what is paid for (the summary) now sits in the checkout's band on
+// the page, so its content is asserted there (see BookConfirmPage.test).
 describe('BookingForm form fields', () => {
   it('renders first name input', () => {
     renderBooking(<BookingForm {...defaultProps} />);

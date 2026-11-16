@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { act, screen, waitFor, within } from '@testing-library/react';
+import { act, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '../../test/msw/server';
 import { renderBooking } from '../../test/booking';
-import { EVENT } from '../../test/eventFixtures';
+import { EVENT, MEN_6_TO_8 } from '../../test/eventFixtures';
 import type { BookingConfig } from '../../config';
 import type { PublicOpenPlayEvent } from '../../api/types';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -67,34 +67,6 @@ function resetTurnstile() {
   turnstile.mounts.count = 0;
   vi.mocked(toast.info).mockClear();
 }
-
-describe('EventSignUpForm courts', () => {
-  it('names one or two courts on a single line, then each fact once as a chip, like a booking ticket', () => {
-    renderBooking(<EventSignUpForm slug="test-club" event={EVENT} />);
-
-    const ticket = screen.getByRole('region', { name: BOOKING_MESSAGES.events.summaryLabel });
-    expect(within(ticket).getByText(/Cancha.1, Cancha.2/)).toBeInTheDocument();
-    for (const chip of ['Techada', 'Descubierta', 'Césped sintético', 'Con iluminación']) {
-      expect(within(ticket).getAllByText(chip)).toHaveLength(1);
-    }
-  });
-
-  it('counts the courts beyond two instead of naming each one, so the ticket stays short', () => {
-    const [base] = EVENT.courts;
-    if (!base) throw new Error('the fixture event needs a court');
-    const courts = [0, 1, 2].map((i) => ({ ...base, id: `court-${String(i)}`, name: `Cancha ${String(i + 1)}` }));
-    renderBooking(<EventSignUpForm slug="test-club" event={{ ...EVENT, courts }} />);
-
-    const ticket = screen.getByRole('region', { name: BOOKING_MESSAGES.events.summaryLabel });
-    expect(within(ticket).getByText(BOOKING_MESSAGES.events.courtsCount(3))).toBeInTheDocument();
-    expect(within(ticket).queryByText(/Cancha.3/)).not.toBeInTheDocument();
-  });
-
-  it('shows no court list when the event has none', () => {
-    renderBooking(<EventSignUpForm slug="test-club" event={{ ...EVENT, courts: [], court_names: [] }} />);
-    expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
-  });
-});
 
 describe('EventSignUpForm Turnstile', () => {
   beforeEach(resetTurnstile);
@@ -173,22 +145,13 @@ describe('EventSignUpForm Turnstile refusal', () => {
   });
 });
 
-/** Canchas abiertas de Caballeros, from 6ta to 8va. */
-const MEN_6_TO_8: PublicOpenPlayEvent = {
-  ...EVENT,
-  id: 'ev1',
-  modality: 'men',
-  level_min: 6,
-  level_max: 8,
-};
-
 describe('EventSignUpForm declarations', () => {
   beforeEach(resetTurnstile);
 
-  it('titles the event by its characteristics and states its requirement', () => {
+  // The title of the event is on its ticket, asserted in EventSignUpSummary.test.
+  it('states the requirement of the event', () => {
     renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
 
-    expect(screen.getByRole('heading', { name: 'Cancha abierta de pádel · Caballeros · 6ta a 8va' })).toBeInTheDocument();
     expect(screen.getByText('Caballeros · de 6ta a 8va')).toBeInTheDocument();
   });
 
@@ -282,7 +245,6 @@ describe('EventSignUpForm by sport', () => {
     const soccer: PublicOpenPlayEvent = { ...EVENT, id: 'ev2', sport: 'soccer', modality: 'women', level_min: null, level_max: null };
     renderBooking(<EventSignUpForm slug="test-club" event={soccer} />, { config: BASE_CONFIG });
 
-    expect(screen.getByRole('heading', { name: 'Femenino' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Femenino' })).toBeInTheDocument();
     expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument();
   });

@@ -13,6 +13,7 @@ import {
 import { CheckoutLayout } from '../components/CheckoutLayout';
 import { EventCard } from '../components/events/EventCard';
 import { EventSignUpForm } from '../components/events/EventSignUpForm';
+import { EventSignUpSummary } from '../components/events/EventSignUpSummary';
 import { eventHasStarted, isOpenForSignUp } from '../components/events/eventFormat';
 import { BOOKING_MESSAGES } from '../messages';
 import {
@@ -124,6 +125,7 @@ function EventSignUpPage({ slug, eventId, paymentFailed }: { slug: string; event
         currentStep={2}
         steps={OPEN_PLAY_STEPS}
         back={{ label: t.events.backToOffers, href: `${publicComplexPath(slug)}?offer=events` }}
+        summary={<EventSignUpSummary event={event} />}
       >
         <EventSignUpForm slug={slug} event={event} />
       </CheckoutLayout>

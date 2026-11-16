@@ -7,6 +7,7 @@ import { publicTournamentPath } from '../lib/publicPaths';
 import { BOOKING_MESSAGES } from '../messages';
 import { CheckoutBackLink, CheckoutLayout, type CheckoutBack } from '../components/CheckoutLayout';
 import { PairSignUpForm } from '../components/tournaments/PairSignUpForm';
+import { PairSummary } from '../components/tournaments/PairSummary';
 import { Notice } from '../components/tournaments/CategorySection';
 import { noticeFor } from '../components/tournaments/signUpNotice';
 import { isOpenForSignUp } from '../components/tournaments/tournamentModel';
@@ -73,14 +74,20 @@ export default function TournamentSignUpPage({ slug, tournamentId }: { slug: str
   }
 
   return (
-    <CheckoutLayout currentStep={2} steps={TOURNAMENT_STEPS} back={back}>
-      <PairSignUpForm
-        slug={slug}
-        tournament={detail.tournament}
-        category={category}
-        venue={detail.complex_name}
-        cancellationHours={detail.cancellation_hours}
-      />
+    <CheckoutLayout
+      currentStep={2}
+      steps={TOURNAMENT_STEPS}
+      back={back}
+      summary={
+        <PairSummary
+          tournament={detail.tournament}
+          category={category}
+          venue={detail.complex_name}
+          cancellationHours={detail.cancellation_hours}
+        />
+      }
+    >
+      <PairSignUpForm slug={slug} tournament={detail.tournament} category={category} />
     </CheckoutLayout>
   );
 }

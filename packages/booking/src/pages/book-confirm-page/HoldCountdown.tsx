@@ -49,15 +49,16 @@ export function HoldCountdown({ expiresAt, onExpire }: HoldCountdownProps) {
     onExpireRef.current();
   }, [clock.remaining]);
 
-  // Only the time, large and in the brand green. The sentence it stands for is
-  // its accessible name, so a screen reader still says what the count is.
+  // Only the time, large and in the band's ink (it sits on the checkout's green
+  // band). The sentence it stands for is its accessible name, so a screen reader
+  // still says what the count is.
   return (
     <div>
       <p
         role="timer"
         aria-atomic="true"
         aria-label={t.publicBooking.holdCountdownLabel}
-        className="font-display text-primary-400 text-center text-3xl font-bold tabular-nums"
+        className="font-display text-text-inverse text-center text-3xl font-bold tabular-nums"
       >
         {formatRemaining(clock.remaining)}
       </p>

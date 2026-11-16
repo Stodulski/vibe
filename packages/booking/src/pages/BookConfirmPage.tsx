@@ -1,5 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { BookingForm } from '../components/BookingForm';
+import { BookingSummaryCard } from '../components/booking-form/BookingSummaryCard';
+import { computeBookingPricing } from '../components/booking-form/pricing';
 import { FormErrorAlert } from '../components/booking-form/FormErrorAlert';
 import { StepIndicator } from '../components/StepIndicator';
 import { CheckoutLayout } from '../components/CheckoutLayout';
@@ -58,9 +60,12 @@ function BookConfirmPageContent({ slug, draft }: BookConfirmPageContentProps) {
 
   return (
     // Back to slot selection gives the held slot back, so the back link is an action, not a link.
-    <CheckoutLayout currentStep={2} back={{ label: t.publicBooking.changeTimeSlot, onClick: hold.changeTime }}>
-      <HoldCountdown expiresAt={draft.holdExpiresAt} onExpire={hold.expire} />
-
+    <CheckoutLayout
+      currentStep={2}
+      back={{ label: t.publicBooking.changeTimeSlot, onClick: hold.changeTime }}
+      aside={<HoldCountdown expiresAt={draft.holdExpiresAt} onExpire={hold.expire} />}
+      summary={<BookingSummaryCard slotInfo={draft} pricing={computeBookingPricing(draft)} bare />}
+    >
       <BookingForm slotInfo={draft} onSubmit={handleSubmit} isLoading={isLoading} />
 
       {paymentLinkError && (

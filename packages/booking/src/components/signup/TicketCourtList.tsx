@@ -18,7 +18,15 @@ export interface TicketCourtRow {
 /** Beyond this many courts the ticket counts them instead of naming each one. */
 const MAX_NAMED_COURTS = 2;
 
-export function TicketCourtList({ courts, label }: { courts: TicketCourtRow[]; label?: string | undefined }) {
+export function TicketCourtList({
+  courts,
+  label,
+  bare = false,
+}: {
+  courts: TicketCourtRow[];
+  label?: string | undefined;
+  bare?: boolean;
+}) {
   if (courts.length === 0) return null;
   const names =
     courts.length <= MAX_NAMED_COURTS
@@ -29,7 +37,7 @@ export function TicketCourtList({ courts, label }: { courts: TicketCourtRow[]; l
     <div>
       {label && courts.length <= MAX_NAMED_COURTS && <p className="text-text-inverse text-sm">{label}</p>}
       <div className="mt-1">
-        <TicketCourt name={names} tags={tags} />
+        <TicketCourt name={names} tags={tags} bare={bare} />
       </div>
     </div>
   );

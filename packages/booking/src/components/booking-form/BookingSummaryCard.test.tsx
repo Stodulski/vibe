@@ -23,6 +23,17 @@ function renderCard(slotInfo: BookingSlotInfo) {
   return render(<BookingSummaryCard slotInfo={slotInfo} pricing={computeBookingPricing(slotInfo)} />);
 }
 
+describe('BookingSummaryCard bare, inside the checkout band', () => {
+  it('draws no card of its own: no surface, rounding or padding', () => {
+    render(<BookingSummaryCard slotInfo={baseSlotInfo} pricing={computeBookingPricing(baseSlotInfo)} bare />);
+
+    const section = screen.getByRole('region', { name: /resumen de la reserva/i });
+    expect(section).not.toHaveClass('bg-primary-500');
+    expect(section).not.toHaveClass('rounded-3xl');
+    expect(section).not.toHaveClass('p-6');
+  });
+});
+
 describe('BookingSummaryCard cancellation policy', () => {
   it('states the cancellation window before the customer pays', () => {
     renderCard({ ...baseSlotInfo, cancellationHours: 24 });

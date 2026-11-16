@@ -3,15 +3,12 @@ import { DEFAULT_PHONE_PREFIX } from '@vibe/ui';
 import { publicBookingSchema, type PublicBookingFormData } from '../../schemas/public-booking.schema';
 import type { SavedClientData } from './savedFormData';
 import type { BookingPricing } from './pricing';
-import { BookingSummaryCard } from './BookingSummaryCard';
 import { SubmitFooter } from './SubmitFooter';
 import { QuickBookIdentityConfirm } from './QuickBookIdentityConfirm';
 import { QuickBookSavedIdentity } from './QuickBookSavedIdentity';
 import { Panel } from '@vibe/ui';
-import type { BookingSlotInfo } from './types';
 
 interface QuickBookViewProps {
-  slotInfo: BookingSlotInfo;
   pricing: BookingPricing;
   saved: SavedClientData;
   isLoading: boolean;
@@ -26,7 +23,6 @@ interface QuickBookViewProps {
 }
 
 export function QuickBookView({
-  slotInfo,
   pricing,
   saved,
   isLoading,
@@ -65,8 +61,6 @@ export function QuickBookView({
 
   return (
     <div className="space-y-5">
-      <BookingSummaryCard slotInfo={slotInfo} pricing={pricing} />
-
       <Panel size="sm" className="space-y-3 py-4 sm:p-4">
         <QuickBookSavedIdentity saved={saved} onEdit={onEdit} />
 
