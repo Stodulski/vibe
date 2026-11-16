@@ -1,5 +1,6 @@
 import type { MouseEvent } from 'react';
 import { ArrowLeft } from 'lucide-react';
+import { cn } from '@vibe/ui';
 import { useHasMounted } from '../../hooks/useHasMounted';
 import { landingReferrerPath } from '../../lib/landingReferrer';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -14,7 +15,7 @@ const t = BOOKING_MESSAGES;
  * The referrer is read after mount: the server render has none, and the markup
  * it sent must match the first client render.
  */
-export function BackToLandingLink() {
+export function BackToLandingLink({ className }: { className?: string }) {
   const mounted = useHasMounted();
   if (!mounted) return null;
 
@@ -31,7 +32,10 @@ export function BackToLandingLink() {
     <a
       href={path}
       onClick={goBack}
-      className="text-text-secondary mb-3 flex min-h-11 w-fit items-center gap-2 text-sm transition-opacity hover:opacity-70"
+      className={cn(
+        'text-text-secondary mb-3 flex min-h-11 w-fit items-center gap-2 text-sm transition-opacity hover:opacity-70',
+        className,
+      )}
     >
       <ArrowLeft className="size-4 shrink-0" aria-hidden="true" />
       <span>{t.publicBooking.backToLanding}</span>
