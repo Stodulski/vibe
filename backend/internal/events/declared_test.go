@@ -119,12 +119,11 @@ func TestTheDeclaredGenderAndLevelReachTheRegistration(t *testing.T) {
 }
 
 // The owner's create answers modality and range rules field by field.
-func TestCreateNeedsAModalityAndAWholeLevelRange(t *testing.T) {
+func TestCreateRefusesAnUnknownModalityAndAPartialLevelRange(t *testing.T) {
 	cases := map[string]struct {
 		change func(*CreateInput)
 		field  string
 	}{
-		"no modality":   {func(in *CreateInput) { in.Modality = "" }, "modality"},
 		"unknown":       {func(in *CreateInput) { in.Modality = "boys" }, "modality"},
 		"min only":      {func(in *CreateInput) { in.LevelMin = 4 }, "level_max"},
 		"max only":      {func(in *CreateInput) { in.LevelMax = 4 }, "level_max"},
@@ -140,6 +139,16 @@ func TestCreateNeedsAModalityAndAWholeLevelRange(t *testing.T) {
 				t.Errorf("want an error on %s; got %v", tc.field, errs)
 			}
 		})
+	}
+}
+
+// An event sent without a modality is open to everyone, as every event was before
+// modalities existed, so an app that does not send it yet keeps working.
+func TestAnEventWithoutModalityIsOpenToEveryone(t *testing.T) {
+	in := validInput()
+	in.Modality = ""
+	if errs := in.validate(time.Now()); len(errs) > 0 {
+		t.Fatalf("want no errors; got %v", errs)
 	}
 }
 

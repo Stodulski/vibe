@@ -88,7 +88,10 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	in := CreateInput{
 		Name: deref(input.Name), Date: input.Date.Time, StartTime: input.StartTime, EndTime: input.EndTime,
 		Capacity: input.Capacity, Price: input.Price,
-		Modality: string(input.Modality), LevelMin: derefInt(input.LevelMin), LevelMax: derefInt(input.LevelMax),
+		LevelMin: derefInt(input.LevelMin), LevelMax: derefInt(input.LevelMax),
+	}
+	if input.Modality != nil {
+		in.Modality = string(*input.Modality)
 	}
 	if input.Sport != nil {
 		in.Sport = string(*input.Sport)

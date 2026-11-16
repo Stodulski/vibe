@@ -167,7 +167,7 @@ func pairFits(modality, payer, partner string) bool {
 	case ModalityWomen:
 		return payer == GenderWomen && partner == GenderWomen
 	case ModalityMixed:
-		return payer != partner
+		return (payer == GenderMen && partner == GenderWomen) || (payer == GenderWomen && partner == GenderMen)
 	default:
 		return false
 	}

@@ -5723,7 +5723,7 @@ type EventsCreateJSONBody struct {
 	LevelMin *int `json:"level_min,omitempty"`
 
 	// Modality Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
-	Modality EventsCreateJSONBodyModality `json:"modality"`
+	Modality *EventsCreateJSONBodyModality `json:"modality,omitempty"`
 
 	// Name Optional; an event given none is named after its sport.
 	Name *string `json:"name,omitempty"`

@@ -5658,7 +5658,7 @@ export interface operations {
            * @description Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
            * @enum {string}
            */
-          modality: 'men' | 'women' | 'mixed';
+          modality?: 'men' | 'women' | 'mixed';
           /** @description The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. */
           level_min?: number;
           /** @description The weakest level allowed; level_min must not be above it. */

@@ -95,7 +95,9 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	case len([]rune(in.Name)) > MaxNameLength:
 		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
 	}
-	if !slices.Contains(modalities, in.Modality) {
+	// An empty modality is an event open to everyone, as every event was before
+	// modalities existed; an app that does not send it yet keeps working.
+	if in.Modality != "" && !slices.Contains(modalities, in.Modality) {
 		errs["modality"] = "must be men, women or mixed"
 	}
 	switch {
@@ -190,12 +192,15 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		return nil, err
 	}
 
-	modality := in.Modality
+	var modality *string
+	if in.Modality != "" {
+		modality = &in.Modality
+	}
 	ev := &eventstore.Event{
 		ComplexID: complex.ID, Name: in.Name, Sport: in.Sport, Date: timezone.Day(in.Date),
 		StartTime: in.StartTime, DurationMinutes: durationOf(in.StartTime, in.EndTime),
 		Capacity: in.Capacity, Price: in.Price, CreatedBy: *actor.UserID,
-		Modality: &modality, LevelMin: optionalLevel(in.LevelMin), LevelMax: optionalLevel(in.LevelMax),
+		Modality: modality, LevelMin: optionalLevel(in.LevelMin), LevelMax: optionalLevel(in.LevelMax),
 	}
 	if err := s.store.CreateEvent(ctx, ev, courtIDs); err != nil {
 		var held *eventstore.ConflictError

@@ -1497,7 +1497,7 @@ paths:
           application/json:
             schema:
               type: object
-              required: [modality, date, start_time, end_time, capacity, price]
+              required: [date, start_time, end_time, capacity, price]
               properties:
                 name: {type: string, maxLength: 100, description: "Optional; an event given none is named after its sport."}
                 modality: {type: string, enum: [men, women, mixed], description: "Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone)."}

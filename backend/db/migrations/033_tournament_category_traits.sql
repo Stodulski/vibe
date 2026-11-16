@@ -26,6 +26,22 @@ SET LOCAL lock_timeout = '3s';
 -- production, split the CHECKs into NOT VALID here and VALIDATE CONSTRAINT in a
 -- later file, as 031 and 032 do.
 
+-- Open-play events: a modality and a level range, both or neither. Tournament
+-- category events leave all three NULL: their rules live on the category.
+-- open_play_events is altered first: a sign-up locks its event row before it
+-- touches categories or registrations, so taking the tables in the same order
+-- keeps the migration from deadlocking with a sign-up in flight.
+ALTER TABLE open_play_events
+    ADD COLUMN modality  TEXT,
+    ADD COLUMN level_min INTEGER,
+    ADD COLUMN level_max INTEGER,
+    ADD CONSTRAINT open_play_events_modality_valid
+        CHECK (modality IN ('men', 'women', 'mixed')),
+    ADD CONSTRAINT open_play_events_level_range_check
+        CHECK (level_min BETWEEN 1 AND 9 AND level_max BETWEEN 1 AND 9 AND level_min <= level_max),
+    ADD CONSTRAINT open_play_events_level_both_or_neither
+        CHECK ((level_min IS NULL) = (level_max IS NULL));
+
 -- Categories: modality, level or suma, prizes, and when the category starts.
 ALTER TABLE tournament_categories
     ADD COLUMN modality  TEXT,
@@ -65,19 +81,6 @@ ALTER TABLE open_play_registrations
         CHECK (player_gender IN ('men', 'women')),
     ADD CONSTRAINT open_play_registrations_player_level_check
         CHECK (player_level BETWEEN 1 AND 9);
-
--- Open-play events: a modality and a level range, both or neither. Tournament
--- category events leave all three NULL: their rules live on the category.
-ALTER TABLE open_play_events
-    ADD COLUMN modality  TEXT,
-    ADD COLUMN level_min INTEGER,
-    ADD COLUMN level_max INTEGER,
-    ADD CONSTRAINT open_play_events_modality_valid
-        CHECK (modality IN ('men', 'women', 'mixed')),
-    ADD CONSTRAINT open_play_events_level_range_check
-        CHECK (level_min BETWEEN 1 AND 9 AND level_max BETWEEN 1 AND 9 AND level_min <= level_max),
-    ADD CONSTRAINT open_play_events_level_both_or_neither
-        CHECK ((level_min IS NULL) = (level_max IS NULL));
 
 -- +goose Down
 
