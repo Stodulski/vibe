@@ -71,7 +71,7 @@
    whole. */
 .shot {
   position: relative; overflow: hidden;
-  aspect-ratio: var(--ar, 16 / 11);
+  aspect-ratio: 1669 / 869;
   border: 1px solid var(--border); border-radius: 12px;
   background: var(--bg);
   box-shadow: 0 24px 56px -28px rgba(0, 0, 0, 0.9);
@@ -93,7 +93,7 @@
   padding: 6px; background: #050505; overflow: hidden;
   box-shadow: 0 24px 48px -16px rgba(0, 0, 0, 0.95);
 }
-.phone img { display: block; width: 100%; height: 100%; object-fit: cover; border-radius: 20px; }
+.phone img { display: block; width: 100%; height: auto; border-radius: 20px; }
 
 /* ========== HERO ========== */
 .hero { position: relative; overflow: hidden; padding: 120px 0 56px; }
@@ -134,17 +134,14 @@
 
 /* The owner's grid with the player's phone standing in front of its corner. */
 .hero-visual { position: relative; padding-bottom: 40px; }
-.hero-panel { --ar: 5 / 4; --rw: 860; --rx: 196; --ry: 56; z-index: 1; }
-.hero-phone { position: absolute; right: -12px; bottom: 0; z-index: 2; width: 172px; aspect-ratio: 172 / 352; }
-/* The capture is the whole booking page; the phone shows the stretch with the day and
-   the times to pick from. */
-.hero-phone img { object-position: 50% 94%; }
+.hero-panel { --rw: 1100; --rx: 160; --ry: 56; z-index: 1; }
+.hero-phone { position: absolute; right: -12px; bottom: 0; z-index: 2; width: 172px; }
+
 
 /* The grid fills in turn by turn. Each cover hides one booking and fades out in the
    order the turns start (--i), so the capture underneath comes through one booking at
    a time. See Hero.astro. */
 .grid-paint { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-.grid-paint--mobile { display: none; }
 .grid-paint-cover {
   animation: grid-paint-in 0.45s ease-out both;
   animation-delay: calc(0.6s + var(--i) * 0.09s);
@@ -164,19 +161,12 @@
 .hero-proof-text { font-size: 1rem; color: var(--muted); line-height: 1.6; }
 .hero-proof-text strong { color: var(--text); font-weight: 700; }
 
-/* The two ways money comes in, side by side: online through Mercado Pago, and at the
-   counter by whichever method the customer picks. */
 .pay-strip { display: flex; gap: 24px 40px; }
-.integration-bar, .pay-counter { display: flex; flex-direction: column; gap: 10px; }
-.integration-bar { flex: 0 0 auto; }
-.pay-counter { flex: 1 1 0; min-width: 0; }
+.integration-bar { display: flex; flex-direction: column; gap: 10px; flex: 0 0 auto; }
 .integration-label { font-size: 0.875rem; color: var(--muted); line-height: 1.4; }
 /* Mercado Pago's own mark, in its own colours, on the light plate it is drawn for. */
 .mp-logo { background: #fff; border-radius: 8px; padding: 6px 12px; width: fit-content; }
 .mp-logo img { display: block; height: 28px; width: auto; }
-.pay-methods { list-style: none; display: flex; flex-wrap: wrap; gap: 8px 20px; min-height: 40px; align-items: center; }
-.pay-methods li { display: inline-flex; align-items: center; gap: 8px; font-size: 1rem; color: var(--text); }
-.pay-methods svg { color: var(--muted); flex-shrink: 0; }
 
 /* ========== WHAT CHANGES (six cards) ========== */
 /* Court-line grid: no card, no icon, just a line above each. */
@@ -258,7 +248,7 @@
 .how-steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 40px 32px; }
 .how-step { display: flex; flex-direction: column; align-items: flex-start; }
 /* The picture comes after the step in the markup and first on screen. */
-.how-step-shot { --ar: 16 / 10; order: -1; width: 100%; border-radius: 10px; margin-bottom: 20px; }
+.how-step-shot { order: -1; width: 100%; border-radius: 10px; margin-bottom: 20px; }
 .how-step-node { margin-bottom: 12px; }
 .how-step-num {
   display: inline-flex; align-items: center; justify-content: center;
@@ -376,7 +366,6 @@
   .hero-inner { grid-template-columns: minmax(0, 1fr); row-gap: 48px; }
   .hero h1 { font-size: clamp(2rem, 1.1rem + 4.4vw, 3.5rem); }
   .hero-visual { max-width: 720px; }
-  .hero-panel { --ar: 16 / 10; --rw: 1100; }
   .hero-foot { grid-template-columns: minmax(0, 1fr); }
 
   .problems-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -396,45 +385,16 @@
   .final-cta { padding: 64px 0; }
   .problems-header, .features-header, .how-header, .comparison-header { margin-bottom: 32px; }
 
-  /* On phones a shot is a phone screenshot, so the frame becomes a handset that runs
-     off the bottom of its block: open at the base, and the screen cropped so the
-     content reads as continuing past the cut instead of just ending. The capture shows
-     whole: the crop is for the desktop one. */
-  .shot--responsive {
-    aspect-ratio: auto; height: 400px;
-    width: 100%; max-width: 320px; margin-inline: auto;
-    padding: 10px 10px 0;
-    border: 2px solid #3a3a3a; border-bottom: none;
-    border-radius: 36px 36px 0 0;
-    background: var(--surface-1);
-    box-shadow: none;
-  }
-  .shot--responsive .shot-canvas {
-    position: relative; width: 100%; transform: none;
-    border-radius: 26px 26px 0 0; overflow: hidden;
-  }
-  /* The handset stands on a line, the way the cut edge needs something to rest on. */
-  .ft-block-visual { border-bottom: 1px solid var(--border); max-width: none; }
+  .ft-block-visual { max-width: none; }
 
-  /* Hero: the two phones side by side on one line: the owner's grid, and the player's
-     page in front of its edge. */
+  /* Hero: the owner's grid, with the player's phone smaller in front of its corner. */
   .hero { padding: 96px 0 48px; }
   .hero-inner { row-gap: 40px; }
   .hero-subtitle { margin-bottom: 24px; }
-  .hero-visual {
-    display: flex; align-items: flex-end; justify-content: center;
-    padding-bottom: 0; border-bottom: 1px solid var(--border);
-  }
-  .hero-panel { height: 340px; width: 62%; max-width: 240px; margin: 0; }
-  .hero-phone {
-    position: relative; right: auto; bottom: auto; z-index: 2;
-    width: 44%; max-width: 172px; height: 280px; aspect-ratio: auto;
-    margin-left: -16px;
-    border-bottom: none; border-radius: 28px 28px 0 0; padding-bottom: 0;
-  }
-  .hero-phone img { border-radius: 20px 20px 0 0; object-position: 50% 92%; }
-  .grid-paint--desktop { display: none; }
-  .grid-paint--mobile { display: block; }
+  .hero-visual { padding-bottom: 32px; }
+  .hero-panel { --rw: 760; --rx: 190; --ry: 60; }
+  .hero-phone { right: -4px; width: 30%; max-width: 120px; border-radius: 20px; padding: 4px; }
+  .hero-phone img { border-radius: 16px; }
   .hero-court { width: 900px; }
   /* Wider than the screen on a phone: what shows is the court's two long lines, above
      and below the closing words. */

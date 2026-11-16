@@ -248,9 +248,8 @@ function leerTexto(file) {
 
 /* What every real client downloads, which is what the sitemap should describe.
    The <img src> is only a fallback: browsers take the WebP from <source>, and
-   Googlebot renders mobile-first, so it never sees the PNG at all. Both the
-   mobile and desktop sources are listed because both are genuinely served,
-   depending on the viewport. SVG is left out: image search does not index it. */
+   Googlebot renders mobile-first, so it never sees the PNG at all. SVG is left
+   out: image search does not index it. */
 function rasterImages(html) {
   const fromSources = [...html.matchAll(/<source[^>]*\bsrcset="([^"]+)"/gi)]
     .map(m => m[1].split(',')[0].trim().split(/\s+/)[0]);
