@@ -92,56 +92,6 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
   });
 });
 
-/* Counter animation for stats */
-function animateCounter(el, target, prefix, suffix) {
-  const duration = 1500;
-  const start = performance.now();
-  const textNode = document.createTextNode(prefix + '0');
-  const suffixSpan = suffix ? document.createElement('span') : null;
-  if (suffixSpan) suffixSpan.textContent = suffix;
-  el.textContent = '';
-  el.appendChild(textNode);
-  if (suffixSpan) el.appendChild(suffixSpan);
-  const step = (now) => {
-    const progress = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(eased * target);
-    textNode.textContent = prefix + current;
-    if (progress < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-const statsObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting && !entry.target.dataset.counted) {
-      entry.target.dataset.counted = 'true';
-      const el = entry.target;
-      const text = el.textContent.trim();
-
-      if (text === '24/7') {
-        animateCounter(el, 24, '', '/7');
-      } else if (text.startsWith('$')) {
-        /* "$0" has nothing to count up to, and the counter below would
-           rebuild it with the symbol after the number. */
-      } else if (text.startsWith('<') || text.startsWith('\u003c')) {
-        const num = parseInt(text.replace(/[^0-9]/g, ''));
-        const suffix = text.replace(/[0-9<\u003c]/g, '');
-        animateCounter(el, num, '<', suffix);
-      } else {
-        const num = parseInt(text.replace(/[^0-9]/g, ''));
-        const suffix = text.replace(/[0-9]/g, '');
-        if (!isNaN(num)) {
-          animateCounter(el, num, '', suffix);
-        }
-      }
-    }
-  });
-}, { threshold: 0.5 });
-
-document.querySelectorAll('.stat-value').forEach(el => statsObserver.observe(el));
-
-
 /* Timeline spine fill */
 const timeline = document.querySelector('.how-timeline');
 if (timeline) {

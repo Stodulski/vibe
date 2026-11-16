@@ -22,9 +22,11 @@ export interface Props {
   name: string;
   /** Empty for the carousel clones: they repeat a slide a reader already met. */
   alt: string;
+  /** Only for a shot in the first screen (the hero): loads it right away instead of lazily. */
+  eager?: boolean;
 }
 
-const { name, alt } = Astro.props;
+const { name, alt, eager = false } = Astro.props;
 const MOBILE = '(max-width: 768px)';
 const MOBILE_SIZES = '240px';
 ---
@@ -43,5 +45,5 @@ const MOBILE_SIZES = '240px';
   width="860" height="1400"
  />
  <source type="image/webp" srcset={`/screenshots/${name}.webp`} width="1669" height="869" />
- <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading="lazy" />
+ <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading={eager ? 'eager' : 'lazy'} fetchpriority={eager ? 'high' : undefined} />
 </picture>

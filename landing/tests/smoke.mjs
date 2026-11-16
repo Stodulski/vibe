@@ -345,8 +345,11 @@ async function testComparisonTabs() {
   check('la comparación es una tabla accesible', await d.getByRole('table').count() === 1);
   check('expone 6 filas (cabecera + 5 criterios)', await d.getByRole('row').count() === 6,
         `${await d.getByRole('row').count()}`);
-  check('expone 3 encabezados de columna', await d.getByRole('columnheader').count() === 3,
+  /* Criterio, Vibe, WhatsApp y ATC Sports: the first column holds each row's label. */
+  check('expone 4 encabezados de columna', await d.getByRole('columnheader').count() === 4,
         `${await d.getByRole('columnheader').count()}`);
+  check('cada criterio es el encabezado de su fila', await d.getByRole('rowheader').count() === 5,
+        `${await d.getByRole('rowheader').count()}`);
   check('expone las 15 celdas', await d.getByRole('cell').count() === 15,
         `${await d.getByRole('cell').count()}`);
   await d.context().close();

@@ -217,9 +217,10 @@ body {
 .anim-d7 { transition-delay: 0.56s; }
 .anim-d8 { transition-delay: 0.64s; }
 .anim-d9 { transition-delay: 0.72s; }
+.anim-d10 { transition-delay: 0.8s; }
 
 /* Prevent CLS: hero and nav are above-the-fold, show immediately */
-.hero .anim, .nav .anim, .stats .anim { opacity: 1; transform: none; }
+.hero .anim, .nav .anim { opacity: 1; transform: none; }
 
 /* Skip animations for users who prefer reduced motion */
 @media (prefers-reduced-motion: reduce) {
@@ -304,9 +305,18 @@ body {
 .hero-inner {
   max-width: 1140px; margin: 0 auto; width: 100%;
   position: relative;
-  display: flex; justify-content: center;
+  display: flex; flex-direction: column; align-items: center;
   text-align: center;
 }
+/* The copy and the emojis around it. The emojis are positioned against this box,
+   not the whole hero, so they flank the headline and never cross the screenshot. */
+.hero-copy {
+  position: relative; width: 100%;
+  display: flex; justify-content: center;
+}
+/* The panel screenshot under the copy: wider than the text column so it reads
+   as the product, not as an illustration. */
+.hero-shot { width: 100%; max-width: 1040px; margin-top: 56px; position: relative; z-index: 2; }
 .hero-content {
   position: relative; z-index: 2;
   max-width: 760px;
@@ -353,7 +363,7 @@ body {
 }
 
 /* CTAs */
-.hero-ctas { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 48px; }
+.hero-ctas { display: flex; gap: 14px; align-items: center; justify-content: center; flex-wrap: wrap; margin-bottom: 20px; }
 
 .btn-primary {
   display: inline-flex; align-items: center; gap: 8px;
@@ -381,7 +391,7 @@ body {
 /* Small clarifying note under the hero CTAs: who actually pays */
 .hero-note {
   font-size: 0.8125rem; color: var(--muted); line-height: 1.6;
-  max-width: 480px; margin: 0 auto 32px;
+  max-width: 480px; margin: 0 auto;
 }
 .hero-note a { color: var(--green); text-decoration: underline; text-underline-offset: 2px; }
 .hero-note a:hover { color: var(--text); }
@@ -389,6 +399,7 @@ body {
 /* Social proof — sport tags */
 .hero-proof {
   display: flex; flex-direction: column; align-items: center; gap: 14px;
+  margin-top: 40px; max-width: 560px;
 }
 .hero-proof-sports {
   display: flex; gap: 8px; flex-wrap: wrap;
@@ -511,38 +522,6 @@ body {
   .browser-frame img { border-radius: 26px 26px 0 0; }
 }
 
-/* ========== STATS — compact trust strip under the hero ========== */
-.stats {
-  padding: 40px 24px 56px;
-  position: relative;
-}
-.stats-divider { max-width: 880px; margin: 0 auto 40px; }
-.stats-grid {
-  display: grid; grid-template-columns: repeat(4, 1fr); gap: 0;
-  max-width: 880px; margin: 0 auto; text-align: center;
-}
-.stat {
-  position: relative; padding: 8px 16px;
-  transition: opacity 0.3s;
-}
-.stat:hover { opacity: 0.8; }
-.stat::after {
-  content: ''; position: absolute; top: 10%; right: 0;
-  height: 80%; width: 1px;
-  background: linear-gradient(180deg, transparent, var(--border), transparent);
-}
-.stat:last-child::after { display: none; }
-.stat-value {
-  font-weight: 800; font-size: clamp(2rem, 4.5vw, 3.25rem);
-  letter-spacing: -0.03em; line-height: 1;
-  font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, var(--text), var(--muted));
-  -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-  margin-bottom: 8px;
-}
-.stat-value span { -webkit-text-fill-color: var(--green); color: var(--green); }
-.stat-label { font-size: 0.75rem; color: var(--muted); font-weight: 500; }
-
 /* ========== PROBLEMS ========== */
 .problems { padding: 100px 24px; position: relative; }
 .problems-header { text-align: left; margin-bottom: 64px; }
@@ -550,9 +529,9 @@ body {
 .problems-header .section-title { margin: 0 0 16px; max-width: 640px; }
 .problems-header .section-desc { margin: 0; max-width: 560px; }
 
-/* Same court-line grid language as the stats strip — no card, no icon */
+/* Court-line grid: no card, no icon, just the dividing lines */
 .problems-grid {
-  display: grid; grid-template-columns: 1fr 1fr; column-gap: 64px; row-gap: 0;
+  display: grid; grid-template-columns: repeat(3, 1fr); column-gap: 64px; row-gap: 0;
 }
 
 .problem {
@@ -566,8 +545,8 @@ body {
   height: 80%; width: 1px;
   background: linear-gradient(180deg, transparent, var(--border), transparent);
 }
-.problem:nth-child(even)::after { display: none; }
-.problem:nth-child(1), .problem:nth-child(2) { border-bottom: 1px solid var(--border); }
+.problem:nth-child(3n)::after { display: none; }
+.problem:nth-child(-n+3) { border-bottom: 1px solid var(--border); }
 
 .problem h3 { font-weight: 700; font-size: 1.0625rem; margin-bottom: 8px; }
 .problem p { font-size: 0.9375rem; color: var(--muted); line-height: 1.6; }
@@ -894,6 +873,9 @@ body {
 }
 .pricing-hero { text-align: center; }
 .pricing-top .section-label { margin-bottom: 20px; }
+/* One heading, two lines: the word "Gratis" big, and what it covers under it. */
+.pricing-title { margin: 0; font-weight: inherit; }
+.pricing-title span { display: block; }
 .pricing-amount {
   font-weight: 800; font-size: clamp(4rem, 10vw, 6rem);
   font-variant-numeric: tabular-nums;
@@ -976,6 +958,8 @@ body {
    one instead of dissolving into the paragraph. */
 /* ========== FAQ ========== */
 .faq { padding: 120px 24px; position: relative; }
+.faq-header .section-desc a { color: var(--green); text-decoration: underline; text-underline-offset: 3px; }
+.faq-header .section-desc a:hover { color: var(--text); }
 
 .faq-inner {
   display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 64px; align-items: start;
@@ -1180,7 +1164,7 @@ body {
   .hero-proof-sports { justify-content: center; }
   .problems-grid { grid-template-columns: 1fr; }
   .problem::after { display: none; }
-  .problem:nth-child(1), .problem:nth-child(2) { border-bottom: none; }
+  .problem:nth-child(-n+3) { border-bottom: none; }
   .problem:not(:last-child) { border-bottom: 1px solid var(--border); }
 }
 
@@ -1188,13 +1172,6 @@ body {
   .nav-links { display: none; }
   .nav-toggle { display: flex; }
   .mobile-menu { display: flex; }
-  .stats-grid { grid-template-columns: repeat(2, 1fr); }
-  .stat { padding: 24px 16px; }
-  .stat::after { display: none; }
-  .stat:nth-child(1), .stat:nth-child(2) { border-bottom: 1px solid var(--border); }
-  .stat:nth-child(odd) { border-right: 1px solid var(--border); }
-  .stat-value { font-size: 1.75rem; margin-bottom: 4px; }
-  .stat-label { font-size: 0.8125rem; }
   /* Bento grid mobile — full stack, no carousel */
   .ft-carousel { width: auto; margin-left: 0; margin-right: 0; }
   .ft-viewport { overflow: visible; }
@@ -1247,7 +1224,6 @@ body {
   .features, .pricing, .faq { padding: 60px 12px; }
   .how, .comparison { padding: 60px 12px; }
   .problems { padding: 60px 12px; }
-  .stats { padding: 40px 12px; }
   .final-cta { padding: 80px 12px; }
   .footer { padding: 32px 12px; }
   .container { padding: 0 12px; }
@@ -1261,15 +1237,11 @@ body {
   .faq-item summary { font-size: 0.9375rem; padding: 14px 14px; }
   .faq-item p { font-size: 0.875rem; padding: 0 14px; }
   .features-header, .how-header { margin-bottom: 40px; }
-  .hero-ctas { margin-bottom: 32px; }
+  .hero-ctas { margin-bottom: 20px; }
   .hero-badge { margin-bottom: 20px; }
 }
 
-/* Stats: single column from here down to 320px */
 @media (max-width: 720px) {
-  .stats-grid { grid-template-columns: 1fr; }
-  .stat:nth-child(odd) { border-right: none; }
-  .stat:not(:last-child) { border-bottom: 1px solid var(--border); }
 }
 
 @media (max-width: 480px) {
@@ -1304,8 +1276,6 @@ body {
   .hero-subtitle { font-size: 0.875rem; }
   .trust-badge { font-size: 0.7rem; }
   .problem { padding: 16px 0; }
-  .stat { padding: 20px 12px; }
-  .stat-value { font-size: 1.5rem; }
 }
 
 /* Small phones: 360px */
@@ -1315,9 +1285,6 @@ body {
   .hero h1 { font-size: 1.5rem; }
   .hero-subtitle { font-size: 0.8125rem; }
   .btn-primary, .btn-cta-final { font-size: 0.875rem; padding: 12px 20px; }
-  .stat { padding: 16px 10px; }
-  .stat-value { font-size: 1.25rem; }
-  .stat-label { font-size: 0.75rem; }
   .section-title { font-size: clamp(1.25rem, 6vw, 1.75rem); }
   .ft-block { gap: 16px; }
   .ft-block + .ft-block { padding-top: 36px; }
@@ -1359,8 +1326,6 @@ body {
   .trust-badge { font-size: 0.625rem; }
   .section-title { font-size: clamp(1.125rem, 6vw, 1.5rem); }
   .pricing-amount { font-size: clamp(1.75rem, 12vw, 2.5rem); }
-  .stat-value { font-size: 1.125rem; }
-  .stat-label { font-size: 0.6875rem; }
 }
 
 /* ========== WHATSAPP FAB ========== */
@@ -1429,7 +1394,7 @@ body {
    rounds the three column widths differently than `repeat(3, 1fr)` did, which
    moved columns two and three by a pixel. The markup stays a real table, so the
    row and column relationships survive for a screen reader. */
-.comparison-table { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
+.comparison-table { display: grid; grid-template-columns: max-content repeat(3, 1fr); width: 100%; }
 .comparison-table thead,
 .comparison-table tbody,
 .comparison-table tr { display: contents; }
@@ -1459,17 +1424,27 @@ body {
      the border outright made every row one pixel shorter than before. */
   border-top: 1px solid transparent;
 }
-.comparison-table td::before {
+.comparison-table td::before,
+.comparison-table .comparison-criterio::before {
   content: ''; position: absolute; top: -1px; left: 24px; right: 24px; height: 1px;
   background: rgba(255, 255, 255, 0.14);
 }
-.comparison-table td:first-child::before { left: 0; }
+.comparison-table .comparison-criterio::before { left: 0; }
 .comparison-table td:last-child::before { right: 0; }
-.comparison-table tbody tr:first-child td { border-top: none; }
-.comparison-table tbody tr:first-child td::before { content: none; }
+.comparison-table tbody tr:first-child td,
+.comparison-table tbody tr:first-child .comparison-criterio { border-top: none; }
+.comparison-table tbody tr:first-child td::before,
+.comparison-table tbody tr:first-child .comparison-criterio::before { content: none; }
+/* The row label: what the three cells beside it answer. */
+.comparison-table .comparison-criterio {
+  position: relative; text-align: left;
+  font-size: 0.875rem; font-weight: 600; color: var(--text); line-height: 1.6;
+  padding-top: 20px; padding-bottom: 20px;
+  border-top: 1px solid transparent;
+}
+/* Vibe's column is the highlighted one; the other two are described, not scored. */
 .comparison-table td.comparison-good { color: var(--green); }
 .comparison-table td.comparison-neutral { color: var(--muted); }
-.comparison-table td.comparison-bad { color: var(--error); }
 
 @media (max-width: 768px) {
   .comparison-tabs {
@@ -1497,6 +1472,13 @@ body {
   .comparison-table th:not(:first-child),
   .comparison-table td:not(:first-child) { border-left: none; }
   .comparison-table td::before { left: 0; right: 0; }
+  /* Stacked on a phone: the label on top, the chosen column's answer under it,
+     one rule above each pair instead of between them. */
+  .comparison-corner { display: none; }
+  .comparison-table .comparison-criterio { padding-top: 16px; padding-bottom: 0; font-size: 0.8125rem; }
+  .comparison-table td { padding-top: 4px; padding-bottom: 16px; border-top: none; text-align: left; }
+  .comparison-table .comparison-criterio::before { right: 0; }
+  .comparison-table td::before { content: none; }
   .comparison-table[data-shown="vibe"] [data-col]:not([data-col="vibe"]),
   .comparison-table[data-shown="whatsapp"] [data-col]:not([data-col="whatsapp"]),
   .comparison-table[data-shown="atc"] [data-col]:not([data-col="atc"]) { display: none; }

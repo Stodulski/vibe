@@ -1,5 +1,9 @@
+---
+import Screenshot from './Screenshot.astro';
+---
 <section class="hero" id="inicio">
  <div class="hero-inner">
+  <div class="hero-copy">
   <!-- Decorative sport emojis bobbing beside the centered copy. Purely
        presentational (the hero copy already names the sports), so it is hidden
        from assistive tech and sits behind the content.
@@ -21,18 +25,29 @@
   <div class="hero-content">
    <div class="section-label anim anim-d1">Sistema de gestión para complejos deportivos</div>
    <h1 class="anim anim-d2">Gestioná tu complejo <em>gratis.</em></h1>
-   <p class="hero-subtitle anim anim-d3">Cobrás las señas online, manejás la caja por turno y mirás los reportes del mes desde un mismo lugar. Las reservas entran solas. Tu cliente elige cancha y horario desde el celular, sin descargar nada.</p>
+   <p class="hero-subtitle anim anim-d3">Reservas con seña, cobros, caja por turno, bar con stock y reportes en un mismo panel. También turnos fijos, canchas libres y torneos.</p>
    <div class="hero-ctas anim anim-d4">
     <a class="btn-primary" href="https://app.vibe.com.ar/register" rel="noopener">Crear mi cuenta gratis<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="m12 5 7 7-7 7"/></svg></a>
     <a class="hero-link-secondary" href="#como-funciona">Ver cómo funciona</a>
    </div>
-   <div class="hero-proof anim anim-d5">
-    <span class="hero-proof-text">Para complejos de pádel, fútbol, tenis y otros deportes en <strong>Argentina</strong></span>
+   <p class="hero-note anim anim-d4">El cargo de servicio lo paga quien reserva, y lo ve antes de pagar.</p>
+  </div>
+  </div>
+  <!-- The panel itself, above the fold: the subtitle lists what the panel does, and
+       this is the proof. Eager, because it is the largest thing in the first screen. -->
+  <div class="hero-shot anim anim-d5">
+   <div class="browser-frame">
+    <Screenshot name="dashboard-complejo-deportivo" alt="Dashboard de Vibe con las reservas, los ingresos, la ocupación y los medios de pago del día" eager />
    </div>
-   <div class="integration-bar anim anim-d5">
-    <div class="integration-label">Señas online procesadas por</div>
-    <div class="mp-logo"><img src="/mercado-pago-logo.svg" alt="MercadoPago" width="160" height="36" loading="lazy"></div>
-   </div>
+  </div>
+  <!-- What the stats strip used to say, folded into the hero: the one figure that is
+       not a price. -->
+  <div class="hero-proof anim anim-d5">
+   <span class="hero-proof-text">Tus clientes reservan con seña <strong>24/7</strong> desde el celular. Para complejos de pádel, fútbol, tenis y otros deportes en <strong>Argentina</strong>.</span>
+  </div>
+  <div class="integration-bar anim anim-d5">
+   <div class="integration-label">Señas online procesadas por</div>
+   <div class="mp-logo"><img src="/mercado-pago-logo.svg" alt="MercadoPago" width="160" height="36" loading="lazy"></div>
   </div>
  </div>
 </section>

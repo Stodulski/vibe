@@ -7,45 +7,54 @@
  * A <table> also aligns rows by itself, so the subgrid that used to force equal
  * row heights across independent columns is gone.
  */
+import { ATC_PRUEBA_GRATIS_DIAS } from '../data/competencia';
+
 const COLUMNAS = [
   { id: 'vibe', nombre: 'Vibe' },
   { id: 'whatsapp', nombre: 'WhatsApp' },
   { id: 'atc', nombre: 'ATC Sports' },
 ];
 
-/** Each row is one criterion, read left to right in column order. */
+/*
+ * Each row is one criterion, read left to right in column order, under the label in
+ * `criterio`. Vibe's column is the highlighted one; the other two stay neutral, so the
+ * table describes each option instead of scoring it in red.
+ *
+ * The ATC Sports column only says what src/data/competencia.ts records from their own
+ * page (plans with a monthly fee, the free trial). Everything else is "Sin dato
+ * publicado": that they don't publish it doesn't prove they lack it, and a claim about a
+ * named competitor needs a source.
+ */
+const SIN_DATO = 'Sin dato publicado';
 const FILAS = [
-  [
-    { estado: 'good', texto: '$0.' },
-    { estado: 'neutral', texto: 'Gratis, pero con tu tiempo.' },
-    /* Sin monto a proposito: el abono es lo que marca la diferencia con Vibe y se
-       sostiene solo. Un precio ajeno envejece cada vez que ellos ajustan la lista.
-       Los planes verificados estan en src/data/competencia.ts. */
-    { estado: 'bad', texto: 'Abono mensual fijo.' },
-  ],
-  [
-    { estado: 'good', texto: 'Reservan solos, 24/7' },
-    { estado: 'bad', texto: 'Por WhatsApp, cuando contestás' },
-    { estado: 'good', texto: 'También reservan solos, 24/7' },
-  ],
-  [
-    { estado: 'good', texto: 'Se cobra sola con MercadoPago' },
-    { estado: 'bad', texto: 'Revisás cada comprobante vos, uno por uno' },
-    { estado: 'bad', texto: 'Depende de que el complejo la configure' },
-  ],
-  [
-    { estado: 'good', texto: 'Caja por turno con arqueo, y venta con stock' },
-    { estado: 'bad', texto: 'Cuaderno o planilla' },
-    { estado: 'good', texto: 'También: caja y stock' },
-  ],
-  [
-    { estado: 'good', texto: 'Recordatorio automático antes del turno' },
-    { estado: 'bad', texto: 'Recordatorios manuales.' },
+  {
+    criterio: 'Costo',
+    celdas: [
+      'Gratis para tu complejo',
+      'Gratis, con tu tiempo',
+      /* Sin monto a propósito: un precio ajeno envejece cada vez que ellos ajustan la
+         lista. Los planes verificados están en src/data/competencia.ts. */
+      `Abono mensual, con ${ATC_PRUEBA_GRATIS_DIAS} días de prueba`,
+    ],
+  },
+  {
+    criterio: 'Reservas',
+    celdas: ['Tus clientes reservan a cualquier hora', 'Por WhatsApp, cuando contestás', SIN_DATO],
+  },
+  {
+    criterio: 'Seña',
+    celdas: ['Se paga con Mercado Pago al reservar', 'Revisás cada comprobante a mano', SIN_DATO],
+  },
+  {
+    criterio: 'Caja y bar',
+    celdas: ['Caja por turno con arqueo, y venta con stock', 'Cuaderno o planilla', SIN_DATO],
+  },
+  {
+    criterio: 'Recordatorios',
     /* Su página de precios y funciones no dice nada de recordatorios (revisado
-       2026-09-25). Que no lo publiquen no prueba que no lo tengan, así que la
-       celda queda neutra en vez de marcarlo como falta. */
-    { estado: 'neutral', texto: 'Sin dato publicado' },
-  ],
+       2026-09-25). */
+    celdas: ['Recordatorio automático antes del turno', 'Los mandás vos, uno por uno', SIN_DATO],
+  },
 ];
 ---
 <section class="comparison" id="comparacion">
@@ -64,6 +73,7 @@ const FILAS = [
    <caption class="sr-only">Vibe comparado con gestionar por WhatsApp y planilla, y con ATC Sports</caption>
    <thead>
     <tr>
+     <th scope="col" class="comparison-corner"><span class="sr-only">Criterio</span></th>
      <th scope="col" data-col="vibe">
       <div class="comparison-th-inner">
        <img src="/logo.svg" width="120" height="84" alt="Vibe" loading="lazy" />
@@ -85,8 +95,9 @@ const FILAS = [
    <tbody>
     {FILAS.map(fila => (
      <tr>
-      {fila.map((celda, i) => (
-       <td class={`comparison-${celda.estado}`} data-col={COLUMNAS[i].id}>{celda.texto}</td>
+      <th scope="row" class="comparison-criterio">{fila.criterio}</th>
+      {fila.celdas.map((texto, i) => (
+       <td class={i === 0 ? 'comparison-good' : 'comparison-neutral'} data-col={COLUMNAS[i].id}>{texto}</td>
       ))}
      </tr>
     ))}

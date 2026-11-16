@@ -133,10 +133,12 @@ turndown.addRule('comparison', {
       return (img && img.getAttribute('alt')) || txt(th);
     });
     if (!encabezados.length) return '';
+    /* The first cell of a row is its criterion (a row header), printed as is. */
     const filas = Array.from(node.querySelectorAll('tbody tr')).map(tr =>
-      Array.from(tr.querySelectorAll('td')).map(td => {
-        const tipo = ['good', 'bad'].find(k => hasClass(td, `comparison-${k}`));
-        return `${marcas[tipo] || '\u2796'} ${cell(txt(td))}`;
+      Array.from(tr.querySelectorAll('th, td')).map(c => {
+        if (c.tagName === 'TH') return cell(txt(c));
+        const tipo = ['good', 'bad'].find(k => hasClass(c, `comparison-${k}`));
+        return `${marcas[tipo] || '\u2796'} ${cell(txt(c))}`;
       }));
     const caption = txt(node.querySelector('caption'));
     return `\n\n${caption ? caption + '\n\n' : ''}| ${encabezados.map(cell).join(' | ')} |\n`
@@ -323,11 +325,14 @@ function fileNameOf(route) {
   return (route === '/' ? 'index' : route.slice(1).replace(/\//g, '-')) + '.md';
 }
 
-/* The page states plainly what Vibe is, in one paragraph, for exactly this
-   purpose. Reusing it beats writing a second summary that can contradict it. */
+/* The page states plainly what Vibe is, in the paragraphs under "¿Qué es Vibe?", for
+   exactly this purpose. Reusing them beats writing a second summary that can contradict
+   them. Every paragraph up to the next heading counts: the lead names the panel, the one
+   after it the newer modules and the sports. */
 function summaryFrom(markdown, fallback) {
-  const m = markdown.match(/##\s*¿Qué es Vibe\?\s*\n+([^\n]+)/);
-  return (m?.[1] ?? fallback).trim();
+  const m = markdown.match(/##\s*¿Qué es Vibe\?\s*\n+([\s\S]*?)(?=\n#|$)/);
+  const text = m?.[1].split(/\n{2,}/).map(p => p.trim()).filter(Boolean).join(' ');
+  return (text || fallback).trim();
 }
 
 const DATES = leerDates();
