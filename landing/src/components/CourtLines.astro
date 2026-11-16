@@ -1,0 +1,23 @@
+---
+/**
+ * The site's own motif: the lines of a padel court seen from above, drawn to scale
+ * (20 m by 10 m, the net across the middle, a service line 6.95 m to each side of it
+ * and the centre line between the two). The product already uses the same drawing on
+ * a complex's page, and the logo carries it too.
+ *
+ * Decoration only: it sits behind the copy and says nothing a reader needs, so it is
+ * hidden from assistive tech. The strokes keep a constant width however large the
+ * drawing is stretched.
+ */
+export interface Props {
+  class?: string;
+}
+const { class: className } = Astro.props;
+---
+<svg class:list={['court-lines', className]} viewBox="0 0 200 100" fill="none" aria-hidden="true" focusable="false">
+ <rect x="0.5" y="0.5" width="199" height="99" />
+ <line class="court-net" x1="100" y1="0.5" x2="100" y2="99.5" />
+ <line x1="30.5" y1="0.5" x2="30.5" y2="99.5" />
+ <line x1="169.5" y1="0.5" x2="169.5" y2="99.5" />
+ <line x1="30.5" y1="50" x2="169.5" y2="50" />
+</svg>

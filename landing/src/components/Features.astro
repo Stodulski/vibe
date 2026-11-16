@@ -1,199 +1,163 @@
 ---
 import Screenshot from './Screenshot.astro';
+
+/*
+ * The eight modules, one at a time: a named button per module picks which one shows,
+ * and the arrows walk through them in a loop.
+ *
+ * Each capture is shown cropped to the part the text talks about, at a scale where the
+ * panel's own type can be read; the whole 1669px screen shrunk into the column left it
+ * at about 7px. `crop` is that region in the capture's own pixels: `rx`/`ry` is its
+ * top-left corner and `rw` its width (the frame's shape sets the height). Under 768px
+ * the picture is the phone capture, whole, and the crop does not apply.
+ *
+ * Every module is in the markup, so the page reads complete without JavaScript and in
+ * the Markdown twin; main.js only decides which one is on screen.
+ */
+const MODULES = [
+  {
+    id: 'reservas',
+    tab: 'Reservas',
+    title: 'Reservas que entran solas, a cualquier hora',
+    text: 'Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña o el total con Mercado Pago al reservar.',
+    bullets: ['Sin app ni registro para el que reserva', 'Nunca dos reservas en el mismo turno', 'Si cancela a tiempo, la seña vuelve sola'],
+    shot: 'panel-reservas-canchas',
+    alt: 'Panel real de reservas de Vibe con turnos confirmados y seña pagada, agrupados por mañana, tarde y noche',
+    crop: { rw: 800, rx: 196, ry: 56 },
+  },
+  {
+    id: 'cobros',
+    tab: 'Cobros',
+    title: 'Lo que falta, cobralo en el mostrador',
+    text: 'Cada turno te muestra la seña que entró y lo que queda por cobrar. Sin cruzar planillas.',
+    bullets: ['Efectivo, transferencia, débito, crédito o QR/billetera', 'La reserva telefónica, con su pago registrado', 'Lo que cobrás en el mostrador queda en tu caja'],
+    shot: 'cobros-mostrador',
+    alt: 'Cobro de una reserva en el mostrador de Vibe, con efectivo, transferencia, débito, crédito y QR como métodos',
+    crop: { rw: 800, rx: 430, ry: 196 },
+  },
+  {
+    id: 'turnos-fijos',
+    tab: 'Turnos fijos',
+    title: 'El turno de todas las semanas, cargado una vez',
+    text: 'Cargás el turno fijo de un cliente y Vibe lo reserva cada semana. La cancha queda tomada en la grilla.',
+    bullets: ['Cancelás una fecha sin tocar las demás', 'Terminás el turno fijo desde la fecha que elijas', 'Cada fecha se cobra como una reserva más'],
+    shot: 'turnos-fijos',
+    alt: 'Grilla de reservas de Vibe con un turno fijo semanal que ocupa la misma cancha y el mismo horario cada semana',
+    crop: { rw: 800, rx: 869, ry: 0 },
+  },
+  {
+    id: 'canchas-libres',
+    tab: 'Canchas libres',
+    title: 'Canchas libres para que se armen partidos',
+    text: 'Publicás un horario con las canchas que quieras y los jugadores se anotan desde tu página. Pagan al anotarse con Mercado Pago.',
+    bullets: ['Elegís cupo, precio y canchas', 'Esas canchas quedan bloqueadas para otras reservas', 'Si cancelás, a cada uno le vuelve lo que pagó'],
+    shot: 'canchas-libres',
+    alt: 'Cancha libre publicada en Vibe con su horario, sus canchas, el cupo y la lista de jugadores anotados',
+    crop: { rw: 800, rx: 869, ry: 0 },
+  },
+  {
+    id: 'torneos',
+    tab: 'Torneos',
+    title: 'Torneos con inscripción, cuadro y resultados',
+    text: 'Armás las categorías, las parejas se inscriben y pagan desde tu página, y Vibe arma el cuadro.',
+    bullets: ['Zonas y eliminación directa', 'Cada partido ocupa su cancha en la grilla', 'Los jugadores siguen el cuadro y los resultados desde tu página'],
+    shot: 'torneos-cuadro',
+    alt: 'Torneo en Vibe con las zonas de una categoría, sus resultados y las parejas que clasifican',
+    crop: { rw: 800, rx: 190, ry: 40 },
+  },
+  {
+    id: 'caja',
+    tab: 'Caja',
+    title: 'Una caja que cierra',
+    text: 'Abrís el turno con el efectivo del cajón. Al cerrar, Vibe ya hizo la cuenta.',
+    bullets: ['Ingresos y egresos por categoría: insumos, sueldos, servicios, retiros', 'Los cobros en efectivo y las ventas entran solos', 'Al cerrar: esperado contra contado, con sobrante o faltante'],
+    shot: 'caja-turno',
+    alt: 'Caja abierta en Vibe con el efectivo inicial, los movimientos del turno y el efectivo esperado',
+    crop: { rw: 800, rx: 190, ry: 60 },
+  },
+  {
+    id: 'bar',
+    tab: 'Bar',
+    title: 'El bar, con el stock siempre al día',
+    text: 'Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.',
+    bullets: ['Carrito y cobro con el método que elija el cliente', 'Si un producto quedó en cero, te avisa y la venta sale igual', 'Aviso de stock bajo en el dashboard, con el mínimo que vos definís'],
+    shot: 'vender-mostrador',
+    alt: 'Pantalla Vender de Vibe con el catálogo, el carrito y un aviso de stock',
+    crop: { rw: 920, rx: 700, ry: 150 },
+  },
+  {
+    id: 'reportes',
+    tab: 'Reportes',
+    title: 'El mes, cerrado solo',
+    text: 'El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.',
+    bullets: ['Ingresos, ocupación por horario y la caja abierta', 'Reporte mensual por método de pago y por cancha', 'Excel con los pagos y la caja del mes'],
+    shot: 'dashboard-complejo-deportivo',
+    alt: 'Dashboard real de Vibe con las reservas, los ingresos, la ocupación y los medios de pago del día',
+    crop: { rw: 800, rx: 190, ry: 50 },
+  },
+];
 ---
 <!-- ========== MÓDULOS ========== -->
 <section class="features" id="funcionalidades">
  <div class="container">
   <div class="features-header">
    <div class="section-label anim">Módulos</div>
-   <h2 class="section-title anim anim-d1">Cinco módulos. Un panel.<br><em>$0 para tu complejo.</em></h2>
-   <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar. Y lo que hoy hacés a mano, pasa solo.</p>
+   <h2 class="section-title anim anim-d1">Ocho módulos en un solo panel, <em>gratis para tu complejo</em></h2>
+   <p class="section-desc anim anim-d2">De la reserva al cierre de caja, todo pasa en el mismo lugar.</p>
   </div>
 
   <div class="ft-carousel">
-   <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+   <!-- The picker. `ft-dots`/`ft-dot` are the names scripts/build-markdown.mjs drops as
+        controls (they say nothing a reader of the Markdown twin needs) and the ones
+        tests/smoke.mjs drives; `ft-tabs`/`ft-tab` are what the styles use. -->
+   <div class="ft-tabs ft-dots" role="group" aria-label="Módulos">
+    {MODULES.map((m, i) => (
+     <button type="button" class:list={['ft-tab', 'ft-dot', i === 0 && 'active']} aria-current={i === 0 ? 'true' : undefined} aria-controls={`modulo-${m.id}`}>{m.tab}</button>
+    ))}
+   </div>
+
    <div class="ft-viewport">
     <div class="ft-stack">
-     <!-- Decorative-only clone of Vender (2nd-to-last), so the Reportes wrap-target clone
-          right after it has something to peek at on its own left during the transition. -->
-     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="decorative" aria-hidden="true">
-      <div class="ft-block-text">
-       <h3>El bar, con el stock siempre al día</h3>
-       <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
-       <ul class="ft-bullets">
-        <li>Carrito y cobro con el método que elija el cliente</li>
-        <li>Si un producto quedó en cero, te avisa y la venta sale igual</li>
-        <li>Aviso de stock bajo en el dashboard, con el mínimo que vos definís</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="vender-mostrador" alt="" />
+     {MODULES.map((m, i) => (
+      <div class:list={['ft-block', i === 0 && 'active']} id={`modulo-${m.id}`} aria-current={i === 0 ? 'true' : undefined}>
+       <div class="ft-block-text">
+        <h3>{m.title}</h3>
+        <p>{m.text}</p>
+        <ul class="ft-bullets">
+         {m.bullets.map(b => <li>{b}</li>)}
+        </ul>
+       </div>
+       <div class="ft-block-visual">
+        <div class="shot shot--responsive" style={`--rw:${m.crop.rw};--rx:${m.crop.rx};--ry:${m.crop.ry}`}>
+         <div class="shot-canvas">
+          <Screenshot name={m.shot} alt={m.alt} />
+         </div>
+        </div>
        </div>
       </div>
-     </div>
-
-     <!-- Loop clone of the last slide (Reportes), peeks on the left of slide 1 — this is
-          the one goToFeature actually animates onto when wrapping backward from slide 1. -->
-     <div class="ft-block ft-block--clone" data-clone="before" aria-hidden="true">
-      <div class="ft-block-text">
-       <h3>El mes, cerrado solo</h3>
-       <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
-       <ul class="ft-bullets">
-        <li>Ingresos, ocupación por horario y la caja abierta</li>
-        <li>Reporte mensual por método de pago y por cancha</li>
-        <li>Excel con los pagos y la caja del mes</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="dashboard-complejo-deportivo" alt="" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 1: Reservas -->
-     <div class="ft-block active" aria-current="true">
-      <div class="ft-block-text">
-       <h3>Reservas que entran solas, a cualquier hora</h3>
-       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña con MercadoPago al reservar.</p>
-       <ul class="ft-bullets">
-        <li>Sin app ni registro para el que reserva</li>
-        <li>Nunca dos reservas en el mismo turno</li>
-        <li>Si cancela a tiempo, la seña vuelve sola</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="panel-reservas-canchas" alt="Panel real de reservas de Vibe con turnos confirmados y seña pagada, agrupados por mañana, tarde y noche" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 2: Cobros (reversed) -->
-     <div class="ft-block ft-block--reverse">
-      <div class="ft-block-text">
-       <h3>Lo que falta, cobralo en el mostrador</h3>
-       <p>Cada turno te muestra la seña que entró y lo que queda por cobrar. Sin cruzar planillas.</p>
-       <ul class="ft-bullets">
-        <li>Efectivo, transferencia, débito, crédito o QR/billetera</li>
-        <li>La reserva telefónica, con su pago registrado</li>
-        <li>Lo que cobrás en el mostrador queda en tu caja</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="cobros-mostrador" alt="Cobro de una reserva en el mostrador de Vibe, con efectivo, transferencia, débito, crédito y QR como métodos" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 3: Caja -->
-     <div class="ft-block">
-      <div class="ft-block-text">
-       <h3>Una caja que cierra</h3>
-       <p>Abrís el turno con el efectivo del cajón. Al cerrar, Vibe ya hizo la cuenta.</p>
-       <ul class="ft-bullets">
-        <li>Ingresos y egresos por categoría: insumos, sueldos, servicios, retiros</li>
-        <li>Los cobros en efectivo y las ventas entran solos</li>
-        <li>Al cerrar: esperado contra contado, con sobrante o faltante</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="caja-turno" alt="Caja abierta en Vibe con el efectivo inicial, los movimientos del turno y el efectivo esperado" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 4: Vender (reversed) -->
-     <div class="ft-block ft-block--reverse">
-      <div class="ft-block-text">
-       <h3>El bar, con el stock siempre al día</h3>
-       <p>Cargás tu catálogo una vez. Cada venta descuenta stock y entra en la caja del turno.</p>
-       <ul class="ft-bullets">
-        <li>Carrito y cobro con el método que elija el cliente</li>
-        <li>Si un producto quedó en cero, te avisa y la venta sale igual</li>
-        <li>Aviso de stock bajo en el dashboard, con el mínimo que vos definís</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="vender-mostrador" alt="Pantalla Vender de Vibe con el catálogo, el carrito y un aviso de stock" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Feature 5: Reportes -->
-     <div class="ft-block">
-      <div class="ft-block-text">
-       <h3>El mes, cerrado solo</h3>
-       <p>El día, en el dashboard. El mes, listo para el contador, sin sumar nada a mano.</p>
-       <ul class="ft-bullets">
-        <li>Ingresos, ocupación por horario y la caja abierta</li>
-        <li>Reporte mensual por método de pago y por cancha</li>
-        <li>Excel con los pagos y la caja del mes</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="dashboard-complejo-deportivo" alt="Dashboard real de Vibe con reservas del día, ingresos, ocupación y clientes más fieles" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Loop clone of the first slide (Reservas), peeks on the right of the last slide — the
-          one goToFeature actually animates onto when wrapping forward from the last slide. -->
-     <div class="ft-block ft-block--clone" data-clone="after" aria-hidden="true">
-      <div class="ft-block-text">
-       <h3>Reservas que entran solas, a cualquier hora</h3>
-       <p>Una página propia donde tus clientes eligen cancha y horario sin escribirte. Pagan la seña con MercadoPago al reservar.</p>
-       <ul class="ft-bullets">
-        <li>Sin app ni registro para el que reserva</li>
-        <li>Nunca dos reservas en el mismo turno</li>
-        <li>Si cancela a tiempo, la seña vuelve sola</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="panel-reservas-canchas" alt="" />
-       </div>
-      </div>
-     </div>
-
-     <!-- Decorative-only clone of Cobros (2nd slide), so the Reservas wrap-target clone
-          right before it has something to peek at on its own right during the transition. -->
-     <div class="ft-block ft-block--reverse ft-block--clone" data-clone="decorative" aria-hidden="true">
-      <div class="ft-block-text">
-       <h3>Lo que falta, cobralo en el mostrador</h3>
-       <p>Cada turno te muestra la seña que entró y lo que queda por cobrar. Sin cruzar planillas.</p>
-       <ul class="ft-bullets">
-        <li>Efectivo, transferencia, débito, crédito o QR/billetera</li>
-        <li>La reserva telefónica, con su pago registrado</li>
-        <li>Lo que cobrás en el mostrador queda en tu caja</li>
-       </ul>
-      </div>
-      <div class="ft-block-visual">
-       <div class="browser-frame">
-        <Screenshot name="cobros-mostrador" alt="" />
-       </div>
-      </div>
-     </div>
+     ))}
     </div>
    </div>
-   <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
-  </div>
 
-  <div class="ft-dots">
-   <button type="button" class="ft-dot active" aria-current="true" aria-label="Ir a: Reservas que entran solas, a cualquier hora"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Lo que falta, cobralo en el mostrador"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: Una caja que cierra"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: El bar, con el stock siempre al día"></button>
-   <button type="button" class="ft-dot" aria-label="Ir a: El mes, cerrado solo"></button>
+   <div class="ft-foot">
+    <p class="ft-tutoriales">
+     Mirá cada pantalla explicada paso a paso en los <a href="/tutoriales">tutoriales</a>.
+    </p>
+    <div class="ft-nav">
+     <button type="button" class="ft-arrow ft-arrow-prev" aria-label="Funcionalidad anterior"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 18-6-6 6-6"/></svg></button>
+     <button type="button" class="ft-arrow ft-arrow-next" aria-label="Siguiente funcionalidad"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 18 6-6-6-6"/></svg></button>
+    </div>
+   </div>
   </div>
-
-  <p class="ft-tutoriales anim anim-d4">
-   Estas son capturas. Reservas, precios, clientes y reportes también están <a href="/tutoriales">explicados paso a paso</a>.
-  </p>
  </div>
 </section>
+
+<!-- Without JavaScript nothing can pick a module, so all eight show one under the
+     other and the controls go away. -->
+<noscript>
+ <style>
+  .ft-block { display: grid !important; }
+  .ft-stack { display: flex; flex-direction: column; gap: 64px; }
+  .ft-tabs, .ft-nav { display: none !important; }
+ </style>
+</noscript>

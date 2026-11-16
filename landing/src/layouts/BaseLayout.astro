@@ -27,7 +27,9 @@ export interface Props {
   twitterImageAlt: string;
   /** Raw JSON-LD payloads, each rendered as its own <script type="application/ld+json">. */
   jsonLd?: string[];
-  /** index.html renders 2 decorative blobs, the legal pages render 4. */
+  /** How many decorative blobs drift behind the page: the legal pages render 4. With 0
+      (the homepage) the whole decorative layer is left out: blobs, grain and the glow
+      that follows the pointer. */
   blobs?: number;
   skipLink?: boolean;
   /** GA4/Contentsquare lazy loader + WhatsApp FAB. Homepage only. */
@@ -111,13 +113,17 @@ const markdownHref = canonical ? gemeloMarkdown(canonical) : undefined;
  </head>
  <body>
   {skipLink && <a class="skip-link" href="#inicio">Saltar al contenido principal</a>}
-  <div aria-hidden="true" class="bg-mesh">
-   {blobList.map(() => <div class="bg-mesh__blob"></div>)}
-  </div>
-  <div aria-hidden="true" class="bg-noise">
-  </div>
-  <div aria-hidden="true" class="cursor-blob">
-  </div>
+  {blobs > 0 && (
+   <Fragment>
+   <div aria-hidden="true" class="bg-mesh">
+    {blobList.map(() => <div class="bg-mesh__blob"></div>)}
+   </div>
+   <div aria-hidden="true" class="bg-noise">
+   </div>
+   <div aria-hidden="true" class="cursor-blob">
+   </div>
+   </Fragment>
+  )}
   <slot />
   {tracking && <WhatsappFab />}
   <script>

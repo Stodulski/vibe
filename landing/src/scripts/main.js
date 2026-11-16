@@ -10,6 +10,16 @@ window.addEventListener('scroll', () => {
   nav.classList.toggle('scrolled', window.scrollY > 32);
 }, { passive: true });
 
+/* The homepage's bar starts with its account button as an outline (nav--quiet), because
+   the hero right under it already carries the filled one. Once that one has scrolled out
+   of view the bar's becomes the filled button, so each screen has exactly one. */
+const heroCta = document.querySelector('.hero-ctas .btn-primary');
+if (heroCta && nav.classList.contains('nav--quiet')) {
+  new IntersectionObserver((entries) => {
+    entries.forEach(e => nav.classList.toggle('nav--quiet', e.isIntersecting));
+  }).observe(heroCta);
+}
+
 /* Hide WhatsApp FAB while it would overlap the hero content */
 const hero = document.querySelector('.hero');
 const fab = document.querySelector('.whatsapp-fab');
@@ -42,7 +52,7 @@ mobileMenu.querySelectorAll('a').forEach(link => {
 
 /* Cursor blob — throttled with rAF */
 const blob = document.querySelector('.cursor-blob');
-if (window.matchMedia('(pointer: fine)').matches) {
+if (blob && window.matchMedia('(pointer: fine)').matches) {
   let rafId = 0;
   document.addEventListener('mousemove', (e) => {
     cancelAnimationFrame(rafId);
@@ -91,97 +101,6 @@ document.querySelectorAll('a[href^="#"]').forEach(a => {
     });
   });
 });
-
-/* Counter animation for stats */
-function animateCounter(el, target, prefix, suffix) {
-  const duration = 1500;
-  const start = performance.now();
-  const textNode = document.createTextNode(prefix + '0');
-  const suffixSpan = suffix ? document.createElement('span') : null;
-  if (suffixSpan) suffixSpan.textContent = suffix;
-  el.textContent = '';
-  el.appendChild(textNode);
-  if (suffixSpan) el.appendChild(suffixSpan);
-  const step = (now) => {
-    const progress = Math.min((now - start) / duration, 1);
-    const eased = 1 - Math.pow(1 - progress, 3);
-    const current = Math.round(eased * target);
-    textNode.textContent = prefix + current;
-    if (progress < 1) requestAnimationFrame(step);
-  };
-  requestAnimationFrame(step);
-}
-
-const statsObserver = new IntersectionObserver((entries) => {
-  entries.forEach(entry => {
-    if (entry.isIntersecting && !entry.target.dataset.counted) {
-      entry.target.dataset.counted = 'true';
-      const el = entry.target;
-      const text = el.textContent.trim();
-
-      if (text === '24/7') {
-        animateCounter(el, 24, '', '/7');
-      } else if (text.startsWith('$')) {
-        /* "$0" has nothing to count up to, and the counter below would
-           rebuild it with the symbol after the number. */
-      } else if (text.startsWith('<') || text.startsWith('\u003c')) {
-        const num = parseInt(text.replace(/[^0-9]/g, ''));
-        const suffix = text.replace(/[0-9<\u003c]/g, '');
-        animateCounter(el, num, '<', suffix);
-      } else {
-        const num = parseInt(text.replace(/[^0-9]/g, ''));
-        const suffix = text.replace(/[0-9]/g, '');
-        if (!isNaN(num)) {
-          animateCounter(el, num, '', suffix);
-        }
-      }
-    }
-  });
-}, { threshold: 0.5 });
-
-document.querySelectorAll('.stat-value').forEach(el => statsObserver.observe(el));
-
-
-/* Timeline spine fill */
-const timeline = document.querySelector('.how-timeline');
-if (timeline) {
-  const spineFill = timeline.querySelector('.how-spine-fill');
-
-  /* The timeline's box is measured once instead of on every scroll event: reading
-     it there forced a synchronous layout, because the previous event had just
-     written the fill's height and the read had to flush it first. That cost 55ms
-     of forced reflow over a single pass down the page.
-
-     Caching is safe here because nothing above the timeline shifts after load —
-     every image carries width/height and measured CLS is 0. */
-  let timelineTop = 0;
-  let timelineHeight = 1;
-
-  function measureSpine() {
-    const rect = timeline.getBoundingClientRect();
-    timelineTop = rect.top + window.scrollY;
-    timelineHeight = rect.height || 1;
-  }
-
-  /* Scroll can fire several times per frame; the fill only needs one write. */
-  let spineQueued = false;
-  function updateSpine() {
-    if (spineQueued) return;
-    spineQueued = true;
-    requestAnimationFrame(() => {
-      spineQueued = false;
-      const scrolled = window.scrollY + window.innerHeight * 0.5 - timelineTop;
-      const progress = Math.max(0, Math.min(1, scrolled / timelineHeight));
-      spineFill.style.height = (progress * 100) + '%';
-    });
-  }
-
-  measureSpine();
-  window.addEventListener('scroll', updateSpine, { passive: true });
-  window.addEventListener('resize', () => { measureSpine(); updateSpine(); }, { passive: true });
-  window.addEventListener('load', () => { measureSpine(); updateSpine(); }, { once: true });
-  updateSpine();
-}
 
 /* FAQ accordion — animated height, driven by JS since <details> content is
    skipped from layout while closed, which defeats a pure-CSS transition. */
@@ -267,123 +186,39 @@ comparisonTabs.forEach(tab => {
   });
 });
 
-/* Features carousel (desktop) — the track is moved with a JS-computed transform instead of
-   native scrolling: Chromium under-reports scrollWidth for trailing space in a scrollable
-   flex row, which makes the first and last slide impossible to center. Mobile stacks every
-   slide full-width and neutralizes the transform in CSS. */
-const ftBlocks = [...document.querySelectorAll('.ft-block:not(.ft-block--clone)')];
-const ftAllBlocks = [...document.querySelectorAll('.ft-block')];
-/* Wrap targets. Two more decorative clones sit further out (see Features.astro) so these
-   two also have a neighbor to peek at while they're centered, hence the data-clone match. */
-const ftCloneBefore = document.querySelector('.ft-block--clone[data-clone="before"]');
-const ftCloneAfter = document.querySelector('.ft-block--clone[data-clone="after"]');
-const ftDots = [...document.querySelectorAll('.ft-dot')];
-const ftViewport = document.querySelector('.ft-viewport');
-const ftStack = document.querySelector('.ft-stack');
+/* Modules — one of the eight shows at a time. Every module is in the markup and CSS
+   shows only the one marked .active, so this only moves that mark: a named button picks a
+   module, the arrows step through them and wrap around at either end. */
+const ftBlocks = [...document.querySelectorAll('.ft-block')];
+const ftTabs = [...document.querySelectorAll('.ft-tab')];
+const ftTabStrip = document.querySelector('.ft-tabs');
 const ftPrev = document.querySelector('.ft-arrow-prev');
 const ftNext = document.querySelector('.ft-arrow-next');
-const ftMobileQuery = window.matchMedia('(max-width: 768px)');
-const FT_TRANSITION_MS = 520; /* the 0.5s CSS transition on .ft-stack, plus a hair */
 let ftIndex = 0;
-let ftSnapTimer = null;
 
-/* Centers any slide — real or clone — in the viewport. */
-function ftCenterOn(el, animate) {
-  if (ftMobileQuery.matches || !el) return;
-  const offset = el.offsetLeft - (ftViewport.clientWidth - el.offsetWidth) / 2;
-  if (animate) {
-    ftStack.style.transform = `translateX(${-offset}px)`;
-    return;
-  }
-  ftStack.style.transition = 'none';
-  ftStack.style.transform = `translateX(${-offset}px)`;
-  void ftStack.offsetHeight;
-  ftStack.style.transition = '';
+function setCurrent(el, isCurrent) {
+  el.classList.toggle('active', isCurrent);
+  if (isCurrent) el.setAttribute('aria-current', 'true');
+  else el.removeAttribute('aria-current');
 }
 
-/* .active styles whichever slide is centered right now, clones included — otherwise the one
-   sitting in the main spot mid-wrap renders as a dimmed secondary slide. */
-function ftSetActiveElement(el) {
-  ftAllBlocks.forEach(block => {
-    const isActive = block === el;
-    block.classList.toggle('active', isActive);
-    if (isActive) block.setAttribute('aria-current', 'true');
-    else block.removeAttribute('aria-current');
-  });
-}
-
-function ftSetIndex(index) {
-  ftIndex = index;
-  ftDots.forEach((dot, i) => {
-    const isActive = i === ftIndex;
-    dot.classList.toggle('active', isActive);
-    if (isActive) dot.setAttribute('aria-current', 'true');
-    else dot.removeAttribute('aria-current');
-  });
-}
-
-/* Lands on the real slide with every transition suppressed: position, dim and scale all
-   have to change in the same invisible frame, or the swap shows up as a jump or a fade-in. */
-function ftSnapToReal(clone) {
-  const real = ftBlocks[ftIndex];
-  if (clone) clone.classList.add('ft-no-anim');
-  real.classList.add('ft-no-anim');
-  ftCenterOn(real, false);
-  ftSetActiveElement(real);
-  void ftStack.offsetHeight;
-  if (clone) clone.classList.remove('ft-no-anim');
-  real.classList.remove('ft-no-anim');
-}
-
-/* Also the resize handler: a pending snap must not fire against a stale layout. */
-function updateFeatureCarousel() {
-  if (ftSnapTimer) { clearTimeout(ftSnapTimer); ftSnapTimer = null; }
-  ftCenterOn(ftBlocks[ftIndex], false);
-  ftSetActiveElement(ftBlocks[ftIndex]);
-}
-
-/* Wrapping past either end animates onto that end's clone, then snaps to the matching real
-   slide once the animation is done — same pixels, so the loop looks seamless. */
 function goToFeature(index) {
-  /* A click mid-wrap has to complete the pending snap first: the track is still parked out
-     by the clone, so measuring the next move from there would fling it across the track. */
-  if (ftSnapTimer) {
-    clearTimeout(ftSnapTimer);
-    ftSnapTimer = null;
-    ftSnapToReal();
+  ftIndex = (index + ftBlocks.length) % ftBlocks.length;
+  ftBlocks.forEach((block, i) => setCurrent(block, i === ftIndex));
+  ftTabs.forEach((tab, i) => setCurrent(tab, i === ftIndex));
+  /* On a phone the row of names scrolls sideways: keep the chosen one in sight. Moving
+     the row's own scroll position, not scrollIntoView, which could also move the page. */
+  const tab = ftTabs[ftIndex];
+  if (tab && ftTabStrip && ftTabStrip.scrollWidth > ftTabStrip.clientWidth) {
+    ftTabStrip.scrollTo({
+      left: tab.offsetLeft - (ftTabStrip.clientWidth - tab.offsetWidth) / 2,
+      behavior: reduceMotion ? 'auto' : 'smooth',
+    });
   }
-  const wrapsBack = index < 0;
-  if (!wrapsBack && index < ftBlocks.length) {
-    ftSetIndex(index);
-    ftSetActiveElement(ftBlocks[ftIndex]);
-    ftCenterOn(ftBlocks[ftIndex], true);
-    return;
-  }
-  ftSetIndex(wrapsBack ? ftBlocks.length - 1 : 0);
-  if (reduceMotion) {
-    /* No animation to hide the hop behind, so go straight to the real slide. */
-    ftSetActiveElement(ftBlocks[ftIndex]);
-    ftCenterOn(ftBlocks[ftIndex], false);
-    return;
-  }
-  const clone = wrapsBack ? ftCloneBefore : ftCloneAfter;
-  ftCenterOn(clone, true);
-  ftSetActiveElement(clone);
-  ftSnapTimer = setTimeout(() => {
-    ftSnapTimer = null;
-    ftSnapToReal(clone);
-  }, FT_TRANSITION_MS);
 }
 
-if (ftViewport && ftStack && ftBlocks.length) {
-  updateFeatureCarousel();
+if (ftBlocks.length) {
   if (ftPrev) ftPrev.addEventListener('click', () => goToFeature(ftIndex - 1));
   if (ftNext) ftNext.addEventListener('click', () => goToFeature(ftIndex + 1));
-  ftDots.forEach((dot, i) => dot.addEventListener('click', () => goToFeature(i)));
-  let ftResizeTimer;
-  window.addEventListener('resize', () => {
-    clearTimeout(ftResizeTimer);
-    ftResizeTimer = setTimeout(updateFeatureCarousel, 150);
-  });
+  ftTabs.forEach((tab, i) => tab.addEventListener('click', () => goToFeature(i)));
 }
-

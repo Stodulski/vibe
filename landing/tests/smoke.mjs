@@ -235,18 +235,42 @@ async function testVideo() {
   const p = await newPage();
   await p.goto(BASE + '/', { waitUntil: 'load' });
   const v = await p.evaluate(() => {
-    const el = document.querySelector('.hero-orbit');
-    return el && {
-      hidden: el.getAttribute('aria-hidden') === 'true',
-      chips: el.querySelectorAll('.orbit-item').length,
-      emojis: el.querySelectorAll('.orbit-item .sport-emoji').length,
+    const court = document.querySelector('.hero .court-lines');
+    const panel = document.querySelector('.hero-panel img');
+    const phone = document.querySelector('.hero-phone img');
+    const covers = [...document.querySelectorAll('.hero-panel .grid-paint')]
+      .find(s => getComputedStyle(s).display !== 'none');
+    return {
+      court: !!court,
+      courtHidden: court?.getAttribute('aria-hidden') === 'true',
+      panelAlt: panel?.alt || '',
+      phoneAlt: phone?.alt || '',
+      covers: covers ? covers.querySelectorAll('.grid-paint-cover').length : 0,
+      coversHidden: covers?.getAttribute('aria-hidden') === 'true',
     };
   });
-  check('los íconos de deporte existen', !!v);
-  check('es decorativo (aria-hidden)', v && v.hidden);
-  check('renderiza los emojis de deporte', v && v.chips >= 4, v ? `chips=${v.chips}` : '');
-  check('cada chip trae su emoji', v && v.emojis === v.chips, v ? `emojis=${v.emojis}` : '');
+  check('las líneas de cancha existen', v.court);
+  check('son decorativas (aria-hidden)', v.courtHidden);
+  check('la grilla del panel está en el hero, con alt', v.panelAlt.length > 0, v.panelAlt);
+  check('la página de reserva en el celular está en el hero, con alt', v.phoneAlt.length > 0, v.phoneAlt);
+  check('la grilla se pinta turno por turno', v.covers > 0 && v.coversHidden, `${v.covers} turnos`);
+
+  /* The animation ends with every booking uncovered: the picture a visitor is left
+     with is the real capture, not one with turns missing. */
+  await p.waitForTimeout(5000);
+  const left = await p.evaluate(() => [...document.querySelectorAll('.hero-panel .grid-paint-cover')]
+    .filter(c => getComputedStyle(c.closest('svg')).display !== 'none' && getComputedStyle(c).opacity !== '0').length);
+  check('al terminar no queda ningún turno tapado', left === 0, `${left} tapados`);
   await p.context().close();
+
+  /* With reduced motion there is nothing to paint: the grid shows whole from the start. */
+  const ctx = await browser.newContext({ viewport: { width: 1440, height: 900 }, reducedMotion: 'reduce' });
+  const r = await ctx.newPage();
+  await r.goto(BASE + '/', { waitUntil: 'load' });
+  const shown = await r.evaluate(() => [...document.querySelectorAll('.hero-panel .grid-paint')]
+    .filter(s => getComputedStyle(s).display !== 'none').length);
+  check('con movimiento reducido la grilla se ve entera', shown === 0, `${shown} capas visibles`);
+  await ctx.close();
 }
 
 async function testImages() {
@@ -345,8 +369,11 @@ async function testComparisonTabs() {
   check('la comparación es una tabla accesible', await d.getByRole('table').count() === 1);
   check('expone 6 filas (cabecera + 5 criterios)', await d.getByRole('row').count() === 6,
         `${await d.getByRole('row').count()}`);
-  check('expone 3 encabezados de columna', await d.getByRole('columnheader').count() === 3,
+  /* Criterio, Vibe, WhatsApp y ATC Sports: the first column holds each row's label. */
+  check('expone 4 encabezados de columna', await d.getByRole('columnheader').count() === 4,
         `${await d.getByRole('columnheader').count()}`);
+  check('cada criterio es el encabezado de su fila', await d.getByRole('rowheader').count() === 5,
+        `${await d.getByRole('rowheader').count()}`);
   check('expone las 15 celdas', await d.getByRole('cell').count() === 15,
         `${await d.getByRole('cell').count()}`);
   await d.context().close();

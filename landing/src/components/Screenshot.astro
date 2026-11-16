@@ -1,18 +1,25 @@
 ---
 /**
- * A product screenshot in its two art-directed sizes and two formats.
+ * A product screenshot, in one of three shapes.
  *
- * The mobile capture is a separate photo taken at phone width, not a scaled-down
- * desktop one — a desktop panel shrunk to 264px is unreadable. WebP comes first
- * and the PNG stays as the fallback; the same pixels weigh about a third.
+ * `responsive` (the default) is the art-directed pair: the desktop capture, and under
+ * 768px a separate photo taken at phone width, not a scaled-down desktop one — a
+ * desktop panel shrunk to a phone is unreadable. WebP comes first and the PNG stays as
+ * the fallback; the same pixels weigh about a third.
  *
  * The mobile sources carry two widths (860w original, 430w half-size) via `srcset`
  * so phones don't download a 2x-oversized asset. The original is listed first
  * because build-markdown.mjs puts the first candidate in the image sitemap, and
- * the browser ignores candidate order. `sizes` is a fixed 240px, not a
- * vw formula: `.browser-frame` on mobile is capped at max-width:264px (border-box,
- * 264 - 20px padding - 4px border = 240px content), so the rendered width never
- * scales with the viewport within the mobile breakpoint.
+ * the browser ignores candidate order. `sizes` is a fixed 296px, not a vw formula:
+ * the handset frame on mobile is capped at max-width:320px (border-box, 320 - 20px
+ * padding - 4px border = 296px content), so the rendered width never grows past that.
+ *
+ * `desktop` is the desktop capture at every width. It is for a cropped detail (the
+ * frame around it shows one region of the panel at a readable scale), where swapping
+ * to the phone capture would show a different picture.
+ *
+ * `single` is one WebP at /screenshots/<name>.webp with its own size: a capture that
+ * only exists in one shape, like the booking page a player sees on a phone.
  *
  * width/height are always set so the browser reserves the box before the image
  * arrives and nothing below it jumps.
@@ -20,28 +27,44 @@
 export interface Props {
   /** File stem shared by every variant, e.g. "panel-reservas-canchas". */
   name: string;
-  /** Empty for the carousel clones: they repeat a slide a reader already met. */
+  /** What the picture shows. Every screenshot on the page is content, so it is never empty. */
   alt: string;
+  /** Only for a shot in the first screen (the hero): loads it right away instead of lazily. */
+  eager?: boolean;
+  variant?: 'responsive' | 'desktop' | 'single';
+  /** Intrinsic size of a `single` capture. */
+  width?: number;
+  height?: number;
 }
 
-const { name, alt } = Astro.props;
+const { name, alt, eager = false, variant = 'responsive', width = 1669, height = 869 } = Astro.props;
 const MOBILE = '(max-width: 768px)';
-const MOBILE_SIZES = '240px';
+const MOBILE_SIZES = '296px';
+const loading = eager ? 'eager' : 'lazy';
+const fetchpriority = eager ? 'high' : undefined;
 ---
-<picture>
- <source
-  media={MOBILE}
-  type="image/webp"
-  srcset={`/screenshots/mobile/${name}.webp 860w, /screenshots/mobile/${name}-430.webp 430w`}
-  sizes={MOBILE_SIZES}
-  width="860" height="1400"
- />
- <source
-  media={MOBILE}
-  srcset={`/screenshots/mobile/${name}.png 860w, /screenshots/mobile/${name}-430.png 430w`}
-  sizes={MOBILE_SIZES}
-  width="860" height="1400"
- />
- <source type="image/webp" srcset={`/screenshots/${name}.webp`} width="1669" height="869" />
- <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading="lazy" />
-</picture>
+{variant === 'single' ? (
+ <img src={`/screenshots/${name}.webp`} width={width} height={height} alt={alt} loading={loading} fetchpriority={fetchpriority} decoding="async" />
+) : (
+ <picture>
+  {variant === 'responsive' && (
+   <source
+    media={MOBILE}
+    type="image/webp"
+    srcset={`/screenshots/mobile/${name}.webp 860w, /screenshots/mobile/${name}-430.webp 430w`}
+    sizes={MOBILE_SIZES}
+    width="860" height="1400"
+   />
+  )}
+  {variant === 'responsive' && (
+   <source
+    media={MOBILE}
+    srcset={`/screenshots/mobile/${name}.png 860w, /screenshots/mobile/${name}-430.png 430w`}
+    sizes={MOBILE_SIZES}
+    width="860" height="1400"
+   />
+  )}
+  <source type="image/webp" srcset={`/screenshots/${name}.webp`} width="1669" height="869" />
+  <img src={`/screenshots/${name}.png`} width="1669" height="869" alt={alt} loading={loading} fetchpriority={fetchpriority} />
+ </picture>
+)}
