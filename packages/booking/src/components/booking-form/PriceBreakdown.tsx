@@ -7,13 +7,15 @@ const t = BOOKING_MESSAGES;
 interface PriceBreakdownProps {
   depositPercentage: number;
   pricing: BookingPricing;
+  /** The line under the service fee. A court booking says it is not deducted from the court price. */
+  feeNote?: string;
 }
 
 // The money rows, one band each with a hairline between them, continuing the
 // bands SlotHeaderRow opened above: the deposit, the service fee with the
 // note that it is not deducted from the court price, what is paid now in
 // bold, and what is still owed at the venue.
-export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownProps) {
+export function PriceBreakdown({ depositPercentage, pricing, feeNote = t.serviceFee.notDeductedFromCourtPrice }: PriceBreakdownProps) {
   const { hasDeposit, mpAmount, serviceFee, totalOnline, remainingAmount } = pricing;
 
   return (
@@ -31,11 +33,11 @@ export function PriceBreakdown({ depositPercentage, pricing }: PriceBreakdownPro
           <dt className="text-text-inverse">{t.serviceFee.label}</dt>
           <dd className="text-text-inverse tabular-nums">{formatPrice(serviceFee)}</dd>
         </div>
-        <p className="text-text-inverse mt-1 text-xs">{t.serviceFee.notDeductedFromCourtPrice}</p>
+        <p className="text-text-inverse mt-1 text-xs">{feeNote}</p>
       </div>
-      <div className="bg-text-inverse/10 flex items-center justify-between gap-2 rounded-2xl px-4 py-3.5">
-        <dt className="text-text-inverse font-semibold">{t.publicBooking.totalOnline}</dt>
-        <dd className="text-text-inverse text-2xl font-bold tabular-nums">{formatPrice(totalOnline)}</dd>
+      <div className="bg-text-inverse/10 flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 rounded-2xl px-3 py-3.5 sm:px-4">
+        <dt className="text-text-inverse font-semibold whitespace-nowrap">{t.publicBooking.totalOnline}</dt>
+        <dd className="text-text-inverse text-xl font-bold whitespace-nowrap tabular-nums sm:text-2xl">{formatPrice(totalOnline)}</dd>
       </div>
       {remainingAmount > 0 && (
         <div className="pt-3">

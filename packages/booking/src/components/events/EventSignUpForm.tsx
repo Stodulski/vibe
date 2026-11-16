@@ -1,43 +1,47 @@
 import { useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Lock } from 'lucide-react';
-import { LoadingButton, formatPrice, submitHandler, useAppForm } from '@vibe/ui';
+import { submitHandler, toDisplayDate, useAppForm } from '@vibe/ui';
+import { format } from 'date-fns/format';
+import { es } from 'date-fns/locale/es';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
-import { useBookingConfig } from '../../config';
+import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
+import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
+import { courtFactsLine } from '../../lib/courtFacts';
+import { keepTogether } from '../../lib/keepTogether';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
+import { eventTimeRange, endsNextDay, sportLabel } from './eventFormat';
+import { TurnstileField } from '../booking-form/TurnstileField';
+import { FormErrorAlert } from '../booking-form/FormErrorAlert';
+import { PrivacyNotice } from '../booking-form/PrivacyNotice';
+import { SubmitFooter } from '../booking-form/SubmitFooter';
+import { SignUpSummaryCard } from '../signup/SignUpSummaryCard';
 import { eventSignUpSchema, type EventSignUpFormData } from '../../schemas/event-signup.schema';
 import type { PublicOpenPlayEvent } from '../../api/types';
 
 const t = BOOKING_MESSAGES;
-
-function EventPriceSummary({ event }: { event: PublicOpenPlayEvent }) {
-  return (
-    <dl className="text-sm">
-      <div className="flex items-baseline justify-between">
-        <dt className="text-text-secondary">{t.events.priceLabel}</dt>
-        <dd className="text-text-primary tabular-nums">{formatPrice(event.price)}</dd>
-      </div>
-      <div className="flex items-baseline justify-between">
-        <dt className="text-text-secondary">{t.serviceFee.label}</dt>
-        <dd className="text-text-primary tabular-nums">{formatPrice(event.service_fee)}</dd>
-      </div>
-      <div className="flex items-baseline justify-between pt-1">
-        <dt className="text-text-secondary">{t.publicBooking.totalOnline}</dt>
-        <dd className="text-text-primary font-semibold tabular-nums">{formatPrice(event.total_price)}</dd>
-      </div>
-    </dl>
-  );
-}
 
 interface EventSignUpFormProps {
   slug: string;
   event: PublicOpenPlayEvent;
 }
 
-/** Name and phone required, email optional. Submitting holds the spot and hands the person to the Mercado Pago checkout. */
+function eventDetails(event: PublicOpenPlayEvent): string[] {
+  return endsNextDay(event) ? [t.events.nextDayNote] : [];
+}
+
+/** One row per court: its name kept together, then roof, surface and lighting the way the booking flow words them. */
+function eventCourts(event: PublicOpenPlayEvent) {
+  return event.courts.map((court) => ({ id: court.id, name: keepTogether(court.name), facts: courtFactsLine(court) }));
+}
+
+/**
+ * The same checkout as a booking: the ticket of what is being paid for, then
+ * name and phone required and email optional, the total beside the pay button
+ * and the privacy line. Submitting holds the spot and hands the person to the
+ * Mercado Pago checkout.
+ */
 export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
-  const { privacyUrl } = useBookingConfig();
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const {
@@ -52,49 +56,45 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
   const signUp = useEventSignUp(slug, event.id, setErrorMessage);
 
+  // The booking hold's bot check: one invisible challenge, one token per sign-up.
+  const { challenge, generation, onTokenChange } = useHoldChallenge();
+  const submitWithChallenge = useChallengedSubmit<EventSignUpFormData>(challenge, (data, token) => {
+    signUp.mutate({ data, token }, { onSettled: challenge.reset });
+  });
+
   function onSubmit(data: EventSignUpFormData) {
     setErrorMessage(null);
-    signUp.mutate(data);
+    submitWithChallenge(data);
   }
 
   return (
-    <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4" noValidate>
-      <div className="space-y-1">
-        <h2 className="text-text-primary text-lg font-bold">{t.events.formTitle}</h2>
-        <p className="text-text-secondary text-sm">{t.events.formDescription}</p>
-      </div>
+    <div className="space-y-5">
+      <SignUpSummaryCard
+        ariaLabel={t.events.summaryLabel}
+        venue={event.complex_name}
+        dateLabel={format(toDisplayDate(event.date), "EEEE d 'de' MMMM", { locale: es })}
+        timeLabel={eventTimeRange(event)}
+        title={event.name}
+        tags={[sportLabel(event.sport)]}
+        details={eventDetails(event)}
+        courts={eventCourts(event)}
+        courtsLabel={t.events.courtsLabel}
+        priceLabel={t.events.priceLabel}
+        price={event.price}
+        serviceFee={event.service_fee}
+        total={event.total_price}
+        feeNote={t.events.feeNote}
+        cancellationHours={event.cancellation_hours}
+      />
 
-      <EventSignUpFields register={register} control={control} errors={errors} />
+      <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
+        <EventSignUpFields register={register} control={control} errors={errors} />
+        <TurnstileField key={generation} onTokenChange={onTokenChange} />
+        <SubmitFooter isLoading={signUp.isPending} totalOnline={event.total_price} type="submit" />
+        <PrivacyNotice text={t.events.privacyNotice} />
+      </form>
 
-      <div className="space-y-2 pt-1">
-        <EventPriceSummary event={event} />
-        {errorMessage && (
-          <p role="alert" className="text-error-text text-sm">
-            {errorMessage}
-          </p>
-        )}
-        <LoadingButton
-          type="submit"
-          className="shadow-brand h-14 w-full rounded-xl text-base font-semibold"
-          loading={signUp.isPending}
-          loadingText={t.publicBooking.generatingPaymentLink}
-        >
-          <Lock className="size-4 shrink-0" aria-hidden="true" />
-          {t.publicBooking.paySecurely}
-        </LoadingButton>
-      </div>
-
-      <p className="text-text-tertiary text-center text-xs">
-        {t.events.privacyNotice}{' '}
-        <a
-          href={privacyUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-primary-400 underline underline-offset-2"
-        >
-          {t.publicBooking.privacyNoticeLink}
-        </a>
-      </p>
-    </form>
+      {errorMessage && <FormErrorAlert message={errorMessage} />}
+    </div>
   );
 }

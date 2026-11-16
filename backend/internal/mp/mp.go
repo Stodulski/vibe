@@ -123,9 +123,27 @@ type MPClient struct {
 	now func() time.Time
 }
 
+// DefaultBaseURL is MercadoPago's real API, used whenever no override is given.
+const DefaultBaseURL = "https://api.mercadopago.com"
+
+// Option customizes an MPClient at construction.
+type Option func(*MPClient)
+
+// WithBaseURL points every API and OAuth call at baseURL instead of
+// DefaultBaseURL. It exists for the end-to-end suite's fake MercadoPago; an
+// empty value keeps the default. cmd/api refuses to boot in production with
+// an override configured, so this is never the real money path.
+func WithBaseURL(baseURL string) Option {
+	return func(c *MPClient) {
+		if baseURL != "" {
+			c.baseURL = strings.TrimRight(baseURL, "/")
+		}
+	}
+}
+
 // NewMPClient builds an MPClient authenticated with the given MercadoPago credentials.
-func NewMPClient(accessToken, webhookSecret, appID, clientSecret string, cb *circuitbreaker.CircuitBreaker) *MPClient {
-	return &MPClient{
+func NewMPClient(accessToken, webhookSecret, appID, clientSecret string, cb *circuitbreaker.CircuitBreaker, opts ...Option) *MPClient {
+	c := &MPClient{
 		accessToken:   accessToken,
 		webhookSecret: webhookSecret,
 		appID:         appID,
@@ -133,10 +151,14 @@ func NewMPClient(accessToken, webhookSecret, appID, clientSecret string, cb *cir
 		httpClient: &http.Client{
 			Timeout: 8 * time.Second,
 		},
-		baseURL: "https://api.mercadopago.com",
+		baseURL: DefaultBaseURL,
 		cb:      cb,
 		now:     time.Now,
 	}
+	for _, opt := range opts {
+		opt(c)
+	}
+	return c
 }
 
 // doRequest executes an HTTP request through the circuit breaker.
@@ -736,7 +758,13 @@ func (c *MPClient) VerifyWebhookSignature(r *http.Request, dataID string) error 
 	if now == nil {
 		now = time.Now
 	}
+	// Mercado Pago documents ts in milliseconds (ts=1742505638683). A value
+	// below 1e12 is read as seconds, which is any date before 2001 in
+	// milliseconds and so never a real notification of either kind.
 	tsTime := time.Unix(tsInt, 0)
+	if tsInt >= 1e12 {
+		tsTime = time.UnixMilli(tsInt)
+	}
 	if now().Sub(tsTime).Abs() > 5*time.Minute {
 		return fmt.Errorf("mp: webhook timestamp too old or in the future (ts=%s)", ts)
 	}

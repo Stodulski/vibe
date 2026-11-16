@@ -185,13 +185,18 @@ type stubBookings struct {
 	hasActive bool
 	events    []bookingstore.EventOccupancy
 	err       error
+
+	// fixedFrom and eventsFrom are the range starts the service last asked for.
+	fixedFrom, eventsFrom time.Time
 }
 
-func (b *stubBookings) ComplexSeriesOccurrences(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.SeriesOccurrence, error) {
+func (b *stubBookings) ComplexSeriesOccurrences(_ context.Context, _ uuid.UUID, from, _ time.Time) ([]bookingstore.SeriesOccurrence, error) {
+	b.fixedFrom = from
 	return b.fixed, b.err
 }
 
-func (b *stubBookings) ComplexEventOccupancies(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.EventOccupancy, error) {
+func (b *stubBookings) ComplexEventOccupancies(_ context.Context, _ uuid.UUID, from, _ time.Time) ([]bookingstore.EventOccupancy, error) {
+	b.eventsFrom = from
 	return b.events, b.err
 }
 

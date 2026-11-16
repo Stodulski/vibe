@@ -49,6 +49,7 @@ async function renderDetail(booking: Booking) {
       onCancel={vi.fn()}
       onConfirmPayment={vi.fn()}
       onNoShow={vi.fn()}
+      onAttended={vi.fn()}
       onManualRefund={vi.fn()}
     />,
   );
@@ -63,8 +64,18 @@ describe('BookingDetail — fixed weekly bookings', () => {
   it('names the weekday and hour of the series for one of its occurrences', async () => {
     const { bookingSeriesApi } = await renderDetail(makeBooking({ date: DATE, series_id: 'ser1' }));
 
-    expect(await screen.findByText(t.series.label('martes', '21:00'))).toBeInTheDocument();
+    expect(await screen.findByText(t.series.everyWeekdayAt('martes', '21:00'))).toBeInTheDocument();
+    // "Turno fijo" over the weekday and hour, in a column like the other facts.
+    expect(screen.getByText(t.fixedBooking, { selector: 'p' })).toBeInTheDocument();
     expect(bookingSeriesApi.get).toHaveBeenCalledWith('c1', 'ser1', expect.anything());
+  });
+
+  it('puts the date under the title like the other panels, not a "Detalles" caption', async () => {
+    await renderDetail(makeBooking({ date: DATE }));
+
+    const subtitle = await screen.findByText('martes 6 de enero', { selector: 'p span' });
+    expect(subtitle).toHaveClass('inline-block', 'first-letter:uppercase');
+    expect(screen.queryByText('Detalles')).not.toBeInTheDocument();
   });
 
   it('shows nothing about a series, and never fetches one, for an ordinary booking', async () => {
@@ -75,9 +86,10 @@ describe('BookingDetail — fixed weekly bookings', () => {
     });
     expect(screen.queryByText(/Turno fijo/)).not.toBeInTheDocument();
     expect(bookingSeriesApi.get).not.toHaveBeenCalled();
-    await userEvent.setup().click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
-    expect(screen.getByRole('menuitem', { name: t.cancel })).toBeInTheDocument();
-    expect(screen.queryByRole('menuitem', { name: t.series.endFromHere })).not.toBeInTheDocument();
+    // Two secondary actions are visible buttons, never a menu.
+    expect(screen.getByRole('button', { name: t.cancel })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.series.endFromHere })).not.toBeInTheDocument();
   });
 
   it('labels the cancel action as covering only this date', async () => {

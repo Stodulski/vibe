@@ -49,7 +49,7 @@ describe('ClientTable', () => {
 
   it('shows an em dash for a client with no email', () => {
     renderTable([makeClient({ email: null })]);
-    expect(screen.getByText('—')).toBeInTheDocument();
+    expect(screen.getByText('Sin datos')).toBeInTheDocument();
   });
 
   it('shows the email when the client has one', () => {

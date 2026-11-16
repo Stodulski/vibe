@@ -234,3 +234,30 @@ func signUpAs(ctx context.Context, f *datatest.Fixture, e *eventstore.Event) (*e
 	})
 	return reg, err
 }
+
+// A loaded event carries each court's roof type, surface and lighting, so the
+// public ticket can describe the courts the way the booking flow does.
+func TestGetEventCarriesEachCourtsFacts(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	second := secondCourt(t, f)
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE courts SET court_type = 'indoor', surface = 'synthetic_grass', has_lighting = true WHERE id = $1`, second); err != nil {
+		t.Fatal(err)
+	}
+	created := createEvent(t, f, "18:00", 120, f.CourtID, second)
+
+	e, err := f.Stores.Events.GetEvent(ctx, created.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var lit *eventstore.Court
+	for i := range e.Courts {
+		if e.Courts[i].ID == second {
+			lit = &e.Courts[i]
+		}
+	}
+	if lit == nil || lit.CourtType != "indoor" || lit.Surface == nil || *lit.Surface != "synthetic_grass" || !lit.HasLighting {
+		t.Fatalf("court facts = %+v", e.Courts)
+	}
+}

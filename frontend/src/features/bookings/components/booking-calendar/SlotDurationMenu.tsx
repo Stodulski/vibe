@@ -4,6 +4,7 @@ import { timeToMinutes } from '@/shared/lib/time';
 import { DurationChoices } from './DurationChoices';
 import { minutesToPx, SLOT_HEIGHT_PX } from './gridLayout';
 import type { DurationMinutes } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 /** The slot whose duration menu is open, and everything needed to place it. */
 export interface OpenSlot {
@@ -64,7 +65,7 @@ export function SlotDurationMenu({
         {open && (
           <>
             <p className="score-text text-text-tertiary mb-1.5 px-1 text-xs">
-              {open.courtName} · {formatTime(open.slot)}
+              {keepTogether(open.courtName)} · {formatTime(open.slot)}
             </p>
             <DurationChoices durations={open.durations} onPreview={onPreview} onPick={onPick} />
           </>

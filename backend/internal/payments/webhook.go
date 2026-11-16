@@ -435,9 +435,10 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 	// that require action (refund/chargeback). Skip everything else.
 	if existingPayment != nil {
 		if existingPayment.RegistrationID != nil {
-			return s.processRecordedRegistrationPayment(existingPayment, mpPayment, mpPaymentID)
+			return s.processRecordedRegistrationPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
-		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" {
+		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
+			refundedBeyondRecorded(existingPayment, mpPayment) {
 			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
 		s.logger.Info("mp webhook: payment already processed, skipping",
@@ -521,4 +522,18 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		)
 	}
 	return nil
+}
+
+// refundedBeyondRecorded reports a refund the payment row does not hold yet on a
+// payment MercadoPago still calls 'approved': a partial refund, which keeps that
+// status (status_detail partially_refunded) and only moves
+// transaction_amount_refunded. Made from MercadoPago's own panel it reaches Vibe
+// through this webhook alone. A refund Vibe issued itself is already on the row by
+// the time its echo arrives, so the echo moves nothing and is not routed again.
+func refundedBeyondRecorded(payment *paymentstore.Payment, mpPayment *mp.Payment) bool {
+	// refund_amount can never exceed the row's own total (a CHECK caps it), so
+	// MercadoPago's figure is compared at most up to that total; otherwise a row
+	// that understates the charge would be routed again on every webhook.
+	refunded := min(refundedTotalOf(mpPayment), payment.Amount+payment.ServiceFee)
+	return refunded > payment.RefundAmount
 }

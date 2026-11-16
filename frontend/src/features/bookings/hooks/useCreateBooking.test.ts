@@ -117,6 +117,22 @@ describe('useCreateBooking — onError surfaces the real backend message', () =>
   });
 });
 
+describe('useCreateBooking — slots held by a tournament match', () => {
+  it('tells the owner a tournament match holds the slot, not an event', async () => {
+    await triggerCreateError(
+      await makeConsumedHttpError(409, {
+        title: 'Conflict',
+        detail: 'the selected time belongs to a tournament match',
+      }),
+    );
+
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.createError, {
+      description: ES_AR.bookings.tournamentMatchSlotTaken,
+    });
+    expect(ES_AR.bookings.tournamentMatchSlotTaken).not.toContain('canchas libres');
+  });
+});
+
 describe('useCreateBooking — slots held by an open-play event', () => {
   it('tells the owner an open-play event holds the slot, in Spanish, whatever the server wrote', async () => {
     await triggerCreateError(

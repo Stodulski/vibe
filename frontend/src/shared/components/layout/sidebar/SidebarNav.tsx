@@ -16,7 +16,15 @@ interface SidebarNavProps {
 // session/product detail routes (T5a: tabs and detail pages under `/cash`
 // with no new sidebar item — "Caja" stays the active nav item on all of
 // them). Every other item matches its own path exactly.
-const PREFIX_MATCHED_ROOTS = ['/settings', '/cash'];
+//
+// `/events/open-play` is the Eventos link's target, but the item owns the whole
+// `/events` section (Canchas libres, Torneos, a tournament's detail).
+const PREFIX_MATCHED_ROOTS = ['/settings', '/cash', '/events'];
+
+/** The root an item's active state is resolved against: its section, or its own path. */
+function activeRootOf(to: string): string {
+  return to.startsWith('/events/') ? '/events' : to;
+}
 
 export function SidebarNav({ isMobile, onNavigate, onPrefetch }: SidebarNavProps) {
   const location = useLocation();
@@ -25,10 +33,12 @@ export function SidebarNav({ isMobile, onNavigate, onPrefetch }: SidebarNavProps
   // merely shares the prefix as text (`/cashflow` starting with `/cash`) — a
   // segment boundary keeps the match to `to` itself or one of its `/`-rooted
   // sub-paths.
-  const isItemActive = (to: string) =>
-    PREFIX_MATCHED_ROOTS.includes(to)
-      ? location.pathname === to || location.pathname.startsWith(`${to}/`)
-      : location.pathname === to;
+  const isItemActive = (to: string) => {
+    const root = activeRootOf(to);
+    return PREFIX_MATCHED_ROOTS.includes(root)
+      ? location.pathname === root || location.pathname.startsWith(`${root}/`)
+      : location.pathname === root;
+  };
 
   return (
     <nav className="flex-1 overflow-x-hidden overflow-y-auto px-3 pt-1" aria-label={t.layout.mainNav}>

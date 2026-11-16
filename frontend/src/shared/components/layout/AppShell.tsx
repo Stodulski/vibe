@@ -63,7 +63,7 @@ export function AppShell({ brand, sidebar, renderMobileSidebar, header, children
           the rail, both matching the sizes those components set themselves. */}
       <main
         id="main-content"
-        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] lg:px-10 lg:py-8 xl:px-14"
+        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] md:pt-4 lg:px-10 lg:pt-4 lg:pb-8 xl:px-14"
       >
         <PageContentWidth>
           <Outlet />

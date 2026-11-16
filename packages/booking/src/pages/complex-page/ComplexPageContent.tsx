@@ -14,6 +14,7 @@ import type {
 } from '../../api/types';
 import { CourtDirectory } from './CourtDirectory';
 import { EventsSection } from '../../components/events/EventsSection';
+import { TournamentsSection } from '../../components/tournaments/TournamentsSection';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
@@ -124,8 +125,6 @@ export function ComplexPageContent({
           narrows the inventory inside one day, and this is the one that says
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
-      <EventsSection slug={complex.slug} />
-
       <div className="mt-6 sm:mt-10">
         <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
       </div>
@@ -135,6 +134,10 @@ export function ComplexPageContent({
         <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
         {challenge}
       </div>
+
+      {/* Events and tournaments come after the booking flow, the main task. */}
+      <EventsSection slug={complex.slug} />
+      <TournamentsSection slug={complex.slug} />
 
       {/* The services and the map come after the booking, where a phone shows
           them, so the markup order is the order a screen reader and the Tab

@@ -32,6 +32,11 @@ async function renderDetail(overrides: Partial<FixedBlock> = {}) {
   return { bookingSeriesApi, onClose };
 }
 
+/** The two cancellations are visible buttons in the pinned footer. */
+async function findAction(name: string) {
+  return screen.findByRole('button', { name });
+}
+
 describe('FixedBlockDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,17 +45,33 @@ describe('FixedBlockDetail', () => {
   it('names the weekly rule, the client, the court and the date', async () => {
     await renderDetail();
 
-    expect(await screen.findByText(t.label('martes', '21:00'))).toBeInTheDocument();
+    expect(await screen.findByText(t.everyWeekdayAt('martes', '21:00'))).toBeInTheDocument();
+    expect(screen.getByText(t.summaryRepeats, { selector: 'p' })).toBeInTheDocument();
     expect(screen.getByText('Ana Gomez')).toBeInTheDocument();
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
 
-  it('"Cancelar solo esta fecha" frees that date and says which', async () => {
+  it('offers both cancellations as visible footer buttons, the series one destructive, with no overflow menu', async () => {
+    await renderDetail();
+
+    await screen.findByText(t.everyWeekdayAt('martes', '21:00'));
+    const one = screen.getByRole('button', { name: t.cancelOne });
+    const series = screen.getByRole('button', { name: t.endFromHere });
+    expect(one).toHaveAttribute('data-variant', 'outline');
+    expect(series).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(one.closest('[data-slot="sheet-footer"]')).toBe(series.closest('[data-slot="sheet-footer"]'));
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+  });
+
+  it('"Cancelar solo esta fecha" frees that date and says which, after confirming', async () => {
     const user = userEvent.setup();
     const { bookingSeriesApi, onClose } = await renderDetail();
     vi.mocked(bookingSeriesApi.skip).mockResolvedValue({ skipped: { date: DATE, reason: 'cancelled_by_owner' } });
 
-    await user.click(await screen.findByRole('button', { name: t.cancelOne }));
+    await user.click(await findAction(t.cancelOne));
+    expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
+    expect(screen.getByText(t.skipConfirmTitle)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: t.skipConfirmLabel }));
 
     await waitFor(() => {
       expect(bookingSeriesApi.skip).toHaveBeenCalledWith('c1', 'ser1', DATE);
@@ -63,7 +84,20 @@ describe('FixedBlockDetail', () => {
   });
 });
 
-describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
+describe('FixedBlockDetail, backing out of freeing a date', () => {
+  it('"Volver" leaves the date held and writes nothing', async () => {
+    const user = userEvent.setup();
+    const { bookingSeriesApi, onClose } = await renderDetail();
+
+    await user.click(await findAction(t.cancelOne));
+    await user.click(screen.getByRole('button', { name: ES_AR.common.back }));
+
+    expect(bookingSeriesApi.skip).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
+  });
+});
+
+describe('FixedBlockDetail, cancelling the whole fixed booking', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
@@ -88,7 +122,7 @@ describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
       kept: [],
     });
 
-    await user.click(await screen.findByRole('button', { name: t.endFromHere }));
+    await user.click(await findAction(t.endFromHere));
     expect(bookingSeriesApi.end).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: t.endConfirmLabel }));
 
@@ -105,7 +139,7 @@ describe('FixedBlockDetail — cancelling the whole fixed booking', () => {
   it('offers no cancellation for a date already in the past', async () => {
     await renderDetail({ date: '2020-01-07' });
 
-    await screen.findByText(t.label('martes', '21:00'));
+    await screen.findByText(t.everyWeekdayAt('martes', '21:00'));
     expect(screen.queryByRole('button', { name: t.cancelOne })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.endFromHere })).not.toBeInTheDocument();
   });

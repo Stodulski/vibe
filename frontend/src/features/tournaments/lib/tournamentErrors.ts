@@ -1,0 +1,93 @@
+import { ES_AR } from '@/shared/i18n/es_AR';
+import { keepTogether } from '@/shared/lib/keepTogether';
+import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
+
+const t = ES_AR.tournaments;
+const c = t.schedule.conflict;
+
+// The API words a 409 in English prose with no code and names the court at the
+// end, so each reason is told apart by its stable lead (the same reading
+// `eventConflictMessage` does for events).
+const REASONS: { match: RegExp; say: (court: string) => string }[] = [
+  { match: /^a fixed weekly booking \(turno fijo\) holds those hours on (.+)$/, say: c.fixed },
+  { match: /^a booking already holds those hours on (.+)$/, say: c.booking },
+  { match: /^those hours are blocked on (.+)$/, say: c.blocked },
+  { match: /^another tournament match already holds those hours on (.+)$/, say: c.match },
+  { match: /^(?:an|another) event already holds those hours on (.+)$/, say: c.event },
+];
+
+/**
+ * What a 409 on scheduling a match says, in Spanish, or `null` when the error is
+ * not one. A reason this build does not know falls back to a general line
+ * rather than showing the server's English.
+ */
+export function scheduleConflictMessage(error: unknown): string | null {
+  if (getHttpStatus(error) !== 409) return null;
+  const detail = getHttpErrorMessage(error, '').trim();
+  for (const { match, say } of REASONS) {
+    const found = match.exec(detail);
+    if (found?.[1]) return say(keepTogether(found[1]));
+  }
+  return c.unknown;
+}
+
+/** Any scheduling failure in Spanish: a conflict names the court, a 422 is a day outside the tournament. */
+export function scheduleErrorMessage(error: unknown): string {
+  const conflict = scheduleConflictMessage(error);
+  if (conflict) return conflict;
+  return getHttpStatus(error) === 422 ? t.schedule.outsideDays : t.schedule.error;
+}
+
+export function resultErrorMessage(error: unknown): string {
+  const e = t.result.apiErrors;
+  switch (getHttpStatus(error)) {
+    case 409:
+      return e.locked;
+    case 422:
+      return e.invalid;
+    case 400:
+      return e.notReady;
+    default:
+      return e.unknown;
+  }
+}
+
+/** The category's group settings and how many pairs the draw took, to say why they do not fit. */
+export interface GroupSettings {
+  pairs: number;
+  groupSize: number;
+  qualifiers: number;
+}
+
+export function drawErrorMessage(error: unknown, settings?: GroupSettings): string {
+  const e = t.draw.errors;
+  switch (getHttpStatus(error)) {
+    case 409:
+      return e.locked;
+    case 400:
+      return e.notEnough;
+    case 422:
+      return settings ? e.settingsWhy(settings.pairs, settings.groupSize, settings.qualifiers) : e.settings;
+    default:
+      return e.unknown;
+  }
+}
+
+/**
+ * Why a court fee charge or undo failed, in Spanish, or `undefined` when the
+ * reason is not one the owner can act on. The API words its 409s in English
+ * prose with no code, so each is told apart by its text, as the schedule
+ * conflicts are; the shared table has already translated the closed cash.
+ */
+export function courtFeeErrorMessage(error: unknown, action: 'charge' | 'undo'): string | undefined {
+  const e = t.courtFee.errors;
+  const status = getHttpStatus(error);
+  if (status === 409) {
+    // The shared server-error table already words a closed cash.
+    if (getHttpErrorMessage(error, '') === ES_AR.validation.server.cashClosed)
+      return ES_AR.validation.server.cashClosed;
+    return action === 'charge' ? e.alreadyCharged : e.notCharged;
+  }
+  if (status === 400 && action === 'charge') return e.notChargeable;
+  return undefined;
+}

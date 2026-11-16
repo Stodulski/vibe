@@ -3,12 +3,14 @@ import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { useSelectedComplex } from '@/features/complex';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useBookingsPage } from './bookings/useBookingsPage';
+import { UnscheduledMatchesNotice } from '../components/UnscheduledMatchesNotice';
 import { BookingContent } from './bookings/BookingContent';
 import { BookingsPageHeader } from './bookings/BookingsPageHeader';
 import { DateNavStrip } from './bookings/DateNavStrip';
 import { BookingsPageModals } from './bookings/BookingsPageModals';
 import { useBlockSlotSection } from './bookings/useBlockSlotSection';
 import { DATE_NAV_SECTION_CLASS } from './bookings/bookingsLayout';
+import { eventBlockPath } from './bookings/eventBlockPath';
 
 const t = ES_AR;
 
@@ -60,6 +62,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
 
       {/* Content */}
       <div>
+        <UnscheduledMatchesNotice complexId={complexId} date={state.selectedDate} />
         <BookingContent
           isLoading={state.isLoading}
           isError={state.isError}
@@ -79,9 +82,8 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           onOpenCreate={state.handleOpenCreate}
           onSelectBlockedSlot={blockSlot.setSelectedSlot}
           onSelectFixedBlock={blockSlot.setSelectedFixedBlock}
-          // Cancelling or reading an event is the events page's job: the block opens it there.
           onSelectEventBlock={(block) => {
-            void navigate(`/open-play?event=${block.event_id}`);
+            void navigate(eventBlockPath(block));
           }}
         />
       </div>

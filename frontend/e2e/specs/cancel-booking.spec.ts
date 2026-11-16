@@ -55,8 +55,7 @@ test.describe('Owner cancels a booking', () => {
     const detailSheet = page.getByRole('dialog').filter({ hasText: 'Reserva' });
     await expect(detailSheet).toBeVisible({ timeout: 5_000 });
 
-    await detailSheet.getByRole('button', { name: 'Más acciones' }).click();
-    await page.getByRole('menuitem', { name: 'Cancelar reserva' }).click();
+    await detailSheet.getByRole('button', { name: 'Cancelar reserva' }).click();
 
     const cancelDialog = page.getByRole('alertdialog');
     await expect(cancelDialog).toBeVisible({ timeout: 5_000 });

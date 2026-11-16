@@ -86,7 +86,7 @@ describe('CourtTable', () => {
     const user = userEvent.setup();
     const props = renderTable([courtWithRange]);
 
-    await user.click(screen.getByRole('button', { name: /más acciones: cancha 1/i }));
+    await user.click(screen.getByRole('button', { name: /más acciones: cancha\s1/i }));
     expect(await screen.findByText('Editar')).toBeInTheDocument();
     expect(screen.getByText('Precios')).toBeInTheDocument();
     expect(screen.getByText('Eliminar')).toBeInTheDocument();
@@ -99,7 +99,7 @@ describe('CourtTable', () => {
     const user = userEvent.setup();
     const props = renderTable([courtWithRange]);
 
-    await user.click(screen.getByRole('button', { name: /más acciones: cancha 1/i }));
+    await user.click(screen.getByRole('button', { name: /más acciones: cancha\s1/i }));
     await user.click(await screen.findByText('Precios'));
 
     expect(props.onPrices).toHaveBeenCalledWith(expect.objectContaining({ id: 'ct1' }));

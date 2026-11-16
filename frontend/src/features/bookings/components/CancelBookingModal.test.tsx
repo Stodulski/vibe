@@ -57,7 +57,7 @@ describe('CancelBookingModal', () => {
 
   it('disables buttons when loading', () => {
     render(<CancelBookingModal {...defaultProps} isLoading />);
-    expect(screen.getByRole('button', { name: /cancelar$/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /volver$/i })).toBeDisabled();
     expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toBeDisabled();
   });
 
@@ -70,5 +70,13 @@ describe('CancelBookingModal', () => {
     rerender(<CancelBookingModal {...defaultProps} booking={bookingB} open />);
 
     expect(screen.getByPlaceholderText(/motivo de la cancelaci.n/i)).toHaveValue('');
+  });
+
+  it('confirms with the destructive variant', () => {
+    render(<CancelBookingModal {...defaultProps} />);
+    expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
   });
 });

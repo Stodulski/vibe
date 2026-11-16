@@ -382,6 +382,9 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 			if b.Fixed {
 				return nil, courtstore.ErrSlotHeldByFixedBooking
 			}
+			if b.Match {
+				return nil, courtstore.ErrSlotHeldByMatch
+			}
 			if b.Event {
 				return nil, courtstore.ErrSlotHeldByEvent
 			}
@@ -440,15 +443,42 @@ func (s *Service) ListBlockedSlots(ctx context.Context, complexID uuid.UUID, dat
 // ListFixedBlocks returns the dates fixed weekly bookings hold over a date
 // range that have no booking yet, for the owner's calendar to draw beside the
 // blocked slots. They block like one but belong to their series.
+//
+// The store returns an occurrence under its start date, so the read starts a day
+// early and keeps what still runs at the range's first midnight: the tail of an
+// occurrence that started the evening before belongs to the first day.
 func (s *Service) ListFixedBlocks(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]bookingstore.SeriesOccurrence, error) {
-	return s.bookings.ComplexSeriesOccurrences(ctx, complexID, dateFrom, dateTo)
+	occs, err := s.bookings.ComplexSeriesOccurrences(ctx, complexID, dateFrom.AddDate(0, 0, -1), dateTo)
+	if err != nil {
+		return nil, err
+	}
+	dayStart := timezone.Day(dateFrom)
+	out := make([]bookingstore.SeriesOccurrence, 0, len(occs))
+	for _, o := range occs {
+		if o.EndsAt.After(dayStart) {
+			out = append(out, o)
+		}
+	}
+	return out, nil
 }
 
 // ListEventBlocks returns the hours open-play events hold over a date range, for
 // the owner's calendar to draw beside the blocked slots. They block like one but
-// belong to their event.
+// belong to their event. Like ListFixedBlocks it keeps the tails of events that
+// started the evening before the range.
 func (s *Service) ListEventBlocks(ctx context.Context, complexID uuid.UUID, dateFrom, dateTo time.Time) ([]bookingstore.EventOccupancy, error) {
-	return s.bookings.ComplexEventOccupancies(ctx, complexID, dateFrom, dateTo)
+	occs, err := s.bookings.ComplexEventOccupancies(ctx, complexID, dateFrom.AddDate(0, 0, -1), dateTo)
+	if err != nil {
+		return nil, err
+	}
+	dayStart := timezone.Day(dateFrom)
+	out := make([]bookingstore.EventOccupancy, 0, len(occs))
+	for _, o := range occs {
+		if o.EndsAt.After(dayStart) {
+			out = append(out, o)
+		}
+	}
+	return out, nil
 }
 
 // GetBlockedSlotsByComplex returns every court's blocked slots over a date

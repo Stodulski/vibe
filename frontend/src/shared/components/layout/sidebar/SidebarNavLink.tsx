@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { cn } from '@/shared/lib/utils';
 
 interface NavItem {
@@ -14,10 +14,14 @@ interface SidebarNavLinkProps {
   onMouseEnter?: () => void;
 }
 
-/** Every width shows the label alone (owner request: name every part, no icons). */
+/**
+ * `Link`, not `NavLink`: the active state comes from the section the item owns
+ * (`isActive`), which `NavLink` cannot know for Eventos (its link targets one tab).
+ * Every width shows the label alone (owner request: name every part, no icons).
+ */
 export function SidebarNavLink({ item, isActive, isMobile, onNavigate, onMouseEnter }: SidebarNavLinkProps) {
   return (
-    <NavLink
+    <Link
       to={item.to}
       onClick={onNavigate}
       onMouseEnter={onMouseEnter}
@@ -33,6 +37,6 @@ export function SidebarNavLink({ item, isActive, isMobile, onNavigate, onMouseEn
       )}
     >
       <span className="min-w-0 truncate">{item.label}</span>
-    </NavLink>
+    </Link>
   );
 }

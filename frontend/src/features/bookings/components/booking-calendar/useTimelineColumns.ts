@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 
 export interface TimelineColumnData {
   courtId: string;
@@ -7,7 +7,7 @@ export interface TimelineColumnData {
   bookings: Booking[];
   blocked: BlockedSlot[];
   fixed: FixedBlock[];
-  event: EventBlock[];
+  event: CourtEventBlock[];
 }
 
 /**
@@ -28,7 +28,7 @@ export function useTimelineColumns({
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
-  eventBlocks: EventBlock[];
+  eventBlocks: CourtEventBlock[];
 }): TimelineColumnData[] {
   return useMemo(() => {
     const columns: TimelineColumnData[] = activeCourts.map((court) => ({

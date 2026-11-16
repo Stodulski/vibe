@@ -27,7 +27,7 @@ export function PageHeader({ title, description, action }: PageHeaderProps) {
   return (
     <div className={cn(PAGE_HEADER_CLASS, !action && 'md:hidden')}>
       <div className="min-w-0 md:hidden">
-        <h1 className="font-display text-text-primary truncate text-xl leading-tight font-semibold tracking-tight sm:text-2xl">
+        <h1 className="font-display text-text-primary truncate text-xl leading-tight font-semibold sm:text-2xl">
           {title}
         </h1>
         {description && <p className="text-text-tertiary mt-1 truncate text-sm whitespace-nowrap">{description}</p>}

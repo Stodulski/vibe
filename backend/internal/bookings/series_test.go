@@ -36,7 +36,7 @@ type stubSeries struct {
 
 func dateKey(id uuid.UUID, d time.Time) string { return id.String() + "|" + d.Format(time.DateOnly) }
 
-func (s *stubSeries) InsertSeries(_ context.Context, ser *bookingstore.Series, exceptions []bookingstore.SeriesException) error {
+func (s *stubSeries) InsertSeriesWithBookings(ctx context.Context, ser *bookingstore.Series, exceptions []bookingstore.SeriesException, moved []*bookingstore.Booking) error {
 	if s.insertErr != nil {
 		return s.insertErr
 	}
@@ -46,6 +46,21 @@ func (s *stubSeries) InsertSeries(_ context.Context, ser *bookingstore.Series, e
 	for _, e := range exceptions {
 		reason := e.Reason
 		s.dates[dateKey(ser.ID, e.Date)] = bookingstore.SeriesDate{Date: e.Date, Outcome: bookingstore.SeriesDateException, Reason: &reason}
+	}
+	inserted := len(s.store.inserted)
+	for _, b := range moved {
+		b.SeriesID = &ser.ID
+		if err := s.store.InsertSafeWithPayment(ctx, b, nil); err != nil {
+			// The real store writes the series and its bookings in one transaction.
+			delete(s.series, ser.ID)
+			for k := range s.dates {
+				if strings.HasPrefix(k, ser.ID.String()) {
+					delete(s.dates, k)
+				}
+			}
+			s.store.inserted = s.store.inserted[:inserted]
+			return err
+		}
 	}
 	return nil
 }
@@ -175,7 +190,7 @@ func newSeriesFixture(t *testing.T) *seriesFx {
 		start := slots.At(timezone.Day(b.Date), b.StartTime)
 		end := start.Add(time.Duration(b.DurationMinutes) * time.Minute)
 		for _, sp := range f.store.booked {
-			if slots.OverlapAt(start, end, sp.StartsAt, sp.EndsAt) {
+			if sp.CourtID == b.CourtID && slots.OverlapAt(start, end, sp.StartsAt, sp.EndsAt) {
 				return bookingstore.ErrDuplicateBooking
 			}
 		}
@@ -538,6 +553,28 @@ func TestTheOwnerCannotBookHoursAFixedBookingHoldsButCanOnceTheDateIsSkipped(t *
 	}
 	if w := f.ownerBook(t, months, "18:00"); w.Code != http.StatusCreated {
 		t.Errorf("a skipped date is free again; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// The owner is told which kind of thing holds the hours: an open-play event or
+// a tournament match each have their own sentence, and the way out differs.
+func TestTheOwnerIsToldWhetherAnEventOrAMatchHoldsTheHours(t *testing.T) {
+	for _, tc := range []struct{ kind, want, notWant string }{
+		{bookingstore.OccupancyEvent, "open-play event (canchas libres)", "tournament match"},
+		{bookingstore.OccupancyMatch, "tournament match", "canchas libres"},
+	} {
+		f := newSeriesFixture(t)
+		date := f.day(3)
+		f.store.eventsFn = func(_ *uuid.UUID, _ []uuid.UUID, _, _ time.Time) []bookingstore.EventOccupancy {
+			return []bookingstore.EventOccupancy{{
+				EventID: uuid.New(), ComplexID: f.complexID, CourtID: f.courtID, Date: date, Kind: tc.kind,
+				StartsAt: slots.At(timezone.Day(date), "18:00"), EndsAt: slots.At(timezone.Day(date), "19:30"),
+			}}
+		}
+		w := f.ownerBook(t, date, "18:00")
+		if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), tc.want) || strings.Contains(w.Body.String(), tc.notWant) {
+			t.Errorf("%s: want 409 naming %q and not %q; got %d (%s)", tc.kind, tc.want, tc.notWant, w.Code, w.Body.String())
+		}
 	}
 }
 
@@ -942,5 +979,45 @@ func TestGetSeriesComputesTheNextDatesFromTheRuleWithTheirState(t *testing.T) {
 	}
 	if _, stored := body["skipped"]; stored {
 		t.Error("the detail has no skipped list any more")
+	}
+}
+
+// The conflicts say what holds each date, so the owner knows what to move.
+func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
+	f := newSeriesFixture(t)
+	first := f.day(3)
+	span := func(week int, flags bookingstore.BookedSpan) bookingstore.BookedSpan {
+		start := slots.At(timezone.Day(first.AddDate(0, 0, 7*week)), "18:00")
+		flags.CourtID, flags.StartsAt, flags.EndsAt = f.courtID, start, start.Add(90*time.Minute)
+		return flags
+	}
+	f.store.booked = append(f.store.booked,
+		span(1, bookingstore.BookedSpan{}),
+		span(2, bookingstore.BookedSpan{Fixed: true}),
+		span(3, bookingstore.BookedSpan{Event: true}),
+		span(4, bookingstore.BookedSpan{Event: true, Match: true}),
+	)
+	w := f.create(t, first, "")
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d (%s)", w.Code, w.Body.String())
+	}
+	var problem struct {
+		Conflicts []struct {
+			Date   string `json:"date"`
+			HeldBy string `json:"held_by"`
+		}
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &problem); err != nil {
+		t.Fatal(err)
+	}
+	got := map[string]string{}
+	for _, c := range problem.Conflicts {
+		got[c.Date] = c.HeldBy
+	}
+	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match"} {
+		date := first.AddDate(0, 0, 7*week).Format(time.DateOnly)
+		if got[date] != want {
+			t.Errorf("week %d held_by = %q, want %q (all: %+v)", week, got[date], want, got)
+		}
 	}
 }

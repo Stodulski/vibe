@@ -1,12 +1,11 @@
 import { Skeleton } from '@/shared/components/ui/skeleton';
-import { SERIES_LABEL_ROW } from './seriesLabelLayout';
 
-/** Placeholder for `BookingSeriesLabel`: same row height, a short line where the text will be. */
+/** Placeholder for `BookingSeriesLabel`: a label line over a value line, like an `InfoRow`. */
 export function BookingSeriesLabelSkeleton() {
   return (
-    <div className={SERIES_LABEL_ROW} aria-hidden="true">
-      <Skeleton className="size-4 shrink-0 rounded" />
-      <Skeleton className="h-4 w-56 max-w-full rounded" />
+    <div className="space-y-1" aria-hidden="true">
+      <Skeleton className="h-3 w-16 rounded" />
+      <Skeleton className="h-5 w-56 max-w-full rounded" />
     </div>
   );
 }

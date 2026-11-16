@@ -2,6 +2,9 @@ import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { server } from '../../test/msw/server';
+import { EVENT } from '../../test/eventFixtures';
 import { createBookingWrapper, renderBooking } from '../../test/booking';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicComplex } from '../../api/types';
@@ -138,5 +141,16 @@ describe('ComplexPageContent placement of the services', () => {
 
     expect(phone).toBeDefined();
     expect(follows(phone, services)).toBe(true);
+  });
+});
+
+describe('ComplexPageContent events', () => {
+  it('lists the events after the booking flow, not before it', async () => {
+    server.use(http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })));
+    renderBooking(<ComplexPageContent {...baseProps} />);
+
+    const events = await screen.findByRole('heading', { level: 2, name: BOOKING_MESSAGES.events.sectionTitle });
+    const dates = screen.getByRole('radiogroup', { name: BOOKING_MESSAGES.publicBooking.dateStripLabel });
+    expect(follows(dates, events)).toBe(true);
   });
 });

@@ -4,8 +4,8 @@
     "date": "2026-10-11"
   },
   "cuanto-cuesta-un-sistema-de-reservas-para-canchas": {
-    "hash": "05bf7ba5586d6511",
-    "date": "2026-10-11"
+    "hash": "52f6346db27efc2b",
+    "date": "2026-11-14"
   },
   "como-llenar-los-horarios-vacios-de-un-complejo": {
     "hash": "4402fc16c839f651",
@@ -28,8 +28,8 @@
     "date": "2026-09-25"
   },
   "tutorial:reportes-de-facturacion": {
-    "hash": "32b6273e4111c494",
-    "date": "2026-09-25"
+    "hash": "59a28752f2d9acdc",
+    "date": "2026-11-14"
   },
   "tutorial:configuracion-del-complejo": {
     "hash": "cb63a61cd80885c7",
@@ -52,8 +52,8 @@
     "date": "2026-09-25"
   },
   "tutorial:ingresos-egresos-y-anulaciones": {
-    "hash": "0abf930b15940408",
-    "date": "2026-09-25"
+    "hash": "004629b124576fdf",
+    "date": "2026-11-14"
   },
   "tutorial:vender-desde-el-mostrador": {
     "hash": "2ca7af465ad5506e",
@@ -64,7 +64,7 @@
     "date": "2026-09-25"
   },
   "tutorial:cobrar-una-reserva-en-el-mostrador": {
-    "hash": "4a30cb67f3340c0f",
-    "date": "2026-10-08"
+    "hash": "44598a413e7cb711",
+    "date": "2026-11-14"
   }
 }

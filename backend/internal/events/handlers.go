@@ -14,6 +14,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/pricing"
+	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -24,6 +25,9 @@ type Handler struct {
 	svc            *Service
 	respond        *httpx.Refuser
 	trustedProxies httpx.TrustedProxies
+	// gate is the booking hold's bot check, asked before a spot is held. Nil
+	// lets every sign-up through.
+	gate *turnstile.Gate
 }
 
 // refusals maps the sentinels the service raises onto HTTP.
@@ -38,8 +42,8 @@ var refusals = httpx.Refusals{
 }
 
 // NewHandler returns a Handler backed by the given service.
-func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies) *Handler {
-	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustedProxies: trustedProxies}
+func NewHandler(svc *Service, respond *httpx.Responder, trustedProxies httpx.TrustedProxies, gate *turnstile.Gate) *Handler {
+	return &Handler{svc: svc, respond: respond.WithRefusals(refusals), trustedProxies: trustedProxies, gate: gate}
 }
 
 func (h *Handler) actor(r *http.Request) Actor {
@@ -107,7 +111,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
 		return
 	}
-	from, to, err := parseDateRange(r.URL.Query())
+	from, to, err := ParseDateRange(r.URL.Query())
 	if err != nil {
 		h.respond.BadRequest(w, r, err)
 		return
@@ -120,9 +124,9 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"events": toGenEvents(events)})
 }
 
-// parseDateRange reads date_from and date_to, both required, at most 366 days
+// ParseDateRange reads date_from and date_to, both required, at most 366 days
 // apart: the same range rule the blocked-slot calendar applies.
-func parseDateRange(qs url.Values) (from, to time.Time, err error) {
+func ParseDateRange(qs url.Values) (from, to time.Time, err error) {
 	fromStr, toStr := httpx.ReadString(qs, "date_from", ""), httpx.ReadString(qs, "date_to", "")
 	if fromStr == "" || toStr == "" {
 		return from, to, fmt.Errorf("date_from and date_to query parameters are required")
@@ -250,6 +254,10 @@ func (h *Handler) PublicSignUp(w http.ResponseWriter, r *http.Request) {
 		h.respond.FailedValidation(w, r, errs)
 		return
 	}
+	// The bot check runs before anything is held: a refused token costs nothing.
+	if !h.gate.Check(w, r, deref(input.TurnstileToken)) {
+		return
+	}
 
 	result, err := h.svc.SignUp(r.Context(), h.actor(r), httpx.ReadStringParam(r, "slug"), eventID, in)
 	if err != nil {
@@ -347,4 +355,12 @@ func (h *Handler) PublicRegistrationCancel(w http.ResponseWriter, r *http.Reques
 		"refunded":     result.Outcome.MoneyReturned(),
 		"refund":       bookings.RefundEnvelope(result.Outcome),
 	})
+}
+
+// deref reads an optional string field, empty when it was left out.
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }

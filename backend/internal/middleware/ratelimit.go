@@ -176,7 +176,7 @@ func ceilingsFor(r *http.Request) []int {
 		return generalAndBook
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book/holds":
 		return generalAndHold
-	case isEventSignUp(r):
+	case isEventSignUp(r), isPairSignUp(r):
 		return generalAndHold
 	default:
 		return generalOnly
@@ -614,4 +614,17 @@ func (m *Middleware) RateLimitUser(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isPairSignUp reports whether the request is a tournament pair sign-up,
+// POST /api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs.
+// It takes a hold like an event sign-up does, so it shares the `hold` ceiling.
+func isPairSignUp(r *http.Request) bool {
+	const prefix, suffix = "/api/v1/public/complexes/", "/pairs"
+	path := r.URL.Path
+	if r.Method != http.MethodPost || !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return false
+	}
+	// {slug}/tournaments/{id}/categories/{id}: exactly five segments between the prefix and the suffix.
+	return strings.Count(strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix), "/") == 4
 }

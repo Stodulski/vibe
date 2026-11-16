@@ -34,7 +34,7 @@ describe('MPConnectStepContainer', () => {
       </MemoryRouter>,
     );
     expect(useMPConnectMock).toHaveBeenCalledWith('c1', { refetchInterval: 3000 });
-    expect(screen.getByText('Conectar MercadoPago')).toBeInTheDocument();
+    expect(screen.getByText('Conectar Mercado Pago')).toBeInTheDocument();
   });
 
   it('completes onboarding once the status flips from disconnected to connected', () => {

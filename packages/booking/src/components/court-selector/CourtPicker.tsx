@@ -3,6 +3,7 @@ import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { courtFactsLine } from '../../lib/courtFacts';
 import type { CourtAtTime, TimeOption } from './timeOptions';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 
@@ -45,7 +46,7 @@ function CourtCard({ entry, isSelected, onSelect }: CourtCardProps) {
       {/* One line, cut with an ellipsis: a long name must not stretch its
           whole grid row. `title` keeps the full name a hover away. */}
       <span className={cn('w-full truncate text-sm font-semibold', emphasis)} title={court.court_name}>
-        {court.court_name}
+        {keepTogether(court.court_name)}
       </span>
       <span className="text-text-tertiary w-full truncate text-xs" title={courtFactsLine(court)}>
         {SPORT_LABELS[court.sport] ?? court.sport} · {courtFactsLine(court)}

@@ -11,10 +11,16 @@ export const courts = {
   name: 'Nombre',
   sport: 'Deporte',
   courtType: 'Tipo de cancha',
+  deactivateTitle: (name: string) => `¿Desactivar ${name}?`,
+  deactivateConfirm:
+    'Deja de aparecer en la reserva online y en la grilla, y no se le pueden cargar reservas nuevas. Las reservas que ya tiene no se cancelan y siguen vigentes.',
+  deactivate: 'Desactivar',
   active: 'Activa',
   inactive: 'Inactiva',
   prices: 'Precios',
   noPrices: 'Sin precios configurados',
+  // Where a price column has no figure to show.
+  noPrice: 'Sin precio',
   duration: 'Duración',
   dayType: 'Tipo de día',
   price: 'Precio',
@@ -23,6 +29,8 @@ export const courts = {
   block: 'Bloquear horario',
   blockDescription: 'Bloquea un horario para que no se pueda reservar',
   blockReason: 'Motivo (opcional)',
+  /** The same field read-only, where "opcional" has no meaning. */
+  blockReasonRead: 'Motivo',
   blockSuccess: 'Horario bloqueado',
   blockDate: 'Fecha',
   blockStartTime: 'Hora inicio',

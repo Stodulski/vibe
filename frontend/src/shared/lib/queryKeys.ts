@@ -40,6 +40,13 @@ export const queryKeys = {
       ['events', complexId, 'list', dateFrom, dateTo] as const,
     detail: (complexId: string, eventId: string) => ['events', complexId, 'detail', eventId] as const,
   },
+  // Tournaments: same shape as events, so invalidating the lists never clears a detail by prefix.
+  tournaments: {
+    base: (complexId: string) => ['tournaments', complexId] as const,
+    list: (complexId: string, dateFrom: string, dateTo: string) =>
+      ['tournaments', complexId, 'list', dateFrom, dateTo] as const,
+    detail: (complexId: string, tournamentId: string) => ['tournaments', complexId, 'detail', tournamentId] as const,
+  },
   clients: {
     byComplex: (complexId: string) => ['clients', complexId] as const,
     detail: (complexId: string, clientId: string) => ['clients', complexId, clientId] as const,

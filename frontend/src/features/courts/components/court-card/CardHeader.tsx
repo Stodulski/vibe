@@ -2,6 +2,7 @@ import { Switch } from '@/shared/components/ui/switch';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { courtDetailsLine } from '../../lib/courtDetails';
 import type { CourtWithPrices } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -17,7 +18,7 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">
-          <h3 className="text-text-primary truncate text-base font-semibold">{court.name}</h3>
+          <h3 className="text-text-primary truncate text-base font-semibold">{keepTogether(court.name)}</h3>
           {/* The switch alone. The word beside it said what the knob's own
               position already says, twelve times over on a full grid — and the
               accessible name still spells the state out for anyone reading the
@@ -27,7 +28,7 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
             checked={court.is_active}
             onCheckedChange={onToggleActive}
             disabled={isTogglePending}
-            aria-label={`${court.name}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
+            aria-label={`${keepTogether(court.name)}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
           />
         </div>
         {/*

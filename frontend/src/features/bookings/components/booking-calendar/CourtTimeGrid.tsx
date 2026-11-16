@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { occupiesCourt } from '@/shared/lib/courtOccupancy';
 import { getNowMinutesInBuenosAires } from './nowIndicator';
 import { useTimelineColumns } from './useTimelineColumns';
 import { useColumnScroller } from './useColumnScroller';
@@ -10,7 +11,7 @@ import { GridBody } from './GridBody';
 import { GridHourGutter } from './GridHourGutter';
 import { GUTTER_CLASS, HEADER_HEIGHT_PX } from './gridLayout';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
-import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtWithPrices, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 
 /**
@@ -29,7 +30,7 @@ interface CourtTimeGridProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
-  eventBlocks: EventBlock[];
+  eventBlocks: CourtEventBlock[];
   activeCourts: CourtWithPrices[];
   date: string;
   slots: string[];
@@ -37,18 +38,19 @@ interface CourtTimeGridProps {
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 /**
  * A block means "this court is taken", so the rule is exactly the one
- * `isSlotOccupied` uses for free slots: everything but a cancellation. Any
+ * `isSlotOccupied` uses for free slots (`occupiesCourt`): everything but a
+ * cancellation or a no-show. Any
  * other filter here would let a slot show as free while a booking still
  * holds it — or the reverse — with the two disagreeing on the same screen.
  */
 function useGridColumns(input: Parameters<typeof useTimelineColumns>[0]) {
   const { bookings } = input;
-  const occupyingBookings = useMemo(() => bookings.filter((b) => b.status !== 'cancelled'), [bookings]);
+  const occupyingBookings = useMemo(() => bookings.filter(occupiesCourt), [bookings]);
   return useTimelineColumns({ ...input, bookings: occupyingBookings });
 }
 

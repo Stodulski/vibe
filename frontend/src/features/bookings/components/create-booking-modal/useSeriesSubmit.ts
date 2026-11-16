@@ -6,10 +6,12 @@ import type { CreateBookingDto } from '../../schemas/booking.schema';
 import type { SeriesOptions } from './useSeriesOptions';
 import type { BookingSeriesConflict, CreateBookingSeriesRequest } from '@/shared/types/api.types';
 
+type DateCourt = NonNullable<CreateBookingSeriesRequest['date_courts']>[number];
+
 /**
- * Sends the create-booking form as a weekly series, and keeps what the
- * "create skipping these dates" retry needs: the request the server refused
- * and the dates it named. The dates live in state of their own (not read off
+ * Sends the create-booking form as a weekly series, and keeps what the retry
+ * needs: the request the server refused and the dates it named, each with the
+ * courts free that day. The dates live in state of their own (not read off
  * the mutation's error) so the list stays on screen while the retry is in
  * flight instead of blinking back to the form.
  */
@@ -36,8 +38,17 @@ export function useSeriesSubmit(complexId: string, series: SeriesOptions) {
       setConflicts([]);
       send(buildSeriesPayload(data, series.toEnd()), onDone);
     },
-    submitSkippingConflicts: (onDone: () => void) => {
-      if (lastRequest.current) send({ ...lastRequest.current, skip_conflicts: true }, onDone);
+    /**
+     * Sends the refused series again, on the same court: the dates in
+     * `dateCourts` are booked on the court picked for them, every other
+     * refused date is left out.
+     */
+    submitWithChoices: (dateCourts: DateCourt[], onDone: () => void) => {
+      if (!lastRequest.current) return;
+      send(
+        { ...lastRequest.current, skip_conflicts: true, ...(dateCourts.length > 0 ? { date_courts: dateCourts } : {}) },
+        onDone,
+      );
     },
     dismissConflicts: () => {
       setConflicts([]);

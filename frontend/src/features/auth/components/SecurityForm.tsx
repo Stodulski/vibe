@@ -33,48 +33,48 @@ export function SecurityForm() {
   const mutation = useChangePassword();
 
   return (
-    <form
-      onSubmit={submitHandler(form.handleSubmit, (d) => {
-        mutation.mutate(d);
-      })}
-      className="max-w-xl space-y-4"
-    >
-      <div className="space-y-1.5">
-        <Label htmlFor="current_password" className="text-xs">
-          {t.auth.currentPassword}
-        </Label>
-        <Input id="current_password" type="password" {...form.register('current_password')} />
-        {form.formState.errors.current_password && (
-          <p className="text-error-text text-xs">{form.formState.errors.current_password.message}</p>
-        )}
-      </div>
-      <div className="grid gap-4 sm:grid-cols-2">
+    <>
+      <form
+        onSubmit={submitHandler(form.handleSubmit, (d) => {
+          mutation.mutate(d);
+        })}
+        className="max-w-xl space-y-4"
+      >
         <div className="space-y-1.5">
-          <Label htmlFor="new_password" className="text-xs">
-            {t.auth.newPassword}
+          <Label htmlFor="current_password" className="text-xs">
+            {t.auth.currentPassword}
           </Label>
-          <Input id="new_password" type="password" {...form.register('new_password')} />
-          {form.formState.errors.new_password && (
-            <p className="text-error-text text-xs">{form.formState.errors.new_password.message}</p>
+          <Input id="current_password" type="password" {...form.register('current_password')} />
+          {form.formState.errors.current_password && (
+            <p className="text-error-text text-xs">{form.formState.errors.current_password.message}</p>
           )}
         </div>
-        <div className="space-y-1.5">
-          <Label htmlFor="confirm_password" className="text-xs">
-            {t.auth.confirmNewPassword}
-          </Label>
-          <Input id="confirm_password" type="password" {...form.register('confirm_password')} />
-          {form.formState.errors.confirm_password && (
-            <p className="text-error-text text-xs">{form.formState.errors.confirm_password.message}</p>
-          )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="new_password" className="text-xs">
+              {t.auth.newPassword}
+            </Label>
+            <Input id="new_password" type="password" {...form.register('new_password')} />
+            {form.formState.errors.new_password && (
+              <p className="text-error-text text-xs">{form.formState.errors.new_password.message}</p>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="confirm_password" className="text-xs">
+              {t.auth.confirmNewPassword}
+            </Label>
+            <Input id="confirm_password" type="password" {...form.register('confirm_password')} />
+            {form.formState.errors.confirm_password && (
+              <p className="text-error-text text-xs">{form.formState.errors.confirm_password.message}</p>
+            )}
+          </div>
         </div>
+        <p className="text-micro text-text-tertiary">{t.profile.passwordHint}</p>
+        <SectionFooter submitLabel={t.auth.changePassword} pending={mutation.isPending} align="start" />
+      </form>
+      <div className="mt-10">
+        <DeleteAccountSection />
       </div>
-      <p className="text-micro text-text-tertiary">{t.profile.passwordHint}</p>
-      <SectionFooter
-        submitLabel={t.auth.changePassword}
-        pending={mutation.isPending}
-        align="start"
-        extra={<DeleteAccountSection />}
-      />
-    </form>
+    </>
   );
 }

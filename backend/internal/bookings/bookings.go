@@ -29,6 +29,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/turnstile"
 )
 
 // Store is the booking persistence this module uses.
@@ -50,6 +51,9 @@ type Store interface {
 	// carries the updated_at the caller read, and answers data.ErrEditConflict
 	// when it does not.
 	UpdateIfUnchanged(ctx context.Context, b *bookingstore.Booking) error
+	// MarkAttended stamps attendance on a finished booking and reports whether
+	// this call wrote it; false means the row no longer qualified.
+	MarkAttended(ctx context.Context, complexID, bookingID uuid.UUID) (bool, error)
 
 	// The scheduled sweeps.
 	GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]*bookingstore.CronBooking, error)
@@ -105,6 +109,9 @@ type ComplexReader interface {
 // sells hours the storefront has already withdrawn.
 type CourtReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*courtstore.Court, error)
+	// GetByComplex lists the complex's courts, which a refused series searches
+	// for another court that fits its dates.
+	GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*courtstore.Court, error)
 	GetPrices(ctx context.Context, courtID uuid.UUID) ([]*courtstore.CourtPrice, error)
 	GetBlockedSlots(ctx context.Context, courtID uuid.UUID, date time.Time) ([]*courtstore.BlockedSlot, error)
 	// GetBlockedSlotsByComplex is the same read over a range of dates for every
@@ -306,15 +313,14 @@ type Handler struct {
 	// over the request, so they are an HTTP concern and are checked here,
 	// before anything reaches the service.
 	whatsapp WhatsAppVerifier
-	// turnstile and enforceTurnstile guard POST /book against bots. Both
-	// halves are needed: the flag is the operator's opt-in
-	// (TURNSTILE_BOOKING_ENFORCE), and a verifier that is nil or not Enabled
-	// (no TURNSTILE_SECRET_KEY) means no check, whatever the flag says.
-	turnstile        TurnstileVerifier
-	enforceTurnstile bool
-	respond          *httpx.Refuser
-	logger           *slog.Logger
-	trustedProxies   httpx.TrustedProxies
+	// gate guards POST /book and POST /book/holds against bots. Both halves
+	// are needed: the flag is the operator's opt-in (TURNSTILE_BOOKING_ENFORCE),
+	// and a verifier that is nil or not Enabled (no TURNSTILE_SECRET_KEY) means
+	// no check, whatever the flag says. The open-play sign-ups ask the same rule.
+	gate           *turnstile.Gate
+	respond        *httpx.Refuser
+	logger         *slog.Logger
+	trustedProxies httpx.TrustedProxies
 }
 
 // refusals is this module's whole error-to-status table: every domain error of
@@ -345,19 +351,18 @@ var refusals = httpx.Refusals{
 
 // NewHandler returns a Handler backed by the given service.
 //
-// turnstile may be nil: that, like enforceTurnstile false, leaves PublicBook
+// verifier may be nil: that, like enforceTurnstile false, leaves PublicBook
 // exactly as it was before the storefront bot check existed.
-func NewHandler(svc *Service, whatsapp WhatsAppVerifier, turnstile TurnstileVerifier, enforceTurnstile bool,
+func NewHandler(svc *Service, whatsapp WhatsAppVerifier, verifier TurnstileVerifier, enforceTurnstile bool,
 	respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies,
 ) *Handler {
 	return &Handler{
-		svc:              svc,
-		whatsapp:         whatsapp,
-		turnstile:        turnstile,
-		enforceTurnstile: enforceTurnstile,
-		respond:          respond.WithRefusals(refusals),
-		logger:           logger,
-		trustedProxies:   trustedProxies,
+		svc:            svc,
+		whatsapp:       whatsapp,
+		gate:           turnstile.NewGate(verifier, enforceTurnstile, respond, logger, trustedProxies),
+		respond:        respond.WithRefusals(refusals),
+		logger:         logger,
+		trustedProxies: trustedProxies,
 	}
 }
 

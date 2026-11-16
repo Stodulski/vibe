@@ -338,6 +338,12 @@ func (s *apiServer) BookingsConfirmPayment(w http.ResponseWriter, r *http.Reques
 	s.app.bookings.ConfirmPayment(w, r)
 }
 
+// BookingsMarkAttended implements gen.ServerInterface for bookingsMarkAttended
+// (POST /api/v1/complexes/{id}/bookings/{bookingID}/attended). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsMarkAttended(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID) {
+	s.app.bookings.MarkAttended(w, r)
+}
+
 // BookingsManualRefund implements gen.ServerInterface for bookingsManualRefund
 // (POST /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsManualRefund(w http.ResponseWriter, r *http.Request, id gen.PathID, bookingID gen.BookingID, params gen.BookingsManualRefundParams) {
@@ -790,4 +796,112 @@ func stringValue(p *string) string {
 		return ""
 	}
 	return *p
+}
+
+// TournamentsList implements gen.ServerInterface for tournamentsList
+// (GET /api/v1/complexes/{id}/tournaments). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsList(w http.ResponseWriter, r *http.Request, id gen.PathID, params gen.TournamentsListParams) {
+	s.app.tournaments.List(w, r)
+}
+
+// TournamentsCreate implements gen.ServerInterface for tournamentsCreate
+// (POST /api/v1/complexes/{id}/tournaments). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsCreate(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.tournaments.Create(w, r)
+}
+
+// TournamentsGet implements gen.ServerInterface for tournamentsGet
+// (GET /api/v1/complexes/{id}/tournaments/{tournamentID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsGet(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID) {
+	s.app.tournaments.Get(w, r)
+}
+
+// TournamentsCancel implements gen.ServerInterface for tournamentsCancel
+// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/cancel). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsCancel(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID) {
+	s.app.tournaments.Cancel(w, r)
+}
+
+// TournamentsCategoryCancel implements gen.ServerInterface for tournamentsCategoryCancel
+// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsCategoryCancel(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.CancelCategory(w, r)
+}
+
+// TournamentsDrawGenerate implements gen.ServerInterface for tournamentsDrawGenerate
+// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsDrawGenerate(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.GenerateDraw(w, r)
+}
+
+// TournamentsDrawMove implements gen.ServerInterface for tournamentsDrawMove
+// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsDrawMove(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.MovePair(w, r)
+}
+
+// TournamentsCategoryCourtFee implements gen.ServerInterface for tournamentsCategoryCourtFee
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsCategoryCourtFee(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.SetCourtFee(w, r)
+}
+
+// TournamentsMatchCourtFeeCharge implements gen.ServerInterface for tournamentsMatchCourtFeeCharge
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchCourtFeeCharge(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID, side gen.TournamentsMatchCourtFeeChargeParamsSide) {
+	s.app.tournaments.ChargeCourtFee(w, r)
+}
+
+// TournamentsMatchCourtFeeUndo implements gen.ServerInterface for tournamentsMatchCourtFeeUndo
+// (DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchCourtFeeUndo(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID, side gen.TournamentsMatchCourtFeeUndoParamsSide) {
+	s.app.tournaments.UndoCourtFee(w, r)
+}
+
+// TournamentsMatchResult implements gen.ServerInterface for tournamentsMatchResult
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchResult(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID) {
+	s.app.tournaments.SetResult(w, r)
+}
+
+// TournamentsMatchUnschedule implements gen.ServerInterface for tournamentsMatchUnschedule
+// (DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchUnschedule(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID) {
+	s.app.tournaments.UnscheduleMatch(w, r)
+}
+
+// TournamentsMatchSchedule implements gen.ServerInterface for tournamentsMatchSchedule
+// (PUT /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsMatchSchedule(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, matchID gen.MatchID) {
+	s.app.tournaments.ScheduleMatch(w, r)
+}
+
+// TournamentsPublicList implements gen.ServerInterface for tournamentsPublicList
+// (GET /api/v1/public/complexes/{slug}/tournaments). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPublicList(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
+	s.app.tournaments.PublicList(w, r)
+}
+
+// TournamentsPublicGet implements gen.ServerInterface for tournamentsPublicGet
+// (GET /api/v1/public/complexes/{slug}/tournaments/{tournamentID}). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPublicGet(w http.ResponseWriter, r *http.Request, slug gen.PathSlug, tournamentID gen.TournamentID) {
+	s.app.tournaments.PublicGet(w, r)
+}
+
+// TournamentsPublicSignUp implements gen.ServerInterface for tournamentsPublicSignUp
+// (POST /api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPublicSignUp(w http.ResponseWriter, r *http.Request, slug gen.PathSlug, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
+	s.app.tournaments.PublicSignUp(w, r)
+}
+
+// TournamentsPublicRegistrationStatus implements gen.ServerInterface for tournamentsPublicRegistrationStatus
+// (GET /api/v1/public/tournament-registrations/status). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPublicRegistrationStatus(w http.ResponseWriter, r *http.Request, params gen.TournamentsPublicRegistrationStatusParams) {
+	s.app.tournaments.PublicRegistrationStatus(w, r)
+}
+
+// TournamentsPublicRegistrationCancel implements gen.ServerInterface for tournamentsPublicRegistrationCancel
+// (POST /api/v1/public/tournament-registrations/cancel). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPublicRegistrationCancel(w http.ResponseWriter, r *http.Request) {
+	s.app.tournaments.PublicRegistrationCancel(w, r)
 }

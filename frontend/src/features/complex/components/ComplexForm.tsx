@@ -14,7 +14,6 @@ interface ComplexFormProps {
   complex?: Complex | undefined;
   onSuccess?: ((created?: Complex) => void) | undefined;
   /** Rendered beside the submit button — settings puts the delete menu here. */
-  footerAction?: ReactNode;
   /**
    * Which fields to ask for. Defaults to all of them.
    *
@@ -42,7 +41,7 @@ interface FieldsProps {
   currentSlug?: string | undefined;
 }
 
-export function ComplexForm({ complex, onSuccess, footerAction, fields }: ComplexFormProps) {
+export function ComplexForm({ complex, onSuccess, fields }: ComplexFormProps) {
   const { form, isEdit, slugValue, mutation, onSubmit, onNameChange, onSlugManualEdit } = useComplexForm({
     complex,
     onSuccess,
@@ -69,7 +68,6 @@ export function ComplexForm({ complex, onSuccess, footerAction, fields }: Comple
         pending={mutation.isPending}
         submitSize="lg"
         align="start"
-        extra={footerAction}
       />
       <UnsavedChangesDialog blocker={blocker} />
     </form>

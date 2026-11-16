@@ -1,9 +1,10 @@
 import { cn } from '@/shared/lib/utils';
 import { GRID_HEIGHT_PX, GUTTER_CLASS, HOUR_HEIGHT_PX } from './gridLayout';
 
-// 01:00–23:00. The day's two edges are skipped: their gridlines are the grid's
-// own top and bottom borders, so a label centred on either sits half outside.
-const HOURS = Array.from({ length: 23 }, (_, i) => i + 1);
+// 00:00–23:00. The bottom edge (24:00) is the grid's own border and has no
+// label; 00:00 sits just under the top edge instead of centred on it, where it
+// would hang half outside the grid.
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
 /** Sticky-left hour ruler: one label per hour (not per 30-minute row), each aligned to its hour's gridline. */
 export function GridHourGutter() {
@@ -21,7 +22,7 @@ export function GridHourGutter() {
         // the gutter's right, and that lane is gone with the arrows.
         <div
           key={h}
-          className="score-text text-text-tertiary absolute left-0 -translate-y-1/2 text-[0.6875rem]"
+          className={cn('score-text text-text-tertiary absolute left-0 text-[0.6875rem]', h > 0 && '-translate-y-1/2')}
           style={{ top: `${String(h * HOUR_HEIGHT_PX)}px` }}
         >
           {String(h).padStart(2, '0')}:00

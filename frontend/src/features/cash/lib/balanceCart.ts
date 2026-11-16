@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { BalanceDue } from '@/shared/types/api.types';
 
@@ -69,5 +70,5 @@ export function reconcileBalances(
 
 /** The cart and sales-row label for a balance: "Saldo turno · Cancha 2 19:00 · Juan Pérez". */
 export function bookingBalanceLabel(courtName: string, startTime: string, clientName: string): string {
-  return `${t.cash.balanceLinePrefix} · ${courtName} ${startTime} · ${clientName}`;
+  return `${t.cash.balanceLinePrefix} · ${keepTogether(courtName)} ${startTime} · ${clientName}`;
 }

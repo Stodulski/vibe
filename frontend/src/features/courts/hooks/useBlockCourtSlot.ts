@@ -5,6 +5,8 @@ import { queryKeys } from '@/shared/lib/queryKeys';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { isFixedBookingConflict } from '../lib/fixedBookingConflict';
+import { isOpenPlayEventConflict } from '../lib/openPlayEventConflict';
+import { isTournamentMatchConflict } from '../lib/tournamentMatchConflict';
 import type { BlockSlotRequest } from '@/shared/types/api.types';
 
 export function useBlockCourtSlot(complexId: string) {
@@ -25,6 +27,14 @@ export function useBlockCourtSlot(complexId: string) {
       // The server names it in English; the owner needs to know what to do about it.
       if (isFixedBookingConflict(error)) {
         toast.error(ES_AR.bookings.series.slotTaken);
+        return;
+      }
+      if (isOpenPlayEventConflict(error)) {
+        toast.error(ES_AR.bookings.openPlayEventSlotTaken);
+        return;
+      }
+      if (isTournamentMatchConflict(error)) {
+        toast.error(ES_AR.bookings.tournamentMatchSlotTaken);
         return;
       }
       toast.error(getHttpErrorMessage(error, ES_AR.courts.blockError));

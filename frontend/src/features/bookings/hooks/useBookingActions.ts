@@ -1,6 +1,7 @@
 import { useCallback } from 'react';
 import { useUpdateBooking } from '@/features/bookings/hooks/useUpdateBooking';
 import { useMarkManualRefund } from '@/features/bookings/hooks/useMarkManualRefund';
+import { useMarkAttended } from '@/features/bookings/hooks/useMarkAttended';
 import { useCancelBooking } from '@/features/bookings/hooks/useCancelBooking';
 import { useConfirmPayment } from '@/features/bookings/hooks/useConfirmPayment';
 import { useBookingMutations } from './useBookingMutations';
@@ -27,6 +28,29 @@ function useNoShowHandler(
       );
     },
     [updateBooking, setDetailOpen, setSelectedBooking, onActionSuccess],
+  );
+}
+
+function useAttendedHandler(
+  markAttended: ReturnType<typeof useMarkAttended>,
+  setDetailOpen: (open: boolean) => void,
+  setSelectedBooking: (booking: Booking | null) => void,
+  onActionSuccess?: () => void,
+) {
+  return useCallback(
+    (booking: Booking) => {
+      markAttended.mutate(
+        { bookingId: booking.id },
+        {
+          onSuccess: () => {
+            setDetailOpen(false);
+            setSelectedBooking(null);
+            onActionSuccess?.();
+          },
+        },
+      );
+    },
+    [markAttended, setDetailOpen, setSelectedBooking, onActionSuccess],
   );
 }
 
@@ -108,6 +132,23 @@ function useManualRefundHandler(
   }, [selectedBooking, markManualRefund, setManualRefundOpen, setDetailOpen, setSelectedBooking, onActionSuccess]);
 }
 
+interface UseBookingActionsArgs {
+  selectedComplexId: string | null;
+  selectedDate: string;
+  selectedBooking: Booking | null;
+  setSelectedBooking: (booking: Booking | null) => void;
+  setDetailOpen: (open: boolean) => void;
+  setCancelOpen: (open: boolean) => void;
+  setPaymentOpen: (open: boolean) => void;
+  setManualRefundOpen: (open: boolean) => void;
+  // Called after cancel/confirm-payment/no-show/attended succeeds, in addition
+  // to the handlers above — lets a caller outside the /bookings page (e.g. the
+  // dashboard's own detail drawer) refresh its own cache, which the mutation
+  // hooks below don't touch (they only invalidate the bookings-by-date query
+  // the /bookings page itself reads from).
+  onActionSuccess?: (() => void) | undefined;
+}
+
 export function useBookingActions({
   selectedComplexId,
   selectedDate,
@@ -117,24 +158,9 @@ export function useBookingActions({
   setCancelOpen,
   setPaymentOpen,
   setManualRefundOpen,
-  // Called after cancel/confirm-payment/no-show succeeds, in addition to the
-  // handlers above — lets a caller outside the /bookings page (e.g. the
-  // dashboard's own detail drawer) refresh its own cache, which the mutation
-  // hooks below don't touch (they only invalidate the bookings-by-date query
-  // the /bookings page itself reads from).
   onActionSuccess,
-}: {
-  selectedComplexId: string | null;
-  selectedDate: string;
-  selectedBooking: Booking | null;
-  setSelectedBooking: (booking: Booking | null) => void;
-  setDetailOpen: (open: boolean) => void;
-  setCancelOpen: (open: boolean) => void;
-  setPaymentOpen: (open: boolean) => void;
-  setManualRefundOpen: (open: boolean) => void;
-  onActionSuccess?: () => void;
-}) {
-  const { cancelBooking, confirmPayment, updateBooking, markManualRefund } = useBookingMutations(
+}: UseBookingActionsArgs) {
+  const { cancelBooking, confirmPayment, updateBooking, markManualRefund, markAttended } = useBookingMutations(
     selectedComplexId,
     selectedDate,
   );
@@ -156,6 +182,7 @@ export function useBookingActions({
     onActionSuccess,
   );
   const handleNoShow = useNoShowHandler(updateBooking, setDetailOpen, setSelectedBooking, onActionSuccess);
+  const handleAttended = useAttendedHandler(markAttended, setDetailOpen, setSelectedBooking, onActionSuccess);
   const handleConfirmManualRefund = useManualRefundHandler(
     markManualRefund,
     selectedBooking,
@@ -172,6 +199,7 @@ export function useBookingActions({
     handleConfirmCancel,
     handlePaymentSubmit,
     handleNoShow,
+    handleAttended,
     handleConfirmManualRefund,
   };
 }

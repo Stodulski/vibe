@@ -204,7 +204,7 @@ describe('useCreateBookingForm — repeat conflicts', () => {
     expect(onClose).not.toHaveBeenCalled();
 
     act(() => {
-      result.current.seriesSubmit.submitSkippingConflicts(onClose);
+      result.current.seriesSubmit.submitWithChoices([], onClose);
     });
 
     await waitFor(() => {
@@ -248,5 +248,99 @@ describe('useCreateBookingForm — repeat conflicts', () => {
     });
 
     expect(result.current.seriesSubmit.conflicts).toEqual([]);
+  });
+});
+
+describe('useCreateBookingForm, repeat with a day on another court', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const CONFLICTS = [
+    {
+      date: '2099-01-09',
+      reason: 'overlap',
+      held_by: 'booking',
+      free_courts: [{ court_id: 'ct2', court_name: 'Cancha 2' }],
+    },
+    { date: '2099-01-16', reason: 'blocked', free_courts: [] },
+  ];
+
+  it('sends the days picked for another court with skip_conflicts, and keeps the series on its court', async () => {
+    const { bookingSeriesApi } = await import('../../api/bookingSeries.api');
+    vi.mocked(bookingSeriesApi.create)
+      .mockRejectedValueOnce(await makeConsumedHttpError(409, { title: 'Conflict', conflicts: CONFLICTS }))
+      .mockResolvedValueOnce(CREATED as never);
+    const result = await renderRepeatingForm();
+    const onClose = await submit(result);
+    await waitFor(() => {
+      expect(result.current.seriesSubmit.conflicts).toEqual(CONFLICTS);
+    });
+
+    act(() => {
+      result.current.seriesSubmit.submitWithChoices([{ date: '2099-01-09', court_id: 'ct2' }], onClose);
+    });
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
+      'c1',
+      { ...SERIES_BODY, skip_conflicts: true, date_courts: [{ date: '2099-01-09', court_id: 'ct2' }] },
+      expect.any(String),
+    );
+    expect(result.current.courtId).toBe(SERIES_BODY.court_id);
+  });
+
+  it('reads the free courts of each date off the 409', async () => {
+    const { bookingSeriesApi } = await import('../../api/bookingSeries.api');
+    vi.mocked(bookingSeriesApi.create).mockRejectedValueOnce(
+      await makeConsumedHttpError(409, { title: 'Conflict', conflicts: CONFLICTS }),
+    );
+    const result = await renderRepeatingForm();
+    await submit(result);
+
+    await waitFor(() => {
+      expect(result.current.seriesSubmit.conflicts[0]?.free_courts).toEqual([
+        { court_id: 'ct2', court_name: 'Cancha 2' },
+      ]);
+    });
+    expect(result.current.seriesSubmit.conflicts[1]?.free_courts).toEqual([]);
+  });
+});
+
+describe('useCreateBookingForm, repeat leaving days unbooked', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  const CONFLICTS = [
+    { date: '2099-01-09', reason: 'overlap', held_by: 'booking', free_courts: [] },
+    { date: '2099-01-16', reason: 'blocked', free_courts: [] },
+  ];
+
+  it('sends no date_courts when every day is left unbooked', async () => {
+    const { bookingSeriesApi } = await import('../../api/bookingSeries.api');
+    vi.mocked(bookingSeriesApi.create)
+      .mockRejectedValueOnce(await makeConsumedHttpError(409, { title: 'Conflict', conflicts: CONFLICTS }))
+      .mockResolvedValueOnce(CREATED as never);
+    const result = await renderRepeatingForm();
+    const onClose = await submit(result);
+    await waitFor(() => {
+      expect(result.current.seriesSubmit.conflicts).toHaveLength(2);
+    });
+
+    act(() => {
+      result.current.seriesSubmit.submitWithChoices([], onClose);
+    });
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
+      'c1',
+      { ...SERIES_BODY, skip_conflicts: true },
+      expect.any(String),
+    );
   });
 });

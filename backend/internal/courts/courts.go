@@ -129,6 +129,7 @@ var refusals = httpx.Refusals{
 	courtstore.ErrSlotHasBooking:         httpx.Conflict(blockedSlotHasBookingMessage),
 	courtstore.ErrSlotHeldByFixedBooking: httpx.Conflict(blockedSlotHeldByFixedBookingMessage),
 	courtstore.ErrSlotHeldByEvent:        httpx.Conflict(blockedSlotHeldByEventMessage),
+	courtstore.ErrSlotHeldByMatch:        httpx.Conflict(blockedSlotHeldByMatchMessage),
 }
 
 // NewHandler returns a Handler backed by the given service.

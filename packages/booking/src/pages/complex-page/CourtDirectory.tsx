@@ -2,6 +2,7 @@ import { useId } from 'react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { Court } from '../../api/types';
 import { courtFactParts } from '../../lib/courtFacts';
+import { keepTogether } from '../../lib/keepTogether';
 
 const t = BOOKING_MESSAGES;
 
@@ -31,7 +32,7 @@ export function CourtDirectory({ courts }: { courts: DirectoryCourt[] }) {
             className="border-border-subtle bg-bg-subtle rounded-2xl border p-4"
           >
               <p className="text-text-primary truncate font-semibold" title={court.name}>
-                {court.name}
+                {keepTogether(court.name)}
               </p>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 <span className="bg-primary-500/15 text-primary-300 rounded-full px-2.5 py-0.5 text-xs font-medium">

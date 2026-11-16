@@ -25,7 +25,8 @@ function UserMenuTrigger({ isMobile, fullName }: UserMenuTriggerProps) {
     <DropdownMenuTrigger asChild>
       <button
         className="hover:bg-bg-elevated/50 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-left transition-colors"
-        aria-label={`${t.layout.userMenuLabel}: ${fullName}`}
+        // Starts with the visible text so the accessible name contains it (WCAG 2.5.3); the person follows.
+        aria-label={`${t.navigation.account}: ${fullName}`}
       >
         <User className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
         <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{t.navigation.account}</span>

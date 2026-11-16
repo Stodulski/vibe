@@ -1,0 +1,36 @@
+---
+/**
+ * /c/<slug>/tournaments/<tournamentID>: one tournament (categories, groups with standings, the
+ * bracket, the schedule and results), the pair sign-up while a category is open, and the place
+ * the Mercado Pago checkout returns to (`?token=...&registered=1`, `&status=pending`,
+ * `?error=payment_failed`). The tournament and the pair's own spot are read in the browser, and
+ * the query comes from the server so the island hydrates with the same markup. The link is
+ * meant to be shared but not indexed: it carries one pair's state when the checkout returns.
+ * Never cached by a shared cache.
+ */
+import { TournamentPageEntry } from '@vibe/booking/tournament-page';
+import { SkeletonCancelInfo } from '@vibe/ui';
+import { PUBLIC_API_URL } from 'astro:env/server';
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import StorefrontLayout from '../../../../layouts/StorefrontLayout.astro';
+import { DEFAULT_DESCRIPTION, storefrontBookingConfig, storefrontRobots } from '../../../../lib/storefront.ts';
+
+export const prerender = false;
+
+const slug = Astro.params.slug ?? '';
+const tournamentId = Astro.params.tournamentID ?? '';
+Astro.response.headers.set('Cache-Control', 'private, no-store');
+const config = storefrontBookingConfig(PUBLIC_API_URL);
+---
+<StorefrontLayout
+  title={`${BOOKING_MESSAGES.tournaments.pageTitle} - Vibe`}
+  description={DEFAULT_DESCRIPTION}
+  robots={storefrontRobots(Astro.url.pathname)}
+  homeHref={`/c/${encodeURIComponent(slug)}`}
+>
+  <TournamentPageEntry client:load slug={slug} tournamentId={tournamentId} config={config} initialSearch={Astro.url.search}>
+    <div slot="fallback" class="w-full" aria-busy="true">
+      <SkeletonCancelInfo />
+    </div>
+  </TournamentPageEntry>
+</StorefrontLayout>

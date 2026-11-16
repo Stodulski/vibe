@@ -66,6 +66,7 @@ export default defineConfig({
         'public-cancel-link.spec.ts',
         'deposit-booking.spec.ts',
         'court-prices.spec.ts',
+        'booking-attendance.spec.ts',
         // Four owner specs that were in no project and therefore never ran.
         'blocked-slots-availability.spec.ts',
         'clients-search.spec.ts',
@@ -100,7 +101,12 @@ export default defineConfig({
       name: 'storefront',
       use: { ...devices['Desktop Chrome'] },
       workers: 1,
-      testMatch: ['public-booking-form.spec.ts', 'public-booking.spec.ts', 'public-booking-keyboard.spec.ts'],
+      testMatch: [
+        'public-booking-form.spec.ts',
+        'public-booking.spec.ts',
+        'public-booking-keyboard.spec.ts',
+        'mp-fake-smoke.spec.ts',
+      ],
     },
     {
       name: 'public',
@@ -124,6 +130,14 @@ export default defineConfig({
         // No login at all — a fresh, unauthenticated page/context is exactly
         // what its offline and service-worker-update checks need.
         'pwa.spec.ts',
+        // Pay through the fake Mercado Pago (e2e/mp-fake) on complexes of
+        // their own (helpers/events-fixtures.ts provisionWorld), so they need
+        // neither the shared login nor the single-worker storefront project.
+        'mp-storefront-payments.spec.ts',
+        // Its own complex and its own seller at the fake, whose tokens it
+        // expires: what the fake does like Mercado Pago (credentials, expiry,
+        // refund webhooks) and what the backend does with it.
+        'mp-fake-fidelity.spec.ts',
       ],
     },
   ],

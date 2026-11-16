@@ -13,3 +13,4 @@ export * from './api.types/cash';
 export * from './api.types/products';
 export * from './api.types/sales';
 export * from './api.types/events';
+export * from './api.types/tournaments';

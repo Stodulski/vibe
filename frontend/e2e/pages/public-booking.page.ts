@@ -23,6 +23,21 @@ export class PublicBookingPage {
     return hold;
   }
 
+  /**
+   * Gives the held slot back from the confirm page ("Cambiar horario", which
+   * sends `POST /book/holds/{token}/release` as a beacon). A spec that stops
+   * on the confirm page calls this: the API caps live unconverted holds per
+   * client address (3), and every spec shares one address, so a hold left
+   * behind refuses a later spec's hold with 429 until it expires.
+   */
+  async releaseHold() {
+    const release = this.page.waitForRequest(
+      (req) => req.method() === 'POST' && /\/book\/holds\/[^/]+\/release$/.test(new URL(req.url()).pathname),
+    );
+    await this.page.getByRole('button', { name: 'Cambiar horario' }).click();
+    return release;
+  }
+
   /** The hold countdown of the confirm page: "mm:ss" on screen, named "Te guardamos el turno por". */
   get holdCountdown() {
     return this.page.getByRole('timer');

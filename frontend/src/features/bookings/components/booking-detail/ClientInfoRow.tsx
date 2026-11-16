@@ -25,7 +25,7 @@ export function ClientInfoRow({ booking, client, onOpenClient }: ClientInfoRowPr
     return (
       <div>
         {label}
-        <p className="text-text-primary mt-0.5 text-sm font-medium">{name}</p>
+        <p className="text-text-primary mt-0.5 text-sm">{name}</p>
       </div>
     );
   }
@@ -40,9 +40,9 @@ export function ClientInfoRow({ booking, client, onOpenClient }: ClientInfoRowPr
         }}
         // Hugs its content so the chevron sits right after the name instead of
         // drifting to the far edge of the sheet.
-        className="hover:bg-bg-base/40 -mx-2 mt-0.5 flex max-w-full items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors"
+        className="hover:bg-bg-base/40 -mx-2 -mt-0.5 -mb-1 flex max-w-full items-center gap-1 rounded-lg px-2 py-1 text-left transition-colors"
       >
-        <span className="text-text-primary truncate text-sm font-medium">{name}</span>
+        <span className="text-text-primary truncate text-sm">{name}</span>
         <ChevronRight className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
       </button>
     </div>

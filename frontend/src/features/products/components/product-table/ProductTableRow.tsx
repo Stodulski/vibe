@@ -67,7 +67,7 @@ export function ProductTableRow({
         </button>
       </TableCell>
 
-      <TableCell className="text-text-secondary max-w-40 truncate text-sm">{product.category ?? '—'}</TableCell>
+      <TableCell className="text-text-secondary max-w-40 truncate text-sm">{product.category ?? 'Sin datos'}</TableCell>
 
       <TableCell className="score-text text-text-primary text-right text-sm font-semibold">
         {formatPrice(product.price)}

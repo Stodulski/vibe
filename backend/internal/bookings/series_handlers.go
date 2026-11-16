@@ -41,6 +41,10 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		EndsOn          *string `json:"ends_on"`
 		Weeks           int     `json:"weeks"`
 		SkipConflicts   bool    `json:"skip_conflicts"`
+		DateCourts      []struct {
+			Date    string `json:"date"`
+			CourtID string `json:"court_id"`
+		} `json:"date_courts"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -94,6 +98,7 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		}
 		endsOn = &end
 	}
+	dateCourts := parseDateCourts(input.DateCourts, v)
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -113,6 +118,7 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		EndsOn:          endsOn,
 		Weeks:           input.Weeks,
 		SkipConflicts:   input.SkipConflicts,
+		DateCourts:      dateCourts,
 	})
 	if err != nil {
 		h.refuse(w, r, err)
@@ -124,6 +130,24 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		"bookings": nonNil(toGenBookings(result.Bookings)),
 		"skipped":  toGenSeriesConflicts(result.Skipped),
 	})
+}
+
+// parseDateCourts reads the request's date_courts, recording what is malformed.
+func parseDateCourts(in []struct {
+	Date    string `json:"date"`
+	CourtID string `json:"court_id"`
+}, v *validator.Validator) []SeriesDateCourt {
+	out := make([]SeriesDateCourt, 0, len(in))
+	for _, dc := range in {
+		date, derr := time.Parse(time.DateOnly, dc.Date)
+		court, cerr := uuid.Parse(dc.CourtID)
+		if derr != nil || cerr != nil {
+			v.AddError("date_courts", "each entry needs a date (YYYY-MM-DD) and a court_id (UUID)")
+			return nil
+		}
+		out = append(out, SeriesDateCourt{Date: date, CourtID: court})
+	}
+	return out
 }
 
 // GetSeries handles GET /api/v1/complexes/{id}/booking-series/{seriesID}.
@@ -247,7 +271,11 @@ func (h *Handler) refuseSeriesConflicts(w http.ResponseWriter, r *http.Request, 
 	}
 	out := make([]httpx.DateConflict, len(conflicts.Conflicts))
 	for i, c := range conflicts.Conflicts {
-		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason}
+		free := make([]httpx.FreeCourt, len(c.FreeCourts))
+		for j, f := range c.FreeCourts {
+			free[j] = httpx.FreeCourt{CourtID: f.CourtID.String(), CourtName: f.CourtName}
+		}
+		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason, HeldBy: c.HeldBy, FreeCourts: free}
 	}
 	h.respond.ConflictDates(w, r, "some dates of the series cannot be booked", out)
 	return true
@@ -285,6 +313,10 @@ func toGenSeriesConflicts(cs []SeriesConflict) []gen.BookingSeriesConflict {
 	out := make([]gen.BookingSeriesConflict, len(cs))
 	for i, c := range cs {
 		out[i] = gen.BookingSeriesConflict{Date: openapi_types.Date{Time: c.Date}, Reason: gen.BookingSeriesConflictReason(c.Reason)}
+		if c.HeldBy != "" {
+			heldBy := gen.BookingSeriesConflictHeldBy(c.HeldBy)
+			out[i].HeldBy = &heldBy
+		}
 	}
 	return out
 }

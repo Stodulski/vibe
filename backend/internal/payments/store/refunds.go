@@ -65,7 +65,7 @@ type RefundClaim struct {
 // commits 'refund_pending' and the second is refused with ErrRefundInFlight.
 //
 // The whole remaining balance is always claimed. Partial refunds arrive from
-// MercadoPago's own webhook and are recorded by ConfirmWebhookPayment; nothing in
+// MercadoPago's own webhook and are recorded by UpdateUnlessRefundPending; nothing in
 // this codebase initiates one, so a requested-amount parameter would only be an
 // untested path through the money code.
 func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*RefundClaim, error) {

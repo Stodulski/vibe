@@ -329,7 +329,7 @@ func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Ra
 		-- either, only cancel the event.
 		OR EXISTS(
 			SELECT 1
-			FROM open_play_event_occupancy(
+			FROM court_event_occupancy(
 			         NULL, ARRAY[$1]::uuid[],
 			         (lower($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date - 1,
 			         (upper($2::tstzrange) AT TIME ZONE 'America/Argentina/Buenos_Aires')::date) e

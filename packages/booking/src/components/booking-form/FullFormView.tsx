@@ -1,12 +1,12 @@
 import type { Control, FieldErrors, UseFormHandleSubmit, UseFormRegister } from 'react-hook-form';
 import { BOOKING_MESSAGES } from '../../messages';
-import { useBookingConfig } from '../../config';
 import { submitHandler } from '@vibe/ui';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
 import { BookingSummaryCard } from './BookingSummaryCard';
 import { SubmitFooter } from './SubmitFooter';
 import { NameFields } from './NameFields';
 import { PhoneAndEmailFields } from './PhoneAndEmailFields';
+import { PrivacyNotice } from './PrivacyNotice';
 import { NotesField } from './NotesField';
 import type { BookingPricing } from './pricing';
 import type { BookingSlotInfo } from './types';
@@ -34,7 +34,6 @@ export function FullFormView({
   errors,
   onSubmit,
 }: FullFormViewProps) {
-  const { privacyUrl } = useBookingConfig();
   return (
     <div className="space-y-5">
       <BookingSummaryCard slotInfo={slotInfo} pricing={pricing} />
@@ -44,17 +43,7 @@ export function FullFormView({
         <PhoneAndEmailFields register={register} control={control} errors={errors} />
         <NotesField register={register} />
         <SubmitFooter isLoading={isLoading} totalOnline={pricing.totalOnline} type="submit" />
-        <p className="text-text-tertiary text-center text-xs">
-          {t.publicBooking.privacyNotice}{' '}
-          <a
-            href={privacyUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-primary-400 underline underline-offset-2"
-          >
-            {t.publicBooking.privacyNoticeLink}
-          </a>
-        </p>
+        <PrivacyNotice text={t.publicBooking.privacyNotice} />
       </form>
     </div>
   );

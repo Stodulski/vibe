@@ -49,6 +49,12 @@ type PaymentWriter interface {
 	Update(ctx context.Context, payment *paymentstore.Payment) error
 	InsertAndConfirmBooking(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
 	ConfirmWebhookPayment(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) error
+	// UpdateUnlessRefundPending and RecordWebhookRefund are Update and
+	// ConfirmWebhookPayment for the webhook's record of a refund MercadoPago
+	// reports. They write nothing when a claim moved the row to 'refund_pending'
+	// after the webhook read it, and report whether they wrote.
+	UpdateUnlessRefundPending(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
+	RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (written bool, err error)
 }
 
 // RefundStore is the refund lifecycle, in the order it runs. ClaimRefund

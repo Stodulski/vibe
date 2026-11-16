@@ -179,7 +179,8 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	}
 
 	booking.Status = "confirmed"
-	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+	booking.CollectionStatus = collectedOnline(booking)
+	paymentStatus := string(booking.CollectionStatus)
 
 	// settled is whichever row now holds this money, so the audit entry below
 	// can name the payment it confirmed without either branch repeating it.
@@ -188,7 +189,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	if existingPayment != nil {
 		// The public booking flow already inserted this row at checkout; the
 		// webhook only fills in the MercadoPago payment id and settles the status.
-		existingPayment.Status = "deposit_paid"
+		existingPayment.Status = paymentStatus
 		existingPayment.MPPaymentID = &mpPaymentID
 		existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
@@ -215,7 +216,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			Amount:       booking.DepositAmount,
 			ServiceFee:   serviceFee,
 			Method:       "mercadopago",
-			Status:       "deposit_paid",
+			Status:       paymentStatus,
 			MPPaymentID:  &mpPaymentID,
 			StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
 		}
@@ -919,4 +920,15 @@ func statusDetailPtr(detail string) *string {
 		return nil
 	}
 	return &detail
+}
+
+// collectedOnline is what an approved online payment leaves collected. The
+// checkout charges deposit_amount, which is the whole price when the complex
+// takes no deposit (deposit_percentage 0): that payment settles the booking,
+// and reading it as a deposit left "Seña pagada" with nothing left to pay.
+func collectedOnline(b *bookingstore.Booking) bookingstore.CollectionStatus {
+	if b.DepositAmount >= b.Price {
+		return bookingstore.CollectionStatusFullyPaid
+	}
+	return bookingstore.CollectionStatusDepositPaid
 }

@@ -15,7 +15,7 @@ const cancelOpenPlayEvent = `-- name: CancelOpenPlayEvent :one
 UPDATE open_play_events
 SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2, cancel_reason = $3
 WHERE id = $1 AND status = 'active'
-RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at
+RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id
 `
 
 type CancelOpenPlayEventParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CancelOpenPlayEvent(ctx context.Context, arg CancelOpenPlayEve
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TournamentID,
 	)
 	return i, err
 }
@@ -234,7 +235,7 @@ func (q *Queries) ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpen
 }
 
 const getOpenPlayEvent = `-- name: GetOpenPlayEvent :one
-SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at FROM open_play_events
+SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id FROM open_play_events
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -267,6 +268,7 @@ func (q *Queries) GetOpenPlayEvent(ctx context.Context, arg GetOpenPlayEventPara
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TournamentID,
 	)
 	return i, err
 }
@@ -342,10 +344,10 @@ func (q *Queries) GetOpenPlayRegistrationByTokenHash(ctx context.Context, access
 
 const insertOpenPlayEvent = `-- name: InsertOpenPlayEvent :one
 INSERT INTO open_play_events (
-    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by
+    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id
 `
 
 type InsertOpenPlayEventParams struct {
@@ -358,6 +360,7 @@ type InsertOpenPlayEventParams struct {
 	Capacity        int32       `json:"capacity"`
 	Price           int32       `json:"price"`
 	CreatedBy       pgtype.UUID `json:"created_by"`
+	TournamentID    pgtype.UUID `json:"tournament_id"`
 }
 
 func (q *Queries) InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEventParams) (OpenPlayEvent, error) {
@@ -371,6 +374,7 @@ func (q *Queries) InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEve
 		arg.Capacity,
 		arg.Price,
 		arg.CreatedBy,
+		arg.TournamentID,
 	)
 	var i OpenPlayEvent
 	err := row.Scan(
@@ -390,6 +394,7 @@ func (q *Queries) InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEve
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TournamentID,
 	)
 	return i, err
 }
@@ -479,7 +484,7 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 }
 
 const listOpenPlayEventCourts = `-- name: ListOpenPlayEventCourts :many
-SELECT oc.court_id, c.name AS court_name
+SELECT oc.court_id, c.name AS court_name, c.court_type, c.surface, c.has_lighting
 FROM open_play_event_courts oc
 JOIN courts c ON c.id = oc.court_id
 WHERE oc.event_id = $1
@@ -487,8 +492,11 @@ ORDER BY c.name, oc.court_id
 `
 
 type ListOpenPlayEventCourtsRow struct {
-	CourtID   pgtype.UUID `json:"court_id"`
-	CourtName string      `json:"court_name"`
+	CourtID     pgtype.UUID `json:"court_id"`
+	CourtName   string      `json:"court_name"`
+	CourtType   CourtType   `json:"court_type"`
+	Surface     pgtype.Text `json:"surface"`
+	HasLighting bool        `json:"has_lighting"`
 }
 
 func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UUID) ([]ListOpenPlayEventCourtsRow, error) {
@@ -500,7 +508,13 @@ func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UU
 	var items []ListOpenPlayEventCourtsRow
 	for rows.Next() {
 		var i ListOpenPlayEventCourtsRow
-		if err := rows.Scan(&i.CourtID, &i.CourtName); err != nil {
+		if err := rows.Scan(
+			&i.CourtID,
+			&i.CourtName,
+			&i.CourtType,
+			&i.Surface,
+			&i.HasLighting,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -512,13 +526,14 @@ func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UU
 }
 
 const listOpenPlayEvents = `-- name: ListOpenPlayEvents :many
-SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_minutes, e.capacity, e.price, e.status, e.cancel_reason, e.cancelled_at, e.cancelled_by, e.created_by, e.created_at, e.updated_at,
+SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_minutes, e.capacity, e.price, e.status, e.cancel_reason, e.cancelled_at, e.cancelled_by, e.created_by, e.created_at, e.updated_at, e.tournament_id,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = $1
+  AND e.tournament_id IS NULL
   AND e.date BETWEEN $2::date AND $3::date
   AND ($4::bool OR e.status = 'active')
 ORDER BY e.date, e.start_time, e.id
@@ -550,6 +565,7 @@ type ListOpenPlayEventsRow struct {
 	CreatedBy       pgtype.UUID        `json:"created_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TournamentID    pgtype.UUID        `json:"tournament_id"`
 	ConfirmedCount  int32              `json:"confirmed_count"`
 	HeldCount       int32              `json:"held_count"`
 }
@@ -558,6 +574,7 @@ type ListOpenPlayEventsRow struct {
 // how many spots are taken: confirmed registrations plus the holds still
 // running, the count capacity is checked against (CountOpenPlaySpotsTaken).
 // include_cancelled is what the owner's list sets and the public one does not.
+// The sign-up containers of tournament categories are not events a person lists.
 func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error) {
 	rows, err := q.db.Query(ctx, listOpenPlayEvents,
 		arg.ComplexID,
@@ -590,6 +607,7 @@ func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEvents
 			&i.CreatedBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.TournamentID,
 			&i.ConfirmedCount,
 			&i.HeldCount,
 		); err != nil {
@@ -751,7 +769,7 @@ func (q *Queries) ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, 
 }
 
 const lockOpenPlayEvent = `-- name: LockOpenPlayEvent :one
-SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at FROM open_play_events
+SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id FROM open_play_events
 WHERE id = $1
 FOR UPDATE
 `
@@ -779,6 +797,7 @@ func (q *Queries) LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPl
 		&i.CreatedBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.TournamentID,
 	)
 	return i, err
 }

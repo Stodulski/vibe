@@ -173,7 +173,7 @@ describe('endsOnALaterDay', () => {
 
 describe('formatHourRange', () => {
   it('renders an ordinary booking with no marker', () => {
-    expect(formatHourRange('2026-03-18T18:00:00-03:00', '2026-03-18T19:30:00-03:00')).toBe('18:00\u00A0–\u00A019:30');
+    expect(formatHourRange('2026-03-18T18:00:00-03:00', '2026-03-18T19:30:00-03:00')).toBe('18:00\u00A0a\u00A019:30');
   });
 
   // No "Día sig." (or any other) marker any more — removed dialog-wide, and
@@ -182,7 +182,7 @@ describe('formatHourRange', () => {
   // booking crosses midnight reads `endsOnALaterDay` directly instead (see
   // `BookingBlock`'s `bookingAriaLabel`, tested separately).
   it('renders a booking whose hours end on the following day the same plain way', () => {
-    expect(formatHourRange('2026-03-18T23:00:00-03:00', '2026-03-19T01:00:00-03:00')).toBe('23:00\u00A0–\u00A001:00');
+    expect(formatHourRange('2026-03-18T23:00:00-03:00', '2026-03-19T01:00:00-03:00')).toBe('23:00\u00A0a\u00A001:00');
   });
 
   it('takes the separator the caller renders with', () => {

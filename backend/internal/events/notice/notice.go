@@ -30,8 +30,12 @@ func Day(ev *eventstore.Event) string {
 	return notifications.SpanishWeekday(timezone.Day(ev.Date).Weekday()) + " " + ev.Date.Format("02/01")
 }
 
-// Hours is the event's span as a person reads it: "19:00 a 21:00".
+// Hours is the event's span as a person reads it: "19:00 a 21:00". A tournament
+// category has no hours of its own: its matches are scheduled one by one.
 func Hours(ev *eventstore.Event) string {
+	if ev.TournamentID != nil {
+		return ""
+	}
 	return timezone.HoursLabel(ev.StartsAt(), ev.EndsAt())
 }
 
@@ -46,7 +50,7 @@ func Registered(reg *eventstore.Registration, ev *eventstore.Event, complex *com
 		Address:        complex.Address,
 		MapsURL:        booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude),
 		Amount:         notifications.FormatARS(reg.Price + reg.ServiceFee),
-		EventURL:       booklink.EventPage(publicURL, complex.Slug, ev.ID),
+		EventURL:       pageOf(publicURL, complex.Slug, ev),
 		RegistrationID: reg.ID.String(),
 	}
 	if reg.Email != nil {
@@ -77,4 +81,13 @@ func Cancelled(reg *eventstore.Registration, ev *eventstore.Event, complex *comp
 		n.Email = *reg.Email
 	}
 	return n
+}
+
+// pageOf is where a notice sends the person: the event's page, or the
+// tournament's for a category.
+func pageOf(publicURL, slug string, ev *eventstore.Event) string {
+	if ev.TournamentID != nil {
+		return booklink.TournamentPage(publicURL, slug, *ev.TournamentID)
+	}
+	return booklink.EventPage(publicURL, slug, ev.ID)
 }

@@ -99,13 +99,13 @@ describe('FormField wiring its control (FORM-07)', () => {
 });
 
 describe('FormField beside another field', () => {
-  it('aligns to the end of its grid cell so an error above one input does not push it below its neighbour', () => {
+  it('aligns to the start of its grid cell so labels share one line across a row even when a neighbour has an error', () => {
     const { container } = render(
       <FormField label="Apellido" htmlFor="last_name" error="El apellido es requerido">
         <input />
       </FormField>,
     );
-    expect(container.firstElementChild).toHaveClass('self-end');
+    expect(container.firstElementChild).toHaveClass('self-start');
   });
 
   it('keeps that alignment when a caller overrides the spacing class', () => {
@@ -114,7 +114,20 @@ describe('FormField beside another field', () => {
         <input />
       </FormField>,
     );
-    expect(container.firstElementChild).toHaveClass('self-end', 'space-y-1');
+    expect(container.firstElementChild).toHaveClass('self-start', 'space-y-1');
+  });
+});
+
+describe('FormField help text', () => {
+  it('renders below the control so it never pushes the input down', () => {
+    render(
+      <FormField label="Cupo" htmlFor="cap" helpText="Máximo de parejas">
+        <input id="cap" />
+      </FormField>,
+    );
+    const input = screen.getByRole('textbox');
+    const help = screen.getByText('Máximo de parejas');
+    expect(input.compareDocumentPosition(help) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 });
 

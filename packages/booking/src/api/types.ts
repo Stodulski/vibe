@@ -355,3 +355,4 @@ export interface PublicCancelBookingResponse {
 }
 
 export * from './types.events';
+export * from './types.tournaments';

@@ -58,6 +58,10 @@ var (
 	// ErrSlotHeldByEvent is returned when a blocked-slot request would close
 	// hours an open-play event holds. The way out is to cancel the event.
 	ErrSlotHeldByEvent = errors.New("slot held by an open-play event")
+	// ErrSlotHeldByMatch is returned when a blocked-slot request would close
+	// hours a scheduled tournament match holds. The way out is to unschedule
+	// the match.
+	ErrSlotHeldByMatch = errors.New("slot held by a tournament match")
 	// ErrCourtHasActiveEvent is returned by Store.SoftDelete when an active
 	// open-play event that has not ended still holds the court.
 	ErrCourtHasActiveEvent = errors.New("court has active open-play events")

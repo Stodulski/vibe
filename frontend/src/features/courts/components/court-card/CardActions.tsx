@@ -1,11 +1,5 @@
-import { Pencil, DollarSign, Trash2, MoreVertical } from 'lucide-react';
+import { Pencil, DollarSign, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { COURT_CARD_ACTIONS_CLASS } from '../courtLayout';
 
@@ -19,18 +13,15 @@ interface CardActionsProps {
 }
 
 /**
- * The card's three actions, in two shapes.
+ * The card's three actions, all visible.
  *
  * Editar and Precios carry the same weight because they are worth the same:
  * both are routine, either could be the reason the owner opened this page.
  * Eliminar is tertiary and wears no colour of its own — the red belongs to the
- * confirmation dialog, where it describes a decision about to be made, not to
- * a button sitting on a card doing nothing.
+ * confirmation dialog, where it describes a decision about to be made.
  *
- * Below `sm` there is no room for three controls a thumb can hit, so Eliminar
- * moves behind the overflow. That is not only a space argument: a destructive
- * action one tap further away is a destructive action harder to hit by
- * accident, which is exactly where the extra distance should go.
+ * There is no overflow menu: it would hold one item. Below `sm` Eliminar keeps
+ * only its icon (its name stays for screen readers) so the three fit a row.
  */
 export function CardActions({ courtName, onEdit, onPrices, onDelete }: CardActionsProps) {
   return (
@@ -44,29 +35,16 @@ export function CardActions({ courtName, onEdit, onPrices, onDelete }: CardActio
         {t.courts.prices}
       </Button>
 
-      <Button variant="ghost" size="sm" className="ml-auto hidden sm:inline-flex" onClick={onDelete}>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="ml-auto shrink-0"
+        aria-label={`${t.common.delete}: ${courtName}`}
+        onClick={onDelete}
+      >
         <Trash2 className="size-3.5" />
-        {t.common.delete}
+        <span className="hidden sm:inline">{t.common.delete}</span>
       </Button>
-
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            className="shrink-0 sm:hidden"
-            aria-label={`${t.common.rowActionsLabel}: ${courtName}`}
-          >
-            <MoreVertical className="size-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={onDelete}>
-            <Trash2 className="size-3.5" />
-            {t.common.delete}
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
     </div>
   );
 }

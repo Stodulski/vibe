@@ -63,7 +63,7 @@ export function ClientTableRow({
       <TableCell className="score-text text-text-tertiary max-w-44 truncate text-sm">{client.phone}</TableCell>
 
       <TableCell className="text-text-secondary max-w-48 truncate text-sm" title={client.email ?? undefined}>
-        {client.email ?? '—'}
+        {client.email ?? 'Sin datos'}
       </TableCell>
 
       <TableCell className="score-text text-text-primary text-right text-sm font-semibold">

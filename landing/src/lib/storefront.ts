@@ -22,11 +22,12 @@ export function robotsDirective(status = 200): string {
 }
 
 /**
- * A booking step: /c/<slug>/book and everything under it, and the sign-up page of an
- * open-play event (/c/<slug>/events/<id>), which the checkout returns to with one person's
+ * A booking step: /c/<slug>/book and everything under it, the sign-up page of an
+ * open-play event (/c/<slug>/events/<id>) and the page of a tournament
+ * (/c/<slug>/tournaments/<id>), which the checkout returns to with one person's
  * state in its query.
  */
-const BOOK_PATH = /^\/c\/[^/]+\/(?:book|events)(?:\/|$)/;
+const BOOK_PATH = /^\/c\/[^/]+\/(?:book|events|tournaments)(?:\/|$)/;
 
 export function isBookPath(pathname: string): boolean {
   return BOOK_PATH.test(pathname);

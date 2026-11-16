@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent } from '@/test/test-utils';
+import { ES_AR } from '@/shared/i18n/es_AR';
 import { DeleteAccountSection } from './DeleteAccountSection';
 
 vi.mock('@/shared/stores', () => ({
@@ -17,45 +18,33 @@ vi.mock('../api/auth.api', () => ({
 }));
 
 /**
- * Deleting the account is behind the overflow menu beside "Cambiar
- * contraseña" now, not a red panel of its own at the bottom of the screen.
- *
- * These used to assert a title, a description and a visible button — the
- * furniture of that panel. What matters is unchanged and is what is checked
- * here: the action is reachable, it is not shouting before anyone asked for
- * it, and it cannot fire without a confirmation.
+ * Deleting the account is the "Zona de peligro" at the end of the security
+ * tab: a title, one line and a visible destructive outline button, with no
+ * overflow menu. It still cannot fire without a confirmation.
  */
 describe('DeleteAccountSection', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const openMenu = async () => {
-    const user = userEvent.setup();
+  it('shows the danger zone with a visible destructive button and no menu', () => {
     renderWithProviders(<DeleteAccountSection />);
-    await user.click(screen.getByRole('button', { name: /acciones/i }));
-    return user;
-  };
 
-  it('keeps the action out of sight until the menu is opened', () => {
-    renderWithProviders(<DeleteAccountSection />);
-    // Friction before a destructive step is LESS prominence, not more: one
-    // interaction further away, and no red until the confirmation asks.
-    expect(screen.queryByText(/eliminar cuenta/i)).not.toBeInTheDocument();
-  });
-
-  it('offers the action inside the menu', async () => {
-    await openMenu();
-    expect(await screen.findByRole('menuitem', { name: /eliminar cuenta/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: ES_AR.common.dangerZone })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: ES_AR.profile.deleteAccount })).toHaveAttribute(
+      'data-variant',
+      'destructive-outline',
+    );
+    expect(screen.queryByRole('button', { name: /acciones/i })).not.toBeInTheDocument();
   });
 
   it('confirms before deleting anything', async () => {
-    const user = await openMenu();
+    const user = userEvent.setup();
+    renderWithProviders(<DeleteAccountSection />);
 
-    await user.click(await screen.findByRole('menuitem', { name: /eliminar cuenta/i }));
+    await user.click(screen.getByRole('button', { name: ES_AR.profile.deleteAccount }));
 
-    const dialog = await screen.findByRole('alertdialog');
-    expect(dialog).toBeInTheDocument();
+    expect(await screen.findByRole('alertdialog')).toBeInTheDocument();
     expect(await screen.findByRole('button', { name: /cancelar/i })).toBeInTheDocument();
   });
 });

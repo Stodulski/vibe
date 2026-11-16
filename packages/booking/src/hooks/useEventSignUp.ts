@@ -9,19 +9,21 @@ import { queryKeys } from '../lib/queryKeys';
 import type { EventSignUpFormData } from '../schemas/event-signup.schema';
 
 /**
- * Holds a spot and hands the person to the Mercado Pago checkout. `onMessage`
- * receives the text to show when the sign-up fails.
+ * Holds a spot and hands the person to the Mercado Pago checkout. The request
+ * carries the Turnstile token when there is one. `onMessage` receives the text
+ * to show when the sign-up fails.
  */
 export function useEventSignUp(slug: string, eventId: string, onMessage: (message: string) => void) {
   const api = usePublicBookingApi();
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: EventSignUpFormData) =>
+    mutationFn: ({ data, token }: { data: EventSignUpFormData; token?: string | undefined }) =>
       api.signUpForEvent(slug, eventId, {
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone,
         ...(data.email ? { email: data.email } : {}),
+        ...(token ? { turnstile_token: token } : {}),
       }),
     onSuccess: (result) => {
       if (!result.mp_init_point) {

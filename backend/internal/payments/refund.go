@@ -111,7 +111,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		totalPaid = charged
 	}
 
-	refundCentavos := int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+	refundCentavos := refundedTotalOf(mpPayment)
 	if refundCentavos <= 0 {
 		// MercadoPago reports a refund with no amount on it — a chargeback, most
 		// often, where the field is not populated at all. The money is gone either
@@ -127,7 +127,6 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 			chargebackNote = *booking.Notes + " | " + chargebackNote
 		}
 		booking.Notes = &chargebackNote
-		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CHARGEBACK processed: booking_id=%s mp_payment_id=%s", booking.ID, mpPaymentID))
 	}
 
 	// Update payment status.
@@ -141,12 +140,11 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// refunded on the payment so far, so this instalment is the difference from what
 	// the row already holds. Reading the total as the instalment is what made the
 	// trail record a later partial refund as everything refunded to date.
-	movedNow := max(refundCentavos-payment.RefundAmount, 0)
+	movedNow := recordRefundedTotal(payment, refundCentavos)
 
 	if isFullRefund {
 		payment.Status = "refunded"
 	}
-	payment.RefundAmount = min(refundCentavos, recordedTotal)
 	payment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
 
 	// Only a live booking can be cancelled by this refund, so only one is announced
@@ -162,22 +160,23 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// booking with a counter payment still cancels it as before.
 	paidElsewhere := false
 	if isFullRefund && booking.Status != bookingstore.BookingStatusCancelled {
-		var err error
 		paidElsewhere, err = s.bookingHoldsOtherMercadoPagoMoney(ctx, booking.ID, mpPaymentID)
 		if err != nil {
 			return fmt.Errorf("check the other payments of booking %s for a refunded payment: %w", booking.ID, err)
 		}
 	}
 
+	// Every branch below writes conditionally, and written says whether it did.
+	var written bool
 	switch {
 	case paidElsewhere && mpPayment.Status == "charged_back":
 		// The booking's status and refund state are written back unchanged; the write
 		// is for the chargeback note added above.
-		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the chargeback of payment %s on a booking paid by another: %w", mpPaymentID, err)
 		}
 	case paidElsewhere:
-		if err := s.ledger.Update(ctx, payment); err != nil {
+		if written, err = s.ledger.UpdateUnlessRefundPending(ctx, payment); err != nil {
 			return fmt.Errorf("record the refund of payment %s on a booking paid by another: %w", mpPaymentID, err)
 		}
 	case isFullRefund && booking.Status != "completed" && booking.Status != "no_show":
@@ -185,7 +184,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Do NOT cancel completed/no_show bookings — service was already rendered.
 		booking.Status = "cancelled"
 		booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-		if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+		if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 			return fmt.Errorf("record the refund of payment %s and cancel its booking: %w", mpPaymentID, err)
 		}
 		cancelledByRefund = wasLive
@@ -193,17 +192,37 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 		// Partial refund, or full refund on completed/no_show: only update payment.
 		if isFullRefund {
 			booking.RefundStatus = bookingRefundStatusAfterRefund(s.manualOwedForBooking(ctx, booking.ID))
-			if err := s.ledger.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
+			if written, err = s.ledger.RecordWebhookRefund(ctx, payment, booking); err != nil {
 				return fmt.Errorf("record the refund of payment %s on a played booking: %w", mpPaymentID, err)
 			}
 		} else {
-			if err := s.ledger.Update(ctx, payment); err != nil {
+			if written, err = s.ledger.UpdateUnlessRefundPending(ctx, payment); err != nil {
 				return fmt.Errorf("record the partial refund of payment %s: %w", mpPaymentID, err)
 			}
 		}
 	}
 
+	// The row was read before MercadoPago was asked about it. A claim of ours that
+	// committed in between moved it to 'refund_pending', and the write above was
+	// refused rather than overwrite that: the claim owns the refund, the same as
+	// when the guard at the top of this function sees refund_pending. Nothing was
+	// written, so nothing is announced, published or recorded.
+	if !written {
+		s.logger.Info("mp webhook: a claim of ours took this refund while the webhook was reading it, leaving the record to it",
+			"mp_payment_id", mpPaymentID,
+			"booking_id", payment.BookingID,
+			"mp_status", mpPayment.Status,
+		)
+		return nil
+	}
+
 	s.realtime.PublishBookingChanged(booking.ComplexID)
+
+	// Reported only once the write landed: a webhook that stood down above
+	// recorded nothing, so it must not say a chargeback was processed.
+	if mpPayment.Status == "charged_back" {
+		sentry.CaptureMessage(fmt.Sprintf("MercadoPago CHARGEBACK processed: booking_id=%s mp_payment_id=%s", booking.ID, mpPaymentID))
+	}
 
 	s.logger.Info("mp webhook: refund/chargeback processed",
 		"mp_payment_id", mpPaymentID,
@@ -217,14 +236,15 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 
 	// A partial refund is money the client got back, and they were told nothing
 	// about it: the notification used to be gated on isFullRefund, so somebody
-	// refunded half their deposit and heard from nobody. The amount written to the
-	// row is what is announced, which for a partial refund is MercadoPago's own
-	// running total rather than this instalment.
+	// refunded half their deposit and heard from nobody. What is announced is what
+	// moved on this event: a second partial refund of 300 after one of 500 reads
+	// "$300", not the running total of 800. An event that moved nothing new (a
+	// chargeback with no figure) falls back to the amount the row now holds.
 	//
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	s.sendRefundNotification(ctx, booking, payment.RefundAmount, refundKey(mpPaymentID, payment.RefundAmount))
+	s.sendRefundNotification(ctx, booking, announcedRefund(movedNow, payment), refundKey(mpPaymentID, payment.RefundAmount))
 	if cancelledByRefund {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -1440,4 +1460,34 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 	}
 
 	s.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
+}
+
+// refundedTotalOf is MercadoPago's running total refunded on a payment, in
+// centavos: transaction_amount_refunded counts every refund made so far, not
+// the one this event is about.
+func refundedTotalOf(mpPayment *mp.Payment) int {
+	return int(math.Round(mpPayment.TransactionAmountRefunded * 100))
+}
+
+// recordRefundedTotal writes MercadoPago's running refunded total onto the row
+// and returns what this event moved: the difference from what the row already
+// held. refund_amount is capped at the row's own amount + service_fee, because
+// the payments_refund_within_amount_paid CHECK refuses anything larger and the
+// write would fail outright. Booking and registration payments share it so an
+// instalment is computed one way only.
+func recordRefundedTotal(payment *paymentstore.Payment, refundedTotal int) (movedNow int) {
+	movedNow = max(refundedTotal-payment.RefundAmount, 0)
+	payment.RefundAmount = min(refundedTotal, payment.Amount+payment.ServiceFee)
+	return movedNow
+}
+
+// announcedRefund is the figure a person is told came back: what moved on this
+// event, so a second partial refund of 300 after one of 500 reads "$300", not
+// the running total of 800. An event that moved nothing new (a chargeback with
+// no figure) falls back to the amount the row now holds.
+func announcedRefund(movedNow int, payment *paymentstore.Payment) int {
+	if movedNow > 0 {
+		return movedNow
+	}
+	return payment.RefundAmount
 }

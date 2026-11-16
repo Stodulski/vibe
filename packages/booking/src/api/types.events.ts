@@ -1,8 +1,18 @@
-import type { Open, RefundEnvelope, Sport } from './types';
+import type { CourtSurface, CourtType, Open, RefundEnvelope, Sport } from './types';
 
 // ─── Open-play events (canchas libres) ───
 
 export type EventStatus = 'active' | 'cancelled';
+
+/** A court of an event with what a player compares, the way the booking flow describes a court. Open like `sport`: a value this build predates still renders. */
+export interface PublicEventCourt {
+  id: string;
+  name: string;
+  court_type: Open<CourtType>;
+  has_lighting: boolean;
+  /** Absent when the owner has not said. */
+  surface?: Open<CourtSurface> | null;
+}
 
 /** An event as a visitor sees it on the complex's page. `end_time` is earlier than `start_time` when it runs past midnight. */
 export interface PublicOpenPlayEvent {
@@ -25,6 +35,8 @@ export interface PublicOpenPlayEvent {
   total_price: number;
   status: Open<EventStatus>;
   court_names: string[];
+  /** The event's courts with their facts, in the order of `court_names`. */
+  courts: PublicEventCourt[];
   complex_name?: string;
   /** A paid spot is refunded when cancelled at least this many hours ahead. */
   cancellation_hours?: number;
@@ -43,7 +55,9 @@ export interface PublicEventSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string;
+  email?: string | undefined;
+  /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
+  turnstile_token?: string | undefined;
 }
 
 /** `POST .../registrations`: the spot is held; pay at `mp_init_point`. */

@@ -11,6 +11,7 @@ import { FormField } from '@/shared/components/common/FormField';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import type { CourtWithPrices } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -79,7 +80,7 @@ export function CourtField({ courtId, error, setCourtId, activeCourts }: CourtFi
         <SelectContent>
           {activeCourts.map((court) => (
             <SelectItem key={court.id} value={court.id}>
-              {court.name}
+              {keepTogether(court.name)}
             </SelectItem>
           ))}
         </SelectContent>

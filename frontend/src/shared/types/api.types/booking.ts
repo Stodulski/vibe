@@ -48,12 +48,50 @@ export type BookingRefundStatus = Spec<'RefundStatus'>;
  * `refund_status` directly: this projection is lossy on purpose and is the
  * exact loss the payment_status split removed from the database.
  */
-export type PaymentDisplayStatus = CollectionStatus | 'refund_pending' | 'partial_refund' | 'refunded';
+export type PaymentDisplayStatus = CollectionStatus | 'outstanding' | 'refund_pending' | 'partial_refund' | 'refunded';
 
-export function paymentDisplayStatus(payment: {
+/** The fields that say whether a booking's hours are over and whether anyone marked attendance. */
+interface BookingProgress {
+  status: BookingStatus;
   collection_status: CollectionStatus;
   refund_status: BookingRefundStatus;
-}): PaymentDisplayStatus {
+  ends_at: string;
+  attended_at?: string | null | undefined;
+}
+
+function bookingHasEnded(booking: { ends_at: string }, now: number = Date.now()): boolean {
+  return Date.parse(booking.ends_at) <= now;
+}
+
+// The booking status as the owner reads it. Once its hours are over a booking
+// reads "Turno finalizado" until the owner marks whether the client came:
+// "Se presentó" (completed with attended_at) or "No se presentó" (no_show).
+// The completion sweep runs every 30 minutes, so a confirmed booking whose
+// hours just ended is already finished too.
+export type BookingDisplayStatus = BookingStatus | 'finished';
+
+export function bookingDisplayStatus(
+  booking: Pick<BookingProgress, 'status' | 'ends_at' | 'attended_at'>,
+  now: number = Date.now(),
+): BookingDisplayStatus {
+  if (booking.status === 'completed' && !booking.attended_at) return 'finished';
+  if (booking.status === 'confirmed' && bookingHasEnded(booking, now)) return 'finished';
+  return booking.status;
+}
+
+// The colour a booking takes on the court grid. A booking played and not paid
+// in full keeps the amber of money still to collect; the words stay apart: the
+// booking status says how the turn went, the payment status says "Pago incompleto".
+export type BookingBarStatus = BookingDisplayStatus | 'outstanding';
+
+export function bookingBarStatus(booking: BookingProgress, now: number = Date.now()): BookingBarStatus {
+  return paymentDisplayStatus(booking, now) === 'outstanding' ? 'outstanding' : bookingDisplayStatus(booking, now);
+}
+
+export function paymentDisplayStatus(
+  payment: Pick<BookingProgress, 'status' | 'collection_status' | 'refund_status' | 'ends_at'>,
+  now: number = Date.now(),
+): PaymentDisplayStatus {
   switch (payment.refund_status) {
     case 'pending':
       return 'refund_pending';
@@ -61,8 +99,14 @@ export function paymentDisplayStatus(payment: {
       return 'partial_refund';
     case 'full':
       return 'refunded';
-    default:
+    default: {
+      // A booking whose hours are over and that is not paid in full: the
+      // money is now due, not just partly collected. A no-show is settled by
+      // its own rule (the deposit is kept), so it is not counted here.
+      const over = payment.status === 'completed' || (payment.status === 'confirmed' && bookingHasEnded(payment, now));
+      if (over && payment.collection_status !== 'fully_paid') return 'outstanding';
       return payment.collection_status;
+    }
   }
 }
 
@@ -108,6 +152,9 @@ export type ManualRefundResponse = Omit<Ok<'bookingsManualRefund'>, 'booking' | 
 export type BookingSeries = Spec<'BookingSeries'>;
 
 export type BookingSeriesConflict = Spec<'BookingSeriesConflict'>;
+
+/** A court free on a conflict date of the refused series, as the create-series 409 lists it. */
+export type BookingSeriesFreeCourt = Spec<'BookingSeriesFreeCourt'>;
 
 /** Same `duration_minutes` narrowing as {@link CreateBookingRequest}. */
 export type CreateBookingSeriesRequest = Omit<Body<'bookingSeriesCreate'>, 'duration_minutes'> & {

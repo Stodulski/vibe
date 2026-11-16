@@ -467,7 +467,7 @@ export interface paths {
         put?: never;
         /**
          * Create a fixed weekly booking (turno fijo)
-         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
+         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`; each conflict of the `409` lists the other courts free that date (`free_courts`), and `date_courts` books some of those dates on another court instead of skipping them. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
          */
         post: operations["bookingSeriesCreate"];
         delete?: never;
@@ -652,6 +652,26 @@ export interface paths {
         put?: never;
         /** Record a counter payment taken by staff */
         post: operations["bookingsConfirmPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/bookings/{bookingID}/attended": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark that the client of a finished booking showed up
+         * @description Legal on a `confirmed` booking whose `ends_at` has passed, or a `completed` one without `attended_at`: the booking becomes `completed` with `attended_at` set. Marking a booking already attended is idempotent and answers `200` unchanged.
+         */
+        post: operations["bookingsMarkAttended"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1064,6 +1084,318 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/complexes/{id}/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List a complex's tournaments in a date range
+         * @description Tournaments whose days overlap the range, cancelled ones included, soonest first, each with its categories. At most 200; not paginated.
+         */
+        get: operations["tournamentsList"];
+        put?: never;
+        /**
+         * Create a tournament with its categories
+         * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
+         */
+        post: operations["tournamentsCreate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a tournament with its pairs, groups and matches
+         * @description Everything under the tournament: categories, every pair that held a spot with its payer, partner and payment (as `eventsGet`'s participants), the groups with their standings, and every match with its schedule and result. Income lands in the complex cash like an online deposit.
+         */
+        get: operations["tournamentsGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel a tournament
+         * @description Cancels every category (each paid pair is refunded through MercadoPago, service fee included, and told by email when they gave one) and releases every court its matches held. A refund MercadoPago cannot complete now stays queued and is retried. A second cancel is `400`.
+         */
+        post: operations["tournamentsCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel one category of a tournament
+         * @description Refunds and tells every paid pair of the category as `tournamentsCancel` does, and releases the courts its scheduled matches held. The rest of the tournament goes on.
+         */
+        post: operations["tournamentsCategoryCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Generate (or regenerate) a category's draw
+         * @description Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into groups of at most `group_size` pairs (fewer, bigger groups only when that would leave a group no larger than `qualifiers_per_group`), sizes differing by at most one, deals them snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play (group winners as top seeds, groupmates apart in the first round where possible, byes when the qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest follow in random order. Generating closes the category's sign-up. It can be repeated while no result is loaded (`409` after); pairs still paying are not drawn and their late payment is refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold the pairs.
+         */
+        post: operations["tournamentsDrawGenerate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Swap two pairs of a drawn category
+         * @description Moves pairs by hand: the two pairs trade places in the bracket's first round, or trade groups (they must be in different groups). Allowed only before any result (`409` after).
+         */
+        post: operations["tournamentsDrawMove"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Give a match a court, a day and a time
+         * @description From then on the match holds that court for `duration_minutes` (default: the category's `match_duration_minutes`, 90 unless the owner set another) everywhere availability is decided, as an event does: public availability, bookings, blocked slots, fixed bookings and events all see it (in `match_blocks` of `courtsListBlockedSlots`). Refused with `409` when a booking, blocked slot, fixed booking, event or another match already holds the hours on that court; `422` for a day outside the tournament's, an unknown court or a bye. Scheduling again moves the match.
+         */
+        put: operations["tournamentsMatchSchedule"];
+        post?: never;
+        /**
+         * Take a match off its court
+         * @description Releases the hours the match held.
+         */
+        delete: operations["tournamentsMatchUnschedule"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Load or correct a match's result
+         * @description The score follows the category's format (`sets_to_win`, `games_per_set`, `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off, `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match tiebreak is never played. The score is optional: a result can be only `winner` (1 or 2, the side that won) with no sets, and then the match has a winner and an empty `sets`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side in group tables. Exactly one of `sets`, `winner` and `walkover_loser` is sent (`422` otherwise). The winner advances to the next match by itself; group standings update (matches won, then set difference, game difference, head to head; the set and game differences count only the matches that have a score), and when a group finishes its qualifiers fill their bracket slots. Loading a result again corrects it, allowed while the next match has no result (for a group match: while none of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid score; `400` when the match does not have both pairs yet or is a bye. The response is the whole tournament, since a result moves other matches.
+         */
+        put: operations["tournamentsMatchResult"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set the court fee of a category
+         * @description The fixed amount each of the two pairs of a match pays for the court, charged at the complex on match day and not online (`0` is no fee). It can change at any time while the tournament is active: a charge already recorded keeps the amount it was made at (`match.court_fee[].amount`), every match not charged yet uses the new one. Responds with the whole tournament.
+         */
+        put: operations["tournamentsCategoryCourtFee"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Collect a pair's court fee for a match
+         * @description Records that the pair on `side` (1 is `pair1_id`, 2 is `pair2_id`) paid its court fee at the complex, by `cash` or `transfer` like a booking charged at the venue. The amount is the category's current `court_fee` and is kept. The money lands in the complex's open cash session as an income movement of the `tournaments` category, so it is in the session totals and the monthly report. A pair is charged once per match (`409` otherwise), and `409` when no cash session is open. `400` when the category has no fee, the match is a bye or a walkover, or the pair is not known yet. Responds with the whole tournament.
+         */
+        put: operations["tournamentsMatchCourtFeeCharge"];
+        post?: never;
+        /**
+         * Undo a court fee charge recorded by mistake
+         * @description Voids the charge's income movement in the complex's open cash session, the way voiding a sale does, so the pair can be charged again. `409` when no charge stands for the pair, or when no cash session is open (the void needs one). Works on a cancelled tournament too. Responds with the whole tournament.
+         */
+        delete: operations["tournamentsMatchCourtFeeUndo"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/tournaments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The tournaments a visitor can follow or sign up for
+         * @description Public. Cross-tenant bypass reason `resolves`. Active tournaments that are not over, soonest first, each with its categories (with `service_fee` and `total_price` per pair).
+         */
+        get: operations["tournamentsPublicList"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/tournaments/{tournamentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One tournament with its groups, standings, bracket and schedule
+         * @description Public. Cross-tenant bypass reason `resolves`. A cancelled tournament is still shown, as `cancelled`. `pairs` lists the pairs that paid, by player names only; `groups` carry their standings; `matches` are the group matches and the bracket (`stage`, `round`, `position`) with results and schedule. A bracket slot waiting for a group is a `source` (the Nth of a group) until it fills.
+         */
+        get: operations["tournamentsPublicGet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign up a pair for a category and pay online
+         * @description Public. Rate limited under the `hold` ceiling like `eventsPublicSignUp`, which it shares its hold, capacity, checkout and refund behaviour with. Cross-tenant bypass reason `resolves`. One person signs up both players and pays the whole entry (`total_price`) through MercadoPago (`mp_init_point`); the spot is held while paying and confirmed when the payment is approved. Phone is required for both players, email optional (without the payer's email no confirmation email is sent). The same problem kinds as events: `409` `event-full`, `event-closed` (the draw exists, or cancelled) or `already-registered` (either player is already in the category, as payer or partner); `429` `rate-limited` over the unpaid-hold cap. The returned `token` is the credential for the status and cancel routes below.
+         */
+        post: operations["tournamentsPublicSignUp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/tournament-registrations/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A pair's own spot in a tournament category
+         * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. Before the draw, `cancellation` follows the complex's policy as an event does; after it (`walkover: true`) leaving forfeits the pair's matches and the payment is kept.
+         */
+        get: operations["tournamentsPublicRegistrationStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/public/tournament-registrations/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Withdraw a pair from a tournament category
+         * @description Public. Cross-tenant bypass reason `resolves`. Before the draw it follows the complex's cancellation policy as an event does: within the window the payment is refunded through MercadoPago, outside it the spot is released and the payment kept. After the draw the pair leaves as a walkover: its unplayed matches are lost to the opponents, who advance, and the payment is kept.
+         */
+        post: operations["tournamentsPublicRegistrationCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/public/complexes/{slug}/events": {
         parameters: {
             query?: never;
@@ -1115,7 +1447,7 @@ export interface paths {
         put?: never;
         /**
          * Sign up for an open-play event and pay online
-         * @description Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling, and one address may hold at most 3 unpaid spots at once. Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed when the payment is approved; a hold nobody pays stops counting by itself. Phone is required, email optional (without it no confirmation email is sent). Answers `409` when the event is full or closed, or the phone already holds a spot. The returned `token` is the person's credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the checkout returns them to the event page with it.
+         * @description Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling, and one address may hold at most 3 unpaid spots at once. Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed when the payment is approved; a hold nobody pays stops counting by itself. Phone is required, email optional (without it no confirmation email is sent). Answers `409` with its own problem kind per reason: `event-full`, `event-closed` (started or cancelled) or `already-registered` (the phone already holds a spot); `429` `rate-limited` when the address already holds 3 unpaid spots. The returned `token` is the person's credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the checkout returns them to the event page with it.
          */
         post: operations["eventsPublicSignUp"];
         delete?: never;
@@ -2790,6 +3122,19 @@ export interface components {
             date: string;
             /** @enum {string} */
             reason: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
+            /**
+             * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+             * @enum {string}
+             */
+            held_by?: "booking" | "fixed" | "event" | "match";
+            /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
+            free_courts?: components["schemas"]["BookingSeriesFreeCourt"][];
+        };
+        /** @description A court that is free on a date of a fixed weekly booking. */
+        BookingSeriesFreeCourt: {
+            /** Format: uuid */
+            court_id: string;
+            court_name: string;
         };
         /** @description One upcoming date of a series. */
         BookingSeriesUpcoming: {
@@ -2885,6 +3230,17 @@ export interface components {
                 method: "mercadopago";
             };
         };
+        /** @description A court of a public event, with the facts the booking flow shows for a court. */
+        PublicEventCourt: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            /** @enum {string} */
+            court_type: "indoor" | "outdoor" | "semi_covered";
+            has_lighting: boolean;
+            /** @description Playing surface; null when the owner has not said. */
+            surface?: components["schemas"]["CourtSurface"] | null;
+        };
         /** @description An event as a visitor sees it on the complex's page. */
         PublicOpenPlayEvent: {
             /** Format: uuid */
@@ -2909,6 +3265,8 @@ export interface components {
             /** @enum {string} */
             status: "active" | "cancelled";
             court_names: string[];
+            /** @description The event's courts with what a player compares, in the order of `court_names`. */
+            courts: components["schemas"]["PublicEventCourt"][];
             complex_name?: string;
             /** @description The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead. */
             cancellation_hours?: number;
@@ -2971,6 +3329,296 @@ export interface components {
             end_time: string;
             duration_minutes: number;
             name: string;
+        };
+        /** @description Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null while no pair fills that slot of the match. */
+        MatchBlock: {
+            /** Format: uuid */
+            match_id: string;
+            /** Format: uuid */
+            tournament_id: string;
+            /** Format: uuid */
+            court_id: string;
+            /**
+             * Format: date
+             * @description The local day the hours start on.
+             */
+            date: string;
+            start_time: string;
+            end_time: string;
+            duration_minutes: number;
+            name: string;
+            pair1: string | null;
+            pair2: string | null;
+        };
+        Tournament: {
+            /** Format: uuid */
+            id: string;
+            name: string;
+            sport: string;
+            /** Format: date */
+            start_date: string;
+            /** Format: date */
+            end_date: string;
+            /** @enum {string} */
+            status: "active" | "cancelled";
+            cancel_reason: string | null;
+            /** Format: date-time */
+            cancelled_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads. */
+        TournamentCategory: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            tournament_id: string;
+            name: string;
+            /** @enum {string} */
+            format: "elimination" | "groups";
+            /** @description Pairs. */
+            capacity: number;
+            /** @description Centavos per pair. */
+            price: number;
+            service_fee?: number;
+            total_price?: number;
+            spots_left: number;
+            confirmed_count: number;
+            held_count: number;
+            /** @description Target pairs per group (groups format). */
+            group_size: number;
+            qualifiers_per_group: number;
+            /**
+             * @description 1 is a single set, 2 is best of three.
+             * @enum {integer}
+             */
+            sets_to_win: 1 | 2;
+            /** @description Games that make a set (4 to 9, 6 is standard). */
+            games_per_set: number;
+            /** @description The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2. */
+            super_tiebreak_decider: boolean;
+            /** @description Court time a match gets when scheduled without a duration. */
+            match_duration_minutes: number;
+            /** @enum {string} */
+            status: "open" | "closed" | "cancelled";
+            draw_generated: boolean;
+        };
+        /** @description A category as its owner reads it: `court_fee` is centavos each pair pays per match at the complex (0 is none). A visitor's category never carries it. */
+        TournamentOwnerCategory: components["schemas"]["TournamentCategory"] & {
+            court_fee: number;
+        };
+        TournamentOwnerSummary: components["schemas"]["Tournament"] & {
+            /** @description Matches of an active tournament that are not a bye, not played and without a court yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament. */
+            unscheduled_count: number;
+            categories: components["schemas"]["TournamentOwnerCategory"][];
+        };
+        TournamentSummary: components["schemas"]["Tournament"] & {
+            categories: components["schemas"]["TournamentCategory"][];
+        };
+        TournamentPlayer: {
+            first_name: string;
+            last_name: string;
+        };
+        TournamentOwnerPlayer: {
+            first_name: string;
+            last_name: string;
+            phone: string;
+            email: string | null;
+        };
+        /** @description `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status` is `withdrawn` for a pair that left after the draw. */
+        TournamentPair: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            category_id: string;
+            players: components["schemas"]["TournamentPlayer"][];
+            seed: number | null;
+            /** Format: uuid */
+            group_id: string | null;
+            /** @enum {string} */
+            status: "active" | "withdrawn";
+        };
+        TournamentOwnerPair: components["schemas"]["TournamentPair"] & {
+            payer: components["schemas"]["TournamentOwnerPlayer"];
+            partner: components["schemas"]["TournamentOwnerPlayer"];
+            /** @description The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). */
+            registration: {
+                /** @enum {string} */
+                status: "held" | "confirmed" | "cancelled" | "expired";
+                price: number;
+                service_fee: number;
+                /** Format: date-time */
+                held_until: string;
+                /** Format: date-time */
+                confirmed_at: string | null;
+                /** @enum {string|null} */
+                cancelled_by: "participant" | "owner" | null;
+                /** Format: date-time */
+                signed_up_at: string;
+            };
+            payment: {
+                status: string;
+                amount: number;
+                service_fee: number;
+                refund_amount: number;
+            } | null;
+        };
+        /** @description One pair's line of a group table, best first (`rank` 1 is the group winner). */
+        TournamentStanding: {
+            /** Format: uuid */
+            pair_id: string;
+            rank: number;
+            played: number;
+            won: number;
+            lost: number;
+            sets_for: number;
+            sets_against: number;
+            games_for: number;
+            games_against: number;
+        };
+        TournamentGroup: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            category_id: string;
+            /** @example A */
+            name: string;
+            position: number;
+            standings: components["schemas"]["TournamentStanding"][];
+        };
+        /** @description One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that decides the match (the third set, best of three only). */
+        TournamentSet: {
+            a: number;
+            b: number;
+            /** @default false */
+            super: boolean;
+        };
+        /** @description A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. A completed match that is neither a bye nor a walkover and has no `sets` was loaded with only its winner (no score). */
+        TournamentMatch: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            category_id: string;
+            /** @enum {string} */
+            stage: "group" | "bracket";
+            /** Format: uuid */
+            group_id: string | null;
+            round: number;
+            position: number;
+            /** Format: uuid */
+            pair1_id: string | null;
+            /** Format: uuid */
+            pair2_id: string | null;
+            source1: components["schemas"]["TournamentSource"];
+            source2: components["schemas"]["TournamentSource"];
+            bye: boolean;
+            /** @enum {string} */
+            status: "pending" | "completed";
+            /** Format: uuid */
+            winner_pair_id: string | null;
+            sets: components["schemas"]["TournamentSet"][];
+            /** @enum {integer} */
+            walkover_loser: 0 | 1 | 2;
+            schedule: {
+                /** Format: uuid */
+                court_id: string;
+                court_name: string;
+                /** Format: date */
+                date: string;
+                start_time: string;
+                end_time: string;
+                duration_minutes: number;
+            } | null;
+        };
+        /** @description What the pair on one side of a match owes or paid for the court, at the complex. While not `charged`, `amount` is the category's current `court_fee`; once `charged` it is what the charge was made at and never changes. `chargeable` is true while the pair is known, the match is played (not a bye, not a walkover), the category has a fee, nothing was cancelled and the pair was not charged yet. */
+        TournamentCourtFee: {
+            /** @enum {integer} */
+            side: 1 | 2;
+            chargeable: boolean;
+            /** @description Centavos. */
+            amount: number;
+            charged: boolean;
+            /** @description The counter payment method it was charged with, once charged. */
+            method: string | null;
+            /** Format: date-time */
+            charged_at: string | null;
+            /**
+             * Format: uuid
+             * @description The user who collected it.
+             */
+            charged_by: string | null;
+        };
+        /** @description A match as its owner reads it, with the court fee of each of its two pairs. */
+        TournamentOwnerMatch: components["schemas"]["TournamentMatch"] & {
+            /** @description Side 1 then side 2. */
+            court_fee: components["schemas"]["TournamentCourtFee"][];
+        };
+        /** @description Where a bracket slot's pair comes from: the Nth of a group. */
+        TournamentSource: {
+            /** Format: uuid */
+            group_id: string;
+            rank: number;
+        } | null;
+        TournamentDetail: {
+            tournament: components["schemas"]["Tournament"];
+            categories: components["schemas"]["TournamentOwnerCategory"][];
+            pairs: components["schemas"]["TournamentOwnerPair"][];
+            groups: components["schemas"]["TournamentGroup"][];
+            matches: components["schemas"]["TournamentOwnerMatch"][];
+        };
+        PublicTournamentDetail: {
+            tournament: components["schemas"]["Tournament"];
+            categories: components["schemas"]["TournamentCategory"][];
+            pairs: components["schemas"]["TournamentPair"][];
+            groups: components["schemas"]["TournamentGroup"][];
+            matches: components["schemas"]["TournamentMatch"][];
+            complex_name: string;
+            cancellation_hours: number;
+        };
+        TournamentRefunds: {
+            /** Format: uuid */
+            registration_id: string;
+            refund: components["schemas"]["RefundOutcome"];
+        }[];
+        PublicPairSignUp: {
+            registration: {
+                /** @enum {string} */
+                status: "held";
+                /** Format: date-time */
+                held_until: string;
+            };
+            token: string;
+            tournament: components["schemas"]["Tournament"];
+            category: components["schemas"]["TournamentCategory"];
+            mp_init_point: string;
+            mp_preference_id: string;
+            service_fee: number;
+            total_price: number;
+        };
+        PublicPairRegistration: {
+            /** @enum {string} */
+            status: "held" | "confirmed" | "cancelled" | "expired";
+            /** @enum {string} */
+            pair_status: "active" | "withdrawn";
+            /** Format: date-time */
+            held_until: string;
+            payer: components["schemas"]["TournamentPlayer"];
+            partner: components["schemas"]["TournamentPlayer"];
+            price: number;
+            service_fee: number;
+            tournament: components["schemas"]["Tournament"];
+            category: components["schemas"]["TournamentCategory"];
+            complex_name: string;
+            complex_address: string;
+            cancellation: {
+                can_cancel: boolean;
+                /** @description Whether cancelling now earns the payment back. */
+                within_window: boolean;
+                /** Format: date-time */
+                deadline: string;
+                /** @description True after the draw: leaving forfeits the matches and keeps the payment. */
+                walkover: boolean;
+            };
         };
         /** @description A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
         FixedBlock: {
@@ -3037,6 +3685,11 @@ export interface components {
              * @description The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
              */
             series_id?: string | null;
+            /**
+             * Format: date-time
+             * @description When the owner marked the client as present (`bookingsMarkAttended`). Only a `completed` booking carries one; a completed booking without it finished with nobody confirming attendance ("Turno finalizado").
+             */
+            attended_at?: string | null;
         };
         Payment: {
             /** Format: uuid */
@@ -3483,6 +4136,11 @@ export interface components {
         PathCity: string;
         BookingID: string;
         EventID: string;
+        TournamentID: string;
+        CategoryID: string;
+        MatchID: string;
+        /** @description 1 is the match's pair1, 2 its pair2. */
+        CourtFeeSide: 1 | 2;
         SeriesID: string;
         CourtID: string;
         /** @description Cash session id. */
@@ -4717,6 +5375,13 @@ export interface operations {
                     weeks?: number;
                     /** @description Create the series turning the dates something else holds into exceptions. */
                     skip_conflicts?: boolean;
+                    /** @description With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions. */
+                    date_courts?: {
+                        /** Format: date */
+                        date: string;
+                        /** Format: uuid */
+                        court_id: string;
+                    }[];
                 };
             };
         };
@@ -5265,6 +5930,55 @@ export interface operations {
                 };
             };
             422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    bookingsMarkAttended: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                bookingID: components["parameters"]["BookingID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The booking as marked. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        booking: components["schemas"]["Booking"];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The booking's status changed before attendance could be marked. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description Field `status`: the booking has not finished yet, or it is pending, cancelled or a no-show. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
             429: components["responses"]["RateLimited"];
             500: components["responses"]["ServerError"];
         };
@@ -6484,6 +7198,903 @@ export interface operations {
             429: components["responses"]["RateLimited"];
         };
     };
+    tournamentsList: {
+        parameters: {
+            query: {
+                date_from: string;
+                date_to: string;
+            };
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tournaments in range, never `null`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tournaments: components["schemas"]["TournamentOwnerSummary"][];
+                    };
+                };
+            };
+            /** @description Missing or malformed dates, or a range over 366 days. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsCreate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    name: string;
+                    /**
+                     * @default padel
+                     * @enum {string}
+                     */
+                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
+                    /** Format: date */
+                    start_date: string;
+                    /**
+                     * Format: date
+                     * @description On or after start_date, at most 60 days later.
+                     */
+                    end_date: string;
+                    categories: {
+                        name: string;
+                        /** @enum {string} */
+                        format: "elimination" | "groups";
+                        /** @description Pairs. */
+                        capacity: number;
+                        /** @description Centavos per pair. */
+                        price: number;
+                        group_size?: number;
+                        qualifiers_per_group?: number;
+                        /**
+                         * @description 1 plays a single set, 2 is best of three.
+                         * @default 2
+                         * @enum {integer}
+                         */
+                        sets_to_win?: 1 | 2;
+                        /** @default 6 */
+                        games_per_set?: number;
+                        /**
+                         * @description The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.
+                         * @default true
+                         */
+                        super_tiebreak_decider?: boolean;
+                        /**
+                         * @description Court time given to a match scheduled without a duration.
+                         * @default 90
+                         */
+                        match_duration_minutes?: number;
+                        /**
+                         * @description Centavos each pair pays per match, charged at the complex on match day (not online); 0 is no fee. Changed later with `tournamentsCategoryCourtFee`.
+                         * @default 0
+                         */
+                        court_fee?: number;
+                    }[];
+                };
+            };
+        };
+        responses: {
+            /** @description The created tournament. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description Malformed body. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The cancelled tournament and the refund of each paid pair. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tournament: components["schemas"]["Tournament"];
+                        refunds: components["schemas"]["TournamentRefunds"];
+                    };
+                };
+            };
+            /** @description The tournament is already cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsCategoryCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    reason?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The refund of each paid pair. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        refunds: components["schemas"]["TournamentRefunds"];
+                    };
+                };
+            };
+            /** @description The category is already cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsDrawGenerate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    seed_order?: string[];
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the new draw. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description Fewer than two paid pairs, or the tournament or category is cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description A result was already loaded. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsDrawMove: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    pair_id: string;
+                    /** Format: uuid */
+                    with_pair_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the changed draw. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description The draw does not exist yet, or the tournament or category is cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description A result was already loaded. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchSchedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: uuid */
+                    court_id: string;
+                    /** Format: date */
+                    date: string;
+                    start_time: string;
+                    /** @description Omit to use the category's match_duration_minutes. */
+                    duration_minutes?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The scheduled match. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        match: components["schemas"]["TournamentMatch"];
+                    };
+                };
+            };
+            /** @description The match is a bye, or the tournament or category is cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description Something already holds those hours on the court. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchUnschedule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The unscheduled match. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        match: components["schemas"]["TournamentMatch"];
+                    };
+                };
+            };
+            /** @description The tournament or category is cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchResult: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    sets?: components["schemas"]["TournamentSet"][];
+                    /** @enum {integer} */
+                    winner?: 1 | 2;
+                    /** @enum {integer} */
+                    walkover_loser?: 1 | 2;
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament after the result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description The match is not ready (a pair is missing) or is a bye, or the tournament or category is cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The next match already has a result, so this one can no longer change. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsCategoryCourtFee: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @description Centavos per pair per match; 0 is none. */
+                    court_fee: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the new fee. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description Malformed body, or the tournament or category was cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchCourtFeeCharge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+                /** @description 1 is the match's pair1, 2 its pair2. */
+                side: components["parameters"]["CourtFeeSide"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
+                };
+            };
+        };
+        responses: {
+            /** @description The tournament with the charge recorded. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            /** @description No court fee, a bye or walkover, a pair not known yet, or the tournament or category was cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description The pair was already charged for the match, or no cash session is open. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsMatchCourtFeeUndo: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Complex id. */
+                id: components["parameters"]["PathID"];
+                tournamentID: components["parameters"]["TournamentID"];
+                matchID: components["parameters"]["MatchID"];
+                /** @description 1 is the match's pair1, 2 its pair2. */
+                side: components["parameters"]["CourtFeeSide"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament without the charge. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TournamentDetail"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            /** @description No charge stands for the pair, or no cash session is open. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsPublicList: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Tournaments, never `null`. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        tournaments: components["schemas"]["TournamentSummary"][];
+                    };
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsPublicGet: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+                tournamentID: components["parameters"]["TournamentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tournament. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicTournamentDetail"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsPublicSignUp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: components["parameters"]["PathSlug"];
+                tournamentID: components["parameters"]["TournamentID"];
+                categoryID: components["parameters"]["CategoryID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    first_name: string;
+                    last_name: string;
+                    /**
+                     * @description Normalized to E.164.
+                     * @example +5491112345678
+                     */
+                    phone: string;
+                    /** @description Optional. */
+                    email?: string;
+                    partner: {
+                        first_name: string;
+                        last_name: string;
+                        /** @description Must differ from the payer's. */
+                        phone: string;
+                        /** @description Optional. */
+                        email?: string;
+                    };
+                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+                    turnstile_token?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The pair's spot is held; pay at `mp_init_point`. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPairSignUp"];
+                };
+            };
+            /** @description Malformed body, or the complex has no MercadoPago connected. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            /** @description The complex blocked the payer's phone. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            /** @description Problem kind `event-full`, `event-closed` or `already-registered`. */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+            /** @description MercadoPago would not create the checkout. The held spot was released. */
+            503: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+        };
+    };
+    tournamentsPublicRegistrationStatus: {
+        parameters: {
+            query: {
+                /** @description The opaque booking-link token, never the booking's primary key. */
+                token: components["parameters"]["BookingToken"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pair's spot. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PublicPairRegistration"];
+                };
+            };
+            /** @description Missing token. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
+    tournamentsPublicRegistrationCancel: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    token: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Cancelled, with the resulting refund outcome. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        registration: components["schemas"]["PublicPairRegistration"];
+                        refunded: boolean;
+                        refund: components["schemas"]["RefundOutcome"];
+                    };
+                };
+            };
+            /** @description The spot is already cancelled. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Problem"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["ValidationError"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["ServerError"];
+        };
+    };
     eventsPublicList: {
         parameters: {
             query?: never;
@@ -6569,6 +8180,8 @@ export interface operations {
                     phone: string;
                     /** @description Optional. */
                     email?: string;
+                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+                    turnstile_token?: string;
                 };
             };
         };
@@ -6601,7 +8214,7 @@ export interface operations {
                 };
             };
             404: components["responses"]["NotFound"];
-            /** @description The event is full, sign-up is closed, or this phone already holds a spot. */
+            /** @description Problem kind `event-full`, `event-closed` or `already-registered`: the event is full, sign-up is closed, or this phone already holds a spot. */
             409: {
                 headers: {
                     [name: string]: unknown;
@@ -7110,6 +8723,8 @@ export interface operations {
                         fixed_blocks: components["schemas"]["FixedBlock"][];
                         /** @description The hours active open-play events hold in the range, one entry per event and court. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by cancelling the event (`eventsCancel`). Not paginated. */
                         event_blocks: components["schemas"]["EventBlock"][];
+                        /** @description The hours scheduled tournament matches hold in the range, one entry per match. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by unscheduling the match (`tournamentsMatchUnschedule`) or cancelling the tournament or category. Not paginated. */
+                        match_blocks: components["schemas"]["MatchBlock"][];
                     };
                 };
             };

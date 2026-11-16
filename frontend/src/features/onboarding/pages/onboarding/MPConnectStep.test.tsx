@@ -40,13 +40,13 @@ const baseProps = {
 describe('MPConnectStep', () => {
   it('says why the step exists, without repeating its name from the indicator', () => {
     renderStep();
-    expect(screen.getByText(/Conect\u00e1 MercadoPago/i)).toBeInTheDocument();
+    expect(screen.getByText(/Conect\u00e1 Mercado Pago/i)).toBeInTheDocument();
   });
 
   it('shows loading when no auth url and not connected', () => {
     renderStep();
     // No connect button or connected state should show
-    expect(screen.queryByText('MercadoPago conectado')).not.toBeInTheDocument();
+    expect(screen.queryByText('Mercado Pago conectado')).not.toBeInTheDocument();
   });
 
   it('shows connect button when auth url is available', () => {
@@ -54,12 +54,12 @@ describe('MPConnectStep', () => {
     // Only the connect action carries the provider's name now; the step is
     // titled after what the owner is doing ("Cobros online"), not after our
     // integration.
-    expect(screen.getByText('Conectar MercadoPago')).toBeInTheDocument();
+    expect(screen.getByText('Conectar Mercado Pago')).toBeInTheDocument();
   });
 
   it('shows connected state', () => {
     renderStep({ mpConnected: true });
-    expect(screen.getByText('MercadoPago conectado')).toBeInTheDocument();
+    expect(screen.getByText('Mercado Pago conectado')).toBeInTheDocument();
   });
 
   it('shows finish button when connected', () => {

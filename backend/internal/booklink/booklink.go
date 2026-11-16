@@ -172,3 +172,26 @@ func Address(address, city string) string {
 		return address + ", " + city
 	}
 }
+
+// TournamentPage is the public page of a tournament: its draw, schedule and the
+// pair sign-up, and where a confirmation email points.
+func TournamentPage(publicURL, complexSlug string, tournamentID uuid.UUID) string {
+	return fmt.Sprintf("%s/c/%s/tournaments/%s", publicURL, complexSlug, tournamentID)
+}
+
+// TournamentSuccess builds the checkout preference's success back_url for a pair
+// sign-up: the tournament page with the pair's registration credential.
+func TournamentSuccess(publicURL, complexSlug string, tournamentID uuid.UUID, credential string) string {
+	return fmt.Sprintf("%s?%s=%s&registered=1", TournamentPage(publicURL, complexSlug, tournamentID), QueryParam, url.QueryEscape(credential))
+}
+
+// TournamentPending is TournamentSuccess for a payment still under review.
+func TournamentPending(publicURL, complexSlug string, tournamentID uuid.UUID, credential string) string {
+	return fmt.Sprintf("%s?%s=%s&registered=1&status=pending", TournamentPage(publicURL, complexSlug, tournamentID), QueryParam, url.QueryEscape(credential))
+}
+
+// TournamentFailure is the failure back_url of a pair sign-up; like Failure it
+// carries no credential.
+func TournamentFailure(publicURL, complexSlug string, tournamentID uuid.UUID) string {
+	return fmt.Sprintf("%s?error=payment_failed", TournamentPage(publicURL, complexSlug, tournamentID))
+}
