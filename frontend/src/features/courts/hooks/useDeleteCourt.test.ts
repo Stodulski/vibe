@@ -34,7 +34,10 @@ describe('useDeleteCourt — onError', () => {
   });
 
   it('says in Spanish that an open-play event blocks the delete', async () => {
-    await failDeleteWith(409, 'cannot delete court while it has an open-play event (canchas abiertas), cancel it first');
+    await failDeleteWith(
+      409,
+      'cannot delete court while it has an open-play event (canchas abiertas), cancel it first',
+    );
     expect(toast.error).toHaveBeenCalledWith(ES_AR.courts.deleteHasOpenPlay);
   });
 

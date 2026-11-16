@@ -25,7 +25,14 @@ function openPlay(id: string, date: string, startTime = '19:00'): OpenPlayEvent 
 }
 
 function tournament(id: string, startDate: string): TournamentOwnerSummary {
-  return { ...makeDetail().tournament, id, start_date: startDate, end_date: startDate, unscheduled_count: 0, categories: [] };
+  return {
+    ...makeDetail().tournament,
+    id,
+    start_date: startDate,
+    end_date: startDate,
+    unscheduled_count: 0,
+    categories: [],
+  };
 }
 
 describe('buildAgenda', () => {
