@@ -80,6 +80,63 @@ export const ATC_DESCUENTO_SEGUN_TABLA_PORCENTAJE = Math.round(
 /** No mencionan comisión por reserva en ninguna parte de esa página. */
 export const ATC_MENCIONA_COMISION_POR_RESERVA = false;
 
+/* ───────────────────── ATC Sports: lo que hace ───────────────────── */
+
+/**
+ * Lo que ATC publica de su producto, para la columna de ATC en la tabla
+ * comparativa de la home. Cada constante es una frase copiada tal cual de su
+ * propia página (se buscó textual en el HTML), con la página de la que sale.
+ * La tabla redacta su celda a partir de esto; si una frase deja de estar en su
+ * página, se borra la constante y la celda vuelve a "Sin dato publicado".
+ *
+ * Tiene fecha propia y no reusa ATC_VERIFICADO: esa fecha es la de los precios de
+ * arriba, que también usan las guías. El 2026-11-15 los planes seguían iguales
+ * (50/80/100 USD mes a mes, 40/64/80 pagando anual) y el FAQ seguía diciendo
+ * 33% mientras la tabla dice 20%, pero mover ATC_VERIFICADO cambia la fecha que
+ * muestran las guías, y eso se hace cuando se revisan las guías, no desde acá.
+ */
+export const ATC_FUNCIONES_VERIFICADO = '2026-11-15';
+
+/** Página de funciones: reservas, seña, caja, bar y stock. */
+export const ATC_FUENTE_FUNCIONES = 'https://atcsports.io/como-funciona-software-deportivo-alquila-tu-cancha';
+/** Página comercial para complejos: precios sin comisión y el módulo de WhatsApp. */
+export const ATC_FUENTE_CLUBES = 'https://clubes.atcsports.io/';
+
+/** ATC_FUENTE (FAQ de precios). Confirma ATC_SIN_COSTO_DE_* con sus palabras. */
+export const ATC_CITA_SIN_COSTOS_DE_PUESTA = 'Sin costos de capacitación o configuración';
+/** ATC_FUENTE_CLUBES. */
+export const ATC_CITA_SIN_COMISIONES = 'Los precios son fijos y sin comisiones';
+/** ATC_FUENTE (FAQ de precios). Confirma ATC_PRUEBA_GRATIS_DIAS. */
+export const ATC_CITA_PRUEBA = 'Te ofrecemos 30 días para probar el sistema';
+
+/** ATC_FUENTE_FUNCIONES. */
+export const ATC_CITA_RESERVAS_ONLINE =
+  'Cada complejo tiene su propio sitio web donde puede recibir reservas online en menos de un minuto, 24/7';
+
+/**
+ * ATC_FUENTE_FUNCIONES, en la sección "Integración con Mercado Pago". El
+ * adelanto es un porcentaje que el complejo configura por cancha, y la
+ * devolución depende de la política de cancelación que elija.
+ */
+export const ATC_CITA_PAGO_AL_RESERVAR = 'Todas las reservas online se pagan en el momento';
+export const ATC_CITA_ADELANTO_POR_CANCHA = 'Podés configurar porcentajes de adelanto por cada cancha';
+export const ATC_CITA_SENA_SE_DEVUELVE = 'la seña se devuelve automáticamente';
+
+/**
+ * ATC_FUENTE_FUNCIONES, sección "Caja y Stock" y párrafo de administración
+ * remota. Caja por turno con arqueo no aparece: dicen "diario".
+ */
+export const ATC_CITA_CAJA =
+  'control de caja diario detallado con todos los movimientos del complejo';
+export const ATC_CITA_STOCK = 'administrar de cerca el inventario y la información de stock';
+export const ATC_CITA_BAR = 'consumos de bar';
+
+/**
+ * ATC_FUENTE_CLUBES, en la lista del módulo de WhatsApp. Recordatorios por mail
+ * o notificación no se encontraron, así que la celda dice WhatsApp y nada más.
+ */
+export const ATC_CITA_RECORDATORIOS = 'Recordatorios de reservas';
+
 /* ─────────────────────────── CanchaFija ─────────────────────────── */
 
 /**

@@ -7,7 +7,17 @@
  * A <table> also aligns rows by itself, so the subgrid that used to force equal
  * row heights across independent columns is gone.
  */
-import { ATC_PRUEBA_GRATIS_DIAS } from '../data/competencia';
+import {
+  ATC_PRUEBA_GRATIS_DIAS,
+  ATC_CITA_SIN_COMISIONES,
+  ATC_CITA_PRUEBA,
+  ATC_CITA_RESERVAS_ONLINE,
+  ATC_CITA_PAGO_AL_RESERVAR,
+  ATC_CITA_CAJA,
+  ATC_CITA_BAR,
+  ATC_CITA_STOCK,
+  ATC_CITA_RECORDATORIOS,
+} from '../data/competencia';
 
 const COLUMNAS = [
   { id: 'vibe', nombre: 'Vibe' },
@@ -18,43 +28,69 @@ const COLUMNAS = [
 /*
  * Each row is one criterion, read left to right in column order, under the label in
  * `criterio`. Vibe's column is the highlighted one: a lifted panel behind it and a check
- * beside each answer, so it stands out without leaning on colour alone. The other two
- * stay neutral, so the table describes each option instead of scoring it in red.
+ * beside each answer, so it stands out without leaning on colour alone. A check means
+ * "this option does it"; WhatsApp gets none, since every answer there is work done by
+ * hand. Nothing is scored in red: the table describes each option.
  *
- * The ATC Sports column only says what src/data/competencia.ts records from their own
- * page (plans with a monthly fee, the free trial). Everything else is "Sin dato
- * publicado": that they don't publish it doesn't prove they lack it, and a claim about a
- * named competitor needs a source.
+ * Every ATC Sports cell is written from a quote in src/data/competencia.ts, taken from
+ * their own pages (ATC_FUNCIONES_VERIFICADO), and names it in `citas`. That field is not
+ * rendered: it ties the cell to its source, so dropping a constant breaks the build here,
+ * which is the cue to put "Sin dato publicado" back in that cell. ATC gets the check
+ * wherever it publishes the feature; Costo is a price model, not a feature, so it stays
+ * unmarked.
  */
-const SIN_DATO = 'Sin dato publicado';
-const FILAS = [
+type Celda = { texto: string; marca?: true; citas?: string[] };
+const FILAS: { criterio: string; celdas: Celda[] }[] = [
   {
     criterio: 'Costo',
     celdas: [
-      'Gratis para tu complejo',
-      'Gratis, con tu tiempo',
+      { texto: 'Gratis para tu complejo', marca: true },
+      { texto: 'Gratis, con tu tiempo' },
       /* Sin monto a propósito: un precio ajeno envejece cada vez que ellos ajustan la
          lista. Los planes verificados están en src/data/competencia.ts. */
-      `Abono mensual, con ${ATC_PRUEBA_GRATIS_DIAS} días de prueba`,
+      {
+        texto: `Abono mensual fijo, sin comisiones y con ${ATC_PRUEBA_GRATIS_DIAS} días de prueba`,
+        citas: [ATC_CITA_SIN_COMISIONES, ATC_CITA_PRUEBA],
+      },
     ],
   },
   {
     criterio: 'Reservas',
-    celdas: ['Tus clientes reservan a cualquier hora', 'Por WhatsApp, cuando contestás', SIN_DATO],
+    celdas: [
+      { texto: 'Tus clientes reservan a cualquier hora', marca: true },
+      { texto: 'Por WhatsApp, cuando contestás' },
+      { texto: 'Cada complejo tiene su sitio con reservas online, 24/7', marca: true, citas: [ATC_CITA_RESERVAS_ONLINE] },
+    ],
   },
   {
     criterio: 'Seña',
-    celdas: ['Se paga con Mercado Pago al reservar', 'Revisás cada comprobante a mano', SIN_DATO],
+    celdas: [
+      { texto: 'Se paga con Mercado Pago al reservar', marca: true },
+      { texto: 'Revisás cada comprobante a mano' },
+      /* La cita está en su sección "Integración con Mercado Pago". */
+      { texto: 'Las reservas online se pagan en el momento, con Mercado Pago', marca: true, citas: [ATC_CITA_PAGO_AL_RESERVAR] },
+    ],
   },
   {
     criterio: 'Caja y bar',
-    celdas: ['Caja por turno con arqueo, y venta con stock', 'Cuaderno o planilla', SIN_DATO],
+    celdas: [
+      { texto: 'Caja por turno con arqueo, y venta con stock', marca: true },
+      { texto: 'Cuaderno o planilla' },
+      {
+        texto: 'Control de caja diario, consumos de bar y stock',
+        marca: true,
+        citas: [ATC_CITA_CAJA, ATC_CITA_BAR, ATC_CITA_STOCK],
+      },
+    ],
   },
   {
     criterio: 'Recordatorios',
-    /* Su página de precios y funciones no dice nada de recordatorios (revisado
-       2026-09-25). */
-    celdas: ['Recordatorio automático antes del turno', 'Los mandás vos, uno por uno', SIN_DATO],
+    celdas: [
+      { texto: 'Recordatorio automático antes del turno', marca: true },
+      { texto: 'Los mandás vos, uno por uno' },
+      /* La cita está en la lista de su módulo de WhatsApp. */
+      { texto: 'Recordatorios de reservas por WhatsApp', marca: true, citas: [ATC_CITA_RECORDATORIOS] },
+    ],
   },
 ];
 ---
@@ -102,9 +138,9 @@ const FILAS = [
     {FILAS.map(fila => (
      <tr>
       <th scope="row" class="comparison-criterio">{fila.criterio}</th>
-      {fila.celdas.map((texto, i) => (
-       <td class={i === 0 ? 'comparison-good' : 'comparison-neutral'} data-col={COLUMNAS[i].id}>
-        {i === 0 && <svg class="comparison-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>}
+      {fila.celdas.map(({ texto, marca }, i) => (
+       <td class={marca ? 'comparison-good' : 'comparison-neutral'} data-col={COLUMNAS[i].id}>
+        {marca && <svg class="comparison-check" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>}
         <span>{texto}</span>
        </td>
       ))}
