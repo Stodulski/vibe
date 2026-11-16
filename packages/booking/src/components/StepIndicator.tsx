@@ -72,7 +72,7 @@ export function StepIndicator({ currentStep, steps = BOOKING_STEPS, tone = 'defa
               {i > 0 && (
                 <div
                   className={cn(
-                    'w-8 transition-colors duration-300 sm:w-12',
+                    'mx-2 w-8 transition-colors duration-300 sm:w-12',
                     isCompleted ? classes.line.done : classes.line.todo,
                   )}
                 />
