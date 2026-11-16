@@ -129,7 +129,7 @@ describe('useCreateBooking — slots held by a tournament match', () => {
     expect(toast.error).toHaveBeenCalledWith(ES_AR.bookings.createError, {
       description: ES_AR.bookings.tournamentMatchSlotTaken,
     });
-    expect(ES_AR.bookings.tournamentMatchSlotTaken).not.toContain('canchas libres');
+    expect(ES_AR.bookings.tournamentMatchSlotTaken).not.toContain('canchas abiertas');
   });
 });
 
@@ -138,7 +138,7 @@ describe('useCreateBooking — slots held by an open-play event', () => {
     await triggerCreateError(
       await makeConsumedHttpError(409, {
         title: 'Conflict',
-        detail: 'the selected time belongs to an open-play event (canchas libres)',
+        detail: 'the selected time belongs to an open-play event (canchas abiertas)',
       }),
     );
 

@@ -60,7 +60,7 @@ tags:
   - name: courts
     description: Courts, price bands, blocked slots and the public availability grid.
   - name: events
-    description: Open-play events (canchas libres) that hold courts for a window, and the per-person paid sign-up to them.
+    description: Open-play events (canchas abiertas) that hold courts for a window, and the per-person paid sign-up to them.
   - name: tournaments
     description: Tournaments in categories - paid pair sign-up, draws (elimination, groups then knockout), match scheduling on courts and results.
   - name: health
@@ -1415,7 +1415,7 @@ paths:
       operationId: eventsList
       summary: List a complex's open-play events in a date range
       description: >-
-        Events ("canchas libres") whose date is in the range, cancelled ones included, soonest first,
+        Events ("canchas abiertas") whose date is in the range, cancelled ones included, soonest first,
         with how many spots are taken. At most 200; not paginated.
       security: [{cookieAuth: []}]
       parameters:
@@ -1452,7 +1452,7 @@ paths:
     post:
       tags: [events]
       operationId: eventsCreate
-      summary: Publish an open-play event (canchas libres)
+      summary: Publish an open-play event (canchas abiertas)
       description: >-
         Takes the event's courts off sale for its window: the storefront, the owner's booking and
         blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the
@@ -7103,7 +7103,7 @@ components:
     OpenPlayEvent:
       type: object
       description: >-
-        An open-play event ("canchas libres"): it holds its courts for its window and people sign up
+        An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up
         one by one. `end_time` may be earlier than `start_time` when the event runs past midnight.
         Prices are centavos ARS per person.
       required:
@@ -7250,7 +7250,7 @@ components:
       type: object
       description: >-
         Hours an open-play event holds on one court, as the owner's calendar draws them
-        ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours
+        ("Canchas abiertas · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours
         run past midnight.
       required: [event_id, court_id, date, start_time, end_time, duration_minutes, name]
       properties:

@@ -3365,7 +3365,7 @@ type DayMoneyTotals struct {
 	TotalIncome int `json:"total_income"`
 }
 
-// EventBlock Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight.
+// EventBlock Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas abiertas · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight.
 type EventBlock struct {
 	CourtId openapi_types.UUID `json:"court_id"`
 
@@ -3493,7 +3493,7 @@ type OccupancyPoint struct {
 	Percentage int `json:"percentage"`
 }
 
-// OpenPlayEvent An open-play event ("canchas libres"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person.
+// OpenPlayEvent An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person.
 type OpenPlayEvent struct {
 	CancelReason *string            `json:"cancel_reason,omitempty"`
 	CancelledAt  *time.Time         `json:"cancelled_at,omitempty"`
@@ -6464,7 +6464,7 @@ type ServerInterface interface {
 	// EventsList List a complex's open-play events in a date range
 	// (GET /api/v1/complexes/{id}/open-play-events)
 	EventsList(w http.ResponseWriter, r *http.Request, id PathID, params EventsListParams)
-	// EventsCreate Publish an open-play event (canchas libres)
+	// EventsCreate Publish an open-play event (canchas abiertas)
 	// (POST /api/v1/complexes/{id}/open-play-events)
 	EventsCreate(w http.ResponseWriter, r *http.Request, id PathID)
 	// EventsGet Get an open-play event with its participants

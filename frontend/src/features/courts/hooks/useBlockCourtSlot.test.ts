@@ -91,7 +91,7 @@ describe('useBlockCourtSlot — slots held by an event or a match', () => {
   it.each([
     [
       'an open-play event',
-      'this time range belongs to an open-play event (canchas libres), cancel the event to free it',
+      'this time range belongs to an open-play event (canchas abiertas), cancel the event to free it',
       ES_AR.bookings.openPlayEventSlotTaken,
     ],
     [

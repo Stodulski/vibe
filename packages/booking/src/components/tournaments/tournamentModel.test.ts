@@ -1,10 +1,12 @@
 // @vitest-environment node
 import { describe, it, expect } from 'vitest';
-import { DETAIL, MATCHES, PAIRS, matchById } from '../../test/tournamentFixtures';
+import { CAT_GROUPS, CAT_OPEN, DETAIL, MATCHES, PAIRS, SUMMARY, matchById } from '../../test/tournamentFixtures';
 import {
   bracketGrid,
   bracketRounds,
   groupMatchdays,
+  isSignUpClosed,
+  listedTournaments,
   matchFormatLabel,
   pairLines,
   pairLookup,
@@ -150,18 +152,52 @@ describe('scheduleByDay', () => {
 });
 
 describe('tournamentDates', () => {
-  it('names the month once when both days share it, capitalized', () => {
-    expect(tournamentDates({ start_date: '2026-12-12', end_date: '2026-12-13' })).toBe('Sábado 12 al domingo 13 de diciembre');
+  it('writes a range inside one month as its days and the short month', () => {
+    expect(tournamentDates({ start_date: '2026-12-12', end_date: '2026-12-13' })).toBe('12 al 13 dic');
   });
 
-  it('names both months when the tournament crosses them', () => {
-    expect(tournamentDates({ start_date: '2026-11-28', end_date: '2026-12-01' })).toBe(
-      'Sábado 28 de noviembre al martes 1 de diciembre',
-    );
+  it('names both short months when the range crosses them', () => {
+    expect(tournamentDates({ start_date: '2026-11-28', end_date: '2026-12-01' })).toBe('28 nov al 1 dic');
+  });
+
+  it('keeps a range across the year end readable', () => {
+    expect(tournamentDates({ start_date: '2026-12-30', end_date: '2027-01-02' })).toBe('30 dic al 2 ene');
   });
 
   it('is one capitalized day for a single-day tournament', () => {
     expect(tournamentDates({ start_date: '2026-12-12', end_date: '2026-12-12' })).toBe('Sábado 12 de diciembre');
+  });
+});
+
+describe('isSignUpClosed', () => {
+  it('is true only for a closed sign-up, the state a card names "Inscripción cerrada"', () => {
+    expect(isSignUpClosed(CAT_GROUPS)).toBe(true);
+    expect(isSignUpClosed(CAT_OPEN)).toBe(false);
+    expect(isSignUpClosed({ status: 'cancelled' })).toBe(false);
+  });
+});
+
+describe('listedTournaments', () => {
+  it('drops a closed category and keeps the rest of the tournament', () => {
+    const listed = listedTournaments([SUMMARY]);
+    expect(listed.map((tournament) => tournament.categories.map((category) => category.id))).toEqual([['c-open']]);
+  });
+
+  it('does not list a tournament whose every category is closed', () => {
+    expect(listedTournaments([{ ...SUMMARY, categories: [CAT_GROUPS] }])).toEqual([]);
+  });
+
+  it('keeps a tournament whose categories are full or cancelled, so they say so', () => {
+    const full = { ...CAT_OPEN, id: 'c-full', spots_left: 0 };
+    const cancelled = { ...CAT_OPEN, id: 'c-cancelled', status: 'cancelled' as const };
+    const listed = listedTournaments([{ ...SUMMARY, categories: [full, cancelled] }]);
+    expect(listed.map((tournament) => tournament.categories.map((category) => category.id))).toEqual([
+      ['c-full', 'c-cancelled'],
+    ]);
+  });
+
+  it('does not list a tournament without categories', () => {
+    expect(listedTournaments([{ ...SUMMARY, categories: [] }])).toEqual([]);
   });
 });
 

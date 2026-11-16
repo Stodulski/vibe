@@ -48,7 +48,7 @@ describe('TournamentDetail: pairs', () => {
     const list = screen.getByRole('list', { name: t.detail.sections.pairs });
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
     expect(list).toHaveTextContent('Ana Pérez / Bea Gómez');
-    expect(within(list).getAllByText(t.pairs.state.confirmed)).toHaveLength(2);
+    expect(within(list).getAllByText(/^Pagó/)).toHaveLength(2);
     expect(within(list).getByText(t.pairs.state.held)).toBeInTheDocument();
     expect(within(list).getAllByRole('link', { name: /Llamar Ana Pérez/ })[0]).toHaveAttribute(
       'href',

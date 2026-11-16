@@ -1,6 +1,6 @@
 import type { CourtSurface, CourtType, Open, RefundEnvelope, Sport } from './types';
 
-// ─── Open-play events (canchas libres) ───
+// ─── Open-play events (canchas abiertas) ───
 
 export type EventStatus = 'active' | 'cancelled';
 

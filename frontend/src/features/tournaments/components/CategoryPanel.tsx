@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useUnscheduleMatch } from '../hooks/useScheduleMatch';
@@ -37,14 +38,13 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
   ];
 }
 
-/** What the owner can do to the category itself: change its court fee, or cancel it. */
+/** What the owner can do to the category itself: change its court fee, or cancel it. Sits at the foot of the category card. */
 function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="border-border-subtle flex flex-wrap gap-2 border-t pt-4">
       <Button
         type="button"
         variant="outline"
-        size="sm"
         className="rounded-xl"
         onClick={() => {
           dialogs.setFeeOpen(true);
@@ -55,7 +55,6 @@ function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; cour
       <Button
         type="button"
         variant="destructive-outline"
-        size="sm"
         onClick={() => {
           dialogs.setCancelOpen(true);
         }}
@@ -66,7 +65,10 @@ function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; cour
   );
 }
 
-/** One category: its facts, the draw, and the sections for pairs, groups, bracket and matches. */
+/**
+ * One category: its facts and actions in a card, then the section switch, the
+ * draw while it can still be made, and the chosen section inside its own card.
+ */
 export function CategoryPanel({ detail, category, complexId, live }: CategoryPanelProps) {
   const view = categoryView(detail, category.id);
   const dialogs = useCategoryDialogs();
@@ -77,16 +79,11 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
 
   return (
     <div className="space-y-4">
-      {/* The facts keep one width whether or not the actions are there; a cancelled category puts its note where they were. */}
-      <div className="flex flex-col gap-3 sm:grid sm:grid-cols-[minmax(0,36rem)_auto] sm:items-start sm:justify-between">
-        <div className="min-w-0">
-          <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
-        </div>
+      <Panel size="md" mobile="card" className="space-y-4">
+        <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
+        {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
         {open && <CategoryActions dialogs={dialogs} courtFee={category.court_fee} />}
-        {category.status === 'cancelled' && (
-          <p className="text-error-text text-sm sm:max-w-56">{t.detail.categoryCancelledNote}</p>
-        )}
-      </div>
+      </Panel>
       <SegmentedTabs
         items={sectionItems(category)}
         active={section}
@@ -102,14 +99,16 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           view={view}
         />
       )}
-      <CategorySection
-        section={section}
-        category={category}
-        view={view}
-        open={open}
-        dialogs={dialogs}
-        onUnschedule={unschedule.mutate}
-      />
+      <Panel size="md" mobile="card" className="min-w-0">
+        <CategorySection
+          section={section}
+          category={category}
+          view={view}
+          open={open}
+          dialogs={dialogs}
+          onUnschedule={unschedule.mutate}
+        />
+      </Panel>
       <CategoryDialogsHost
         complexId={complexId}
         tournament={detail.tournament}
@@ -136,7 +135,8 @@ function CategorySection({ section, category, view, open, dialogs, onUnschedule 
   if (section === 'pairs') {
     return (
       <>
-        {drawn && view.locked && <p className="text-text-tertiary text-xs">{t.pairs.swapLocked}</p>}
+        {/* The one line that says the draw and the swaps are closed: the draw card itself is gone once a result is loaded. */}
+        {drawn && view.locked && <p className="text-text-tertiary mb-2 text-xs">{t.pairs.swapLocked}</p>}
         <PairsSection
           pairs={view.pairs}
           groupNames={view.groupNames}

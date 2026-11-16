@@ -1,4 +1,4 @@
-// Package events is the open-play events domain ("canchas libres"): an event the
+// Package events is the open-play events domain ("canchas abiertas"): an event the
 // owner publishes that takes courts off sale for a window of one day, and the
 // people who sign up for it one by one, paying online.
 //

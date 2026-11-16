@@ -23,7 +23,7 @@ function categoryOf(name: string): string {
 
 /**
  * What a block says under its hours, kind and name on lines of their own:
- * "Canchas libres" over the event's name; "Torneo · {categoría}" over
+ * "Canchas abiertas" over the event's name; "Torneo · {categoría}" over
  * "{pareja} vs {pareja}" for a match whose pairs are known, else "Torneo" over
  * the tournament's name. The accessible name keeps everything on one line.
  */

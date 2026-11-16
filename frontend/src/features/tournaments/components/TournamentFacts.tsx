@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { InfoRow } from '@/shared/components/common/InfoRow';
+import { Panel } from '@/shared/components/common/Panel';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { tournamentDays } from '../lib/tournamentView';
 import { CancelTournamentDialog } from './CancelDialogs';
@@ -17,29 +18,33 @@ interface TournamentFactsProps {
   canCancel: boolean;
 }
 
-/** The tournament's days and state, and the button that cancels all of it. */
+/**
+ * The header block under the tournament name: its days and state, with the
+ * secondary destructive action that cancels all of it on the same card.
+ */
 export function TournamentFacts({ tournament, complexId, paidCount, canCancel }: TournamentFactsProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
   return (
-    <div className="space-y-2">
-      {tournament.status === 'cancelled' && (
-        <div className="text-error-text flex flex-col gap-0.5 text-sm">
-          <p>{t.detail.cancelledNote}</p>
-          <p>{ES_AR.events.detail.cancelledFreeCourts}</p>
+    <>
+      <Panel size="md" mobile="card" className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 space-y-2">
+          {tournament.status === 'cancelled' && (
+            <div className="text-error-text flex flex-col gap-0.5 text-sm">
+              <p>{t.detail.cancelledNote}</p>
+              <p>{ES_AR.events.detail.cancelledFreeCourts}</p>
+            </div>
+          )}
+          <InfoRow label={ES_AR.events.detail.when}>
+            <span className="block font-medium first-letter:uppercase">
+              {tournamentDays(tournament.start_date, tournament.end_date)}
+            </span>
+          </InfoRow>
         </div>
-      )}
-      <div className="flex items-start justify-between gap-3">
-        <InfoRow label={ES_AR.events.detail.when}>
-          <span className="block font-medium first-letter:uppercase">
-            {tournamentDays(tournament.start_date, tournament.end_date)}
-          </span>
-        </InfoRow>
         {canCancel && (
           <Button
             type="button"
             variant="destructive-outline"
-            size="sm"
-            className="shrink-0"
+            className="shrink-0 self-start rounded-xl"
             onClick={() => {
               setCancelOpen(true);
             }}
@@ -47,7 +52,7 @@ export function TournamentFacts({ tournament, complexId, paidCount, canCancel }:
             {t.cancel.action}
           </Button>
         )}
-      </div>
+      </Panel>
       <CancelTournamentDialog
         open={cancelOpen}
         onClose={() => {
@@ -57,6 +62,6 @@ export function TournamentFacts({ tournament, complexId, paidCount, canCancel }:
         tournamentId={tournament.id}
         paidCount={paidCount}
       />
-    </div>
+    </>
   );
 }

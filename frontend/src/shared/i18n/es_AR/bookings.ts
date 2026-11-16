@@ -141,7 +141,7 @@ export const bookings = {
   createBookingStep3: 'Pago',
   // Turnos fijos: a booking that repeats every week on the same weekday and hour.
   fixedBooking: 'Turno fijo',
-  openPlayEventSlotTaken: 'Ese horario es parte de un evento de canchas libres.',
+  openPlayEventSlotTaken: 'Ese horario es parte de un evento de canchas abiertas.',
   tournamentMatchSlotTaken: 'Ese horario lo ocupa un partido de torneo.',
   // The notice above the grid on a day of a tournament that still has matches to schedule.
   unscheduledMatches: {
@@ -163,14 +163,14 @@ export const bookings = {
     conflictsTitle: (court: string, count: number, weekdayPlural: string, weekdaySingular: string) =>
       `${court} está ocupada ${String(count)} ${count === 1 ? weekdaySingular : weekdayPlural}`,
     // One line under the title: each occupied date gets its own answer.
-    conflictsHint: 'Para cada día ocupado, elegí si no se reserva o si ese turno va en otra cancha libre.',
+    conflictsHint: 'Para cada día ocupado, elegí si no se reserva o si ese turno va en otra cancha abierta.',
     // A series with no end is only checked for the year ahead, the booking horizon.
     conflictsEndless: 'Como el turno fijo no tiene fecha de fin, revisamos las fechas del próximo año.',
     // The occupied dates of the court, one row each with its own selector.
     occupiedDaysTitle: (court: string) => `Días ocupados en ${court}`,
     dayChoiceLabel: 'Ese día:',
     skipDayOption: 'No reservar ese día',
-    noOtherCourtFree: 'No hay otra cancha libre ese día',
+    noOtherCourtFree: 'No hay otra cancha abierta ese día',
     // Above the buttons: what creating the series will do with the occupied dates.
     choicesSummary: (moved: number, skipped: number) =>
       [

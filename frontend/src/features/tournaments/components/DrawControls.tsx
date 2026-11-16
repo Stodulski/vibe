@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
+import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useGenerateDraw } from '../hooks/useTournamentChanges';
@@ -35,9 +36,8 @@ function moved(order: TournamentOwnerPair[], pairId: string, direction: -1 | 1):
   return next;
 }
 
-/** What the draw does now: locked, repeatable, or its first run, which names the zones only when the category has them. */
-function drawHint(category: TournamentOwnerCategory, drawn: boolean, locked: boolean): string {
-  if (locked) return t.locked;
+/** What the draw does now: repeatable, or its first run, which names the zones only when the category has them. */
+function drawHint(category: TournamentOwnerCategory, drawn: boolean): string {
   if (drawn) return t.regenerateHint;
   return category.format === 'groups' ? t.generateHint : t.generateHintElimination;
 }
@@ -45,6 +45,7 @@ function drawHint(category: TournamentOwnerCategory, drawn: boolean, locked: boo
 /**
  * The draw: how many pairs paid, an optional seed order, and the button that
  * generates (or regenerates, until a result is loaded) the groups and bracket.
+ * Once a result is loaded there is no draw to offer, so nothing renders here.
  */
 export function DrawControls({ complexId, tournamentId, category, drawn, view }: DrawControlsProps) {
   const generate = useGenerateDraw(complexId, tournamentId, category.id);
@@ -52,37 +53,44 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const enough = view.paidPairs.length >= 2;
+  if (view.locked) return null;
 
   return (
-    <div className="border-border-subtle space-y-3 rounded-2xl border p-3.5">
-      <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
-      <p className="text-text-tertiary text-xs">{drawHint(category, drawn, view.locked)}</p>
-      {order && (
-        <SeedOrderEditor
-          order={order}
-          onMove={(pairId, direction) => {
-            setOrder((prev) => (prev ? moved(prev, pairId, direction) : prev));
+    <>
+      <Panel size="md" mobile="card" className="space-y-4">
+        <div className="space-y-1">
+          <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
+          <p className="text-text-tertiary text-xs">{drawHint(category, drawn)}</p>
+        </div>
+        {order && (
+          <SeedOrderEditor
+            order={order}
+            onMove={(pairId, direction) => {
+              setOrder((prev) => (prev ? moved(prev, pairId, direction) : prev));
+            }}
+          />
+        )}
+        <DrawError error={refusal ?? generate.error} category={category} pairs={view.paidPairs.length} />
+        <DrawButtons
+          drawn={drawn}
+          showSeedToggle={enough}
+          seedOn={!!order}
+          disabled={generate.isPending}
+          onToggleSeed={() => {
+            setOrder(order ? null : initialOrder(view.paidPairs));
+          }}
+          onGenerate={() => {
+            // The button stays enabled: a disabled one says nothing about why. The reason is told here, on pressing it.
+            const reason = enough ? null : t.errors.notEnough;
+            setRefusal(reason);
+            if (!reason) setConfirmOpen(true);
           }}
         />
-      )}
-      <DrawError error={refusal ?? generate.error} category={category} pairs={view.paidPairs.length} />
-      <DrawButtons
-        drawn={drawn}
-        showSeedToggle={!view.locked && enough}
-        seedOn={!!order}
-        disabled={generate.isPending}
-        onToggleSeed={() => {
-          setOrder(order ? null : initialOrder(view.paidPairs));
-        }}
-        onGenerate={() => {
-          // The button stays enabled: a disabled one says nothing about why. The reason is told here, on pressing it.
-          const reason = view.locked ? t.errors.locked : !enough ? t.errors.notEnough : null;
-          setRefusal(reason);
-          if (!reason) setConfirmOpen(true);
-        }}
-      />
-      <ConfirmDialog
+      </Panel>
+      <DrawConfirm
         open={confirmOpen}
+        drawn={drawn}
+        isPending={generate.isPending}
         onClose={() => {
           setConfirmOpen(false);
         }}
@@ -97,12 +105,31 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
             },
           });
         }}
-        title={t.confirmTitle}
-        description={drawn ? t.confirmRegenerate : t.confirmDescription}
-        confirmLabel={t.confirmLabel}
-        isLoading={generate.isPending}
       />
-    </div>
+    </>
+  );
+}
+
+interface DrawConfirmProps {
+  open: boolean;
+  drawn: boolean;
+  isPending: boolean;
+  onClose: () => void;
+  onConfirm: () => void;
+}
+
+/** The confirmation before a draw: the first run closes the registration, a repeat says what it undoes. */
+function DrawConfirm({ open, drawn, isPending, onClose, onConfirm }: DrawConfirmProps) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onClose={onClose}
+      onConfirm={onConfirm}
+      title={t.confirmTitle}
+      description={drawn ? t.confirmRegenerate : t.confirmDescription}
+      confirmLabel={t.confirmLabel}
+      isLoading={isPending}
+    />
   );
 }
 
@@ -115,17 +142,18 @@ interface DrawButtonsProps {
   onGenerate: () => void;
 }
 
+/** The most important action first: the draw, then the optional seed order beside it. */
 function DrawButtons({ drawn, showSeedToggle, seedOn, disabled, onToggleSeed, onGenerate }: DrawButtonsProps) {
   return (
     <div className="flex flex-col gap-2 sm:flex-row">
+      <Button type="button" className="w-full rounded-xl sm:w-auto" disabled={disabled} onClick={onGenerate}>
+        {drawn ? t.regenerate : t.generate}
+      </Button>
       {showSeedToggle && (
-        <Button type="button" variant="outline" className="rounded-xl" onClick={onToggleSeed}>
+        <Button type="button" variant="outline" className="w-full rounded-xl sm:w-auto" onClick={onToggleSeed}>
           {seedOn ? t.seedOrderOff : t.seedOrderOn}
         </Button>
       )}
-      <Button type="button" className="rounded-xl" disabled={disabled} onClick={onGenerate}>
-        {drawn ? t.regenerate : t.generate}
-      </Button>
     </div>
   );
 }

@@ -300,7 +300,7 @@ func TestBlockSlotRefusesHoursATournamentMatchHolds(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "tournament match") || strings.Contains(w.Body.String(), "canchas libres") {
+	if !strings.Contains(w.Body.String(), "tournament match") || strings.Contains(w.Body.String(), "canchas abiertas") {
 		t.Errorf("the refusal must name the tournament match, not an event; got %s", w.Body.String())
 	}
 	if store.insertedBlocked != nil {
@@ -314,7 +314,7 @@ func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {
 	complexID, courtID, eventID := uuid.New(), uuid.New(), uuid.New()
 	day := mustParseDate(t, "2026-03-05")
 	bookings := &stubBookings{events: []bookingstore.EventOccupancy{{
-		EventID: eventID, ComplexID: complexID, CourtID: courtID, Date: day, Name: "Canchas libres",
+		EventID: eventID, ComplexID: complexID, CourtID: courtID, Date: day, Name: "Canchas abiertas",
 		StartsAt: slots.At(timezone.Day(day), "23:00"), EndsAt: slots.At(timezone.Day(day), "23:00").Add(2 * time.Hour),
 	}}}
 
@@ -343,7 +343,7 @@ func TestListBlockedSlotsAlsoReturnsTheEventBlocks(t *testing.T) {
 	}
 	eb := resp.EventBlocks[0]
 	if eb.EventID != eventID || eb.CourtID != courtID || eb.Date != "2026-03-05" || eb.StartTime != "23:00" ||
-		eb.EndTime != "01:00" || eb.DurationMinutes != 120 || eb.Name != "Canchas libres" {
+		eb.EndTime != "01:00" || eb.DurationMinutes != 120 || eb.Name != "Canchas abiertas" {
 		t.Errorf("event block = %+v", eb)
 	}
 

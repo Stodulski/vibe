@@ -177,7 +177,7 @@ describe('PairsSection phone links', () => {
     render(<PairsSection pairs={[makePair({ id: 'p1' })]} groupNames={new Map()} canSwap={false} onSwap={vi.fn()} />);
     const link = screen.getAllByRole('link')[0];
     expect(link?.className).toContain('inline-link');
-    const state = screen.getByText(t.pairs.state.confirmed);
+    const state = screen.getByText(/^Pagó/);
     expect(state.closest('li')?.className).toContain('items-baseline');
   });
 });

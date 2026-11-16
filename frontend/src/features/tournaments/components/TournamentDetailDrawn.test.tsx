@@ -92,30 +92,19 @@ describe('TournamentDetail: swapping pairs', () => {
     await renderDetail(makeDrawnDetail());
 
     expect(screen.getByText(t.draw.regenerateHint)).toBeInTheDocument();
-    expect(screen.queryByText(t.draw.locked)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.pairs.swapLocked)).not.toBeInTheDocument();
   });
 
-  it('tells the draw is locked, and only that, once a result is loaded', async () => {
+  it('shows one muted line and no draw button once a result is loaded', async () => {
     const detail = makeDrawnDetail();
     detail.matches = [
       makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
     ];
     await renderDetail(detail);
 
-    expect(screen.getByText(t.draw.locked)).toBeInTheDocument();
+    expect(screen.getByText(t.pairs.swapLocked)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.draw.regenerate })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.draw.generate })).not.toBeInTheDocument();
     expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();
-  });
-
-  it('keeps Sortear de nuevo enabled once a result is loaded and says why it does nothing', async () => {
-    const detail = makeDrawnDetail();
-    detail.matches = [
-      makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
-    ];
-    const { user } = await renderDetail(detail);
-
-    await user.click(screen.getByRole('button', { name: t.draw.regenerate }));
-
-    expect(await screen.findByRole('alert')).toHaveTextContent(t.draw.errors.locked);
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
   });
 });

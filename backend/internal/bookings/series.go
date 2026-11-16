@@ -284,7 +284,7 @@ func (s *Service) heldByFixedBooking(
 
 // eventBookingMessage is what the owner's write guards answer with when an
 // open-play event holds the hours.
-const eventBookingMessage = "the selected time belongs to an open-play event (canchas libres)"
+const eventBookingMessage = "the selected time belongs to an open-play event (canchas abiertas)"
 
 // matchBookingMessage is the same refusal when a scheduled tournament match
 // holds the hours: the way out is unscheduling the match, not an event.

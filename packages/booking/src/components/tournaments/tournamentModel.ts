@@ -7,6 +7,7 @@ import type {
   PublicTournamentMatch,
   PublicTournamentPair,
   PublicTournamentSchedule,
+  PublicTournamentSummary,
 } from '../../api/types';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -49,6 +50,23 @@ export function spotsLeftLabel(spotsLeft: number): string {
 /** Whether a category still takes pairs. The server decides for real; this only shapes the page. */
 export function isOpenForSignUp(category: Pick<PublicTournamentCategory, 'status' | 'spots_left'>): boolean {
   return category.status === 'open' && category.spots_left > 0;
+}
+
+/** Whether a category's sign-up is closed: the state a card names "Inscripción cerrada". */
+export function isSignUpClosed(category: Pick<PublicTournamentCategory, 'status'>): boolean {
+  return category.status === 'closed';
+}
+
+/**
+ * The tournaments the public page lists, each with only the categories whose
+ * sign-up is not closed: a full or cancelled category still says so. A
+ * tournament left with no such category is not listed at all.
+ */
+export function listedTournaments(tournaments: PublicTournamentSummary[]): PublicTournamentSummary[] {
+  return tournaments.flatMap((tournament) => {
+    const categories = tournament.categories.filter((category) => !isSignUpClosed(category));
+    return categories.length > 0 ? [{ ...tournament, categories }] : [];
+  });
 }
 
 export type PairLookup = ReadonlyMap<string, PublicTournamentPair>;
@@ -225,27 +243,29 @@ export function qualifiersNote(count: number): string {
   return `${t.qualifiersNotePrefix} ${String(count)} ${t.qualifiersNoteSuffix}`;
 }
 
-/** What a pair pays per category: the entry price is shown, the service fee is only named. */
-export function pairPriceSuffix(category: Pick<PublicTournamentCategory, 'price' | 'total_price'>): string {
-  return (category.total_price ?? category.price) > category.price ? t.perPairPlusFee : t.perPair;
-}
-
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
+const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+/** The day number and short month of a `YYYY-MM-DD`, read from the string so no time zone can move it. */
+function shortDay(day: string): { number: string; month: string } {
+  const [, month = '', date = ''] = day.split('-');
+  return { number: String(Number(date)), month: SHORT_MONTHS[Number(month) - 1] ?? '' };
+}
+
 /**
- * "Sábado 12 de diciembre", "Sábado 12 al domingo 13 de diciembre" (the month
- * once when both days share it) or "Sábado 28 de noviembre al martes 1 de
- * diciembre" when the tournament crosses months.
+ * "Sábado 12 de diciembre" for one day. A range is written short so it fits a
+ * line at phone width: "12 al 13 dic" within one month, "28 nov al 1 dic"
+ * across two.
  */
 export function tournamentDates(tournament: Pick<PublicTournament, 'start_date' | 'end_date'>): string {
-  const start = formatDateFull(tournament.start_date);
-  if (tournament.end_date === tournament.start_date) return capitalize(start);
-  const sameMonth = tournament.start_date.slice(0, 7) === tournament.end_date.slice(0, 7);
-  // formatDateFull ends in " de <month>": drop it from the first day when the month is shared.
-  const first = sameMonth ? start.replace(/ de \S+$/, '') : start;
-  return capitalize(`${first} ${t.datesSeparator} ${formatDateFull(tournament.end_date)}`);
+  if (tournament.end_date === tournament.start_date) return capitalize(formatDateFull(tournament.start_date));
+  const first = shortDay(tournament.start_date);
+  const last = shortDay(tournament.end_date);
+  if (first.month === last.month) return `${first.number} ${t.datesSeparator} ${last.number} ${last.month}`;
+  return `${first.number} ${first.month} ${t.datesSeparator} ${last.number} ${last.month}`;
 }
 
 /** "Cancha 1 · sábado 12 de diciembre · 10:00": one way to write when and where a match is played. The court never breaks. */

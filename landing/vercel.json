@@ -262,11 +262,11 @@
       ]
     },
     {
-      "source": "/tutoriales/canchas-libres",
+      "source": "/tutoriales/canchas-abiertas",
       "headers": [
         {
           "key": "Link",
-          "value": "<https://vibe.com.ar/tutoriales-canchas-libres.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+          "value": "<https://vibe.com.ar/tutoriales-canchas-abiertas.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
         }
       ]
     },
@@ -428,6 +428,16 @@
     {
       "source": "/tutoriales/varios-complejos",
       "destination": "/tutoriales/configuracion-del-complejo",
+      "permanent": true
+    },
+    {
+      "source": "/tutoriales/canchas-libres",
+      "destination": "/tutoriales/canchas-abiertas",
+      "permanent": true
+    },
+    {
+      "source": "/tutoriales-canchas-libres.md",
+      "destination": "/tutoriales-canchas-abiertas.md",
       "permanent": true
     }
   ],

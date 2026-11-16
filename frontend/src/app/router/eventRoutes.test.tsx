@@ -13,8 +13,7 @@ function renderAt(url: string) {
   const router = createMemoryRouter(
     [
       ...eventRedirectRoutes,
-      { path: '/events/open-play', element: <Probe /> },
-      { path: '/events/tournaments', element: <Probe /> },
+      { path: '/events', element: <Probe /> },
       { path: '/events/tournaments/:tournamentId', element: <Probe /> },
     ],
     { initialEntries: [url] },
@@ -25,14 +24,21 @@ function renderAt(url: string) {
 
 describe('event redirects', () => {
   it.each([
-    ['/events', '/events/open-play|'],
-    ['/open-play', '/events/open-play|'],
-    ['/open-play?event=ev1', '/events/open-play?event=ev1|'],
-    ['/tournaments', '/events/tournaments|'],
+    ['/events/open-play', '/events|'],
+    ['/events/open-play?event=ev1', '/events?event=ev1|'],
+    ['/events/tournaments', '/events|'],
+    ['/open-play', '/events|'],
+    ['/open-play?event=ev1', '/events?event=ev1|'],
+    ['/tournaments', '/events|'],
     ['/tournaments/t1', '/events/tournaments/t1|t1'],
   ])('sends %s to its new address', (from, to) => {
     renderAt(from);
     expect(screen.getByTestId('at')).toHaveTextContent(to);
+  });
+
+  it('leaves the events page itself where it is, query included', () => {
+    renderAt('/events?event=ev1');
+    expect(screen.getByTestId('at')).toHaveTextContent('/events?event=ev1|');
   });
 
   it('replaces the old entry, so Back does not bounce through the redirect', () => {

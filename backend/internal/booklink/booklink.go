@@ -54,7 +54,7 @@ func SuccessPending(publicURL, complexSlug, credential string) string {
 	return fmt.Sprintf("%s/c/%s/book/success?%s=%s&status=pending", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
-// EventPage is the public page of an open-play event ("canchas libres"): where
+// EventPage is the public page of an open-play event ("canchas abiertas"): where
 // the sign-up is shared and where a confirmation email points.
 func EventPage(publicURL, complexSlug string, eventID uuid.UUID) string {
 	return fmt.Sprintf("%s/c/%s/events/%s", publicURL, complexSlug, eventID)

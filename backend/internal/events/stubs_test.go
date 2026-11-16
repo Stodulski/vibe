@@ -241,7 +241,7 @@ func newFixture(t *testing.T) *fixture {
 		realtime: &stubRealtime{}, audit: &stubAudit{}, complex: complex, owner: uuid.New(),
 	}
 	f.store.event = &eventstore.Event{
-		ID: uuid.New(), ComplexID: complexID, Name: "Canchas libres", Sport: "padel",
+		ID: uuid.New(), ComplexID: complexID, Name: "Canchas abiertas", Sport: "padel",
 		Date: time.Now().AddDate(0, 0, 3), StartTime: "19:00", DurationMinutes: 120,
 		Capacity: 20, Price: 800_000, Status: eventstore.EventActive,
 	}

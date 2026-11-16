@@ -76,7 +76,7 @@ describe('BookingCalendar — hours that started the evening before', () => {
       />,
     );
 
-    for (const name of [/Canchas libres · Americano/, /Torneo · Copa Vibe · 6ta/]) {
+    for (const name of [/Canchas abiertas · Americano/, /Torneo · Copa Vibe · 6ta/]) {
       const block = screen.getByRole('button', { name });
       expect(block.style.top).toContain('calc(0%');
       expect(block.style.height).toContain('4.16');
@@ -125,7 +125,7 @@ describe('BookingCalendar — what each kind of hours is drawn in', () => {
 
     const fill = (name: RegExp) => screen.getByRole('button', { name }).className;
     expect(fill(/Horario bloqueado/)).toContain('bg-error-border');
-    const kinds = [/Turno fijo · Ana/, /Canchas libres/, /Torneo · Copa/];
+    const kinds = [/Turno fijo · Ana/, /Canchas abiertas/, /Torneo · Copa/];
     for (const name of kinds) expect(fill(name)).not.toContain('error');
     expect(new Set(kinds.map((name) => /bg-[\w/-]+/.exec(fill(name))?.[0])).size).toBe(3);
   });

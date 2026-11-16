@@ -2,7 +2,7 @@ package notifications
 
 import "context"
 
-// Notices of an open-play event ("canchas libres"). They are email only: the
+// Notices of an open-play event ("canchas abiertas"). They are email only: the
 // approved WhatsApp templates all carry a button bound to a booking, and a
 // sign-up has none, so a person who gave no email hears nothing here (email is
 // optional everywhere; phone is the required contact).

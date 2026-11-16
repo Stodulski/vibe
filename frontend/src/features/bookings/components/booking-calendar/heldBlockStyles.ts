@@ -12,7 +12,7 @@ import { STATUS_BAR_STYLES } from '../BookingStatusBadge';
 export const HELD_BLOCK_STYLES = {
   /** A fixed weekly booking whose date has no booking yet: the confirmed booking's own colours. */
   fixed: `${STATUS_BAR_STYLES.confirmed.bg} ${STATUS_BAR_STYLES.confirmed.border}`,
-  /** An open-play event (canchas libres). */
+  /** An open-play event (canchas abiertas). */
   event: 'bg-info-border border-info-icon',
   /** A scheduled tournament match: the data teal, never a status colour. */
   match: 'bg-chart-accent/50 border-chart-accent',

@@ -1,4 +1,4 @@
-// Package store persists open-play events ("canchas libres"): an event the owner
+// Package store persists open-play events ("canchas abiertas"): an event the owner
 // publishes that takes courts off sale for a window of one day, and the people
 // who sign up for it one by one.
 package store
@@ -112,7 +112,7 @@ type Event struct {
 	CreatedAt    time.Time
 	// TournamentID is set for the sign-up container of a tournament category: it
 	// holds no courts and is not an open-play event a person lists. Nil for a
-	// canchas libres event.
+	// canchas abiertas event.
 	TournamentID *uuid.UUID
 
 	// Courts are the courts the event holds, read with the event.

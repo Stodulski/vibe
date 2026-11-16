@@ -15,7 +15,7 @@ import (
 
 func validInput() CreateInput {
 	return CreateInput{
-		Name: "Canchas libres", Date: timezone.Day(time.Now()).AddDate(0, 0, 3),
+		Name: "Canchas abiertas", Date: timezone.Day(time.Now()).AddDate(0, 0, 3),
 		StartTime: "19:00", EndTime: "21:00", Capacity: 20, Price: 800_000,
 	}
 }

@@ -854,7 +854,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// so they ask the same Turnstile rule (TURNSTILE_BOOKING_ENFORCE).
 	signUpGate := turnstile.NewGate(turnstileClient, cfg.Turnstile.BookingEnforce, respond, d.logger, d.trustedProxies)
 
-	// Open-play events ("canchas libres"): published by the owner, signed up for
+	// Open-play events ("canchas abiertas"): published by the owner, signed up for
 	// and paid by people one by one. The money side is the payments service
 	// above; `events` in this function is the realtime hub, hence the alias.
 	openPlayService := openplay.NewService(openplay.Dependencies{

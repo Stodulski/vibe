@@ -4,10584 +4,10685 @@
  */
 
 export interface paths {
-    "/api/v1/complexes/{id}/audit-log": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a complex's own audit trail
-         * @description The tenant-scoped mirror of the platform audit log. The complex is taken from the `{id}` path segment consumed by the ownership guard, not from a query parameter, so a caller cannot name a tenant other than the one they own. Paginated.
-         */
-        get: operations["auditListComplexLog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/register": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register a new owner account
-         * @description Public. Not rate limited beyond the shared auth ceiling. Answers `201` identically whether the email is new or already registered, to prevent account enumeration. When `TURNSTILE_SECRET_KEY` is configured the request must also carry a valid `turnstile_token`.
-         */
-        post: operations["authRegister"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/login": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Log in and start a session
-         * @description Public. Sets the `access_token` and `refresh_token` cookies on success. A wrong password, an unknown email, a locked account and an unverified email all answer the same `401` message, to prevent enumeration and lockout probing.
-         */
-        post: operations["authLogin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/complete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Finish a first-time Google sign-in by supplying a phone number
-         * @description Public. Consumes the `profile_token` from `/auth/google/finish`'s `needs_profile` answer, creates the account with `email_verified: true` and a session exactly like `/auth/login`. `first_name`/`last_name` are optional overrides of the profile token's own Google-supplied names. `409` if the address was claimed between the two requests. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
-         */
-        post: operations["authGoogleComplete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/start": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Begin the OIDC authorization-code sign-in flow
-         * @description Public, and reached by navigating the browser here directly (an ordinary link, not an XHR): this is the standard OpenID Connect authorization-code flow with PKCE, the shape every other "Sign in with Google" integration (Auth0, Supabase, Auth.js) uses, and the only way to sign in with Google.
-         *
-         *     Mints `state`, a `nonce` and a PKCE verifier, stores `{nonce, verifier}` single-use for 10 minutes under `state`, sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`, `Secure` outside development, path-scoped to `/api/v1/auth/google`, `Max-Age` matching the 10-minute TTL) and answers `302` to Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`, `state`, `nonce`, the PKCE `code_challenge` (S256 of the verifier), `code_challenge_method=S256` and `redirect_uri = <FRONTEND_URL>/auth/google/callback` — the address registered in the Google Cloud console for this client.
-         *
-         *     `303` to `<FRONTEND_URL>/login?error=google_unavailable` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set) or the state could not be stored, logging why; `501` when `FRONTEND_URL` itself is empty, the one case with nowhere to redirect to.
-         */
-        get: operations["authGoogleStart"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/google/finish": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Complete the OIDC authorization-code sign-in flow
-         * @description Public, and CSRF-exempt: the `state` cookie bound to the browser that called `/auth/google/start` is this route's own login-CSRF defence. Called by the frontend's `/auth/google/callback` page once Google sends the browser back with `code` and `state`.
-         *
-         *     Requires the `state` cookie `/auth/google/start` set and compares it against the body `state` in constant time, then consumes the entry stored under it — single-use, so a replayed callback finds nothing. Exchanges `code` at Google's token endpoint using the client secret and the PKCE verifier that entry carried, presenting the same `redirect_uri` `/auth/google/start` advertised. Verifies the returned `id_token` (audience, issuer, expiry, signature, `email_verified`), plus checking that its `nonce` matches the one `/auth/google/start` minted. From there this answers a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`.
-         *
-         *     A missing or mismatched `state` cookie, an unknown, expired or already-spent `state`, and a `code` Google refuses (`invalid_grant` and similar) all answer `422` on field `code` with "invalid or expired" — the frontend's existing `google_expired` handling covers this flow too. An `id_token` or `nonce` that fails verification answers `422` on field `credential` with "invalid", the same as a rejected credential anywhere else in this module. `503` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set).
-         */
-        post: operations["authGoogleFinish"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/refresh": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Rotate the session using the refresh cookie
-         * @description Public by necessity: it runs on an expired access token. Reads only the `refresh_token` cookie, no body. Presenting an already-rotated token within a 30 second grace window is treated as a benign concurrent-tab race; outside that window every session for the user is revoked as suspected theft.
-         */
-        post: operations["authRefresh"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/logout": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * End the current session
-         * @description Public by design, so it also succeeds with no session at all. Clears both cookies, deletes the refresh token and blacklists the current access token when present.
-         */
-        post: operations["authLogout"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/verify-email": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Verify an email address by token */
-        post: operations["authVerifyEmail"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/resend-verification": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Resend the verification email
-         * @description Public. Always answers the same `200` message regardless of whether the email exists, is already verified, or is under a cooldown, to prevent enumeration and spam.
-         */
-        post: operations["authResendVerification"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/forgot-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Request a password reset email
-         * @description Public. Always answers the same `200` message, and audits the attempt unconditionally before any lookup.
-         */
-        post: operations["authForgotPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/reset-password": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Reset a password using an emailed token
-         * @description Public. On success revokes every existing session for the account and deletes every outstanding reset token.
-         */
-        post: operations["authResetPassword"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/confirm-email-change": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Confirm a pending email change using an emailed token
-         * @description Public, token-authenticated — the same posture as `POST /auth/reset-password`. The token proves control of the account's CURRENT address: the link is emailed there by `PUT /auth/me`, never to the new one. A session cookie cannot substitute for that, which is what stops a hijacked session from moving the account's recovery channel unnoticed. This request does NOT itself prove control of the new address — only the ordinary verification email sent to it afterward does. On success sets `users.email` to the address the token was issued for, clears `email_verified`, re-sends that ordinary verification email to the new address, and revokes every existing session for the account, exactly as a password reset does. Cross-tenant bypass reason `platform`.
-         */
-        post: operations["authConfirmEmailChange"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/auth/me": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get the current session's user
-         * @description The frontend bootstraps every fresh page load from here, so the answer also carries the session's CSRF token: it is derived from the access token the request authenticated with and rotates nothing. A page load therefore never spends the refresh token; `/auth/refresh` is only called once the access token has expired and this endpoint answered 401.
-         */
-        get: operations["authGetCurrentUser"];
-        /**
-         * Update the current account
-         * @description All body fields are optional pointers, omitted means unchanged. Changing `email` does NOT change the account's address: it creates a pending email-change request and emails a confirmation link to the CURRENT address (see `POST /auth/confirm-email-change`), because the address is the account's password-recovery channel and a session alone is not proof of control over the new one. `email_change` reports what happened to that request: `none` when the body did not ask for a different address (a missing `email`, or the same address modulo case), `requested` when the pending request was saved and the confirmation email enqueued, `failed` when saving or enqueueing it failed after every other field in this PUT had already committed — the response still reports success, and `pending_email` still reflects whatever request (if any) is actually stored, never a request this call failed to save. Changing `phone` to a non-normalizing value is refused unless it is byte-identical to the value already stored (grandfathers pre-existing bad numbers). Changing the password requires both `current_password` and `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
-         */
-        put: operations["authUpdateCurrentUser"];
-        post?: never;
-        /**
-         * Delete the current account
-         * @description Cascades to every complex, court, client and booking the account owns. Cross-tenant bypass reason `by-owner`.
-         */
-        delete: operations["authDeleteAccount"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/whatsapp": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Meta's WhatsApp webhook subscription handshake
-         * @description Public, not rate limited. Authenticated by Meta's `hub.verify_token`, not a session.
-         */
-        get: operations["bookingsWhatsAppVerifyWebhook"];
-        put?: never;
-        /**
-         * Receive a WhatsApp Cloud API webhook delivery
-         * @description Public, not rate limited. HMAC-SHA256 signed (`X-Hub-Signature-256`), verified before the body is trusted. Always answers `200` except for a bad signature (`401`, empty body), so Meta never redelivers a message this service already saw. Inbound text is only logged, this endpoint changes no booking state.
-         */
-        post: operations["bookingsWhatsAppWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a booking without an account
-         * @description Public. Rate limited under the dedicated `book` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. The booking's primary key is deliberately never included in the response, only the opaque `token` used by the status/cancel endpoints below.
-         */
-        post: operations["bookingsPublicCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book/holds": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Hold a slot while the visitor fills in their details
-         * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429).
-         */
-        post: operations["bookingsPublicHoldCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book/holds/{token}/release": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Release a slot hold
-         * @description Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases the hold if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
-         */
-        post: operations["bookingsPublicHoldRelease"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Look up a public booking by its link token */
-        get: operations["bookingsPublicStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book/cancel-info": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Preview refund terms before cancelling a public booking */
-        get: operations["bookingsPublicCancelInfo"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/book/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a public booking by its link token
-         * @description Public. Respects the complex's cancellation window (unlike the staff cancel endpoint). Cross-tenant bypass reason `resolves`.
-         */
-        post: operations["bookingsPublicCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List a complex's bookings for one day */
-        get: operations["bookingsList"];
-        put?: never;
-        /**
-         * Create a staff booking, confirmed immediately
-         * @description No payment step. Optionally records a counter payment (any method but MercadoPago) in the same call.
-         */
-        post: operations["bookingsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/booking-series": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Create a fixed weekly booking (turno fijo)
-         * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`; each conflict of the `409` lists the other courts free that date (`free_courts`), and `date_courts` books some of those dates on another court instead of skipping them. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
-         */
-        post: operations["bookingSeriesCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/booking-series/{seriesID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a fixed weekly booking with its next dates
-         * @description The series and its next eight dates, computed from the rule (nothing is stored per date until it is settled): `pending` while the date only holds its hours, `booked` once its booking exists (`booking_id`), `exception` when it is not part of the series (`reason`). An ended series has no upcoming dates.
-         */
-        get: operations["bookingSeriesGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/booking-series/{seriesID}/skip": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel one date of a fixed weekly booking
-         * @description Records that `date` is not part of the series (`cancelled_by_owner`): its hours go back on sale. Only a future (or today's) date of the series that has no booking yet. A date that already has its booking is cancelled through that booking (`bookingsCancel`), and a date already cancelled is refused. Both, a past date and a date the rule does not match, are `422`.
-         */
-        post: operations["bookingSeriesSkip"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/booking-series/{seriesID}/end": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * End a fixed weekly booking from a date
-         * @description The series stops holding its dates from `from_date` on (`ends_on` becomes the day before) and is marked `ended`. Only a booking the series already created for a date on or after `from_date` is affected: without a payment it is cancelled, quietly (no message to the client); with a payment it stands and comes back under `kept`.
-         */
-        post: operations["bookingSeriesEnd"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/open-play-events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a complex's open-play events in a date range
-         * @description Events ("canchas libres") whose date is in the range, cancelled ones included, soonest first, with how many spots are taken. At most 200; not paginated.
-         */
-        get: operations["eventsList"];
-        put?: never;
-        /**
-         * Publish an open-play event (canchas libres)
-         * @description Takes the event's courts off sale for its window: the storefront, the owner's booking and blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the hours as taken until the event is cancelled. `court_ids` absent or empty means every active court. An `end_time` not after `start_time` means the event runs past midnight. When a booking, a blocked slot, a fixed weekly booking or another event already holds the hours on any of the courts the call answers `409` naming what and where, and writes nothing. People sign up one by one and pay `price` (plus the service fee) online until the event is full or begins.
-         */
-        post: operations["eventsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/open-play-events/{eventID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get an open-play event with its participants
-         * @description The event and everyone who held a spot in it, with each payment: `held` spots are still being paid, `confirmed` are paid, `cancelled` ones are listed when they carried money (a refund shows in `payment.refund_amount`). Holds that ran out are not listed. Event income is in the complex cash like an online deposit.
-         */
-        get: operations["eventsGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/open-play-events/{eventID}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel an open-play event
-         * @description Frees the event's courts and ends every registration at once. Every paid participant is refunded through MercadoPago (the whole payment, service fee included) and told by email when they gave one; a refund MercadoPago cannot complete now stays queued and is retried. People still paying lose their hold, and a payment that lands for one is refunded when it arrives. A second cancel is `400`.
-         */
-        post: operations["eventsCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings/{bookingID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get one booking with its client and payments */
-        get: operations["bookingsGet"];
-        /**
-         * Update a booking's status or notes
-         * @description Every status field is optional and independently validated against a legal-transition matrix. Cancelling a paid booking here is refused, use the dedicated cancel endpoint.
-         */
-        put: operations["bookingsUpdate"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings/{bookingID}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Staff-cancel a booking, refunding if money was collected
-         * @description Ignores the complex's cancellation window, unlike the public cancel endpoint. Cancelling an already-cancelled booking is idempotent and answers `200` unchanged.
-         */
-        post: operations["bookingsCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Record a counter payment taken by staff */
-        post: operations["bookingsConfirmPayment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings/{bookingID}/attended": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Mark that the client of a finished booking showed up
-         * @description Legal on a `confirmed` booking whose `ends_at` has passed, or a `completed` one without `attended_at`: the booking becomes `completed` with `attended_at` set. Marking a booking already attended is idempotent and answers `200` unchanged.
-         */
-        post: operations["bookingsMarkAttended"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Close out the manual half of a split refund
-         * @description Only legal when the booking reads `status: cancelled` and `refund_status: partial`, meaning an automatic refund covered part of the payment and the rest must be handed back by hand (any counter method).
-         */
-        post: operations["bookingsManualRefund"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-sessions": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List this complex's cash session history
-         * @description Newest (most recently opened) first. Paginated.
-         */
-        get: operations["cashSessionsList"];
-        put?: never;
-        /**
-         * Open a cash session
-         * @description Refused with 409 if this complex already has one open.
-         */
-        post: operations["cashSessionsOpen"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-session": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get the currently open cash session
-         * @description 404 when no session is open. Deliberately its own singular path — not nested under /cash-sessions/ as .../current — because a literal path segment sitting next to /cash-sessions/{sessionID}'s wildcard is an unresolvable route conflict for this API's router (net/http's ServeMux refuses to decide between a specific literal path that matches every method and a method-qualified pattern on a wildcard sibling).
-         */
-        get: operations["cashSessionsCurrent"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-sessions/{sessionID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get one cash session, open or closed
-         * @description Includes its reconciliation summary and its full movement ledger.
-         */
-        get: operations["cashSessionsGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/close": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Close a cash session
-         * @description counted_cash is what the owner physically counted in the drawer. expected_cash is computed and snapshotted at close time; difference is counted minus expected. A closed session is immutable and can never be reopened.
-         */
-        post: operations["cashSessionsClose"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record a cash movement (income or expense)
-         * @description sessionID must be the currently open session.
-         */
-        post: operations["cashMovementsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Void an earlier movement
-         * @description Creates a new movement with the opposite kind and the same amount/method/category as the one sessionID/movementID names, always in the CURRENTLY open session — which may not be sessionID, when correcting a movement from an earlier, already-closed shift. Refused with 409 if the original is already voided or is itself a void.
-         */
-        post: operations["cashMovementsVoid"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/clients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** List a complex's clients */
-        get: operations["clientsList"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/clients/{clientID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get one client with their recent bookings
-         * @description Answers `404`, not `403`, when the client belongs to a different complex, so this endpoint cannot be used to probe which client ids exist elsewhere.
-         */
-        get: operations["clientsGet"];
-        /**
-         * Update a client's notes or blocked status
-         * @description Only `notes` and `is_blocked` are owner-editable. Identity fields come from bookings and cannot be written here.
-         */
-        put: operations["clientsUpdate"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The public storefront landing page for a complex
-         * @description Public. Cross-tenant bypass reason `resolves`. Strips owner and MercadoPago identifiers.
-         */
-        get: operations["complexesGetPublic"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/slug-available": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Check whether a slug is free platform-wide
-         * @description Not nested under `/complexes/`: the router this route was first written for could not mix a static segment with the `{id}` wildcard registered at that position. The address is kept as it is because it is the one clients call. Cross-tenant bypass reason `platform` (a global uniqueness check).
-         */
-        get: operations["complexesSlugAvailable"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List the complexes the caller owns
-         * @description Not paginated: one account owns at most one complex, so the array holds either the caller's single complex or is empty. Cross-tenant bypass reason `by-owner` (filtered by `owner_id` in SQL).
-         */
-        get: operations["complexesList"];
-        put?: never;
-        /**
-         * Create a new complex
-         * @description Cross-tenant bypass reason `bootstrap`. Refused if the account already owns a complex: one account owns exactly one. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
-         */
-        post: operations["complexesCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get a complex by id, owner view */
-        get: operations["complexesGet"];
-        /**
-         * Update a complex's profile
-         * @description Every field is an optional pointer. Slug uniqueness is re-checked only when it actually changes. Amenities are validated against a closed vocabulary.
-         */
-        put: operations["complexesUpdate"];
-        post?: never;
-        /**
-         * Soft-delete a complex and its courts
-         * @description The one cascading write in this module. Refused while the complex has active bookings.
-         */
-        delete: operations["complexesDelete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/schedules": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Replace a complex's weekly opening hours
-         * @description Requires exactly 7 entries, one per weekday, no duplicates. `close_time` before `open_time` is valid and means the venue closes after midnight.
-         */
-        put: operations["complexesUpdateSchedules"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/uploads/presign": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Get a short-lived presigned URL to upload a logo or cover image
-         * @description Browsers upload directly to object storage, image bytes never traverse this service. Answers `501` when no storage backend is configured.
-         */
-        post: operations["complexesPresignUpload"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/uploads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Delete a previously uploaded logo or cover image */
-        delete: operations["complexesDeleteUpload"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/mp/connect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Connect the complex's MercadoPago account (OAuth PKCE exchange) */
-        post: operations["complexesConnectMercadoPago"];
-        /** Disconnect the complex's MercadoPago account */
-        delete: operations["complexesDisconnectMercadoPago"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/mp/oauth-attempts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Register a MercadoPago OAuth attempt (state and PKCE verifier) before the redirect
-         * @description Stores the attempt server-side for one hour, single use, so the OAuth callback can finish in any tab, browser or installed app: `POST .../mp/connect` with the same `state` spends it. Registering the same `state` again replaces the earlier attempt.
-         */
-        post: operations["complexesRegisterMercadoPagoOAuthAttempt"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/mp/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get the complex's MercadoPago connection status */
-        get: operations["complexesMercadoPagoStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/waitlist": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Ask to be emailed when a slot on a fully booked day frees up again
-         * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of the complex. Joining again for the same address and day answers the same `204`. The email is sent once, the first time a booking on that day is cancelled or expires. The daily cleanup drops entries whose day has passed.
-         */
-        post: operations["waitlistJoin"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List a complex's tournaments in a date range
-         * @description Tournaments whose days overlap the range, cancelled ones included, soonest first, each with its categories. At most 200; not paginated.
-         */
-        get: operations["tournamentsList"];
-        put?: never;
-        /**
-         * Create a tournament with its categories
-         * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
-         */
-        post: operations["tournamentsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get a tournament with its pairs, groups and matches
-         * @description Everything under the tournament: categories, every pair that held a spot with its payer, partner and payment (as `eventsGet`'s participants), the groups with their standings, and every match with its schedule and result. Income lands in the complex cash like an online deposit.
-         */
-        get: operations["tournamentsGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a tournament
-         * @description Cancels every category (each paid pair is refunded through MercadoPago, service fee included, and told by email when they gave one) and releases every court its matches held. A refund MercadoPago cannot complete now stays queued and is retried. A second cancel is `400`.
-         */
-        post: operations["tournamentsCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel one category of a tournament
-         * @description Refunds and tells every paid pair of the category as `tournamentsCancel` does, and releases the courts its scheduled matches held. The rest of the tournament goes on.
-         */
-        post: operations["tournamentsCategoryCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Generate (or regenerate) a category's draw
-         * @description Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into groups of at most `group_size` pairs (fewer, bigger groups only when that would leave a group no larger than `qualifiers_per_group`), sizes differing by at most one, deals them snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play (group winners as top seeds, groupmates apart in the first round where possible, byes when the qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest follow in random order. Generating closes the category's sign-up. It can be repeated while no result is loaded (`409` after); pairs still paying are not drawn and their late payment is refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold the pairs.
-         */
-        post: operations["tournamentsDrawGenerate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Swap two pairs of a drawn category
-         * @description Moves pairs by hand: the two pairs trade places in the bracket's first round, or trade groups (they must be in different groups). Allowed only before any result (`409` after).
-         */
-        post: operations["tournamentsDrawMove"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Give a match a court, a day and a time
-         * @description From then on the match holds that court for `duration_minutes` (default: the category's `match_duration_minutes`, 90 unless the owner set another) everywhere availability is decided, as an event does: public availability, bookings, blocked slots, fixed bookings and events all see it (in `match_blocks` of `courtsListBlockedSlots`). Refused with `409` when a booking, blocked slot, fixed booking, event or another match already holds the hours on that court; `422` for a day outside the tournament's, an unknown court or a bye. Scheduling again moves the match.
-         */
-        put: operations["tournamentsMatchSchedule"];
-        post?: never;
-        /**
-         * Take a match off its court
-         * @description Releases the hours the match held.
-         */
-        delete: operations["tournamentsMatchUnschedule"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Load or correct a match's result
-         * @description The score follows the category's format (`sets_to_win`, `games_per_set`, `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off, `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match tiebreak is never played. The score is optional: a result can be only `winner` (1 or 2, the side that won) with no sets, and then the match has a winner and an empty `sets`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side in group tables. Exactly one of `sets`, `winner` and `walkover_loser` is sent (`422` otherwise). The winner advances to the next match by itself; group standings update (matches won, then set difference, game difference, head to head; the set and game differences count only the matches that have a score), and when a group finishes its qualifiers fill their bracket slots. Loading a result again corrects it, allowed while the next match has no result (for a group match: while none of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid score; `400` when the match does not have both pairs yet or is a bye. The response is the whole tournament, since a result moves other matches.
-         */
-        put: operations["tournamentsMatchResult"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Set the court fee of a category
-         * @description The fixed amount each of the two pairs of a match pays for the court, charged at the complex on match day and not online (`0` is no fee). It can change at any time while the tournament is active: a charge already recorded keeps the amount it was made at (`match.court_fee[].amount`), every match not charged yet uses the new one. Responds with the whole tournament.
-         */
-        put: operations["tournamentsCategoryCourtFee"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Collect a pair's court fee for a match
-         * @description Records that the pair on `side` (1 is `pair1_id`, 2 is `pair2_id`) paid its court fee at the complex, by `cash` or `transfer` like a booking charged at the venue. The amount is the category's current `court_fee` and is kept. The money lands in the complex's open cash session as an income movement of the `tournaments` category, so it is in the session totals and the monthly report. A pair is charged once per match (`409` otherwise), and `409` when no cash session is open. `400` when the category has no fee, the match is a bye or a walkover, or the pair is not known yet. Responds with the whole tournament.
-         */
-        put: operations["tournamentsMatchCourtFeeCharge"];
-        post?: never;
-        /**
-         * Undo a court fee charge recorded by mistake
-         * @description Voids the charge's income movement in the complex's open cash session, the way voiding a sale does, so the pair can be charged again. `409` when no charge stands for the pair, or when no cash session is open (the void needs one). Works on a cancelled tournament too. Responds with the whole tournament.
-         */
-        delete: operations["tournamentsMatchCourtFeeUndo"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/tournaments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The tournaments a visitor can follow or sign up for
-         * @description Public. Cross-tenant bypass reason `resolves`. Active tournaments that are not over, soonest first, each with its categories (with `service_fee` and `total_price` per pair).
-         */
-        get: operations["tournamentsPublicList"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/tournaments/{tournamentID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One tournament with its groups, standings, bracket and schedule
-         * @description Public. Cross-tenant bypass reason `resolves`. A cancelled tournament is still shown, as `cancelled`. `pairs` lists the pairs that paid, by player names only; `groups` carry their standings; `matches` are the group matches and the bracket (`stage`, `round`, `position`) with results and schedule. A bracket slot waiting for a group is a `source` (the Nth of a group) until it fills.
-         */
-        get: operations["tournamentsPublicGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sign up a pair for a category and pay online
-         * @description Public. Rate limited under the `hold` ceiling like `eventsPublicSignUp`, which it shares its hold, capacity, checkout and refund behaviour with. Cross-tenant bypass reason `resolves`. One person signs up both players and pays the whole entry (`total_price`) through MercadoPago (`mp_init_point`); the spot is held while paying and confirmed when the payment is approved. Phone is required for both players, email optional (without the payer's email no confirmation email is sent). The same problem kinds as events: `409` `event-full`, `event-closed` (the draw exists, or cancelled) or `already-registered` (either player is already in the category, as payer or partner); `429` `rate-limited` over the unpaid-hold cap. The returned `token` is the credential for the status and cancel routes below.
-         */
-        post: operations["tournamentsPublicSignUp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/tournament-registrations/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A pair's own spot in a tournament category
-         * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. Before the draw, `cancellation` follows the complex's policy as an event does; after it (`walkover: true`) leaving forfeits the pair's matches and the payment is kept.
-         */
-        get: operations["tournamentsPublicRegistrationStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/tournament-registrations/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Withdraw a pair from a tournament category
-         * @description Public. Cross-tenant bypass reason `resolves`. Before the draw it follows the complex's cancellation policy as an event does: within the window the payment is refunded through MercadoPago, outside it the spot is released and the payment kept. After the draw the pair leaves as a walkover: its unplayed matches are lost to the opponents, who advance, and the payment is kept.
-         */
-        post: operations["tournamentsPublicRegistrationCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The open-play events a visitor can still sign up for
-         * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the holds still running; `0` means the sign-up is closed.
-         */
-        get: operations["eventsPublicList"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/events/{eventID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One open-play event, for its shareable page
-         * @description Public. Cross-tenant bypass reason `resolves`. A cancelled event is still answered, as `cancelled`, so a shared link says so. An event of another complex is `404`.
-         */
-        get: operations["eventsPublicGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/events/{eventID}/registrations": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Sign up for an open-play event and pay online
-         * @description Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling, and one address may hold at most 3 unpaid spots at once. Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed when the payment is approved; a hold nobody pays stops counting by itself. Phone is required, email optional (without it no confirmation email is sent). Answers `409` with its own problem kind per reason: `event-full`, `event-closed` (started or cancelled) or `already-registered` (the phone already holds a spot); `429` `rate-limited` when the address already holds 3 unpaid spots. The returned `token` is the person's credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the checkout returns them to the event page with it.
-         */
-        post: operations["eventsPublicSignUp"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/event-registrations/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A person's own spot in an open-play event
-         * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. `cancellation` says what cancelling right now would do under the complex's policy, the one bookings follow: within `cancellation_hours` before the event (or the grace period after signing up) the payment is refunded automatically, outside it the spot is released and the payment kept.
-         */
-        get: operations["eventsPublicRegistrationStatus"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/event-registrations/cancel": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel a person's own spot in an open-play event
-         * @description Public. Cross-tenant bypass reason `resolves`. Follows the complex's cancellation policy as a booking does: within the window a paid spot is refunded through MercadoPago, outside it the spot is released and the payment kept. A spot still being paid is released with nothing to return.
-         */
-        post: operations["eventsPublicRegistrationCancel"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/next-available": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The first day after a given date with a bookable slot
-         * @description Public. Cross-tenant bypass reason `resolves`. Looks at the fourteen days after `from`, never past the booking horizon, and answers with the first one where any active court has a free slot for the requested duration. The check is the same grid the availability endpoint publishes. `date` is `null` when no day in that window has one.
-         */
-        get: operations["courtsPublicNextAvailable"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/complexes/{slug}/availability": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * The storefront's bookable-slot grid for one day
-         * @description Public. Cross-tenant bypass reason `resolves`. Unpriced slots are omitted from the `slots` array. Booked, blocked and past slots are included with `available: false`. A closed day or a complex with zero active courts answers `200` with `is_open: false` rather than an error.
-         */
-        get: operations["courtsPublicAvailability"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/courts": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List every court in a complex
-         * @description Includes inactive courts, the owner manages both.
-         */
-        get: operations["courtsList"];
-        put?: never;
-        /** Create a court */
-        post: operations["courtsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/courts/{courtID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /** Update a court */
-        put: operations["courtsUpdate"];
-        post?: never;
-        /** Soft-delete a court */
-        delete: operations["courtsDelete"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/courts/{courtID}/prices": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Replace a court's price bands
-         * @description Full wholesale replacement. Bands sharing only an endpoint do not overlap (half-open intervals). `time_to` at or before `time_from` means the band runs past midnight.
-         */
-        put: operations["courtsUpdatePrices"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/courts/{courtID}/block": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Block a time range on a court */
-        post: operations["courtsBlockSlot"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/blocked-slots": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List blocked slots and fixed-booking blocks in a date range
-         * @description The range is capped at 366 days.
-         */
-        get: operations["courtsListBlockedSlots"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/blocked-slots/{slotID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        /** Remove a blocked slot */
-        delete: operations["courtsDeleteBlockedSlot"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/livez": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Liveness probe
-         * @description Public. Answers `200` for as long as the process is running, and touches no dependency. This is what a restart policy watches: an unreachable database must pull the instance out of rotation (see `/api/v1/healthcheck`), not restart every replica until the database comes back.
-         */
-        get: operations["livenessCheck"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/healthcheck": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Readiness probe
-         * @description Public. Polled by the load balancer. `503` pulls the instance from rotation (database unreachable). A degraded cache or payments provider still answers `200` with `status: degraded`, so a payment-provider outage does not become a total outage.
-         */
-        get: operations["healthCheck"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/leads/abandoned-registration": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Capture an email from a registration that was started but never finished
-         * @description Public. Designed to be called via `navigator.sendBeacon`. Covers the password register form (an address typed before submitting) and the Google sign-up second step (an address Google verified, left before the phone number was given); `source` says which. The only endpoint in the API with an empty success body, no envelope at all. Downstream forwarding failures are logged, never surfaced.
-         */
-        post: operations["leadsCaptureAbandonedRegistration"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/email/unsubscribe": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Stop owner lifecycle email to an address
-         * @description Public. The one-click opt-out every owner lifecycle email carries: the List-Unsubscribe header (RFC 8058) and the footer link to the /baja page. The token comes from the `token` query parameter (a mail client's one-click POST) or from the JSON body (the /baja page). Answers 204 whether or not the address was already suppressed. A token this server did not mint is refused with 400. Transactional email (bookings, verification, password reset) is not affected by a suppression.
-         */
-        post: operations["emailUnsubscribe"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/webhooks/mercadopago": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Receive a MercadoPago IPN notification
-         * @description Public, not rate limited. Cross-tenant bypass reason `resolves` (the tenant is found from the payment's external reference). Signature verified via the `x-signature` and `x-request-id` headers before the body is parsed or trusted. An unsigned or invalid request gets a bare `200` with nothing recorded, so MercadoPago stops retrying an attack while nothing is trusted. A recording failure answers `5xx` so MercadoPago redelivers; an oversized body is dropped with `200` since redelivery cannot fix it.
-         */
-        post: operations["paymentsMercadoPagoWebhook"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/places/autocomplete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google Places Autocomplete proxy
-         * @description An `input` under 3 characters short-circuits to an empty result without calling Google, since the call is billable.
-         */
-        get: operations["placesAutocomplete"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/places/details": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Google Places Details proxy, flattened to an address
-         * @description A hand-flattened projection of Google's response, not a passthrough.
-         */
-        get: operations["placesDetails"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/products": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List this complex's product catalog
-         * @description Unpaginated (a shop's catalog is bounded). Each product carries a computed `low_stock` flag (tracks_stock, a threshold is set, and stock is at or below it) and `needs_stock_review` (stock went below zero).
-         */
-        get: operations["productsList"];
-        put?: never;
-        /** Add a product to the catalog */
-        post: operations["productsCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/products/{productID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Get one product */
-        get: operations["productsGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        /**
-         * Update a product
-         * @description Every field is optional; an omitted one keeps its current value. Sending `category` as an empty string clears it. Turning `tracks_stock` off while `stock_on_hand` is not zero is refused with 409 — adjust the count to zero first.
-         */
-        patch: operations["productsUpdate"];
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/products/{productID}/restock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Record a stock delivery
-         * @description Requires an open cash session (409 otherwise). In one transaction, writes the `restock` cash expense (amount = total_cost) and the linked stock movement, and applies the delivered quantity to `stock_on_hand`. Refused with 409 for a product that is inactive or does not track stock.
-         */
-        post: operations["productsRestock"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/products/{productID}/adjustments": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Correct a product's stock by hand
-         * @description No money involved, no cash session required. Refused with 409 for a product that does not track stock. Stock may go negative — an owner may adjust past zero on purpose (a recount that finds less than the system expects).
-         */
-        post: operations["productsAdjust"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/products/{productID}/stock-movements": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * A product's stock-movement history
-         * @description Newest first. Paginated.
-         */
-        get: operations["productsListStockMovements"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/cash/bookings-due": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Today's bookings that still owe money, for the sell page
-         * @description Today in Argentina (America/Argentina/Buenos_Aires). Lists the complex's bookings of that day whose remaining balance is greater than zero, sorted by start time. Cancelled and no-show bookings are never listed. A pending booking is listed only while it is inside the payment window; an older pending booking no longer holds its slot. Each entry's `remaining` is the amount a checkout must send for it.
-         */
-        get: operations["salesBookingsDue"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/sales": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * List this complex's sales
-         * @description Newest first. Paginated. Optionally restricted to one cash session. A checkout that collected only booking balances is listed too, as an entry with no items (see the Sale schema).
-         */
-        get: operations["salesList"];
-        put?: never;
-        /**
-         * Check out at the counter: products and/or booking balances, in one transaction
-         * @description One checkout for Caja > Vender. The client sends product ids and quantities (`items`) and/or the booking balances the player is paying now (`booking_payments`); at least one of the two must be non-empty. Prices, totals and each booking's remaining balance always come from the server. Requires an open cash session (409 otherwise). In one transaction: when there are product lines, writes the sale (its items, the 'sale' cash income with amount = products total, one 'sale' stock movement per tracked item); and for each booking payment, records a counter payment through the same booking payment logic the booking panel uses (same method, one payments row per booking, the booking's collection status moves to fully_paid). Every booking is locked for the whole transaction, so two cashiers cannot collect the same balance. Booking balances are counted once: the cash session's expected cash counts the payments row, never the sale's income for the same amount. Never refused for lack of stock — the response's `stock_warnings` names every tracked product that ended at zero or below. Product rules: 0 to 50 items; each product id may appear once (422 on a duplicate); every product must exist in this complex and be active (422 naming `items[N].product_id`); the products total must not exceed 2000000000 centavos. Booking rules: 0 to 20 booking payments; each booking once (422 on a duplicate); `amount` must equal the booking's current remaining balance, which is the full balance only in this version (409 when it differs, so a stale cart fails clearly). A checkout whose only lines are booking payments has no sale: `sale` is null and the collected balances are returned in `booking_payments`. A checkout with product lines and a zero products total is refused (422) rather than recorded as a zero-amount income.
-         */
-        post: operations["salesCreate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/sales/{saleID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Get one sale
-         * @description Includes its items.
-         */
-        get: operations["salesGet"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/sales/{saleID}/void": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Void a sale
-         * @description Once only (409 on a second void). Requires an open cash session (409 otherwise): the void's own cash movement always lands in whichever session is open right now, which may not be the sale's own. In one transaction: restores stock for every tracked item this sale originally moved (even if the product is now inactive or no longer tracks stock), and voids the sale's own income movement (opposite kind, same amount/method/category, landing in the currently open session) — the same shape cashMovementsVoid gives an ordinary cash movement. A 'sale' category income movement can only be voided through this endpoint, never through cashMovementsVoid directly.
-         */
-        post: operations["salesVoid"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/sitemap.xml": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Platform sitemap
-         * @description Public. Cross-tenant bypass reason `platform` (every active slug on the platform, by definition). One `<url>` per active complex slug.
-         */
-        get: operations["publicsiteSitemap"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/sitemap.xml": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Platform sitemap (moved)
-         * @description Public. The pre-versioning address of the sitemap, kept as a permanent redirect because search engines hold it in their index and answer a 404 by dropping the pages it lists. Use `/api/v1/sitemap.xml`.
-         */
-        get: operations["publicsiteSitemapMoved"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/hubs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * City hub index
-         * @description Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by province then name (a city with no province last), with its province, how many switched-on complexes it lists, and the Spanish label of each sport its switched-on courts carry. The public site renders its city hub index from it. Field names are snake_case, as on the other public documents.
-         */
-        get: operations["publicsiteHubs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/public/hubs/{city}/data": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * One city hub as JSON
-         * @description Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed. A city whose complexes are all switched off or deleted still answers 200, as an empty hub with an empty complexes list, so its page outlives its last complex; it stays out of the hub index and the sitemap.
-         */
-        get: operations["publicsiteCityHubData"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/events": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Live booking-change feed for the owner dashboard (Server-Sent Events)
-         * @description Not a conventional JSON endpoint. The connection opens with `event: connected`, then a `: keepalive` comment every 30 seconds, then `event: booking_changed` with an empty `data: {}` payload whenever a booking on this complex is created, updated, cancelled or paid (the dashboard reacts by refetching rather than reading the event body). The stream ends with one of two terminal frames before closing: `event: expired` after 15 minutes (matching the access-token lifetime) or two consecutive re-authorization failures, or `event: unauthorized` when a re-check (every 60 seconds) finds the caller no longer authorized. Admission may refuse before any header is written when the per-complex or global subscriber cap is hit.
-         */
-        get: operations["realtimeStream"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/stats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Dashboard summary statistics */
-        get: operations["reportingGetDashboardStats"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/stats/revenue": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Daily revenue chart */
-        get: operations["reportingGetRevenueChart"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/stats/occupancy": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Occupancy heatmap by day of week and hour */
-        get: operations["reportingGetOccupancyChart"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/stats/clients": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /** Client retention and frequency panel */
-        get: operations["reportingGetClientInsights"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/reports/monthly": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Monthly payments report
-         * @description Defaults to the current month and year in the Argentina timezone. Period validation errors answer `400` with the bare machine code string as the `error` value (not an object), unlike the field-validation convention used elsewhere in the API.
-         */
-        get: operations["reportingGetMonthlyReport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/reports/export": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Download the monthly payments report as an Excel workbook
-         * @deprecated
-         * @description Same period parameters and validation as the monthly report. Bounded by an 8 second budget and a 50,000 row cap.
-         */
-        get: operations["reportingExportPaymentsExcel"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/reports/exports": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Start a payments export job
-         * @description Enqueues the Excel export and answers immediately. Deduplicated per complex, period and calendar day (Argentina), so a double click yields the same export id. Poll the status resource in `status_url` until `status` is `done` or `failed`.
-         */
-        post: operations["reportingCreatePaymentsExport"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/complexes/{id}/reports/exports/{exportID}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Payments export status and download URL
-         * @description `download_url` and `expires_at` are present only when `status` is `done`; the URL is a short-lived signed link to private object storage. A failed export answers `200` with `status: failed` and an embedded `error` problem whose `instance` is this path.
-         */
-        get: operations["reportingGetPaymentsExport"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/openapi.json": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * This document, rendered as JSON
-         * @description Public. General rate-limit tier. Rendered from the same parsed document served as YAML and used by /docs.
-         */
-        get: operations["openapiGetJSON"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/openapi.yaml": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * This document, as raw YAML bytes
-         * @description Public. General rate-limit tier. The source of truth committed to the repository at internal/openapi/openapi.yaml.
-         */
-        get: operations["openapiGetYAML"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/docs": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Interactive API reference
-         * @description Public. General rate-limit tier. An HTML page that loads Scalar's API reference pointed at /api/v1/openapi.json. Not intended for search indexing, answers `X-Robots-Tag: noindex`.
-         */
-        get: operations["openapiGetDocs"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/.well-known/api-catalog": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * RFC 9727 API catalog
-         * @description Public. General rate-limit tier. A linkset pointing an agent at this API's machine-readable description, interactive reference and health check, without requiring it to already know this API's URLs. Derived at boot from this same document's `servers` list and paths, so it cannot point at a route this API does not serve. The landing site publishes an equivalent copy at https://vibe.com.ar/.well-known/api-catalog, derived from the same document.
-         */
-        get: operations["openapiGetCatalog"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/posts/{id}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Create or update a marketing post
-         * @description Accepts only a GitHub Actions OIDC token whose repository is the configured sync repository and whose ref is refs/heads/main. The media the post names must be uploaded first. A post that a network has published, or that a publish run is holding, is frozen: the request answers 409 and changes nothing. A draft is stored and never published.
-         */
-        put: operations["socialPutPost"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/posts/{id}/media/{name}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        /**
-         * Upload one file of a marketing post
-         * @description The raw file is the body. Its content type must match its extension: image/jpeg for .jpg and .jpeg, video/mp4 for .mp4. A JPEG is 8 MB at most and an MP4 is 100 MB at most. The file is stored under its content hash and staged for the post upsert. A frozen post answers 409.
-         */
-        put: operations["socialPutMedia"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/threads/connect": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Start connecting Vibe's Threads account
-         * @description Superadmin only. Sets a short-lived state cookie bound to this browser and redirects to Meta's consent page for the Threads account. The session cookie must be fresh: open the app first when this answers 401.
-         */
-        get: operations["socialThreadsConnect"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/threads/callback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        /**
-         * Finish connecting Vibe's Threads account
-         * @description Meta's redirect target. Public, because the browser arrives from Meta: the state must match the cookie set by the connect call, and then the code is exchanged for a long-lived token that is stored sealed. Answers an HTML page, never JSON.
-         */
-        get: operations["socialThreadsCallback"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/threads/uninstall": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Meta's uninstall callback for the Threads app
-         * @description Public and CSRF-exempt: Meta posts it with no session. The signed_request is verified with the app secret (HMAC-SHA256, constant-time). A valid request for the connected account removes its stored connection and queues one notice email; a valid request for another account removes nothing. Answers 501 when Threads is not configured.
-         */
-        post: operations["socialThreadsUninstall"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/threads/delete": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Meta's data-deletion callback for the Threads app
-         * @description Public and CSRF-exempt, verified like the uninstall callback. Removes the Threads connection for the named account, if stored, and answers with the status page and a confirmation code that Meta shows the person who asked for deletion.
-         */
-        post: operations["socialThreadsDelete"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/social/reconcile": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /**
-         * Cancel scheduled posts that left the content repository
-         * @description Sends every post id in the repository, drafts included. Each scheduled post whose id is absent is cancelled. A published post is never touched. The list must be present, even when empty.
-         */
-        post: operations["socialReconcile"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
+  '/api/v1/complexes/{id}/audit-log': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a complex's own audit trail
+     * @description The tenant-scoped mirror of the platform audit log. The complex is taken from the `{id}` path segment consumed by the ownership guard, not from a query parameter, so a caller cannot name a tenant other than the one they own. Paginated.
+     */
+    get: operations['auditListComplexLog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/register': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Register a new owner account
+     * @description Public. Not rate limited beyond the shared auth ceiling. Answers `201` identically whether the email is new or already registered, to prevent account enumeration. When `TURNSTILE_SECRET_KEY` is configured the request must also carry a valid `turnstile_token`.
+     */
+    post: operations['authRegister'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/login': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Log in and start a session
+     * @description Public. Sets the `access_token` and `refresh_token` cookies on success. A wrong password, an unknown email, a locked account and an unverified email all answer the same `401` message, to prevent enumeration and lockout probing.
+     */
+    post: operations['authLogin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/google/complete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Finish a first-time Google sign-in by supplying a phone number
+     * @description Public. Consumes the `profile_token` from `/auth/google/finish`'s `needs_profile` answer, creates the account with `email_verified: true` and a session exactly like `/auth/login`. `first_name`/`last_name` are optional overrides of the profile token's own Google-supplied names. `409` if the address was claimed between the two requests. `503` when `GOOGLE_OAUTH_CLIENT_ID` is not configured.
+     */
+    post: operations['authGoogleComplete'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/google/start': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Begin the OIDC authorization-code sign-in flow
+     * @description Public, and reached by navigating the browser here directly (an ordinary link, not an XHR): this is the standard OpenID Connect authorization-code flow with PKCE, the shape every other "Sign in with Google" integration (Auth0, Supabase, Auth.js) uses, and the only way to sign in with Google.
+     *
+     *     Mints `state`, a `nonce` and a PKCE verifier, stores `{nonce, verifier}` single-use for 10 minutes under `state`, sets `state` in a host-only cookie (`HttpOnly`, `SameSite=Lax`, `Secure` outside development, path-scoped to `/api/v1/auth/google`, `Max-Age` matching the 10-minute TTL) and answers `302` to Google's own authorization endpoint with `response_type=code`, `scope=openid email profile`, `state`, `nonce`, the PKCE `code_challenge` (S256 of the verifier), `code_challenge_method=S256` and `redirect_uri = <FRONTEND_URL>/auth/google/callback` — the address registered in the Google Cloud console for this client.
+     *
+     *     `303` to `<FRONTEND_URL>/login?error=google_unavailable` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set) or the state could not be stored, logging why; `501` when `FRONTEND_URL` itself is empty, the one case with nowhere to redirect to.
+     */
+    get: operations['authGoogleStart'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/google/finish': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Complete the OIDC authorization-code sign-in flow
+     * @description Public, and CSRF-exempt: the `state` cookie bound to the browser that called `/auth/google/start` is this route's own login-CSRF defence. Called by the frontend's `/auth/google/callback` page once Google sends the browser back with `code` and `state`.
+     *
+     *     Requires the `state` cookie `/auth/google/start` set and compares it against the body `state` in constant time, then consumes the entry stored under it — single-use, so a replayed callback finds nothing. Exchanges `code` at Google's token endpoint using the client secret and the PKCE verifier that entry carried, presenting the same `redirect_uri` `/auth/google/start` advertised. Verifies the returned `id_token` (audience, issuer, expiry, signature, `email_verified`), plus checking that its `nonce` matches the one `/auth/google/start` minted. From there this answers a session with its cookies, or `needs_profile` with a profile token for `/auth/google/complete`.
+     *
+     *     A missing or mismatched `state` cookie, an unknown, expired or already-spent `state`, and a `code` Google refuses (`invalid_grant` and similar) all answer `422` on field `code` with "invalid or expired" — the frontend's existing `google_expired` handling covers this flow too. An `id_token` or `nonce` that fails verification answers `422` on field `credential` with "invalid", the same as a rejected credential anywhere else in this module. `503` when the authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` and `FRONTEND_URL` are not all set).
+     */
+    post: operations['authGoogleFinish'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/refresh': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Rotate the session using the refresh cookie
+     * @description Public by necessity: it runs on an expired access token. Reads only the `refresh_token` cookie, no body. Presenting an already-rotated token within a 30 second grace window is treated as a benign concurrent-tab race; outside that window every session for the user is revoked as suspected theft.
+     */
+    post: operations['authRefresh'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/logout': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * End the current session
+     * @description Public by design, so it also succeeds with no session at all. Clears both cookies, deletes the refresh token and blacklists the current access token when present.
+     */
+    post: operations['authLogout'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/verify-email': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Verify an email address by token */
+    post: operations['authVerifyEmail'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/resend-verification': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Resend the verification email
+     * @description Public. Always answers the same `200` message regardless of whether the email exists, is already verified, or is under a cooldown, to prevent enumeration and spam.
+     */
+    post: operations['authResendVerification'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/forgot-password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Request a password reset email
+     * @description Public. Always answers the same `200` message, and audits the attempt unconditionally before any lookup.
+     */
+    post: operations['authForgotPassword'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/reset-password': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Reset a password using an emailed token
+     * @description Public. On success revokes every existing session for the account and deletes every outstanding reset token.
+     */
+    post: operations['authResetPassword'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/confirm-email-change': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Confirm a pending email change using an emailed token
+     * @description Public, token-authenticated — the same posture as `POST /auth/reset-password`. The token proves control of the account's CURRENT address: the link is emailed there by `PUT /auth/me`, never to the new one. A session cookie cannot substitute for that, which is what stops a hijacked session from moving the account's recovery channel unnoticed. This request does NOT itself prove control of the new address — only the ordinary verification email sent to it afterward does. On success sets `users.email` to the address the token was issued for, clears `email_verified`, re-sends that ordinary verification email to the new address, and revokes every existing session for the account, exactly as a password reset does. Cross-tenant bypass reason `platform`.
+     */
+    post: operations['authConfirmEmailChange'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/auth/me': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the current session's user
+     * @description The frontend bootstraps every fresh page load from here, so the answer also carries the session's CSRF token: it is derived from the access token the request authenticated with and rotates nothing. A page load therefore never spends the refresh token; `/auth/refresh` is only called once the access token has expired and this endpoint answered 401.
+     */
+    get: operations['authGetCurrentUser'];
+    /**
+     * Update the current account
+     * @description All body fields are optional pointers, omitted means unchanged. Changing `email` does NOT change the account's address: it creates a pending email-change request and emails a confirmation link to the CURRENT address (see `POST /auth/confirm-email-change`), because the address is the account's password-recovery channel and a session alone is not proof of control over the new one. `email_change` reports what happened to that request: `none` when the body did not ask for a different address (a missing `email`, or the same address modulo case), `requested` when the pending request was saved and the confirmation email enqueued, `failed` when saving or enqueueing it failed after every other field in this PUT had already committed — the response still reports success, and `pending_email` still reflects whatever request (if any) is actually stored, never a request this call failed to save. Changing `phone` to a non-normalizing value is refused unless it is byte-identical to the value already stored (grandfathers pre-existing bad numbers). Changing the password requires both `current_password` and `new_password`, and revokes every other session. Cross-tenant bypass reason `platform`.
+     */
+    put: operations['authUpdateCurrentUser'];
+    post?: never;
+    /**
+     * Delete the current account
+     * @description Cascades to every complex, court, client and booking the account owns. Cross-tenant bypass reason `by-owner`.
+     */
+    delete: operations['authDeleteAccount'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/webhooks/whatsapp': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Meta's WhatsApp webhook subscription handshake
+     * @description Public, not rate limited. Authenticated by Meta's `hub.verify_token`, not a session.
+     */
+    get: operations['bookingsWhatsAppVerifyWebhook'];
+    put?: never;
+    /**
+     * Receive a WhatsApp Cloud API webhook delivery
+     * @description Public, not rate limited. HMAC-SHA256 signed (`X-Hub-Signature-256`), verified before the body is trusted. Always answers `200` except for a bad signature (`401`, empty body), so Meta never redelivers a message this service already saw. Inbound text is only logged, this endpoint changes no booking state.
+     */
+    post: operations['bookingsWhatsAppWebhook'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create a booking without an account
+     * @description Public. Rate limited under the dedicated `book` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. The booking's primary key is deliberately never included in the response, only the opaque `token` used by the status/cancel endpoints below.
+     */
+    post: operations['bookingsPublicCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/holds': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Hold a slot while the visitor fills in their details
+     * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429).
+     */
+    post: operations['bookingsPublicHoldCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/holds/{token}/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release a slot hold
+     * @description Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases the hold if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicHoldRelease'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Look up a public booking by its link token */
+    get: operations['bookingsPublicStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/cancel-info': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Preview refund terms before cancelling a public booking */
+    get: operations['bookingsPublicCancelInfo'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel a public booking by its link token
+     * @description Public. Respects the complex's cancellation window (unlike the staff cancel endpoint). Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List a complex's bookings for one day */
+    get: operations['bookingsList'];
+    put?: never;
+    /**
+     * Create a staff booking, confirmed immediately
+     * @description No payment step. Optionally records a counter payment (any method but MercadoPago) in the same call.
+     */
+    post: operations['bookingsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/booking-series': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Create a fixed weekly booking (turno fijo)
+     * @description Creates a weekly rule that holds its court and hours on every matching date from `first_date` (to `ends_on`, if any), with no horizon. No booking is created ahead: each date counts as taken for the storefront, the owner's booking and blocked-slot guards and the calendar (`fixed_blocks` of `courtsListBlockedSlots`) until, on the venue's own day, a job turns it into an ordinary booking (`series_id` set, unpaid, no client notification). The weekday is the one `first_date` falls on. When that date is already due (today, or tomorrow before 06:00) its booking is created at once and returned under `bookings`; otherwise `bookings` is empty. When existing bookings, other series or blocked slots hold dates up to the booking horizon (365 days) the call answers `409` with every such date and writes nothing, unless `skip_conflicts` is true, in which case those dates become exceptions and are returned under `skipped`; each conflict of the `409` lists the other courts free that date (`free_courts`), and `date_courts` books some of those dates on another court instead of skipping them. A weekday the venue is closed, or an hour no price rule covers without a manual `price`, is a `422` on the series as a whole. Send at most one of `ends_on` and `weeks`; with neither the series has no end.
+     */
+    post: operations['bookingSeriesCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/booking-series/{seriesID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a fixed weekly booking with its next dates
+     * @description The series and its next eight dates, computed from the rule (nothing is stored per date until it is settled): `pending` while the date only holds its hours, `booked` once its booking exists (`booking_id`), `exception` when it is not part of the series (`reason`). An ended series has no upcoming dates.
+     */
+    get: operations['bookingSeriesGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/booking-series/{seriesID}/skip': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel one date of a fixed weekly booking
+     * @description Records that `date` is not part of the series (`cancelled_by_owner`): its hours go back on sale. Only a future (or today's) date of the series that has no booking yet. A date that already has its booking is cancelled through that booking (`bookingsCancel`), and a date already cancelled is refused. Both, a past date and a date the rule does not match, are `422`.
+     */
+    post: operations['bookingSeriesSkip'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/booking-series/{seriesID}/end': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * End a fixed weekly booking from a date
+     * @description The series stops holding its dates from `from_date` on (`ends_on` becomes the day before) and is marked `ended`. Only a booking the series already created for a date on or after `from_date` is affected: without a payment it is cancelled, quietly (no message to the client); with a payment it stands and comes back under `kept`.
+     */
+    post: operations['bookingSeriesEnd'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/open-play-events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a complex's open-play events in a date range
+     * @description Events ("canchas abiertas") whose date is in the range, cancelled ones included, soonest first, with how many spots are taken. At most 200; not paginated.
+     */
+    get: operations['eventsList'];
+    put?: never;
+    /**
+     * Publish an open-play event (canchas abiertas)
+     * @description Takes the event's courts off sale for its window: the storefront, the owner's booking and blocked-slot guards and the calendar (`event_blocks` of `courtsListBlockedSlots`) treat the hours as taken until the event is cancelled. `court_ids` absent or empty means every active court. An `end_time` not after `start_time` means the event runs past midnight. When a booking, a blocked slot, a fixed weekly booking or another event already holds the hours on any of the courts the call answers `409` naming what and where, and writes nothing. People sign up one by one and pay `price` (plus the service fee) online until the event is full or begins.
+     */
+    post: operations['eventsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/open-play-events/{eventID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get an open-play event with its participants
+     * @description The event and everyone who held a spot in it, with each payment: `held` spots are still being paid, `confirmed` are paid, `cancelled` ones are listed when they carried money (a refund shows in `payment.refund_amount`). Holds that ran out are not listed. Event income is in the complex cash like an online deposit.
+     */
+    get: operations['eventsGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/open-play-events/{eventID}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel an open-play event
+     * @description Frees the event's courts and ends every registration at once. Every paid participant is refunded through MercadoPago (the whole payment, service fee included) and told by email when they gave one; a refund MercadoPago cannot complete now stays queued and is retried. People still paying lose their hold, and a payment that lands for one is refunded when it arrives. A second cancel is `400`.
+     */
+    post: operations['eventsCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings/{bookingID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get one booking with its client and payments */
+    get: operations['bookingsGet'];
+    /**
+     * Update a booking's status or notes
+     * @description Every status field is optional and independently validated against a legal-transition matrix. Cancelling a paid booking here is refused, use the dedicated cancel endpoint.
+     */
+    put: operations['bookingsUpdate'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings/{bookingID}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Staff-cancel a booking, refunding if money was collected
+     * @description Ignores the complex's cancellation window, unlike the public cancel endpoint. Cancelling an already-cancelled booking is idempotent and answers `200` unchanged.
+     */
+    post: operations['bookingsCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings/{bookingID}/confirm-payment': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Record a counter payment taken by staff */
+    post: operations['bookingsConfirmPayment'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings/{bookingID}/attended': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Mark that the client of a finished booking showed up
+     * @description Legal on a `confirmed` booking whose `ends_at` has passed, or a `completed` one without `attended_at`: the booking becomes `completed` with `attended_at` set. Marking a booking already attended is idempotent and answers `200` unchanged.
+     */
+    post: operations['bookingsMarkAttended'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/bookings/{bookingID}/manual-refund': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Close out the manual half of a split refund
+     * @description Only legal when the booking reads `status: cancelled` and `refund_status: partial`, meaning an automatic refund covered part of the payment and the rest must be handed back by hand (any counter method).
+     */
+    post: operations['bookingsManualRefund'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-sessions': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List this complex's cash session history
+     * @description Newest (most recently opened) first. Paginated.
+     */
+    get: operations['cashSessionsList'];
+    put?: never;
+    /**
+     * Open a cash session
+     * @description Refused with 409 if this complex already has one open.
+     */
+    post: operations['cashSessionsOpen'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-session': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the currently open cash session
+     * @description 404 when no session is open. Deliberately its own singular path — not nested under /cash-sessions/ as .../current — because a literal path segment sitting next to /cash-sessions/{sessionID}'s wildcard is an unresolvable route conflict for this API's router (net/http's ServeMux refuses to decide between a specific literal path that matches every method and a method-qualified pattern on a wildcard sibling).
+     */
+    get: operations['cashSessionsCurrent'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-sessions/{sessionID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get one cash session, open or closed
+     * @description Includes its reconciliation summary and its full movement ledger.
+     */
+    get: operations['cashSessionsGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-sessions/{sessionID}/close': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Close a cash session
+     * @description counted_cash is what the owner physically counted in the drawer. expected_cash is computed and snapshotted at close time; difference is counted minus expected. A closed session is immutable and can never be reopened.
+     */
+    post: operations['cashSessionsClose'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Record a cash movement (income or expense)
+     * @description sessionID must be the currently open session.
+     */
+    post: operations['cashMovementsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash-sessions/{sessionID}/movements/{movementID}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Void an earlier movement
+     * @description Creates a new movement with the opposite kind and the same amount/method/category as the one sessionID/movementID names, always in the CURRENTLY open session — which may not be sessionID, when correcting a movement from an earlier, already-closed shift. Refused with 409 if the original is already voided or is itself a void.
+     */
+    post: operations['cashMovementsVoid'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/clients': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** List a complex's clients */
+    get: operations['clientsList'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/clients/{clientID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get one client with their recent bookings
+     * @description Answers `404`, not `403`, when the client belongs to a different complex, so this endpoint cannot be used to probe which client ids exist elsewhere.
+     */
+    get: operations['clientsGet'];
+    /**
+     * Update a client's notes or blocked status
+     * @description Only `notes` and `is_blocked` are owner-editable. Identity fields come from bookings and cannot be written here.
+     */
+    put: operations['clientsUpdate'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The public storefront landing page for a complex
+     * @description Public. Cross-tenant bypass reason `resolves`. Strips owner and MercadoPago identifiers.
+     */
+    get: operations['complexesGetPublic'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/slug-available': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Check whether a slug is free platform-wide
+     * @description Not nested under `/complexes/`: the router this route was first written for could not mix a static segment with the `{id}` wildcard registered at that position. The address is kept as it is because it is the one clients call. Cross-tenant bypass reason `platform` (a global uniqueness check).
+     */
+    get: operations['complexesSlugAvailable'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List the complexes the caller owns
+     * @description Not paginated: one account owns at most one complex, so the array holds either the caller's single complex or is empty. Cross-tenant bypass reason `by-owner` (filtered by `owner_id` in SQL).
+     */
+    get: operations['complexesList'];
+    put?: never;
+    /**
+     * Create a new complex
+     * @description Cross-tenant bypass reason `bootstrap`. Refused if the account already owns a complex: one account owns exactly one. Seeds 7 default schedule rows (Monday through Sunday, 08:00 to 23:00).
+     */
+    post: operations['complexesCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get a complex by id, owner view */
+    get: operations['complexesGet'];
+    /**
+     * Update a complex's profile
+     * @description Every field is an optional pointer. Slug uniqueness is re-checked only when it actually changes. Amenities are validated against a closed vocabulary.
+     */
+    put: operations['complexesUpdate'];
+    post?: never;
+    /**
+     * Soft-delete a complex and its courts
+     * @description The one cascading write in this module. Refused while the complex has active bookings.
+     */
+    delete: operations['complexesDelete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/schedules': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Replace a complex's weekly opening hours
+     * @description Requires exactly 7 entries, one per weekday, no duplicates. `close_time` before `open_time` is valid and means the venue closes after midnight.
+     */
+    put: operations['complexesUpdateSchedules'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/uploads/presign': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Get a short-lived presigned URL to upload a logo or cover image
+     * @description Browsers upload directly to object storage, image bytes never traverse this service. Answers `501` when no storage backend is configured.
+     */
+    post: operations['complexesPresignUpload'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/uploads': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Delete a previously uploaded logo or cover image */
+    delete: operations['complexesDeleteUpload'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/mp/connect': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Connect the complex's MercadoPago account (OAuth PKCE exchange) */
+    post: operations['complexesConnectMercadoPago'];
+    /** Disconnect the complex's MercadoPago account */
+    delete: operations['complexesDisconnectMercadoPago'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/mp/oauth-attempts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Register a MercadoPago OAuth attempt (state and PKCE verifier) before the redirect
+     * @description Stores the attempt server-side for one hour, single use, so the OAuth callback can finish in any tab, browser or installed app: `POST .../mp/connect` with the same `state` spends it. Registering the same `state` again replaces the earlier attempt.
+     */
+    post: operations['complexesRegisterMercadoPagoOAuthAttempt'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/mp/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get the complex's MercadoPago connection status */
+    get: operations['complexesMercadoPagoStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/waitlist': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ask to be emailed when a slot on a fully booked day frees up again
+     * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of the complex. Joining again for the same address and day answers the same `204`. The email is sent once, the first time a booking on that day is cancelled or expires. The daily cleanup drops entries whose day has passed.
+     */
+    post: operations['waitlistJoin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List a complex's tournaments in a date range
+     * @description Tournaments whose days overlap the range, cancelled ones included, soonest first, each with its categories. At most 200; not paginated.
+     */
+    get: operations['tournamentsList'];
+    put?: never;
+    /**
+     * Create a tournament with its categories
+     * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
+     */
+    post: operations['tournamentsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get a tournament with its pairs, groups and matches
+     * @description Everything under the tournament: categories, every pair that held a spot with its payer, partner and payment (as `eventsGet`'s participants), the groups with their standings, and every match with its schedule and result. Income lands in the complex cash like an online deposit.
+     */
+    get: operations['tournamentsGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel a tournament
+     * @description Cancels every category (each paid pair is refunded through MercadoPago, service fee included, and told by email when they gave one) and releases every court its matches held. A refund MercadoPago cannot complete now stays queued and is retried. A second cancel is `400`.
+     */
+    post: operations['tournamentsCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel one category of a tournament
+     * @description Refunds and tells every paid pair of the category as `tournamentsCancel` does, and releases the courts its scheduled matches held. The rest of the tournament goes on.
+     */
+    post: operations['tournamentsCategoryCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Generate (or regenerate) a category's draw
+     * @description Draws the category's paid pairs. `elimination` builds the whole bracket (a power of two, byes to the top seeds, seeds 1 and 2 only meeting in the final). `groups` splits the pairs into groups of at most `group_size` pairs (fewer, bigger groups only when that would leave a group no larger than `qualifiers_per_group`), sizes differing by at most one, deals them snake-seeded, lists each group's round robin, and lays out the knockout the qualifiers play (group winners as top seeds, groupmates apart in the first round where possible, byes when the qualifier count is not a power of two). `seed_order` names pairs best seed first; the rest follow in random order. Generating closes the category's sign-up. It can be repeated while no result is loaded (`409` after); pairs still paying are not drawn and their late payment is refunded. `400` when fewer than two pairs paid; `422` when the groups settings cannot hold the pairs.
+     */
+    post: operations['tournamentsDrawGenerate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Swap two pairs of a drawn category
+     * @description Moves pairs by hand: the two pairs trade places in the bracket's first round, or trade groups (they must be in different groups). Allowed only before any result (`409` after).
+     */
+    post: operations['tournamentsDrawMove'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Give a match a court, a day and a time
+     * @description From then on the match holds that court for `duration_minutes` (default: the category's `match_duration_minutes`, 90 unless the owner set another) everywhere availability is decided, as an event does: public availability, bookings, blocked slots, fixed bookings and events all see it (in `match_blocks` of `courtsListBlockedSlots`). Refused with `409` when a booking, blocked slot, fixed booking, event or another match already holds the hours on that court; `422` for a day outside the tournament's, an unknown court or a bye. Scheduling again moves the match.
+     */
+    put: operations['tournamentsMatchSchedule'];
+    post?: never;
+    /**
+     * Take a match off its court
+     * @description Releases the hours the match held.
+     */
+    delete: operations['tournamentsMatchUnschedule'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/result': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Load or correct a match's result
+     * @description The score follows the category's format (`sets_to_win`, `games_per_set`, `super_tiebreak_decider`). With `sets_to_win` 2 the match is best of three: a set is won at `games_per_set` games with a two game lead, or at `games_per_set`+1 to `games_per_set`-1 or to `games_per_set` (the tiebreak), so with 6 games `6-0` to `6-4`, `7-5` or `7-6`. When `super_tiebreak_decider` is on the third set must be a match tiebreak (`super: true`, points to 10 with a two point lead) and is refused when it is off, e.g. `6-4 3-6 10-7` or, off, `6-4 3-6 6-3`. With `sets_to_win` 1 the match is a single set, e.g. `6-4`, and a match tiebreak is never played. The score is optional: a result can be only `winner` (1 or 2, the side that won) with no sets, and then the match has a winner and an empty `sets`. A walkover is `walkover_loser` 1 or 2 (the side that did not show) with no sets; it counts as `sets_to_win` sets of `games_per_set`-0 for the other side in group tables. Exactly one of `sets`, `winner` and `walkover_loser` is sent (`422` otherwise). The winner advances to the next match by itself; group standings update (matches won, then set difference, game difference, head to head; the set and game differences count only the matches that have a score), and when a group finishes its qualifiers fill their bracket slots. Loading a result again corrects it, allowed while the next match has no result (for a group match: while none of the bracket matches its qualifiers play has one); otherwise `409`. `422` for an invalid score; `400` when the match does not have both pairs yet or is a bye. The response is the whole tournament, since a result moves other matches.
+     */
+    put: operations['tournamentsMatchResult'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/court-fee': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Set the court fee of a category
+     * @description The fixed amount each of the two pairs of a match pays for the court, charged at the complex on match day and not online (`0` is no fee). It can change at any time while the tournament is active: a charge already recorded keeps the amount it was made at (`match.court_fee[].amount`), every match not charged yet uses the new one. Responds with the whole tournament.
+     */
+    put: operations['tournamentsCategoryCourtFee'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Collect a pair's court fee for a match
+     * @description Records that the pair on `side` (1 is `pair1_id`, 2 is `pair2_id`) paid its court fee at the complex, by `cash` or `transfer` like a booking charged at the venue. The amount is the category's current `court_fee` and is kept. The money lands in the complex's open cash session as an income movement of the `tournaments` category, so it is in the session totals and the monthly report. A pair is charged once per match (`409` otherwise), and `409` when no cash session is open. `400` when the category has no fee, the match is a bye or a walkover, or the pair is not known yet. Responds with the whole tournament.
+     */
+    put: operations['tournamentsMatchCourtFeeCharge'];
+    post?: never;
+    /**
+     * Undo a court fee charge recorded by mistake
+     * @description Voids the charge's income movement in the complex's open cash session, the way voiding a sale does, so the pair can be charged again. `409` when no charge stands for the pair, or when no cash session is open (the void needs one). Works on a cancelled tournament too. Responds with the whole tournament.
+     */
+    delete: operations['tournamentsMatchCourtFeeUndo'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/tournaments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The tournaments a visitor can follow or sign up for
+     * @description Public. Cross-tenant bypass reason `resolves`. Active tournaments that are not over, soonest first, each with its categories (with `service_fee` and `total_price` per pair).
+     */
+    get: operations['tournamentsPublicList'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/tournaments/{tournamentID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * One tournament with its groups, standings, bracket and schedule
+     * @description Public. Cross-tenant bypass reason `resolves`. A cancelled tournament is still shown, as `cancelled`. `pairs` lists the pairs that paid, by player names only; `groups` carry their standings; `matches` are the group matches and the bracket (`stage`, `round`, `position`) with results and schedule. A bracket slot waiting for a group is a `source` (the Nth of a group) until it fills.
+     */
+    get: operations['tournamentsPublicGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign up a pair for a category and pay online
+     * @description Public. Rate limited under the `hold` ceiling like `eventsPublicSignUp`, which it shares its hold, capacity, checkout and refund behaviour with. Cross-tenant bypass reason `resolves`. One person signs up both players and pays the whole entry (`total_price`) through MercadoPago (`mp_init_point`); the spot is held while paying and confirmed when the payment is approved. Phone is required for both players, email optional (without the payer's email no confirmation email is sent). The same problem kinds as events: `409` `event-full`, `event-closed` (the draw exists, or cancelled) or `already-registered` (either player is already in the category, as payer or partner); `429` `rate-limited` over the unpaid-hold cap. The returned `token` is the credential for the status and cancel routes below.
+     */
+    post: operations['tournamentsPublicSignUp'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/tournament-registrations/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A pair's own spot in a tournament category
+     * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. Before the draw, `cancellation` follows the complex's policy as an event does; after it (`walkover: true`) leaving forfeits the pair's matches and the payment is kept.
+     */
+    get: operations['tournamentsPublicRegistrationStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/tournament-registrations/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw a pair from a tournament category
+     * @description Public. Cross-tenant bypass reason `resolves`. Before the draw it follows the complex's cancellation policy as an event does: within the window the payment is refunded through MercadoPago, outside it the spot is released and the payment kept. After the draw the pair leaves as a walkover: its unplayed matches are lost to the opponents, who advance, and the payment is kept.
+     */
+    post: operations['tournamentsPublicRegistrationCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The open-play events a visitor can still sign up for
+     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the holds still running; `0` means the sign-up is closed.
+     */
+    get: operations['eventsPublicList'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/events/{eventID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * One open-play event, for its shareable page
+     * @description Public. Cross-tenant bypass reason `resolves`. A cancelled event is still answered, as `cancelled`, so a shared link says so. An event of another complex is `404`.
+     */
+    get: operations['eventsPublicGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/events/{eventID}/registrations': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Sign up for an open-play event and pay online
+     * @description Public. Rate limited under the `hold` ceiling (1 request per 20 seconds, burst 3) in addition to the general ceiling, and one address may hold at most 3 unpaid spots at once. Cross-tenant bypass reason `resolves`. Sign-up is per person: the spot is held while the person pays through MercadoPago (`mp_init_point`, expiring when the hold does) and confirmed when the payment is approved; a hold nobody pays stops counting by itself. Phone is required, email optional (without it no confirmation email is sent). Answers `409` with its own problem kind per reason: `event-full`, `event-closed` (started or cancelled) or `already-registered` (the phone already holds a spot); `429` `rate-limited` when the address already holds 3 unpaid spots. The returned `token` is the person's credential for `eventsPublicRegistrationStatus` and `eventsPublicRegistrationCancel`; the checkout returns them to the event page with it.
+     */
+    post: operations['eventsPublicSignUp'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/event-registrations/status': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A person's own spot in an open-play event
+     * @description Public. Cross-tenant bypass reason `resolves`. Authenticated by the registration token the sign-up returned. `cancellation` says what cancelling right now would do under the complex's policy, the one bookings follow: within `cancellation_hours` before the event (or the grace period after signing up) the payment is refunded automatically, outside it the spot is released and the payment kept.
+     */
+    get: operations['eventsPublicRegistrationStatus'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/event-registrations/cancel': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel a person's own spot in an open-play event
+     * @description Public. Cross-tenant bypass reason `resolves`. Follows the complex's cancellation policy as a booking does: within the window a paid spot is refunded through MercadoPago, outside it the spot is released and the payment kept. A spot still being paid is released with nothing to return.
+     */
+    post: operations['eventsPublicRegistrationCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/next-available': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The first day after a given date with a bookable slot
+     * @description Public. Cross-tenant bypass reason `resolves`. Looks at the fourteen days after `from`, never past the booking horizon, and answers with the first one where any active court has a free slot for the requested duration. The check is the same grid the availability endpoint publishes. `date` is `null` when no day in that window has one.
+     */
+    get: operations['courtsPublicNextAvailable'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/availability': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * The storefront's bookable-slot grid for one day
+     * @description Public. Cross-tenant bypass reason `resolves`. Unpriced slots are omitted from the `slots` array. Booked, blocked and past slots are included with `available: false`. A closed day or a complex with zero active courts answers `200` with `is_open: false` rather than an error.
+     */
+    get: operations['courtsPublicAvailability'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/courts': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List every court in a complex
+     * @description Includes inactive courts, the owner manages both.
+     */
+    get: operations['courtsList'];
+    put?: never;
+    /** Create a court */
+    post: operations['courtsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/courts/{courtID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /** Update a court */
+    put: operations['courtsUpdate'];
+    post?: never;
+    /** Soft-delete a court */
+    delete: operations['courtsDelete'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/courts/{courtID}/prices': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Replace a court's price bands
+     * @description Full wholesale replacement. Bands sharing only an endpoint do not overlap (half-open intervals). `time_to` at or before `time_from` means the band runs past midnight.
+     */
+    put: operations['courtsUpdatePrices'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/courts/{courtID}/block': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /** Block a time range on a court */
+    post: operations['courtsBlockSlot'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/blocked-slots': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List blocked slots and fixed-booking blocks in a date range
+     * @description The range is capped at 366 days.
+     */
+    get: operations['courtsListBlockedSlots'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/blocked-slots/{slotID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    post?: never;
+    /** Remove a blocked slot */
+    delete: operations['courtsDeleteBlockedSlot'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/livez': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Liveness probe
+     * @description Public. Answers `200` for as long as the process is running, and touches no dependency. This is what a restart policy watches: an unreachable database must pull the instance out of rotation (see `/api/v1/healthcheck`), not restart every replica until the database comes back.
+     */
+    get: operations['livenessCheck'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/healthcheck': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Readiness probe
+     * @description Public. Polled by the load balancer. `503` pulls the instance from rotation (database unreachable). A degraded cache or payments provider still answers `200` with `status: degraded`, so a payment-provider outage does not become a total outage.
+     */
+    get: operations['healthCheck'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/leads/abandoned-registration': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Capture an email from a registration that was started but never finished
+     * @description Public. Designed to be called via `navigator.sendBeacon`. Covers the password register form (an address typed before submitting) and the Google sign-up second step (an address Google verified, left before the phone number was given); `source` says which. The only endpoint in the API with an empty success body, no envelope at all. Downstream forwarding failures are logged, never surfaced.
+     */
+    post: operations['leadsCaptureAbandonedRegistration'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/email/unsubscribe': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Stop owner lifecycle email to an address
+     * @description Public. The one-click opt-out every owner lifecycle email carries: the List-Unsubscribe header (RFC 8058) and the footer link to the /baja page. The token comes from the `token` query parameter (a mail client's one-click POST) or from the JSON body (the /baja page). Answers 204 whether or not the address was already suppressed. A token this server did not mint is refused with 400. Transactional email (bookings, verification, password reset) is not affected by a suppression.
+     */
+    post: operations['emailUnsubscribe'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/webhooks/mercadopago': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Receive a MercadoPago IPN notification
+     * @description Public, not rate limited. Cross-tenant bypass reason `resolves` (the tenant is found from the payment's external reference). Signature verified via the `x-signature` and `x-request-id` headers before the body is parsed or trusted. An unsigned or invalid request gets a bare `200` with nothing recorded, so MercadoPago stops retrying an attack while nothing is trusted. A recording failure answers `5xx` so MercadoPago redelivers; an oversized body is dropped with `200` since redelivery cannot fix it.
+     */
+    post: operations['paymentsMercadoPagoWebhook'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/places/autocomplete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Google Places Autocomplete proxy
+     * @description An `input` under 3 characters short-circuits to an empty result without calling Google, since the call is billable.
+     */
+    get: operations['placesAutocomplete'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/places/details': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Google Places Details proxy, flattened to an address
+     * @description A hand-flattened projection of Google's response, not a passthrough.
+     */
+    get: operations['placesDetails'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/products': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List this complex's product catalog
+     * @description Unpaginated (a shop's catalog is bounded). Each product carries a computed `low_stock` flag (tracks_stock, a threshold is set, and stock is at or below it) and `needs_stock_review` (stock went below zero).
+     */
+    get: operations['productsList'];
+    put?: never;
+    /** Add a product to the catalog */
+    post: operations['productsCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/products/{productID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Get one product */
+    get: operations['productsGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    /**
+     * Update a product
+     * @description Every field is optional; an omitted one keeps its current value. Sending `category` as an empty string clears it. Turning `tracks_stock` off while `stock_on_hand` is not zero is refused with 409 — adjust the count to zero first.
+     */
+    patch: operations['productsUpdate'];
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/products/{productID}/restock': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Record a stock delivery
+     * @description Requires an open cash session (409 otherwise). In one transaction, writes the `restock` cash expense (amount = total_cost) and the linked stock movement, and applies the delivered quantity to `stock_on_hand`. Refused with 409 for a product that is inactive or does not track stock.
+     */
+    post: operations['productsRestock'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/products/{productID}/adjustments': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Correct a product's stock by hand
+     * @description No money involved, no cash session required. Refused with 409 for a product that does not track stock. Stock may go negative — an owner may adjust past zero on purpose (a recount that finds less than the system expects).
+     */
+    post: operations['productsAdjust'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/products/{productID}/stock-movements': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * A product's stock-movement history
+     * @description Newest first. Paginated.
+     */
+    get: operations['productsListStockMovements'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/cash/bookings-due': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Today's bookings that still owe money, for the sell page
+     * @description Today in Argentina (America/Argentina/Buenos_Aires). Lists the complex's bookings of that day whose remaining balance is greater than zero, sorted by start time. Cancelled and no-show bookings are never listed. A pending booking is listed only while it is inside the payment window; an older pending booking no longer holds its slot. Each entry's `remaining` is the amount a checkout must send for it.
+     */
+    get: operations['salesBookingsDue'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/sales': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * List this complex's sales
+     * @description Newest first. Paginated. Optionally restricted to one cash session. A checkout that collected only booking balances is listed too, as an entry with no items (see the Sale schema).
+     */
+    get: operations['salesList'];
+    put?: never;
+    /**
+     * Check out at the counter: products and/or booking balances, in one transaction
+     * @description One checkout for Caja > Vender. The client sends product ids and quantities (`items`) and/or the booking balances the player is paying now (`booking_payments`); at least one of the two must be non-empty. Prices, totals and each booking's remaining balance always come from the server. Requires an open cash session (409 otherwise). In one transaction: when there are product lines, writes the sale (its items, the 'sale' cash income with amount = products total, one 'sale' stock movement per tracked item); and for each booking payment, records a counter payment through the same booking payment logic the booking panel uses (same method, one payments row per booking, the booking's collection status moves to fully_paid). Every booking is locked for the whole transaction, so two cashiers cannot collect the same balance. Booking balances are counted once: the cash session's expected cash counts the payments row, never the sale's income for the same amount. Never refused for lack of stock — the response's `stock_warnings` names every tracked product that ended at zero or below. Product rules: 0 to 50 items; each product id may appear once (422 on a duplicate); every product must exist in this complex and be active (422 naming `items[N].product_id`); the products total must not exceed 2000000000 centavos. Booking rules: 0 to 20 booking payments; each booking once (422 on a duplicate); `amount` must equal the booking's current remaining balance, which is the full balance only in this version (409 when it differs, so a stale cart fails clearly). A checkout whose only lines are booking payments has no sale: `sale` is null and the collected balances are returned in `booking_payments`. A checkout with product lines and a zero products total is refused (422) rather than recorded as a zero-amount income.
+     */
+    post: operations['salesCreate'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/sales/{saleID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get one sale
+     * @description Includes its items.
+     */
+    get: operations['salesGet'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/sales/{saleID}/void': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Void a sale
+     * @description Once only (409 on a second void). Requires an open cash session (409 otherwise): the void's own cash movement always lands in whichever session is open right now, which may not be the sale's own. In one transaction: restores stock for every tracked item this sale originally moved (even if the product is now inactive or no longer tracks stock), and voids the sale's own income movement (opposite kind, same amount/method/category, landing in the currently open session) — the same shape cashMovementsVoid gives an ordinary cash movement. A 'sale' category income movement can only be voided through this endpoint, never through cashMovementsVoid directly.
+     */
+    post: operations['salesVoid'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/sitemap.xml': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Platform sitemap
+     * @description Public. Cross-tenant bypass reason `platform` (every active slug on the platform, by definition). One `<url>` per active complex slug.
+     */
+    get: operations['publicsiteSitemap'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/sitemap.xml': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Platform sitemap (moved)
+     * @description Public. The pre-versioning address of the sitemap, kept as a permanent redirect because search engines hold it in their index and answer a 404 by dropping the pages it lists. Use `/api/v1/sitemap.xml`.
+     */
+    get: operations['publicsiteSitemapMoved'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/hubs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * City hub index
+     * @description Public. Cross-tenant bypass reason `platform`. Every city that has at least one switched-on complex, sorted by province then name (a city with no province last), with its province, how many switched-on complexes it lists, and the Spanish label of each sport its switched-on courts carry. The public site renders its city hub index from it. Field names are snake_case, as on the other public documents.
+     */
+    get: operations['publicsiteHubs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/hubs/{city}/data': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * One city hub as JSON
+     * @description Public. Cross-tenant bypass reason `platform`. One city's hub with its switched-on complexes, its court counts by sport, and up to 12 other city hubs to link to. The city is matched on its slug (lowercase, accents removed, spaces as hyphens), case- and accent-insensitively. Only switched-on complexes are listed. A city whose complexes are all switched off or deleted still answers 200, as an empty hub with an empty complexes list, so its page outlives its last complex; it stays out of the hub index and the sitemap.
+     */
+    get: operations['publicsiteCityHubData'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/events': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Live booking-change feed for the owner dashboard (Server-Sent Events)
+     * @description Not a conventional JSON endpoint. The connection opens with `event: connected`, then a `: keepalive` comment every 30 seconds, then `event: booking_changed` with an empty `data: {}` payload whenever a booking on this complex is created, updated, cancelled or paid (the dashboard reacts by refetching rather than reading the event body). The stream ends with one of two terminal frames before closing: `event: expired` after 15 minutes (matching the access-token lifetime) or two consecutive re-authorization failures, or `event: unauthorized` when a re-check (every 60 seconds) finds the caller no longer authorized. Admission may refuse before any header is written when the per-complex or global subscriber cap is hit.
+     */
+    get: operations['realtimeStream'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/stats': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Dashboard summary statistics */
+    get: operations['reportingGetDashboardStats'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/stats/revenue': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Daily revenue chart */
+    get: operations['reportingGetRevenueChart'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/stats/occupancy': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Occupancy heatmap by day of week and hour */
+    get: operations['reportingGetOccupancyChart'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/stats/clients': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /** Client retention and frequency panel */
+    get: operations['reportingGetClientInsights'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/reports/monthly': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Monthly payments report
+     * @description Defaults to the current month and year in the Argentina timezone. Period validation errors answer `400` with the bare machine code string as the `error` value (not an object), unlike the field-validation convention used elsewhere in the API.
+     */
+    get: operations['reportingGetMonthlyReport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/reports/export': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Download the monthly payments report as an Excel workbook
+     * @deprecated
+     * @description Same period parameters and validation as the monthly report. Bounded by an 8 second budget and a 50,000 row cap.
+     */
+    get: operations['reportingExportPaymentsExcel'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/reports/exports': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start a payments export job
+     * @description Enqueues the Excel export and answers immediately. Deduplicated per complex, period and calendar day (Argentina), so a double click yields the same export id. Poll the status resource in `status_url` until `status` is `done` or `failed`.
+     */
+    post: operations['reportingCreatePaymentsExport'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/reports/exports/{exportID}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Payments export status and download URL
+     * @description `download_url` and `expires_at` are present only when `status` is `done`; the URL is a short-lived signed link to private object storage. A failed export answers `200` with `status: failed` and an embedded `error` problem whose `instance` is this path.
+     */
+    get: operations['reportingGetPaymentsExport'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/openapi.json': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * This document, rendered as JSON
+     * @description Public. General rate-limit tier. Rendered from the same parsed document served as YAML and used by /docs.
+     */
+    get: operations['openapiGetJSON'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/openapi.yaml': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * This document, as raw YAML bytes
+     * @description Public. General rate-limit tier. The source of truth committed to the repository at internal/openapi/openapi.yaml.
+     */
+    get: operations['openapiGetYAML'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/docs': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Interactive API reference
+     * @description Public. General rate-limit tier. An HTML page that loads Scalar's API reference pointed at /api/v1/openapi.json. Not intended for search indexing, answers `X-Robots-Tag: noindex`.
+     */
+    get: operations['openapiGetDocs'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/.well-known/api-catalog': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * RFC 9727 API catalog
+     * @description Public. General rate-limit tier. A linkset pointing an agent at this API's machine-readable description, interactive reference and health check, without requiring it to already know this API's URLs. Derived at boot from this same document's `servers` list and paths, so it cannot point at a route this API does not serve. The landing site publishes an equivalent copy at https://vibe.com.ar/.well-known/api-catalog, derived from the same document.
+     */
+    get: operations['openapiGetCatalog'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/posts/{id}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Create or update a marketing post
+     * @description Accepts only a GitHub Actions OIDC token whose repository is the configured sync repository and whose ref is refs/heads/main. The media the post names must be uploaded first. A post that a network has published, or that a publish run is holding, is frozen: the request answers 409 and changes nothing. A draft is stored and never published.
+     */
+    put: operations['socialPutPost'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/posts/{id}/media/{name}': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    /**
+     * Upload one file of a marketing post
+     * @description The raw file is the body. Its content type must match its extension: image/jpeg for .jpg and .jpeg, video/mp4 for .mp4. A JPEG is 8 MB at most and an MP4 is 100 MB at most. The file is stored under its content hash and staged for the post upsert. A frozen post answers 409.
+     */
+    put: operations['socialPutMedia'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/threads/connect': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Start connecting Vibe's Threads account
+     * @description Superadmin only. Sets a short-lived state cookie bound to this browser and redirects to Meta's consent page for the Threads account. The session cookie must be fresh: open the app first when this answers 401.
+     */
+    get: operations['socialThreadsConnect'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/threads/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Finish connecting Vibe's Threads account
+     * @description Meta's redirect target. Public, because the browser arrives from Meta: the state must match the cookie set by the connect call, and then the code is exchanged for a long-lived token that is stored sealed. Answers an HTML page, never JSON.
+     */
+    get: operations['socialThreadsCallback'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/threads/uninstall': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Meta's uninstall callback for the Threads app
+     * @description Public and CSRF-exempt: Meta posts it with no session. The signed_request is verified with the app secret (HMAC-SHA256, constant-time). A valid request for the connected account removes its stored connection and queues one notice email; a valid request for another account removes nothing. Answers 501 when Threads is not configured.
+     */
+    post: operations['socialThreadsUninstall'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/threads/delete': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Meta's data-deletion callback for the Threads app
+     * @description Public and CSRF-exempt, verified like the uninstall callback. Removes the Threads connection for the named account, if stored, and answers with the status page and a confirmation code that Meta shows the person who asked for deletion.
+     */
+    post: operations['socialThreadsDelete'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/social/reconcile': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Cancel scheduled posts that left the content repository
+     * @description Sends every post id in the repository, drafts included. Each scheduled post whose id is absent is cancelled. A published post is never touched. The list must be present, even when empty.
+     */
+    post: operations['socialReconcile'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
 }
 export type webhooks = Record<string, never>;
 export interface components {
-    schemas: {
-        /** @description An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording. */
-        Problem: {
-            /**
-             * Format: uri
-             * @description A stable URI identifying this problem's kind, e.g. `https://vibe.com.ar/problems/validation`.
-             */
-            type: string;
-            /** @description A short, stable summary of this problem's type. */
-            title: string;
-            /** @description The HTTP status code, repeated here per RFC 9457. */
-            status: number;
-            /** @description Human readable detail for this occurrence, safe to display. */
-            detail?: string;
-            /** @description The request path that produced this problem. */
-            instance?: string;
-            /** @description Correlates this response with the server's logs. */
-            request_id?: string;
-            /** @description Present on a validation problem; one entry per invalid field. */
-            errors?: components["schemas"]["FieldError"][];
-            /** @description Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked. */
-            conflicts?: components["schemas"]["BookingSeriesConflict"][];
-        };
-        /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
-        PaymentsExport: {
-            /** Format: uuid */
-            id: string;
-            /** @enum {string} */
-            status: "pending" | "running" | "done" | "failed";
-            /** Format: uri */
-            download_url?: string;
-            /** Format: date-time */
-            expires_at?: string;
-            error?: components["schemas"]["Problem"];
-        };
-        FieldError: {
-            /** @description Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`. */
-            field: string;
-            /** @description Free text, or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`). */
-            message: string;
-        };
-        Metadata: {
-            next_cursor?: string;
-            has_more: boolean;
-            total_count?: number;
-        };
+  schemas: {
+    /** @description An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording. */
+    Problem: {
+      /**
+       * Format: uri
+       * @description A stable URI identifying this problem's kind, e.g. `https://vibe.com.ar/problems/validation`.
+       */
+      type: string;
+      /** @description A short, stable summary of this problem's type. */
+      title: string;
+      /** @description The HTTP status code, repeated here per RFC 9457. */
+      status: number;
+      /** @description Human readable detail for this occurrence, safe to display. */
+      detail?: string;
+      /** @description The request path that produced this problem. */
+      instance?: string;
+      /** @description Correlates this response with the server's logs. */
+      request_id?: string;
+      /** @description Present on a validation problem; one entry per invalid field. */
+      errors?: components['schemas']['FieldError'][];
+      /** @description Present on the 409 that refuses a fixed weekly booking; one entry per date that cannot be booked. */
+      conflicts?: components['schemas']['BookingSeriesConflict'][];
+    };
+    /** @description One payments export job. `download_url`/`expires_at` appear only on `done`; `error` only on `failed`. */
+    PaymentsExport: {
+      /** Format: uuid */
+      id: string;
+      /** @enum {string} */
+      status: 'pending' | 'running' | 'done' | 'failed';
+      /** Format: uri */
+      download_url?: string;
+      /** Format: date-time */
+      expires_at?: string;
+      error?: components['schemas']['Problem'];
+    };
+    FieldError: {
+      /** @description Dotted or bracketed for nested fields, e.g. `schedules[3].open_time`. */
+      field: string;
+      /** @description Free text, or one of the stable machine codes intended for frontend-localized copy (`slug_taken`, `deposit_percentage_over_100`, `deposit_exceeds_price`, `month_out_of_range`, `report_period_in_future`, `report_period_before_complex_existed`, `report_export_too_large`, `report_export_timed_out`, `price_required`). */
+      message: string;
+    };
+    Metadata: {
+      next_cursor?: string;
+      has_more: boolean;
+      total_count?: number;
+    };
+    /** @enum {string} */
+    Weekday: 'monday' | 'tuesday' | 'wednesday' | 'thursday' | 'friday' | 'saturday' | 'sunday';
+    /** @enum {string} */
+    BookingStatus: 'pending' | 'confirmed' | 'cancelled' | 'completed' | 'no_show';
+    /** @enum {string} */
+    CollectionStatus: 'unpaid' | 'deposit_paid' | 'fully_paid';
+    /**
+     * @description `partial` is set only by the system, never accepted as client input.
+     * @enum {string}
+     */
+    RefundStatus: 'none' | 'pending' | 'partial' | 'full';
+    User: {
+      /** Format: uuid */
+      id: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      /** @example +5491112345678 */
+      phone: string;
+      /** @enum {string} */
+      role: 'owner' | 'client' | 'superadmin';
+      is_active: boolean;
+      email_verified: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    Complex: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      owner_id: string;
+      name: string;
+      slug: string;
+      address: string;
+      city: string;
+      province: string;
+      /** @example AR */
+      country_code: string;
+      /** @example ARS */
+      currency: string;
+      /** @example +5491112345678 */
+      phone: string;
+      email?: string | null;
+      /** Format: uri */
+      logo_url?: string | null;
+      /** Format: uri */
+      cover_url?: string | null;
+      /** @description The owner's plain-text description, or null when none is set. */
+      description?: string | null;
+      /** @description The club's Instagram handle, without the @, or null when none is set. */
+      instagram?: string | null;
+      deposit_percentage: number;
+      cancellation_hours: number;
+      /** Format: double */
+      latitude?: number | null;
+      /** Format: double */
+      longitude?: number | null;
+      is_active: boolean;
+      amenities: string[];
+      /** @description Present only when returned by the owner's complex-list query. */
+      court_count?: number;
+      payments_enabled: boolean;
+      mp_user_id?: string | null;
+      /** Format: date-time */
+      mp_token_expires_at?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Optimistic-concurrency counter, bumped on every update. */
+      version: number;
+    };
+    /** @description The 410 answer on the public page of a deleted complex. It carries the three fields below and nothing else of the deleted row. `city_slug` is empty when the city has no slug characters and so belongs to no hub. */
+    PublicComplexGone: {
+      gone: {
+        name: string;
+        city: string;
+        city_slug: string;
+      };
+    };
+    /** @description The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state. */
+    PublicComplex: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      slug: string;
+      address: string;
+      city: string;
+      /** @description The key of the city hub this complex lists under, /canchas/<city_slug>. Omitted when the city has no slug characters and so belongs to no hub. */
+      city_slug?: string;
+      province: string;
+      /** @example AR */
+      country_code: string;
+      /** @example ARS */
+      currency: string;
+      phone: string;
+      email?: string;
+      /** Format: uri */
+      logo_url?: string;
+      /** Format: uri */
+      cover_url?: string;
+      /** @description The owner's plain-text description. Omitted when none is set. */
+      description?: string;
+      /** @description The club's Instagram handle, without the @. Omitted when none is set. */
+      instagram?: string;
+      deposit_percentage: number;
+      cancellation_hours: number;
+      /** Format: double */
+      latitude?: number;
+      /** Format: double */
+      longitude?: number;
+      amenities: string[];
+      payments_enabled: boolean;
+      /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
+      version?: number;
+    };
+    PublicHubSport: {
+      /** @description The Spanish label of the sport. A sport with no label is shown as stored. */
+      sport: string;
+      /** @description How many switched-on courts of this sport. */
+      court_count: number;
+    };
+    /** @description A city hub as another hub's document names it. */
+    PublicHubLink: {
+      /** @example vicente-lopez */
+      slug: string;
+      /**
+       * @description The city's display name.
+       * @example Vicente López
+       */
+      name: string;
+      /**
+       * @description The province most of the hub's complexes name. Empty when none names one.
+       * @example Buenos Aires
+       */
+      province: string;
+      /** @description How many switched-on complexes the hub lists. */
+      complex_count: number;
+    };
+    /** @description One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store. */
+    PublicHub: {
+      /** @example vicente-lopez */
+      slug: string;
+      /** @example Vicente López */
+      name: string;
+      /**
+       * @description Empty when no complex names one.
+       * @example Buenos Aires
+       */
+      province: string;
+      /** @description How many switched-on complexes the hub lists. */
+      complex_count: number;
+      /** @description How many switched-on courts the hub's complexes carry. */
+      court_count: number;
+      /** @description The sports the hub's switched-on courts carry, most-courted first, then by label. */
+      sports: components['schemas']['PublicHubSport'][];
+    };
+    /** @description One city hub in the hub index. */
+    PublicHubSummary: {
+      /** @example vicente-lopez */
+      slug: string;
+      /** @example Vicente López */
+      name: string;
+      /**
+       * @description Empty when no complex names one.
+       * @example Buenos Aires
+       */
+      province: string;
+      /** @description How many switched-on complexes the hub lists. */
+      complex_count: number;
+      /** @description The Spanish label of each sport the hub's switched-on courts carry, most-courted first, then by label. */
+      sports: string[];
+    };
+    /** @description A switched-on complex as its city hub lists it. */
+    PublicHubComplex: {
+      slug: string;
+      name: string;
+      address: string;
+      /** @description The city's display name. */
+      city: string;
+      /** @description The province's display name. Empty when the complex names none. */
+      province: string;
+      /**
+       * Format: uri
+       * @description The complex's cover image, or null when it has none.
+       */
+      cover_url: string | null;
+      /**
+       * Format: uri
+       * @description The complex's logo image, or null when it has none.
+       */
+      logo_url: string | null;
+      /** @description How many switched-on courts the complex has. */
+      court_count: number;
+      /** @description The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored. */
+      sports: string[];
+      /** @description The complex's switched-on courts counted by sport, most-courted first, then by label. */
+      courts_by_sport: components['schemas']['PublicHubSport'][];
+    };
+    PublicHubList: {
+      hubs: components['schemas']['PublicHubSummary'][];
+    };
+    PublicCityHub: {
+      hub: components['schemas']['PublicHub'];
+      /** @description Empty ([]) for a city whose complexes are all switched off or deleted. Never null. */
+      complexes: components['schemas']['PublicHubComplex'][];
+      /** @description Up to 12 other city hubs to link to. The same province comes first, then the most complexes, then by name. */
+      other_hubs: components['schemas']['PublicHubLink'][];
+    };
+    Schedule: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      day: components['schemas']['Weekday'];
+      open_time: string;
+      close_time: string;
+      is_closed: boolean;
+    };
+    Court: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      name: string;
+      /** @enum {string} */
+      sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+      /** @enum {string} */
+      court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      is_active: boolean;
+      description?: string | null;
+      has_lighting: boolean;
+      /** @description Playing surface; null when the owner has not said. */
+      surface?: components['schemas']['CourtSurface'] | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
+      version?: number;
+    };
+    /** @enum {string} */
+    CourtSurface:
+      'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
+    CourtWithPrices: components['schemas']['Court'] & {
+      prices: components['schemas']['CourtPrice'][];
+    };
+    CourtPrice: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      court_id: string;
+      /** @description Centavos ARS per hour. */
+      price: number;
+      day_type: components['schemas']['Weekday'];
+      time_from: string;
+      /** @description At or before time_from means the band runs past midnight. */
+      time_to: string;
+      /** @description Minutes from weekday midnight. */
+      from_min?: number;
+      /** @description Minutes from weekday midnight, may exceed 1440. */
+      to_min?: number;
+      /** @description This band's own counter. The PUT that saves a court's price table is guarded by the COURT's version instead: these rows are replaced wholesale, so a band's counter does not survive the save. */
+      version?: number;
+    };
+    CashSession: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: date-time */
+      opened_at: string;
+      /** Format: uuid */
+      opened_by: string;
+      /**
+       * Format: int64
+       * @description Centavos ARS. A session-level sum, not one entry — BIGINT (db/migrations/003_cashbox.sql).
+       */
+      opening_cash: number;
+      /** Format: date-time */
+      closed_at?: string | null;
+      /** Format: uuid */
+      closed_by?: string | null;
+      /**
+       * Format: int64
+       * @description Centavos ARS, physically counted. Null until closed.
+       */
+      counted_cash?: number | null;
+      /**
+       * Format: int64
+       * @description Centavos ARS, the close-time snapshot. Null until closed.
+       */
+      expected_cash?: number | null;
+      /**
+       * Format: int64
+       * @description counted_cash minus expected_cash. Null until closed.
+       */
+      difference?: number | null;
+      /** @description Written once, by open. Never changed by close. */
+      opening_note?: string | null;
+      /** @description Written once, by close. Never overwrites opening_note. */
+      closing_note?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    CashMovement: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      session_id: string;
+      /** @enum {string} */
+      kind: 'income' | 'expense';
+      /**
+       * @description The 19 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
+       * @enum {string}
+       */
+      category:
+        | 'other_income'
+        | 'classes'
+        | 'tournaments'
+        | 'events'
+        | 'memberships'
+        | 'sponsorship'
+        | 'cash_contribution'
+        | 'supplies'
+        | 'salaries'
+        | 'services'
+        | 'maintenance'
+        | 'cleaning'
+        | 'withdrawal'
+        | 'other_expense'
+        | 'rent'
+        | 'taxes'
+        | 'professional_fees'
+        | 'marketing'
+        | 'bank_fees'
+        | 'sale'
+        | 'restock';
+      /** @enum {string} */
+      method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      /** @description Centavos ARS. */
+      amount: number;
+      note?: string | null;
+      /**
+       * Format: uuid
+       * @description The movement this one corrects, when this row is a void.
+       */
+      voids_movement_id?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      created_by: string;
+    };
+    /** @description One (method, kind, category) bucket's total within a session. */
+    CashMovementTotal: {
+      /** @enum {string} */
+      method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      /** @enum {string} */
+      kind: 'income' | 'expense';
+      category: string;
+      /** @description Centavos ARS. */
+      total: number;
+      count: number;
+    };
+    /** @description One payment method's booking-payment total within the session's window. Informational for every method except cash, which also feeds expected_cash. */
+    CashBookingPaymentTotal: {
+      /** @enum {string} */
+      method: 'mercadopago' | 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      count: number;
+      /** @description Centavos ARS. */
+      amount: number;
+      /** @description Centavos ARS. */
+      service_fee: number;
+      /** @description Centavos ARS. */
+      refunded: number;
+    };
+    /** @description One payment method's manual-refund total within the session's window — money handed back by hand (internal/payments.RecordManualRefund), read off payments.manual_refunded_at rather than created_at. Informational for every method except cash, which also feeds expected_cash (subtracted, not added). */
+    CashManualRefundTotal: {
+      /** @enum {string} */
+      method: 'mercadopago' | 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      count: number;
+      /** @description Centavos ARS. */
+      amount: number;
+    };
+    CashSessionSummary: {
+      /**
+       * Format: int64
+       * @description Centavos ARS.
+       */
+      opening_cash: number;
+      /**
+       * Format: int64
+       * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted — but for a closed session, that subtraction is the amount known at close time, and cash_manual_refunds below can since have grown (see its own description); the two are not guaranteed to agree.
+       */
+      expected_cash: number;
+      /**
+       * Format: int64
+       * @description Centavos ARS. Present only when closed.
+       */
+      counted_cash?: number | null;
+      /**
+       * Format: int64
+       * @description Centavos ARS. Present only when closed.
+       */
+      difference?: number | null;
+      /**
+       * Format: int64
+       * @description Centavos ARS. The cash row(s) of manual_refunds totalled, over the session's own window (opened_at to closed_at-or-now). For an OPEN session this is exactly what was subtracted from expected_cash above. For a CLOSED session it is recomputed fresh on every read and can be larger than what expected_cash actually subtracted at close time: a manual refund is timestamped by its own transaction's start, so one that started before the session closed but only committed afterwards is invisible to the close-time snapshot yet still falls inside the window on a later read.
+       */
+      cash_manual_refunds: number;
+      movement_totals: components['schemas']['CashMovementTotal'][];
+      booking_payments: components['schemas']['CashBookingPaymentTotal'][];
+      manual_refunds: components['schemas']['CashManualRefundTotal'][];
+    };
+    Product: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      name: string;
+      /** @description Free text, owner-defined (e.g. "Bebidas"). */
+      category?: string | null;
+      /** @description Centavos ARS. */
+      price: number;
+      tracks_stock: boolean;
+      /** @description May be negative: selling (T4b) or adjusting past zero is allowed, and a negative value is exactly what needs_stock_review flags. */
+      stock_on_hand: number;
+      low_stock_threshold?: number | null;
+      /** @description A product is deactivated, never deleted. */
+      active: boolean;
+      /** @description Computed: tracks_stock && low_stock_threshold is set && stock_on_hand <= low_stock_threshold. */
+      low_stock: boolean;
+      /** @description Computed: stock_on_hand < 0. */
+      needs_stock_review: boolean;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PATCH — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
+      version?: number;
+    };
+    StockMovement: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      product_id: string;
+      /** @enum {string} */
+      kind: 'sale' | 'restock' | 'adjustment' | 'sale_void';
+      /** @description Signed. Negative removes stock, positive adds it — see StockMovement's own CHECK by kind. */
+      quantity: number;
+      /**
+       * @description Set iff kind = adjustment.
+       * @enum {string|null}
+       */
+      reason?: 'breakage' | 'expired' | 'own_consumption' | 'count_correction' | 'other' | null;
+      note?: string | null;
+      /**
+       * Format: uuid
+       * @description The linked cash expense. Set iff kind = restock.
+       */
+      cash_movement_id?: string | null;
+      /**
+       * Format: uuid
+       * @description Set iff kind = sale or sale_void.
+       */
+      sale_id?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      created_by: string;
+    };
+    /** @description A product sale, or a checkout that collected booking balances and no product lines. The second kind is an entry with the checkout's id, no items and a null cash_movement_id: it has no sale and writes no cash income of its own. */
+    Sale: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      session_id: string;
+      /** @enum {string} */
+      method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      /** @description Centavos ARS. The sum of the line totals of the entry's items; for an entry with no items, the sum of its booking_payments amounts. Those amounts are counted once, in their payments rows, never again through this total. */
+      total: number;
+      /**
+       * Format: uuid
+       * @description The sale's own 'sale' category income movement. Null for a balance-only checkout.
+       */
+      cash_movement_id: string | null;
+      /** Format: date-time */
+      voided_at?: string | null;
+      /** Format: uuid */
+      voided_by?: string | null;
+      /**
+       * Format: uuid
+       * @description The movement that voided the sale's income, when this sale is voided.
+       */
+      void_cash_movement_id?: string | null;
+      items: components['schemas']['SaleItem'][];
+      /** @description The booking balances collected in the same checkout as this sale (empty when there were none). Each amount is already counted in its own payments row, not in `total`. A sale with booking payments cannot be voided. */
+      booking_payments: components['schemas']['SaleBookingPayment'][];
+      /** Format: date-time */
+      created_at: string;
+      /** Format: uuid */
+      created_by: string;
+    };
+    /** @description A booking balance collected at the counter, with the booking summary a receipt needs. */
+    SaleBookingPayment: {
+      /**
+       * Format: uuid
+       * @description The counter payment row this balance was recorded as.
+       */
+      payment_id: string;
+      /** Format: uuid */
+      booking_id: string;
+      /** @description Centavos ARS collected for this booking in this checkout. */
+      amount: number;
+      court_name: string;
+      /**
+       * Format: date
+       * @description The booking's day, in Argentina.
+       */
+      date: string;
+      /** @description HH:MM, Argentina wall clock. */
+      start_time: string;
+      /** @description HH:MM, Argentina wall clock. */
+      end_time: string;
+      /** @description First and last name, as stored on the client. */
+      client_name: string;
+    };
+    /** @description One booking of today that still owes money, for the sell page's booking picker. */
+    BalanceDue: {
+      /** Format: uuid */
+      booking_id: string;
+      court_name: string;
+      /** Format: date */
+      date: string;
+      start_time: string;
+      end_time: string;
+      client_name: string;
+      status: components['schemas']['BookingStatus'];
+      /** @description The booking's price, centavos ARS. */
+      total: number;
+      /** @description Centavos ARS already collected for the booking. */
+      paid: number;
+      /** @description total - paid. This is the amount a checkout must send. */
+      remaining: number;
+    };
+    SaleItem: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      sale_id: string;
+      /** Format: uuid */
+      product_id: string;
+      /** @description Snapshot of the product's name at sale time. */
+      product_name: string;
+      /** @description Centavos ARS, snapshot of the product's price at sale time. */
+      unit_price: number;
+      quantity: number;
+      /** @description unit_price * quantity. */
+      line_total: number;
+    };
+    /** @description One tracked product whose stock_on_hand ended at zero or below after the sale — never a reason the sale was refused (selling past zero stock is allowed), only a flag that it needs a count. */
+    SaleStockWarning: {
+      /** Format: uuid */
+      product_id: string;
+      product_name: string;
+      stock_on_hand: number;
+    };
+    BlockedSlot: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      court_id: string;
+      /** Format: date */
+      date: string;
+      start_time: string;
+      end_time: string;
+      reason?: string | null;
+      /** Format: uuid */
+      created_by?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** @description Enrichment, present on list responses. */
+      court_name?: string;
+    };
+    Client: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      first_name: string;
+      last_name: string;
+      /** @example +5491112345678 */
+      phone: string;
+      email?: string | null;
+      notes?: string | null;
+      is_blocked: boolean;
+      /** @description A live count, not a stored counter. */
+      total_bookings: number;
+      no_shows: number;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    /** @description A fixed weekly booking (turno fijo): a weekly rule that holds its court and hours on every matching date. The booking of a date is created on its own day and carries `series_id`. */
+    BookingSeries: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      court_id: string;
+      /** Format: uuid */
+      client_id: string;
+      /** @description 0 = Sunday .. 6 = Saturday. */
+      weekday: number;
+      start_time: string;
+      duration_minutes: number;
+      /** @description Centavos ARS. Null: each occurrence is priced on the day its booking is created. */
+      price?: number | null;
+      notes?: string | null;
+      /** Format: date */
+      starts_on: string;
+      /**
+       * Format: date
+       * @description Inclusive. Null while the series has no end.
+       */
+      ends_on?: string | null;
+      /** @enum {string} */
+      status: 'active' | 'ended';
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description A date that is not part of a series, and why. */
+    BookingSeriesConflict: {
+      /** Format: date */
+      date: string;
+      /** @enum {string} */
+      reason: 'cancelled_by_owner' | 'overlap' | 'blocked' | 'closed_day' | 'no_price' | 'client_blocked' | 'missed';
+      /**
+       * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+       * @enum {string}
+       */
+      held_by?: 'booking' | 'fixed' | 'event' | 'match';
+      /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
+      free_courts?: components['schemas']['BookingSeriesFreeCourt'][];
+    };
+    /** @description A court that is free on a date of a fixed weekly booking. */
+    BookingSeriesFreeCourt: {
+      /** Format: uuid */
+      court_id: string;
+      court_name: string;
+    };
+    /** @description One upcoming date of a series. */
+    BookingSeriesUpcoming: {
+      /** Format: date */
+      date: string;
+      /**
+       * @description `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+       * @enum {string}
+       */
+      state: 'pending' | 'booked' | 'exception';
+      /**
+       * Format: uuid
+       * @description Present when `booked`.
+       */
+      booking_id?: string;
+      /**
+       * @description Present when `exception`.
+       * @enum {string}
+       */
+      reason?: 'cancelled_by_owner' | 'overlap' | 'blocked' | 'closed_day' | 'no_price' | 'client_blocked' | 'missed';
+    };
+    /** @description An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
+    OpenPlayEvent: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      name: string;
+      /** @enum {string} */
+      sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+      /**
+       * Format: date
+       * @description The local day the event starts on.
+       */
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      capacity: number;
+      /** @description Centavos ARS per person. */
+      price: number;
+      /** @enum {string} */
+      status: 'active' | 'cancelled';
+      cancel_reason?: string | null;
+      /** Format: date-time */
+      cancelled_at?: string | null;
+      courts: {
+        /** Format: uuid */
+        id: string;
+        name: string;
+      }[];
+      /** @description Paid spots. */
+      confirmed_count: number;
+      /** @description Spots held by people still paying. */
+      held_count: number;
+      /** @description Capacity minus paid spots and running holds, never below zero. */
+      spots_left: number;
+      /** Format: date-time */
+      created_at: string;
+    };
+    OpenPlayParticipant: {
+      /** Format: uuid */
+      id: string;
+      first_name: string;
+      last_name: string;
+      phone: string;
+      email?: string | null;
+      /** @enum {string} */
+      status: 'held' | 'confirmed' | 'cancelled';
+      /** @description Centavos ARS, the event price at sign-up. */
+      price: number;
+      /** @description Centavos ARS, paid by the person on top of the price. */
+      service_fee: number;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      confirmed_at?: string | null;
+      /** Format: date-time */
+      cancelled_at?: string | null;
+      /** @enum {string|null} */
+      cancelled_by?: 'participant' | 'owner' | null;
+      /** @description The payment carrying the person's money; `null` while no checkout was ever opened. */
+      payment?: null | {
+        /** @description The payment status: unpaid, deposit_paid, refund_pending, partial_refund or refunded. */
+        status: string;
+        /** @description Centavos ARS. */
+        amount: number;
+        /** @description Centavos ARS. */
+        service_fee: number;
+        /** @description Centavos ARS already sent back. */
+        refund_amount: number;
         /** @enum {string} */
-        Weekday: "monday" | "tuesday" | "wednesday" | "thursday" | "friday" | "saturday" | "sunday";
+        method: 'mercadopago';
+      };
+    };
+    /** @description A court of a public event, with the facts the booking flow shows for a court. */
+    PublicEventCourt: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @enum {string} */
+      court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      has_lighting: boolean;
+      /** @description Playing surface; null when the owner has not said. */
+      surface?: components['schemas']['CourtSurface'] | null;
+    };
+    /** @description An event as a visitor sees it on the complex's page. */
+    PublicOpenPlayEvent: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      /** @enum {string} */
+      sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+      /** Format: date */
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      capacity: number;
+      /** @description `0` closes the sign-up. */
+      spots_left: number;
+      /** @description Centavos ARS per person. */
+      price: number;
+      /** @description Centavos ARS the person pays on top. */
+      service_fee: number;
+      /** @description Centavos ARS: `price` plus `service_fee`. */
+      total_price: number;
+      /** @enum {string} */
+      status: 'active' | 'cancelled';
+      court_names: string[];
+      /** @description The event's courts with what a player compares, in the order of `court_names`. */
+      courts: components['schemas']['PublicEventCourt'][];
+      complex_name?: string;
+      /** @description The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead. */
+      cancellation_hours?: number;
+    };
+    PublicEventSignUp: {
+      registration: {
         /** @enum {string} */
-        BookingStatus: "pending" | "confirmed" | "cancelled" | "completed" | "no_show";
-        /** @enum {string} */
-        CollectionStatus: "unpaid" | "deposit_paid" | "fully_paid";
+        status: 'held';
         /**
-         * @description `partial` is set only by the system, never accepted as client input.
-         * @enum {string}
+         * Format: date-time
+         * @description The spot is released if unpaid by then.
          */
-        RefundStatus: "none" | "pending" | "partial" | "full";
-        User: {
-            /** Format: uuid */
-            id: string;
-            email: string;
-            first_name: string;
-            last_name: string;
-            /** @example +5491112345678 */
-            phone: string;
-            /** @enum {string} */
-            role: "owner" | "client" | "superadmin";
-            is_active: boolean;
-            email_verified: boolean;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        Complex: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            owner_id: string;
-            name: string;
-            slug: string;
-            address: string;
-            city: string;
-            province: string;
-            /** @example AR */
-            country_code: string;
-            /** @example ARS */
-            currency: string;
-            /** @example +5491112345678 */
-            phone: string;
-            email?: string | null;
-            /** Format: uri */
-            logo_url?: string | null;
-            /** Format: uri */
-            cover_url?: string | null;
-            /** @description The owner's plain-text description, or null when none is set. */
-            description?: string | null;
-            /** @description The club's Instagram handle, without the @, or null when none is set. */
-            instagram?: string | null;
-            deposit_percentage: number;
-            cancellation_hours: number;
-            /** Format: double */
-            latitude?: number | null;
-            /** Format: double */
-            longitude?: number | null;
-            is_active: boolean;
-            amenities: string[];
-            /** @description Present only when returned by the owner's complex-list query. */
-            court_count?: number;
-            payments_enabled: boolean;
-            mp_user_id?: string | null;
-            /** Format: date-time */
-            mp_token_expires_at?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @description Optimistic-concurrency counter, bumped on every update. */
-            version: number;
-        };
-        /** @description The 410 answer on the public page of a deleted complex. It carries the three fields below and nothing else of the deleted row. `city_slug` is empty when the city has no slug characters and so belongs to no hub. */
-        PublicComplexGone: {
-            gone: {
-                name: string;
-                city: string;
-                city_slug: string;
-            };
-        };
-        /** @description The storefront projection of a Complex. Excludes `owner_id` and `mp_user_id`; adds `payments_enabled` derived from the connection state. */
-        PublicComplex: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            slug: string;
-            address: string;
-            city: string;
-            /** @description The key of the city hub this complex lists under, /canchas/<city_slug>. Omitted when the city has no slug characters and so belongs to no hub. */
-            city_slug?: string;
-            province: string;
-            /** @example AR */
-            country_code: string;
-            /** @example ARS */
-            currency: string;
-            phone: string;
-            email?: string;
-            /** Format: uri */
-            logo_url?: string;
-            /** Format: uri */
-            cover_url?: string;
-            /** @description The owner's plain-text description. Omitted when none is set. */
-            description?: string;
-            /** @description The club's Instagram handle, without the @. Omitted when none is set. */
-            instagram?: string;
-            deposit_percentage: number;
-            cancellation_hours: number;
-            /** Format: double */
-            latitude?: number;
-            /** Format: double */
-            longitude?: number;
-            amenities: string[];
-            payments_enabled: boolean;
-            /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
-            version?: number;
-        };
-        PublicHubSport: {
-            /** @description The Spanish label of the sport. A sport with no label is shown as stored. */
-            sport: string;
-            /** @description How many switched-on courts of this sport. */
-            court_count: number;
-        };
-        /** @description A city hub as another hub's document names it. */
-        PublicHubLink: {
-            /** @example vicente-lopez */
-            slug: string;
-            /**
-             * @description The city's display name.
-             * @example Vicente López
-             */
-            name: string;
-            /**
-             * @description The province most of the hub's complexes name. Empty when none names one.
-             * @example Buenos Aires
-             */
-            province: string;
-            /** @description How many switched-on complexes the hub lists. */
-            complex_count: number;
-        };
-        /** @description One city hub. Its `slug` is the city's URL form; its `name` and `province` are display names, normalised from the spelling the complexes store. */
-        PublicHub: {
-            /** @example vicente-lopez */
-            slug: string;
-            /** @example Vicente López */
-            name: string;
-            /**
-             * @description Empty when no complex names one.
-             * @example Buenos Aires
-             */
-            province: string;
-            /** @description How many switched-on complexes the hub lists. */
-            complex_count: number;
-            /** @description How many switched-on courts the hub's complexes carry. */
-            court_count: number;
-            /** @description The sports the hub's switched-on courts carry, most-courted first, then by label. */
-            sports: components["schemas"]["PublicHubSport"][];
-        };
-        /** @description One city hub in the hub index. */
-        PublicHubSummary: {
-            /** @example vicente-lopez */
-            slug: string;
-            /** @example Vicente López */
-            name: string;
-            /**
-             * @description Empty when no complex names one.
-             * @example Buenos Aires
-             */
-            province: string;
-            /** @description How many switched-on complexes the hub lists. */
-            complex_count: number;
-            /** @description The Spanish label of each sport the hub's switched-on courts carry, most-courted first, then by label. */
-            sports: string[];
-        };
-        /** @description A switched-on complex as its city hub lists it. */
-        PublicHubComplex: {
-            slug: string;
-            name: string;
-            address: string;
-            /** @description The city's display name. */
-            city: string;
-            /** @description The province's display name. Empty when the complex names none. */
-            province: string;
-            /**
-             * Format: uri
-             * @description The complex's cover image, or null when it has none.
-             */
-            cover_url: string | null;
-            /**
-             * Format: uri
-             * @description The complex's logo image, or null when it has none.
-             */
-            logo_url: string | null;
-            /** @description How many switched-on courts the complex has. */
-            court_count: number;
-            /** @description The Spanish label of each sport the complex's switched-on courts carry. A sport with no label is shown as stored. */
-            sports: string[];
-            /** @description The complex's switched-on courts counted by sport, most-courted first, then by label. */
-            courts_by_sport: components["schemas"]["PublicHubSport"][];
-        };
-        PublicHubList: {
-            hubs: components["schemas"]["PublicHubSummary"][];
-        };
-        PublicCityHub: {
-            hub: components["schemas"]["PublicHub"];
-            /** @description Empty ([]) for a city whose complexes are all switched off or deleted. Never null. */
-            complexes: components["schemas"]["PublicHubComplex"][];
-            /** @description Up to 12 other city hubs to link to. The same province comes first, then the most complexes, then by name. */
-            other_hubs: components["schemas"]["PublicHubLink"][];
-        };
-        Schedule: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            day: components["schemas"]["Weekday"];
-            open_time: string;
-            close_time: string;
-            is_closed: boolean;
-        };
-        Court: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            name: string;
-            /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-            /** @enum {string} */
-            court_type: "indoor" | "outdoor" | "semi_covered";
-            is_active: boolean;
-            description?: string | null;
-            has_lighting: boolean;
-            /** @description Playing surface; null when the owner has not said. */
-            surface?: components["schemas"]["CourtSurface"] | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PUT — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
-            version?: number;
-        };
+        held_until: string;
+      };
+      /** @description Opaque credential for the person's own spot. The registration's primary key is never included. */
+      token: string;
+      event: components['schemas']['PublicOpenPlayEvent'];
+      /** Format: uri */
+      mp_init_point?: string;
+      mp_preference_id?: string;
+      /** @description Centavos ARS. */
+      service_fee: number;
+      /** @description Centavos ARS the person pays. */
+      total_price: number;
+    };
+    PublicEventRegistration: {
+      /** @enum {string} */
+      status: 'held' | 'confirmed' | 'cancelled' | 'expired';
+      first_name: string;
+      last_name: string;
+      /** @description Centavos ARS. */
+      price: number;
+      /** @description Centavos ARS. */
+      service_fee: number;
+      /** Format: date-time */
+      held_until?: string;
+      event: components['schemas']['PublicOpenPlayEvent'];
+      complex_name?: string;
+      complex_address?: string;
+      cancellation: {
+        can_cancel: boolean;
+        /** @description Whether cancelling now earns the payment back. */
+        within_window: boolean;
+        /** Format: date-time */
+        deadline: string;
+      };
+    };
+    /** @description Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas abiertas · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+    EventBlock: {
+      /** Format: uuid */
+      event_id: string;
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: date
+       * @description The local day the hours start on.
+       */
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      name: string;
+    };
+    /** @description Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null while no pair fills that slot of the match. */
+    MatchBlock: {
+      /** Format: uuid */
+      match_id: string;
+      /** Format: uuid */
+      tournament_id: string;
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: date
+       * @description The local day the hours start on.
+       */
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      name: string;
+      pair1: string | null;
+      pair2: string | null;
+    };
+    Tournament: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      sport: string;
+      /** Format: date */
+      start_date: string;
+      /** Format: date */
+      end_date: string;
+      /** @enum {string} */
+      status: 'active' | 'cancelled';
+      cancel_reason: string | null;
+      /** Format: date-time */
+      cancelled_at: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    /** @description `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads. */
+    TournamentCategory: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      tournament_id: string;
+      name: string;
+      /** @enum {string} */
+      format: 'elimination' | 'groups';
+      /** @description Pairs. */
+      capacity: number;
+      /** @description Centavos per pair. */
+      price: number;
+      service_fee?: number;
+      total_price?: number;
+      spots_left: number;
+      confirmed_count: number;
+      held_count: number;
+      /** @description Target pairs per group (groups format). */
+      group_size: number;
+      qualifiers_per_group: number;
+      /**
+       * @description 1 is a single set, 2 is best of three.
+       * @enum {integer}
+       */
+      sets_to_win: 1 | 2;
+      /** @description Games that make a set (4 to 9, 6 is standard). */
+      games_per_set: number;
+      /** @description The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2. */
+      super_tiebreak_decider: boolean;
+      /** @description Court time a match gets when scheduled without a duration. */
+      match_duration_minutes: number;
+      /** @enum {string} */
+      status: 'open' | 'closed' | 'cancelled';
+      draw_generated: boolean;
+    };
+    /** @description A category as its owner reads it: `court_fee` is centavos each pair pays per match at the complex (0 is none). A visitor's category never carries it. */
+    TournamentOwnerCategory: components['schemas']['TournamentCategory'] & {
+      court_fee: number;
+    };
+    TournamentOwnerSummary: components['schemas']['Tournament'] & {
+      /** @description Matches of an active tournament that are not a bye, not played and without a court yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament. */
+      unscheduled_count: number;
+      categories: components['schemas']['TournamentOwnerCategory'][];
+    };
+    TournamentSummary: components['schemas']['Tournament'] & {
+      categories: components['schemas']['TournamentCategory'][];
+    };
+    TournamentPlayer: {
+      first_name: string;
+      last_name: string;
+    };
+    TournamentOwnerPlayer: {
+      first_name: string;
+      last_name: string;
+      phone: string;
+      email: string | null;
+    };
+    /** @description `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status` is `withdrawn` for a pair that left after the draw. */
+    TournamentPair: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      category_id: string;
+      players: components['schemas']['TournamentPlayer'][];
+      seed: number | null;
+      /** Format: uuid */
+      group_id: string | null;
+      /** @enum {string} */
+      status: 'active' | 'withdrawn';
+    };
+    TournamentOwnerPair: components['schemas']['TournamentPair'] & {
+      payer: components['schemas']['TournamentOwnerPlayer'];
+      partner: components['schemas']['TournamentOwnerPlayer'];
+      /** @description The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). */
+      registration: {
         /** @enum {string} */
-        CourtSurface: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
-        CourtWithPrices: components["schemas"]["Court"] & {
-            prices: components["schemas"]["CourtPrice"][];
+        status: 'held' | 'confirmed' | 'cancelled' | 'expired';
+        price: number;
+        service_fee: number;
+        /** Format: date-time */
+        held_until: string;
+        /** Format: date-time */
+        confirmed_at: string | null;
+        /** @enum {string|null} */
+        cancelled_by: 'participant' | 'owner' | null;
+        /** Format: date-time */
+        signed_up_at: string;
+      };
+      payment: {
+        status: string;
+        amount: number;
+        service_fee: number;
+        refund_amount: number;
+      } | null;
+    };
+    /** @description One pair's line of a group table, best first (`rank` 1 is the group winner). */
+    TournamentStanding: {
+      /** Format: uuid */
+      pair_id: string;
+      rank: number;
+      played: number;
+      won: number;
+      lost: number;
+      sets_for: number;
+      sets_against: number;
+      games_for: number;
+      games_against: number;
+    };
+    TournamentGroup: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      category_id: string;
+      /** @example A */
+      name: string;
+      position: number;
+      standings: components['schemas']['TournamentStanding'][];
+    };
+    /** @description One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that decides the match (the third set, best of three only). */
+    TournamentSet: {
+      a: number;
+      b: number;
+      /** @default false */
+      super: boolean;
+    };
+    /** @description A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. A completed match that is neither a bye nor a walkover and has no `sets` was loaded with only its winner (no score). */
+    TournamentMatch: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      category_id: string;
+      /** @enum {string} */
+      stage: 'group' | 'bracket';
+      /** Format: uuid */
+      group_id: string | null;
+      round: number;
+      position: number;
+      /** Format: uuid */
+      pair1_id: string | null;
+      /** Format: uuid */
+      pair2_id: string | null;
+      source1: components['schemas']['TournamentSource'];
+      source2: components['schemas']['TournamentSource'];
+      bye: boolean;
+      /** @enum {string} */
+      status: 'pending' | 'completed';
+      /** Format: uuid */
+      winner_pair_id: string | null;
+      sets: components['schemas']['TournamentSet'][];
+      /** @enum {integer} */
+      walkover_loser: 0 | 1 | 2;
+      schedule: {
+        /** Format: uuid */
+        court_id: string;
+        court_name: string;
+        /** Format: date */
+        date: string;
+        start_time: string;
+        end_time: string;
+        duration_minutes: number;
+      } | null;
+    };
+    /** @description What the pair on one side of a match owes or paid for the court, at the complex. While not `charged`, `amount` is the category's current `court_fee`; once `charged` it is what the charge was made at and never changes. `chargeable` is true while the pair is known, the match is played (not a bye, not a walkover), the category has a fee, nothing was cancelled and the pair was not charged yet. */
+    TournamentCourtFee: {
+      /** @enum {integer} */
+      side: 1 | 2;
+      chargeable: boolean;
+      /** @description Centavos. */
+      amount: number;
+      charged: boolean;
+      /** @description The counter payment method it was charged with, once charged. */
+      method: string | null;
+      /** Format: date-time */
+      charged_at: string | null;
+      /**
+       * Format: uuid
+       * @description The user who collected it.
+       */
+      charged_by: string | null;
+    };
+    /** @description A match as its owner reads it, with the court fee of each of its two pairs. */
+    TournamentOwnerMatch: components['schemas']['TournamentMatch'] & {
+      /** @description Side 1 then side 2. */
+      court_fee: components['schemas']['TournamentCourtFee'][];
+    };
+    /** @description Where a bracket slot's pair comes from: the Nth of a group. */
+    TournamentSource: {
+      /** Format: uuid */
+      group_id: string;
+      rank: number;
+    } | null;
+    TournamentDetail: {
+      tournament: components['schemas']['Tournament'];
+      categories: components['schemas']['TournamentOwnerCategory'][];
+      pairs: components['schemas']['TournamentOwnerPair'][];
+      groups: components['schemas']['TournamentGroup'][];
+      matches: components['schemas']['TournamentOwnerMatch'][];
+    };
+    PublicTournamentDetail: {
+      tournament: components['schemas']['Tournament'];
+      categories: components['schemas']['TournamentCategory'][];
+      pairs: components['schemas']['TournamentPair'][];
+      groups: components['schemas']['TournamentGroup'][];
+      matches: components['schemas']['TournamentMatch'][];
+      complex_name: string;
+      cancellation_hours: number;
+    };
+    TournamentRefunds: {
+      /** Format: uuid */
+      registration_id: string;
+      refund: components['schemas']['RefundOutcome'];
+    }[];
+    PublicPairSignUp: {
+      registration: {
+        /** @enum {string} */
+        status: 'held';
+        /** Format: date-time */
+        held_until: string;
+      };
+      token: string;
+      tournament: components['schemas']['Tournament'];
+      category: components['schemas']['TournamentCategory'];
+      mp_init_point: string;
+      mp_preference_id: string;
+      service_fee: number;
+      total_price: number;
+    };
+    PublicPairRegistration: {
+      /** @enum {string} */
+      status: 'held' | 'confirmed' | 'cancelled' | 'expired';
+      /** @enum {string} */
+      pair_status: 'active' | 'withdrawn';
+      /** Format: date-time */
+      held_until: string;
+      payer: components['schemas']['TournamentPlayer'];
+      partner: components['schemas']['TournamentPlayer'];
+      price: number;
+      service_fee: number;
+      tournament: components['schemas']['Tournament'];
+      category: components['schemas']['TournamentCategory'];
+      complex_name: string;
+      complex_address: string;
+      cancellation: {
+        can_cancel: boolean;
+        /** @description Whether cancelling now earns the payment back. */
+        within_window: boolean;
+        /** Format: date-time */
+        deadline: string;
+        /** @description True after the draw: leaving forfeits the matches and keeps the payment. */
+        walkover: boolean;
+      };
+    };
+    /** @description A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
+    FixedBlock: {
+      /** Format: uuid */
+      series_id: string;
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: date
+       * @description The local day the hours start on.
+       */
+      date: string;
+      start_time: string;
+      end_time: string;
+      duration_minutes: number;
+      client_name: string;
+    };
+    Booking: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: uuid
+       * @description Absent while a storefront booking waits for its payment: its client is created, or matched by phone, only once the payment is approved. client_name and client_phone still carry who it is for.
+       */
+      client_id?: string;
+      /** Format: date-time */
+      starts_at: string;
+      /** Format: date-time */
+      ends_at: string;
+      /**
+       * Format: date-time
+       * @description Serializes as a full RFC 3339 timestamp, not a date-only string, when the struct is returned directly by this endpoint.
+       */
+      date: string;
+      start_time: string;
+      duration_minutes: number;
+      /** @description Centavos ARS. */
+      price: number;
+      /** @description Centavos ARS. */
+      deposit_amount: number;
+      status: components['schemas']['BookingStatus'];
+      collection_status: components['schemas']['CollectionStatus'];
+      refund_status: components['schemas']['RefundStatus'];
+      reminder_sent_2h: boolean;
+      notes?: string | null;
+      /** Format: uuid */
+      created_by?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+      /** @description Enrichment, present when joined. */
+      court_name?: string;
+      /** @description Enrichment, present when joined. */
+      client_name?: string;
+      /** @description Enrichment, present when joined. */
+      client_phone?: string;
+      /**
+       * Format: uuid
+       * @description The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
+       */
+      series_id?: string | null;
+      /**
+       * Format: date-time
+       * @description When the owner marked the client as present (`bookingsMarkAttended`). Only a `completed` booking carries one; a completed booking without it finished with nobody confirming attendance ("Turno finalizado").
+       */
+      attended_at?: string | null;
+    };
+    Payment: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      booking_id: string;
+      /** Format: uuid */
+      complex_id: string;
+      /** @description Centavos ARS. */
+      amount: number;
+      /** @description Centavos ARS. */
+      service_fee: number;
+      /** @enum {string} */
+      method: 'mercadopago' | 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+      /**
+       * @description The payments table's own, wider status vocabulary. Distinct from Booking.collection_status/refund_status, which were split off it at the booking level.
+       * @enum {string}
+       */
+      status: 'unpaid' | 'deposit_paid' | 'fully_paid' | 'refunded' | 'refund_pending' | 'partial_refund';
+      mp_payment_id?: string | null;
+      mp_preference_id?: string | null;
+      /** @description Centavos ARS. */
+      refund_amount: number;
+      /** @description MercadoPago's own status_detail string. */
+      status_detail?: string | null;
+      /** Format: date-time */
+      created_at: string;
+      /** Format: date-time */
+      updated_at: string;
+    };
+    RefundOutcome: {
+      /** @enum {string} */
+      status: 'none' | 'not_eligible' | 'issued' | 'already_issued' | 'queued' | 'manual';
+      /** @description Spanish, human-readable, safe to show a client. */
+      message: string;
+      /** @description Centavos ARS. Present only when greater than zero, the automatic-refund half. */
+      amount?: number;
+      /** @description Centavos ARS. Present only when greater than zero, a balance nothing automatic can move. */
+      manual_amount?: number;
+      /** @description Present only when manual_amount is. */
+      manual_message?: string;
+    };
+    PublicBookingResult: {
+      booking: {
+        status: components['schemas']['BookingStatus'];
+        collection_status: components['schemas']['CollectionStatus'];
+        refund_status: components['schemas']['RefundStatus'];
+        /** Format: date */
+        date: string;
+        start_time: string;
+        /** Format: date-time */
+        starts_at: string;
+        /** Format: date-time */
+        ends_at: string;
+        court_name: string;
+        complex_name: string;
+        /** @description Centavos ARS. */
+        price: number;
+        /** @description Centavos ARS. */
+        deposit_amount: number;
+      };
+      /** @description Opaque booking-link credential. The booking's primary key is never included. */
+      token: string;
+      /** Format: uri */
+      mp_init_point?: string;
+      mp_preference_id?: string;
+      /** @description Centavos ARS. */
+      service_fee?: number;
+      /** @description Centavos ARS. */
+      total_client_pays?: number;
+    };
+    PublicBookingStatus: {
+      status: components['schemas']['BookingStatus'];
+      collection_status: components['schemas']['CollectionStatus'];
+      refund_status: components['schemas']['RefundStatus'];
+      complex_name: string;
+      complex_address: string;
+      complex_phone?: string;
+      court_name: string;
+      /** @enum {string} */
+      sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+      /** @enum {string} */
+      court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      /** Format: date */
+      date: string;
+      start_time: string;
+      /** Format: date-time */
+      starts_at: string;
+      /** Format: date-time */
+      ends_at: string;
+      duration_minutes: number;
+      /** @description Centavos ARS. */
+      price: number;
+      /** @description Centavos ARS. */
+      deposit_amount: number;
+      /** @description Centavos ARS. */
+      service_fee: number;
+      /** @description Centavos ARS. */
+      remaining_amount: number;
+      cancellation: {
+        can_cancel: boolean;
+        can_refund_now: boolean;
+        cancellation_hours: number;
+        /** Format: date-time */
+        refund_deadline?: string | null;
+      };
+    };
+    PublicCancelInfo: {
+      booking: {
+        status: components['schemas']['BookingStatus'];
+        /** Format: date */
+        date: string;
+        start_time: string;
+        /** Format: date-time */
+        starts_at: string;
+        /** Format: date-time */
+        ends_at: string;
+        duration_minutes: number;
+        court_name: string;
+        /** @enum {string} */
+        sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+        /** @enum {string} */
+        court_type: 'indoor' | 'outdoor' | 'semi_covered';
+        complex_name: string;
+        complex_address?: string;
+      };
+      can_cancel: boolean;
+      can_refund: boolean;
+      /** @enum {string} */
+      refund_method: 'mercadopago' | 'manual' | 'none';
+      cancellation_hours: number;
+      /** @description Centavos ARS. */
+      refund_amount: number;
+      /** @description Centavos ARS. */
+      paid_amount: number;
+    };
+    SlugAvailability: {
+      slug: string;
+      valid: boolean;
+      available: boolean;
+      /** @description Present only when the slug is taken and a free alternative was found. */
+      suggestion?: string;
+    };
+    /** @description Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key. */
+    AuditLogRow: {
+      /** Format: uuid */
+      id: string;
+      /** Format: uuid */
+      user_id: string | null;
+      user_email: string | null;
+      /** Format: uuid */
+      complex_id: string | null;
+      action: string;
+      entity_type: string;
+      /** Format: uuid */
+      entity_id: string | null;
+      ip_address: string | null;
+      /** Format: date-time */
+      created_at: string;
+    };
+    Availability: {
+      /** Format: date */
+      date: string;
+      day: components['schemas']['Weekday'];
+      is_open: boolean;
+      courts: components['schemas']['AvailabilityCourt'][];
+    };
+    AvailabilityCourt: {
+      /** Format: uuid */
+      court_id: string;
+      court_name: string;
+      /** @enum {string} */
+      sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+      /** @enum {string} */
+      court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      description?: string;
+      has_lighting: boolean;
+      /**
+       * @description Omitted when the owner has not said.
+       * @enum {string}
+       */
+      surface?:
+        'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
+      slots: components['schemas']['AvailabilitySlot'][];
+    };
+    AvailabilitySlot: {
+      start_time: string;
+      end_time: string;
+      /** @description Minutes from the window's midnight, unwrapped past 1440 for overnight venues so past-midnight slots sort correctly. */
+      start_min: number;
+      duration_minutes: number;
+      /** @description Centavos ARS. */
+      price: number;
+      available: boolean;
+    };
+    HealthStatus: {
+      /** @enum {string} */
+      status: 'available' | 'degraded';
+      version: string;
+      /** @description Present only when non-empty. */
+      impaired?: ('database' | 'cache' | 'payments')[];
+    };
+    PlaceDetails: {
+      address: string;
+      city: string;
+      province: string;
+      formatted_address: string;
+      /** @description Formatted with "%f", a string rather than a JSON number. */
+      latitude: string;
+      /** @description Formatted with "%f", a string rather than a JSON number. */
+      longitude: string;
+    };
+    /** @description Built as an ad-hoc map in the handler, not a named Go struct. */
+    DashboardStats: {
+      today_bookings: number;
+      /** @description Centavos ARS. Booking payments actually collected today (payments.created_at, Argentina calendar day): status deposit_paid, fully_paid, refund_pending or partial_refund. An 'unpaid' payment (an abandoned checkout) and a fully 'refunded' one are both excluded. This is a bookings-only figure and does not include bar sales or other cash-till income — see today_money for the day's full income picture, which also reconciles bookings taken through it with this field. */
+      today_revenue: number;
+      yesterday_bookings: number;
+      /** @description Centavos ARS. */
+      yesterday_revenue: number;
+      /** @description Centavos ARS. */
+      weekly_revenue: number;
+      /** @description Centavos ARS. */
+      monthly_revenue: number;
+      /** @description 0 to 100. Booked minutes over active courts times today's open hours. */
+      occupancy_rate: number;
+      pending_bookings: number;
+      total_clients: number;
+      /** @description The next 10 bookings due today. */
+      upcoming_bookings: components['schemas']['Booking'][];
+      payment_summary: components['schemas']['PaymentSummary'];
+      today_money: components['schemas']['DayMoneyTotals'];
+    };
+    /** @description Everything that entered today, on the Argentina calendar day (created_at cast to that zone's date) — deliberately NOT a cash session's shift window, which runs from whenever the till was opened to now or to close and can cross midnight. bookings here uses the same window and collected-status rule as today_revenue (payments.created_at; status deposit_paid, fully_paid, refund_pending or partial_refund — 'unpaid' and 'refunded' excluded), so the two always agree; today_money additionally folds in bar sales and other manual cash-till income/expense so the dashboard has one number for "how much came in today" instead of two figures that measure different things. A voided cash movement and its void always net to zero in every field below. A fully refunded payment is left out of every income figure here entirely, the same way today_revenue excludes it — the simplest rule that cannot move money between the day it was collected and the day it was given back. */
+    DayMoneyTotals: {
+      /** @description Centavos ARS. Booking payments received today, every method. Equals today_revenue. */
+      bookings: number;
+      /** @description Centavos ARS. Income cash movements with category 'sale', net of voids. */
+      bar_sales: number;
+      /** @description Centavos ARS. Every other non-sale income cash movement, net of voids. */
+      other_income: number;
+      /** @description Centavos ARS. Expense cash movements (manual expenses and restock), net of voids. Never negative. */
+      expenses: number;
+      /** @description Centavos ARS. bookings + bar_sales + other_income. Does not subtract expenses. */
+      total_income: number;
+      /** @description Income today (bookings plus cash-movement income, net of voids) per payment method. Expenses never appear here. */
+      by_method: {
+        [key: string]: number;
+      };
+    };
+    PaymentSummary: {
+      /** @description Collection or refund status name to its breakdown. */
+      by_status: {
+        [key: string]: components['schemas']['PaymentStatusBreakdown'];
+      };
+      /** @description Payment method name to count. */
+      by_method: {
+        [key: string]: number;
+      };
+    };
+    PaymentStatusBreakdown: {
+      count: number;
+      /** @description Centavos ARS. */
+      total: number;
+    };
+    RevenueDataPoint: {
+      /** Format: date */
+      date: string;
+      /** @description Centavos ARS. */
+      amount: number;
+    };
+    OccupancyPoint: {
+      day_of_week: number;
+      hour: number;
+      /** @description 0 to 100, capped. */
+      percentage: number;
+    };
+    ClientInsights: {
+      top: components['schemas']['TopClient'][];
+      no_show_rate: number;
+      no_show_count: number;
+      /** @description JSON tag is resolved_count, the Go field is named CompletedCount. */
+      resolved_count: number;
+      new_clients_30d: number;
+      recurring_30d: number;
+      total_active_30d: number;
+    };
+    TopClient: {
+      /** Format: uuid */
+      id: string;
+      name: string;
+      phone: string;
+      booking_count: number;
+      /** @description Centavos ARS. */
+      total_spent: number;
+    };
+    /** @description Built as ad-hoc nested maps in the handler, not named Go structs. */
+    MonthlyReport: {
+      month: number;
+      year: number;
+      /** @description Payment method name to its summary for the month. */
+      by_method: {
+        [key: string]: components['schemas']['MonthlyReportSummary'];
+      };
+      by_court: components['schemas']['MonthlyReportCourtSummary'][];
+      totals: components['schemas']['MonthlyReportSummary'];
+      /** @description Same shape as totals, for the prior month. */
+      previous_totals: components['schemas']['MonthlyReportSummary'];
+    };
+    MonthlyReportSummary: {
+      count: number;
+      /** @description Centavos ARS. */
+      total: number;
+      /** @description Centavos ARS. Present on the totals/previous_totals rows. */
+      service_fees?: number;
+      /** @description Centavos ARS. */
+      refunded: number;
+      /** @description Centavos ARS. */
+      net: number;
+    };
+    MonthlyReportCourtSummary: {
+      court_id: string;
+      court_name: string;
+      count: number;
+      /** @description Centavos ARS. */
+      total: number;
+      /** @description Centavos ARS. */
+      refunded: number;
+      /** @description Centavos ARS. */
+      net: number;
+    };
+  };
+  responses: {
+    /** @description Missing or invalid session. */
+    Unauthorized: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description Authenticated, but not permitted to reach this resource. */
+    Forbidden: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description The requested resource could not be found. */
+    NotFound: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description One or more fields failed validation. */
+    ValidationError: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description Too many requests. See the `Retry-After` header. */
+    RateLimited: {
+      headers: {
+        'Retry-After'?: number;
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description An unexpected server error. The message is always generic, it never leaks internal detail. */
+    ServerError: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description A concurrent edit was detected. Retry the request. */
+    EditConflict: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description The booking link has expired. */
+    LinkExpired: {
+      headers: {
+        [name: string]: unknown;
+      };
+      content: {
+        'application/problem+json': components['schemas']['Problem'];
+      };
+    };
+    /** @description The outcome of a verified Google sign-in: a session established exactly as `/auth/login` does, or a profile token for an address with no account yet. */
+    GoogleSignInResult: {
+      headers: {
+        /** @description Sets `access_token` and `refresh_token`, only when a session was established. */
+        'Set-Cookie'?: string;
+        [name: string]: unknown;
+      };
+      content: {
+        'application/json':
+          | {
+              user: components['schemas']['User'];
+              /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
+              csrf_token: string;
+            }
+          | {
+              /** @enum {boolean} */
+              needs_profile: true;
+              /** @description Signed, 10-minute token. Send back to `/auth/google/complete`. */
+              profile_token: string;
+              profile: {
+                email: string;
+                first_name: string;
+                last_name: string;
+              };
+            };
+      };
+    };
+  };
+  parameters: {
+    /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+    Cursor: string;
+    /** @description Page size. Default 50, maximum 200. */
+    Limit: number;
+    /** @description Post id, which is the post's folder name in the content repository. */
+    SocialPostID: string;
+    /** @description File name of the media inside the post folder. */
+    SocialMediaName: string;
+    /** @description Complex id. */
+    PathID: string;
+    PathSlug: string;
+    PathCity: string;
+    BookingID: string;
+    EventID: string;
+    TournamentID: string;
+    CategoryID: string;
+    MatchID: string;
+    /** @description 1 is the match's pair1, 2 its pair2. */
+    CourtFeeSide: 1 | 2;
+    SeriesID: string;
+    CourtID: string;
+    /** @description Cash session id. */
+    SessionID: string;
+    /** @description Cash movement id. */
+    MovementID: string;
+    ProductID: string;
+    /** @description Restrict the list to active or inactive products. Omit to return both. */
+    ActiveFilter: boolean;
+    /** @description Sale id. */
+    SaleID: string;
+    /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
+    SaleSessionIDFilter: string;
+    ClientID: string;
+    ExportID: string;
+    /** @description The opaque booking-link token, never the booking's primary key. */
+    BookingToken: string;
+    /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
+    IfMatchVersion: string;
+    /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+    IdempotencyKey: string;
+  };
+  requestBodies: never;
+  headers: never;
+  pathItems: never;
+}
+export type $defs = Record<string, never>;
+export interface operations {
+  auditListComplexLog: {
+    parameters: {
+      query?: {
+        entity_type?: string;
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of this complex's audit log rows. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        CourtPrice: {
-            /** Format: uuid */
-            id: string;
+        content: {
+          'application/json': {
+            audit_logs: components['schemas']['AuditLogRow'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Invalid cursor value. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authRegister: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          email: string;
+          password: string;
+          first_name: string;
+          last_name: string;
+          /**
+           * @description Normalized server-side to E.164.
+           * @example +5491112345678
+           */
+          phone: string;
+          /** @description Required only when Cloudflare Turnstile is configured. */
+          turnstile_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Verification email sent, or would have been for a new address. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example verification email sent */
+            message: string;
+          };
+        };
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authLogin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          email: string;
+          password: string;
+          turnstile_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Session established. */
+      200: {
+        headers: {
+          /** @description Sets `access_token` and `refresh_token`. */
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            user: components['schemas']['User'];
+            /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
+            csrf_token: string;
+          };
+        };
+      };
+      /** @description Invalid credentials, locked account or unverified email (indistinguishable by design). */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authGoogleComplete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          profile_token: string;
+          /**
+           * @description Normalized server-side to E.164.
+           * @example +5491112345678
+           */
+          phone: string;
+          /** @description Overrides the profile token's given_name. */
+          first_name?: string;
+          /** @description Overrides the profile token's family_name. */
+          last_name?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Account created and session established. */
+      200: {
+        headers: {
+          /** @description Sets `access_token` and `refresh_token`. */
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            user: components['schemas']['User'];
+            /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
+            csrf_token: string;
+          };
+        };
+      };
+      /** @description Missing, expired, forged or wrong-purpose profile token. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description An account for this address was created between `/auth/google/finish` and this request. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  authGoogleStart: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description To Google's authorization endpoint, with the state cookie set. */
+      302: {
+        headers: {
+          /** @description Google's authorization endpoint with this attempt's parameters. */
+          Location?: string;
+          /** @description Sets the host-only `state` cookie `/auth/google/finish` reads back. */
+          'Set-Cookie'?: string;
+          /** @description Always `no-store`. */
+          'Cache-Control'?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The authorization-code flow is not configured, or the state could not be stored. `Location` is `<FRONTEND_URL>/login?error=google_unavailable`. */
+      303: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      429: components['responses']['RateLimited'];
+      /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  authGoogleFinish: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description The authorization code Google's redirect carried. */
+          code: string;
+          /** @description The `state` Google's redirect carried, read back by the callback page. Compared against the `state` cookie `/auth/google/start` set; the two must agree. */
+          state: string;
+        };
+      };
+    };
+    responses: {
+      200: components['responses']['GoogleSignInResult'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` or `FRONTEND_URL` missing). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  authRefresh: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Session rotated. */
+      200: {
+        headers: {
+          /** @description Rotates `access_token` and `refresh_token`. */
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            csrf_token: string;
+          };
+        };
+      };
+      /** @description Missing, unknown or reused refresh token, or an inactive user. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authLogout: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Always returned, even with no active session. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example successfully logged out */
+            message: string;
+          };
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  authVerifyEmail: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Email verified. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example email verified successfully */
+            message: string;
+          };
+        };
+      };
+      /** @description Missing token, malformed body, or the token does not resolve. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authResendVerification: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Omitting it, or an unknown address, still answers the same 200 message. */
+          email?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Always returned. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example if the email exists, a verification link has been sent */
+            message: string;
+          };
+        };
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  authForgotPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Omitting it, or an unknown address, still answers the same 200 message. */
+          email?: string;
+          turnstile_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Always returned. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example if the email exists, a password reset link has been sent */
+            message: string;
+          };
+        };
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  authResetPassword: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+          password: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Password reset. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example password reset successfully */
+            message: string;
+          };
+        };
+      };
+      /** @description The token is invalid, expired, or belongs to an inactive user. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authConfirmEmailChange: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Email address updated. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example email address updated */
+            message: string;
+          };
+        };
+      };
+      /** @description The token is invalid, expired, or already used. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authGetCurrentUser: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The authenticated user and the CSRF token bound to this access token. `pending_email` is the address of a not-yet-confirmed email change (see `PUT /auth/me`), or null when there is none. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            user: components['schemas']['User'];
+            csrf_token: string;
+            pending_email: string | null;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  authUpdateCurrentUser: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description A value different from the current address creates a pending email-change request instead of changing it; see this operation's description. */
+          email?: string;
+          first_name?: string;
+          last_name?: string;
+          phone?: string;
+          current_password?: string;
+          new_password?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The account as it stands right after this request. `pending_email` is the address named by the just-created (or a still-live earlier) email-change request, or null. `email_change` is `none`, `requested`, or `failed` — see this operation's description. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            user: components['schemas']['User'];
+            pending_email: string | null;
+            /** @enum {string} */
+            email_change: 'none' | 'requested' | 'failed';
+          };
+        };
+      };
+      /** @description Unauthenticated, or `current_password` did not match. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      409: components['responses']['EditConflict'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  authDeleteAccount: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Account deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example account deleted */
+            message: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      /** @description The account has a complex with active bookings. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsWhatsAppVerifyWebhook: {
+    parameters: {
+      query: {
+        'hub.mode': 'subscribe';
+        'hub.verify_token': string;
+        'hub.challenge': string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Echoes `hub.challenge` back verbatim. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/plain': string;
+        };
+      };
+      /** @description Bad mode or wrong verify token. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  bookingsWhatsAppWebhook: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          [key: string]: unknown;
+        };
+      };
+    };
+    responses: {
+      /** @description Accepted (also returned for an unreadable or unparseable body, to stop redelivery). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Invalid signature. Empty body. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  bookingsPublicCreate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          complex_id: string;
+          /** Format: uuid */
+          court_id: string;
+          /** Format: date */
+          date: string;
+          start_time: string;
+          /** @description Must be one of the permitted slot durations. */
+          duration_minutes: number;
+          client_first_name: string;
+          client_last_name: string;
+          /**
+           * @description Normalized to E.164.
+           * @example +5491112345678
+           */
+          client_phone: string;
+          client_email?: string;
+          client_notes?: string;
+          /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
+          turnstile_token?: string;
+          /** @description The slot hold taken with `POST /api/v1/book/holds`. With it the held booking is converted: the hours come from the hold (the request's court, date, start and duration must match it or 409 `conflict`), no Turnstile token is checked, and the checkout expires when the hold does. An unknown, released, already converted or expired hold answers 409 `hold-expired`. Without it the booking is created as before holds existed. */
+          hold_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Booking created, awaiting payment confirmation. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicBookingResult'];
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description MercadoPago checkout preference creation failed. The booking is auto-cancelled. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  bookingsPublicHoldCreate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          complex_id: string;
+          /** Format: uuid */
+          court_id: string;
+          /** Format: date */
+          date: string;
+          start_time: string;
+          /** @description Must be one of the permitted slot durations. */
+          duration_minutes: number;
+          /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the hold through. */
+          turnstile_token?: string;
+          /** @description The visitor's previous hold token, released before this hold is taken: one browser holds one slot. */
+          replaces?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Slot held. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            hold: {
+              /** @description Opaque secret naming the hold. Only its hash is stored. */
+              token: string;
+              /** Format: date-time */
+              expires_at: string;
+            };
+          };
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicHoldRelease: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Released, or there was nothing to release. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicStatus: {
+    parameters: {
+      query: {
+        /** @description The opaque booking-link token, never the booking's primary key. */
+        token: components['parameters']['BookingToken'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The booking's current status. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['PublicBookingStatus'];
+          };
+        };
+      };
+      /** @description Missing token. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      410: components['responses']['LinkExpired'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicCancelInfo: {
+    parameters: {
+      query: {
+        /** @description The opaque booking-link token, never the booking's primary key. */
+        token: components['parameters']['BookingToken'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description What cancelling now would do. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCancelInfo'];
+        };
+      };
+      /** @description Missing token. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      410: components['responses']['LinkExpired'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Cancelled, with the resulting refund outcome. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: {
+              status: components['schemas']['BookingStatus'];
+              collection_status: components['schemas']['CollectionStatus'];
+              refund_status: components['schemas']['RefundStatus'];
+            };
+            refunded: boolean;
+            refund: components['schemas']['RefundOutcome'];
+          };
+        };
+      };
+      /** @description The booking is already cancelled or completed. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      410: components['responses']['LinkExpired'];
+      /** @description Missing token. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsList: {
+    parameters: {
+      query: {
+        date: string;
+        /** @description Filtered in application code, not a database predicate. */
+        status?: components['schemas']['BookingStatus'];
+        /** @description Matches client name or phone. Filtered in application code. */
+        search?: string;
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of bookings for the given day. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            bookings: components['schemas']['Booking'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Missing or malformed `date`, or an invalid cursor. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsCreate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          court_id: string;
+          /** Format: date */
+          date: string;
+          start_time: string;
+          duration_minutes: number;
+          /** @example +5491112345678 */
+          client_phone: string;
+          client_email?: string;
+          client_first_name: string;
+          client_last_name: string;
+          /** @enum {string} */
+          payment_method?: '' | 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+          /** @enum {string} */
+          payment_option?: '' | 'unpaid' | 'deposit' | 'full';
+          notes?: string;
+          /** @description Centavos ARS. */
+          deposit_amount?: number;
+          /** @description Centavos ARS. Required when no price rule covers the slot. */
+          price?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description Booking created and confirmed. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description A blocked slot, a blocked client, or a concurrent slot conflict. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingSeriesCreate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          court_id: string;
+          /**
+           * Format: date
+           * @description The first occurrence; its weekday is the series' weekday. Not in the past.
+           */
+          first_date: string;
+          start_time: string;
+          duration_minutes: number;
+          /** @example +5491112345678 */
+          client_phone: string;
+          client_email?: string;
+          client_first_name: string;
+          client_last_name: string;
+          notes?: string;
+          /** @description Centavos ARS, applied to every occurrence. Absent: each is priced on the day its booking is created. */
+          price?: number;
+          /**
+           * Format: date
+           * @description Last day, inclusive.
+           */
+          ends_on?: string | null;
+          /** @description Alternative to ends_on: the number of weekly occurrences. */
+          weeks?: number;
+          /** @description Create the series turning the dates something else holds into exceptions. */
+          skip_conflicts?: boolean;
+          /** @description With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions. */
+          date_courts?: {
+            /** Format: date */
+            date: string;
             /** Format: uuid */
             court_id: string;
-            /** @description Centavos ARS per hour. */
-            price: number;
-            day_type: components["schemas"]["Weekday"];
-            time_from: string;
-            /** @description At or before time_from means the band runs past midnight. */
-            time_to: string;
-            /** @description Minutes from weekday midnight. */
-            from_min?: number;
-            /** @description Minutes from weekday midnight, may exceed 1440. */
-            to_min?: number;
-            /** @description This band's own counter. The PUT that saves a court's price table is guarded by the COURT's version instead: these rows are replaced wholesale, so a band's counter does not survive the save. */
-            version?: number;
+          }[];
         };
-        CashSession: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: date-time */
-            opened_at: string;
-            /** Format: uuid */
-            opened_by: string;
-            /**
-             * Format: int64
-             * @description Centavos ARS. A session-level sum, not one entry — BIGINT (db/migrations/003_cashbox.sql).
-             */
-            opening_cash: number;
-            /** Format: date-time */
-            closed_at?: string | null;
-            /** Format: uuid */
-            closed_by?: string | null;
-            /**
-             * Format: int64
-             * @description Centavos ARS, physically counted. Null until closed.
-             */
-            counted_cash?: number | null;
-            /**
-             * Format: int64
-             * @description Centavos ARS, the close-time snapshot. Null until closed.
-             */
-            expected_cash?: number | null;
-            /**
-             * Format: int64
-             * @description counted_cash minus expected_cash. Null until closed.
-             */
-            difference?: number | null;
-            /** @description Written once, by open. Never changed by close. */
-            opening_note?: string | null;
-            /** @description Written once, by close. Never overwrites opening_note. */
-            closing_note?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
+      };
+    };
+    responses: {
+      /** @description The series, the booking of its first date when that was already due, and the dates skipped. */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        CashMovement: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            session_id: string;
-            /** @enum {string} */
-            kind: "income" | "expense";
-            /**
-             * @description The 19 manual categories, plus the system categories `sale` and `restock` written by the sales and restock flows. Never accepted on manual movement creation.
-             * @enum {string}
-             */
-            category: "other_income" | "classes" | "tournaments" | "events" | "memberships" | "sponsorship" | "cash_contribution" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "rent" | "taxes" | "professional_fees" | "marketing" | "bank_fees" | "sale" | "restock";
-            /** @enum {string} */
-            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            /** @description Centavos ARS. */
-            amount: number;
-            note?: string | null;
-            /**
-             * Format: uuid
-             * @description The movement this one corrects, when this row is a void.
-             */
-            voids_movement_id?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            created_by: string;
+        content: {
+          'application/json': {
+            series: components['schemas']['BookingSeries'];
+            bookings: components['schemas']['Booking'][];
+            skipped: components['schemas']['BookingSeriesConflict'][];
+          };
         };
-        /** @description One (method, kind, category) bucket's total within a session. */
-        CashMovementTotal: {
-            /** @enum {string} */
-            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            /** @enum {string} */
-            kind: "income" | "expense";
-            category: string;
-            /** @description Centavos ARS. */
-            total: number;
-            count: number;
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description Dates of the series are held by something else (`conflicts` lists them), a booking was made on one while the series was being created, or the client is blocked. Nothing was written. */
+      409: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description One payment method's booking-payment total within the session's window. Informational for every method except cash, which also feeds expected_cash. */
-        CashBookingPaymentTotal: {
-            /** @enum {string} */
-            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            count: number;
-            /** @description Centavos ARS. */
-            amount: number;
-            /** @description Centavos ARS. */
-            service_fee: number;
-            /** @description Centavos ARS. */
-            refunded: number;
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
-        /** @description One payment method's manual-refund total within the session's window — money handed back by hand (internal/payments.RecordManualRefund), read off payments.manual_refunded_at rather than created_at. Informational for every method except cash, which also feeds expected_cash (subtracted, not added). */
-        CashManualRefundTotal: {
-            /** @enum {string} */
-            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            count: number;
-            /** @description Centavos ARS. */
-            amount: number;
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingSeriesGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        seriesID: components['parameters']['SeriesID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The series and its next dates. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        CashSessionSummary: {
-            /**
-             * Format: int64
-             * @description Centavos ARS.
-             */
-            opening_cash: number;
-            /**
-             * Format: int64
-             * @description Live projection through now() for an open session; the exact close-time snapshot for a closed one. Already has cash_manual_refunds subtracted — but for a closed session, that subtraction is the amount known at close time, and cash_manual_refunds below can since have grown (see its own description); the two are not guaranteed to agree.
-             */
-            expected_cash: number;
-            /**
-             * Format: int64
-             * @description Centavos ARS. Present only when closed.
-             */
-            counted_cash?: number | null;
-            /**
-             * Format: int64
-             * @description Centavos ARS. Present only when closed.
-             */
-            difference?: number | null;
-            /**
-             * Format: int64
-             * @description Centavos ARS. The cash row(s) of manual_refunds totalled, over the session's own window (opened_at to closed_at-or-now). For an OPEN session this is exactly what was subtracted from expected_cash above. For a CLOSED session it is recomputed fresh on every read and can be larger than what expected_cash actually subtracted at close time: a manual refund is timestamped by its own transaction's start, so one that started before the session closed but only committed afterwards is invisible to the close-time snapshot yet still falls inside the window on a later read.
-             */
-            cash_manual_refunds: number;
-            movement_totals: components["schemas"]["CashMovementTotal"][];
-            booking_payments: components["schemas"]["CashBookingPaymentTotal"][];
-            manual_refunds: components["schemas"]["CashManualRefundTotal"][];
+        content: {
+          'application/json': {
+            series: components['schemas']['BookingSeries'];
+            upcoming: components['schemas']['BookingSeriesUpcoming'][];
+          };
         };
-        Product: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            name: string;
-            /** @description Free text, owner-defined (e.g. "Bebidas"). */
-            category?: string | null;
-            /** @description Centavos ARS. */
-            price: number;
-            tracks_stock: boolean;
-            /** @description May be negative: selling (T4b) or adjusting past zero is allowed, and a negative value is exactly what needs_stock_review flags. */
-            stock_on_hand: number;
-            low_stock_threshold?: number | null;
-            /** @description A product is deactivated, never deleted. */
-            active: boolean;
-            /** @description Computed: tracks_stock && low_stock_threshold is set && stock_on_hand <= low_stock_threshold. */
-            low_stock: boolean;
-            /** @description Computed: stock_on_hand < 0. */
-            needs_stock_review: boolean;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @description Optimistic-concurrency counter, bumped on every write. Echo it back on a PATCH — as `If-Match: "<version>"` or as a `version` body field — and the write is refused with 409 if anybody else changed the row meanwhile. Omitting it is last-write-wins. */
-            version?: number;
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingSeriesSkip: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        seriesID: components['parameters']['SeriesID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: date
+           * @description Not in the past.
+           */
+          date: string;
         };
-        StockMovement: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            product_id: string;
-            /** @enum {string} */
-            kind: "sale" | "restock" | "adjustment" | "sale_void";
-            /** @description Signed. Negative removes stock, positive adds it — see StockMovement's own CHECK by kind. */
-            quantity: number;
-            /**
-             * @description Set iff kind = adjustment.
-             * @enum {string|null}
-             */
-            reason?: "breakage" | "expired" | "own_consumption" | "count_correction" | "other" | null;
-            note?: string | null;
-            /**
-             * Format: uuid
-             * @description The linked cash expense. Set iff kind = restock.
-             */
-            cash_movement_id?: string | null;
-            /**
-             * Format: uuid
-             * @description Set iff kind = sale or sale_void.
-             */
-            sale_id?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            created_by: string;
+      };
+    };
+    responses: {
+      /** @description The date now recorded as an exception. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description A product sale, or a checkout that collected booking balances and no product lines. The second kind is an entry with the checkout's id, no items and a null cash_movement_id: it has no sale and writes no cash income of its own. */
-        Sale: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            session_id: string;
-            /** @enum {string} */
-            method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            /** @description Centavos ARS. The sum of the line totals of the entry's items; for an entry with no items, the sum of its booking_payments amounts. Those amounts are counted once, in their payments rows, never again through this total. */
-            total: number;
-            /**
-             * Format: uuid
-             * @description The sale's own 'sale' category income movement. Null for a balance-only checkout.
-             */
-            cash_movement_id: string | null;
-            /** Format: date-time */
-            voided_at?: string | null;
-            /** Format: uuid */
-            voided_by?: string | null;
-            /**
-             * Format: uuid
-             * @description The movement that voided the sale's income, when this sale is voided.
-             */
-            void_cash_movement_id?: string | null;
-            items: components["schemas"]["SaleItem"][];
-            /** @description The booking balances collected in the same checkout as this sale (empty when there were none). Each amount is already counted in its own payments row, not in `total`. A sale with booking payments cannot be voided. */
-            booking_payments: components["schemas"]["SaleBookingPayment"][];
-            /** Format: date-time */
-            created_at: string;
-            /** Format: uuid */
-            created_by: string;
+        content: {
+          'application/json': {
+            skipped: components['schemas']['BookingSeriesConflict'];
+          };
         };
-        /** @description A booking balance collected at the counter, with the booking summary a receipt needs. */
-        SaleBookingPayment: {
-            /**
-             * Format: uuid
-             * @description The counter payment row this balance was recorded as.
-             */
-            payment_id: string;
-            /** Format: uuid */
-            booking_id: string;
-            /** @description Centavos ARS collected for this booking in this checkout. */
-            amount: number;
-            court_name: string;
-            /**
-             * Format: date
-             * @description The booking's day, in Argentina.
-             */
-            date: string;
-            /** @description HH:MM, Argentina wall clock. */
-            start_time: string;
-            /** @description HH:MM, Argentina wall clock. */
-            end_time: string;
-            /** @description First and last name, as stored on the client. */
-            client_name: string;
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingSeriesEnd: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        seriesID: components['parameters']['SeriesID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: date
+           * @description Not in the past.
+           */
+          from_date: string;
         };
-        /** @description One booking of today that still owes money, for the sell page's booking picker. */
-        BalanceDue: {
-            /** Format: uuid */
-            booking_id: string;
-            court_name: string;
-            /** Format: date */
-            date: string;
-            start_time: string;
-            end_time: string;
-            client_name: string;
-            status: components["schemas"]["BookingStatus"];
-            /** @description The booking's price, centavos ARS. */
-            total: number;
-            /** @description Centavos ARS already collected for the booking. */
-            paid: number;
-            /** @description total - paid. This is the amount a checkout must send. */
-            remaining: number;
+      };
+    };
+    responses: {
+      /** @description The series as it now stands and what became of its bookings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        SaleItem: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            sale_id: string;
-            /** Format: uuid */
-            product_id: string;
-            /** @description Snapshot of the product's name at sale time. */
-            product_name: string;
-            /** @description Centavos ARS, snapshot of the product's price at sale time. */
-            unit_price: number;
-            quantity: number;
-            /** @description unit_price * quantity. */
-            line_total: number;
+        content: {
+          'application/json': {
+            series: components['schemas']['BookingSeries'];
+            cancelled: components['schemas']['Booking'][];
+            kept: components['schemas']['Booking'][];
+          };
         };
-        /** @description One tracked product whose stock_on_hand ended at zero or below after the sale — never a reason the sale was refused (selling past zero stock is allowed), only a flag that it needs a count. */
-        SaleStockWarning: {
-            /** Format: uuid */
-            product_id: string;
-            product_name: string;
-            stock_on_hand: number;
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsList: {
+    parameters: {
+      query: {
+        date_from: string;
+        date_to: string;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Events in range, never `null`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        BlockedSlot: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            court_id: string;
-            /** Format: date */
-            date: string;
-            start_time: string;
-            end_time: string;
-            reason?: string | null;
-            /** Format: uuid */
-            created_by?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** @description Enrichment, present on list responses. */
-            court_name?: string;
+        content: {
+          'application/json': {
+            events: components['schemas']['OpenPlayEvent'][];
+          };
         };
-        Client: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            first_name: string;
-            last_name: string;
-            /** @example +5491112345678 */
-            phone: string;
-            email?: string | null;
-            notes?: string | null;
-            is_blocked: boolean;
-            /** @description A live count, not a stored counter. */
-            total_bookings: number;
-            no_shows: number;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
+      };
+      /** @description Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days. */
+      400: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description A fixed weekly booking (turno fijo): a weekly rule that holds its court and hours on every matching date. The booking of a date is created on its own day and carries `series_id`. */
-        BookingSeries: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            court_id: string;
-            /** Format: uuid */
-            client_id: string;
-            /** @description 0 = Sunday .. 6 = Saturday. */
-            weekday: number;
-            start_time: string;
-            duration_minutes: number;
-            /** @description Centavos ARS. Null: each occurrence is priced on the day its booking is created. */
-            price?: number | null;
-            notes?: string | null;
-            /** Format: date */
-            starts_on: string;
-            /**
-             * Format: date
-             * @description Inclusive. Null while the series has no end.
-             */
-            ends_on?: string | null;
-            /** @enum {string} */
-            status: "active" | "ended";
-            /** Format: date-time */
-            created_at: string;
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
-        /** @description A date that is not part of a series, and why. */
-        BookingSeriesConflict: {
-            /** Format: date */
-            date: string;
-            /** @enum {string} */
-            reason: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
-            /**
-             * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
-             * @enum {string}
-             */
-            held_by?: "booking" | "fixed" | "event" | "match";
-            /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
-            free_courts?: components["schemas"]["BookingSeriesFreeCourt"][];
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsCreate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /**
+           * @default padel
+           * @enum {string}
+           */
+          sport?: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+          /**
+           * Format: date
+           * @description The day the event starts on. Not in the past, within 365 days.
+           */
+          date: string;
+          start_time: string;
+          /** @description Between 30 minutes and 12 hours after `start_time`. */
+          end_time: string;
+          /** @description Active courts of the complex; absent or empty means all of them. */
+          court_ids?: string[];
+          capacity: number;
+          /** @description Centavos ARS per person, greater than zero. */
+          price: number;
         };
-        /** @description A court that is free on a date of a fixed weekly booking. */
-        BookingSeriesFreeCourt: {
-            /** Format: uuid */
-            court_id: string;
-            court_name: string;
+      };
+    };
+    responses: {
+      /** @description The event. */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description One upcoming date of a series. */
-        BookingSeriesUpcoming: {
-            /** Format: date */
-            date: string;
-            /**
-             * @description `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
-             * @enum {string}
-             */
-            state: "pending" | "booked" | "exception";
-            /**
-             * Format: uuid
-             * @description Present when `booked`.
-             */
-            booking_id?: string;
-            /**
-             * @description Present when `exception`.
-             * @enum {string}
-             */
-            reason?: "cancelled_by_owner" | "overlap" | "blocked" | "closed_day" | "no_price" | "client_blocked" | "missed";
+        content: {
+          'application/json': {
+            event: components['schemas']['OpenPlayEvent'];
+          };
         };
-        /** @description An open-play event ("canchas libres"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
-        OpenPlayEvent: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            name: string;
-            /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-            /**
-             * Format: date
-             * @description The local day the event starts on.
-             */
-            date: string;
-            start_time: string;
-            end_time: string;
-            duration_minutes: number;
-            capacity: number;
-            /** @description Centavos ARS per person. */
-            price: number;
-            /** @enum {string} */
-            status: "active" | "cancelled";
-            cancel_reason?: string | null;
-            /** Format: date-time */
-            cancelled_at?: string | null;
-            courts: {
-                /** Format: uuid */
-                id: string;
-                name: string;
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description Something already holds the hours on one of the courts. `detail` says what and which court. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        eventID: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event and its participants. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            event: components['schemas']['OpenPlayEvent'];
+            participants: components['schemas']['OpenPlayParticipant'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        eventID: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The cancelled event and the refund of each paid participant. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            event: components['schemas']['OpenPlayEvent'];
+            refunds: {
+              /** Format: uuid */
+              registration_id: string;
+              refund: components['schemas']['RefundOutcome'];
             }[];
-            /** @description Paid spots. */
-            confirmed_count: number;
-            /** @description Spots held by people still paying. */
-            held_count: number;
-            /** @description Capacity minus paid spots and running holds, never below zero. */
-            spots_left: number;
-            /** Format: date-time */
-            created_at: string;
+          };
         };
-        OpenPlayParticipant: {
-            /** Format: uuid */
-            id: string;
-            first_name: string;
-            last_name: string;
-            phone: string;
-            email?: string | null;
-            /** @enum {string} */
-            status: "held" | "confirmed" | "cancelled";
-            /** @description Centavos ARS, the event price at sign-up. */
-            price: number;
-            /** @description Centavos ARS, paid by the person on top of the price. */
-            service_fee: number;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            confirmed_at?: string | null;
-            /** Format: date-time */
-            cancelled_at?: string | null;
-            /** @enum {string|null} */
-            cancelled_by?: "participant" | "owner" | null;
-            /** @description The payment carrying the person's money; `null` while no checkout was ever opened. */
-            payment?: null | {
-                /** @description The payment status: unpaid, deposit_paid, refund_pending, partial_refund or refunded. */
-                status: string;
-                /** @description Centavos ARS. */
-                amount: number;
-                /** @description Centavos ARS. */
-                service_fee: number;
-                /** @description Centavos ARS already sent back. */
-                refund_amount: number;
-                /** @enum {string} */
-                method: "mercadopago";
-            };
+      };
+      /** @description The event is already cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description A court of a public event, with the facts the booking flow shows for a court. */
-        PublicEventCourt: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @enum {string} */
-            court_type: "indoor" | "outdoor" | "semi_covered";
-            has_lighting: boolean;
-            /** @description Playing surface; null when the owner has not said. */
-            surface?: components["schemas"]["CourtSurface"] | null;
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
-        /** @description An event as a visitor sees it on the complex's page. */
-        PublicOpenPlayEvent: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-            /** Format: date */
-            date: string;
-            start_time: string;
-            end_time: string;
-            duration_minutes: number;
-            capacity: number;
-            /** @description `0` closes the sign-up. */
-            spots_left: number;
-            /** @description Centavos ARS per person. */
-            price: number;
-            /** @description Centavos ARS the person pays on top. */
-            service_fee: number;
-            /** @description Centavos ARS: `price` plus `service_fee`. */
-            total_price: number;
-            /** @enum {string} */
-            status: "active" | "cancelled";
-            court_names: string[];
-            /** @description The event's courts with what a player compares, in the order of `court_names`. */
-            courts: components["schemas"]["PublicEventCourt"][];
-            complex_name?: string;
-            /** @description The complex's cancellation policy: a paid spot is refunded when cancelled at least this many hours ahead. */
-            cancellation_hours?: number;
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The booking, its payments, and its client and current payment when resolvable. */
+      200: {
+        headers: {
+          [name: string]: unknown;
         };
-        PublicEventSignUp: {
-            registration: {
-                /** @enum {string} */
-                status: "held";
-                /**
-                 * Format: date-time
-                 * @description The spot is released if unpaid by then.
-                 */
-                held_until: string;
-            };
-            /** @description Opaque credential for the person's own spot. The registration's primary key is never included. */
-            token: string;
-            event: components["schemas"]["PublicOpenPlayEvent"];
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+            client?: components['schemas']['Client'];
+            payment?: components['schemas']['Payment'];
+            payments: components['schemas']['Payment'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsUpdate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          status?: components['schemas']['BookingStatus'];
+          collection_status?: components['schemas']['CollectionStatus'];
+          refund_status?: components['schemas']['RefundStatus'];
+          notes?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The updated booking. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+          };
+        };
+      };
+      /** @description Malformed body, or an attempt to cancel a paid booking through this endpoint. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description Illegal collection or refund status transition, or a concurrent edit. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The booking and the resulting refund outcome. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+            refund: components['schemas']['RefundOutcome'];
+          };
+        };
+      };
+      /** @description The booking is already completed or a no-show, both terminal. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsConfirmPayment: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+          /** @description Centavos ARS. */
+          amount: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The booking and the payment row created for it. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+            payment: components['schemas']['Payment'];
+          };
+        };
+      };
+      /** @description The booking is cancelled, or already fully paid. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description A blocked slot, or a concurrent edit. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsMarkAttended: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The booking as marked. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The booking's status changed before attendance could be marked. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Field `status`: the booking has not finished yet, or it is pending, cancelled or a no-show. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsManualRefund: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        bookingID: components['parameters']['BookingID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The booking, its payments, and how much was returned. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            booking: components['schemas']['Booking'];
+            payments: components['schemas']['Payment'][];
+            /** @description Centavos ARS. */
+            returned_amount: number;
+          };
+        };
+      };
+      /** @description No manual refund is pending on this booking. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The `Idempotency-Key` was already used for a different request, or a request using it is still running. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashSessionsList: {
+    parameters: {
+      query?: {
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of this complex's cash sessions. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_sessions: components['schemas']['CashSession'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Invalid cursor value. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashSessionsOpen: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — 0 is itself a legitimate opening float — and the handler can tell "not sent" from "sent as zero" and refuse the former. The request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced (pos-cashbox T2 review). */
+          opening_cash: number | null;
+          /** @description Stored as the session's opening_note. */
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The opened session. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_session: components['schemas']['CashSession'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description This complex already has an open cash session. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashSessionsCurrent: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The open session and its live reconciliation summary. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_session: components['schemas']['CashSession'];
+            summary: components['schemas']['CashSessionSummary'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashSessionsGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Cash session id. */
+        sessionID: components['parameters']['SessionID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The session, its summary and its movements. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_session: components['schemas']['CashSession'];
+            summary: components['schemas']['CashSessionSummary'];
+            movements: components['schemas']['CashMovement'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashSessionsClose: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Cash session id. */
+        sessionID: components['parameters']['SessionID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Centavos ARS, physically counted. Nullable for the same reason CashSessionsOpen's opening_cash is: 0 is a legitimate count (an empty drawer), so a missing field has to decode to nil, not a valid-looking 0, for the handler to tell the two apart and refuse the former. */
+          counted_cash: number | null;
+          /** @description Stored as the session's closing_note. Never touches opening_note. */
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The closed session. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_session: components['schemas']['CashSession'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description This session is not open (already closed, or closed by a concurrent request). */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashMovementsCreate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Cash session id. */
+        sessionID: components['parameters']['SessionID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          kind: 'income' | 'expense';
+          /**
+           * @description The first 7 values for income; the rest for expense.
+           * @enum {string}
+           */
+          category:
+            | 'other_income'
+            | 'classes'
+            | 'tournaments'
+            | 'events'
+            | 'memberships'
+            | 'sponsorship'
+            | 'cash_contribution'
+            | 'supplies'
+            | 'salaries'
+            | 'services'
+            | 'maintenance'
+            | 'cleaning'
+            | 'withdrawal'
+            | 'other_expense'
+            | 'rent'
+            | 'taxes'
+            | 'professional_fees'
+            | 'marketing'
+            | 'bank_fees';
+          /** @enum {string} */
+          method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+          /** @description Centavos ARS. */
+          amount: number;
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The recorded movement. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_movement: components['schemas']['CashMovement'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description This session is not open. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  cashMovementsVoid: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Cash session id. */
+        sessionID: components['parameters']['SessionID'];
+        /** @description Cash movement id. */
+        movementID: components['parameters']['MovementID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The void movement. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cash_movement: components['schemas']['CashMovement'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description No session is open, the original is already voided, or the original is itself a void. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  clientsList: {
+    parameters: {
+      query?: {
+        /** @description Matched against client name and phone. */
+        search?: string;
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of clients. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            clients: components['schemas']['Client'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Invalid cursor value. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  clientsGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        clientID: components['parameters']['ClientID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The client and up to 20 recent bookings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            client: components['schemas']['Client'];
+            recent_bookings: components['schemas']['Booking'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  clientsUpdate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        clientID: components['parameters']['ClientID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          notes?: string;
+          is_blocked?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description The updated client. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            client: components['schemas']['Client'];
+          };
+        };
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['EditConflict'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesGetPublic: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The complex, its active courts and their prices, and its schedule. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            complex: components['schemas']['PublicComplex'];
+            courts: components['schemas']['CourtWithPrices'][];
+            schedules: components['schemas']['Schedule'][];
+          };
+        };
+      };
+      /** @description Unknown slug, or the complex is inactive. A slug that a deleted complex held and no live complex holds answers `410` instead. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The complex was deleted and no live complex holds its slug. The body names the deleted complex's name and city and the key of its city hub, and nothing else of it. */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicComplexGone'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesSlugAvailable: {
+    parameters: {
+      query: {
+        slug: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Always `200`, even for an empty or malformed slug (answered as unavailable and invalid rather than as an error). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['SlugAvailability'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesList: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The caller's complex, as a single-item array, or an empty array if the account owns none. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            complexes: components['schemas']['Complex'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesCreate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          slug: string;
+          address: string;
+          city: string;
+          province: string;
+          phone: string;
+          email?: string;
+          /** @description A handle, an @handle or a profile link; stored as the bare handle. Blank or omitted means none. */
+          instagram?: string;
+          /**
+           * @description Defaults to 0 (no deposit required) when omitted.
+           * @default 0
+           */
+          deposit_percentage?: number;
+          cancellation_hours: number;
+          /** Format: double */
+          latitude?: number;
+          /** Format: double */
+          longitude?: number;
+          /** @description What the venue offers, from a closed vocabulary. Omitted or `[]` both mean none. */
+          amenities?: (
+            | 'parking'
+            | 'changing_rooms'
+            | 'showers'
+            | 'bar'
+            | 'racket_rental'
+            | 'pro_shop'
+            | 'wifi'
+            | 'lockers'
+            | 'lessons'
+            | 'tournaments'
+            | 'accessible'
+            | 'match_recording'
+            | 'birthdays'
+            | 'grill'
+            | 'quincho'
+            | 'medical_aid'
+            | 'sports_school'
+            | 'kiosk'
+            | 'kids_area'
+          )[];
+        };
+      };
+    };
+    responses: {
+      /** @description The created complex. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            complex: components['schemas']['Complex'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      /** @description The account already owns a complex. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The full, owner-facing complex, including MercadoPago fields. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            complex: components['schemas']['Complex'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesUpdate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
+        'If-Match'?: components['parameters']['IfMatchVersion'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
+          version?: number;
+          name?: string;
+          slug?: string;
+          address?: string;
+          city?: string;
+          province?: string;
+          phone?: string;
+          email?: string;
+          logo_url?: string;
+          cover_url?: string;
+          /** @description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it. */
+          description?: string;
+          /** @description A handle, an @handle or a profile link; stored as the bare handle. A blank value clears it. */
+          instagram?: string;
+          deposit_percentage?: number;
+          cancellation_hours?: number;
+          is_active?: boolean;
+          /** Format: double */
+          latitude?: number;
+          /** Format: double */
+          longitude?: number;
+          amenities?: (
+            | 'parking'
+            | 'changing_rooms'
+            | 'showers'
+            | 'bar'
+            | 'racket_rental'
+            | 'pro_shop'
+            | 'wifi'
+            | 'lockers'
+            | 'lessons'
+            | 'tournaments'
+            | 'accessible'
+            | 'match_recording'
+            | 'birthdays'
+            | 'grill'
+            | 'quincho'
+            | 'medical_aid'
+            | 'sports_school'
+            | 'kiosk'
+            | 'kids_area'
+          )[];
+        };
+      };
+    };
+    responses: {
+      /** @description The updated complex. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            complex: components['schemas']['Complex'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['EditConflict'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesDelete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example complex deleted */
+            message: string;
+            courts_deactivated: number;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The complex has active bookings. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesUpdateSchedules: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          schedules: {
+            day: components['schemas']['Weekday'];
+            open_time?: string;
+            close_time?: string;
+            /**
+             * @description Omitting it means open, same as sending false.
+             * @default false
+             */
+            is_closed?: boolean;
+          }[];
+        };
+      };
+    };
+    responses: {
+      /** @description The updated schedule. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            schedules: components['schemas']['Schedule'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesPresignUpload: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          type: 'logo' | 'cover';
+          /** @enum {string} */
+          content_type: 'image/jpeg' | 'image/png' | 'image/webp';
+          /** @description Bytes, capped at 5 MiB. */
+          file_size: number;
+        };
+      };
+    };
+    responses: {
+      /** @description A 10 minute presigned PUT URL. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
             /** Format: uri */
-            mp_init_point?: string;
-            mp_preference_id?: string;
-            /** @description Centavos ARS. */
-            service_fee: number;
-            /** @description Centavos ARS the person pays. */
-            total_price: number;
+            upload_url: string;
+            /** Format: uri */
+            public_url: string;
+            key: string;
+          };
         };
-        PublicEventRegistration: {
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description No object storage backend is configured. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesDeleteUpload: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uri */
+          url: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example deleted */
+            message: string;
+          };
+        };
+      };
+      /** @description The URL does not belong to this storage. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The key exists but does not fall under this complex's own storage prefix (reported as 404, not 403, so this cannot be used to probe another tenant's storage keys). */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description No object storage backend is configured. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesConnectMercadoPago: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          code: string;
+          /** Format: uri */
+          redirect_uri: string;
+          /** @description The PKCE verifier, sent by clients that kept it in the browser. When present it is used as is, and a `state` sent alongside it is only spent. */
+          code_verifier?: string;
+          /** @description The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. When MercadoPago cannot be reached, a spent attempt is kept so the same callback can be retried. */
+          state?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Connected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example true */
+            connected: boolean;
+            mp_user_id: string;
+          };
+        };
+      };
+      /** @description MercadoPago refused the authorization code (expired, already used, or a mismatched redirect_uri or PKCE verifier). The owner starts the connection again. The detail is a fixed sentence; nothing MercadoPago said is included. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The code authorizes a different MercadoPago account than the one connected, and the complex has active bookings that were taken under the connected one. Re-authorizing the same account is not refused. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description MercadoPago could not be reached, failed, or refused this server's own credentials. Nothing was stored; trying again later is the only useful response. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesDisconnectMercadoPago: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Disconnected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example false */
+            connected: boolean;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The complex has upcoming bookings that may still need MercadoPago. Storefront bookings still waiting for their payment do not count: they are cancelled, and their checkout links closed, before the credentials are cleared. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description A storefront booking waiting for its payment could not be released because its MercadoPago checkout link could not be closed. Nothing was disconnected; try again. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesRegisterMercadoPagoOAuthAttempt: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          state: string;
+          /** @description RFC 7636 code verifier (unreserved characters only). */
+          code_verifier: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Registered. Empty body. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The body is not valid JSON or carries an unknown field. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesMercadoPagoStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Connection status. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            connected: boolean;
+            /** @description Present only when MP_APP_ID is configured. */
+            app_id?: string;
+            /** @description Present only when connected and set. */
+            mp_user_id?: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  waitlistJoin: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: date
+           * @description The day to wait for, as `YYYY-MM-DD`. From today up to 365 days ahead.
+           */
+          date: string;
+          /** @description Trimmed and lowercased before it is stored. */
+          email: string;
+        };
+      };
+    };
+    responses: {
+      /** @description On the waitlist for that day. Empty body. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown slug, or the complex is inactive. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  tournamentsList: {
+    parameters: {
+      query: {
+        date_from: string;
+        date_to: string;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tournaments in range, never `null`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            tournaments: components['schemas']['TournamentOwnerSummary'][];
+          };
+        };
+      };
+      /** @description Missing or malformed dates, or a range over 366 days. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsCreate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /**
+           * @default padel
+           * @enum {string}
+           */
+          sport?: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+          /** Format: date */
+          start_date: string;
+          /**
+           * Format: date
+           * @description On or after start_date, at most 60 days later.
+           */
+          end_date: string;
+          categories: {
+            name: string;
             /** @enum {string} */
-            status: "held" | "confirmed" | "cancelled" | "expired";
-            first_name: string;
-            last_name: string;
-            /** @description Centavos ARS. */
-            price: number;
-            /** @description Centavos ARS. */
-            service_fee: number;
-            /** Format: date-time */
-            held_until?: string;
-            event: components["schemas"]["PublicOpenPlayEvent"];
-            complex_name?: string;
-            complex_address?: string;
-            cancellation: {
-                can_cancel: boolean;
-                /** @description Whether cancelling now earns the payment back. */
-                within_window: boolean;
-                /** Format: date-time */
-                deadline: string;
-            };
-        };
-        /** @description Hours an open-play event holds on one court, as the owner's calendar draws them ("Canchas libres · {día} {hora}"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
-        EventBlock: {
-            /** Format: uuid */
-            event_id: string;
-            /** Format: uuid */
-            court_id: string;
-            /**
-             * Format: date
-             * @description The local day the hours start on.
-             */
-            date: string;
-            start_time: string;
-            end_time: string;
-            duration_minutes: number;
-            name: string;
-        };
-        /** @description Hours a scheduled tournament match holds on one court, as the owner's calendar draws them ("{tournament} · {category}"). `end_time` may be earlier than `start_time` when the hours run past midnight. `pair1` and `pair2` name the two pairs by surname ("Pérez / Gómez"), null while no pair fills that slot of the match. */
-        MatchBlock: {
-            /** Format: uuid */
-            match_id: string;
-            /** Format: uuid */
-            tournament_id: string;
-            /** Format: uuid */
-            court_id: string;
-            /**
-             * Format: date
-             * @description The local day the hours start on.
-             */
-            date: string;
-            start_time: string;
-            end_time: string;
-            duration_minutes: number;
-            name: string;
-            pair1: string | null;
-            pair2: string | null;
-        };
-        Tournament: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            sport: string;
-            /** Format: date */
-            start_date: string;
-            /** Format: date */
-            end_date: string;
-            /** @enum {string} */
-            status: "active" | "cancelled";
-            cancel_reason: string | null;
-            /** Format: date-time */
-            cancelled_at: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        /** @description `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads. */
-        TournamentCategory: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            tournament_id: string;
-            name: string;
-            /** @enum {string} */
-            format: "elimination" | "groups";
+            format: 'elimination' | 'groups';
             /** @description Pairs. */
             capacity: number;
             /** @description Centavos per pair. */
             price: number;
-            service_fee?: number;
-            total_price?: number;
-            spots_left: number;
-            confirmed_count: number;
-            held_count: number;
-            /** @description Target pairs per group (groups format). */
-            group_size: number;
-            qualifiers_per_group: number;
+            group_size?: number;
+            qualifiers_per_group?: number;
             /**
-             * @description 1 is a single set, 2 is best of three.
+             * @description 1 plays a single set, 2 is best of three.
+             * @default 2
              * @enum {integer}
              */
-            sets_to_win: 1 | 2;
-            /** @description Games that make a set (4 to 9, 6 is standard). */
-            games_per_set: number;
-            /** @description The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2. */
-            super_tiebreak_decider: boolean;
-            /** @description Court time a match gets when scheduled without a duration. */
-            match_duration_minutes: number;
-            /** @enum {string} */
-            status: "open" | "closed" | "cancelled";
-            draw_generated: boolean;
-        };
-        /** @description A category as its owner reads it: `court_fee` is centavos each pair pays per match at the complex (0 is none). A visitor's category never carries it. */
-        TournamentOwnerCategory: components["schemas"]["TournamentCategory"] & {
-            court_fee: number;
-        };
-        TournamentOwnerSummary: components["schemas"]["Tournament"] & {
-            /** @description Matches of an active tournament that are not a bye, not played and without a court yet, later rounds still waiting for their pairs included. 0 for a cancelled tournament. */
-            unscheduled_count: number;
-            categories: components["schemas"]["TournamentOwnerCategory"][];
-        };
-        TournamentSummary: components["schemas"]["Tournament"] & {
-            categories: components["schemas"]["TournamentCategory"][];
-        };
-        TournamentPlayer: {
-            first_name: string;
-            last_name: string;
-        };
-        TournamentOwnerPlayer: {
-            first_name: string;
-            last_name: string;
-            phone: string;
-            email: string | null;
-        };
-        /** @description `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status` is `withdrawn` for a pair that left after the draw. */
-        TournamentPair: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            category_id: string;
-            players: components["schemas"]["TournamentPlayer"][];
-            seed: number | null;
-            /** Format: uuid */
-            group_id: string | null;
-            /** @enum {string} */
-            status: "active" | "withdrawn";
-        };
-        TournamentOwnerPair: components["schemas"]["TournamentPair"] & {
-            payer: components["schemas"]["TournamentOwnerPlayer"];
-            partner: components["schemas"]["TournamentOwnerPlayer"];
-            /** @description The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). */
-            registration: {
-                /** @enum {string} */
-                status: "held" | "confirmed" | "cancelled" | "expired";
-                price: number;
-                service_fee: number;
-                /** Format: date-time */
-                held_until: string;
-                /** Format: date-time */
-                confirmed_at: string | null;
-                /** @enum {string|null} */
-                cancelled_by: "participant" | "owner" | null;
-                /** Format: date-time */
-                signed_up_at: string;
-            };
-            payment: {
-                status: string;
-                amount: number;
-                service_fee: number;
-                refund_amount: number;
-            } | null;
-        };
-        /** @description One pair's line of a group table, best first (`rank` 1 is the group winner). */
-        TournamentStanding: {
-            /** Format: uuid */
-            pair_id: string;
-            rank: number;
-            played: number;
-            won: number;
-            lost: number;
-            sets_for: number;
-            sets_against: number;
-            games_for: number;
-            games_against: number;
-        };
-        TournamentGroup: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            category_id: string;
-            /** @example A */
-            name: string;
-            position: number;
-            standings: components["schemas"]["TournamentStanding"][];
-        };
-        /** @description One set: games each side won (`a` is the match's first pair), or, with `super`, the points of the match tiebreak that decides the match (the third set, best of three only). */
-        TournamentSet: {
-            a: number;
-            b: number;
-            /** @default false */
-            super: boolean;
-        };
-        /** @description A group match (`stage` `group`, `round` the matchday) or a bracket match (`stage` `bracket`, `round` 1 the first and the highest the final, `position` top to bottom). `pair1_id` / `pair2_id` are null until known; a bracket slot fed by a group has `source1` / `source2` meanwhile. A `bye` has one slot that never fills and is already `completed` with its pair as winner. `walkover_loser` is 1 or 2 for a walkover, 0 otherwise. A completed match that is neither a bye nor a walkover and has no `sets` was loaded with only its winner (no score). */
-        TournamentMatch: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            category_id: string;
-            /** @enum {string} */
-            stage: "group" | "bracket";
-            /** Format: uuid */
-            group_id: string | null;
-            round: number;
-            position: number;
-            /** Format: uuid */
-            pair1_id: string | null;
-            /** Format: uuid */
-            pair2_id: string | null;
-            source1: components["schemas"]["TournamentSource"];
-            source2: components["schemas"]["TournamentSource"];
-            bye: boolean;
-            /** @enum {string} */
-            status: "pending" | "completed";
-            /** Format: uuid */
-            winner_pair_id: string | null;
-            sets: components["schemas"]["TournamentSet"][];
-            /** @enum {integer} */
-            walkover_loser: 0 | 1 | 2;
-            schedule: {
-                /** Format: uuid */
-                court_id: string;
-                court_name: string;
-                /** Format: date */
-                date: string;
-                start_time: string;
-                end_time: string;
-                duration_minutes: number;
-            } | null;
-        };
-        /** @description What the pair on one side of a match owes or paid for the court, at the complex. While not `charged`, `amount` is the category's current `court_fee`; once `charged` it is what the charge was made at and never changes. `chargeable` is true while the pair is known, the match is played (not a bye, not a walkover), the category has a fee, nothing was cancelled and the pair was not charged yet. */
-        TournamentCourtFee: {
-            /** @enum {integer} */
-            side: 1 | 2;
-            chargeable: boolean;
-            /** @description Centavos. */
-            amount: number;
-            charged: boolean;
-            /** @description The counter payment method it was charged with, once charged. */
-            method: string | null;
-            /** Format: date-time */
-            charged_at: string | null;
+            sets_to_win?: 1 | 2;
+            /** @default 6 */
+            games_per_set?: number;
             /**
-             * Format: uuid
-             * @description The user who collected it.
+             * @description The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.
+             * @default true
              */
-            charged_by: string | null;
-        };
-        /** @description A match as its owner reads it, with the court fee of each of its two pairs. */
-        TournamentOwnerMatch: components["schemas"]["TournamentMatch"] & {
-            /** @description Side 1 then side 2. */
-            court_fee: components["schemas"]["TournamentCourtFee"][];
-        };
-        /** @description Where a bracket slot's pair comes from: the Nth of a group. */
-        TournamentSource: {
-            /** Format: uuid */
-            group_id: string;
-            rank: number;
-        } | null;
-        TournamentDetail: {
-            tournament: components["schemas"]["Tournament"];
-            categories: components["schemas"]["TournamentOwnerCategory"][];
-            pairs: components["schemas"]["TournamentOwnerPair"][];
-            groups: components["schemas"]["TournamentGroup"][];
-            matches: components["schemas"]["TournamentOwnerMatch"][];
-        };
-        PublicTournamentDetail: {
-            tournament: components["schemas"]["Tournament"];
-            categories: components["schemas"]["TournamentCategory"][];
-            pairs: components["schemas"]["TournamentPair"][];
-            groups: components["schemas"]["TournamentGroup"][];
-            matches: components["schemas"]["TournamentMatch"][];
-            complex_name: string;
-            cancellation_hours: number;
-        };
-        TournamentRefunds: {
-            /** Format: uuid */
-            registration_id: string;
-            refund: components["schemas"]["RefundOutcome"];
-        }[];
-        PublicPairSignUp: {
-            registration: {
-                /** @enum {string} */
-                status: "held";
-                /** Format: date-time */
-                held_until: string;
-            };
-            token: string;
-            tournament: components["schemas"]["Tournament"];
-            category: components["schemas"]["TournamentCategory"];
-            mp_init_point: string;
-            mp_preference_id: string;
-            service_fee: number;
-            total_price: number;
-        };
-        PublicPairRegistration: {
-            /** @enum {string} */
-            status: "held" | "confirmed" | "cancelled" | "expired";
-            /** @enum {string} */
-            pair_status: "active" | "withdrawn";
-            /** Format: date-time */
-            held_until: string;
-            payer: components["schemas"]["TournamentPlayer"];
-            partner: components["schemas"]["TournamentPlayer"];
-            price: number;
-            service_fee: number;
-            tournament: components["schemas"]["Tournament"];
-            category: components["schemas"]["TournamentCategory"];
-            complex_name: string;
-            complex_address: string;
-            cancellation: {
-                can_cancel: boolean;
-                /** @description Whether cancelling now earns the payment back. */
-                within_window: boolean;
-                /** Format: date-time */
-                deadline: string;
-                /** @description True after the draw: leaving forfeits the matches and keeps the payment. */
-                walkover: boolean;
-            };
-        };
-        /** @description A date a fixed weekly booking is holding that has no booking yet, as the owner's calendar draws it ("Bloqueo por turno fijo · client"). `end_time` may be earlier than `start_time` when the hours run past midnight. */
-        FixedBlock: {
-            /** Format: uuid */
-            series_id: string;
-            /** Format: uuid */
-            court_id: string;
+            super_tiebreak_decider?: boolean;
             /**
-             * Format: date
-             * @description The local day the hours start on.
+             * @description Court time given to a match scheduled without a duration.
+             * @default 90
              */
-            date: string;
-            start_time: string;
-            end_time: string;
-            duration_minutes: number;
-            client_name: string;
-        };
-        Booking: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** Format: uuid */
-            court_id: string;
+            match_duration_minutes?: number;
             /**
-             * Format: uuid
-             * @description Absent while a storefront booking waits for its payment: its client is created, or matched by phone, only once the payment is approved. client_name and client_phone still carry who it is for.
+             * @description Centavos each pair pays per match, charged at the complex on match day (not online); 0 is no fee. Changed later with `tournamentsCategoryCourtFee`.
+             * @default 0
              */
-            client_id?: string;
-            /** Format: date-time */
-            starts_at: string;
-            /** Format: date-time */
-            ends_at: string;
-            /**
-             * Format: date-time
-             * @description Serializes as a full RFC 3339 timestamp, not a date-only string, when the struct is returned directly by this endpoint.
-             */
-            date: string;
-            start_time: string;
-            duration_minutes: number;
-            /** @description Centavos ARS. */
-            price: number;
-            /** @description Centavos ARS. */
-            deposit_amount: number;
-            status: components["schemas"]["BookingStatus"];
-            collection_status: components["schemas"]["CollectionStatus"];
-            refund_status: components["schemas"]["RefundStatus"];
-            reminder_sent_2h: boolean;
-            notes?: string | null;
-            /** Format: uuid */
-            created_by?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-            /** @description Enrichment, present when joined. */
-            court_name?: string;
-            /** @description Enrichment, present when joined. */
-            client_name?: string;
-            /** @description Enrichment, present when joined. */
-            client_phone?: string;
-            /**
-             * Format: uuid
-             * @description The fixed weekly series this booking is an occurrence of (fetch it with `bookingSeriesGet`). Absent or null for an ordinary booking.
-             */
-            series_id?: string | null;
-            /**
-             * Format: date-time
-             * @description When the owner marked the client as present (`bookingsMarkAttended`). Only a `completed` booking carries one; a completed booking without it finished with nobody confirming attendance ("Turno finalizado").
-             */
-            attended_at?: string | null;
+            court_fee?: number;
+          }[];
         };
-        Payment: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            booking_id: string;
-            /** Format: uuid */
-            complex_id: string;
-            /** @description Centavos ARS. */
-            amount: number;
-            /** @description Centavos ARS. */
-            service_fee: number;
-            /** @enum {string} */
-            method: "mercadopago" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-            /**
-             * @description The payments table's own, wider status vocabulary. Distinct from Booking.collection_status/refund_status, which were split off it at the booking level.
-             * @enum {string}
-             */
-            status: "unpaid" | "deposit_paid" | "fully_paid" | "refunded" | "refund_pending" | "partial_refund";
-            mp_payment_id?: string | null;
-            mp_preference_id?: string | null;
-            /** @description Centavos ARS. */
-            refund_amount: number;
-            /** @description MercadoPago's own status_detail string. */
-            status_detail?: string | null;
-            /** Format: date-time */
-            created_at: string;
-            /** Format: date-time */
-            updated_at: string;
-        };
-        RefundOutcome: {
-            /** @enum {string} */
-            status: "none" | "not_eligible" | "issued" | "already_issued" | "queued" | "manual";
-            /** @description Spanish, human-readable, safe to show a client. */
-            message: string;
-            /** @description Centavos ARS. Present only when greater than zero, the automatic-refund half. */
-            amount?: number;
-            /** @description Centavos ARS. Present only when greater than zero, a balance nothing automatic can move. */
-            manual_amount?: number;
-            /** @description Present only when manual_amount is. */
-            manual_message?: string;
-        };
-        PublicBookingResult: {
-            booking: {
-                status: components["schemas"]["BookingStatus"];
-                collection_status: components["schemas"]["CollectionStatus"];
-                refund_status: components["schemas"]["RefundStatus"];
-                /** Format: date */
-                date: string;
-                start_time: string;
-                /** Format: date-time */
-                starts_at: string;
-                /** Format: date-time */
-                ends_at: string;
-                court_name: string;
-                complex_name: string;
-                /** @description Centavos ARS. */
-                price: number;
-                /** @description Centavos ARS. */
-                deposit_amount: number;
-            };
-            /** @description Opaque booking-link credential. The booking's primary key is never included. */
-            token: string;
-            /** Format: uri */
-            mp_init_point?: string;
-            mp_preference_id?: string;
-            /** @description Centavos ARS. */
-            service_fee?: number;
-            /** @description Centavos ARS. */
-            total_client_pays?: number;
-        };
-        PublicBookingStatus: {
-            status: components["schemas"]["BookingStatus"];
-            collection_status: components["schemas"]["CollectionStatus"];
-            refund_status: components["schemas"]["RefundStatus"];
-            complex_name: string;
-            complex_address: string;
-            complex_phone?: string;
-            court_name: string;
-            /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-            /** @enum {string} */
-            court_type: "indoor" | "outdoor" | "semi_covered";
-            /** Format: date */
-            date: string;
-            start_time: string;
-            /** Format: date-time */
-            starts_at: string;
-            /** Format: date-time */
-            ends_at: string;
-            duration_minutes: number;
-            /** @description Centavos ARS. */
-            price: number;
-            /** @description Centavos ARS. */
-            deposit_amount: number;
-            /** @description Centavos ARS. */
-            service_fee: number;
-            /** @description Centavos ARS. */
-            remaining_amount: number;
-            cancellation: {
-                can_cancel: boolean;
-                can_refund_now: boolean;
-                cancellation_hours: number;
-                /** Format: date-time */
-                refund_deadline?: string | null;
-            };
-        };
-        PublicCancelInfo: {
-            booking: {
-                status: components["schemas"]["BookingStatus"];
-                /** Format: date */
-                date: string;
-                start_time: string;
-                /** Format: date-time */
-                starts_at: string;
-                /** Format: date-time */
-                ends_at: string;
-                duration_minutes: number;
-                court_name: string;
-                /** @enum {string} */
-                sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-                /** @enum {string} */
-                court_type: "indoor" | "outdoor" | "semi_covered";
-                complex_name: string;
-                complex_address?: string;
-            };
-            can_cancel: boolean;
-            can_refund: boolean;
-            /** @enum {string} */
-            refund_method: "mercadopago" | "manual" | "none";
-            cancellation_hours: number;
-            /** @description Centavos ARS. */
-            refund_amount: number;
-            /** @description Centavos ARS. */
-            paid_amount: number;
-        };
-        SlugAvailability: {
-            slug: string;
-            valid: boolean;
-            available: boolean;
-            /** @description Present only when the slug is taken and a free alternative was found. */
-            suggestion?: string;
-        };
-        /** @description Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key. */
-        AuditLogRow: {
-            /** Format: uuid */
-            id: string;
-            /** Format: uuid */
-            user_id: string | null;
-            user_email: string | null;
-            /** Format: uuid */
-            complex_id: string | null;
-            action: string;
-            entity_type: string;
-            /** Format: uuid */
-            entity_id: string | null;
-            ip_address: string | null;
-            /** Format: date-time */
-            created_at: string;
-        };
-        Availability: {
-            /** Format: date */
-            date: string;
-            day: components["schemas"]["Weekday"];
-            is_open: boolean;
-            courts: components["schemas"]["AvailabilityCourt"][];
-        };
-        AvailabilityCourt: {
-            /** Format: uuid */
-            court_id: string;
-            court_name: string;
-            /** @enum {string} */
-            sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-            /** @enum {string} */
-            court_type: "indoor" | "outdoor" | "semi_covered";
-            description?: string;
-            has_lighting: boolean;
-            /**
-             * @description Omitted when the owner has not said.
-             * @enum {string}
-             */
-            surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
-            slots: components["schemas"]["AvailabilitySlot"][];
-        };
-        AvailabilitySlot: {
-            start_time: string;
-            end_time: string;
-            /** @description Minutes from the window's midnight, unwrapped past 1440 for overnight venues so past-midnight slots sort correctly. */
-            start_min: number;
-            duration_minutes: number;
-            /** @description Centavos ARS. */
-            price: number;
-            available: boolean;
-        };
-        HealthStatus: {
-            /** @enum {string} */
-            status: "available" | "degraded";
-            version: string;
-            /** @description Present only when non-empty. */
-            impaired?: ("database" | "cache" | "payments")[];
-        };
-        PlaceDetails: {
-            address: string;
-            city: string;
-            province: string;
-            formatted_address: string;
-            /** @description Formatted with "%f", a string rather than a JSON number. */
-            latitude: string;
-            /** @description Formatted with "%f", a string rather than a JSON number. */
-            longitude: string;
-        };
-        /** @description Built as an ad-hoc map in the handler, not a named Go struct. */
-        DashboardStats: {
-            today_bookings: number;
-            /** @description Centavos ARS. Booking payments actually collected today (payments.created_at, Argentina calendar day): status deposit_paid, fully_paid, refund_pending or partial_refund. An 'unpaid' payment (an abandoned checkout) and a fully 'refunded' one are both excluded. This is a bookings-only figure and does not include bar sales or other cash-till income — see today_money for the day's full income picture, which also reconciles bookings taken through it with this field. */
-            today_revenue: number;
-            yesterday_bookings: number;
-            /** @description Centavos ARS. */
-            yesterday_revenue: number;
-            /** @description Centavos ARS. */
-            weekly_revenue: number;
-            /** @description Centavos ARS. */
-            monthly_revenue: number;
-            /** @description 0 to 100. Booked minutes over active courts times today's open hours. */
-            occupancy_rate: number;
-            pending_bookings: number;
-            total_clients: number;
-            /** @description The next 10 bookings due today. */
-            upcoming_bookings: components["schemas"]["Booking"][];
-            payment_summary: components["schemas"]["PaymentSummary"];
-            today_money: components["schemas"]["DayMoneyTotals"];
-        };
-        /** @description Everything that entered today, on the Argentina calendar day (created_at cast to that zone's date) — deliberately NOT a cash session's shift window, which runs from whenever the till was opened to now or to close and can cross midnight. bookings here uses the same window and collected-status rule as today_revenue (payments.created_at; status deposit_paid, fully_paid, refund_pending or partial_refund — 'unpaid' and 'refunded' excluded), so the two always agree; today_money additionally folds in bar sales and other manual cash-till income/expense so the dashboard has one number for "how much came in today" instead of two figures that measure different things. A voided cash movement and its void always net to zero in every field below. A fully refunded payment is left out of every income figure here entirely, the same way today_revenue excludes it — the simplest rule that cannot move money between the day it was collected and the day it was given back. */
-        DayMoneyTotals: {
-            /** @description Centavos ARS. Booking payments received today, every method. Equals today_revenue. */
-            bookings: number;
-            /** @description Centavos ARS. Income cash movements with category 'sale', net of voids. */
-            bar_sales: number;
-            /** @description Centavos ARS. Every other non-sale income cash movement, net of voids. */
-            other_income: number;
-            /** @description Centavos ARS. Expense cash movements (manual expenses and restock), net of voids. Never negative. */
-            expenses: number;
-            /** @description Centavos ARS. bookings + bar_sales + other_income. Does not subtract expenses. */
-            total_income: number;
-            /** @description Income today (bookings plus cash-movement income, net of voids) per payment method. Expenses never appear here. */
-            by_method: {
-                [key: string]: number;
-            };
-        };
-        PaymentSummary: {
-            /** @description Collection or refund status name to its breakdown. */
-            by_status: {
-                [key: string]: components["schemas"]["PaymentStatusBreakdown"];
-            };
-            /** @description Payment method name to count. */
-            by_method: {
-                [key: string]: number;
-            };
-        };
-        PaymentStatusBreakdown: {
-            count: number;
-            /** @description Centavos ARS. */
-            total: number;
-        };
-        RevenueDataPoint: {
-            /** Format: date */
-            date: string;
-            /** @description Centavos ARS. */
-            amount: number;
-        };
-        OccupancyPoint: {
-            day_of_week: number;
-            hour: number;
-            /** @description 0 to 100, capped. */
-            percentage: number;
-        };
-        ClientInsights: {
-            top: components["schemas"]["TopClient"][];
-            no_show_rate: number;
-            no_show_count: number;
-            /** @description JSON tag is resolved_count, the Go field is named CompletedCount. */
-            resolved_count: number;
-            new_clients_30d: number;
-            recurring_30d: number;
-            total_active_30d: number;
-        };
-        TopClient: {
-            /** Format: uuid */
-            id: string;
-            name: string;
-            phone: string;
-            booking_count: number;
-            /** @description Centavos ARS. */
-            total_spent: number;
-        };
-        /** @description Built as ad-hoc nested maps in the handler, not named Go structs. */
-        MonthlyReport: {
-            month: number;
-            year: number;
-            /** @description Payment method name to its summary for the month. */
-            by_method: {
-                [key: string]: components["schemas"]["MonthlyReportSummary"];
-            };
-            by_court: components["schemas"]["MonthlyReportCourtSummary"][];
-            totals: components["schemas"]["MonthlyReportSummary"];
-            /** @description Same shape as totals, for the prior month. */
-            previous_totals: components["schemas"]["MonthlyReportSummary"];
-        };
-        MonthlyReportSummary: {
-            count: number;
-            /** @description Centavos ARS. */
-            total: number;
-            /** @description Centavos ARS. Present on the totals/previous_totals rows. */
-            service_fees?: number;
-            /** @description Centavos ARS. */
-            refunded: number;
-            /** @description Centavos ARS. */
-            net: number;
-        };
-        MonthlyReportCourtSummary: {
-            court_id: string;
-            court_name: string;
-            count: number;
-            /** @description Centavos ARS. */
-            total: number;
-            /** @description Centavos ARS. */
-            refunded: number;
-            /** @description Centavos ARS. */
-            net: number;
-        };
+      };
     };
     responses: {
-        /** @description Missing or invalid session. */
-        Unauthorized: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
+      /** @description The created tournament. */
+      201: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description Authenticated, but not permitted to reach this resource. */
-        Forbidden: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
         };
-        /** @description The requested resource could not be found. */
-        NotFound: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
         };
-        /** @description One or more fields failed validation. */
-        ValidationError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
         };
-        /** @description Too many requests. See the `Retry-After` header. */
-        RateLimited: {
-            headers: {
-                "Retry-After"?: number;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
-        /** @description An unexpected server error. The message is always generic, it never leaks internal detail. */
-        ServerError: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
-        /** @description A concurrent edit was detected. Retry the request. */
-        EditConflict: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
-        /** @description The booking link has expired. */
-        LinkExpired: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/problem+json": components["schemas"]["Problem"];
-            };
-        };
-        /** @description The outcome of a verified Google sign-in: a session established exactly as `/auth/login` does, or a profile token for an address with no account yet. */
-        GoogleSignInResult: {
-            headers: {
-                /** @description Sets `access_token` and `refresh_token`, only when a session was established. */
-                "Set-Cookie"?: string;
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": {
-                    user: components["schemas"]["User"];
-                    /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
-                    csrf_token: string;
-                } | {
-                    /** @enum {boolean} */
-                    needs_profile: true;
-                    /** @description Signed, 10-minute token. Send back to `/auth/google/complete`. */
-                    profile_token: string;
-                    profile: {
-                        email: string;
-                        first_name: string;
-                        last_name: string;
-                    };
-                };
-            };
-        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
     };
+  };
+  tournamentsGet: {
     parameters: {
-        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-        Cursor: string;
-        /** @description Page size. Default 50, maximum 200. */
-        Limit: number;
-        /** @description Post id, which is the post's folder name in the content repository. */
-        SocialPostID: string;
-        /** @description File name of the media inside the post folder. */
-        SocialMediaName: string;
+      query?: never;
+      header?: never;
+      path: {
         /** @description Complex id. */
-        PathID: string;
-        PathSlug: string;
-        PathCity: string;
-        BookingID: string;
-        EventID: string;
-        TournamentID: string;
-        CategoryID: string;
-        MatchID: string;
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The tournament. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The cancelled tournament and the refund of each paid pair. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            tournament: components['schemas']['Tournament'];
+            refunds: components['schemas']['TournamentRefunds'];
+          };
+        };
+      };
+      /** @description The tournament is already cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsCategoryCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The refund of each paid pair. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            refunds: components['schemas']['TournamentRefunds'];
+          };
+        };
+      };
+      /** @description The category is already cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsDrawGenerate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          seed_order?: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description The tournament with the new draw. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      /** @description Fewer than two paid pairs, or the tournament or category is cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description A result was already loaded. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsDrawMove: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          pair_id: string;
+          /** Format: uuid */
+          with_pair_id: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The tournament with the changed draw. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      /** @description The draw does not exist yet, or the tournament or category is cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description A result was already loaded. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsMatchSchedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        matchID: components['parameters']['MatchID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: uuid */
+          court_id: string;
+          /** Format: date */
+          date: string;
+          start_time: string;
+          /** @description Omit to use the category's match_duration_minutes. */
+          duration_minutes?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The scheduled match. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            match: components['schemas']['TournamentMatch'];
+          };
+        };
+      };
+      /** @description The match is a bye, or the tournament or category is cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description Something already holds those hours on the court. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsMatchUnschedule: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        matchID: components['parameters']['MatchID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The unscheduled match. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            match: components['schemas']['TournamentMatch'];
+          };
+        };
+      };
+      /** @description The tournament or category is cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsMatchResult: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        matchID: components['parameters']['MatchID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          sets?: components['schemas']['TournamentSet'][];
+          /** @enum {integer} */
+          winner?: 1 | 2;
+          /** @enum {integer} */
+          walkover_loser?: 1 | 2;
+        };
+      };
+    };
+    responses: {
+      /** @description The tournament after the result. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      /** @description The match is not ready (a pair is missing) or is a bye, or the tournament or category is cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The next match already has a result, so this one can no longer change. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsCategoryCourtFee: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Centavos per pair per match; 0 is none. */
+          court_fee: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The tournament with the new fee. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      /** @description Malformed body, or the tournament or category was cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsMatchCourtFeeCharge: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        matchID: components['parameters']['MatchID'];
         /** @description 1 is the match's pair1, 2 its pair2. */
-        CourtFeeSide: 1 | 2;
-        SeriesID: string;
-        CourtID: string;
-        /** @description Cash session id. */
-        SessionID: string;
-        /** @description Cash movement id. */
-        MovementID: string;
-        ProductID: string;
-        /** @description Restrict the list to active or inactive products. Omit to return both. */
-        ActiveFilter: boolean;
-        /** @description Sale id. */
-        SaleID: string;
-        /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
-        SaleSessionIDFilter: string;
-        ClientID: string;
-        ExportID: string;
+        side: components['parameters']['CourtFeeSide'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @enum {string} */
+          method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+        };
+      };
+    };
+    responses: {
+      /** @description The tournament with the charge recorded. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      /** @description No court fee, a bye or walkover, a pair not known yet, or the tournament or category was cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The pair was already charged for the match, or no cash session is open. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsMatchCourtFeeUndo: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        matchID: components['parameters']['MatchID'];
+        /** @description 1 is the match's pair1, 2 its pair2. */
+        side: components['parameters']['CourtFeeSide'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The tournament without the charge. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['TournamentDetail'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description No charge stands for the pair, or no cash session is open. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsPublicList: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Tournaments, never `null`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            tournaments: components['schemas']['TournamentSummary'][];
+          };
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsPublicGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+        tournamentID: components['parameters']['TournamentID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The tournament. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicTournamentDetail'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsPublicSignUp: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          first_name: string;
+          last_name: string;
+          /**
+           * @description Normalized to E.164.
+           * @example +5491112345678
+           */
+          phone: string;
+          /** @description Optional. */
+          email?: string;
+          partner: {
+            first_name: string;
+            last_name: string;
+            /** @description Must differ from the payer's. */
+            phone: string;
+            /** @description Optional. */
+            email?: string;
+          };
+          /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+          turnstile_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The pair's spot is held; pay at `mp_init_point`. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicPairSignUp'];
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The complex blocked the payer's phone. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description Problem kind `event-full`, `event-closed` or `already-registered`. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description MercadoPago would not create the checkout. The held spot was released. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  tournamentsPublicRegistrationStatus: {
+    parameters: {
+      query: {
         /** @description The opaque booking-link token, never the booking's primary key. */
-        BookingToken: string;
+        token: components['parameters']['BookingToken'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The pair's spot. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicPairRegistration'];
+        };
+      };
+      /** @description Missing token. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsPublicRegistrationCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Cancelled, with the resulting refund outcome. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            registration: components['schemas']['PublicPairRegistration'];
+            refunded: boolean;
+            refund: components['schemas']['RefundOutcome'];
+          };
+        };
+      };
+      /** @description The spot is already cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsPublicList: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Upcoming events, never `null`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            events: components['schemas']['PublicOpenPlayEvent'][];
+          };
+        };
+      };
+      /** @description Unknown slug, or the complex is inactive. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsPublicGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+        eventID: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The event. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            event: components['schemas']['PublicOpenPlayEvent'];
+          };
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsPublicSignUp: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+        eventID: components['parameters']['EventID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          first_name: string;
+          last_name: string;
+          /**
+           * @description Normalized to E.164.
+           * @example +5491112345678
+           */
+          phone: string;
+          /** @description Optional. */
+          email?: string;
+          /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
+          turnstile_token?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The spot is held; pay at `mp_init_point`. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicEventSignUp'];
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The complex blocked this phone. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description Problem kind `event-full`, `event-closed` or `already-registered`: the event is full, sign-up is closed, or this phone already holds a spot. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description MercadoPago would not create the checkout. The held spot was released. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  eventsPublicRegistrationStatus: {
+    parameters: {
+      query: {
+        /** @description The opaque booking-link token, never the booking's primary key. */
+        token: components['parameters']['BookingToken'];
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The spot. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicEventRegistration'];
+        };
+      };
+      /** @description Missing token. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  eventsPublicRegistrationCancel: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Cancelled, with the resulting refund outcome. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            registration: components['schemas']['PublicEventRegistration'];
+            refunded: boolean;
+            refund: components['schemas']['RefundOutcome'];
+          };
+        };
+      };
+      /** @description The spot is already cancelled. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description Missing token. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsPublicNextAvailable: {
+    parameters: {
+      query: {
+        /** @description The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today. */
+        from: string;
+        /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
+        duration?: number;
+      };
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The next day with a free slot, or `null` when there is none in the window. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: date */
+            date: string | null;
+          };
+        };
+      };
+      /** @description Missing or malformed `from`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown slug, or the complex is inactive. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+    };
+  };
+  courtsPublicAvailability: {
+    parameters: {
+      query: {
+        date: string;
+        /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
+        duration?: number;
+      };
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The day's availability grid. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            availability: components['schemas']['Availability'];
+          };
+        };
+      };
+      /** @description Missing `date`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown slug, or the complex is inactive. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsList: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every court, with its price bands. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            courts: components['schemas']['CourtWithPrices'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsCreate: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          /** @enum {string} */
+          sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+          /** @enum {string} */
+          court_type: 'indoor' | 'outdoor' | 'semi_covered';
+          description?: string;
+          /** @description Defaults to false when omitted. */
+          has_lighting?: boolean;
+          /**
+           * @description Optional. Must be allowed for the court's sport.
+           * @enum {string}
+           */
+          surface?:
+            | 'synthetic_grass'
+            | 'natural_grass'
+            | 'clay'
+            | 'concrete'
+            | 'parquet'
+            | 'synthetic_floor'
+            | 'sand'
+            | 'rubber';
+        };
+      };
+    };
+    responses: {
+      /** @description The created court. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            court: components['schemas']['Court'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsUpdate: {
+    parameters: {
+      query?: never;
+      header?: {
         /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
-        IfMatchVersion: string;
+        'If-Match'?: components['parameters']['IfMatchVersion'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        courtID: components['parameters']['CourtID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
+          version?: number;
+          name?: string;
+          /** @enum {string} */
+          sport?: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
+          /** @enum {string} */
+          court_type?: 'indoor' | 'outdoor' | 'semi_covered';
+          description?: string;
+          is_active?: boolean;
+          has_lighting?: boolean;
+          /**
+           * @description Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
+           * @enum {string}
+           */
+          surface?:
+            | 'synthetic_grass'
+            | 'natural_grass'
+            | 'clay'
+            | 'concrete'
+            | 'parquet'
+            | 'synthetic_floor'
+            | 'sand'
+            | 'rubber'
+            | '';
+        };
+      };
+    };
+    responses: {
+      /** @description The updated court. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            court: components['schemas']['Court'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['EditConflict'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsDelete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        courtID: components['parameters']['CourtID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example court deleted */
+            message: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The court has active bookings. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsUpdatePrices: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
+        'If-Match'?: components['parameters']['IfMatchVersion'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        courtID: components['parameters']['CourtID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
+          version?: number;
+          prices: {
+            /** @description Centavos ARS per hour. */
+            price: number;
+            day_type: components['schemas']['Weekday'];
+            time_from: string;
+            time_to: string;
+          }[];
+        };
+      };
+    };
+    responses: {
+      /** @description The updated price bands. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            prices: components['schemas']['CourtPrice'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['EditConflict'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsBlockSlot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        courtID: components['parameters']['CourtID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** Format: date */
+          date: string;
+          start_time: string;
+          end_time: string;
+          reason?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The created blocked slot. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            blocked_slot: components['schemas']['BlockedSlot'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The range overlaps an existing booking, or is already blocked. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsListBlockedSlots: {
+    parameters: {
+      query: {
+        date_from: string;
+        date_to: string;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Blocked slots in range, never `null`. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            blocked_slots: components['schemas']['BlockedSlot'][];
+            /** @description The dates fixed weekly bookings hold in the range that have no booking yet. They block like a blocked slot but are not one: they cannot be deleted from here and are cancelled through the series (`bookingSeriesSkip`, `bookingSeriesEnd`). Not paginated. */
+            fixed_blocks: components['schemas']['FixedBlock'][];
+            /** @description The hours active open-play events hold in the range, one entry per event and court. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by cancelling the event (`eventsCancel`). Not paginated. */
+            event_blocks: components['schemas']['EventBlock'][];
+            /** @description The hours scheduled tournament matches hold in the range, one entry per match. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by unscheduling the match (`tournamentsMatchUnschedule`) or cancelling the tournament or category. Not paginated. */
+            match_blocks: components['schemas']['MatchBlock'][];
+          };
+        };
+      };
+      /** @description Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  courtsDeleteBlockedSlot: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        slotID: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Deleted. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example blocked slot deleted */
+            message: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  livenessCheck: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The process is alive. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HealthStatus'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  healthCheck: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Available, possibly degraded. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HealthStatus'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      /** @description The database is unreachable. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['HealthStatus'];
+        };
+      };
+    };
+  };
+  leadsCaptureAbandonedRegistration: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          email: string;
+          /**
+           * @description Which form was abandoned; it decides the row's origin in the spreadsheet.
+           * @default register
+           * @enum {string}
+           */
+          source?: 'register' | 'google';
+          /** @description As far as the person got; forwarded as typed. */
+          first_name?: string;
+          /** @description As far as the person got; forwarded as typed. */
+          last_name?: string;
+          /** @description As far as the person got; not validated as a phone number. */
+          phone?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description Accepted, empty body. */
+      202: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  emailUnsubscribe: {
+    parameters: {
+      query?: {
+        /** @description The signed token from the link in the email. */
+        token?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description The signed token, when it is not in the query string. */
+          token?: string;
+        };
+        'application/x-www-form-urlencoded': {
+          /**
+           * @description The body a mail client sends for a one-click unsubscribe (RFC 8058).
+           * @enum {string}
+           */
+          'List-Unsubscribe'?: 'One-Click';
+        };
+      };
+    };
+    responses: {
+      /** @description The address is suppressed from lifecycle email. Empty body. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No token, or a token this server did not mint. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  paymentsMercadoPagoWebhook: {
+    parameters: {
+      query?: {
+        /** @description MercadoPago's own signature covers this parameter, preferred over the body field when present. */
+        'data.id'?: string;
+      };
+      header: {
+        'x-signature': string;
+        'x-request-id': string;
+      };
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          type: string;
+          action: string;
+          data: {
+            /** @description Arrives as either a JSON string or a JSON number. */
+            id?: unknown;
+          };
+        };
+      };
+    };
+    responses: {
+      /** @description Recorded, or dropped after signature or size rejection. Always empty body. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Recording the event failed. MercadoPago will redeliver. */
+      500: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Recording the event failed. MercadoPago will redeliver. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  placesAutocomplete: {
+    parameters: {
+      query: {
+        input: string;
+        session_token?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Google's Autocomplete predictions, passed through unchanged. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            predictions: {
+              [key: string]: unknown;
+            }[];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      /** @description Upstream reported the input could not be resolved. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Either this API's own rate limit, or Google Places' quota exhausted (the platform's own quota, surfaced as 429 because backing off is the only useful response either way). */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The upstream call failed for any other reason (a 5xx, a bad key, an unreadable body). Reported as a gateway failure rather than naming Google. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  placesDetails: {
+    parameters: {
+      query: {
+        place_id: string;
+        session_token?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The resolved address. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PlaceDetails'];
+        };
+      };
+      /** @description Missing `place_id`. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      /** @description Unknown `place_id`. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description This API's own rate limit, or Google Places' quota exhausted. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The upstream call failed for any other reason. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  productsList: {
+    parameters: {
+      query?: {
+        /** @description Restrict the list to active or inactive products. Omit to return both. */
+        active?: components['parameters']['ActiveFilter'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every matching product. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            products: components['schemas']['Product'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsCreate: {
+    parameters: {
+      query?: never;
+      header?: {
         /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-        IdempotencyKey: string;
-    };
-    requestBodies: never;
-    headers: never;
-    pathItems: never;
-}
-export type $defs = Record<string, never>;
-export interface operations {
-    auditListComplexLog: {
-        parameters: {
-            query?: {
-                entity_type?: string;
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of this complex's audit log rows. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        audit_logs: components["schemas"]["AuditLogRow"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Invalid cursor value. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authRegister: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    email: string;
-                    password: string;
-                    first_name: string;
-                    last_name: string;
-                    /**
-                     * @description Normalized server-side to E.164.
-                     * @example +5491112345678
-                     */
-                    phone: string;
-                    /** @description Required only when Cloudflare Turnstile is configured. */
-                    turnstile_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Verification email sent, or would have been for a new address. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example verification email sent */
-                        message: string;
-                    };
-                };
-            };
-            /** @description Malformed JSON body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authLogin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    email: string;
-                    password: string;
-                    turnstile_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Session established. */
-            200: {
-                headers: {
-                    /** @description Sets `access_token` and `refresh_token`. */
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
-                        csrf_token: string;
-                    };
-                };
-            };
-            /** @description Invalid credentials, locked account or unverified email (indistinguishable by design). */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authGoogleComplete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    profile_token: string;
-                    /**
-                     * @description Normalized server-side to E.164.
-                     * @example +5491112345678
-                     */
-                    phone: string;
-                    /** @description Overrides the profile token's given_name. */
-                    first_name?: string;
-                    /** @description Overrides the profile token's family_name. */
-                    last_name?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Account created and session established. */
-            200: {
-                headers: {
-                    /** @description Sets `access_token` and `refresh_token`. */
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        /** @description Send this back as the `X-CSRF-Token` header on subsequent mutating requests. */
-                        csrf_token: string;
-                    };
-                };
-            };
-            /** @description Missing, expired, forged or wrong-purpose profile token. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description An account for this address was created between `/auth/google/finish` and this request. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description Google sign-in is not configured (no `GOOGLE_OAUTH_CLIENT_ID`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    authGoogleStart: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description To Google's authorization endpoint, with the state cookie set. */
-            302: {
-                headers: {
-                    /** @description Google's authorization endpoint with this attempt's parameters. */
-                    Location?: string;
-                    /** @description Sets the host-only `state` cookie `/auth/google/finish` reads back. */
-                    "Set-Cookie"?: string;
-                    /** @description Always `no-store`. */
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The authorization-code flow is not configured, or the state could not be stored. `Location` is `<FRONTEND_URL>/login?error=google_unavailable`. */
-            303: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            429: components["responses"]["RateLimited"];
-            /** @description `FRONTEND_URL` is not configured, so there is no address to redirect to. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    authGoogleFinish: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description The authorization code Google's redirect carried. */
-                    code: string;
-                    /** @description The `state` Google's redirect carried, read back by the callback page. Compared against the `state` cookie `/auth/google/start` set; the two must agree. */
-                    state: string;
-                };
-            };
-        };
-        responses: {
-            200: components["responses"]["GoogleSignInResult"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description The authorization-code flow is not configured (`GOOGLE_OAUTH_CLIENT_ID`, `GOOGLE_OAUTH_CLIENT_SECRET` or `FRONTEND_URL` missing). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    authRefresh: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Session rotated. */
-            200: {
-                headers: {
-                    /** @description Rotates `access_token` and `refresh_token`. */
-                    "Set-Cookie"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        csrf_token: string;
-                    };
-                };
-            };
-            /** @description Missing, unknown or reused refresh token, or an inactive user. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authLogout: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Always returned, even with no active session. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example successfully logged out */
-                        message: string;
-                    };
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    authVerifyEmail: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Email verified. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example email verified successfully */
-                        message: string;
-                    };
-                };
-            };
-            /** @description Missing token, malformed body, or the token does not resolve. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authResendVerification: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Omitting it, or an unknown address, still answers the same 200 message. */
-                    email?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Always returned. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example if the email exists, a verification link has been sent */
-                        message: string;
-                    };
-                };
-            };
-            /** @description Malformed JSON body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    authForgotPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Omitting it, or an unknown address, still answers the same 200 message. */
-                    email?: string;
-                    turnstile_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Always returned. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example if the email exists, a password reset link has been sent */
-                        message: string;
-                    };
-                };
-            };
-            /** @description Malformed JSON body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    authResetPassword: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                    password: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Password reset. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example password reset successfully */
-                        message: string;
-                    };
-                };
-            };
-            /** @description The token is invalid, expired, or belongs to an inactive user. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authConfirmEmailChange: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Email address updated. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example email address updated */
-                        message: string;
-                    };
-                };
-            };
-            /** @description The token is invalid, expired, or already used. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authGetCurrentUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The authenticated user and the CSRF token bound to this access token. `pending_email` is the address of a not-yet-confirmed email change (see `PUT /auth/me`), or null when there is none. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        csrf_token: string;
-                        pending_email: string | null;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    authUpdateCurrentUser: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description A value different from the current address creates a pending email-change request instead of changing it; see this operation's description. */
-                    email?: string;
-                    first_name?: string;
-                    last_name?: string;
-                    phone?: string;
-                    current_password?: string;
-                    new_password?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The account as it stands right after this request. `pending_email` is the address named by the just-created (or a still-live earlier) email-change request, or null. `email_change` is `none`, `requested`, or `failed` — see this operation's description. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        user: components["schemas"]["User"];
-                        pending_email: string | null;
-                        /** @enum {string} */
-                        email_change: "none" | "requested" | "failed";
-                    };
-                };
-            };
-            /** @description Unauthenticated, or `current_password` did not match. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            409: components["responses"]["EditConflict"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    authDeleteAccount: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Account deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example account deleted */
-                        message: string;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description The account has a complex with active bookings. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsWhatsAppVerifyWebhook: {
-        parameters: {
-            query: {
-                "hub.mode": "subscribe";
-                "hub.verify_token": string;
-                "hub.challenge": string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Echoes `hub.challenge` back verbatim. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/plain": string;
-                };
-            };
-            /** @description Bad mode or wrong verify token. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    bookingsWhatsAppWebhook: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    [key: string]: unknown;
-                };
-            };
-        };
-        responses: {
-            /** @description Accepted (also returned for an unreadable or unparseable body, to stop redelivery). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Invalid signature. Empty body. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    bookingsPublicCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    complex_id: string;
-                    /** Format: uuid */
-                    court_id: string;
-                    /** Format: date */
-                    date: string;
-                    start_time: string;
-                    /** @description Must be one of the permitted slot durations. */
-                    duration_minutes: number;
-                    client_first_name: string;
-                    client_last_name: string;
-                    /**
-                     * @description Normalized to E.164.
-                     * @example +5491112345678
-                     */
-                    client_phone: string;
-                    client_email?: string;
-                    client_notes?: string;
-                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
-                    turnstile_token?: string;
-                    /** @description The slot hold taken with `POST /api/v1/book/holds`. With it the held booking is converted: the hours come from the hold (the request's court, date, start and duration must match it or 409 `conflict`), no Turnstile token is checked, and the checkout expires when the hold does. An unknown, released, already converted or expired hold answers 409 `hold-expired`. Without it the booking is created as before holds existed. */
-                    hold_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Booking created, awaiting payment confirmation. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicBookingResult"];
-                };
-            };
-            /** @description Malformed body, or the complex has no MercadoPago connected. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description MercadoPago checkout preference creation failed. The booking is auto-cancelled. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    bookingsPublicHoldCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    complex_id: string;
-                    /** Format: uuid */
-                    court_id: string;
-                    /** Format: date */
-                    date: string;
-                    start_time: string;
-                    /** @description Must be one of the permitted slot durations. */
-                    duration_minutes: number;
-                    /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the hold through. */
-                    turnstile_token?: string;
-                    /** @description The visitor's previous hold token, released before this hold is taken: one browser holds one slot. */
-                    replaces?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Slot held. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        hold: {
-                            /** @description Opaque secret naming the hold. Only its hash is stored. */
-                            token: string;
-                            /** Format: date-time */
-                            expires_at: string;
-                        };
-                    };
-                };
-            };
-            /** @description Malformed body, or the complex has no MercadoPago connected. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unknown or inactive complex or court, or the court belongs to a different complex. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsPublicHoldRelease: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                token: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Released, or there was nothing to release. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsPublicStatus: {
-        parameters: {
-            query: {
-                /** @description The opaque booking-link token, never the booking's primary key. */
-                token: components["parameters"]["BookingToken"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The booking's current status. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["PublicBookingStatus"];
-                    };
-                };
-            };
-            /** @description Missing token. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            410: components["responses"]["LinkExpired"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsPublicCancelInfo: {
-        parameters: {
-            query: {
-                /** @description The opaque booking-link token, never the booking's primary key. */
-                token: components["parameters"]["BookingToken"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description What cancelling now would do. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicCancelInfo"];
-                };
-            };
-            /** @description Missing token. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            410: components["responses"]["LinkExpired"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsPublicCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Cancelled, with the resulting refund outcome. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: {
-                            status: components["schemas"]["BookingStatus"];
-                            collection_status: components["schemas"]["CollectionStatus"];
-                            refund_status: components["schemas"]["RefundStatus"];
-                        };
-                        refunded: boolean;
-                        refund: components["schemas"]["RefundOutcome"];
-                    };
-                };
-            };
-            /** @description The booking is already cancelled or completed. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            410: components["responses"]["LinkExpired"];
-            /** @description Missing token. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsList: {
-        parameters: {
-            query: {
-                date: string;
-                /** @description Filtered in application code, not a database predicate. */
-                status?: components["schemas"]["BookingStatus"];
-                /** @description Matches client name or phone. Filtered in application code. */
-                search?: string;
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of bookings for the given day. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        bookings: components["schemas"]["Booking"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Missing or malformed `date`, or an invalid cursor. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    court_id: string;
-                    /** Format: date */
-                    date: string;
-                    start_time: string;
-                    duration_minutes: number;
-                    /** @example +5491112345678 */
-                    client_phone: string;
-                    client_email?: string;
-                    client_first_name: string;
-                    client_last_name: string;
-                    /** @enum {string} */
-                    payment_method?: "" | "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    /** @enum {string} */
-                    payment_option?: "" | "unpaid" | "deposit" | "full";
-                    notes?: string;
-                    /** @description Centavos ARS. */
-                    deposit_amount?: number;
-                    /** @description Centavos ARS. Required when no price rule covers the slot. */
-                    price?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description Booking created and confirmed. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description A blocked slot, a blocked client, or a concurrent slot conflict. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingSeriesCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    court_id: string;
-                    /**
-                     * Format: date
-                     * @description The first occurrence; its weekday is the series' weekday. Not in the past.
-                     */
-                    first_date: string;
-                    start_time: string;
-                    duration_minutes: number;
-                    /** @example +5491112345678 */
-                    client_phone: string;
-                    client_email?: string;
-                    client_first_name: string;
-                    client_last_name: string;
-                    notes?: string;
-                    /** @description Centavos ARS, applied to every occurrence. Absent: each is priced on the day its booking is created. */
-                    price?: number;
-                    /**
-                     * Format: date
-                     * @description Last day, inclusive.
-                     */
-                    ends_on?: string | null;
-                    /** @description Alternative to ends_on: the number of weekly occurrences. */
-                    weeks?: number;
-                    /** @description Create the series turning the dates something else holds into exceptions. */
-                    skip_conflicts?: boolean;
-                    /** @description With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions. */
-                    date_courts?: {
-                        /** Format: date */
-                        date: string;
-                        /** Format: uuid */
-                        court_id: string;
-                    }[];
-                };
-            };
-        };
-        responses: {
-            /** @description The series, the booking of its first date when that was already due, and the dates skipped. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        series: components["schemas"]["BookingSeries"];
-                        bookings: components["schemas"]["Booking"][];
-                        skipped: components["schemas"]["BookingSeriesConflict"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Dates of the series are held by something else (`conflicts` lists them), a booking was made on one while the series was being created, or the client is blocked. Nothing was written. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingSeriesGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                seriesID: components["parameters"]["SeriesID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The series and its next dates. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        series: components["schemas"]["BookingSeries"];
-                        upcoming: components["schemas"]["BookingSeriesUpcoming"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingSeriesSkip: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                seriesID: components["parameters"]["SeriesID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * Format: date
-                     * @description Not in the past.
-                     */
-                    date: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The date now recorded as an exception. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        skipped: components["schemas"]["BookingSeriesConflict"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingSeriesEnd: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                seriesID: components["parameters"]["SeriesID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * Format: date
-                     * @description Not in the past.
-                     */
-                    from_date: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The series as it now stands and what became of its bookings. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        series: components["schemas"]["BookingSeries"];
-                        cancelled: components["schemas"]["Booking"][];
-                        kept: components["schemas"]["Booking"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsList: {
-        parameters: {
-            query: {
-                date_from: string;
-                date_to: string;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Events in range, never `null`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        events: components["schemas"]["OpenPlayEvent"][];
-                    };
-                };
-            };
-            /** @description Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    /**
-                     * @default padel
-                     * @enum {string}
-                     */
-                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-                    /**
-                     * Format: date
-                     * @description The day the event starts on. Not in the past, within 365 days.
-                     */
-                    date: string;
-                    start_time: string;
-                    /** @description Between 30 minutes and 12 hours after `start_time`. */
-                    end_time: string;
-                    /** @description Active courts of the complex; absent or empty means all of them. */
-                    court_ids?: string[];
-                    capacity: number;
-                    /** @description Centavos ARS per person, greater than zero. */
-                    price: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The event. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        event: components["schemas"]["OpenPlayEvent"];
-                    };
-                };
-            };
-            /** @description Malformed body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Something already holds the hours on one of the courts. `detail` says what and which court. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                eventID: components["parameters"]["EventID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The event and its participants. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        event: components["schemas"]["OpenPlayEvent"];
-                        participants: components["schemas"]["OpenPlayParticipant"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                eventID: components["parameters"]["EventID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The cancelled event and the refund of each paid participant. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        event: components["schemas"]["OpenPlayEvent"];
-                        refunds: {
-                            /** Format: uuid */
-                            registration_id: string;
-                            refund: components["schemas"]["RefundOutcome"];
-                        }[];
-                    };
-                };
-            };
-            /** @description The event is already cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The booking, its payments, and its client and current payment when resolvable. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                        client?: components["schemas"]["Client"];
-                        payment?: components["schemas"]["Payment"];
-                        payments: components["schemas"]["Payment"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsUpdate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    status?: components["schemas"]["BookingStatus"];
-                    collection_status?: components["schemas"]["CollectionStatus"];
-                    refund_status?: components["schemas"]["RefundStatus"];
-                    notes?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The updated booking. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                    };
-                };
-            };
-            /** @description Malformed body, or an attempt to cancel a paid booking through this endpoint. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Illegal collection or refund status transition, or a concurrent edit. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The booking and the resulting refund outcome. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                        refund: components["schemas"]["RefundOutcome"];
-                    };
-                };
-            };
-            /** @description The booking is already completed or a no-show, both terminal. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsConfirmPayment: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    /** @description Centavos ARS. */
-                    amount: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The booking and the payment row created for it. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                        payment: components["schemas"]["Payment"];
-                    };
-                };
-            };
-            /** @description The booking is cancelled, or already fully paid. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description A blocked slot, or a concurrent edit. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsMarkAttended: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The booking as marked. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The booking's status changed before attendance could be marked. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Field `status`: the booking has not finished yet, or it is pending, cancelled or a no-show. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    bookingsManualRefund: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                bookingID: components["parameters"]["BookingID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The booking, its payments, and how much was returned. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        booking: components["schemas"]["Booking"];
-                        payments: components["schemas"]["Payment"][];
-                        /** @description Centavos ARS. */
-                        returned_amount: number;
-                    };
-                };
-            };
-            /** @description No manual refund is pending on this booking. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The `Idempotency-Key` was already used for a different request, or a request using it is still running. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashSessionsList: {
-        parameters: {
-            query?: {
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of this complex's cash sessions. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_sessions: components["schemas"]["CashSession"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Invalid cursor value. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashSessionsOpen: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — 0 is itself a legitimate opening float — and the handler can tell "not sent" from "sent as zero" and refuse the former. The request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced (pos-cashbox T2 review). */
-                    opening_cash: number | null;
-                    /** @description Stored as the session's opening_note. */
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The opened session. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_session: components["schemas"]["CashSession"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description This complex already has an open cash session. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashSessionsCurrent: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The open session and its live reconciliation summary. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_session: components["schemas"]["CashSession"];
-                        summary: components["schemas"]["CashSessionSummary"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashSessionsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Cash session id. */
-                sessionID: components["parameters"]["SessionID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The session, its summary and its movements. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_session: components["schemas"]["CashSession"];
-                        summary: components["schemas"]["CashSessionSummary"];
-                        movements: components["schemas"]["CashMovement"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashSessionsClose: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Cash session id. */
-                sessionID: components["parameters"]["SessionID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Centavos ARS, physically counted. Nullable for the same reason CashSessionsOpen's opening_cash is: 0 is a legitimate count (an empty drawer), so a missing field has to decode to nil, not a valid-looking 0, for the handler to tell the two apart and refuse the former. */
-                    counted_cash: number | null;
-                    /** @description Stored as the session's closing_note. Never touches opening_note. */
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The closed session. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_session: components["schemas"]["CashSession"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description This session is not open (already closed, or closed by a concurrent request). */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashMovementsCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Cash session id. */
-                sessionID: components["parameters"]["SessionID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    kind: "income" | "expense";
-                    /**
-                     * @description The first 7 values for income; the rest for expense.
-                     * @enum {string}
-                     */
-                    category: "other_income" | "classes" | "tournaments" | "events" | "memberships" | "sponsorship" | "cash_contribution" | "supplies" | "salaries" | "services" | "maintenance" | "cleaning" | "withdrawal" | "other_expense" | "rent" | "taxes" | "professional_fees" | "marketing" | "bank_fees";
-                    /** @enum {string} */
-                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    /** @description Centavos ARS. */
-                    amount: number;
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The recorded movement. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_movement: components["schemas"]["CashMovement"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description This session is not open. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    cashMovementsVoid: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Cash session id. */
-                sessionID: components["parameters"]["SessionID"];
-                /** @description Cash movement id. */
-                movementID: components["parameters"]["MovementID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The void movement. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cash_movement: components["schemas"]["CashMovement"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description No session is open, the original is already voided, or the original is itself a void. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    clientsList: {
-        parameters: {
-            query?: {
-                /** @description Matched against client name and phone. */
-                search?: string;
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of clients. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        clients: components["schemas"]["Client"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Invalid cursor value. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    clientsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                clientID: components["parameters"]["ClientID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The client and up to 20 recent bookings. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        client: components["schemas"]["Client"];
-                        recent_bookings: components["schemas"]["Booking"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    clientsUpdate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                clientID: components["parameters"]["ClientID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    notes?: string;
-                    is_blocked?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description The updated client. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        client: components["schemas"]["Client"];
-                    };
-                };
-            };
-            /** @description Malformed body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["EditConflict"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesGetPublic: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The complex, its active courts and their prices, and its schedule. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complex: components["schemas"]["PublicComplex"];
-                        courts: components["schemas"]["CourtWithPrices"][];
-                        schedules: components["schemas"]["Schedule"][];
-                    };
-                };
-            };
-            /** @description Unknown slug, or the complex is inactive. A slug that a deleted complex held and no live complex holds answers `410` instead. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The complex was deleted and no live complex holds its slug. The body names the deleted complex's name and city and the key of its city hub, and nothing else of it. */
-            410: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicComplexGone"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesSlugAvailable: {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Always `200`, even for an empty or malformed slug (answered as unavailable and invalid rather than as an error). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["SlugAvailability"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The caller's complex, as a single-item array, or an empty array if the account owns none. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complexes: components["schemas"]["Complex"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    slug: string;
-                    address: string;
-                    city: string;
-                    province: string;
-                    phone: string;
-                    email?: string;
-                    /** @description A handle, an @handle or a profile link; stored as the bare handle. Blank or omitted means none. */
-                    instagram?: string;
-                    /**
-                     * @description Defaults to 0 (no deposit required) when omitted.
-                     * @default 0
-                     */
-                    deposit_percentage?: number;
-                    cancellation_hours: number;
-                    /** Format: double */
-                    latitude?: number;
-                    /** Format: double */
-                    longitude?: number;
-                    /** @description What the venue offers, from a closed vocabulary. Omitted or `[]` both mean none. */
-                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording" | "birthdays" | "grill" | "quincho" | "medical_aid" | "sports_school" | "kiosk" | "kids_area")[];
-                };
-            };
-        };
-        responses: {
-            /** @description The created complex. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complex: components["schemas"]["Complex"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description The account already owns a complex. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The full, owner-facing complex, including MercadoPago fields. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complex: components["schemas"]["Complex"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesUpdate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
-                "If-Match"?: components["parameters"]["IfMatchVersion"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
-                    version?: number;
-                    name?: string;
-                    slug?: string;
-                    address?: string;
-                    city?: string;
-                    province?: string;
-                    phone?: string;
-                    email?: string;
-                    logo_url?: string;
-                    cover_url?: string;
-                    /** @description Plain text shown on the public page. Surrounding spaces are trimmed; a blank value clears it. */
-                    description?: string;
-                    /** @description A handle, an @handle or a profile link; stored as the bare handle. A blank value clears it. */
-                    instagram?: string;
-                    deposit_percentage?: number;
-                    cancellation_hours?: number;
-                    is_active?: boolean;
-                    /** Format: double */
-                    latitude?: number;
-                    /** Format: double */
-                    longitude?: number;
-                    amenities?: ("parking" | "changing_rooms" | "showers" | "bar" | "racket_rental" | "pro_shop" | "wifi" | "lockers" | "lessons" | "tournaments" | "accessible" | "match_recording" | "birthdays" | "grill" | "quincho" | "medical_aid" | "sports_school" | "kiosk" | "kids_area")[];
-                };
-            };
-        };
-        responses: {
-            /** @description The updated complex. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        complex: components["schemas"]["Complex"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["EditConflict"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesDelete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example complex deleted */
-                        message: string;
-                        courts_deactivated: number;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The complex has active bookings. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesUpdateSchedules: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    schedules: {
-                        day: components["schemas"]["Weekday"];
-                        open_time?: string;
-                        close_time?: string;
-                        /**
-                         * @description Omitting it means open, same as sending false.
-                         * @default false
-                         */
-                        is_closed?: boolean;
-                    }[];
-                };
-            };
-        };
-        responses: {
-            /** @description The updated schedule. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        schedules: components["schemas"]["Schedule"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesPresignUpload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    type: "logo" | "cover";
-                    /** @enum {string} */
-                    content_type: "image/jpeg" | "image/png" | "image/webp";
-                    /** @description Bytes, capped at 5 MiB. */
-                    file_size: number;
-                };
-            };
-        };
-        responses: {
-            /** @description A 10 minute presigned PUT URL. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** Format: uri */
-                        upload_url: string;
-                        /** Format: uri */
-                        public_url: string;
-                        key: string;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description No object storage backend is configured. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    complexesDeleteUpload: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uri */
-                    url: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example deleted */
-                        message: string;
-                    };
-                };
-            };
-            /** @description The URL does not belong to this storage. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The key exists but does not fall under this complex's own storage prefix (reported as 404, not 403, so this cannot be used to probe another tenant's storage keys). */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description No object storage backend is configured. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    complexesConnectMercadoPago: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    code: string;
-                    /** Format: uri */
-                    redirect_uri: string;
-                    /** @description The PKCE verifier, sent by clients that kept it in the browser. When present it is used as is, and a `state` sent alongside it is only spent. */
-                    code_verifier?: string;
-                    /** @description The OAuth `state` of an attempt registered through `POST /api/v1/complexes/{id}/mp/oauth-attempts`. Without `code_verifier`, the attempt is spent before the exchange and its verifier is used; an unknown, expired, already spent attempt, or one registered by another owner or for another complex, is a 422 on `state` and nothing is exchanged. When MercadoPago cannot be reached, a spent attempt is kept so the same callback can be retried. */
-                    state?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Connected. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example true */
-                        connected: boolean;
-                        mp_user_id: string;
-                    };
-                };
-            };
-            /** @description MercadoPago refused the authorization code (expired, already used, or a mismatched redirect_uri or PKCE verifier). The owner starts the connection again. The detail is a fixed sentence; nothing MercadoPago said is included. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The code authorizes a different MercadoPago account than the one connected, and the complex has active bookings that were taken under the connected one. Re-authorizing the same account is not refused. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description MercadoPago could not be reached, failed, or refused this server's own credentials. Nothing was stored; trying again later is the only useful response. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    complexesDisconnectMercadoPago: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Disconnected. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example false */
-                        connected: boolean;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The complex has upcoming bookings that may still need MercadoPago. Storefront bookings still waiting for their payment do not count: they are cancelled, and their checkout links closed, before the credentials are cleared. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description A storefront booking waiting for its payment could not be released because its MercadoPago checkout link could not be closed. Nothing was disconnected; try again. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    complexesRegisterMercadoPagoOAuthAttempt: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    state: string;
-                    /** @description RFC 7636 code verifier (unreserved characters only). */
-                    code_verifier: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Registered. Empty body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The body is not valid JSON or carries an unknown field. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    complexesMercadoPagoStatus: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Connection status. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        connected: boolean;
-                        /** @description Present only when MP_APP_ID is configured. */
-                        app_id?: string;
-                        /** @description Present only when connected and set. */
-                        mp_user_id?: string;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    waitlistJoin: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * Format: date
-                     * @description The day to wait for, as `YYYY-MM-DD`. From today up to 365 days ahead.
-                     */
-                    date: string;
-                    /** @description Trimmed and lowercased before it is stored. */
-                    email: string;
-                };
-            };
-        };
-        responses: {
-            /** @description On the waitlist for that day. Empty body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Malformed JSON body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unknown slug, or the complex is inactive. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    tournamentsList: {
-        parameters: {
-            query: {
-                date_from: string;
-                date_to: string;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tournaments in range, never `null`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        tournaments: components["schemas"]["TournamentOwnerSummary"][];
-                    };
-                };
-            };
-            /** @description Missing or malformed dates, or a range over 366 days. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    /**
-                     * @default padel
-                     * @enum {string}
-                     */
-                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-                    /** Format: date */
-                    start_date: string;
-                    /**
-                     * Format: date
-                     * @description On or after start_date, at most 60 days later.
-                     */
-                    end_date: string;
-                    categories: {
-                        name: string;
-                        /** @enum {string} */
-                        format: "elimination" | "groups";
-                        /** @description Pairs. */
-                        capacity: number;
-                        /** @description Centavos per pair. */
-                        price: number;
-                        group_size?: number;
-                        qualifiers_per_group?: number;
-                        /**
-                         * @description 1 plays a single set, 2 is best of three.
-                         * @default 2
-                         * @enum {integer}
-                         */
-                        sets_to_win?: 1 | 2;
-                        /** @default 6 */
-                        games_per_set?: number;
-                        /**
-                         * @description The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.
-                         * @default true
-                         */
-                        super_tiebreak_decider?: boolean;
-                        /**
-                         * @description Court time given to a match scheduled without a duration.
-                         * @default 90
-                         */
-                        match_duration_minutes?: number;
-                        /**
-                         * @description Centavos each pair pays per match, charged at the complex on match day (not online); 0 is no fee. Changed later with `tournamentsCategoryCourtFee`.
-                         * @default 0
-                         */
-                        court_fee?: number;
-                    }[];
-                };
-            };
-        };
-        responses: {
-            /** @description The created tournament. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description Malformed body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The tournament. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The cancelled tournament and the refund of each paid pair. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        tournament: components["schemas"]["Tournament"];
-                        refunds: components["schemas"]["TournamentRefunds"];
-                    };
-                };
-            };
-            /** @description The tournament is already cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsCategoryCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                categoryID: components["parameters"]["CategoryID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The refund of each paid pair. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        refunds: components["schemas"]["TournamentRefunds"];
-                    };
-                };
-            };
-            /** @description The category is already cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsDrawGenerate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                categoryID: components["parameters"]["CategoryID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    seed_order?: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description The tournament with the new draw. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description Fewer than two paid pairs, or the tournament or category is cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description A result was already loaded. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsDrawMove: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                categoryID: components["parameters"]["CategoryID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    pair_id: string;
-                    /** Format: uuid */
-                    with_pair_id: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The tournament with the changed draw. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description The draw does not exist yet, or the tournament or category is cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description A result was already loaded. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsMatchSchedule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                matchID: components["parameters"]["MatchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: uuid */
-                    court_id: string;
-                    /** Format: date */
-                    date: string;
-                    start_time: string;
-                    /** @description Omit to use the category's match_duration_minutes. */
-                    duration_minutes?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The scheduled match. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        match: components["schemas"]["TournamentMatch"];
-                    };
-                };
-            };
-            /** @description The match is a bye, or the tournament or category is cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description Something already holds those hours on the court. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsMatchUnschedule: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                matchID: components["parameters"]["MatchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The unscheduled match. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        match: components["schemas"]["TournamentMatch"];
-                    };
-                };
-            };
-            /** @description The tournament or category is cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsMatchResult: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                matchID: components["parameters"]["MatchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    sets?: components["schemas"]["TournamentSet"][];
-                    /** @enum {integer} */
-                    winner?: 1 | 2;
-                    /** @enum {integer} */
-                    walkover_loser?: 1 | 2;
-                };
-            };
-        };
-        responses: {
-            /** @description The tournament after the result. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description The match is not ready (a pair is missing) or is a bye, or the tournament or category is cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The next match already has a result, so this one can no longer change. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsCategoryCourtFee: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                categoryID: components["parameters"]["CategoryID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Centavos per pair per match; 0 is none. */
-                    court_fee: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The tournament with the new fee. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description Malformed body, or the tournament or category was cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsMatchCourtFeeCharge: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                matchID: components["parameters"]["MatchID"];
-                /** @description 1 is the match's pair1, 2 its pair2. */
-                side: components["parameters"]["CourtFeeSide"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @enum {string} */
-                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                };
-            };
-        };
-        responses: {
-            /** @description The tournament with the charge recorded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            /** @description No court fee, a bye or walkover, a pair not known yet, or the tournament or category was cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The pair was already charged for the match, or no cash session is open. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsMatchCourtFeeUndo: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                tournamentID: components["parameters"]["TournamentID"];
-                matchID: components["parameters"]["MatchID"];
-                /** @description 1 is the match's pair1, 2 its pair2. */
-                side: components["parameters"]["CourtFeeSide"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The tournament without the charge. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["TournamentDetail"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description No charge stands for the pair, or no cash session is open. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsPublicList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Tournaments, never `null`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        tournaments: components["schemas"]["TournamentSummary"][];
-                    };
-                };
-            };
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsPublicGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-                tournamentID: components["parameters"]["TournamentID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The tournament. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicTournamentDetail"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsPublicSignUp: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-                tournamentID: components["parameters"]["TournamentID"];
-                categoryID: components["parameters"]["CategoryID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    first_name: string;
-                    last_name: string;
-                    /**
-                     * @description Normalized to E.164.
-                     * @example +5491112345678
-                     */
-                    phone: string;
-                    /** @description Optional. */
-                    email?: string;
-                    partner: {
-                        first_name: string;
-                        last_name: string;
-                        /** @description Must differ from the payer's. */
-                        phone: string;
-                        /** @description Optional. */
-                        email?: string;
-                    };
-                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
-                    turnstile_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The pair's spot is held; pay at `mp_init_point`. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPairSignUp"];
-                };
-            };
-            /** @description Malformed body, or the complex has no MercadoPago connected. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The complex blocked the payer's phone. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            /** @description Problem kind `event-full`, `event-closed` or `already-registered`. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description MercadoPago would not create the checkout. The held spot was released. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    tournamentsPublicRegistrationStatus: {
-        parameters: {
-            query: {
-                /** @description The opaque booking-link token, never the booking's primary key. */
-                token: components["parameters"]["BookingToken"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The pair's spot. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicPairRegistration"];
-                };
-            };
-            /** @description Missing token. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    tournamentsPublicRegistrationCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Cancelled, with the resulting refund outcome. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        registration: components["schemas"]["PublicPairRegistration"];
-                        refunded: boolean;
-                        refund: components["schemas"]["RefundOutcome"];
-                    };
-                };
-            };
-            /** @description The spot is already cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsPublicList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Upcoming events, never `null`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        events: components["schemas"]["PublicOpenPlayEvent"][];
-                    };
-                };
-            };
-            /** @description Unknown slug, or the complex is inactive. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsPublicGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-                eventID: components["parameters"]["EventID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The event. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        event: components["schemas"]["PublicOpenPlayEvent"];
-                    };
-                };
-            };
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsPublicSignUp: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-                eventID: components["parameters"]["EventID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    first_name: string;
-                    last_name: string;
-                    /**
-                     * @description Normalized to E.164.
-                     * @example +5491112345678
-                     */
-                    phone: string;
-                    /** @description Optional. */
-                    email?: string;
-                    /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
-                    turnstile_token?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The spot is held; pay at `mp_init_point`. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicEventSignUp"];
-                };
-            };
-            /** @description Malformed body, or the complex has no MercadoPago connected. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The complex blocked this phone. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            /** @description Problem kind `event-full`, `event-closed` or `already-registered`: the event is full, sign-up is closed, or this phone already holds a spot. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description MercadoPago would not create the checkout. The held spot was released. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    eventsPublicRegistrationStatus: {
-        parameters: {
-            query: {
-                /** @description The opaque booking-link token, never the booking's primary key. */
-                token: components["parameters"]["BookingToken"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The spot. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicEventRegistration"];
-                };
-            };
-            /** @description Missing token. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    eventsPublicRegistrationCancel: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    token: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Cancelled, with the resulting refund outcome. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        registration: components["schemas"]["PublicEventRegistration"];
-                        refunded: boolean;
-                        refund: components["schemas"]["RefundOutcome"];
-                    };
-                };
-            };
-            /** @description The spot is already cancelled. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            404: components["responses"]["NotFound"];
-            /** @description Missing token. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsPublicNextAvailable: {
-        parameters: {
-            query: {
-                /** @description The day to search after, as `YYYY-MM-DD`. A day in the past starts the search today. */
-                from: string;
-                /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
-                duration?: number;
-            };
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The next day with a free slot, or `null` when there is none in the window. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** Format: date */
-                        date: string | null;
-                    };
-                };
-            };
-            /** @description Missing or malformed `from`. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unknown slug, or the complex is inactive. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-        };
-    };
-    courtsPublicAvailability: {
-        parameters: {
-            query: {
-                date: string;
-                /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
-                duration?: number;
-            };
-            header?: never;
-            path: {
-                slug: components["parameters"]["PathSlug"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The day's availability grid. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        availability: components["schemas"]["Availability"];
-                    };
-                };
-            };
-            /** @description Missing `date`. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Unknown slug, or the complex is inactive. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsList: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Every court, with its price bands. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        courts: components["schemas"]["CourtWithPrices"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsCreate: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    /** @enum {string} */
-                    sport: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-                    /** @enum {string} */
-                    court_type: "indoor" | "outdoor" | "semi_covered";
-                    description?: string;
-                    /** @description Defaults to false when omitted. */
-                    has_lighting?: boolean;
-                    /**
-                     * @description Optional. Must be allowed for the court's sport.
-                     * @enum {string}
-                     */
-                    surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber";
-                };
-            };
-        };
-        responses: {
-            /** @description The created court. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        court: components["schemas"]["Court"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsUpdate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
-                "If-Match"?: components["parameters"]["IfMatchVersion"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                courtID: components["parameters"]["CourtID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
-                    version?: number;
-                    name?: string;
-                    /** @enum {string} */
-                    sport?: "padel" | "tennis" | "soccer" | "basketball" | "volleyball" | "hockey" | "pickleball";
-                    /** @enum {string} */
-                    court_type?: "indoor" | "outdoor" | "semi_covered";
-                    description?: string;
-                    is_active?: boolean;
-                    has_lighting?: boolean;
-                    /**
-                     * @description Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
-                     * @enum {string}
-                     */
-                    surface?: "synthetic_grass" | "natural_grass" | "clay" | "concrete" | "parquet" | "synthetic_floor" | "sand" | "rubber" | "";
-                };
-            };
-        };
-        responses: {
-            /** @description The updated court. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        court: components["schemas"]["Court"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["EditConflict"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsDelete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                courtID: components["parameters"]["CourtID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example court deleted */
-                        message: string;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The court has active bookings. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsUpdatePrices: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
-                "If-Match"?: components["parameters"]["IfMatchVersion"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                courtID: components["parameters"]["CourtID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
-                    version?: number;
-                    prices: {
-                        /** @description Centavos ARS per hour. */
-                        price: number;
-                        day_type: components["schemas"]["Weekday"];
-                        time_from: string;
-                        time_to: string;
-                    }[];
-                };
-            };
-        };
-        responses: {
-            /** @description The updated price bands. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        prices: components["schemas"]["CourtPrice"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["EditConflict"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsBlockSlot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                courtID: components["parameters"]["CourtID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** Format: date */
-                    date: string;
-                    start_time: string;
-                    end_time: string;
-                    reason?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The created blocked slot. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        blocked_slot: components["schemas"]["BlockedSlot"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The range overlaps an existing booking, or is already blocked. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsListBlockedSlots: {
-        parameters: {
-            query: {
-                date_from: string;
-                date_to: string;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Blocked slots in range, never `null`. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        blocked_slots: components["schemas"]["BlockedSlot"][];
-                        /** @description The dates fixed weekly bookings hold in the range that have no booking yet. They block like a blocked slot but are not one: they cannot be deleted from here and are cancelled through the series (`bookingSeriesSkip`, `bookingSeriesEnd`). Not paginated. */
-                        fixed_blocks: components["schemas"]["FixedBlock"][];
-                        /** @description The hours active open-play events hold in the range, one entry per event and court. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by cancelling the event (`eventsCancel`). Not paginated. */
-                        event_blocks: components["schemas"]["EventBlock"][];
-                        /** @description The hours scheduled tournament matches hold in the range, one entry per match. They block like a blocked slot but are not one: they cannot be deleted from here and are freed by unscheduling the match (`tournamentsMatchUnschedule`) or cancelling the tournament or category. Not paginated. */
-                        match_blocks: components["schemas"]["MatchBlock"][];
-                    };
-                };
-            };
-            /** @description Missing or malformed dates, `date_to` before `date_from`, or a range over 366 days. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    courtsDeleteBlockedSlot: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                slotID: string;
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /** @example blocked slot deleted */
-                        message: string;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    livenessCheck: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The process is alive. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    healthCheck: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Available, possibly degraded. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            /** @description The database is unreachable. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HealthStatus"];
-                };
-            };
-        };
-    };
-    leadsCaptureAbandonedRegistration: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    email: string;
-                    /**
-                     * @description Which form was abandoned; it decides the row's origin in the spreadsheet.
-                     * @default register
-                     * @enum {string}
-                     */
-                    source?: "register" | "google";
-                    /** @description As far as the person got; forwarded as typed. */
-                    first_name?: string;
-                    /** @description As far as the person got; forwarded as typed. */
-                    last_name?: string;
-                    /** @description As far as the person got; not validated as a phone number. */
-                    phone?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description Accepted, empty body. */
-            202: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Malformed JSON body. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    emailUnsubscribe: {
-        parameters: {
-            query?: {
-                /** @description The signed token from the link in the email. */
-                token?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description The signed token, when it is not in the query string. */
-                    token?: string;
-                };
-                "application/x-www-form-urlencoded": {
-                    /**
-                     * @description The body a mail client sends for a one-click unsubscribe (RFC 8058).
-                     * @enum {string}
-                     */
-                    "List-Unsubscribe"?: "One-Click";
-                };
-            };
-        };
-        responses: {
-            /** @description The address is suppressed from lifecycle email. Empty body. */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No token, or a token this server did not mint. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    paymentsMercadoPagoWebhook: {
-        parameters: {
-            query?: {
-                /** @description MercadoPago's own signature covers this parameter, preferred over the body field when present. */
-                "data.id"?: string;
-            };
-            header: {
-                "x-signature": string;
-                "x-request-id": string;
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    type: string;
-                    action: string;
-                    data: {
-                        /** @description Arrives as either a JSON string or a JSON number. */
-                        id?: unknown;
-                    };
-                };
-            };
-        };
-        responses: {
-            /** @description Recorded, or dropped after signature or size rejection. Always empty body. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Recording the event failed. MercadoPago will redeliver. */
-            500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description Recording the event failed. MercadoPago will redeliver. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    placesAutocomplete: {
-        parameters: {
-            query: {
-                input: string;
-                session_token?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Google's Autocomplete predictions, passed through unchanged. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        predictions: {
-                            [key: string]: unknown;
-                        }[];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description Upstream reported the input could not be resolved. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Either this API's own rate limit, or Google Places' quota exhausted (the platform's own quota, surfaced as 429 because backing off is the only useful response either way). */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The upstream call failed for any other reason (a 5xx, a bad key, an unreadable body). Reported as a gateway failure rather than naming Google. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    placesDetails: {
-        parameters: {
-            query: {
-                place_id: string;
-                session_token?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The resolved address. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PlaceDetails"];
-                };
-            };
-            /** @description Missing `place_id`. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            /** @description Unknown `place_id`. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description This API's own rate limit, or Google Places' quota exhausted. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The upstream call failed for any other reason. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    productsList: {
-        parameters: {
-            query?: {
-                /** @description Restrict the list to active or inactive products. Omit to return both. */
-                active?: components["parameters"]["ActiveFilter"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Every matching product. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        products: components["schemas"]["Product"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    name: string;
-                    category?: string;
-                    /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — the request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced. */
-                    price: number | null;
-                    /** @default true */
-                    tracks_stock?: boolean;
-                    low_stock_threshold?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The created product. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        product: components["schemas"]["Product"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                productID: components["parameters"]["ProductID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The product. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        product: components["schemas"]["Product"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsUpdate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
-                "If-Match"?: components["parameters"]["IfMatchVersion"];
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                productID: components["parameters"]["ProductID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
-                    version?: number;
-                    name?: string;
-                    category?: string;
-                    price?: number;
-                    low_stock_threshold?: number;
-                    active?: boolean;
-                    tracks_stock?: boolean;
-                };
-            };
-        };
-        responses: {
-            /** @description The updated product. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        product: components["schemas"]["Product"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            409: components["responses"]["EditConflict"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsRestock: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                productID: components["parameters"]["ProductID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
-                    quantity: number | null;
-                    /** @description Centavos ARS. A free restock is an adjustment, not a restock, so this is at least 1. Nullable for the same reason quantity is. */
-                    total_cost: number | null;
-                    /** @enum {string} */
-                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The updated product and the recorded stock movement. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        product: components["schemas"]["Product"];
-                        stock_movement: components["schemas"]["StockMovement"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description No cash session is open, the product is not active, or the product does not track stock. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsAdjust: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                productID: components["parameters"]["ProductID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Signed, non-zero: negative removes stock, positive adds it. Nullable for the same missing-vs-zero reason productsCreate's price is (zero itself is refused by the handler as not a real adjustment, so nullability only protects the already-invalid value 0 from being confused with "not sent"). */
-                    quantity: number | null;
-                    /** @enum {string} */
-                    reason: "breakage" | "expired" | "own_consumption" | "count_correction" | "other";
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The updated product and the recorded stock movement. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        product: components["schemas"]["Product"];
-                        stock_movement: components["schemas"]["StockMovement"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The product does not track stock. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    productsListStockMovements: {
-        parameters: {
-            query?: {
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                productID: components["parameters"]["ProductID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of this product's stock movements. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        stock_movements: components["schemas"]["StockMovement"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Invalid cursor value. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    salesBookingsDue: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The day's bookings that owe money. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        /**
-                         * Format: date
-                         * @description Today in Argentina.
-                         */
-                        date: string;
-                        bookings: components["schemas"]["BalanceDue"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    salesList: {
-        parameters: {
-            query?: {
-                /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
-                session_id?: components["parameters"]["SaleSessionIDFilter"];
-                /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
-                cursor?: components["parameters"]["Cursor"];
-                /** @description Page size. Default 50, maximum 200. */
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A page of this complex's sales, each with its items. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        sales: components["schemas"]["Sale"][];
-                        metadata: components["schemas"]["Metadata"];
-                    };
-                };
-            };
-            /** @description Invalid cursor value. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    salesCreate: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /** @description Product lines. May be empty when booking_payments is not. */
-                    items: {
-                        /** Format: uuid */
-                        product_id: string;
-                        /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
-                        quantity: number | null;
-                    }[];
-                    /** @description Booking balances collected now. Each must equal that booking's remaining balance. */
-                    booking_payments?: {
-                        /** Format: uuid */
-                        booking_id: string;
-                        /** @description Centavos ARS. Nullable so a missing amount is a 422, not a zero. */
-                        amount: number | null;
-                    }[];
-                    /** @enum {string} */
-                    method: "cash" | "transfer" | "debit_card" | "credit_card" | "qr_wallet";
-                    /** @description Appended to the sale income movement's own note. Not recorded when the checkout has no sale. */
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The recorded checkout. `sale` is null when it had no product lines. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        sale: components["schemas"]["Sale"] | null;
-                        stock_warnings: components["schemas"]["SaleStockWarning"][];
-                        /** @description One entry per booking balance collected in this checkout, in request order. */
-                        booking_payments: components["schemas"]["SaleBookingPayment"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description No cash session is open; a booking balance changed since the cart was loaded (amount differs from the remaining balance); a booking is already fully paid; or a booking cannot take a payment (cancelled, no-show, or a pending booking past its payment window). Nothing is recorded. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    salesGet: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Sale id. */
-                saleID: components["parameters"]["SaleID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The sale and its items. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        sale: components["schemas"]["Sale"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    salesVoid: {
-        parameters: {
-            query?: never;
-            header?: {
-                /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
-                "Idempotency-Key"?: components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                /** @description Sale id. */
-                saleID: components["parameters"]["SaleID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    note?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The voided sale. */
-            201: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        sale: components["schemas"]["Sale"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description No cash session is open; this sale has already been voided; or the sale includes booking payments, which cannot be reverted from the sell page (a booking payment has no reversal yet). Nothing is changed. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    publicsiteSitemap: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description XML sitemap. */
-            200: {
-                headers: {
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/xml": string;
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    publicsiteSitemapMoved: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Moved permanently to `/api/v1/sitemap.xml`. */
-            301: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    publicsiteHubs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Every city hub with a switched-on complex. An empty list when there is none. */
-            200: {
-                headers: {
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicHubList"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description The complexes could not be read. Retry after the Retry-After delay. */
-            503: {
-                headers: {
-                    "Retry-After"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    publicsiteCityHubData: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                city: components["parameters"]["PathCity"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One city's hub and its switched-on complexes. Empty when the city once had a complex and none is switched on now. */
-            200: {
-                headers: {
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["PublicCityHub"];
-                };
-            };
-            /** @description No complex was ever recorded in the city. */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description The complexes could not be read. Retry after the Retry-After delay. */
-            503: {
-                headers: {
-                    "Retry-After"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    realtimeStream: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description An open `text/event-stream` connection. See the description for the frame protocol and the event catalogue (`connected`, `booking_changed`, `expired`, `unauthorized`). */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/event-stream": string;
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The per-complex or global subscriber cap was reached. The connection was never upgraded. */
-            429: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingGetDashboardStats: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Today's, yesterday's and this month's figures. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        stats: components["schemas"]["DashboardStats"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingGetRevenueChart: {
-        parameters: {
-            query?: {
-                period?: "week" | "month";
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description One point per day. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        revenue: components["schemas"]["RevenueDataPoint"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            422: components["responses"]["ValidationError"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingGetOccupancyChart: {
-        parameters: {
-            query?: {
-                weeks?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Occupancy percentage per day-of-week/hour cell. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        occupancy: components["schemas"]["OccupancyPoint"][];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingGetClientInsights: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Retention and frequency figures. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        clients: components["schemas"]["ClientInsights"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingGetMonthlyReport: {
-        parameters: {
-            query?: {
-                month?: number;
-                year?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The monthly report. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        report: components["schemas"]["MonthlyReport"];
-                    };
-                };
-            };
-            /** @description `month_out_of_range`, `report_period_in_future` or `report_period_before_complex_existed`, as the bare `error` string. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    reportingExportPaymentsExcel: {
-        parameters: {
-            query?: {
-                month?: number;
-                year?: number;
-            };
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description A two-sheet Excel workbook (payment detail plus a summary sheet). */
-            200: {
-                headers: {
-                    "Content-Disposition"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": string;
-                };
-            };
-            /** @description Period validation failed, same machine-code shape as the monthly report. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The report exceeds the 50,000 row export cap (`report_export_too_large`). */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description The export did not finish inside its budget (`report_export_timed_out`). */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    reportingCreatePaymentsExport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: {
-            content: {
-                "application/json": {
-                    month?: number;
-                    year?: number;
-                };
-            };
-        };
-        responses: {
-            /** @description The export was accepted, or an identical one was already queued. */
-            202: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        export: {
-                            /** Format: uuid */
-                            id: string;
-                            /** @enum {string} */
-                            status: "pending" | "running" | "done" | "failed";
-                            status_url: string;
-                        };
-                    };
-                };
-            };
-            /** @description Period validation failed, same machine-code shape as the monthly report. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description No object storage backend is configured for exports. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    reportingGetPaymentsExport: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Complex id. */
-                id: components["parameters"]["PathID"];
-                exportID: components["parameters"]["ExportID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The export's current state. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        export: components["schemas"]["PaymentsExport"];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            404: components["responses"]["NotFound"];
-            /** @description The file has passed its 24 hour retention (`export_expired`). */
-            410: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description No object storage backend is configured for exports. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    openapiGetJSON: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The OpenAPI document. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    openapiGetYAML: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The OpenAPI document. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/yaml": string;
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    openapiGetDocs: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The documentation page. */
-            200: {
-                headers: {
-                    "X-Robots-Tag"?: string;
-                    "Cache-Control"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    openapiGetCatalog: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The API catalog, as a linkset. */
-            200: {
-                headers: {
-                    "Access-Control-Allow-Origin"?: string;
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/linkset+json": Record<string, never>;
-                };
-            };
-            429: components["responses"]["RateLimited"];
-        };
-    };
-    socialPutPost: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Post id, which is the post's folder name in the content repository. */
-                id: components["parameters"]["SocialPostID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    /**
-                     * Format: date-time
-                     * @description RFC 3339 time with an offset.
-                     */
-                    publish_at: string;
-                    networks: ("instagram" | "facebook" | "threads")[];
-                    /**
-                     * @description Text posts go to threads alone and list no media. Stories go to instagram or facebook, list exactly one file and have no required caption.
-                     * @enum {string}
-                     */
-                    type: "image" | "carousel" | "reel" | "story" | "text";
-                    /** @description Required except for a story, which has no caption. */
-                    caption?: string;
-                    /** @description Single-image posts only. */
-                    alt_text?: string;
-                    /** @description Carousel images or videos, 2 to 10 files. A story lists 1 to 6 files, published in this order a minute apart. */
-                    media?: string[];
-                    draft?: boolean;
-                    /** @description Story only: the feed post id the story sequence waits for on each network. */
-                    after?: string;
-                    /** @description JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover. */
-                    cover?: string;
-                    /** @description Text for Threads. Defaults to the caption, which must then fit in 500 characters. */
-                    threads_text?: string;
-                    /** @description Threads topic tag, without periods or ampersands. */
-                    threads_topic?: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The post is stored. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        id: string;
-                        /** @enum {string} */
-                        status: "scheduled" | "publishing" | "published" | "partial" | "failed" | "cancelled";
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The post is already published or being published, so its content is frozen. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The post is invalid, or a file it names has not been uploaded. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
-    socialPutMedia: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                /** @description Post id, which is the post's folder name in the content repository. */
-                id: components["parameters"]["SocialPostID"];
-                /** @description File name of the media inside the post folder. */
-                name: components["parameters"]["SocialMediaName"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "image/jpeg": string;
-                "video/mp4": string;
-            };
-        };
-        responses: {
-            /** @description The file is stored and staged. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        name: string;
-                        url: string;
-                        sha256: string;
-                        content_type: string;
-                        size_bytes: number;
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The post is already published or being published, so its media is frozen. */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The file is larger than its format allows. */
-            413: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The content type or the bytes do not match the file name. */
-            415: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description The file name is not allowed, or the file is empty. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-            /** @description Media storage is not configured on this deployment. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            /** @description Media storage has no public URL to hand to the platforms. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-        };
-    };
-    socialThreadsConnect: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Redirect to Meta's consent page. */
-            302: {
-                headers: {
-                    Location?: string;
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description No valid session. */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description The caller is not a superadmin. */
-            403: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
-            503: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    socialThreadsCallback: {
-        parameters: {
-            query?: {
-                code?: string;
-                state?: string;
-                error?: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description The account is connected. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description Meta refused, or the state does not match this browser. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-            /** @description The exchange with Meta failed. Nothing was stored. */
-            502: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "text/html": string;
-                };
-            };
-        };
-    };
-    socialThreadsUninstall: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": {
-                    signed_request: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The callback was verified and handled. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": Record<string, never>;
-                };
-            };
-            /** @description The signed_request is missing, malformed, or not signed by this app. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    socialThreadsDelete: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/x-www-form-urlencoded": {
-                    signed_request: string;
-                };
-            };
-        };
-        responses: {
-            /** @description The request was verified; the confirmation code identifies it. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        url: string;
-                        confirmation_code: string;
-                    };
-                };
-            };
-            /** @description The signed_request is missing, malformed, or not signed by this app. */
-            400: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-            /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    socialReconcile: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": {
-                    ids: string[];
-                };
-            };
-        };
-        responses: {
-            /** @description The posts that were cancelled. */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": {
-                        cancelled: string[];
-                    };
-                };
-            };
-            401: components["responses"]["Unauthorized"];
-            403: components["responses"]["Forbidden"];
-            /** @description The id list is missing or holds an invalid id. */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Problem"];
-                };
-            };
-            429: components["responses"]["RateLimited"];
-            500: components["responses"]["ServerError"];
-        };
-    };
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          name: string;
+          category?: string;
+          /** @description Centavos ARS. Nullable only so a request that omits it decodes to a Go nil rather than a valid-looking 0 — the request validator that would otherwise catch a missing required field never runs in production (internal/middleware/openapi.go), so the handler is the only place this is actually enforced. */
+          price: number | null;
+          /** @default true */
+          tracks_stock?: boolean;
+          low_stock_threshold?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The created product. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            product: components['schemas']['Product'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        productID: components['parameters']['ProductID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The product. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            product: components['schemas']['Product'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsUpdate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description The row version the client read before it edited, as an entity tag — `If-Match: "3"`. The write is refused with 409 if the row moved since. A `version` field in the body means the same thing, and this header wins where both are sent. `*`, or neither, is last-write-wins: unchanged behaviour for a client that has not adopted this. */
+        'If-Match'?: components['parameters']['IfMatchVersion'];
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        productID: components['parameters']['ProductID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          /** @description The row version the client read before it edited. Same meaning as `If-Match`, which wins where both are sent; omitting both is last-write-wins. */
+          version?: number;
+          name?: string;
+          category?: string;
+          price?: number;
+          low_stock_threshold?: number;
+          active?: boolean;
+          tracks_stock?: boolean;
+        };
+      };
+    };
+    responses: {
+      /** @description The updated product. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            product: components['schemas']['Product'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      409: components['responses']['EditConflict'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsRestock: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        productID: components['parameters']['ProductID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
+          quantity: number | null;
+          /** @description Centavos ARS. A free restock is an adjustment, not a restock, so this is at least 1. Nullable for the same reason quantity is. */
+          total_cost: number | null;
+          /** @enum {string} */
+          method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The updated product and the recorded stock movement. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            product: components['schemas']['Product'];
+            stock_movement: components['schemas']['StockMovement'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description No cash session is open, the product is not active, or the product does not track stock. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsAdjust: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        productID: components['parameters']['ProductID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Signed, non-zero: negative removes stock, positive adds it. Nullable for the same missing-vs-zero reason productsCreate's price is (zero itself is refused by the handler as not a real adjustment, so nullability only protects the already-invalid value 0 from being confused with "not sent"). */
+          quantity: number | null;
+          /** @enum {string} */
+          reason: 'breakage' | 'expired' | 'own_consumption' | 'count_correction' | 'other';
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The updated product and the recorded stock movement. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            product: components['schemas']['Product'];
+            stock_movement: components['schemas']['StockMovement'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The product does not track stock. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  productsListStockMovements: {
+    parameters: {
+      query?: {
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        productID: components['parameters']['ProductID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of this product's stock movements. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            stock_movements: components['schemas']['StockMovement'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Invalid cursor value. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  salesBookingsDue: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The day's bookings that owe money. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /**
+             * Format: date
+             * @description Today in Argentina.
+             */
+            date: string;
+            bookings: components['schemas']['BalanceDue'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  salesList: {
+    parameters: {
+      query?: {
+        /** @description Restrict the list to sales recorded against this cash session. Omit to return every session's. */
+        session_id?: components['parameters']['SaleSessionIDFilter'];
+        /** @description Opaque pagination cursor from a previous page's `metadata.next_cursor`. */
+        cursor?: components['parameters']['Cursor'];
+        /** @description Page size. Default 50, maximum 200. */
+        limit?: components['parameters']['Limit'];
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A page of this complex's sales, each with its items. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sales: components['schemas']['Sale'][];
+            metadata: components['schemas']['Metadata'];
+          };
+        };
+      };
+      /** @description Invalid cursor value. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  salesCreate: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Product lines. May be empty when booking_payments is not. */
+          items: {
+            /** Format: uuid */
+            product_id: string;
+            /** @description Nullable for the same missing-vs-zero reason productsCreate's price is. */
+            quantity: number | null;
+          }[];
+          /** @description Booking balances collected now. Each must equal that booking's remaining balance. */
+          booking_payments?: {
+            /** Format: uuid */
+            booking_id: string;
+            /** @description Centavos ARS. Nullable so a missing amount is a 422, not a zero. */
+            amount: number | null;
+          }[];
+          /** @enum {string} */
+          method: 'cash' | 'transfer' | 'debit_card' | 'credit_card' | 'qr_wallet';
+          /** @description Appended to the sale income movement's own note. Not recorded when the checkout has no sale. */
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The recorded checkout. `sale` is null when it had no product lines. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sale: components['schemas']['Sale'] | null;
+            stock_warnings: components['schemas']['SaleStockWarning'][];
+            /** @description One entry per booking balance collected in this checkout, in request order. */
+            booking_payments: components['schemas']['SaleBookingPayment'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description No cash session is open; a booking balance changed since the cart was loaded (amount differs from the remaining balance); a booking is already fully paid; or a booking cannot take a payment (cancelled, no-show, or a pending booking past its payment window). Nothing is recorded. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  salesGet: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Sale id. */
+        saleID: components['parameters']['SaleID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The sale and its items. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sale: components['schemas']['Sale'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  salesVoid: {
+    parameters: {
+      query?: never;
+      header?: {
+        /** @description A key the caller chooses to identify this attempt. Send the same key when retrying and the first answer is replayed verbatim, marked with `Idempotent-Replay: true`, instead of the request running twice — which is what a retried booking needs, because the database would otherwise refuse the retry as somebody else's slot. The same key with a different body, path or caller answers 409, as does a repeat arriving while the first is still running. Records are kept for 24 hours. Omitting the header is unchanged behaviour. */
+        'Idempotency-Key'?: components['parameters']['IdempotencyKey'];
+      };
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        /** @description Sale id. */
+        saleID: components['parameters']['SaleID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          note?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The voided sale. */
+      201: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            sale: components['schemas']['Sale'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description No cash session is open; this sale has already been voided; or the sale includes booking payments, which cannot be reverted from the sell page (a booking payment has no reversal yet). Nothing is changed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  publicsiteSitemap: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description XML sitemap. */
+      200: {
+        headers: {
+          'Cache-Control'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/xml': string;
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  publicsiteSitemapMoved: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Moved permanently to `/api/v1/sitemap.xml`. */
+      301: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  publicsiteHubs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Every city hub with a switched-on complex. An empty list when there is none. */
+      200: {
+        headers: {
+          'Cache-Control'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicHubList'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The complexes could not be read. Retry after the Retry-After delay. */
+      503: {
+        headers: {
+          'Retry-After'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  publicsiteCityHubData: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        city: components['parameters']['PathCity'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One city's hub and its switched-on complexes. Empty when the city once had a complex and none is switched on now. */
+      200: {
+        headers: {
+          'Cache-Control'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['PublicCityHub'];
+        };
+      };
+      /** @description No complex was ever recorded in the city. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The complexes could not be read. Retry after the Retry-After delay. */
+      503: {
+        headers: {
+          'Retry-After'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  realtimeStream: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description An open `text/event-stream` connection. See the description for the frame protocol and the event catalogue (`connected`, `booking_changed`, `expired`, `unauthorized`). */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/event-stream': string;
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The per-complex or global subscriber cap was reached. The connection was never upgraded. */
+      429: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingGetDashboardStats: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Today's, yesterday's and this month's figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            stats: components['schemas']['DashboardStats'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingGetRevenueChart: {
+    parameters: {
+      query?: {
+        period?: 'week' | 'month';
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description One point per day. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            revenue: components['schemas']['RevenueDataPoint'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingGetOccupancyChart: {
+    parameters: {
+      query?: {
+        weeks?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Occupancy percentage per day-of-week/hour cell. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            occupancy: components['schemas']['OccupancyPoint'][];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingGetClientInsights: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Retention and frequency figures. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            clients: components['schemas']['ClientInsights'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingGetMonthlyReport: {
+    parameters: {
+      query?: {
+        month?: number;
+        year?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The monthly report. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            report: components['schemas']['MonthlyReport'];
+          };
+        };
+      };
+      /** @description `month_out_of_range`, `report_period_in_future` or `report_period_before_complex_existed`, as the bare `error` string. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  reportingExportPaymentsExcel: {
+    parameters: {
+      query?: {
+        month?: number;
+        year?: number;
+      };
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description A two-sheet Excel workbook (payment detail plus a summary sheet). */
+      200: {
+        headers: {
+          'Content-Disposition'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': string;
+        };
+      };
+      /** @description Period validation failed, same machine-code shape as the monthly report. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The report exceeds the 50,000 row export cap (`report_export_too_large`). */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The export did not finish inside its budget (`report_export_timed_out`). */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  reportingCreatePaymentsExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: {
+      content: {
+        'application/json': {
+          month?: number;
+          year?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The export was accepted, or an identical one was already queued. */
+      202: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            export: {
+              /** Format: uuid */
+              id: string;
+              /** @enum {string} */
+              status: 'pending' | 'running' | 'done' | 'failed';
+              status_url: string;
+            };
+          };
+        };
+      };
+      /** @description Period validation failed, same machine-code shape as the monthly report. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description No object storage backend is configured for exports. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  reportingGetPaymentsExport: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        exportID: components['parameters']['ExportID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The export's current state. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            export: components['schemas']['PaymentsExport'];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      /** @description The file has passed its 24 hour retention (`export_expired`). */
+      410: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description No object storage backend is configured for exports. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  openapiGetJSON: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The OpenAPI document. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  openapiGetYAML: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The OpenAPI document. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/yaml': string;
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  openapiGetDocs: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The documentation page. */
+      200: {
+        headers: {
+          'X-Robots-Tag'?: string;
+          'Cache-Control'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'text/html': string;
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  openapiGetCatalog: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The API catalog, as a linkset. */
+      200: {
+        headers: {
+          'Access-Control-Allow-Origin'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/linkset+json': Record<string, never>;
+        };
+      };
+      429: components['responses']['RateLimited'];
+    };
+  };
+  socialPutPost: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Post id, which is the post's folder name in the content repository. */
+        id: components['parameters']['SocialPostID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /**
+           * Format: date-time
+           * @description RFC 3339 time with an offset.
+           */
+          publish_at: string;
+          networks: ('instagram' | 'facebook' | 'threads')[];
+          /**
+           * @description Text posts go to threads alone and list no media. Stories go to instagram or facebook, list exactly one file and have no required caption.
+           * @enum {string}
+           */
+          type: 'image' | 'carousel' | 'reel' | 'story' | 'text';
+          /** @description Required except for a story, which has no caption. */
+          caption?: string;
+          /** @description Single-image posts only. */
+          alt_text?: string;
+          /** @description Carousel images or videos, 2 to 10 files. A story lists 1 to 6 files, published in this order a minute apart. */
+          media?: string[];
+          draft?: boolean;
+          /** @description Story only: the feed post id the story sequence waits for on each network. */
+          after?: string;
+          /** @description JPEG file in the post folder, reel posts only. Instagram shows it as the reel cover. */
+          cover?: string;
+          /** @description Text for Threads. Defaults to the caption, which must then fit in 500 characters. */
+          threads_text?: string;
+          /** @description Threads topic tag, without periods or ampersands. */
+          threads_topic?: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The post is stored. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            id: string;
+            /** @enum {string} */
+            status: 'scheduled' | 'publishing' | 'published' | 'partial' | 'failed' | 'cancelled';
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The post is already published or being published, so its content is frozen. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The post is invalid, or a file it names has not been uploaded. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  socialPutMedia: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Post id, which is the post's folder name in the content repository. */
+        id: components['parameters']['SocialPostID'];
+        /** @description File name of the media inside the post folder. */
+        name: components['parameters']['SocialMediaName'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'image/jpeg': string;
+        'video/mp4': string;
+      };
+    };
+    responses: {
+      /** @description The file is stored and staged. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            name: string;
+            url: string;
+            sha256: string;
+            content_type: string;
+            size_bytes: number;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The post is already published or being published, so its media is frozen. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The file is larger than its format allows. */
+      413: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The content type or the bytes do not match the file name. */
+      415: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description The file name is not allowed, or the file is empty. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description Media storage is not configured on this deployment. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Media storage has no public URL to hand to the platforms. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  socialThreadsConnect: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Redirect to Meta's consent page. */
+      302: {
+        headers: {
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description No valid session. */
+      401: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The caller is not a superadmin. */
+      403: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  socialThreadsCallback: {
+    parameters: {
+      query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The account is connected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/html': string;
+        };
+      };
+      /** @description Meta refused, or the state does not match this browser. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/html': string;
+        };
+      };
+      /** @description The exchange with Meta failed. Nothing was stored. */
+      502: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'text/html': string;
+        };
+      };
+    };
+  };
+  socialThreadsUninstall: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/x-www-form-urlencoded': {
+          signed_request: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The callback was verified and handled. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': Record<string, never>;
+        };
+      };
+      /** @description The signed_request is missing, malformed, or not signed by this app. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  socialThreadsDelete: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/x-www-form-urlencoded': {
+          signed_request: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The request was verified; the confirmation code identifies it. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            url: string;
+            confirmation_code: string;
+          };
+        };
+      };
+      /** @description The signed_request is missing, malformed, or not signed by this app. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description THREADS_APP_ID or THREADS_APP_SECRET is not set. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
+  socialReconcile: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          ids: string[];
+        };
+      };
+    };
+    responses: {
+      /** @description The posts that were cancelled. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            cancelled: string[];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      /** @description The id list is missing or holds an invalid id. */
+      422: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
 }

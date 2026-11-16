@@ -8,8 +8,8 @@ import (
 func TestEventNoticesAreEmailOnlyAndNeedAnAddress(t *testing.T) {
 	s, q, _, _, _ := newTestService(t, true)
 
-	s.EventRegistered(EventRegistration{FirstName: "Ana", EventName: "Canchas libres", RegistrationID: "reg-1"})
-	s.EventCancelled(EventCancellation{FirstName: "Ana", EventName: "Canchas libres", RegistrationID: "reg-1"})
+	s.EventRegistered(EventRegistration{FirstName: "Ana", EventName: "Canchas abiertas", RegistrationID: "reg-1"})
+	s.EventCancelled(EventCancellation{FirstName: "Ana", EventName: "Canchas abiertas", RegistrationID: "reg-1"})
 	if len(q.tasks) != 0 {
 		t.Fatalf("no email address, nothing to send (there is no WhatsApp template for events); got %v", q.types())
 	}
@@ -46,7 +46,7 @@ func TestEventWorkersDeliverTheirEmails(t *testing.T) {
 			t.Errorf("no worker registered for %s", task)
 		}
 	}
-	if err := q.handlers[TaskEmailEventRegistered](t.Context(), []byte(`{"email":"ana@example.com","event_name":"Canchas libres"}`)); err != nil {
+	if err := q.handlers[TaskEmailEventRegistered](t.Context(), []byte(`{"email":"ana@example.com","event_name":"Canchas abiertas"}`)); err != nil {
 		t.Fatal(err)
 	}
 	if err := q.handlers[TaskEmailEventCancelled](t.Context(), []byte(`{"email":"ana@example.com","by_owner":true}`)); err != nil {

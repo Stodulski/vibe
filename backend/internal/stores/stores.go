@@ -624,7 +624,7 @@ type AuditStore interface {
 }
 
 // ---------------------------------------------------------------------------
-// EventStore — open-play events ("canchas libres") and their sign-ups
+// EventStore — open-play events ("canchas abiertas") and their sign-ups
 // ---------------------------------------------------------------------------
 
 // EventWriter creates and cancels events.

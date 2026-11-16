@@ -22,7 +22,7 @@ interface BookingCalendarProps {
   blockedSlots: BlockedSlot[];
   /** Defaults to none: callers that do not draw fixed weekly bookings need not pass it. */
   fixedBlocks?: FixedBlock[] | undefined;
-  /** Defaults to none: the hours open-play events ("canchas libres") hold. */
+  /** Defaults to none: the hours open-play events ("canchas abiertas") hold. */
   eventBlocks?: CourtEventBlock[] | undefined;
   courts: CourtWithPrices[];
   date: string;

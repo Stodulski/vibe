@@ -27,7 +27,7 @@ func eventDay() time.Time {
 
 func newEvent(f *datatest.Fixture, start string, minutes int) *eventstore.Event {
 	return &eventstore.Event{
-		ComplexID: f.ComplexID, Name: "Canchas libres", Sport: "padel",
+		ComplexID: f.ComplexID, Name: "Canchas abiertas", Sport: "padel",
 		Date: eventDay(), StartTime: start, DurationMinutes: minutes,
 		Capacity: 20, Price: 800_000, CreatedBy: f.UserID,
 	}
@@ -163,7 +163,7 @@ func TestAnEventHoldsItsCourtsForItsWindow(t *testing.T) {
 	}
 
 	occs, err := f.Stores.Bookings.EventOccupancies(ctx, &f.ComplexID, nil, e.Date, e.Date)
-	if err != nil || len(occs) != 1 || occs[0].Name != "Canchas libres" || occs[0].EventID != e.ID {
+	if err != nil || len(occs) != 1 || occs[0].Name != "Canchas abiertas" || occs[0].EventID != e.ID {
 		t.Fatalf("the owner's calendar read = %+v (%v)", occs, err)
 	}
 

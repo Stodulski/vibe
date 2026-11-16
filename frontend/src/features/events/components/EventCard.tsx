@@ -30,6 +30,7 @@ export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect:
       }}
       className={cn(EVENT_CARD_CLASS, 'focus-self hover:border-border-default cursor-pointer transition-colors')}
     >
+      <p className="text-text-tertiary text-xs font-medium">{t.kindLabel.openPlay}</p>
       <div className={EVENT_CARD_TOP_ROW_CLASS}>
         <p className="text-text-primary min-w-0 truncate text-base font-semibold">{event.name}</p>
         <EventStateText event={event} />

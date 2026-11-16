@@ -17,6 +17,7 @@ export function TournamentCard({ tournament }: { tournament: TournamentOwnerSumm
       to={`/events/tournaments/${tournament.id}`}
       className={cn(TOURNAMENT_CARD_CLASS, 'focus-self hover:border-border-default transition-colors')}
     >
+      <p className="text-text-tertiary text-xs font-medium">{ES_AR.events.kindLabel.tournament}</p>
       <div className={TOURNAMENT_CARD_TOP_ROW_CLASS}>
         <p className="text-text-primary min-w-0 truncate text-base font-semibold">{tournament.name}</p>
         {tournament.status === 'cancelled' && (

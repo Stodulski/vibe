@@ -80,23 +80,23 @@
     "date": "2026-11-16"
   },
   "tutorial:turnos-fijos": {
-    "hash": "a29dbce28b7d6ea6",
+    "hash": "fd64f7396e892f28",
     "date": "2026-11-16"
   },
-  "tutorial:canchas-libres": {
-    "hash": "f9816bb5ac9e1573",
+  "tutorial:canchas-abiertas": {
+    "hash": "d6969bd1f06bb8d1",
     "date": "2026-11-16"
   },
   "tutorial:torneos": {
-    "hash": "359e25622c4d3cfa",
+    "hash": "a7d7fcab625338b6",
     "date": "2026-11-16"
   },
   "tutorial:agregar-y-editar-canchas": {
-    "hash": "d4362ca82268719d",
+    "hash": "d9f890c1506edbc8",
     "date": "2026-11-16"
   },
   "tutorial:bloquear-un-cliente": {
-    "hash": "246f19cf7d995f45",
+    "hash": "5449b584b714d03e",
     "date": "2026-11-16"
   },
   "tutorial:perfil-del-complejo-y-link-publico": {

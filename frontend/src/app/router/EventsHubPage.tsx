@@ -1,28 +1,30 @@
 import { Plus } from 'lucide-react';
 import { useSelectedComplex } from '@/features/complex';
-import { EventsSectionTabs } from '@/shared/components/common/EventsSectionTabs';
+import { CreateEventModal, EVENTS_PAGE_CLASS, EventDetail, EventTypePicker } from '@/features/events';
+import { CreateTournamentModal } from '@/features/tournaments';
 import { PageHeader } from '@/shared/components/common/PageHeader';
+import { UpcomingPastSwitch } from '@/shared/components/common/UpcomingPastSwitch';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { CreateEventModal } from '../components/CreateEventModal';
-import { EventDetail } from '../components/EventDetail';
-import { EventList } from '../components/EventList';
-import { UpcomingPastSwitch } from '@/shared/components/common/UpcomingPastSwitch';
-import { useEventsPage } from './events/useEventsPage';
-import { EVENTS_PAGE_CLASS } from '../lib/eventLayout';
+import { EventsHubList } from './EventsHubList';
+import { useEventsHub } from './useEventsHub';
 
 const t = ES_AR.events;
 
-/** The "Canchas libres" tab of Eventos: upcoming and past events, a create dialog and a detail sheet per event. */
-export default function EventsPage() {
+/**
+ * Eventos: open-play events (canchas abiertas) and tournaments in one list, with Próximos and
+ * Pasados. Crear evento asks which kind to create, then opens that form. A tournament is
+ * opened on its own detail page; an event opens its sheet here.
+ */
+export default function EventsHubPage() {
   usePageTitle(ES_AR.navigation.events);
   const { selectedComplexId } = useSelectedComplex();
   if (!selectedComplexId) return null;
-  return <EventsPageContent complexId={selectedComplexId} />;
+  return <EventsHubContent complexId={selectedComplexId} />;
 }
 
-function EventsPageContent({ complexId }: { complexId: string }) {
-  const state = useEventsPage(complexId);
+function EventsHubContent({ complexId }: { complexId: string }) {
+  const state = useEventsHub(complexId);
 
   return (
     <div>
@@ -32,17 +34,15 @@ function EventsPageContent({ complexId }: { complexId: string }) {
           label: t.create,
           icon: Plus,
           onClick: () => {
-            state.setCreateOpen(true);
+            state.setPickerOpen(true);
           },
         }}
       />
 
-      <EventsSectionTabs />
-
       <div className={EVENTS_PAGE_CLASS}>
         <UpcomingPastSwitch value={state.tab} onChange={state.setTab} />
-        <EventList
-          events={state.events}
+        <EventsHubList
+          items={state.items}
           isLoading={state.isLoading}
           isError={state.isError}
           onRetry={() => {
@@ -51,18 +51,28 @@ function EventsPageContent({ complexId }: { complexId: string }) {
           onSelect={state.selectEvent}
           kind={state.tab}
           onCreate={() => {
-            state.setCreateOpen(true);
+            state.setPickerOpen(true);
           }}
         />
       </div>
 
-      <CreateEventModal
-        open={state.createOpen}
+      <EventTypePicker
+        open={state.pickerOpen}
         onClose={() => {
-          state.setCreateOpen(false);
+          state.setPickerOpen(false);
         }}
+        onPick={state.pickKind}
+      />
+      <CreateEventModal
+        open={state.createKind === 'openPlay'}
+        onClose={state.closeCreate}
         complexId={complexId}
         courts={state.courts}
+      />
+      <CreateTournamentModal
+        open={state.createKind === 'tournament'}
+        onClose={state.closeCreate}
+        complexId={complexId}
       />
       <EventDetail
         open={!!state.selectedEventId}

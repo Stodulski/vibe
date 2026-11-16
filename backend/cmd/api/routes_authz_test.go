@@ -586,7 +586,7 @@ func (fx *authzFixture) seedSubResources(t *testing.T, target *complexstore.Comp
 		t.Fatalf("event store is %T, not *mockEventStore", fx.app.models.Events)
 	}
 	event := &eventstore.Event{
-		ID: id, ComplexID: target.ID, Name: "Canchas libres", Sport: "padel", Date: tomorrow, StartTime: "19:00",
+		ID: id, ComplexID: target.ID, Name: "Canchas abiertas", Sport: "padel", Date: tomorrow, StartTime: "19:00",
 		DurationMinutes: 120, Capacity: 20, Price: 800_000, Status: eventstore.EventActive, CreatedBy: target.OwnerID,
 	}
 	openPlay.GetEventFn = func(context.Context, uuid.UUID) (*eventstore.Event, error) { return event, nil }

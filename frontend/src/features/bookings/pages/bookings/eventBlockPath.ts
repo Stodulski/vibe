@@ -6,7 +6,5 @@ import type { CourtEventBlock } from '@/shared/types/api.types';
  * features do not import each other.
  */
 export function eventBlockPath(block: CourtEventBlock): string {
-  return 'match_id' in block
-    ? `/events/tournaments/${block.tournament_id}`
-    : `/events/open-play?event=${block.event_id}`;
+  return 'match_id' in block ? `/events/tournaments/${block.tournament_id}` : `/events?event=${block.event_id}`;
 }
