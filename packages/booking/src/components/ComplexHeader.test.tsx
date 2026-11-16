@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { ComplexHeader } from './ComplexHeader';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
@@ -150,5 +150,30 @@ describe('ComplexHeader cover alt text', () => {
     render(<ComplexHeader complex={complexWithCover} schedules={mockSchedules} courts={[padelCourt]} />);
     const img = screen.getByAltText('Club Padel Norte, canchas de pádel en Buenos Aires');
     expect(img).toHaveAttribute('src', 'https://example.com/cover.jpg');
+  });
+
+  // Owner request: on desktop "Volver" sits above the green card, on phones inside it.
+  describe('Volver for a visitor from the landing', () => {
+    afterEach(() => {
+      vi.restoreAllMocks();
+    });
+
+    it('is inside the green band on phones and above the card on desktop', () => {
+      vi.spyOn(document, 'referrer', 'get').mockReturnValue(`${window.location.origin}/canchas/rosario`);
+      const { container } = render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
+      const card = container.querySelector('.bg-primary-500');
+      const links = screen.getAllByRole('link', { name: 'Volver' });
+      expect(links).toHaveLength(2);
+      const inside = links.find((l) => card?.contains(l));
+      const outside = links.find((l) => !card?.contains(l));
+      expect(inside).toHaveClass('lg:hidden');
+      expect(outside).toHaveClass('hidden', 'lg:flex');
+    });
+
+    it('is not shown to a visitor from another site', () => {
+      vi.spyOn(document, 'referrer', 'get').mockReturnValue('https://www.google.com/');
+      render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
+      expect(screen.queryByRole('link', { name: 'Volver' })).toBeNull();
+    });
   });
 });

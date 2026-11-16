@@ -54,61 +54,65 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
   });
 
   return (
-    // Solid brand green at every width, like the booking tickets. At `lg` it
-    // is a bordered card inside the page; below that, a full-bleed band.
-    //
-    // The green is applied by re-pointing the theme's text, accent and rule
-    // colours inside the block, so every child (contact row, share button,
-    // courts, hours) takes the near-black ink without a variant of its own.
-    // The cover and the logo tile keep their own surfaces.
-    <div
-      className={cn(
-        'bg-primary-500 relative font-medium',
-        // Below `lg` the green bleeds to the screen edges and up to the navbar:
-        // the margins cancel the page gutter (`px-4 py-5`, `sm:p-8` on <main>)
-        // and the same padding puts the content back where it was. The bottom
-        // gets a bit more than the side gutter, and rounded corners.
-        '-mx-4 -mt-5 rounded-b-3xl px-4 pt-5 pb-6 sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-8 sm:pb-10',
-        'lg:m-0 lg:rounded-2xl lg:border lg:p-7',
-        'lg:border-primary-500',
-        '[--color-text-primary:var(--color-text-inverse)]',
-        '[--color-text-secondary:var(--color-text-inverse)]',
-        '[--color-text-tertiary:var(--color-text-inverse)]',
-        '[--color-primary-400:var(--color-text-inverse)]',
-        '[--color-border-subtle:rgb(11_11_11/0.2)]',
-      )}
-    >
-      {/* "Volver" for a visitor who came from the landing sits on the green,
-          above the cover, so the band still reaches the navbar. */}
-      <BackToLandingLink />
+    <>
+      {/* Desktop: "Volver" sits on the page, above the card (owner request). */}
+      <BackToLandingLink className="hidden lg:flex" />
+      {/* Solid brand green at every width, like the booking tickets. At `lg` it
+          is a bordered card inside the page; below that, a full-bleed band.
 
-      {/* Identity: cover, logo, name, contact — one block, one order. */}
-      <div>
-        <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
+          The green is applied by re-pointing the theme's text, accent and rule
+          colours inside the block, so every child (contact row, share button,
+          courts, hours) takes the near-black ink without a variant of its own.
+          The cover and the logo tile keep their own surfaces. */}
+      <div
+        className={cn(
+          'bg-primary-500 relative font-medium',
+          // Below `lg` the green bleeds to the screen edges and up to the navbar:
+          // the margins cancel the page gutter (`px-4 py-5`, `sm:p-8` on <main>)
+          // and the same padding puts the content back where it was. The bottom
+          // gets a bit more than the side gutter, and rounded corners.
+          '-mx-4 -mt-5 rounded-b-3xl px-4 pt-5 pb-6 sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-8 sm:pb-10',
+          'lg:m-0 lg:rounded-2xl lg:border lg:p-7',
+          'lg:border-primary-500',
+          '[--color-text-primary:var(--color-text-inverse)]',
+          '[--color-text-secondary:var(--color-text-inverse)]',
+          '[--color-text-tertiary:var(--color-text-inverse)]',
+          '[--color-primary-400:var(--color-text-inverse)]',
+          '[--color-border-subtle:rgb(11_11_11/0.2)]',
+        )}
+      >
+        {/* Phones: "Volver" sits on the green, above the cover, so the band
+            still reaches the navbar. */}
+        <BackToLandingLink className="lg:hidden" />
 
-        <div className="relative pb-5 sm:pb-7">
-          {/* The logo climbs over the cover; "Compartir" sits on its right, just
-              below the cover's bottom edge. */}
-          <div className="flex items-start justify-between gap-4">
-            <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />
-            <div className="pt-3">
-              <ShareComplexButton name={complex.name} slug={complex.slug} />
+        {/* Identity: cover, logo, name, contact — one block, one order. */}
+        <div>
+          <CoverBanner coverUrl={coverUrl} alt={coverAlt} />
+
+          <div className="relative pb-5 sm:pb-7">
+            {/* The logo climbs over the cover; "Compartir" sits on its right, just
+                below the cover's bottom edge. */}
+            <div className="flex items-start justify-between gap-4">
+              <ComplexLogo logoUrl={complex.logo_url ?? null} name={complex.name} />
+              <div className="pt-3">
+                <ShareComplexButton name={complex.name} slug={complex.slug} />
+              </div>
             </div>
+
+            <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
+              {complex.name}
+            </h1>
+
+            <ComplexInfoRow complex={complex} />
           </div>
+        </div>
 
-          <h1 className="font-display text-text-primary text-xl font-bold tracking-tight sm:text-2xl">
-            {complex.name}
-          </h1>
-
-          <ComplexInfoRow complex={complex} />
+        {/* What it offers: the courts and their hourly prices, then the hours. */}
+        <div>
+          <CourtSummary courts={courts} />
+          <ComplexDetails schedules={schedules} selectedDate={selectedDate} />
         </div>
       </div>
-
-      {/* What it offers: the courts and their hourly prices, then the hours. */}
-      <div>
-        <CourtSummary courts={courts} />
-        <ComplexDetails schedules={schedules} selectedDate={selectedDate} />
-      </div>
-    </div>
+    </>
   );
 }
