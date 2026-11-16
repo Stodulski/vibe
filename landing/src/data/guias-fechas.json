@@ -12,28 +12,28 @@
     "date": "2026-10-11"
   },
   "tutorial:grilla-de-reservas": {
-    "hash": "84cd33bc60bfec07",
-    "date": "2026-09-25"
+    "hash": "6779e0e5e2357a8d",
+    "date": "2026-11-16"
   },
   "tutorial:precios-por-horario": {
-    "hash": "61ea77f0e472919b",
-    "date": "2026-10-08"
+    "hash": "d3063b434def14de",
+    "date": "2026-11-16"
   },
   "tutorial:base-de-clientes": {
-    "hash": "86b27d2010e2489d",
-    "date": "2026-10-08"
+    "hash": "36d65736176ebec0",
+    "date": "2026-11-16"
   },
   "tutorial:panel-de-control": {
-    "hash": "aea8c5d4b9280d25",
-    "date": "2026-09-25"
+    "hash": "06c7008630767f27",
+    "date": "2026-11-16"
   },
   "tutorial:reportes-de-facturacion": {
-    "hash": "59a28752f2d9acdc",
-    "date": "2026-11-14"
+    "hash": "dfcb2ccebe33a382",
+    "date": "2026-11-16"
   },
   "tutorial:configuracion-del-complejo": {
-    "hash": "cb63a61cd80885c7",
-    "date": "2026-10-08"
+    "hash": "1e86b27163b20ac9",
+    "date": "2026-11-16"
   },
   "vibe-o-atc-sports-en-que-se-diferencian": {
     "hash": "19e3cfea720d1e18",
@@ -48,27 +48,63 @@
     "date": "2026-10-11"
   },
   "tutorial:abrir-y-cerrar-la-caja": {
-    "hash": "afead2c21c0af378",
-    "date": "2026-09-25"
+    "hash": "b7ef41199d47b5c8",
+    "date": "2026-11-16"
   },
   "tutorial:ingresos-egresos-y-anulaciones": {
-    "hash": "004629b124576fdf",
-    "date": "2026-11-14"
+    "hash": "7d97d4d6234b90d4",
+    "date": "2026-11-16"
   },
   "tutorial:vender-desde-el-mostrador": {
-    "hash": "2ca7af465ad5506e",
-    "date": "2026-09-25"
+    "hash": "833d7382cb77b0f0",
+    "date": "2026-11-16"
   },
   "tutorial:productos-y-stock": {
-    "hash": "e1258b3f6c18bbd4",
-    "date": "2026-09-25"
+    "hash": "18b7477feb7ddc9d",
+    "date": "2026-11-16"
   },
   "tutorial:cobrar-una-reserva-en-el-mostrador": {
-    "hash": "44598a413e7cb711",
-    "date": "2026-11-14"
+    "hash": "c05238f3afa91b20",
+    "date": "2026-11-16"
   },
   "tutorial:plazo-de-acreditacion-mercado-pago": {
-    "hash": "8c184caa32c86460",
+    "hash": "eb2511bd9a014d0d",
+    "date": "2026-11-16"
+  },
+  "tutorial:asistencia-de-cada-turno": {
+    "hash": "e5daf2d238e0f597",
+    "date": "2026-11-16"
+  },
+  "tutorial:cancelar-una-reserva-y-devolver": {
+    "hash": "8689811c3bef4168",
+    "date": "2026-11-16"
+  },
+  "tutorial:turnos-fijos": {
+    "hash": "a29dbce28b7d6ea6",
+    "date": "2026-11-16"
+  },
+  "tutorial:canchas-libres": {
+    "hash": "f9816bb5ac9e1573",
+    "date": "2026-11-16"
+  },
+  "tutorial:torneos": {
+    "hash": "359e25622c4d3cfa",
+    "date": "2026-11-16"
+  },
+  "tutorial:agregar-y-editar-canchas": {
+    "hash": "d4362ca82268719d",
+    "date": "2026-11-16"
+  },
+  "tutorial:bloquear-un-cliente": {
+    "hash": "246f19cf7d995f45",
+    "date": "2026-11-16"
+  },
+  "tutorial:perfil-del-complejo-y-link-publico": {
+    "hash": "d7af7fe84ad1ee14",
+    "date": "2026-11-16"
+  },
+  "tutorial:conectar-mercado-pago": {
+    "hash": "5aef67374a24d19c",
     "date": "2026-11-16"
   }
 }
