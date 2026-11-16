@@ -3,25 +3,19 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ConfirmDialog } from './ConfirmDialog';
 
-describe('ConfirmDialog', () => {
-  const defaultProps = {
-    open: true,
-    onClose: vi.fn(),
-    onConfirm: vi.fn(),
-    title: 'Delete Item',
-    description: 'Are you sure you want to delete this item?',
-  };
+const defaultProps = {
+  open: true,
+  onClose: vi.fn(),
+  onConfirm: vi.fn(),
+  title: 'Delete Item',
+  description: 'Are you sure you want to delete this item?',
+};
 
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
-  it('renders title and description when open', () => {
-    render(<ConfirmDialog {...defaultProps} />);
-    expect(screen.getByText('Delete Item')).toBeInTheDocument();
-    expect(screen.getByText('Are you sure you want to delete this item?')).toBeInTheDocument();
-  });
-
+describe('ConfirmDialog actions', () => {
   it('calls onConfirm when confirm button is clicked', async () => {
     const user = userEvent.setup();
     render(<ConfirmDialog {...defaultProps} />);
@@ -38,17 +32,25 @@ describe('ConfirmDialog', () => {
     expect(defaultProps.onClose).toHaveBeenCalled();
   });
 
-  it('shows custom confirm label', () => {
-    render(<ConfirmDialog {...defaultProps} confirmLabel="Eliminar" />);
-    expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument();
-  });
-
   it('disables buttons when loading', () => {
     render(<ConfirmDialog {...defaultProps} isLoading />);
     const buttons = screen.getAllByRole('button');
     buttons.forEach((btn) => {
       expect(btn).toBeDisabled();
     });
+  });
+});
+
+describe('ConfirmDialog content', () => {
+  it('renders title and description when open', () => {
+    render(<ConfirmDialog {...defaultProps} />);
+    expect(screen.getByText('Delete Item')).toBeInTheDocument();
+    expect(screen.getByText('Are you sure you want to delete this item?')).toBeInTheDocument();
+  });
+
+  it('shows custom confirm label', () => {
+    render(<ConfirmDialog {...defaultProps} confirmLabel="Eliminar" />);
+    expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument();
   });
 
   it('renders children between the description and the buttons', () => {
@@ -78,4 +80,5 @@ describe('ConfirmDialog', () => {
     expect(screen.getByText('Delete Item')).toHaveClass('leading-snug');
     expect(screen.getByText('Delete Item')).not.toHaveClass('leading-none');
   });
+
 });

@@ -39,7 +39,7 @@ func (s *Service) SetCourtFee(ctx context.Context, complex *complexstore.Complex
 		return nil, feeError(err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "set_court_fee", entityTournament, categoryID, map[string]int{"from": cat.CourtFee, "to": fee})
+	s.record(actor, complex.ID, "set_court_fee", categoryID, map[string]int{"from": cat.CourtFee, "to": fee})
 	return s.Get(ctx, complex.ID, tournamentID)
 }
 
@@ -75,7 +75,7 @@ func (s *Service) ChargeCourtFee(ctx context.Context, complex *complexstore.Comp
 		return nil, feeError(err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "charge_court_fee", entityTournament, matchID, map[string]any{"side": side, "method": method, "amount": fee.Amount})
+	s.record(actor, complex.ID, "charge_court_fee", matchID, map[string]any{"side": side, "method": method, "amount": fee.Amount})
 	return s.Get(ctx, complex.ID, tournamentID)
 }
 
@@ -95,7 +95,7 @@ func (s *Service) UndoCourtFee(ctx context.Context, complex *complexstore.Comple
 		return nil, feeError(err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "undo_court_fee", entityTournament, matchID, map[string]int{"side": side})
+	s.record(actor, complex.ID, "undo_court_fee", matchID, map[string]int{"side": side})
 	return s.Get(ctx, complex.ID, tournamentID)
 }
 

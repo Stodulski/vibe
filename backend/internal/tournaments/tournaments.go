@@ -126,10 +126,12 @@ type StateError = events.StateError
 // ConflictError is a rule the request breaks about state or hours (409).
 type ConflictError = events.ConflictError
 
-func (s *Service) record(actor Actor, complexID uuid.UUID, action, entityType string, entityID uuid.UUID, newVal any) {
+// record writes an audit entry. Every tournament action, a category's or a
+// match's included, is recorded under the tournament entity type.
+func (s *Service) record(actor Actor, complexID uuid.UUID, action string, entityID uuid.UUID, newVal any) {
 	s.audit.Record(audit.Entry{
 		UserID: actor.UserID, ComplexID: &complexID, Action: action,
-		EntityType: entityType, EntityID: &entityID, NewValue: newVal, IPAddress: actor.IP,
+		EntityType: entityTournament, EntityID: &entityID, NewValue: newVal, IPAddress: actor.IP,
 	})
 }
 

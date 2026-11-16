@@ -212,7 +212,7 @@ func toWireCategories(cats []*tournamentstore.Category, serviceFee func(price in
 
 func toWirePair(p *tournamentstore.PairRow) wirePair {
 	return wirePair{
-		ID: p.ID, CategoryID: p.CategoryID, Seed: p.Seed, GroupID: p.GroupID, Status: p.Pair.Status,
+		ID: p.ID, CategoryID: p.CategoryID, Seed: p.Seed, GroupID: p.GroupID, Status: p.Status,
 		Players: []wirePlayer{
 			{FirstName: p.Payer.FirstName, LastName: p.Payer.LastName},
 			{FirstName: p.Partner.FirstName, LastName: p.Partner.LastName},

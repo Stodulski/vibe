@@ -191,7 +191,7 @@ func (e *engine) drawGroups(cat db.TournamentCategory, ordered []db.TournamentPa
 // groupName is "A", "B", ... and "G27" once the letters run out.
 func groupName(i int) string {
 	if i < 26 {
-		return string(rune('A' + i))
+		return string(rune('A' + i)) //nolint:gosec // G115: i is 0..25 here, always in rune range.
 	}
 	return fmt.Sprintf("G%d", i+1)
 }

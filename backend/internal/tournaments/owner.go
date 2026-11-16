@@ -216,7 +216,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	if err != nil {
 		return nil, err
 	}
-	s.record(actor, complex.ID, "create", entityTournament, t.ID, detail.Tournament)
+	s.record(actor, complex.ID, "create", t.ID, detail.Tournament)
 	return detail, nil
 }
 
@@ -363,7 +363,7 @@ func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, act
 	}
 	result.Tournament = cancelled
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "cancel", entityTournament, id, cancelled)
+	s.record(actor, complex.ID, "cancel", id, cancelled)
 	return result, nil
 }
 
@@ -382,7 +382,7 @@ func (s *Service) CancelCategory(ctx context.Context, complex *complexstore.Comp
 		return nil, err
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "cancel_category", entityTournament, categoryID, cat)
+	s.record(actor, complex.ID, "cancel_category", categoryID, cat)
 	return &CancelResult{Tournament: t, Refunds: res.Refunds}, nil
 }
 
@@ -400,13 +400,14 @@ func (s *Service) GenerateDraw(ctx context.Context, complex *complexstore.Comple
 	}
 	err := s.store.GenerateDraw(ctx, tournamentstore.DrawInput{
 		CategoryID: categoryID, SeedOrder: in.SeedOrder,
+		//nolint:gosec // G404: orders the unseeded pairs of a draw the owner can remake; not a secret.
 		Shuffle: func(ids []uuid.UUID) { rand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] }) },
 	})
 	if err != nil {
 		return nil, drawError(err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "generate_draw", entityTournament, categoryID, map[string]int{"seeds": len(in.SeedOrder)})
+	s.record(actor, complex.ID, "generate_draw", categoryID, map[string]int{"seeds": len(in.SeedOrder)})
 	return s.Get(ctx, complex.ID, tournamentID)
 }
 
@@ -444,7 +445,7 @@ func (s *Service) MovePair(ctx context.Context, complex *complexstore.Complex, a
 		return nil, drawError(err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "move_pair", entityTournament, categoryID, map[string]uuid.UUID{"pair_id": pairID, "with_pair_id": withID})
+	s.record(actor, complex.ID, "move_pair", categoryID, map[string]uuid.UUID{"pair_id": pairID, "with_pair_id": withID})
 	return s.Get(ctx, complex.ID, tournamentID)
 }
 
@@ -517,7 +518,7 @@ func (s *Service) Schedule(ctx context.Context, complex *complexstore.Complex, a
 		return nil, s.scheduleError(ctx, complex.ID, err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "schedule_match", entityTournament, matchID, m)
+	s.record(actor, complex.ID, "schedule_match", matchID, m)
 	return m, nil
 }
 
@@ -572,7 +573,7 @@ func (s *Service) Unschedule(ctx context.Context, complex *complexstore.Complex,
 		return nil, s.scheduleError(ctx, complex.ID, err)
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "unschedule_match", entityTournament, matchID, m)
+	s.record(actor, complex.ID, "unschedule_match", matchID, m)
 	return m, nil
 }
 
@@ -606,6 +607,6 @@ func (s *Service) SetResult(ctx context.Context, complex *complexstore.Complex, 
 		return nil, err
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
-	s.record(actor, complex.ID, "match_result", entityTournament, matchID, in)
+	s.record(actor, complex.ID, "match_result", matchID, in)
 	return s.Get(ctx, complex.ID, tournamentID)
 }

@@ -576,31 +576,12 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		}
 
 		// UPDATE existing payment.
-		var updatedAt pgtype.Timestamptz
-		if unlessRefundPending {
-			dbPayment, err := qtx.UpdatePaymentUnlessRefundPending(ctx, updateUnlessRefundPendingParams(p))
-			if errors.Is(err, pgx.ErrNoRows) {
-				return nil
-			}
-			if err != nil {
-				return fmt.Errorf("update payment: %w", err)
-			}
-			updatedAt = dbPayment.UpdatedAt
-		} else {
-			dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-				Status:         db.PaymentStatus(p.Status),
-				MpPaymentID:    data.TextToPg(p.MPPaymentID),
-				MpPreferenceID: data.TextToPg(p.MPPreferenceID),
-				//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
-				// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
-				RefundAmount: int32(p.RefundAmount),
-				StatusDetail: data.TextToPg(p.StatusDetail),
-				ID:           data.UUIDToPg(p.ID),
-			})
-			if err != nil {
-				return fmt.Errorf("update payment: %w", err)
-			}
-			updatedAt = dbPayment.UpdatedAt
+		updatedAt, ok, err := updateWebhookPayment(ctx, qtx, p, unlessRefundPending)
+		if err != nil {
+			return err
+		}
+		if !ok {
+			return nil
 		}
 
 		p.UpdatedAt = data.PgToTime(updatedAt)
@@ -635,6 +616,36 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		return false, err
 	}
 	return written, nil
+}
+
+// updateWebhookPayment is the payment write inside confirmWebhookPayment. It
+// reports false, with no error, when unlessRefundPending refused the write
+// because the payment is 'refund_pending'.
+func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unlessRefundPending bool) (pgtype.Timestamptz, bool, error) {
+	if unlessRefundPending {
+		dbPayment, err := qtx.UpdatePaymentUnlessRefundPending(ctx, updateUnlessRefundPendingParams(p))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgtype.Timestamptz{}, false, nil
+		}
+		if err != nil {
+			return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
+		}
+		return dbPayment.UpdatedAt, true, nil
+	}
+	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+		Status:         db.PaymentStatus(p.Status),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
+		// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
+		RefundAmount: int32(p.RefundAmount),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+		ID:           data.UUIDToPg(p.ID),
+	})
+	if err != nil {
+		return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
+	}
+	return dbPayment.UpdatedAt, true, nil
 }
 
 func paymentFromDB(p db.Payment) *Payment {

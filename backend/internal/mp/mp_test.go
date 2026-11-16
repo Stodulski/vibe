@@ -99,7 +99,7 @@ func TestVerifyWebhookSignature(t *testing.T) {
 	// seconds is still accepted. Either way the signed string carries ts as sent.
 	signed := func(dataID, requestID, ts string) *http.Request {
 		mac := hmac.New(sha256.New, []byte(secret))
-		mac.Write([]byte(fmt.Sprintf("id:%s;request-id:%s;ts:%s;", dataID, requestID, ts)))
+		fmt.Fprintf(mac, "id:%s;request-id:%s;ts:%s;", dataID, requestID, ts)
 		req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/webhook", nil)
 		req.Header.Set("X-Signature", fmt.Sprintf("ts=%s,v1=%s", ts, hex.EncodeToString(mac.Sum(nil))))
 		req.Header.Set("X-Request-Id", requestID)

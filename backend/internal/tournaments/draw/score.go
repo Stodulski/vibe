@@ -105,7 +105,7 @@ func superTiebreak(a, b int) bool {
 func (f Format) checkSet(i int, s Set) error {
 	isDecider := i == f.maxSets()-1
 	switch {
-	case s.Super && !(f.superDecider() && isDecider):
+	case s.Super && (!f.superDecider() || !isDecider):
 		return invalid("a match tiebreak is not played in this category's format")
 	case !s.Super && f.superDecider() && isDecider:
 		return invalid("set %d is a match tiebreak, played to 10 points with a two point lead", i+1)

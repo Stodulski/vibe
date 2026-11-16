@@ -98,9 +98,11 @@ func insertCategory(ctx context.Context, q *db.Queries, t db.Tournament, c NewCa
 		GroupSize: int32(c.GroupSize),
 		//nolint:gosec // G115: validated by the service (1..11).
 		QualifiersPerGroup: int32(c.QualifiersPerGroup),
-		//nolint:gosec // G115: validated by the service (1..2, 4..9, 30..480).
+		//nolint:gosec // G115: validated by the service (1..2, 4..9).
 		SetsToWin: int32(c.SetsToWin), GamesPerSet: int32(c.GamesPerSet),
-		SuperTiebreakDecider: c.SuperTiebreakDecider, MatchDurationMinutes: int32(c.MatchDurationMinutes),
+		SuperTiebreakDecider: c.SuperTiebreakDecider,
+		//nolint:gosec // G115: validated by the service (30..480).
+		MatchDurationMinutes: int32(c.MatchDurationMinutes),
 		//nolint:gosec // G115: validated by the service (0..MaxPrice).
 		CourtFee: int32(c.CourtFee),
 	}); err != nil {
