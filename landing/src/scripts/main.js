@@ -20,14 +20,18 @@ if (heroCta && nav.classList.contains('nav--quiet')) {
   }).observe(heroCta);
 }
 
-/* Hide WhatsApp FAB while it would overlap the hero content */
-const hero = document.querySelector('.hero');
+/* Hide the WhatsApp button while the hero, the FAQ or the footer is on screen: the
+   hero has its own calls to action, the FAQ links to WhatsApp itself, and in both the
+   FAQ and the footer the button would sit over controls in the same right-hand column. */
 const fab = document.querySelector('.whatsapp-fab');
-if (hero && fab) {
-  const heroObserver = new IntersectionObserver((entries) => {
-    entries.forEach(e => fab.classList.toggle('fab-hidden', e.isIntersecting));
+const fabBlockers = ['.hero', '.faq', '.footer'].map(s => document.querySelector(s)).filter(Boolean);
+if (fab && fabBlockers.length) {
+  const onScreen = new Set();
+  const fabObserver = new IntersectionObserver((entries) => {
+    entries.forEach(e => (e.isIntersecting ? onScreen.add(e.target) : onScreen.delete(e.target)));
+    fab.classList.toggle('fab-hidden', onScreen.size > 0);
   }, { threshold: 0.15 });
-  heroObserver.observe(hero);
+  fabBlockers.forEach(el => fabObserver.observe(el));
 }
 
 /* Mobile menu */

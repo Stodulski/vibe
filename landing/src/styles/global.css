@@ -11,7 +11,7 @@
   --bg: #0b0b0b;
   /* The second page background: sections alternate between the two, which is what
      separates them now instead of a rule between every pair. */
-  --bg-alt: #111111;
+  --bg-alt: #151515;
   --surface: rgba(255, 255, 255, 0.04);
   --surface-solid: #151515;
   /* Raised surfaces. A card has to read as lifted off the page without its border:
@@ -213,7 +213,9 @@ body {
   box-shadow: 0 1px 0 var(--border);
 }
 .nav-inner {
-  max-width: 1140px; margin: 0 auto; width: 100%;
+  /* The bar has its own 24px padding, so its content is the width of a .container's
+     content and the logo lines up with every heading under it. */
+  max-width: 1092px; margin: 0 auto; width: 100%;
   display: flex; align-items: center; justify-content: space-between;
 }
 .nav-logo {
@@ -370,7 +372,7 @@ body {
   background: rgba(0,0,0,0.2);
 }
 .footer-inner {
-  max-width: 1140px; margin: 0 auto;
+  max-width: 1092px; margin: 0 auto;
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; gap: 20px;
 }
@@ -433,7 +435,7 @@ body {
 /* Mobile Menu Overlay */
 .mobile-menu {
   display: none; position: fixed; inset: 0;
-  background: rgba(11, 11, 11, 0.98);
+  background: var(--bg);
   z-index: 999; flex-direction: column;
   align-items: center; justify-content: center; gap: 12px;
   opacity: 0; visibility: hidden;
@@ -456,7 +458,7 @@ body {
 .mobile-menu.open a:nth-child(5) { transition-delay: 0.25s; }
 .mobile-menu.open a:nth-child(6) { transition-delay: 0.3s; }
 .mobile-menu a:hover { color: var(--text); background: rgba(255, 255, 255, 0.06); }
-.mobile-menu .btn-primary { margin-top: 16px; font-size: 1.125rem; color: #000; margin-left: 24px; margin-right: 24px; }
+.mobile-menu .btn-primary { margin-top: 16px; font-size: 1.125rem; color: #000; margin-left: 24px; margin-right: 24px; padding: 0 32px; border-radius: 100px; }
 .mobile-menu .btn-primary:hover { color: #000; background: var(--green); }
 
 /* ========== RESPONSIVE (shared chrome) ========== */
@@ -502,6 +504,10 @@ body {
 .whatsapp-fab.fab-hidden { opacity: 0; pointer-events: none; transform: scale(0.8); }
 @media (prefers-reduced-motion: reduce) { .whatsapp-fab { transition: opacity 0.15s linear; } }
 .whatsapp-fab svg { display: block; }
+@media (max-width: 480px) {
+  .whatsapp-fab { width: 48px; height: 48px; bottom: 16px; right: 16px; }
+  .whatsapp-fab svg { width: 24px; height: 24px; }
+}
 
 /* ========== LEGAL PAGES ========== */
 .legal-page { padding: 140px 24px 80px; max-width: 800px; margin: 0 auto; }

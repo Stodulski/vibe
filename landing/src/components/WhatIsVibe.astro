@@ -14,7 +14,9 @@
   /* Scoped here, not in global.css: the global sheet is inlined into every page, so a
      change there moves the date of every page. */
   .what-is { padding: 96px 0; position: relative; }
-  .what-is .section-title { margin: 0 0 24px; }
+  /* A short definition between two big sections: a smaller heading, so it reads as
+     the aside it is. */
+  .what-is .section-title { margin: 0 0 24px; font-size: 2rem; }
   /* Two sizes from the page's scale (18 and 16), both capped near 70 characters a line. */
   .what-is-lead { font-size: 1.125rem; line-height: 1.6; color: var(--text); max-width: 640px; margin-bottom: 16px; }
   .what-is-body { font-size: 1rem; line-height: 1.6; color: var(--muted); max-width: 580px; }
