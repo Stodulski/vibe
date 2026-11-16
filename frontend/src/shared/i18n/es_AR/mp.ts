@@ -28,4 +28,5 @@ export const mp = {
   feesSourceLink: 'Ver la fuente',
   feesLoadError: 'No pudimos cargar los costos de Mercado Pago.',
   feesNotFound: 'No encontramos esta provincia en la tabla de Mercado Pago:',
+  releasePeriodTutorial: 'Cómo cambiar el plazo de acreditación',
 } as const;

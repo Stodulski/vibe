@@ -226,6 +226,15 @@
       ]
     },
     {
+      "source": "/tutoriales/plazo-de-acreditacion-mercado-pago",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-plazo-de-acreditacion-mercado-pago.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
       "source": "/tutoriales/abrir-y-cerrar-la-caja",
       "headers": [
         {

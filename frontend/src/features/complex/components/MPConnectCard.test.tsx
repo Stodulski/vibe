@@ -140,6 +140,23 @@ describe('MPConnectCard OAuth attempt', () => {
   });
 });
 
+describe('MPConnectCard release period tutorial', () => {
+  // The release period is changed in Mercado Pago, not in Vibe, so the card
+  // links to the landing tutorial that walks through it, in a new tab.
+  it.each([
+    ['connected', { connected: true, mp_user_id: '123' }],
+    ['not connected', { connected: false, mp_user_id: null }],
+  ])('links to the release period tutorial when %s', async (_label, status) => {
+    mockMpStatus = status;
+    renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
+
+    const link = await screen.findByRole('link', { name: 'Cómo cambiar el plazo de acreditación' });
+    expect(link).toHaveAttribute('href', 'https://vibe.com.ar/tutoriales/plazo-de-acreditacion-mercado-pago');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
+});
+
 describe('MPConnectCard loading', () => {
   beforeEach(() => {
     mockMpStatusIsLoading = false;

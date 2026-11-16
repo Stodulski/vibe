@@ -45,8 +45,33 @@ const BA_LENTA = tasaDe('Buenos Aires', '35 días');
 const CHACO_LENTA = tasaDe('Chaco', '35 días');
 const e = ejemplo();
 
+/**
+ * One numbered step of a tutorial: what to do, and a desktop capture that already
+ * carries its markers (green box and numbered circle) drawn into the pixels.
+ *
+ * `src` is the file stem under public/, without extension: the page serves
+ * `<src>.webp` (plus `<src>-960.webp` for narrow screens) and `<src>.png` as the
+ * fallback. width/height are the capture's own pixels, so the frame always has the
+ * image's ratio and the browser reserves the box before it loads.
+ */
+export type Paso = {
+  titulo: string;
+  texto: string;
+  imagen: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+    /** The part of the capture the step talks about, cut at its own size and shown on the
+        page instead of the whole screen; the whole capture stays one tap away. */
+    recorte?: { src: string; width: number; height: number };
+  };
+};
+
 export type Bloque =
   | { tipo: 'parrafos'; heading: string; parrafos: string[] }
+  /* Only tutorials use steps: a guide answers a question, it does not walk a screen. */
+  | { tipo: 'pasos'; heading: string; intro?: string; pasos: Paso[] }
   | { tipo: 'lista'; heading: string; intro?: string; items: string[] }
   | {
       tipo: 'tabla';

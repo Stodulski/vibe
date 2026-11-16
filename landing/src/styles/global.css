@@ -814,6 +814,22 @@ body {
 
 .tutorial-nota { font-size: 0.8125rem !important; opacity: 0.8; margin-top: 14px; }
 
+/* Pasos: number and title, the text, then the capture with its markers. The border
+   sits on the <img> itself, so the frame always has the capture's own ratio. */
+.tutorial-pasos { list-style: none; padding: 0; margin: 24px 0 0; display: flex; flex-direction: column; gap: 44px; }
+.tutorial-paso-titulo {
+  font-weight: 700; font-size: 1.125rem; line-height: 1.4; color: var(--text); margin-bottom: 10px;
+}
+.tutorial-paso-numero { display: block; color: var(--green); }
+.tutorial-paso-ampliar { display: block; width: fit-content; max-width: 100%; border-radius: 12px; }
+.tutorial-paso-ampliar:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
+.tutorial-paso-captura {
+  display: block; width: 100%; height: auto; margin-top: 16px;
+  border: 1px solid var(--border); border-radius: 12px;
+}
+/* A crop is drawn at its own size or smaller, never stretched past it. */
+.tutorial-paso-captura--recorte { width: auto; max-width: 100%; }
+
 .tutorial-faq { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .tutorial-faq-item { width: 100%; }
 
@@ -834,7 +850,9 @@ body {
 .tutorial-index-meta { font-size: 0.75rem; color: var(--muted); opacity: 0.7; }
 
 @media (max-width: 640px) {
-  .tutorial { padding: 110px 20px 64px; }
+  /* The container already keeps a 16px gutter on phones; a second one here
+     left the captures 36px from each edge. */
+  .tutorial { padding: 110px 0 64px; }
   .tutorial-cta { padding: 24px; }
 }
 
