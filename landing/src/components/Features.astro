@@ -5,11 +5,10 @@ import Screenshot from './Screenshot.astro';
  * The seven modules, one at a time: a named button per module picks which one shows,
  * and the arrows walk through them in a loop.
  *
- * Each capture is shown cropped to the part the text talks about, at a scale where the
- * panel's own type can be read; the whole 1669px screen shrunk into the column left it
- * at about 7px. `crop` is that region in the capture's own pixels: `rx`/`ry` is its
- * top-left corner and `rw` its width. The frame has the capture's own shape, so the
- * region keeps it too, on every screen width.
+ * Each capture is shown at a fixed scale where the panel's own type reads at about
+ * 12px, starting at the top-left corner of the part the text talks about: `focus` is
+ * that corner in the capture's own pixels. A wider frame shows more past it; a phone
+ * shows less, but never smaller. See .shot--focus in home.css.
  *
  * Every module is in the markup, so the page reads complete without JavaScript and in
  * the Markdown twin; main.js only decides which one is on screen.
@@ -23,7 +22,7 @@ const MODULES = [
     bullets: ['Sin app ni registro para el que reserva', 'Nunca dos reservas en el mismo turno', 'Si cancela a tiempo, la seña vuelve sola'],
     shot: 'panel-reservas-canchas',
     alt: 'Panel real de reservas de Vibe con turnos confirmados y seña pagada, agrupados por mañana, tarde y noche',
-    crop: { rw: 860, rx: 190, ry: 60 },
+    focus: { x: 196, y: 64 },
   },
   {
     id: 'turnos-fijos',
@@ -33,7 +32,7 @@ const MODULES = [
     bullets: ['Cancelás una fecha sin tocar las demás', 'Terminás el turno fijo desde la fecha que elijas', 'Cada fecha se cobra como una reserva más'],
     shot: 'turnos-fijos',
     alt: 'Grilla de reservas de Vibe con un turno fijo semanal que ocupa la misma cancha y el mismo horario cada semana',
-    crop: { rw: 511, rx: 1148, ry: 0 },
+    focus: { x: 1150, y: 0 },
   },
   {
     id: 'canchas-libres',
@@ -43,7 +42,7 @@ const MODULES = [
     bullets: ['Elegís cupo, precio y canchas', 'Esas canchas quedan bloqueadas para otras reservas', 'Si cancelás, a cada uno le vuelve lo que pagó'],
     shot: 'canchas-libres',
     alt: 'Cancha libre publicada en Vibe con su horario, sus canchas, el cupo y la lista de jugadores anotados',
-    crop: { rw: 511, rx: 1148, ry: 0 },
+    focus: { x: 1150, y: 0 },
   },
   {
     id: 'torneos',
@@ -53,7 +52,7 @@ const MODULES = [
     bullets: ['Zonas y eliminación directa', 'Cada partido ocupa su cancha en la grilla', 'Los jugadores siguen el cuadro y los resultados desde tu página'],
     shot: 'torneos-cuadro',
     alt: 'Torneo en Vibe con las zonas de una categoría, sus resultados y las parejas que clasifican',
-    crop: { rw: 760, rx: 196, ry: 52 },
+    focus: { x: 200, y: 60 },
   },
   {
     id: 'caja',
@@ -63,7 +62,7 @@ const MODULES = [
     bullets: ['Ingresos y egresos por categoría: insumos, sueldos, servicios, retiros', 'Los cobros en efectivo y las ventas entran solos', 'Al cerrar: esperado contra contado, con sobrante o faltante'],
     shot: 'caja-turno',
     alt: 'Caja abierta en Vibe con el efectivo inicial, los movimientos del turno y el efectivo esperado',
-    crop: { rw: 820, rx: 190, ry: 70 },
+    focus: { x: 196, y: 84 },
   },
   {
     id: 'bar',
@@ -73,7 +72,7 @@ const MODULES = [
     bullets: ['Carrito y cobro con el método que elija el cliente', 'Si un producto quedó en cero, te avisa y la venta sale igual', 'Aviso de stock bajo en el dashboard, con el mínimo que vos definís'],
     shot: 'vender-mostrador',
     alt: 'Pantalla Vender de Vibe con el catálogo, el carrito y un aviso de stock',
-    crop: { rw: 910, rx: 705, ry: 275 },
+    focus: { x: 1246, y: 144 },
   },
   {
     id: 'reportes',
@@ -83,7 +82,7 @@ const MODULES = [
     bullets: ['Ingresos, ocupación por horario y la caja abierta', 'Reporte mensual por método de pago y por cancha', 'Excel con los pagos y la caja del mes'],
     shot: 'dashboard-complejo-deportivo',
     alt: 'Dashboard real de Vibe con las reservas, los ingresos, la ocupación y los medios de pago del día',
-    crop: { rw: 720, rx: 196, ry: 76 },
+    focus: { x: 200, y: 76 },
   },
 ];
 ---
@@ -118,7 +117,7 @@ const MODULES = [
         </ul>
        </div>
        <div class="ft-block-visual">
-        <div class="shot" style={`--rw:${m.crop.rw};--rx:${m.crop.rx};--ry:${m.crop.ry}`}>
+        <div class="shot shot--focus" style={`--fx:${m.focus.x};--fy:${m.focus.y}`}>
          <div class="shot-canvas">
           <Screenshot variant="desktop" name={m.shot} alt={m.alt} />
          </div>

@@ -3,9 +3,10 @@ import Screenshot from './Screenshot.astro';
 
 /*
  * Four steps side by side, each opening with the screen it talks about instead of a
- * generic icon. The pictures are details of real captures: `crop` is the region shown,
- * in the capture's own pixels (`rx`/`ry` its top-left corner, `rw` its width), and
- * `natural` is the capture's size when it is not the 1669x869 desktop one.
+ * generic icon. The pictures are details of real captures. A desktop capture takes a
+ * `focus`, the top-left corner in its own pixels of what the frame shows at a
+ * readable scale (see .shot--focus in home.css). The phone page is narrower than any frame, so it takes a
+ * `crop` instead (`rx`/`ry` its top-left corner, `rw` its width) with its `natural` size.
  *
  * `how-step-node` is a name scripts/build-markdown.mjs drops: the number is the order
  * of the list, which the Markdown twin already states by listing the steps in order.
@@ -15,7 +16,7 @@ const STEPS = [
     title: 'Cargá tu complejo',
     text: 'Canchas, horarios y precios. Conectás MercadoPago y las señas online quedan andando.',
     detail: 'Asistente paso a paso',
-    shot: { name: 'precios-por-cancha-y-horario', alt: 'Canchas cargadas en Vibe, cada una con su deporte y su descripción', crop: { rw: 840, rx: 118, ry: 123 } },
+    shot: { name: 'precios-por-cancha-y-horario', alt: 'Canchas cargadas en Vibe, cada una con su deporte y su descripción', focus: { x: 124, y: 152 } },
   },
   {
     title: 'Compartí tu link',
@@ -27,13 +28,13 @@ const STEPS = [
     title: 'Recibí las reservas',
     text: 'Entran reservas con seña, desde el celular. Las ves en la grilla, con lo que falta cobrar.',
     detail: 'Confirmación y recordatorio automáticos',
-    shot: { name: 'panel-reservas-canchas', alt: 'Reservas del día en la grilla de Vibe, cada una en su cancha y su horario', crop: { rw: 650, rx: 200, ry: 40 } },
+    shot: { name: 'panel-reservas-canchas', alt: 'Reservas del día en la grilla de Vibe, cada una en su cancha y su horario', focus: { x: 196, y: 64 } },
   },
   {
     title: 'Abrí la caja y vendé',
     text: 'Cobrás lo que falta, vendés lo del bar y al cerrar el turno la cuenta ya está hecha.',
     detail: 'Arqueo al cierre',
-    shot: { name: 'caja-turno', alt: 'Caja del turno en Vibe con el efectivo esperado y los movimientos del día', crop: { rw: 800, rx: 190, ry: 96 } },
+    shot: { name: 'caja-turno', alt: 'Caja del turno en Vibe con el efectivo esperado y los movimientos del día', focus: { x: 196, y: 84 } },
   },
 ];
 ---
@@ -48,8 +49,10 @@ const STEPS = [
 
   <div class="how-steps">
    {STEPS.map((step, i) => {
-    const { crop, natural } = step.shot;
-    const vars = `--rw:${crop.rw};--rx:${crop.rx};--ry:${crop.ry}` + (natural ? `;--nw:${natural.w};--nh:${natural.h}` : '');
+    const { crop, focus, natural } = step.shot;
+    const vars = focus
+     ? `--fx:${focus.x};--fy:${focus.y}`
+     : `--rw:${crop.rw};--rx:${crop.rx};--ry:${crop.ry};--nw:${natural.w};--nh:${natural.h}`;
     return (
      <div class={`how-step anim anim-d${i + 1}`}>
       <div class="how-step-node"><span class="how-step-num">{i + 1}</span></div>
@@ -58,7 +61,7 @@ const STEPS = [
       <p class="step-detail">{step.detail}</p>
       {/* After its step in the markup, so the page reads heading first; the styles lift
           it to the top of the column. */}
-      <div class="shot how-step-shot" style={vars}>
+      <div class:list={['shot', 'how-step-shot', focus && 'shot--focus']} style={vars}>
        <div class="shot-canvas">
         {natural
          ? <Screenshot variant="single" name={step.shot.name} width={natural.w} height={natural.h} alt={step.shot.alt} />
