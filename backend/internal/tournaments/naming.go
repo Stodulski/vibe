@@ -28,17 +28,17 @@ const (
 	MaxPrizesLength = 200
 )
 
-// modalityLabels and levelLabels are the Spanish labels a category's name is
-// composed from. The levels are ordinals, from 1ra to 9na.
-var (
-	modalityLabels = map[string]string{ModalityMen: "Caballeros", ModalityWomen: "Damas", ModalityMixed: "Mixto"}
-	levelLabels    = [MaxLevel]string{"1ra", "2da", "3ra", "4ta", "5ta", "6ta", "7ma", "8va", "9na"}
-)
+// levelLabels are the ordinals a padel category's level is named by, from 1ra to 9na.
+var levelLabels = [MaxLevel]string{"1ra", "2da", "3ra", "4ta", "5ta", "6ta", "7ma", "8va", "9na"}
 
-// ComposeCategoryName is the name a category is stored and shown under: its
-// modality and level ("Caballeros 8va"), or its modality and suma ("Mixto Suma 15").
-func ComposeCategoryName(modality string, level, suma int) string {
-	label := modalityLabels[modality]
+// ComposeCategoryName is the name a category is stored and shown under. On padel it
+// is the modality and level ("Caballeros 8va") or the modality and suma ("Mixto Suma
+// 15"); on any other sport it is the modality's label alone ("Masculino").
+func ComposeCategoryName(sport, modality string, level, suma int) string {
+	label := sports.ModalityLabel(sport, modality)
+	if sport != sportPadel {
+		return label
+	}
 	if suma != 0 {
 		return label + " Suma " + strconv.Itoa(suma)
 	}

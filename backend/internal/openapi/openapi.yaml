@@ -1500,8 +1500,8 @@ paths:
               required: [date, start_time, end_time, capacity, price]
               properties:
                 name: {type: string, maxLength: 100, description: "Optional; an event given none is named after its sport."}
-                modality: {type: string, enum: [men, women, mixed], description: "Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone)."}
-                level_min: {type: integer, minimum: 1, maximum: 9, description: "The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4."}
+                modality: {type: string, enum: [men, women, mixed], description: "Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone)."}
+                level_min: {type: integer, minimum: 1, maximum: 9, description: "Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport."}
                 level_max: {type: integer, minimum: 1, maximum: 9, description: "The weakest level allowed; level_min must not be above it."}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball], default: padel}
                 date: {type: string, format: date, description: "The day the event starts on. Not in the past, within 365 days."}
@@ -3029,9 +3029,9 @@ paths:
                     type: object
                     required: [modality, format, capacity, price, starts_on, starts_at]
                     properties:
-                      modality: {type: string, enum: [men, women, mixed], description: "Caballeros, Damas or Mixto."}
-                      level: {type: integer, minimum: 1, maximum: 9, description: "1ra (1) to 9na (9). Exactly one of level and suma."}
-                      suma: {type: integer, minimum: 2, maximum: 18, description: "The two players' levels added together. Exactly one of level and suma."}
+                      modality: {type: string, enum: [men, women, mixed], description: "Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it."}
+                      level: {type: integer, minimum: 1, maximum: 9, description: "Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport."}
+                      suma: {type: integer, minimum: 2, maximum: 18, description: "Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport."}
                       prizes: {type: string, maxLength: 200}
                       starts_on: {type: string, format: date, description: "The day the category starts, within the tournament's dates."}
                       starts_at: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$", description: "The time the category starts, HH:MM."}

@@ -11,13 +11,17 @@ const MAX_DAYS = 60;
 const MODALITIES = ['men', 'women', 'mixed'] as const;
 const MAX_PRIZES = 200;
 
+/** The one sport whose categories take a level or a suma; every sport's category takes a modality (S15). */
+export const PADEL_SPORT = 'padel';
+
 /** The most a pair can be asked per match, in pesos; the API's own ceiling. */
 export const MAX_COURT_FEE = 1_000_000;
 
 const categoryFormSchema = z
   .object({
     modality: z.enum(MODALITIES).optional(),
-    kind: z.enum(['level', 'suma']),
+    /** `none` on a sport whose categories take no level or suma (S15); padel takes a level or a suma. */
+    kind: z.enum(['level', 'suma', 'none']),
     level: z.number().int().min(1, t.levelRequired).max(9, t.levelRequired).optional(),
     suma: z.number({ error: t.sumaRange }).int(t.sumaRange).min(2, t.sumaRange).max(18, t.sumaRange).optional(),
     starts_on: z.string(),
@@ -128,13 +132,12 @@ export const DEFAULT_CATEGORY: CategoryFormValues = {
 type CategoryRequest = CreateTournamentRequest['categories'][number];
 
 /**
- * The modality and the level or suma of a category. The schema has required them before a request is
- * built; these guards narrow the optional form fields for the type.
+ * The modality of a category, and on padel its level or suma. The schema has required them before a
+ * request is built; these guards narrow the optional form fields for the type.
  */
-function traitsOf(
-  category: CategoryFormValues,
-): Pick<CategoryRequest, 'modality'> & ({ level: number } | { suma: number }) {
+function traitsOf(category: CategoryFormValues, sport: string): Pick<CategoryRequest, 'modality' | 'level' | 'suma'> {
   if (!category.modality) throw new Error('a category reaches the request with its modality');
+  if (sport !== PADEL_SPORT) return { modality: category.modality };
   if (category.kind === 'suma') {
     if (category.suma === undefined) throw new Error('a suma category reaches the request with its suma');
     return { modality: category.modality, suma: category.suma };
@@ -143,10 +146,10 @@ function traitsOf(
   return { modality: category.modality, level: category.level };
 }
 
-function categoryRequest(category: CategoryFormValues): CategoryRequest {
+function categoryRequest(category: CategoryFormValues, sport: string): CategoryRequest {
   const prizes = category.prizes.trim();
   return {
-    ...traitsOf(category),
+    ...traitsOf(category, sport),
     starts_on: category.starts_on,
     starts_at: category.starts_at,
     ...(prizes ? { prizes } : {}),
@@ -169,7 +172,7 @@ export function toCreateRequest(values: TournamentFormValues): CreateTournamentR
     sport: values.sport as Sport,
     start_date: values.start_date,
     end_date: values.end_date,
-    categories: values.categories.map(categoryRequest),
+    categories: values.categories.map((category) => categoryRequest(category, values.sport)),
   };
 }
 

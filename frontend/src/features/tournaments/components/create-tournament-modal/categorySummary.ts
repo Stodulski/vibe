@@ -6,9 +6,9 @@ import type { CategoryFormValues } from '../../schemas/tournamentForm.schema';
 
 const t = ES_AR.tournaments;
 
-/** The category's composed title: "Caballeros 8va", "Mixto Suma 15". */
-export function categoryFormTitle(category: CategoryFormValues): string {
-  return categoryTitle({ modality: category.modality, level: category.level, suma: category.suma });
+/** The category's composed title in its tournament's sport: "Caballeros 8va", "Mixto Suma 15", or "Masculino" off padel. */
+export function categoryFormTitle(category: CategoryFormValues, sport: string): string {
+  return categoryTitle({ sport, modality: category.modality, level: category.level, suma: category.suma });
 }
 
 /** "Sáb 21 nov · 18:00 · Zonas y cuadro · 16 parejas · $20.000": when it starts, how it plays and what it costs. */

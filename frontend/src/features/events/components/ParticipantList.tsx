@@ -1,5 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { playerTraitsLabel } from '@/shared/lib/traitLabels';
+import { PADEL_SPORT, playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { participantStatusKey, type ParticipantStatusKey } from '../lib/participantStatus';
 import type { OpenPlayParticipant } from '@/shared/types/api.types';
@@ -35,9 +35,9 @@ function cancelledBy(participant: OpenPlayParticipant): string | null {
   return null;
 }
 
-function ParticipantRow({ participant }: { participant: OpenPlayParticipant }) {
+function ParticipantRow({ participant, sport }: { participant: OpenPlayParticipant; sport: string }) {
   const key = participantStatusKey(participant);
-  const traits = playerTraitsLabel(participant);
+  const traits = playerTraitsLabel({ ...participant, sport });
   const detail = [moneyLine(participant), cancelledBy(participant)].filter(Boolean).join(' · ');
 
   return (
@@ -62,14 +62,20 @@ function ParticipantRow({ participant }: { participant: OpenPlayParticipant }) {
 }
 
 /** Everyone who held a spot, each with their own payment state. */
-export function ParticipantList({ participants }: { participants: OpenPlayParticipant[] }) {
+export function ParticipantList({
+  participants,
+  sport = PADEL_SPORT,
+}: {
+  participants: OpenPlayParticipant[];
+  sport?: string;
+}) {
   if (participants.length === 0) {
     return <p className="text-text-tertiary text-sm">{t.detail.noParticipants}</p>;
   }
   return (
     <ul aria-label={t.detail.participants}>
       {participants.map((participant) => (
-        <ParticipantRow key={participant.id} participant={participant} />
+        <ParticipantRow key={participant.id} participant={participant} sport={sport} />
       ))}
     </ul>
   );

@@ -62,6 +62,12 @@ describe('eventFormSchema', () => {
     expect(messages({ ...valid, modality: undefined })).toEqual([v.modalityRequired]);
   });
 
+  // S15: the modality is every sport's, so a tennis or soccer event needs one too.
+  it('needs a modality on a sport other than padel as well', () => {
+    expect(messages({ ...valid, sport: 'tennis', modality: undefined })).toEqual([v.modalityRequired]);
+    expect(messages({ ...valid, sport: 'soccer', modality: 'women' as const })).toEqual([]);
+  });
+
   it('accepts one level as "solo 4ta" (both ends equal) and a range "6ta a 8va"', () => {
     expect(messages({ ...valid, allLevels: false, levelMin: 4, levelMax: 4 })).toEqual([]);
     expect(messages({ ...valid, allLevels: false, levelMin: 6, levelMax: 8 })).toEqual([]);

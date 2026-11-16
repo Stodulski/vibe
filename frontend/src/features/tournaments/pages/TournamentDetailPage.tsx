@@ -8,6 +8,7 @@ import { PageHeader } from '@/shared/components/common/PageHeader';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { SportContext } from '@/shared/lib/sportContext';
 import { todayInArgentina } from '@/shared/lib/today';
 import { categoryTitle, tournamentTitle } from '@/shared/lib/traitLabels';
 import { CategoryPanel } from '../components/CategoryPanel';
@@ -72,7 +73,7 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
   const live = tournament.status === 'active' && tournament.end_date >= todayInArgentina();
 
   return (
-    <>
+    <SportContext.Provider value={tournament.sport}>
       <PageHeader title={tournamentTitle(tournament.sport)} />
       <TournamentFacts
         tournament={tournament}
@@ -85,8 +86,8 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
           value: c.id,
           label:
             c.status === 'cancelled'
-              ? `${categoryTitle(c)} · ${t.tournaments.categoryStatus.cancelled}`
-              : categoryTitle(c),
+              ? `${categoryTitle({ ...c, sport: tournament.sport })} · ${t.tournaments.categoryStatus.cancelled}`
+              : categoryTitle({ ...c, sport: tournament.sport }),
           muted: c.status === 'cancelled',
         }))}
         active={category?.id ?? ''}
@@ -96,6 +97,6 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
       {category && (
         <CategoryPanel key={category.id} detail={detail} category={category} complexId={complexId} live={live} />
       )}
-    </>
+    </SportContext.Provider>
   );
 }

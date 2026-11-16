@@ -7,10 +7,19 @@ import { ES_AR } from '@/shared/i18n/es_AR';
  * name (S10): every screen composes its title here, so no two screens name the
  * same thing differently. Screens never show a stored `name`, except a legacy
  * category that has no modality (see `categoryTitle`).
+ *
+ * The modality is every sport's (S15); its words follow the sport: caballeros and
+ * damas, or masculino and femenino. The level and the suma are padel's only.
  */
 
 export type Modality = 'men' | 'women' | 'mixed';
 type PlayerGender = 'men' | 'women';
+
+const PADEL = 'padel';
+/** The one sport whose open play and categories take a level range or a suma (S15). */
+export const PADEL_SPORT = PADEL;
+/** The sports whose players read masculino and femenino; every other sport says caballeros and damas. */
+const MASCULINE_SPORTS: ReadonlySet<string> = new Set(['soccer', 'basketball', 'volleyball', 'hockey']);
 
 const t = ES_AR.tournaments.traits;
 const e = ES_AR.events;
@@ -18,12 +27,13 @@ const e = ES_AR.events;
 /** Every level a player or a category can be, strongest (1ra) to weakest (9na). */
 export const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
 
-export function modalityLabel(modality: Modality): string {
-  return t.modality[modality];
+/** "Caballeros", "Damas" or "Mixto" on padel, tennis and pickleball; "Masculino", "Femenino" or "Mixto" on the others. */
+export function modalityLabel(modality: Modality, sport: string = PADEL): string {
+  return MASCULINE_SPORTS.has(sport) ? t.modalityMasculine[modality] : t.modality[modality];
 }
 
-function playerGenderLabel(gender: PlayerGender): string {
-  return t.player[gender];
+function playerGenderLabel(gender: PlayerGender, sport: string): string {
+  return MASCULINE_SPORTS.has(sport) ? t.playerMasculine[gender] : t.player[gender];
 }
 
 /** "1ra" for 1 up to "9na" for 9. */
@@ -38,6 +48,8 @@ function sportTitleLabel(sport: string): string {
 }
 
 export interface CategoryTraits {
+  /** The tournament's sport; padel when omitted. */
+  sport?: string | null | undefined;
   modality?: Modality | null | undefined;
   level?: number | null | undefined;
   suma?: number | null | undefined;
@@ -46,16 +58,19 @@ export interface CategoryTraits {
 }
 
 /**
- * "Caballeros 8va", "Damas 5ta", "Mixto Suma 15". A category without a modality
- * (created before the traits) keeps the name it was given.
+ * Padel: "Caballeros 8va", "Damas 5ta", "Mixto Suma 15". Any other sport: the
+ * modality's label alone, "Masculino". A category without a modality (created
+ * before the traits) keeps the name it was given.
  */
 export function categoryTitle(category: CategoryTraits): string {
   const { modality, level, suma } = category;
-  if (modality) {
-    if (level != null) return `${modalityLabel(modality)} ${levelLabel(level)}`;
-    if (suma != null) return `${modalityLabel(modality)} ${t.suma} ${String(suma)}`;
-  }
-  return category.name ?? '';
+  if (!modality) return category.name ?? '';
+  const sport = category.sport ?? PADEL;
+  const label = modalityLabel(modality, sport);
+  if (sport !== PADEL) return label;
+  if (level != null) return `${label} ${levelLabel(level)}`;
+  if (suma != null) return `${label} ${t.suma} ${String(suma)}`;
+  return label;
 }
 
 export interface OpenPlayTraits {
@@ -67,11 +82,12 @@ export interface OpenPlayTraits {
 
 /**
  * "Cancha abierta de pádel · Caballeros · 6ta a 8va", or "· solo 4ta" for a
- * single level. An event created before the traits has only the sport.
+ * single level. Another sport's open play has its modality and no range. An event
+ * created before the traits has only the sport.
  */
 export function openPlayTitle(event: OpenPlayTraits): string {
   const parts = [e.openPlayTitle(sportTitleLabel(event.sport))];
-  if (event.modality) parts.push(modalityLabel(event.modality));
+  if (event.modality) parts.push(modalityLabel(event.modality, event.sport));
   if (event.level_min != null && event.level_max != null) {
     const from = levelLabel(event.level_min);
     const to = levelLabel(event.level_max);
@@ -97,6 +113,8 @@ export function categoryStartLabel(startsOn: string | null | undefined, startsAt
 }
 
 export interface PlayerTraits {
+  /** The sport of the tournament or event the player signed up to; padel when omitted. */
+  sport?: string | null | undefined;
   gender?: PlayerGender | null | undefined;
   level?: number | null | undefined;
 }
@@ -104,7 +122,7 @@ export interface PlayerTraits {
 /** "Caballero · 7ma": what a player declared at sign-up, showing only what was declared. */
 export function playerTraitsLabel(player: PlayerTraits): string | null {
   const parts: string[] = [];
-  if (player.gender) parts.push(playerGenderLabel(player.gender));
+  if (player.gender) parts.push(playerGenderLabel(player.gender, player.sport ?? PADEL));
   if (player.level != null) parts.push(levelLabel(player.level));
   return parts.length > 0 ? parts.join(' · ') : null;
 }

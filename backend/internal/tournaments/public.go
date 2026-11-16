@@ -113,11 +113,15 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, tourname
 	return &PairSignUpResult{SignUpResult: res, Tournament: t, Category: cat}, nil
 }
 
+// noLevelDeclared refuses a level declared on a category that has no level or suma.
+const noLevelDeclared = "must not be sent: this category has no level or suma"
+
 // checkDeclaredPlayers holds a pair to its category before anything is held. A
-// category with traits needs both players to declare a gender and a level; the
-// genders must fit the modality; a level category takes no player stronger than
-// its level; a Suma takes a pair whose levels add up to at least its suma. A
-// category without traits (created before them) takes the pair as it is.
+// category with a modality needs both players to declare a gender, whatever the
+// sport; the genders must fit the modality. A category with a level or a suma (padel
+// only) also needs each player's level: a level category takes no player stronger
+// than its level, and a Suma takes a pair whose levels add up to at least its suma.
+// A category without a modality (created before it) takes the pair as it is.
 func checkDeclaredPlayers(cat *tournamentstore.Category, payer, partner events.SignUpInput) error {
 	if cat.Modality == nil {
 		return nil
@@ -129,11 +133,20 @@ func checkDeclaredPlayers(cat *tournamentstore.Category, payer, partner events.S
 	if partner.Gender == nil {
 		errs["partner.gender"] = "must be provided"
 	}
-	if payer.Level == nil {
-		errs["level"] = "must be provided"
-	}
-	if partner.Level == nil {
-		errs["partner.level"] = "must be provided"
+	if cat.Level != nil || cat.Suma != nil {
+		if payer.Level == nil {
+			errs["level"] = "must be provided"
+		}
+		if partner.Level == nil {
+			errs["partner.level"] = "must be provided"
+		}
+	} else {
+		if payer.Level != nil {
+			errs["level"] = noLevelDeclared
+		}
+		if partner.Level != nil {
+			errs["partner.level"] = noLevelDeclared
+		}
 	}
 	if len(errs) > 0 {
 		return &ValidationError{Errors: errs}

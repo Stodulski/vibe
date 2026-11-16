@@ -49,6 +49,19 @@ describe('CreateTournamentModal: categories step', () => {
     expect(screen.queryByLabelText(new RegExp(`^${t.form.groupSize}`))).not.toBeInTheDocument();
   });
 
+  it('words the modality by the sport and shows no level or suma off padel (S15)', async () => {
+    const { user } = await renderModal();
+    await pickOption(user, t.form.sport, ES_AR.courts.sportTypes.soccer);
+    await fillTournament(user);
+    await next(user);
+    await user.click(button(t.form.addCategory));
+
+    expect(screen.getByRole('button', { name: t.traits.modalityMasculine.women })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.traits.modality.women })).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(t.form.kind))).not.toBeInTheDocument();
+    expect(screen.queryByText(new RegExp(t.form.level))).not.toBeInTheDocument();
+  });
+
   it('asks for the modality, the level, the day, the time and the price before the second view', async () => {
     const { user } = await renderModal();
     await toCategories(user);

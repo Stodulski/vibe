@@ -45,7 +45,7 @@ func refusedWith(t *testing.T, err error, field, code string) {
 // A men's event refuses a woman before anything is held.
 func TestAMensEventRefusesAWomanBeforeAnyHold(t *testing.T) {
 	f := newFixture(t)
-	setModality(f, ModalityMen, 0, 0)
+	setModality(f, ModalityMen, 1, 9)
 	_, err := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, declare(GenderWomen, 5))
 	refusedWith(t, err, "gender", CodeModalityMismatch)
 	assertNothingHeld(t, f)
@@ -55,7 +55,7 @@ func TestAMensEventRefusesAWomanBeforeAnyHold(t *testing.T) {
 func TestAMixedEventTakesBothGenders(t *testing.T) {
 	for _, gender := range []string{GenderMen, GenderWomen} {
 		f := newFixture(t)
-		setModality(f, ModalityMixed, 0, 0)
+		setModality(f, ModalityMixed, 1, 9)
 		if _, err := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, declare(gender, 5)); err != nil {
 			t.Fatalf("%s: %v", gender, err)
 		}
@@ -143,12 +143,12 @@ func TestCreateRefusesAnUnknownModalityAndAPartialLevelRange(t *testing.T) {
 }
 
 // An event sent without a modality is open to everyone, as every event was before
-// modalities existed, so an app that does not send it yet keeps working.
+// modalities existed, so an app not yet updated keeps creating events.
 func TestAnEventWithoutModalityIsOpenToEveryone(t *testing.T) {
 	in := validInput()
 	in.Modality = ""
 	if errs := in.validate(time.Now()); len(errs) > 0 {
-		t.Fatalf("want no errors; got %v", errs)
+		t.Fatalf("errs = %v; want none", errs)
 	}
 }
 
@@ -164,4 +164,58 @@ func TestAnEventGivenNoNameIsNamedAfterItsSport(t *testing.T) {
 	if in.Name != "Cancha abierta de pádel" {
 		t.Errorf("name = %q; want %q", in.Name, "Cancha abierta de pádel")
 	}
+}
+
+// Another sport's open play takes a modality and no level range: the range is
+// refused, the modality is not.
+func TestAnotherSportsOpenPlayTakesAModalityButNoLevelRange(t *testing.T) {
+	in := validInput()
+	in.Sport = "tennis"
+	in.Modality = ModalityMen
+	if errs := in.validate(time.Now()); len(errs) > 0 {
+		t.Fatalf("errs = %v; want none for a modality alone", errs)
+	}
+	in.LevelMin, in.LevelMax = 4, 4
+	errs := in.validate(time.Now())
+	for _, field := range []string{"level_min", "level_max"} {
+		if errs[field] != onlyPadelLevels {
+			t.Errorf("%s = %q; want the padel-only refusal", field, errs[field])
+		}
+	}
+	if _, ok := errs["modality"]; ok {
+		t.Errorf("modality refused on a modality event: %v", errs)
+	}
+}
+
+// A sign-up to another sport's event declares the gender only: it holds with a
+// gender, and a level is refused before anything is held.
+func TestAnotherSportsEventNeedsOnlyTheGender(t *testing.T) {
+	f := newFixture(t)
+	f.store.event.Sport = "tennis"
+	setModality(f, ModalityMen, 0, 0)
+	genderOnly := signUpInput()
+	genderOnly.Gender = ptrS(GenderMen)
+	if _, err := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, genderOnly); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.store.signedUp) != 1 {
+		t.Fatalf("holds = %d; want 1", len(f.store.signedUp))
+	}
+	withLevel := declare(GenderMen, 5)
+	_, err := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, withLevel)
+	refusedWith(t, err, "level", noLevelRange)
+	if len(f.store.signedUp) != 1 {
+		t.Errorf("holds = %d after a refused sign-up; want still 1", len(f.store.signedUp))
+	}
+}
+
+// A padel event with a range needs the level too, not only the gender.
+func TestARangeEventAlsoNeedsTheLevel(t *testing.T) {
+	f := newFixture(t)
+	setModality(f, ModalityMixed, 4, 6)
+	genderOnly := signUpInput()
+	genderOnly.Gender = ptrS(GenderMen)
+	_, err := f.svc.SignUp(t.Context(), visitor(), "vibe", f.store.event.ID, genderOnly)
+	refusedWith(t, err, "level", "must be provided")
+	assertNothingHeld(t, f)
 }

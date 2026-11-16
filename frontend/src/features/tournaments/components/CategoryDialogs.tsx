@@ -73,7 +73,7 @@ export function CategoryDialogsHost({ complexId, tournament, category, view, dia
         complexId={complexId}
         tournamentId={tournament.id}
         categoryId={category.id}
-        categoryName={categoryTitle(category)}
+        categoryName={categoryTitle({ ...category, sport: tournament.sport })}
         paidCount={view.paidPairs.length}
       />
     </>

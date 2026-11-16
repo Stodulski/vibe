@@ -154,6 +154,29 @@ describe('toCreateRequest', () => {
   });
 });
 
+// S15: every sport's category takes a modality; a level or a suma is padel's only.
+describe('tournamentFormSchema: traits by sport', () => {
+  it('needs a modality on a tennis or soccer category too', () => {
+    const errors = messages(
+      form({ sport: 'soccer', categories: [category({ kind: 'none', modality: undefined, level: undefined })] }),
+    );
+    expect(errors).toContain(t.modalityRequired);
+  });
+
+  it('takes no level or suma off padel: the kind is none and nothing more is required', () => {
+    expect(messages(form({ sport: 'tennis', categories: [category({ kind: 'none', level: undefined })] }))).toEqual([]);
+  });
+
+  it('sends the modality alone to a non-padel tournament, never a level or a suma', () => {
+    const request = toCreateRequest(
+      form({ sport: 'soccer', categories: [category({ kind: 'none', modality: 'women', level: undefined })] }),
+    );
+    expect(request.categories[0]).toMatchObject({ modality: 'women' });
+    expect(request.categories[0]).not.toHaveProperty('level');
+    expect(request.categories[0]).not.toHaveProperty('suma');
+  });
+});
+
 describe('toCreateRequest: traits', () => {
   it('sends the modality, the level, the start and the prizes, and never a name', () => {
     const request = toCreateRequest(

@@ -1,5 +1,6 @@
 import { Phone } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { useSport } from '@/shared/lib/sportContext';
 import { playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { pairFullName, pairName, pairPaymentKey, type PairPaymentKey } from '../lib/tournamentView';
@@ -55,6 +56,7 @@ function refundedLine(pair: TournamentOwnerPair): string | null {
 }
 
 function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; groupName?: string; onSwap?: () => void }) {
+  const sport = useSport();
   const key = pairPaymentKey(pair);
   const paid = paidAmount(pair);
   const badge = paid ? t.paid(paid) : t.state[key];
@@ -74,12 +76,12 @@ function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; group
           <PlayerContact
             name={`${pair.payer.first_name} ${pair.payer.last_name}`}
             phone={pair.payer.phone}
-            traits={playerTraitsLabel(pair.payer)}
+            traits={playerTraitsLabel({ ...pair.payer, sport })}
           />
           <PlayerContact
             name={`${pair.partner.first_name} ${pair.partner.last_name}`}
             phone={pair.partner.phone}
-            traits={playerTraitsLabel(pair.partner)}
+            traits={playerTraitsLabel({ ...pair.partner, sport })}
           />
         </div>
         {tags.length > 0 && <p className="text-text-tertiary text-xs">{tags.join(' · ')}</p>}

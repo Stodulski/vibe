@@ -10,7 +10,7 @@ import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { Switch } from '@/shared/components/ui/switch';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { LEVELS, levelLabel, modalityLabel, type Modality } from '@/shared/lib/traitLabels';
+import { LEVELS, PADEL_SPORT, levelLabel, modalityLabel, type Modality } from '@/shared/lib/traitLabels';
 import { cn } from '@/shared/lib/utils';
 import { useEventTimeOptions } from '../../hooks/useEventTimeOptions';
 import { eventDurationMinutes, type EventFormValues } from '../../schemas/eventForm.schema';
@@ -41,6 +41,12 @@ function SportField({ form }: { form: Form }) {
         value={watch('sport')}
         onValueChange={(sport) => {
           setValue('sport', sport);
+          // A level range is padel's only: switching to another sport clears it back to every level.
+          if (sport !== PADEL_SPORT) {
+            setValue('allLevels', true);
+            setValue('levelMin', undefined);
+            setValue('levelMax', undefined);
+          }
         }}
       >
         <SelectTrigger id="event-sport">
@@ -58,8 +64,8 @@ function SportField({ form }: { form: Form }) {
   );
 }
 
-/** Caballeros, Damas or Mixto: who may sign up. Required; the title is composed from it (S14). */
-function ModalityField({ form }: { form: Form }) {
+/** Who may sign up, required on every sport (S14, S15), in the words its sport uses; the title is composed from it. */
+function ModalityField({ form, sport }: { form: Form; sport: string }) {
   const modality = form.watch('modality');
   const error = form.formState.errors.modality?.message;
   return (
@@ -82,7 +88,7 @@ function ModalityField({ form }: { form: Form }) {
                 form.setValue('modality', value, { shouldValidate: true });
               }}
             >
-              {modalityLabel(value)}
+              {modalityLabel(value, sport)}
             </Button>
           );
         })}
@@ -266,11 +272,12 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
 }
 
 export function EventFormFields({ form, courts }: { form: Form; courts: CourtWithPrices[] }) {
+  const sport = form.watch('sport');
   return (
     <>
       <SportField form={form} />
-      <ModalityField form={form} />
-      <LevelsField form={form} />
+      <ModalityField form={form} sport={sport} />
+      {sport === PADEL_SPORT && <LevelsField form={form} />}
       <WhenFields form={form} />
       <EventCourtsField form={form} courts={courts} />
       <CapacityAndPriceFields form={form} />

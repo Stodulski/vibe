@@ -152,6 +152,22 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	in, ok := h.createInput(w, r)
+	if !ok {
+		return
+	}
+	detail, err := h.svc.Create(r.Context(), complex.Complex, h.actor(r), in)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusCreated, envelopeOf(h.ownerDetail(r.Context(), complex.ID, detail)))
+}
+
+// createInput decodes an owner's create request and parses its dates. It answers
+// the request itself and returns false when the body is malformed or a date is not
+// a date, so the service only ever sees a request whose shape it can judge.
+func (h *Handler) createInput(w http.ResponseWriter, r *http.Request) (CreateInput, bool) {
 	var input struct {
 		Name       string `json:"name"`
 		Sport      string `json:"sport"`
@@ -178,7 +194,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
-		return
+		return CreateInput{}, false
 	}
 	in := CreateInput{Name: input.Name, Sport: input.Sport}
 	errs := map[string]string{}
@@ -205,14 +221,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if len(errs) > 0 {
 		h.respond.FailedValidation(w, r, errs)
-		return
+		return CreateInput{}, false
 	}
-	detail, err := h.svc.Create(r.Context(), complex.Complex, h.actor(r), in)
-	if err != nil {
-		h.refuse(w, r, err)
-		return
-	}
-	h.respond.JSON(w, r, http.StatusCreated, envelopeOf(h.ownerDetail(r.Context(), complex.ID, detail)))
+	return in, true
 }
 
 // List handles GET /api/v1/complexes/{id}/tournaments.

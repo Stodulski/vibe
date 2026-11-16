@@ -11,11 +11,11 @@ import type { CategoryFormValues, TournamentFormValues } from '../../schemas/tou
 const t = ES_AR.tournaments;
 const c = t.createSteps;
 
-function CategoryReview({ category }: { category: CategoryFormValues }) {
+function CategoryReview({ category, sport }: { category: CategoryFormValues; sport: string }) {
   const groups = category.format === 'groups';
   return (
     <li className="space-y-0.5 py-2.5">
-      <p className="text-text-primary text-sm font-medium">{categoryFormTitle(category)}</p>
+      <p className="text-text-primary text-sm font-medium">{categoryFormTitle(category, sport)}</p>
       <p className="text-text-secondary text-xs">{categorySummaryLine(category)}</p>
       <p className="text-text-tertiary text-xs">
         {groups && `${t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}. `}
@@ -67,7 +67,7 @@ export function ReviewStep({ values, error, pending, onBack }: Props) {
           <h3 className="text-text-primary text-sm font-semibold">{c.categoriesHeading}</h3>
           <ul className="border-border-subtle divide-border-subtle divide-y rounded-xl border px-3.5">
             {values.categories.map((category, index) => (
-              <CategoryReview key={index} category={category} />
+              <CategoryReview key={index} category={category} sport={values.sport} />
             ))}
           </ul>
         </section>

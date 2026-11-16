@@ -43,8 +43,8 @@ func TestTheComposedNameReadsModalityAndLevelOrSuma(t *testing.T) {
 		{ModalityWomen, 0, 2, "Damas Suma 2"},
 	}
 	for _, tc := range cases {
-		if got := ComposeCategoryName(tc.modality, tc.level, tc.suma); got != tc.want {
-			t.Errorf("ComposeCategoryName(%s, %d, %d) = %q; want %q", tc.modality, tc.level, tc.suma, got, tc.want)
+		if got := ComposeCategoryName("padel", tc.modality, tc.level, tc.suma); got != tc.want {
+			t.Errorf("ComposeCategoryName(padel, %s, %d, %d) = %q; want %q", tc.modality, tc.level, tc.suma, got, tc.want)
 		}
 	}
 }
@@ -87,6 +87,9 @@ func TestAnOmittedTournamentNameGetsTheComposedDefault(t *testing.T) {
 			f := newFixture(t)
 			in := validCreate()
 			in.Name, in.Sport = tc.name, tc.sport
+			if tc.sport != "padel" {
+				in.Categories = []CategoryInput{traitsCategory(ModalityMen, 0, 0)}
+			}
 			if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
 				t.Fatal(err)
 			}
@@ -297,6 +300,91 @@ func TestTheOwnerPairWireShowsTheDeclaredLevels(t *testing.T) {
 	if wire.Payer.Level == nil || *wire.Payer.Level != 5 || wire.Partner.Level == nil || *wire.Partner.Level != 8 {
 		t.Errorf("owner pair levels = %+v / %+v; want 5 and 8", wire.Payer.Level, wire.Partner.Level)
 	}
+}
+
+// A category of a sport other than padel takes its modality and no level or suma,
+// and its name is the modality's label in that sport's words.
+func TestAnotherSportsCategoryIsNamedByItsModality(t *testing.T) {
+	cases := map[string]struct {
+		sport, want string
+		modality    string
+	}{
+		"soccer men":       {"soccer", "Masculino", ModalityMen},
+		"soccer women":     {"soccer", "Femenino", ModalityWomen},
+		"basketball mixed": {"basketball", "Mixto", ModalityMixed},
+		"tennis men":       {"tennis", "Caballeros", ModalityMen},
+		"tennis women":     {"tennis", "Damas", ModalityWomen},
+	}
+	for label, tc := range cases {
+		t.Run(label, func(t *testing.T) {
+			f := newFixture(t)
+			in := validCreate()
+			in.Sport = tc.sport
+			in.Categories = []CategoryInput{traitsCategory(tc.modality, 0, 0)}
+			if _, err := f.svc.Create(t.Context(), f.complex, f.actor(), in); err != nil {
+				t.Fatal(err)
+			}
+			got := f.store.createdCats[0]
+			if got.Name != tc.want || got.Modality != tc.modality || got.Level != 0 || got.Suma != 0 {
+				t.Errorf("category = %+v; want name %q, its modality and no traits", got, tc.want)
+			}
+		})
+	}
+}
+
+// Every sport's category takes a modality, and only padel takes a level or a suma:
+// another sport refuses either, a padel category needs exactly one, and a modality
+// can appear once per tournament.
+func TestCategoryTraitsFollowTheSport(t *testing.T) {
+	cases := map[string]struct {
+		sport  string
+		mutate func(in *CreateInput)
+		field  string
+		code   string
+	}{
+		"tennis needs a modality":       {"tennis", func(in *CreateInput) { in.Categories[0].Modality = "" }, "categories[0].modality", ""},
+		"soccer refuses a level":        {"soccer", func(in *CreateInput) { in.Categories[0].Level = 5 }, "categories[0].level", onlyPadelCategory},
+		"hockey refuses a suma":         {"hockey", func(in *CreateInput) { in.Categories[0].Suma = 15 }, "categories[0].suma", onlyPadelCategory},
+		"tennis repeats a modality":     {"tennis", func(in *CreateInput) { in.Categories[1].Modality = ModalityMen }, "categories[1].modality", httpx.CodeCategoryDuplicate},
+		"padel needs a level or a suma": {"padel", func(in *CreateInput) { in.Categories[0].Level = 0 }, "categories[0].level", ""},
+	}
+	for label, tc := range cases {
+		t.Run(label, func(t *testing.T) {
+			f := newFixture(t)
+			in := validCreate()
+			in.Sport = tc.sport
+			if tc.sport != "padel" {
+				in.Categories = []CategoryInput{traitsCategory(ModalityMen, 0, 0), traitsCategory(ModalityWomen, 0, 0)}
+			}
+			tc.mutate(&in)
+			_, err := f.svc.Create(t.Context(), f.complex, f.actor(), in)
+			errs := fieldErrors(t, err)
+			if errs[tc.field] == "" {
+				t.Fatalf("errors = %v; want one on %s", errs, tc.field)
+			}
+			if tc.code != "" && errs[tc.field] != tc.code {
+				t.Errorf("%s = %q; want %q", tc.field, errs[tc.field], tc.code)
+			}
+			if f.store.created != nil {
+				t.Error("nothing may be written for a refused category")
+			}
+		})
+	}
+}
+
+// A category of a sport other than padel declares the gender only: a sign-up with
+// a gender holds, and a level is refused before anything is held.
+func TestAnotherSportsCategoryNeedsOnlyTheGender(t *testing.T) {
+	f := newFixture(t)
+	setTraits(f, ModalityMen, 0, 0)
+	if err := signUpPair(t, f, events.SignUpInput{Gender: ptr(GenderMen)}, events.SignUpInput{Gender: ptr(GenderMen)}); err != nil {
+		t.Fatal(err)
+	}
+	assertHeld(t, f, 1)
+
+	err := signUpPair(t, f, events.SignUpInput{Gender: ptr(GenderMen), Level: ptr(5)}, events.SignUpInput{Gender: ptr(GenderMen)})
+	assertRefused(t, err, "level", noLevelDeclared)
+	assertHeld(t, f, 1)
 }
 
 func ptr[T any](v T) *T { return &v }

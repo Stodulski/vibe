@@ -112,10 +112,13 @@ const (
 	CodeLevelOutOfRange  = httpx.CodeLevelOutOfRange
 )
 
-// checkDeclaredPlayer holds a sign-up to its event before anything is held: an
-// event with a modality needs the person's gender and level, the gender must fit
-// the modality, and the level must sit inside the event's range when it has one.
-// An event without a modality takes anyone.
+// noLevelRange refuses a level declared on an event that has no level range.
+const noLevelRange = "must not be sent: this event has no level range"
+
+// checkDeclaredPlayer holds a sign-up to its event before anything is held: an event
+// with a modality needs the person's gender, whatever the sport, and the gender must
+// fit the modality. Only an event with a level range (padel) also needs the level,
+// which must sit inside that range. An event without a modality takes anyone.
 func checkDeclaredPlayer(ev *eventstore.Event, in SignUpInput) error {
 	if ev.Modality == nil {
 		return nil
@@ -124,8 +127,12 @@ func checkDeclaredPlayer(ev *eventstore.Event, in SignUpInput) error {
 	if in.Gender == nil {
 		errs["gender"] = "must be provided"
 	}
-	if in.Level == nil {
-		errs["level"] = "must be provided"
+	if ev.LevelMin != nil && ev.LevelMax != nil {
+		if in.Level == nil {
+			errs["level"] = "must be provided"
+		}
+	} else if in.Level != nil {
+		errs["level"] = noLevelRange
 	}
 	if len(errs) > 0 {
 		return &ValidationError{Errors: errs}

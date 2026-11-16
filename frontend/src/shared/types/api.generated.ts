@@ -5655,11 +5655,11 @@ export interface operations {
           /** @description Optional; an event given none is named after its sport. */
           name?: string;
           /**
-           * @description Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
+           * @description Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
            * @enum {string}
            */
           modality?: 'men' | 'women' | 'mixed';
-          /** @description The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. */
+          /** @description Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport. */
           level_min?: number;
           /** @description The weakest level allowed; level_min must not be above it. */
           level_max?: number;
@@ -7401,13 +7401,13 @@ export interface operations {
           end_date: string;
           categories: {
             /**
-             * @description Caballeros, Damas or Mixto.
+             * @description Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it.
              * @enum {string}
              */
             modality: 'men' | 'women' | 'mixed';
-            /** @description 1ra (1) to 9na (9). Exactly one of level and suma. */
+            /** @description Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport. */
             level?: number;
-            /** @description The two players' levels added together. Exactly one of level and suma. */
+            /** @description Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport. */
             suma?: number;
             prizes?: string;
             /**

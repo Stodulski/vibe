@@ -61,7 +61,7 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
         <h3 className="text-text-primary mb-1 text-sm font-semibold">
           {t.detail.participants} · {t.detail.confirmedCount(paidCount(participants))}
         </h3>
-        <ParticipantList participants={sortParticipants(participants)} />
+        <ParticipantList participants={sortParticipants(participants)} sport={event.sport} />
       </section>
     </div>
   );

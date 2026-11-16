@@ -77,7 +77,7 @@ function ScheduleBody({ onClose, complexId, tournament, category, match, courts 
     <>
       <DialogHeader>
         <DialogTitle>{t.title}</DialogTitle>
-        <DialogDescription>{categoryTitle(category)}</DialogDescription>
+        <DialogDescription>{categoryTitle({ ...category, sport: tournament.sport })}</DialogDescription>
       </DialogHeader>
       <form onSubmit={submitHandler(form.handleSubmit, onSubmit)} className="space-y-4" noValidate>
         <ScheduleFields

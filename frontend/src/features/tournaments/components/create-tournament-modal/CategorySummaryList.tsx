@@ -8,6 +8,8 @@ const t = ES_AR.tournaments;
 
 interface Props {
   categories: CategoryFormValues[];
+  /** The tournament's sport, which words each category's title. */
+  sport: string;
   onEdit: (index: number) => void;
   onRemove: (index: number) => void;
   onAdd: () => void;
@@ -15,7 +17,7 @@ interface Props {
 }
 
 /** The saved categories as compact rows with "Editar" and "Quitar", and the button that adds one. */
-export function CategorySummaryList({ categories, onEdit, onRemove, onAdd, error }: Props) {
+export function CategorySummaryList({ categories, sport, onEdit, onRemove, onAdd, error }: Props) {
   return (
     <div className="space-y-4">
       <h3 className="text-text-primary text-sm font-semibold">{t.createSteps.step2}</h3>
@@ -24,7 +26,7 @@ export function CategorySummaryList({ categories, onEdit, onRemove, onAdd, error
       ) : (
         <ul className="border-border-subtle divide-border-subtle divide-y rounded-xl border px-3.5">
           {categories.map((category, index) => {
-            const title = categoryFormTitle(category);
+            const title = categoryFormTitle(category, sport);
             return (
               <li key={index} aria-label={title} className="flex items-center justify-between gap-2 py-2.5">
                 <div className="min-w-0">

@@ -178,6 +178,18 @@ describe('CreateEventModal categories', () => {
   });
 });
 
+// S15: off padel the modality is worded by the sport and no level range is offered.
+describe('CreateEventModal by sport', () => {
+  it('words the modality as masculino and offers no level range on soccer', async () => {
+    const { user } = await renderModal();
+    await user.click(screen.getByLabelText(new RegExp(t.form.sport)));
+    await user.click(await screen.findByRole('option', { name: ES_AR.courts.sportTypes.soccer }));
+
+    expect(screen.getByRole('button', { name: ES_AR.tournaments.traits.modalityMasculine.men })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: t.form.allLevels })).not.toBeInTheDocument();
+  });
+});
+
 describe('CreateEventModal submit', () => {
   beforeEach(() => {
     vi.clearAllMocks();

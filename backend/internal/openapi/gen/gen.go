@@ -5719,10 +5719,10 @@ type EventsCreateJSONBody struct {
 	// LevelMax The weakest level allowed; level_min must not be above it.
 	LevelMax *int `json:"level_max,omitempty"`
 
-	// LevelMin The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4.
+	// LevelMin Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport.
 	LevelMin *int `json:"level_min,omitempty"`
 
-	// Modality Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
+	// Modality Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
 	Modality *EventsCreateJSONBodyModality `json:"modality,omitempty"`
 
 	// Name Optional; an event given none is named after its sport.
@@ -5956,13 +5956,13 @@ type TournamentsCreateJSONBody struct {
 		GamesPerSet *int                                      `json:"games_per_set,omitempty"`
 		GroupSize   *int                                      `json:"group_size,omitempty"`
 
-		// Level 1ra (1) to 9na (9). Exactly one of level and suma.
+		// Level Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport.
 		Level *int `json:"level,omitempty"`
 
 		// MatchDurationMinutes Court time given to a match scheduled without a duration.
 		MatchDurationMinutes *int `json:"match_duration_minutes,omitempty"`
 
-		// Modality Caballeros, Damas or Mixto.
+		// Modality Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it.
 		Modality TournamentsCreateJSONBodyCategoriesModality `json:"modality"`
 
 		// Price Centavos per pair.
@@ -5979,7 +5979,7 @@ type TournamentsCreateJSONBody struct {
 		// StartsOn The day the category starts, within the tournament's dates.
 		StartsOn openapi_types.Date `json:"starts_on"`
 
-		// Suma The two players' levels added together. Exactly one of level and suma.
+		// Suma Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport.
 		Suma *int `json:"suma,omitempty"`
 
 		// SuperTiebreakDecider The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.

@@ -4,7 +4,7 @@ import { FormField } from '@/shared/components/common/FormField';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { FieldLabel } from './FieldLabel';
-import type { TournamentFormValues } from '../../schemas/tournamentForm.schema';
+import { PADEL_SPORT, categoryField, type TournamentFormValues } from '../../schemas/tournamentForm.schema';
 import type { Sport } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.form;
@@ -12,7 +12,20 @@ const SPORTS = Object.keys(ES_AR.courts.sportTypes) as Sport[];
 
 type Form = UseFormReturn<TournamentFormValues>;
 
-/** The sport is the tournament's only own characteristic: its name is composed from it (S10). */
+/**
+ * A category's level and suma belong to padel alone (S15): changing the sport clears them. Padel
+ * categories go back to a level; any other sport's take no level or suma (kind `none`).
+ */
+function clearCategoryTraits(form: Form, sport: string) {
+  const kind = sport === PADEL_SPORT ? 'level' : 'none';
+  form.getValues('categories').forEach((_, index) => {
+    form.setValue(categoryField(index, 'kind'), kind);
+    form.setValue(categoryField(index, 'level'), undefined);
+    form.setValue(categoryField(index, 'suma'), undefined);
+  });
+}
+
+/** The sport is the tournament's own characteristic: it words every category and sets which traits they take (S10, S15). */
 function SportField({ form }: { form: Form }) {
   const { watch, setValue } = form;
   return (
@@ -22,6 +35,7 @@ function SportField({ form }: { form: Form }) {
           value={watch('sport')}
           onValueChange={(sport) => {
             setValue('sport', sport);
+            clearCategoryTraits(form, sport);
           }}
         >
           <SelectTrigger id="tournament-sport">

@@ -9,7 +9,7 @@ import { Textarea } from '@/shared/components/ui/textarea';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { LEVELS, levelLabel, modalityLabel, type Modality } from '@/shared/lib/traitLabels';
 import { SegmentedTabs } from '../SegmentedTabs';
-import { categoryField, type TournamentFormValues } from '../../schemas/tournamentForm.schema';
+import { PADEL_SPORT, categoryField, type TournamentFormValues } from '../../schemas/tournamentForm.schema';
 import { CategoryGroupFields } from './CategoryGroupFields';
 import { CategoryMatchFormatFields } from './CategoryMatchFormatFields';
 import { FieldLabel } from './FieldLabel';
@@ -23,11 +23,11 @@ interface Props {
   index: number;
 }
 
-/** Caballeros, Damas or Mixto: the category's modality, required (S2). */
-function ModalityField({ form, index }: Props) {
+/** The category's modality, required on every sport (S2, S15), in the words its sport uses. */
+function ModalityField({ form, index, sport }: Props & { sport: string }) {
   const modality = form.watch(categoryField(index, 'modality'));
   const error = form.formState.errors.categories?.[index]?.modality?.message;
-  const items = MODALITIES.map((value) => ({ value, label: modalityLabel(value) }));
+  const items = MODALITIES.map((value) => ({ value, label: modalityLabel(value, sport) }));
   return (
     <div className="space-y-2">
       <p className="text-text-primary text-sm font-medium">
@@ -277,15 +277,21 @@ function PrizesField({ form, index }: Props) {
   );
 }
 
-/** First view of a category: its modality, level or suma, when it starts, format, capacity, price, court fee and prizes. */
+/**
+ * First view of a category: its modality, when it starts, format, capacity, price, court fee and prizes.
+ * Only padel also takes a level or a suma (S15).
+ */
 export function CategoryBasicsFields({ form, index }: Props) {
+  const sport = form.watch('sport');
   return (
     <>
-      <ModalityField form={form} index={index} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <KindField form={form} index={index} />
-        <LevelOrSumaField form={form} index={index} />
-      </div>
+      <ModalityField form={form} index={index} sport={sport} />
+      {sport === PADEL_SPORT && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <KindField form={form} index={index} />
+          <LevelOrSumaField form={form} index={index} />
+        </div>
+      )}
       <StartsFields form={form} index={index} />
       <FormatField form={form} index={index} />
       <CapacityAndPrice form={form} index={index} />

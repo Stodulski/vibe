@@ -5,6 +5,7 @@ import { useAppForm } from '@/shared/lib/form';
 import { useCreateTournament } from '../../hooks/useCreateTournament';
 import {
   DEFAULT_CATEGORY,
+  PADEL_SPORT,
   toCreateRequest,
   tournamentFormSchema,
   type TournamentFormValues,
@@ -50,9 +51,10 @@ export function useCreateTournamentForm(complexId: string, onDone: () => void) {
     isPending: createTournament.isPending,
     error: createTournament.error,
     clearError: createTournament.reset,
-    /** Appends a blank category and returns its position. */
+    /** Appends a blank category, with the traits its sport takes, and returns its position. */
     addCategory: () => {
-      categories.append({ ...DEFAULT_CATEGORY });
+      const kind = form.getValues('sport') === PADEL_SPORT ? 'level' : 'none';
+      categories.append({ ...DEFAULT_CATEGORY, kind });
       return categories.fields.length;
     },
     removeCategory: (index: number) => {

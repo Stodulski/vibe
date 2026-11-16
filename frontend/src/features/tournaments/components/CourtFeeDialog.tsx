@@ -11,6 +11,7 @@ import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { centavosToPesos, pesosToCentavos } from '@/shared/lib/money';
+import { useSport } from '@/shared/lib/sportContext';
 import { categoryTitle } from '@/shared/lib/traitLabels';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { useSetCourtFee } from '../hooks/useTournamentChanges';
@@ -47,6 +48,7 @@ export function CourtFeeDialog({ open, onClose, ...rest }: CourtFeeDialogProps) 
 }
 
 function CourtFeeBody({ onClose, complexId, tournamentId, category }: Omit<CourtFeeDialogProps, 'open'>) {
+  const sport = useSport();
   const [pesos, setPesos] = useState<number | undefined>(centavosToPesos(category.court_fee));
   const save = useSetCourtFee(complexId, tournamentId, category.id);
   const valid = pesos !== undefined && pesos >= 0 && pesos <= MAX_COURT_FEE;
@@ -68,7 +70,7 @@ function CourtFeeBody({ onClose, complexId, tournamentId, category }: Omit<Court
     <>
       <DialogHeader>
         <DialogTitle>{t.courtFee.editTitle}</DialogTitle>
-        <DialogDescription>{t.courtFee.editDescription(categoryTitle(category))}</DialogDescription>
+        <DialogDescription>{t.courtFee.editDescription(categoryTitle({ ...category, sport }))}</DialogDescription>
       </DialogHeader>
       <MoneyPesosField
         id="court-fee"

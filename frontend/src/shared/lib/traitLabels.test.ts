@@ -17,6 +17,24 @@ describe('modalityLabel', () => {
   });
 });
 
+describe('modalityLabel by sport', () => {
+  it('says caballeros and damas for padel, tennis and pickleball', () => {
+    for (const sport of ['padel', 'tennis', 'pickleball']) {
+      expect(modalityLabel('men', sport)).toBe('Caballeros');
+      expect(modalityLabel('women', sport)).toBe('Damas');
+      expect(modalityLabel('mixed', sport)).toBe('Mixto');
+    }
+  });
+
+  it('says masculino and femenino for football, basketball, volleyball and hockey', () => {
+    for (const sport of ['soccer', 'basketball', 'volleyball', 'hockey']) {
+      expect(modalityLabel('men', sport)).toBe('Masculino');
+      expect(modalityLabel('women', sport)).toBe('Femenino');
+      expect(modalityLabel('mixed', sport)).toBe('Mixto');
+    }
+  });
+});
+
 describe('levelLabel', () => {
   it('reads 1 to 9 as ordinals, with the owner’s spellings for 7 and 8', () => {
     expect(['1ra', '2da', '3ra', '4ta', '5ta', '6ta', '7ma', '8va', '9na'].map((_, i) => levelLabel(i + 1))).toEqual([
@@ -42,6 +60,11 @@ describe('categoryTitle', () => {
 
   it('composes a suma category: "Mixto Suma 15"', () => {
     expect(categoryTitle({ modality: 'mixed', level: null, suma: 15 })).toBe('Mixto Suma 15');
+  });
+
+  it('names a category of another sport by its modality alone: "Masculino", "Damas"', () => {
+    expect(categoryTitle({ sport: 'soccer', modality: 'men', level: null, suma: null })).toBe('Masculino');
+    expect(categoryTitle({ sport: 'tennis', modality: 'women', level: null, suma: null })).toBe('Damas');
   });
 
   it('falls back to the stored name for a legacy category without modality', () => {
@@ -109,6 +132,11 @@ describe('categoryStartLabel', () => {
 describe('playerTraitsLabel', () => {
   it('reads the declared gender and category: "Caballero · 7ma"', () => {
     expect(playerTraitsLabel({ gender: 'men', level: 7 })).toBe('Caballero · 7ma');
+  });
+
+  it('reads the gender of a masculine sport as masculino or femenino', () => {
+    expect(playerTraitsLabel({ sport: 'soccer', gender: 'women', level: null })).toBe('Femenino');
+    expect(playerTraitsLabel({ sport: 'padel', gender: 'women', level: null })).toBe('Dama');
   });
 
   it('shows only what was declared', () => {
