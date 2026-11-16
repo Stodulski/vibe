@@ -224,10 +224,7 @@ func writeProductSale(ctx context.Context, qtx *db.Queries, complexID, actorID, 
 		return nil, nil, nil, ErrTotalExceedsCap
 	}
 
-	description := fmt.Sprintf("Sale: %d item(s)", len(items))
-	if note != nil && *note != "" {
-		description = description + " — " + *note
-	}
+	description := saleCashDescription(len(items), note)
 
 	//nolint:gosec // G115: total is checked positive and <= maxSaleTotal above, well within int32 range.
 	cashRow, err := qtx.InsertCashMovement(ctx, db.InsertCashMovementParams{
@@ -557,4 +554,18 @@ func clientName(first, last string) string {
 		return first
 	}
 	return first + " " + last
+}
+
+// saleCashDescription is the cash movement text of a sale. The cash register
+// shows it as stored, so it is in Spanish, and the owner's note follows a
+// period rather than a dash.
+func saleCashDescription(lines int, note *string) string {
+	description := fmt.Sprintf("Venta de %d productos", lines)
+	if lines == 1 {
+		description = "Venta de 1 producto"
+	}
+	if note != nil && *note != "" {
+		description += ". " + *note
+	}
+	return description
 }
