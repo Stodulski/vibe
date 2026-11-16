@@ -65,6 +65,14 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   'add at least one product or booking payment': ES_AR.cash.checkoutNothingToCharge,
   'booking not found in this complex': ES_AR.cash.bookingNotInComplex,
   'duplicate booking in the same checkout': ES_AR.cash.bookingDuplicateInCheckout,
+  // Court delete and panel booking refusals (`backend/internal/courts/courts.go`,
+  // `backend/internal/bookings/service.go` and `series.go`): English prose too.
+  // The fixed-bookings delete refusal is not here: `useDeleteCourt` matches its
+  // raw text.
+  'cannot delete court while it has active bookings, cancel them first': ES_AR.courts.deleteHasActiveBookings,
+  'cannot delete court while it has an open-play event (canchas libres), cancel it first':
+    ES_AR.courts.deleteHasOpenPlay,
+  'client is blocked, cannot create booking': ES_AR.bookings.clientBlocked,
 };
 
 /**
