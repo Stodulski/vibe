@@ -160,4 +160,20 @@ describe('Sidebar — labels and icons per width', () => {
     renderSidebar();
     expect(screen.getByLabelText('Navegación principal').querySelector('svg')).toBeNull();
   });
+
+  // Owner request: a "Manual de uso" entry opens the landing tutorials in a new tab.
+  it.each([
+    ['desktop', false],
+    ['mobile', true],
+  ])('links to the user manual (%s)', (_width, isMobile) => {
+    render(
+      <MemoryRouter>
+        <Sidebar isMobile={isMobile} />
+      </MemoryRouter>,
+    );
+    const link = screen.getByRole('link', { name: 'Manual de uso' });
+    expect(link).toHaveAttribute('href', 'https://vibe.com.ar/tutoriales');
+    expect(link).toHaveAttribute('target', '_blank');
+    expect(link).toHaveAttribute('rel', 'noopener noreferrer');
+  });
 });

@@ -10,4 +10,5 @@ export const navigation = {
   profile: 'Mi perfil',
   account: 'Mi cuenta',
   accountSettings: 'Ajustes',
+  userManual: 'Manual de uso',
 } as const;
