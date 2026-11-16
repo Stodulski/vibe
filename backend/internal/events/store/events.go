@@ -247,7 +247,7 @@ func (m *Store) ListEvents(ctx context.Context, complexID uuid.UUID, from, to ti
 			StartTime: r.StartTime, DurationMinutes: r.DurationMinutes, Capacity: r.Capacity,
 			Price: r.Price, Status: r.Status, CancelReason: r.CancelReason, CancelledAt: r.CancelledAt,
 			CancelledBy: r.CancelledBy, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-			TournamentID: r.TournamentID,
+			TournamentID: r.TournamentID, Modality: r.Modality, LevelMin: r.LevelMin, LevelMax: r.LevelMax,
 		})
 		e.ConfirmedCount, e.HeldCount = int(r.ConfirmedCount), int(r.HeldCount)
 		if err := m.fillCourts(ctx, e); err != nil {

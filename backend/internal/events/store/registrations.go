@@ -277,7 +277,7 @@ func (m *Store) ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOn
 			ID: r.ID, EventID: r.EventID, ComplexID: r.ComplexID, FirstName: r.FirstName, LastName: r.LastName,
 			Phone: r.Phone, Email: r.Email, Status: r.Status, Price: r.Price, ServiceFee: r.ServiceFee,
 			HeldUntil: r.HeldUntil, ConfirmedAt: r.ConfirmedAt, CancelledAt: r.CancelledAt,
-			CancelledBy: r.CancelledBy, CreatedAt: r.CreatedAt,
+			CancelledBy: r.CancelledBy, CreatedAt: r.CreatedAt, PlayerGender: r.PlayerGender, PlayerLevel: r.PlayerLevel,
 		})}
 		if r.PaymentID.Valid {
 			row.Payment = &RegistrationPayment{

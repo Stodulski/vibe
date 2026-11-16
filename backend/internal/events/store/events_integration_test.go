@@ -261,3 +261,40 @@ func TestGetEventCarriesEachCourtsFacts(t *testing.T) {
 		t.Fatalf("court facts = %+v", e.Courts)
 	}
 }
+
+// An event's modality and level range, and what a person declared at sign-up,
+// come back through the owner's lists, not only through the single reads.
+func TestListsCarryTheEventTraitsAndTheDeclaredPlayer(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	e := newEvent(f, "19:00", 120)
+	modality, lo, hi := "women", 6, 8
+	e.Modality, e.LevelMin, e.LevelMax = &modality, &lo, &hi
+	if err := f.Stores.Events.CreateEvent(ctx, e, []uuid.UUID{f.CourtID}); err != nil {
+		t.Fatalf("CreateEvent: %v", err)
+	}
+	gender, level := "women", 7
+	if _, _, err := f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+		EventID: e.ID, FirstName: "Ana", LastName: "Paz", Phone: "+5491100000077", IP: "203.0.113.51", MaxHoldsPerIP: 10,
+		Gender: &gender, Level: &level,
+	}); err != nil {
+		t.Fatalf("SignUp: %v", err)
+	}
+
+	listed, err := f.Stores.Events.ListEvents(ctx, f.ComplexID, eventDay(), eventDay(), true)
+	if err != nil || len(listed) != 1 {
+		t.Fatalf("ListEvents = %v, %v; want the one event", listed, err)
+	}
+	got := listed[0]
+	if got.Modality == nil || *got.Modality != "women" || got.LevelMin == nil || *got.LevelMin != 6 || got.LevelMax == nil || *got.LevelMax != 8 {
+		t.Fatalf("listed traits = %v %v %v; want women, 6, 8", got.Modality, got.LevelMin, got.LevelMax)
+	}
+
+	regs, err := f.Stores.Events.ListRegistrations(ctx, e.ID, false)
+	if err != nil || len(regs) != 1 {
+		t.Fatalf("ListRegistrations = %v, %v; want the one sign-up", regs, err)
+	}
+	if r := regs[0]; r.Gender == nil || *r.Gender != "women" || r.Level == nil || *r.Level != 7 {
+		t.Fatalf("declared = %v %v; want women, 7", r.Gender, r.Level)
+	}
+}
