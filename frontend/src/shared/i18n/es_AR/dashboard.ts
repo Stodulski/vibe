@@ -100,9 +100,9 @@ export const dashboard = {
         action: 'Cargá los precios',
       },
       mercadoPago: {
-        label: 'Conectá MercadoPago para cobrar señas online',
-        why: 'Con MercadoPago conectado, los jugadores pueden pagar la seña al reservar.',
-        action: 'Conectá tu cuenta de MercadoPago',
+        label: 'Conectá Mercado Pago para cobrar señas online',
+        why: 'Con Mercado Pago conectado, los jugadores pueden pagar la seña al reservar.',
+        action: 'Conectá tu cuenta de Mercado Pago',
       },
     },
   },

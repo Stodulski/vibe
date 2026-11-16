@@ -15,6 +15,10 @@ export const EVENT: PublicOpenPlayEvent = {
   total_price: 1_100_000,
   status: 'active',
   court_names: ['Cancha 1', 'Cancha 2'],
+  courts: [
+    { id: 'c1', name: 'Cancha 1', court_type: 'indoor', surface: 'synthetic_grass', has_lighting: true },
+    { id: 'c2', name: 'Cancha 2', court_type: 'outdoor', has_lighting: false },
+  ],
   complex_name: 'Club Norte',
   cancellation_hours: 24,
 };

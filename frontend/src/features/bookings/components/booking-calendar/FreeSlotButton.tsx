@@ -5,6 +5,7 @@ import { barPosition } from './timelineGeometry';
 import { SHORTEST_BOOKING_MINUTES, SLOT_MINUTES } from './helpers';
 import { SLOT_HEIGHT_PX } from './gridLayout';
 import type { DurationMinutes } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -72,7 +73,7 @@ export function FreeSlotButton({
   return (
     <button
       type="button"
-      aria-label={`${t.bookings.timelineFreeSlot} · ${courtName} · ${formatTime(slot)}`}
+      aria-label={`${t.bookings.timelineFreeSlot} · ${keepTogether(courtName)} · ${formatTime(slot)}`}
       aria-haspopup="menu"
       aria-expanded={isOpen}
       onClick={() => {

@@ -1,14 +1,5 @@
 import { useState } from 'react';
-import { Loader2 } from 'lucide-react';
-import { AlertDialog, AlertDialogContent } from '@/shared/components/common/AppAlertDialog';
-import {
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogCancel,
-  AlertDialogAction,
-} from '@/shared/components/ui/alert-dialog';
+import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { Label } from '@/shared/components/ui/label';
 import { Textarea } from '@/shared/components/ui/textarea';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -46,47 +37,33 @@ export function VoidMovementDialog({ movement, onClose, complexId, sessionId }: 
   const open = !!movement;
 
   return (
-    <AlertDialog
+    <ConfirmDialog
       open={open}
-      onOpenChange={(v) => {
-        if (!v) onClose();
+      onClose={onClose}
+      onConfirm={() => {
+        if (!movement) return;
+        voidMovement.mutate({ movementId: movement.id, note: blankToUndefined(note) }, { onSuccess: onClose });
       }}
+      title={t.cash.voidConfirmTitle}
+      description={t.cash.voidConfirmDescription}
+      confirmLabel={t.cash.voidAction}
+      // "Cancelar" next to "Anular" would read as the same action.
+      cancelLabel={t.common.back}
+      variant="destructive"
+      isLoading={voidMovement.isPending}
     >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>{t.cash.voidConfirmTitle}</AlertDialogTitle>
-          <AlertDialogDescription>{t.cash.voidConfirmDescription}</AlertDialogDescription>
-        </AlertDialogHeader>
-
-        <div className="space-y-2">
-          <Label htmlFor="void-movement-note">{`${t.cash.movementNote} (${t.common.optional})`}</Label>
-          <Textarea
-            id="void-movement-note"
-            value={note}
-            onChange={(e) => {
-              setNote(e.target.value);
-            }}
-            placeholder={t.cash.voidNotePlaceholder}
-            maxLength={500}
-          />
-        </div>
-
-        <AlertDialogFooter>
-          <AlertDialogCancel disabled={voidMovement.isPending}>{t.common.cancel}</AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              if (!movement) return;
-              voidMovement.mutate({ movementId: movement.id, note: blankToUndefined(note) }, { onSuccess: onClose });
-            }}
-            disabled={voidMovement.isPending}
-            className="bg-destructive hover:bg-destructive/90 text-white"
-          >
-            {voidMovement.isPending && <Loader2 className="size-4 animate-spin" />}
-            {t.cash.voidAction}
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+      <div className="space-y-2">
+        <Label htmlFor="void-movement-note">{`${t.cash.movementNote} (${t.common.optional})`}</Label>
+        <Textarea
+          id="void-movement-note"
+          value={note}
+          onChange={(e) => {
+            setNote(e.target.value);
+          }}
+          placeholder={t.cash.voidNotePlaceholder}
+          maxLength={500}
+        />
+      </div>
+    </ConfirmDialog>
   );
 }

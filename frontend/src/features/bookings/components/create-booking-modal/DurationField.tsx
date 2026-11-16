@@ -24,7 +24,6 @@ export function DurationField({
   const labelId = useId();
   return (
     <FormField
-      className="space-y-2"
       htmlFor={labelId}
       label={
         <>
@@ -40,7 +39,7 @@ export function DurationField({
           setValue('duration_minutes', Number(v) as DurationMinutes);
         }}
       >
-        <SelectTrigger id={labelId} aria-label={t.bookings.turnDuration} className="h-9 w-full text-xs">
+        <SelectTrigger id={labelId} aria-label={t.bookings.turnDuration} className="w-full">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>

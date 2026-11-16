@@ -107,6 +107,9 @@ func (c *Client) Verify(ctx context.Context, token, remoteIP string) error {
 		form.Set("remoteip", remoteIP)
 	}
 
+	// G704 below: the URL is always the siteverifyURL constant (tests swap in an
+	// httptest server); request data only reaches the form body, never the URL.
+	//nolint:gosec // G704: fixed Cloudflare endpoint, not caller-controlled.
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.apiURL, strings.NewReader(form.Encode()))
 	if err != nil {
 		c.cb.RecordFailure()
@@ -114,7 +117,7 @@ func (c *Client) Verify(ctx context.Context, token, remoteIP string) error {
 	}
 	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
-	resp, err := c.httpClient.Do(req)
+	resp, err := c.httpClient.Do(req) //nolint:gosec // G704: same fixed endpoint as above.
 	if err != nil {
 		if ctx.Err() != nil { // caller gave up; not Cloudflare's fault
 			return fmt.Errorf("%w: %w", ErrUnavailable, ctx.Err())

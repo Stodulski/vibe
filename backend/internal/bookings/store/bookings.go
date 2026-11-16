@@ -222,6 +222,11 @@ type Booking struct {
 	// (which then records the date as generated, in the same transaction) and
 	// read back by the owner's detail and list reads.
 	SeriesID *uuid.UUID `json:"series_id,omitempty"`
+	// AttendedAt is when the owner marked the client as present (MarkAttended);
+	// nil when nobody did. Only a completed booking carries one
+	// (bookings_attended_only_completed, db/migrations/031_booking_attendance.sql),
+	// so a completed booking without it reads "Turno finalizado".
+	AttendedAt *time.Time `json:"attended_at"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
 	CourtName   string `json:"court_name"`
@@ -256,6 +261,10 @@ type BookedSpan struct {
 	// Event is true for hours an open-play event is holding (EventOccupancy):
 	// as taken as a booking, and the owner is told it is an event to cancel.
 	Event bool
+	// Match is true, together with Event, when the hours are a scheduled
+	// tournament match rather than an open-play event: the owner is told to
+	// unschedule the match instead.
+	Match bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's
@@ -647,7 +656,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 	var courtName, clientName, clientPhone string
 	err := m.DB.QueryRow(ctx, `
 		SELECT `+BookingColumns+`,
-		       b.refund_intent_at, b.series_id,
+		       b.refund_intent_at, b.series_id, b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
@@ -668,7 +677,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		// Read so that a booking loaded here and written back (the owner's
 		// edit) keeps the refund it still owes. Left out, every such write
 		// stored NULL over a pending refund intent.
-		&b.RefundIntentAt, &b.SeriesID,
+		&b.RefundIntentAt, &b.SeriesID, &b.AttendedAt,
 		&courtName, &clientName, &clientPhone,
 		&b.ClientFirstName, &b.ClientLastName, &b.ClientPhone, &b.ClientEmail,
 	)
@@ -712,7 +721,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
-		       b.series_id,
+		       b.series_id, b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone
@@ -754,7 +763,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID, dateFrom,
 			&b.CollectionStatus, &b.RefundStatus,
 			&b.ReminderSent2h,
 			&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
-			&b.SeriesID,
+			&b.SeriesID, &b.AttendedAt,
 			&courtName, &clientName, &clientPhone,
 		)
 		if err != nil {
@@ -998,6 +1007,7 @@ func BookingFromDB(b db.Booking) *Booking {
 		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
 		ClientSnapshot:   snapshotFromDB(b),
 		SeriesID:         data.PgToUUIDPtr(b.SeriesID),
+		AttendedAt:       data.PgToTimePtr(b.AttendedAt),
 	}
 }
 
@@ -1097,6 +1107,7 @@ func (m *Store) GetUpcomingToday(ctx context.Context, complexID uuid.UUID, today
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
+		       b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone
@@ -1214,6 +1225,7 @@ func (m *Store) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, 
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
+		       b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       '' AS client_name,
 		       '' AS client_phone
@@ -1236,7 +1248,8 @@ func (m *Store) GetByClient(ctx context.Context, complexID, clientID uuid.UUID, 
 	return scanBookingsWithJoins(rows)
 }
 
-// scanBookingsWithJoins scans rows that include court_name, client_name, client_phone JOINs.
+// scanBookingsWithJoins scans rows that read b.attended_at after BookingColumns
+// and then include court_name, client_name, client_phone JOINs.
 func scanBookingsWithJoins(rows pgx.Rows) ([]*Booking, error) {
 	bookings := make([]*Booking, 0, 20)
 	for rows.Next() {
@@ -1250,6 +1263,7 @@ func scanBookingsWithJoins(rows pgx.Rows) ([]*Booking, error) {
 			&b.CollectionStatus, &b.RefundStatus,
 			&b.ReminderSent2h,
 			&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+			&b.AttendedAt,
 			&courtName, &clientName, &clientPhone,
 		)
 		if err != nil {
@@ -1482,6 +1496,38 @@ func (m *Store) CompletePastBookings(ctx context.Context) ([]uuid.UUID, error) {
 		return nil, fmt.Errorf("bookings: complete past bookings: %w", err)
 	}
 	return complexIDs, nil
+}
+
+// MarkAttended records that the client of a finished booking came: status
+// 'completed' and attended_at stamped, in one statement. It applies only to a
+// booking still confirmed whose span already ended (the completion sweep has
+// not reached it yet) or to a completed one nobody marked, and the predicate is
+// re-decided by the UPDATE itself, so a cancellation, a no-show or a second
+// mark that committed after the caller's read matches no row.
+//
+// It reports whether this call wrote the mark. false is not an error: the
+// caller re-reads the booking to tell an already-attended row (idempotent)
+// from one that moved somewhere the mark cannot follow.
+func (m *Store) MarkAttended(ctx context.Context, complexID, bookingID uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, complexID); err != nil {
+		return false, err
+	}
+
+	tag, err := m.DB.Exec(ctx, `
+		UPDATE bookings
+		SET status = 'completed', attended_at = NOW(), updated_at = NOW()
+		WHERE id = $1
+		  AND complex_id = $2
+		  AND ((status = 'confirmed' AND upper(span) <= NOW())
+		       OR (status = 'completed' AND attended_at IS NULL))`,
+		data.UUIDToPg(bookingID), data.UUIDToPg(complexID))
+	if err != nil {
+		return false, fmt.Errorf("bookings: mark attended: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
 }
 
 // HasActiveBookingsByCourt reports whether the court still owes anyone their

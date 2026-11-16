@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { ComplexForm, ImageUpload, useDeleteComplex } from '@/features/complex';
-import { DangerActionsMenu } from '@/shared/components/common/DangerActionsMenu';
+import { DangerZone } from '@/shared/components/common/DangerZone';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { Complex } from '@/shared/types/api.types';
@@ -19,7 +19,7 @@ interface SettingsGeneralTabProps {
  * the same job as the one uploading the logo, and splitting it across two
  * screens made both look emptier than the work deserved.
  *
- * Deleting the complex stays last, after everything, behind a confirmation.
+ * Deleting the complex stays last, in its own danger zone, behind a confirmation.
  */
 export function SettingsGeneralTab({ complex }: SettingsGeneralTabProps) {
   const [deleteOpen, setDeleteOpen] = useState(false);
@@ -36,16 +36,14 @@ export function SettingsGeneralTab({ complex }: SettingsGeneralTabProps) {
 
       {/* No wrapper heading: the form names its own groups now, and the outer
           one repeated "Ubicación y contacto" word for word above the inner. */}
-      <ComplexForm
-        complex={complex}
-        footerAction={
-          <DangerActionsMenu
-            label={t.complex.deleteComplex}
-            onSelect={() => {
-              setDeleteOpen(true);
-            }}
-          />
-        }
+      <ComplexForm complex={complex} />
+
+      <DangerZone
+        description={t.complex.deleteComplexDescription}
+        actionLabel={t.complex.deleteComplex}
+        onAction={() => {
+          setDeleteOpen(true);
+        }}
       />
 
       <ConfirmDialog

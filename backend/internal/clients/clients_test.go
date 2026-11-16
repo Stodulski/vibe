@@ -155,6 +155,31 @@ func TestGetReturnsClientWithRecentBookings(t *testing.T) {
 	}
 }
 
+// The client's recent bookings carry the attendance mark: without it the owner
+// app reads a booking marked "Se presentó" as still "Turno finalizado".
+func TestGetReturnsTheAttendanceOfRecentBookings(t *testing.T) {
+	complexID, clientID := uuid.New(), uuid.New()
+	attended := time.Date(2026, 11, 15, 12, 0, 0, 0, time.UTC)
+	store := &stubStore{client: &clientstore.Client{ID: clientID, ComplexID: complexID}}
+	bookings := &stubBookings{bookings: []*bookingstore.Booking{
+		{ID: uuid.New(), Status: bookingstore.BookingStatusCompleted, AttendedAt: &attended},
+	}}
+
+	h := NewHandler(NewService(store, bookings), testResponder())
+	w := httptest.NewRecorder()
+	h.Get(w, requestFor(t, http.MethodGet, "/", complexID, clientID, ""))
+
+	var body struct {
+		RecentBookings []map[string]any `json:"recent_bookings"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+		t.Fatalf("body is not valid JSON: %v", err)
+	}
+	if len(body.RecentBookings) != 1 || body.RecentBookings[0]["attended_at"] != "2026-11-15T12:00:00Z" {
+		t.Errorf("want the booking's attended_at on the wire; got %v", body.RecentBookings)
+	}
+}
+
 // A client belonging to another complex must read as missing, not forbidden:
 // a 403 would confirm to the caller that the id exists.
 func TestGetHidesClientsOfOtherComplexes(t *testing.T) {

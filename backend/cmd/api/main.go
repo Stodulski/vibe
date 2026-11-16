@@ -48,6 +48,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/social"
 	"github.com/stodulski/vibe-server/internal/storage"
 	"github.com/stodulski/vibe-server/internal/stores"
+	"github.com/stodulski/vibe-server/internal/tournaments"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
@@ -116,7 +117,9 @@ type application struct {
 	// event cancellation started.
 	openPlay        *openplay.Handler
 	openPlayService *openplay.Service
-	scheduler       *scheduler.Scheduler
+	// tournaments serves the tournament routes.
+	tournaments *tournaments.Handler
+	scheduler   *scheduler.Scheduler
 	// social serves the content sync; socialPublisher publishes due posts.
 	social          *social.Handler
 	socialPublisher *social.Publisher

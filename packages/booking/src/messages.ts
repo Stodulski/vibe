@@ -1,4 +1,5 @@
 import { EVENT_MESSAGES } from './eventMessages';
+import { TOURNAMENT_MESSAGES } from './tournamentMessages';
 
 /**
  * The strings the booking package renders. This file is the single source of
@@ -69,7 +70,7 @@ export const BOOKING_MESSAGES = {
     cancellationPolicyBefore: 'Podés cancelar hasta',
     cancellationPolicyAfter: 'antes del turno',
     timeRangeTo: 'a',
-    redirectingToMP: 'Abriendo MercadoPago...',
+    redirectingToMP: 'Abriendo Mercado Pago...',
     processingPayment: 'Procesando pago...',
     paymentFailed: 'Pago rechazado',
     paymentFailedDescription: 'No se cobró nada. El turno quedó libre.',
@@ -80,7 +81,7 @@ export const BOOKING_MESSAGES = {
     paymentProcessing: 'Pago en proceso',
     paymentProcessingDescription: 'Puede demorar unos minutos. Te avisamos por WhatsApp.',
     paymentUnderReview: 'Pago en revisión',
-    paymentUnderReviewDescription: 'MercadoPago lo está revisando. Puede demorar. Te avisamos por WhatsApp.',
+    paymentUnderReviewDescription: 'Mercado Pago lo está revisando. Puede demorar. Te avisamos por WhatsApp.',
     paymentStatusError: 'No pudimos consultar el estado de tu pago',
     paymentStatusErrorDescription: 'Hubo un problema de conexión. Probá de nuevo.',
     bookingRef: 'Reserva',
@@ -174,7 +175,7 @@ export const BOOKING_MESSAGES = {
     confirmCancelNoRefund: 'Cancelar sin devolución',
     confirmCancelTitle: '¿Cancelar la reserva?',
     confirmCancelRefundDetail: 'Lo que pagaste se devuelve automáticamente.',
-    confirmCancelRefundManualDetail: 'El complejo te devuelve en mano lo que pagaste.',
+    confirmCancelRefundManualDetail: 'El complejo te devuelve lo que pagaste.',
     confirmCancelYes: 'Sí, cancelar',
     allSports: 'Todos',
     morning: 'Mañana',
@@ -197,6 +198,7 @@ export const BOOKING_MESSAGES = {
     privacyNoticeLink: 'Política de privacidad',
   },
   events: EVENT_MESSAGES,
+  tournaments: TOURNAMENT_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
     amenities: {

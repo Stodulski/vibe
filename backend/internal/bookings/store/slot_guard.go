@@ -112,7 +112,7 @@ func SlotTaken(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration, e
 		-- So are the hours an open-play event holds on the court.
 		OR EXISTS(
 			SELECT 1
-			FROM open_play_event_occupancy(NULL, ARRAY[$1]::uuid[], $2::date - 1, $2::date + 1) e
+			FROM court_event_occupancy(NULL, ARRAY[$1]::uuid[], $2::date - 1, $2::date + 1) e
 			WHERE e.span && tstzrange(
 			        booking_starts_at($2, $3),
 			        booking_starts_at($2, $3) + make_interval(mins => $4),

@@ -4,7 +4,7 @@ export const auth = {
   loginMetaDescription:
     'Accedé a tu panel de gestión de canchas y reservas. Administrá tu complejo deportivo desde un solo lugar.',
   registerMetaDescription:
-    'Registrate gratis y empezá a gestionar tu complejo deportivo. Reservas online, cobros con MercadoPago y más.',
+    'Registrate gratis y empezá a gestionar tu complejo deportivo. Reservas online, cobros con Mercado Pago y más.',
   login: 'Iniciar sesión',
   register: 'Crear cuenta',
   logout: 'Cerrar sesión',
@@ -32,7 +32,7 @@ export const auth = {
   confirmEmailChangeVerifying: 'Confirmando el cambio de email...',
   confirmEmailChangeSuccess: 'Tu email fue actualizado',
   confirmEmailChangeSuccessDesc:
-    'Te enviamos un email para verificar tu nueva dirección — hacelo cuando puedas. Por seguridad, cerramos todas tus sesiones: iniciá sesión de nuevo.',
+    'Te enviamos un email para verificar tu nueva dirección, hacelo cuando puedas. Por seguridad, cerramos todas tus sesiones: iniciá sesión de nuevo.',
   confirmEmailChangeExpired:
     'El enlace de confirmación es inválido, expiró o ya fue utilizado. Solicitá el cambio de email nuevamente desde tu perfil.',
   confirmEmailChangeTaken: 'Esa dirección de email ya está en uso por otra cuenta.',

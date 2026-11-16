@@ -14,5 +14,7 @@ export { useDeleteBlockedSlot } from './hooks/useDeleteBlockedSlot';
 export { useBlockedSlots } from './hooks/useBlockedSlots';
 export { useFixedBlocks } from './hooks/useFixedBlocks';
 export { useEventBlocks } from './hooks/useEventBlocks';
+export { useMatchBlocks } from './hooks/useMatchBlocks';
 export { isFixedBookingConflict } from './lib/fixedBookingConflict';
 export { isOpenPlayEventConflict } from './lib/openPlayEventConflict';
+export { isTournamentMatchConflict } from './lib/tournamentMatchConflict';

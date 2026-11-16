@@ -84,6 +84,7 @@ function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: 
     control,
     handleSubmit,
     setValue,
+    reset,
     formState: { isDirty },
   } = useAppForm<UpdateSchedulesDto>({
     resolver: zodResolver(updateSchedulesSchema),
@@ -94,7 +95,13 @@ function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: 
   const { fields } = useFieldArray({ control, name: 'schedules' });
 
   const onSubmit = (data: UpdateSchedulesDto) => {
-    updateSchedules.mutate(data);
+    // The saved week is the new baseline: without it the form stays dirty and
+    // the navigation guard would ask about changes that are already stored.
+    updateSchedules.mutate(data, {
+      onSuccess: () => {
+        reset(data);
+      },
+    });
   };
 
   return (

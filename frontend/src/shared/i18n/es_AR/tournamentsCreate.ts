@@ -1,0 +1,23 @@
+/** The create-tournament dialog's steps: tournament, categories (with their two sub-views) and review. */
+export const createSteps = {
+  progress: 'Progreso del torneo',
+  step1: 'Torneo',
+  step2: 'Categorías',
+  step3: 'Revisar',
+  noCategories: 'Todavía no agregaste categorías.',
+  editCategory: 'Editar',
+  editCategoryLabel: (name: string) => `Editar ${name}`,
+  removeCategoryLabel: (name: string) => `Quitar ${name}`,
+  remove: 'Quitar',
+  capacityShort: (count: number) => `${String(count)} parejas`,
+  categoryView: 'Categoría',
+  playView: 'Cómo se juega',
+  groupsHeading: 'Zonas',
+  saveCategory: 'Guardar categoría',
+  reviewIntro: 'Revisá los datos antes de crear el torneo.',
+  tournamentHeading: 'Torneo',
+  daysLabel: 'Días',
+  sportLabel: 'Deporte',
+  categoriesHeading: 'Categorías',
+  matchDuration: (minutes: number) => `Partidos de ${String(minutes)} minutos`,
+} as const;

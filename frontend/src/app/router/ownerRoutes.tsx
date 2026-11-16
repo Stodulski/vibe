@@ -2,6 +2,7 @@ import { Outlet, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from './ProtectedRoute';
 import { lazyPage, lazyShell, ownerPage } from './routeHelpers';
 import { routeSkeleton } from './routeSkeletons';
+import { eventRedirectRoutes } from './eventRoutes';
 import { PageLoader } from './loaders';
 import { AppShellLoader } from '@/app/layout/AppShellLoader';
 
@@ -48,9 +49,24 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/bookings/pages/BookingsPage'), routeSkeleton('/bookings')),
       },
       {
-        path: '/open-play',
-        element: ownerPage(() => import('@/features/events/pages/EventsPage'), routeSkeleton('/open-play')),
+        path: '/events/open-play',
+        element: ownerPage(() => import('@/features/events/pages/EventsPage'), routeSkeleton('/events/open-play')),
       },
+      {
+        path: '/events/tournaments',
+        element: ownerPage(
+          () => import('@/features/tournaments/pages/TournamentsPage'),
+          routeSkeleton('/events/tournaments'),
+        ),
+      },
+      {
+        path: '/events/tournaments/:tournamentId',
+        element: ownerPage(
+          () => import('@/features/tournaments/pages/TournamentDetailPage'),
+          routeSkeleton('/events/tournaments/:tournamentId'),
+        ),
+      },
+      ...eventRedirectRoutes,
       {
         path: '/cash',
         element: ownerPage(() => import('@/features/cash/pages/CashPage'), routeSkeleton('/cash')),

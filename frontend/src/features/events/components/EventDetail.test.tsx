@@ -76,6 +76,11 @@ async function renderDetail(event: OpenPlayEvent = EVENT, participants: OpenPlay
   return { eventsApi, user: userEvent.setup() };
 }
 
+/** The cancel is a visible button in the pinned footer. */
+async function findCancelButton() {
+  return screen.findByRole('button', { name: t.cancel.action });
+}
+
 describe('EventDetail', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -86,7 +91,7 @@ describe('EventDetail', () => {
 
     expect(await screen.findByText('Americano de viernes')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
-    expect(screen.getByText('19:00 – 21:00')).toBeInTheDocument();
+    expect(screen.getByText('19:00 a 21:00')).toBeInTheDocument();
     expect(screen.getByText(t.spotsTaken(2, 20))).toBeInTheDocument();
   });
 
@@ -123,10 +128,68 @@ describe('EventDetail', () => {
     expect(row).toHaveTextContent(t.participant.cancelledByOwner);
     expect(row).not.toHaveTextContent('Canceló');
   });
+});
+
+describe('EventDetail — header and participants', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('counts only the confirmed people in the heading', async () => {
+    await renderDetail();
+
+    expect(await screen.findByText(`${t.detail.participants} · 1 confirmado`)).toBeInTheDocument();
+  });
+
+  it('puts the date under the name and writes it in capitals like the other panels', async () => {
+    await renderDetail();
+
+    const subtitle = await screen.findByText('viernes 2 de enero', { selector: 'p span' });
+    expect(subtitle).toHaveClass('inline-block');
+  });
+
+  it('keeps the confirmed people first and the cancelled ones last', async () => {
+    await renderDetail(EVENT, [...PARTICIPANTS].reverse());
+
+    const rows = within(await screen.findByRole('list', { name: t.detail.participants })).getAllByRole('listitem');
+    expect(rows.map((row) => row.textContent)).toEqual([
+      expect.stringContaining('Ana'),
+      expect.stringContaining('Beto'),
+      expect.stringContaining('Carla'),
+    ]);
+  });
 
   it('says so when nobody signed up yet', async () => {
     await renderDetail(EVENT, []);
     expect(await screen.findByText(t.detail.noParticipants)).toBeInTheDocument();
+  });
+});
+
+describe('EventDetail cancel dialog', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('says it in two short sentences, and confirms with "Sí, cancelar evento"', async () => {
+    const { user } = await renderDetail();
+
+    await user.click(await findCancelButton());
+    const dialog = await screen.findByRole('alertdialog');
+
+    const sentences = t.cancel.confirmDescriptionPaid(3).split(/(?<=\.)\s+/);
+    expect(sentences).toHaveLength(2);
+    for (const sentence of sentences) expect(sentence.split(/\s+/).length).toBeLessThanOrEqual(25);
+    expect(within(dialog).getByRole('button', { name: 'Sí, cancelar evento' })).toBeInTheDocument();
+    expect(within(dialog).getByRole('button', { name: 'Volver' })).toBeInTheDocument();
+  });
+
+  it('shows the cancel as a destructive outline button in the footer, with no overflow menu', async () => {
+    await renderDetail();
+
+    const button = await findCancelButton();
+    expect(button).toHaveAttribute('data-variant', 'destructive-outline');
+    expect(button.closest('[data-slot="sheet-footer"]')).not.toBeNull();
+    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
   });
 });
 
@@ -138,7 +201,7 @@ describe('EventDetail cancel', () => {
   it('explains that every paid participant is refunded, counting them, before cancelling', async () => {
     const { user } = await renderDetail();
 
-    await user.click(await screen.findByRole('button', { name: t.cancel.action }));
+    await user.click(await findCancelButton());
 
     expect(await screen.findByText(t.cancel.confirmDescriptionPaid(1))).toBeInTheDocument();
   });
@@ -150,9 +213,9 @@ describe('EventDetail cancel', () => {
       refunds: [{ registration_id: 'r1', refund: { status: 'issued', message: 'ok', amount: 520000 } }],
     });
 
-    await user.click(await screen.findByRole('button', { name: t.cancel.action }));
+    await user.click(await findCancelButton());
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.confirmLabel }));
+    await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
     await waitFor(() => {
       expect(eventsApi.cancel).toHaveBeenCalledWith('c1', 'ev1');
@@ -169,13 +232,19 @@ describe('EventDetail cancel', () => {
       await makeConsumedHttpError(400, { title: 'Bad Request', detail: 'el evento ya está cancelado' }),
     );
 
-    await user.click(await screen.findByRole('button', { name: t.cancel.action }));
+    await user.click(await findCancelButton());
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('button', { name: t.cancel.confirmLabel }));
+    await user.click(within(dialog).getByRole('button', { name: /cancelar evento/i }));
 
     await waitFor(() => {
       expect(toast.error).toHaveBeenCalledWith(t.cancel.error, { description: 'el evento ya está cancelado' });
     });
+  });
+
+  it('dates the cancellation in the long form every other date of the detail uses', async () => {
+    await renderDetail({ ...EVENT, status: 'cancelled', cancelled_at: '2026-11-14T15:00:00Z' });
+
+    expect(await screen.findByText('Cancelado el sábado 14 de noviembre')).toBeInTheDocument();
   });
 
   it('offers no cancel for an event that is already cancelled', async () => {

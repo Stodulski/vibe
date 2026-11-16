@@ -8,7 +8,8 @@ import type { OpenPlayEvent } from '@/shared/types/api.types';
 
 vi.mock('../api/events.api', () => ({ eventsApi: { list: vi.fn(), get: vi.fn(), cancel: vi.fn(), create: vi.fn() } }));
 vi.mock('@/features/complex', () => ({
-  useSelectedComplex: () => ({ selectedComplexId: 'c1' }),
+  useSelectedComplex: () => ({ selectedComplexId: 'c1', complex: { id: 'c1', slug: 'club' } }),
+  useSchedules: () => ({ data: [] }),
 }));
 vi.mock('@/features/courts', () => ({ useCourts: () => ({ data: [] }) }));
 
@@ -117,7 +118,7 @@ describe('EventsPage tabs and detail', () => {
     const { eventsApi } = await import('../api/events.api').then((m) => ({ eventsApi: m.eventsApi }));
     vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
     vi.mocked(eventsApi.get).mockResolvedValue({ event: makeEvent({}), participants: [] });
-    renderWithProviders(<EventsPage />, { initialEntries: ['/open-play?event=ev1'] });
+    renderWithProviders(<EventsPage />, { initialEntries: ['/events/open-play?event=ev1'] });
 
     expect(await screen.findByText(t.detail.noParticipants)).toBeInTheDocument();
     expect(eventsApi.get).toHaveBeenCalledWith('c1', 'ev1', expect.anything());

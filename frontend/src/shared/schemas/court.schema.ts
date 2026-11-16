@@ -10,6 +10,7 @@ import type {
   BlockedSlot,
   FixedBlock,
   EventBlock,
+  MatchBlock,
 } from '@/shared/types/api.types';
 import { blockedSlotSchema } from './complex.schema';
 import { exact } from '@/shared/lib/apiParse';
@@ -152,14 +153,33 @@ const eventBlockSchema = exact<EventBlock>(
     .loose(),
 );
 
+const matchBlockSchema = exact<MatchBlock>(
+  z
+    .object({
+      match_id: z.string(),
+      tournament_id: z.string(),
+      court_id: z.string(),
+      date: z.string(),
+      start_time: z.string(),
+      end_time: z.string(),
+      duration_minutes: z.number(),
+      name: z.string(),
+      pair1: z.string().nullable(),
+      pair2: z.string().nullable(),
+    })
+    .loose(),
+);
+
 export const blockedSlotsEnvelopeSchema = z
   .object({
     blocked_slots: z.array(blockedSlotSchema),
     fixed_blocks: z.array(fixedBlockSchema),
     event_blocks: z.array(eventBlockSchema),
+    match_blocks: z.array(matchBlockSchema),
   })
   .loose() satisfies z.ZodType<{
   blocked_slots: BlockedSlot[];
   fixed_blocks: FixedBlock[];
   event_blocks: EventBlock[];
+  match_blocks: MatchBlock[];
 }>;

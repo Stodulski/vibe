@@ -24,6 +24,13 @@ export const queryKeys = {
   eventRegistration: {
     byToken: (token: string) => ['eventRegistration', token] as const,
   },
+  tournaments: {
+    bySlug: (slug: string) => ['tournaments', slug] as const,
+    byId: (slug: string, tournamentId: string) => ['tournament', slug, tournamentId] as const,
+  },
+  tournamentRegistration: {
+    byToken: (token: string) => ['tournamentRegistration', token] as const,
+  },
   bookingStatus: {
     byId: (id: string) => ['bookingStatus', id] as const,
   },

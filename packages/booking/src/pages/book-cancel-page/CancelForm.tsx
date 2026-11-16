@@ -104,6 +104,7 @@ export function CancelForm({
         title={canRefund ? t.publicBooking.confirmCancelTitle : t.publicBooking.noRefundTitle}
         description={confirmDescription}
         confirmLabel={canRefund ? t.publicBooking.confirmCancelYes : t.publicBooking.confirmCancelNoRefund}
+        cancelLabel={t.common.back}
         variant="destructive"
         isLoading={isCancelling}
       />

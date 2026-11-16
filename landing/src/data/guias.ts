@@ -574,8 +574,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
           + 'y la única que te dice si te conviene. No incluye la comisión de MercadoPago: esa se paga '
           + 'aparte, a quien recibe la plata, con cualquier plataforma que cobre online.',
         nota:
-          'Precios de lista de ATC Sports en dólares —así los publican fuera de Argentina, y es el '
-          + `precio que no se mueve solo con el tipo de cambio—, pagando mes a mes, verificados el `
+          'Precios de lista de ATC Sports en dólares (así los publican fuera de Argentina, y es el '
+          + `precio que no se mueve solo con el tipo de cambio), pagando mes a mes, verificados el `
           + `${fechaEnTexto(ATC_VERIFICADO)}. Los publican ellos y los pueden cambiar cuando quieran.`,
         columnas: columnasDeCostoPorReserva,
         filas: filasDeCostoPorReserva,
@@ -605,8 +605,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + `cargo de servicio fijo de ${pesos(CARGO_SERVICIO)} por pago online, sin importar cuánto sea `
             + `la seña, que paga el cliente que reserva y no vos. ${CARGO_PUEDE_CAMBIAR}`,
           'Ese cargo es lo único que cobra Vibe, y solo en una reserva online. La caja, la venta de '
-            + 'productos con stock y lo que cobrás en el mostrador —efectivo, transferencia, débito, '
-            + 'crédito o QR— no tienen ningún cargo de Vibe. Un abono como el de ATC también los '
+            + 'productos con stock y lo que cobrás en el mostrador (efectivo, transferencia, débito, '
+            + 'crédito o QR) no tienen ningún cargo de Vibe. Un abono como el de ATC también los '
             + 'incluye, así que en eso los dos modelos empatan.',
           'Los dos modelos ni siquiera están en la misma moneda: ATC publica en dólares y el cargo de '
             + 'Vibe es en pesos. Pasar uno al otro metería un tipo de cambio, que es un número más que '
@@ -626,8 +626,8 @@ const contenido: Omit<Guia, 'dateModified'>[] = [
             + 'monto fijo por reserva. A partir de cierto volumen, cualquier cuota fija sale más barata '
             + 'por turno que cualquier cargo por reserva, sea la empresa que sea y en la moneda que sea.',
           'Sin vueltas: el cargo por reserva le saca el costo fijo al complejo y se lo pasa al que '
-            + 'reserva. Del lado del mostrador conviene siempre —cero es menos que cualquier abono, a '
-            + 'cualquier volumen—. Del lado del cliente, depende de cuánto valga para él reservar y '
+            + 'reserva. Del lado del mostrador conviene siempre: cero es menos que cualquier abono, a '
+            + 'cualquier volumen. Del lado del cliente, depende de cuánto valga para él reservar y '
             + 'pagar desde el celular en vez de llamar.',
         ],
       },

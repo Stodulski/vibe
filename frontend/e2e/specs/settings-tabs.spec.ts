@@ -1,5 +1,13 @@
 import { test, expect } from '../helpers/auth.fixture';
 import { gotoSettings } from '../helpers/settings-fixtures';
+import { ES_AR } from '../../src/shared/i18n/es_AR';
+
+// Any of the three states `MPConnectCard` can show, taken from the app copy.
+const MP_STATUS = new RegExp(
+  [ES_AR.mp.connect, ES_AR.mp.connected, ES_AR.mp.notConnected]
+    .map((text) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .join('|'),
+);
 
 // Split out of `settings.spec.ts` (slice 10, max-lines decomposition) — the
 // schedules/deposit/payments tab checks are a distinct concern from the
@@ -47,9 +55,7 @@ test.describe('Settings — Other Tabs', () => {
       .first()
       .click();
 
-    await expect(
-      page.getByText(/Conectar MercadoPago|MercadoPago conectado|MercadoPago no conectado/).first(),
-    ).toBeVisible({
+    await expect(page.getByText(MP_STATUS).first()).toBeVisible({
       timeout: 10_000,
     });
   });
@@ -72,9 +78,7 @@ test.describe('Settings — Other Tabs', () => {
     await page.goto(oldLink.toString());
     await rebooted;
 
-    await expect(
-      page.getByText(/Conectar MercadoPago|MercadoPago conectado|MercadoPago no conectado/).first(),
-    ).toBeVisible({
+    await expect(page.getByText(MP_STATUS).first()).toBeVisible({
       timeout: 10_000,
     });
   });

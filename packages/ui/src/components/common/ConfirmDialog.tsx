@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { cn } from '../../lib/cn';
 import { messages } from '../../messages';
 import { AlertDialog, AlertDialogContent } from './AppAlertDialog';
@@ -16,6 +17,12 @@ interface ConfirmDialogProps {
   cancelLabel?: string | undefined;
   variant?: 'destructive' | 'default';
   isLoading?: boolean;
+  /**
+   * Extra content between the description and the buttons — a reason field, a
+   * summary card. The footer stays the dialog's own, so a confirmation that
+   * needs a body never has to hand-build its buttons.
+   */
+  children?: ReactNode;
 }
 
 export function ConfirmDialog({
@@ -28,6 +35,7 @@ export function ConfirmDialog({
   cancelLabel = messages.cancel,
   variant = 'default',
   isLoading = false,
+  children,
 }: ConfirmDialogProps) {
   const isDestructive = variant === 'destructive';
 
@@ -66,6 +74,7 @@ export function ConfirmDialog({
 
         <div className="px-6 pt-5 pb-6">
           <ConfirmDialogHeader isDestructive={isDestructive} title={title} description={description} />
+          {children && <div className="mt-4 space-y-4">{children}</div>}
           <ConfirmDialogFooter
             isDestructive={isDestructive}
             isLoading={isLoading}

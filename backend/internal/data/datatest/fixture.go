@@ -322,11 +322,18 @@ func (f *Fixture) deleteComplexData(t *testing.T) {
 		`DELETE FROM sale_booking_payments WHERE complex_id = $1`,
 		`DELETE FROM checkouts WHERE complex_id = $1`,
 		`DELETE FROM payments WHERE complex_id = $1`,
+		// A tournament's matches name pairs, pairs name registrations and groups,
+		// and categories name their sign-up events: the whole tree goes first.
+		`DELETE FROM tournament_matches WHERE complex_id = $1`,
+		`DELETE FROM tournament_pairs WHERE complex_id = $1`,
+		`DELETE FROM tournament_groups WHERE complex_id = $1`,
+		`DELETE FROM tournament_categories WHERE complex_id = $1`,
 		// Registrations (and the payments above that name them) hang off the
-		// events, which name the courts.
+		// events, which name the courts and the tournament.
 		`DELETE FROM open_play_registrations WHERE complex_id = $1`,
 		`DELETE FROM open_play_event_courts WHERE complex_id = $1`,
 		`DELETE FROM open_play_events WHERE complex_id = $1`,
+		`DELETE FROM tournaments WHERE complex_id = $1`,
 		`DELETE FROM slot_locks WHERE court_id IN (SELECT id FROM courts WHERE complex_id = $1)`,
 		`DELETE FROM bookings WHERE complex_id = $1`,
 		// Series name the client and the court, so they go before both.

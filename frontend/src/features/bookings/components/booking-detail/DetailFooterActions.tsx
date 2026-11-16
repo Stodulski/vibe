@@ -21,7 +21,6 @@ export function DetailFooterActions({
         onClick={() => {
           onManualRefund(booking, manualRefundAmount ?? 0);
         }}
-        className="w-full rounded-lg"
       >
         {t.bookings.markManualRefund}
       </Button>
@@ -33,7 +32,6 @@ export function DetailFooterActions({
       onClick={() => {
         onConfirmPayment?.(booking);
       }}
-      className="w-full rounded-lg"
     >
       {t.bookings.confirmPayment}
     </Button>

@@ -15,3 +15,11 @@ export function publicComplexPath(slug: string): string {
 export function publicEventPath(slug: string, eventId: string): string {
   return `/c/${slug}/events/${eventId}`;
 }
+
+/**
+ * Path of one tournament's public page. The checkout returns here too
+ * (`booklink.TournamentSuccess` in the backend), so the shape must agree with it.
+ */
+export function publicTournamentPath(slug: string, tournamentId: string): string {
+  return `/c/${slug}/tournaments/${tournamentId}`;
+}

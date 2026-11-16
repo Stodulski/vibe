@@ -24,6 +24,7 @@ type BookingsPageState = Pick<
   | 'handleCancelBooking'
   | 'handleConfirmPaymentOpen'
   | 'handleNoShow'
+  | 'handleAttended'
   | 'handleManualRefundOpen'
   | 'cancelOpen'
   | 'setCancelOpen'

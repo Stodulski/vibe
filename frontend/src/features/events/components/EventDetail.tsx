@@ -1,16 +1,20 @@
 import { useState } from 'react';
-import { Sheet, SheetContent, SheetFooter } from '@/shared/components/ui/sheet';
+import { Ban } from 'lucide-react';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { Button } from '@/shared/components/ui/button';
 import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
+import { DetailSheetFooter } from '@/shared/components/common/DetailSheetFooter';
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatDateFull, formatDateShort, formatPrice, formatTime, getHttpErrorMessage } from '@/shared/lib/utils';
+import { formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
+import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { todayInArgentina } from '@/shared/lib/today';
 import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
-import { paidCount } from '../lib/participantStatus';
+import { paidCount, sortParticipants } from '../lib/participantStatus';
 import { CancelEventDialog } from './CancelEventDialog';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { ParticipantList } from './ParticipantList';
@@ -30,19 +34,16 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
   return (
     <>
       {event.status === 'cancelled' && (
-        <p className="text-error-text text-sm">
-          {t.detail.cancelledNote}
-          {event.cancelled_at && ` ${t.detail.cancelledAt(formatDateShort(event.cancelled_at))}.`}
-        </p>
+        <div className="text-error-text flex flex-col gap-0.5 text-sm">
+          <p>{t.detail.cancelledNote}</p>
+          <p>{t.detail.cancelledFreeCourts}</p>
+          {event.cancelled_at && <p>{t.detail.cancelledAt(formatEventDay(event.cancelled_at))}</p>}
+        </div>
       )}
-      <InfoRow label={t.detail.when}>
-        <span className="first-letter:uppercase">{formatDateFull(event.date)}</span>
-        {' · '}
-        <span className="score-text font-medium">
-          {formatTime(event.start_time)} – {formatTime(event.end_time)}
-        </span>
+      <InfoRow label={t.detail.time}>
+        <span className="score-text font-medium">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </InfoRow>
-      <InfoRow label={t.detail.courts}>{event.courts.map((court) => court.name).join(', ')}</InfoRow>
+      <InfoRow label={t.detail.courts}>{event.courts.map((court) => keepTogether(court.name)).join(', ')}</InfoRow>
       <InfoRow label={t.detail.capacity}>{t.spotsTaken(event.confirmed_count, event.capacity)}</InfoRow>
       <InfoRow label={t.detail.price}>
         <span className="score-text font-medium">{formatPrice(event.price)}</span>
@@ -57,17 +58,31 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
       <EventFacts event={event} />
       <section className="pt-2">
         <h3 className="text-text-primary mb-1 text-sm font-semibold">
-          {t.detail.participants} · {t.detail.participantsCount(participants.length)}
+          {t.detail.participants} · {t.detail.confirmedCount(paidCount(participants))}
         </h3>
-        <ParticipantList participants={participants} />
+        <ParticipantList participants={sortParticipants(participants)} />
       </section>
     </div>
   );
 }
 
+/** The pinned footer: the one destructive action, which still asks for confirmation. */
+function EventFooter({ onCancel }: { onCancel: () => void }) {
+  return (
+    <DetailSheetFooter
+      secondary={
+        <Button type="button" variant="destructive-outline" onClick={onCancel}>
+          <Ban className="size-3.5" />
+          {t.cancel.action}
+        </Button>
+      }
+    />
+  );
+}
+
 /**
  * The owner's view of one event: its facts, everyone who held a spot with their
- * payment, and the cancel action while the event is still ahead.
+ * payment; the cancel action is a destructive button in the footer while the event is still ahead.
  */
 export function EventDetail({ open, onClose, complexId, eventId }: EventDetailProps) {
   const [cancelOpen, setCancelOpen] = useState(false);
@@ -94,7 +109,12 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           showCloseButton={false}
           onPointerDownOutside={onPointerDownOutside}
         >
-          <DetailSheetHeader title={event?.name ?? t.title} />
+          <DetailSheetHeader
+            title={event?.name ?? t.title}
+            subtitle={
+              event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
+            }
+          />
           {isLoading && <EventDetailSkeleton />}
           {!!error && (
             <p role="alert" className="text-error-text px-4 pt-4 text-sm sm:px-6">
@@ -103,17 +123,11 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           )}
           {event && <EventBody event={event} participants={participants} />}
           {canCancel && (
-            <SheetFooter>
-              <Button
-                variant="destructive"
-                className="w-full rounded-lg"
-                onClick={() => {
-                  setCancelOpen(true);
-                }}
-              >
-                {t.cancel.action}
-              </Button>
-            </SheetFooter>
+            <EventFooter
+              onCancel={() => {
+                setCancelOpen(true);
+              }}
+            />
           )}
         </SheetContent>
       </Sheet>

@@ -77,7 +77,11 @@ export function SectionFooter({
         // room that is left and the menu sits beside it. Below it, alone under
         // a full-width button, the menu reads as something left over.
         extra && 'flex-row-reverse items-center',
-        align === 'end' ? 'sm:justify-end' : 'sm:flex-row-reverse sm:justify-end',
+        // On a full-screen mobile dialog the footer sits at the bottom whatever
+        // wraps it: `DialogContent` is a flex column, so an auto top margin
+        // pushes it down without a `<form>` parent doing it. Page forms
+        // (align 'start') flow in the page and keep their natural position.
+        align === 'end' ? 'mt-auto sm:mt-0 sm:justify-end' : 'sm:flex-row-reverse sm:justify-end',
         className,
       )}
     >

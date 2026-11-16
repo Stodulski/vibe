@@ -17,6 +17,7 @@ interface BookingDetailState {
   handleCancelBooking: (booking: Booking) => void;
   handleConfirmPaymentOpen: (booking: Booking) => void;
   handleNoShow: (booking: Booking) => void;
+  handleAttended: (booking: Booking) => void;
   cancelOpen: boolean;
   setCancelOpen: (open: boolean) => void;
   handleConfirmCancel: (reason?: string) => void;
@@ -66,6 +67,7 @@ export function BookingDetailModals({ detail, complexId, hideClient, onOpenClien
         onCancel={detail.handleCancelBooking}
         onConfirmPayment={detail.handleConfirmPaymentOpen}
         onNoShow={detail.handleNoShow}
+        onAttended={detail.handleAttended}
         onManualRefund={detail.handleManualRefundOpen}
         hideClient={hideClient}
         onOpenClient={onOpenClient}

@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatPrice } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { MonthlyReportCourt } from '@/shared/types/api.types';
@@ -26,7 +27,7 @@ export function ReportByCourt({ courts }: { courts: MonthlyReportCourt[] }) {
         {courts.map((court) => (
           <div key={court.court_id} className="flex items-baseline justify-between gap-3">
             <dt className="text-text-primary min-w-0 truncate text-sm">
-              {court.court_name === '' ? t.reports.deletedCourt : court.court_name}
+              {court.court_name === '' ? t.reports.deletedCourt : keepTogether(court.court_name)}
             </dt>
             <dd className="shrink-0 text-right">
               <p className="score-text text-text-primary text-sm font-medium tabular-nums">{formatPrice(court.net)}</p>

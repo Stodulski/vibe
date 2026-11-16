@@ -52,3 +52,14 @@ describe('BookingSummaryCard remainder note', () => {
     expect(screen.queryByText('El saldo restante se abona directamente en el complejo.')).not.toBeInTheDocument();
   });
 });
+
+describe('BookingSummaryCard, the amount due now', () => {
+  it('never breaks the label or the amount, and lets the amount drop under the label when a 320px ticket is too narrow', () => {
+    renderCard(baseSlotInfo);
+
+    const label = screen.getByText('Pagás ahora');
+    expect(label).toHaveClass('whitespace-nowrap');
+    expect(label.nextElementSibling).toHaveClass('whitespace-nowrap');
+    expect(label.parentElement).toHaveClass('flex-wrap');
+  });
+});

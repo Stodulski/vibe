@@ -4,7 +4,14 @@ import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { BookingCalendarSkeleton } from '../../components/booking-calendar/BookingCalendarSkeleton';
 import { NoBookingsEmptyState } from './booking-content/BookingEmptyStates';
-import type { Booking, BlockedSlot, CourtWithPrices, EventBlock, FixedBlock, Schedule } from '@/shared/types/api.types';
+import type {
+  Booking,
+  BlockedSlot,
+  CourtWithPrices,
+  CourtEventBlock,
+  FixedBlock,
+  Schedule,
+} from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -15,7 +22,7 @@ interface BookingContentProps {
   filteredBookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks?: FixedBlock[] | undefined;
-  eventBlocks?: EventBlock[] | undefined;
+  eventBlocks?: CourtEventBlock[] | undefined;
   isPast: boolean;
   selectedDate: string;
   courts: CourtWithPrices[];
@@ -25,7 +32,7 @@ interface BookingContentProps {
   onOpenCreate: () => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 export function BookingContent({

@@ -1,0 +1,219 @@
+package tournaments
+
+import (
+	"encoding/json"
+	"io"
+	"log/slog"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/openapi"
+	"github.com/stodulski/vibe-server/internal/tournaments/draw"
+	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
+)
+
+// richDetail is a tournament with every field the wire carries set somewhere: a
+// groups category with a table and a knockout waiting for it, an elimination
+// category with a walkover, a super tiebreak and a scheduled match.
+func richDetail(f *fixture) *tournamentstore.Detail {
+	d := f.store.detail
+	tid, now := d.Tournament.ID, time.Now()
+	groupCat := &tournamentstore.Category{
+		ID: uuid.New(), TournamentID: tid, ComplexID: f.complex.ID, EventID: uuid.New(), Name: "Mixto",
+		Format: tournamentstore.FormatGroups, Capacity: 12, Price: 800_000, GroupSize: 4, QualifiersPerGroup: 2,
+		DrawGeneratedAt: &now, ConfirmedCount: 3,
+		SetsToWin: 1, GamesPerSet: 4, SuperTiebreakDecider: false, MatchDurationMinutes: 60,
+	}
+	d.Categories = append(d.Categories, groupCat)
+	email, by := "ana@example.com", "participant"
+	group := &tournamentstore.Group{ID: uuid.New(), CategoryID: groupCat.ID, Name: "A", Position: 1}
+	d.Groups = []*tournamentstore.Group{group}
+	mkPair := func(seed int, name string, inGroup bool) *tournamentstore.PairRow {
+		p := &tournamentstore.PairRow{
+			Pair: tournamentstore.Pair{
+				ID: uuid.New(), CategoryID: groupCat.ID, RegistrationID: uuid.New(), Seed: &seed, Status: tournamentstore.PairActive,
+				Partner: tournamentstore.Player{FirstName: "Socio", LastName: name, Phone: "+549220000000"},
+			},
+			Payer:              tournamentstore.Player{FirstName: "Ana", LastName: name, Phone: "+549110000000", Email: &email},
+			RegistrationStatus: "confirmed", Price: 800_000, ServiceFee: 20_000, HeldUntil: now, ConfirmedAt: &now,
+			CancelledBy: &by, SignedUpAt: now,
+			Payment: &tournamentstore.Payment{ID: uuid.New(), Status: "deposit_paid", Amount: 800_000, ServiceFee: 20_000},
+		}
+		if inGroup {
+			p.GroupID = &group.ID
+		}
+		return p
+	}
+	a, b, c := mkPair(1, "Uno", true), mkPair(2, "Dos", true), mkPair(3, "Tres", true)
+	held := mkPair(4, "Cuatro", false)
+	held.RegistrationStatus, held.Payment, held.Seed = "held", nil, nil
+	d.Pairs = []*tournamentstore.PairRow{a, b, c, held}
+
+	court := f.court.ID
+	start, minutes := "18:00", 90
+	date := d.Tournament.StartDate
+	play := &tournamentstore.Match{
+		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageGroup, GroupID: &group.ID, Round: 1, Position: 0,
+		Pair1ID: &a.ID, Pair2ID: &b.ID, Status: tournamentstore.MatchCompleted, WinnerID: &a.ID,
+		Sets:    []draw.Set{{A: 6, B: 4}, {A: 3, B: 6}, {A: 10, B: 8, Super: true}},
+		CourtID: &court, ScheduledOn: &date, StartTime: &start, Duration: &minutes,
+	}
+	walk := &tournamentstore.Match{
+		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageGroup, GroupID: &group.ID, Round: 2, Position: 1,
+		Pair1ID: &a.ID, Pair2ID: &c.ID, Status: tournamentstore.MatchCompleted, WinnerID: &a.ID, WalkoverLoser: 2,
+	}
+	final := &tournamentstore.Match{
+		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageBracket, Round: 1, Position: 0, Bye: true,
+		Source1: &tournamentstore.Slot{GroupID: group.ID, Rank: 1}, Status: tournamentstore.MatchPending,
+	}
+	// A result with no score: only who won, no sets and no walkover.
+	bare := &tournamentstore.Match{
+		ID: uuid.New(), CategoryID: groupCat.ID, Stage: tournamentstore.StageGroup, GroupID: &group.ID, Round: 3, Position: 2,
+		Pair1ID: &b.ID, Pair2ID: &c.ID, Status: tournamentstore.MatchCompleted, WinnerID: &c.ID,
+	}
+	d.Matches = []*tournamentstore.Match{play, walk, final, bare}
+	return d
+}
+
+func (f *fixture) handler() *Handler {
+	return NewHandler(f.svc, httpx.NewResponder(slog.New(slog.NewTextHandler(io.Discard, nil))), httpx.TrustedProxies{}, nil)
+}
+
+// validate checks a JSON body against a schema of the OpenAPI document, so the
+// hand-written wire types and the document cannot drift apart.
+func validate(t *testing.T, schema string, body any) {
+	t.Helper()
+	h, err := openapi.NewHandler(httpx.NewResponder(slog.New(slog.NewTextHandler(io.Discard, nil))))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ref, ok := h.Document().Components.Schemas[schema]
+	if !ok {
+		t.Fatalf("schema %s is not in the document", schema)
+	}
+	raw, err := json.Marshal(body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var decoded any
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if err := ref.Value.VisitJSON(decoded); err != nil {
+		t.Errorf("%s does not match its schema: %v\n%s", schema, err, raw)
+	}
+}
+
+func TestTheOwnersWireMatchesTheDocument(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	h := f.handler()
+	validate(t, "TournamentDetail", envelopeOf(h.ownerDetail(t.Context(), f.complex.ID, d)))
+	validate(t, "TournamentSummary", wireSummary{toWireTournament(&d.Tournament), toWireCategories(d.Categories, nil)})
+	validate(t, "TournamentMatch", toWireMatch(d.Matches[0], map[uuid.UUID]string{f.court.ID: "Cancha 1"}))
+}
+
+func TestThePublicWireMatchesTheDocumentAndShowsNoContactData(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	body := envelopeOf(f.handler().publicDetail(t.Context(), f.complex.ID, d))
+	body["complex_name"], body["cancellation_hours"] = "Vibe Padel", 24
+	validate(t, "PublicTournamentDetail", body)
+
+	raw, _ := json.Marshal(body)
+	for _, secret := range []string{"+549110000000", "+549220000000", "ana@example.com", "deposit_paid", "phone", "email"} {
+		if strings.Contains(string(raw), secret) {
+			t.Errorf("the public view must not carry %q", secret)
+		}
+	}
+	pairs := body["pairs"].([]any)
+	if len(pairs) != 3 {
+		t.Errorf("only the pairs that paid are listed; got %d", len(pairs))
+	}
+}
+
+func TestThePairViewsMatchTheDocument(t *testing.T) {
+	f := newFixture(t)
+	view := &PairView{
+		View:       eventsView(f),
+		Tournament: &f.store.detail.Tournament, Category: f.category(),
+		Pair: &tournamentstore.Pair{ID: uuid.New(), Status: tournamentstore.PairActive, Partner: tournamentstore.Player{FirstName: "Beto", LastName: "Socio"}},
+	}
+	view.ServiceFee = 20_000
+	validate(t, "PublicPairRegistration", pairViewBody(view))
+}
+
+// S6b: the match format reaches the owner and the public alike, so the apps can
+// show how a category plays and the result form can follow it.
+func TestTheWireCarriesTheMatchFormat(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	for name, body := range map[string]any{
+		"owner":  envelopeOf(f.handler().ownerDetail(t.Context(), f.complex.ID, d)),
+		"public": envelopeOf(f.handler().publicDetail(t.Context(), f.complex.ID, d)),
+	} {
+		raw, _ := json.Marshal(body)
+		for _, want := range []string{
+			`"sets_to_win":1`, `"games_per_set":4`, `"super_tiebreak_decider":false`, `"match_duration_minutes":60`, // Mixto
+			`"sets_to_win":2`, `"games_per_set":6`, `"super_tiebreak_decider":true`, `"match_duration_minutes":90`, // 6ta
+		} {
+			if !strings.Contains(string(raw), want) {
+				t.Errorf("%s view lacks %s", name, want)
+			}
+		}
+	}
+}
+
+// S6d: a winner-only result shows its winner and an empty set list, in the
+// owner's wire and the public one alike.
+func TestAWinnerOnlyResultHasAWinnerAndNoSets(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	bare := d.Matches[3]
+	w := toWireMatch(bare, nil)
+	if w.Status != tournamentstore.MatchCompleted || w.WinnerPairID == nil || *w.WinnerPairID != *bare.WinnerID || len(w.Sets) != 0 || w.WalkoverLoser != 0 {
+		t.Errorf("wire = %+v", w)
+	}
+	validate(t, "TournamentMatch", w)
+	raw, _ := json.Marshal(w)
+	if !strings.Contains(string(raw), `"sets":[]`) {
+		t.Errorf("a winner-only result has an empty sets array, got %s", raw)
+	}
+}
+
+// The list tells the owner how many matches have no court yet: not a bye, not
+// played, a later round still waiting for a pair included. A cancelled tournament
+// has none to schedule.
+func TestTheOwnerListCountsTheMatchesStillToSchedule(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	cat, a, b := d.Categories[1].ID, d.Pairs[0].ID, d.Pairs[1].ID
+	pending := func(p1, p2 *uuid.UUID) *tournamentstore.Match {
+		return &tournamentstore.Match{ID: uuid.New(), CategoryID: cat, Stage: tournamentstore.StageGroup, Pair1ID: p1, Pair2ID: p2, Status: tournamentstore.MatchPending}
+	}
+	court := f.court.ID
+	scheduled := pending(&a, &b)
+	scheduled.CourtID = &court
+	d.Matches = append(d.Matches, pending(&a, &b), pending(&b, &a), pending(&a, nil), scheduled)
+
+	sums, err := f.svc.List(t.Context(), f.complex.ID, d.Tournament.StartDate, d.Tournament.EndDate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(sums) != 1 || sums[0].UnscheduledCount != 3 {
+		t.Fatalf("want 3 matches to schedule; got %+v", sums)
+	}
+
+	d.Tournament.Status = tournamentstore.StatusCancelled
+	sums, err = f.svc.List(t.Context(), f.complex.ID, d.Tournament.StartDate, d.Tournament.EndDate)
+	if err != nil || sums[0].UnscheduledCount != 0 {
+		t.Fatalf("a cancelled tournament has nothing to schedule; got %+v, %v", sums, err)
+	}
+	validate(t, "TournamentOwnerSummary", wireOwnerSummary{
+		wireTournament: toWireTournament(&d.Tournament), Categories: toWireOwnerCategories(d.Categories), UnscheduledCount: 2,
+	})
+}

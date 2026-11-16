@@ -1,5 +1,6 @@
 import { XIcon } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/shared/components/ui/sheet';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
+import { DetailSheetHeader } from '@/shared/components/common/DetailSheetHeader';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { Button } from '@/shared/components/ui/button';
 import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
@@ -35,11 +36,11 @@ function SellMobileCart({ itemCount, total, open, onOpenChange, cartPanel }: Sel
       />
 
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto">
-          <SheetHeader className="pb-0">
-            <SheetTitle>{t.cash.cartTitle}</SheetTitle>
-          </SheetHeader>
-          <div className="px-4 pb-4">{cartPanel}</div>
+        {/* Flex column, not a scrolling sheet: only the cart's lines scroll, and its
+            "Cobrar" footer stays pinned. Full width on every size, being a bottom sheet. */}
+        <SheetContent side="bottom" className="max-h-[85vh]" showCloseButton={false}>
+          <DetailSheetHeader title={t.cash.cartTitle} />
+          {cartPanel}
         </SheetContent>
       </Sheet>
     </>
@@ -140,7 +141,7 @@ interface SellOpenViewProps {
 export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps) {
   const isDesktop = useMediaQuery('(min-width: 1024px)');
 
-  const cartPanel = (
+  const renderCart = (placement: 'column' | 'sheet') => (
     <SellCart
       lines={state.lines}
       products={state.products}
@@ -159,6 +160,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
       isCharging={state.isCharging}
       cartLimitReached={state.cartLimitNotice}
       balanceChangedNotice={state.balanceChangedNotice}
+      placement={placement}
     />
   );
 
@@ -182,7 +184,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
           <SellCatalogColumn state={state} />
           <SalesSection complexId={complexId} sessionId={sessionId} />
         </div>
-        {isDesktop && cartPanel}
+        {isDesktop && renderCart('column')}
       </div>
 
       {!isDesktop && (
@@ -191,7 +193,7 @@ export function SellOpenView({ complexId, sessionId, state }: SellOpenViewProps)
           total={state.total}
           open={state.mobileCartOpen}
           onOpenChange={state.setMobileCartOpen}
-          cartPanel={cartPanel}
+          cartPanel={renderCart('sheet')}
         />
       )}
     </div>

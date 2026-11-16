@@ -56,6 +56,16 @@ describe('ImageUpload', () => {
     expect(screen.getByRole('button', { name: 'Portada' })).toBeInTheDocument();
   });
 
+  it('names each delete control after its image', () => {
+    render(
+      <ImageUpload
+        complex={{ ...mockComplex, logo_url: 'https://cdn/logo.png', cover_url: 'https://cdn/cover.png' }}
+      />,
+    );
+    expect(screen.getByRole('button', { name: 'Eliminar logo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Eliminar portada' })).toBeInTheDocument();
+  });
+
   // A preview is decoration in a settings panel: it must not compete with
   // the page's own data for the connection, and it must not resize the slot
   // when it arrives (PERF-08).

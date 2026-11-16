@@ -341,7 +341,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     datePublished: '2026-09-16',
     respuesta:
       'El reporte se arma mes a mes y se compara siempre contra el mes anterior. Te muestra cuánto '
-      + 'entró por cada método de pago —MercadoPago y los que registrás en el mostrador—, con los '
+      + 'entró por cada método de pago (MercadoPago y los que registrás en el mostrador), con los '
       + 'reembolsos ya descontados, así que el número que ves es el neto. También se abre cancha por '
       + 'cancha, para ver cuáles facturan y cuáles casi no se usan. Todo eso se baja en Excel.',
     bloques: [
@@ -544,8 +544,8 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     excerpt: 'Todo lo que entra o sale de la caja, por categoría, con su anulación si hace falta.',
     datePublished: '2026-09-24',
     respuesta:
-      'Con la caja abierta, cargás un ingreso o un egreso eligiendo su categoría —clases, torneos, '
-      + 'alquiler del local, sueldos, insumos, entre otras—, el método y el monto. Cada uno queda en el '
+      'Con la caja abierta, cargás un ingreso o un egreso eligiendo su categoría (clases, torneos, '
+      + 'alquiler del local, sueldos, insumos, entre otras), el método y el monto. Cada uno queda en el '
       + 'historial del turno. Si cargaste algo mal, no lo borrás: lo anulás, y Vibe registra un movimiento '
       + 'contrario por el mismo monto, así el historial completo queda a la vista.',
     bloques: [
@@ -553,9 +553,9 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         tipo: 'parrafos',
         heading: 'Categorías, no un cajón de "otros"',
         parrafos: [
-          'Cada movimiento se carga con su categoría propia —clases, sueldos, insumos y las demás—, así '
+          'Cada movimiento se carga con su categoría propia (clases, sueldos, insumos y las demás), así '
             + 'que sabés al toque cuánto entró por cada una.',
-          'El desglose por categoría de la caja —y del reporte del mes— sale solo, sin tener que releer '
+          'El desglose por categoría de la caja y del reporte del mes sale solo, sin tener que releer '
             + 'cada nota.',
         ],
       },
@@ -754,7 +754,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     respuesta:
       'No todos los clientes pagan la seña online: un turno cargado por teléfono, o uno al que todavía le '
       + 'falta el resto después de la seña, se cobra desde el mismo detalle de la reserva. Tocás Confirmar '
-      + 'pago, elegís el método real —efectivo, transferencia, débito, crédito o QR— y confirmás. El turno '
+      + 'pago, elegís el método real (efectivo, transferencia, débito, crédito o QR) y confirmás. El turno '
       + 'pasa a cobrado sin que MercadoPago intervenga en ningún momento.',
     bloques: [
       {

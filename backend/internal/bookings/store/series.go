@@ -1,9 +1,11 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -116,11 +118,21 @@ type SeriesException struct {
 	Reason string
 }
 
-// InsertSeries writes a new series and its exceptions in one transaction.
+// InsertSeries writes a new series and its exceptions in one transaction. See
+// InsertSeriesWithBookings, which it is the booking-less case of.
+func (m *Store) InsertSeries(ctx context.Context, s *Series, exceptions []SeriesException) error {
+	return m.InsertSeriesWithBookings(ctx, s, exceptions, nil)
+}
+
+// InsertSeriesWithBookings writes a new series, its exceptions and the bookings
+// of the dates the owner moved to other courts, in one transaction. Each moved
+// booking is linked to the new series and records its date in the ledger as
+// booked, so the series no longer holds its own court that day.
 //
-// It takes the court's row lock for update first. Every booking insert holds
-// that row for share (slotguard.LockCourtLive), so the two exclude each other:
-// a storefront booking committed before this transaction is seen by the
+// It takes the courts' row locks for update first, in id order so two series
+// that swap courts cannot wait on each other. Every booking insert holds its
+// court's row for share (slotguard.LockCourtLive), so the two exclude each
+// other: a storefront booking committed before this transaction is seen by the
 // recheck below, and one that starts after it waits, then finds the series
 // holding the hours (SlotTaken reads booking_series_occurrences). That closes
 // the window between the service's read-only pre-check and this write for
@@ -128,9 +140,9 @@ type SeriesException struct {
 // takes only the court-day advisory locks; the owner is the only writer of
 // both, so that residual window is accepted.
 //
-// ErrSlotUnavailable is returned, writing nothing, when a booking now covers a
-// date the series holds.
-func (m *Store) InsertSeries(ctx context.Context, s *Series, exceptions []SeriesException) error {
+// ErrSlotUnavailable or ErrDuplicateBooking is returned, writing nothing, when
+// a booking now covers a date the series holds or the hours of a moved booking.
+func (m *Store) InsertSeriesWithBookings(ctx context.Context, s *Series, exceptions []SeriesException, moved []*Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -139,8 +151,10 @@ func (m *Store) InsertSeries(ctx context.Context, s *Series, exceptions []Series
 	}
 	var row db.BookingSeries
 	err := m.DB.WithTx(ctx, func(tx pgx.Tx, q *db.Queries) error {
-		if err := lockCourtForSeries(ctx, tx, s.CourtID); err != nil {
-			return err
+		for _, id := range courtsToLock(s, moved) {
+			if err := lockCourtForSeries(ctx, tx, id); err != nil {
+				return err
+			}
 		}
 		var err error
 		if row, err = q.InsertBookingSeries(ctx, insertSeriesParams(s)); err != nil {
@@ -154,6 +168,12 @@ func (m *Store) InsertSeries(ctx context.Context, s *Series, exceptions []Series
 				return fmt.Errorf("bookings: record series exception: %w", err)
 			}
 		}
+		for _, b := range moved {
+			b.SeriesID = &created.ID
+			if err := m.insertSafe(ctx, tx, b, holdTag{}); err != nil {
+				return err
+			}
+		}
 		return recheckSeriesAgainstBookings(ctx, tx, created, m.PaymentExpiry)
 	})
 	if err != nil {
@@ -161,6 +181,19 @@ func (m *Store) InsertSeries(ctx context.Context, s *Series, exceptions []Series
 	}
 	*s = *seriesFromDB(row)
 	return nil
+}
+
+// courtsToLock is the series' court and the courts its moved bookings land on,
+// each once, in id order.
+func courtsToLock(s *Series, moved []*Booking) []uuid.UUID {
+	ids := []uuid.UUID{s.CourtID}
+	for _, b := range moved {
+		if !slices.Contains(ids, b.CourtID) {
+			ids = append(ids, b.CourtID)
+		}
+	}
+	slices.SortFunc(ids, func(a, b uuid.UUID) int { return bytes.Compare(a[:], b[:]) })
+	return ids
 }
 
 func insertSeriesParams(s *Series) db.InsertBookingSeriesParams {

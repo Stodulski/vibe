@@ -107,7 +107,7 @@ function EventSignUpPage({ slug, eventId, paymentFailed }: { slug: string; event
   const open = isOpenForSignUp(event) && !started;
   return (
     <>
-      <EventCard event={event} headingLevel="h1" />
+      {!open && <EventCard event={event} headingLevel="h1" />}
       {cancelled && <CancelledEventNotice />}
       {!cancelled && started && <SignUpClosedNotice />}
       {!cancelled && !started && !open && <FullEventNotice />}

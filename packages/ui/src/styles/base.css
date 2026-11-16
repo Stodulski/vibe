@@ -47,11 +47,20 @@ body {
   outline-offset: 2px;
 }
 
-
+/* A link inside running text (a phone number in a list, a mailto in a
+   paragraph) is not a tap target of its own and must not stretch its line to
+   44px on touch: add `inline-link` to it. Real buttons and nav links keep the
+   floor below. A calendar day (`data-day`) is square, so a 44px height would
+   widen it too and push the seventh column out of a 320px popover: the grid of
+   days is the tap target there. The same goes for a switch and a checkbox
+   (Radix renders them as `button role=switch|checkbox`): a 44px floor turned a
+   36px switch into a vertical oval, so the label row beside them is the tap
+   target and they are left out of the floor. The data-slot reset below used to
+   be meant for this but loses on specificity to the `button:not(...)` line. */
 @media (pointer: coarse) {
-  button,
+  button:not([data-day], [role='switch'], [role='checkbox']),
   [role='button'],
-  a,
+  a:not(.inline-link),
   input,
   select,
   textarea {
@@ -153,7 +162,6 @@ html body[data-scroll-locked] {
   width: 0;
   height: 0;
 }
-
 
 .animate-spring-scale {
   animation: fade-in 300ms var(--ease-out) backwards;

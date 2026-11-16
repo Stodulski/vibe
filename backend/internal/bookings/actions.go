@@ -118,6 +118,32 @@ func (h *Handler) ConfirmPayment(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// MarkAttended handles POST
+// /api/v1/complexes/{id}/bookings/{bookingID}/attended, the owner confirming
+// the client of a finished booking showed up. A booking already marked
+// answers 200 as it stands.
+func (h *Handler) MarkAttended(w http.ResponseWriter, r *http.Request) {
+	complex, ok := httpx.ContextGetComplex(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
+		return
+	}
+
+	bookingID, err := httpx.ReadUUIDParam(r, "bookingID")
+	if err != nil {
+		h.respond.NotFound(w, r)
+		return
+	}
+
+	booking, err := h.svc.MarkAttended(r.Context(), complex.ID, h.actor(r), bookingID)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"booking": toGenBooking(booking)})
+}
+
 // ManualRefund handles POST
 // /api/v1/complexes/{id}/bookings/{bookingID}/manual-refund, closing out a
 // partially refunded booking once the owner confirms they returned the

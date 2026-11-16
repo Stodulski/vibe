@@ -1,4 +1,4 @@
-import { AlertTriangle, CalendarX, CheckCircle2, Clock, XCircle } from 'lucide-react';
+import { AlertTriangle, CalendarX, Clock, Info, Lock, XCircle } from 'lucide-react';
 import { Button, StatusHero } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicComplexPath } from '../../lib/publicPaths';
@@ -18,6 +18,7 @@ export function EventNotFoundState({ slug }: { slug: string }) {
     <StatusHero
       icon={CalendarX}
       tone="neutral"
+      size="large"
       title={t.events.eventNotFound}
       description={t.events.eventNotFoundDescription}
     >
@@ -31,6 +32,7 @@ export function EventLoadErrorState({ onRetry }: { onRetry: () => void }) {
     <StatusHero
       icon={AlertTriangle}
       tone="warning"
+      size="large"
       title={t.events.eventLoadError}
       description={t.publicBooking.complexLoadErrorDescription}
     >
@@ -46,6 +48,7 @@ export function RegistrationNotFoundState({ slug, eventPath }: { slug: string; e
     <StatusHero
       icon={XCircle}
       tone="neutral"
+      size="large"
       title={t.events.registrationNotFoundTitle}
       description={t.events.registrationNotFoundDescription}
     >
@@ -72,6 +75,7 @@ export function ProcessingState({
     <StatusHero
       icon={Clock}
       tone={underReview ? 'info' : 'neutral'}
+      size="large"
       title={underReview ? t.events.underReviewTitle : t.events.processingTitle}
       description={underReview ? t.events.underReviewDescription : t.events.processingDescription}
     >
@@ -89,6 +93,7 @@ export function ExpiredState({ eventPath, slug }: { eventPath: string; slug: str
     <StatusHero
       icon={Clock}
       tone="warning"
+      size="large"
       title={t.events.expiredTitle}
       description={t.events.expiredDescription}
     >
@@ -107,6 +112,7 @@ export function PaymentFailedState({ onRetry, isRetrying }: { onRetry: () => voi
     <StatusHero
       icon={XCircle}
       tone="error"
+      size="large"
       title={t.publicBooking.paymentFailed}
       description={t.events.paymentFailedDescription}
     >
@@ -122,6 +128,7 @@ export function CancelledEventNotice() {
     <StatusHero
       icon={CalendarX}
       tone="warning"
+      size="large"
       title={t.events.cancelledTitle}
       description={t.events.cancelledDescription}
     />
@@ -130,8 +137,8 @@ export function CancelledEventNotice() {
 
 export function FullEventNotice() {
   return (
-    <p role="status" className="text-text-secondary text-center text-sm">
-      <CheckCircle2 className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
+    <p role="status" className="text-text-secondary text-sm">
+      <Info className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
       {t.events.fullDescription}
     </p>
   );
@@ -139,8 +146,8 @@ export function FullEventNotice() {
 
 export function SignUpClosedNotice() {
   return (
-    <p role="status" className="text-text-secondary text-center text-sm">
-      <CheckCircle2 className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
+    <p role="status" className="text-text-secondary text-sm">
+      <Lock className="mr-1 inline size-4 align-text-bottom" aria-hidden="true" />
       {t.events.signUpClosed}
     </p>
   );

@@ -5,6 +5,7 @@ export const common = {
   delete: 'Eliminar',
   edit: 'Editar',
   rowActionsLabel: 'Más acciones',
+  dangerZone: 'Zona de peligro',
   create: 'Crear',
   search: 'Buscar...',
   loading: 'Cargando...',
@@ -26,6 +27,8 @@ export const common = {
   export: 'Exportar',
   refresh: 'Actualizar',
   optional: 'opcional',
+  upcoming: 'Próximos',
+  past: 'Pasados',
   requiredMarker: 'requerido',
   requiredHint: 'Los campos obligatorios están marcados con *',
   // Shown when someone navigates away from a form they have edited but not

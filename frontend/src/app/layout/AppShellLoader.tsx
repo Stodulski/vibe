@@ -53,7 +53,7 @@ export function AppShellLoader() {
       </div>
 
       <main
-        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] lg:px-10 lg:py-8 xl:px-14"
+        className="relative z-10 mt-16 px-3 py-4 sm:px-6 sm:py-6 md:ml-[152px] md:pt-4 lg:px-10 lg:pt-4 lg:pb-8 xl:px-14"
         aria-hidden="true"
       >
         <div className="mx-auto w-full max-w-[1600px]">{skeletonForPath(pathname) ?? <NeutralContent />}</div>

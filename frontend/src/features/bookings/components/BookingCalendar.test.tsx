@@ -5,7 +5,15 @@ import { BookingCalendar } from './BookingCalendar';
 import { makeBooking } from '@/test/factories';
 import { venueInstant } from '@/shared/lib/instants';
 import { timeToMinutes } from '@/shared/lib/time';
-import type { Booking, CourtWithPrices, Schedule, BlockedSlot, FixedBlock, EventBlock } from '@/shared/types/api.types';
+import type {
+  Booking,
+  CourtWithPrices,
+  Schedule,
+  BlockedSlot,
+  FixedBlock,
+  EventBlock,
+  MatchBlock,
+} from '@/shared/types/api.types';
 
 const futureDate = '2027-03-20';
 
@@ -149,7 +157,7 @@ describe('BookingCalendar', () => {
     // A plain /10:00/ regex now also matches the grid's hour-gutter label
     // (the vertical grid has its own "10:00" ruler entry), so this asserts
     // the booking block's full range text instead of a loose substring.
-    expect(screen.getByText('10:00 – 11:30')).toBeInTheDocument();
+    expect(screen.getByText('10:00 a 11:30')).toBeInTheDocument();
   });
 
   it('renders court name in booking card', () => {
@@ -205,9 +213,7 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
-    expect(block).toHaveTextContent('Bloqueo por turno fijo');
-    expect(block).toHaveTextContent('Ana Gomez');
+    const block = screen.getByRole('button', { name: /Turno fijo · Ana Gomez/ });
     await user.click(block);
 
     expect(onSelectFixedBlock).toHaveBeenCalledWith(fixedBlock);
@@ -223,15 +229,15 @@ describe('BookingCalendar — fixed weekly bookings without a booking yet', () =
     );
 
     // 23:00 to the end of the day is 4% of the grid; a backwards range would not be drawn at all.
-    const block = screen.getByRole('button', { name: /Bloqueo por turno fijo · Ana Gomez/ });
+    const block = screen.getByRole('button', { name: /Turno fijo · Ana Gomez/ });
     expect(block.style.top).toContain('95.83');
   });
 
   it('offers no free slot under the block', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} fixedBlocks={[fixedBlock]} />);
 
-    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Crear reserva · Cancha 1 · 18:00/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha\s1 · 19:00/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear reserva · Cancha\s1 · 18:00/ })).toBeInTheDocument();
   });
 });
 
@@ -247,7 +253,7 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
     name: 'Americano de sabado',
   };
 
-  it('draws the block as "Canchas libres · {día} {hora}" and hands it over on click', async () => {
+  it('draws the hours, then the kind of event and its name each on its own line, and hands it over on click', async () => {
     const user = userEvent.setup();
     const onSelectEventBlock = vi.fn();
     render(
@@ -259,9 +265,9 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Canchas libres · sábado 19:00/ });
-    expect(block).toHaveTextContent('Canchas libres · sábado 19:00');
-    expect(block).toHaveTextContent('Americano de sabado');
+    const block = screen.getByRole('button', { name: /19:00 a 21:00, Canchas libres · Americano de sabado/ });
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 a 21:00', 'Canchas libres', 'Americano de sabado']);
     await user.click(block);
 
     expect(onSelectEventBlock).toHaveBeenCalledWith(eventBlock);
@@ -276,20 +282,69 @@ describe('BookingCalendar — open-play events (canchas libres)', () => {
       />,
     );
 
-    const block = screen.getByRole('button', { name: /Canchas libres · sábado 23:00/ });
+    const block = screen.getByRole('button', { name: /23:00 a 01:00, Canchas libres · Americano de sabado/ });
     expect(block.style.top).toContain('95.83');
   });
 
   it('offers no free slot under the block', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[eventBlock]} />);
 
-    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 19:00/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha 1 · 20:30/ })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Crear reserva · Cancha 1 · 18:00/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha\s1 · 19:00/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha\s1 · 20:30/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Crear reserva · Cancha\s1 · 18:00/ })).toBeInTheDocument();
   });
 
   it('draws nothing on a court the event does not hold', () => {
     render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...eventBlock, court_id: 'other' }]} />);
     expect(screen.queryByRole('button', { name: /Canchas libres/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('BookingCalendar — tournament matches', () => {
+  const matchBlock: MatchBlock = {
+    match_id: 'm1',
+    tournament_id: 't1',
+    court_id: 'ct1',
+    date: futureDate,
+    start_time: '19:00',
+    end_time: '20:30',
+    duration_minutes: 90,
+    name: 'Copa Vibe · 6ta',
+    pair1: 'Pérez / Gómez',
+    pair2: 'Díaz / Ruiz',
+  };
+
+  it('draws the match like a booking: hours, then "Torneo · {categoría}", then the pairs, and hands it over on click', async () => {
+    const user = userEvent.setup();
+    const onSelectEventBlock = vi.fn();
+    render(
+      <BookingCalendar
+        {...defaultProps}
+        bookings={[]}
+        eventBlocks={[matchBlock]}
+        onSelectEventBlock={onSelectEventBlock}
+      />,
+    );
+
+    const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 a 20:30', 'Torneo · 6ta', 'Pérez / Gómez vs Díaz / Ruiz']);
+    expect(block).toHaveAccessibleName(/Torneo · Copa Vibe · 6ta · Pérez \/ Gómez vs Díaz \/ Ruiz/);
+    await user.click(block);
+
+    expect(onSelectEventBlock).toHaveBeenCalledWith(matchBlock);
+  });
+
+  it('shows "Torneo" and the tournament name while a pair is not known yet', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[{ ...matchBlock, pair2: null }]} />);
+
+    const block = screen.getByRole('button', { name: /Torneo · Copa Vibe · 6ta/ });
+    const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
+    expect(lines).toEqual(['19:00 a 20:30', 'Torneo', 'Copa Vibe · 6ta']);
+  });
+
+  it('offers no free slot under the match', () => {
+    render(<BookingCalendar {...defaultProps} bookings={[]} eventBlocks={[matchBlock]} />);
+    expect(screen.queryByRole('button', { name: /Crear reserva · Cancha\s1 · 19:00/ })).not.toBeInTheDocument();
   });
 });

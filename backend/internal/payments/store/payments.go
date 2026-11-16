@@ -346,6 +346,43 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 	return nil
 }
 
+// UpdateUnlessRefundPending is Update for the webhook's record of a refund
+// MercadoPago reports. It writes only while the row is not 'refund_pending' and
+// reports whether it wrote: the webhook read the row before it called
+// MercadoPago, and a ClaimRefund that committed meanwhile owns the refund, so
+// overwriting its status would strand the claim.
+func (m *Payments) UpdateUnlessRefundPending(ctx context.Context, p *Payment) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return false, err
+	}
+
+	dbPayment, err := m.Q.UpdatePaymentUnlessRefundPending(ctx, updateUnlessRefundPendingParams(p))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+
+	p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
+	return true, nil
+}
+
+func updateUnlessRefundPendingParams(p *Payment) db.UpdatePaymentUnlessRefundPendingParams {
+	return db.UpdatePaymentUnlessRefundPendingParams{
+		Status:         db.PaymentStatus(p.Status),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
+		RefundAmount: int32(p.RefundAmount),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+		ID:           data.UUIDToPg(p.ID),
+	}
+}
+
 // InsertAndConfirmBooking inserts a payment and updates the booking status atomically in a transaction.
 //
 // When the booking is being confirmed, the transaction opens with
@@ -503,17 +540,35 @@ func attachClient(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingsto
 // Like InsertAndConfirmBooking, a confirmation runs under guardSlotStillFree and
 // is refused with ErrSlotUnavailable when the slot was taken meanwhile.
 func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *bookingstore.Booking) error {
+	_, err := m.confirmWebhookPayment(ctx, p, b, false)
+	return err
+}
+
+// RecordWebhookRefund is ConfirmWebhookPayment for the webhook's record of a
+// refund MercadoPago reports: the payment is written only while it is not
+// 'refund_pending', and when it is not written the booking is not written either.
+// It reports whether it wrote. See UpdateUnlessRefundPending for why.
+func (m *Payments) RecordWebhookRefund(ctx context.Context, p *Payment, b *bookingstore.Booking) (bool, error) {
+	return m.confirmWebhookPayment(ctx, p, b, true)
+}
+
+// confirmWebhookPayment is the transaction behind ConfirmWebhookPayment and
+// RecordWebhookRefund. unlessRefundPending makes the payment write conditional;
+// a refused write rolls nothing back because nothing was written yet, and the
+// booking is left alone.
+func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *bookingstore.Booking, unlessRefundPending bool) (bool, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
 	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
-		return err
+		return false, err
 	}
 	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
-		return err
+		return false, err
 	}
 
-	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	written := false
+	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
 		// Before anything is written: the slot this booking is about to claim has to
 		// still be free.
 		if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
@@ -521,21 +576,15 @@ func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		}
 
 		// UPDATE existing payment.
-		dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
-			Status:         db.PaymentStatus(p.Status),
-			MpPaymentID:    data.TextToPg(p.MPPaymentID),
-			MpPreferenceID: data.TextToPg(p.MPPreferenceID),
-			//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
-			// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
-			RefundAmount: int32(p.RefundAmount),
-			StatusDetail: data.TextToPg(p.StatusDetail),
-			ID:           data.UUIDToPg(p.ID),
-		})
+		updatedAt, ok, err := updateWebhookPayment(ctx, qtx, p, unlessRefundPending)
 		if err != nil {
-			return fmt.Errorf("update payment: %w", err)
+			return err
+		}
+		if !ok {
+			return nil
 		}
 
-		p.UpdatedAt = data.PgToTime(dbPayment.UpdatedAt)
+		p.UpdatedAt = data.PgToTime(updatedAt)
 
 		// UPDATE booking status.
 		dbBooking, err := qtx.UpdateBooking(ctx, db.UpdateBookingParams{
@@ -560,8 +609,43 @@ func (m *Payments) ConfirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		}
 
 		b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+		written = true
 		return nil
 	})
+	if err != nil {
+		return false, err
+	}
+	return written, nil
+}
+
+// updateWebhookPayment is the payment write inside confirmWebhookPayment. It
+// reports false, with no error, when unlessRefundPending refused the write
+// because the payment is 'refund_pending'.
+func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unlessRefundPending bool) (pgtype.Timestamptz, bool, error) {
+	if unlessRefundPending {
+		dbPayment, err := qtx.UpdatePaymentUnlessRefundPending(ctx, updateUnlessRefundPendingParams(p))
+		if errors.Is(err, pgx.ErrNoRows) {
+			return pgtype.Timestamptz{}, false, nil
+		}
+		if err != nil {
+			return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
+		}
+		return dbPayment.UpdatedAt, true, nil
+	}
+	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+		Status:         db.PaymentStatus(p.Status),
+		MpPaymentID:    data.TextToPg(p.MPPaymentID),
+		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
+		//nolint:gosec // G115: currency amount (cents), bounded by the original payment amount; far below int32 range.
+		// refund_amount is NOT NULL, so sqlc generates plain int32 rather than pgtype.Int4.
+		RefundAmount: int32(p.RefundAmount),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+		ID:           data.UUIDToPg(p.ID),
+	})
+	if err != nil {
+		return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
+	}
+	return dbPayment.UpdatedAt, true, nil
 }
 
 func paymentFromDB(p db.Payment) *Payment {

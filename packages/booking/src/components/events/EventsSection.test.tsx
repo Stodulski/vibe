@@ -29,10 +29,12 @@ describe('EventsSection', () => {
     renderBooking(<EventsSection slug="test-club" />);
 
     expect(await screen.findByRole('heading', { name: t.sectionTitle })).toBeInTheDocument();
-    expect(screen.getByText(EVENT.name)).toBeInTheDocument();
-    expect(screen.getByText('19:00 a 22:00 hs')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: EVENT.name })).toBeInTheDocument();
+    expect(screen.getByText('19:00 a 22:00')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
     expect(screen.getByText('Quedan 7 lugares')).toBeInTheDocument();
+    expect(screen.getByText(/\$10\.000/)).toHaveTextContent('$10.000 por persona + cargo de servicio');
+    expect(screen.queryByText(/\$11\.000/)).not.toBeInTheDocument();
     expect(screen.getByRole('link', { name: t.signUp })).toHaveAttribute('href', '/c/test-club/events/ev1');
   });
 
@@ -46,6 +48,37 @@ describe('EventsSection', () => {
 
     expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
     expect(screen.getAllByText(t.full)).toHaveLength(1);
+    expect(screen.queryByRole('button', { name: t.full })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
+  });
+});
+
+describe('EventsSection — events that offer no sign-up', () => {
+  it('says Cancelado, not Completo, on a cancelled event even when it is also full', async () => {
+    server.use(
+      http.get('*/public/complexes/:slug/events', () =>
+        HttpResponse.json({ events: [{ ...EVENT, status: 'cancelled', spots_left: 0 }] }),
+      ),
+    );
+    renderBooking(<EventsSection slug="test-club" />);
+
+    expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText(t.cancelledBadge)).toBeInTheDocument();
+    expect(screen.queryByText(t.full)).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
+  });
+
+  it('says the sign-up is closed, not Completo, on an event that already started', async () => {
+    server.use(
+      http.get('*/public/complexes/:slug/events', () =>
+        HttpResponse.json({ events: [{ ...EVENT, date: '2000-01-01', spots_left: 0 }] }),
+      ),
+    );
+    renderBooking(<EventsSection slug="test-club" />);
+
+    expect(await screen.findByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText(t.closedBadge)).toBeInTheDocument();
+    expect(screen.queryByText(t.full)).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();
   });
 });

@@ -28,7 +28,7 @@ function fourOpen() {
   return makeCompleteComplex({ cover_url: null, logo_url: null, description: null });
 }
 
-const WHY_MERCADOPAGO = 'Con MercadoPago conectado, los jugadores pueden pagar la seña al reservar.';
+const WHY_MERCADOPAGO = 'Con Mercado Pago conectado, los jugadores pueden pagar la seña al reservar.';
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -77,9 +77,9 @@ describe('ProfileChecklist: collapsed', () => {
 
     renderChecklist(makeCompleteComplex({ payments_enabled: false }));
 
-    expect(screen.getByText('Conectá MercadoPago para cobrar señas online')).toBeInTheDocument();
+    expect(screen.getByText('Conectá Mercado Pago para cobrar señas online')).toBeInTheDocument();
     expect(screen.getByText(WHY_MERCADOPAGO)).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de MercadoPago' })).toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de Mercado Pago' })).toHaveAttribute(
       'href',
       '/settings?tab=billing',
     );
@@ -96,8 +96,8 @@ describe('ProfileChecklist: expanded', () => {
 
     const rows = within(screen.getByRole('list')).getAllByRole('listitem');
     expect(rows).toHaveLength(4);
-    expect(rows[3]).toHaveTextContent('Conectá MercadoPago para cobrar señas online');
-    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de MercadoPago' })).toHaveAttribute(
+    expect(rows[3]).toHaveTextContent('Conectá Mercado Pago para cobrar señas online');
+    expect(screen.getByRole('link', { name: 'Conectá tu cuenta de Mercado Pago' })).toHaveAttribute(
       'href',
       '/settings?tab=billing',
     );

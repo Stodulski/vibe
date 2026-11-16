@@ -433,6 +433,7 @@ type Booking struct {
 	HoldTokenHash    []byte                           `json:"hold_token_hash"`
 	HoldIp           pgtype.Text                      `json:"hold_ip"`
 	SeriesID         pgtype.UUID                      `json:"series_id"`
+	AttendedAt       pgtype.Timestamptz               `json:"attended_at"`
 }
 
 type BookingLinkToken struct {
@@ -690,6 +691,7 @@ type OpenPlayEvent struct {
 	CreatedBy       pgtype.UUID        `json:"created_by"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	TournamentID    pgtype.UUID        `json:"tournament_id"`
 }
 
 type OpenPlayEventCourt struct {
@@ -895,6 +897,109 @@ type StockMovement struct {
 	SaleID         pgtype.UUID        `json:"sale_id"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	CreatedBy      pgtype.UUID        `json:"created_by"`
+}
+
+type Tournament struct {
+	ID           pgtype.UUID        `json:"id"`
+	ComplexID    pgtype.UUID        `json:"complex_id"`
+	Name         string             `json:"name"`
+	Sport        SportType          `json:"sport"`
+	StartDate    pgtype.Date        `json:"start_date"`
+	EndDate      pgtype.Date        `json:"end_date"`
+	Status       string             `json:"status"`
+	CancelReason pgtype.Text        `json:"cancel_reason"`
+	CancelledAt  pgtype.Timestamptz `json:"cancelled_at"`
+	CancelledBy  pgtype.UUID        `json:"cancelled_by"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TournamentCategory struct {
+	ID                   pgtype.UUID        `json:"id"`
+	TournamentID         pgtype.UUID        `json:"tournament_id"`
+	ComplexID            pgtype.UUID        `json:"complex_id"`
+	EventID              pgtype.UUID        `json:"event_id"`
+	Name                 string             `json:"name"`
+	Format               string             `json:"format"`
+	GroupSize            int32              `json:"group_size"`
+	QualifiersPerGroup   int32              `json:"qualifiers_per_group"`
+	SetsToWin            int32              `json:"sets_to_win"`
+	GamesPerSet          int32              `json:"games_per_set"`
+	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
+	MatchDurationMinutes int32              `json:"match_duration_minutes"`
+	CourtFee             int32              `json:"court_fee"`
+	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TournamentGroup struct {
+	ID         pgtype.UUID `json:"id"`
+	CategoryID pgtype.UUID `json:"category_id"`
+	ComplexID  pgtype.UUID `json:"complex_id"`
+	Name       string      `json:"name"`
+	Position   int32       `json:"position"`
+}
+
+type TournamentMatch struct {
+	ID              pgtype.UUID        `json:"id"`
+	CategoryID      pgtype.UUID        `json:"category_id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	Stage           string             `json:"stage"`
+	GroupID         pgtype.UUID        `json:"group_id"`
+	Round           int32              `json:"round"`
+	Position        int32              `json:"position"`
+	Pair1ID         pgtype.UUID        `json:"pair1_id"`
+	Pair2ID         pgtype.UUID        `json:"pair2_id"`
+	Slot1GroupID    pgtype.UUID        `json:"slot1_group_id"`
+	Slot1Rank       pgtype.Int4        `json:"slot1_rank"`
+	Slot2GroupID    pgtype.UUID        `json:"slot2_group_id"`
+	Slot2Rank       pgtype.Int4        `json:"slot2_rank"`
+	Bye             bool               `json:"bye"`
+	NextMatchID     pgtype.UUID        `json:"next_match_id"`
+	NextSlot        pgtype.Int4        `json:"next_slot"`
+	Status          string             `json:"status"`
+	WinnerPairID    pgtype.UUID        `json:"winner_pair_id"`
+	Sets            []byte             `json:"sets"`
+	WalkoverLoser   pgtype.Int4        `json:"walkover_loser"`
+	CompletedAt     pgtype.Timestamptz `json:"completed_at"`
+	CourtID         pgtype.UUID        `json:"court_id"`
+	ScheduledOn     pgtype.Date        `json:"scheduled_on"`
+	StartTime       pgtype.Time        `json:"start_time"`
+	DurationMinutes pgtype.Int4        `json:"duration_minutes"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type TournamentMatchFee struct {
+	ID             pgtype.UUID        `json:"id"`
+	ComplexID      pgtype.UUID        `json:"complex_id"`
+	MatchID        pgtype.UUID        `json:"match_id"`
+	Side           int32              `json:"side"`
+	PairID         pgtype.UUID        `json:"pair_id"`
+	Amount         int32              `json:"amount"`
+	Method         PaymentMethod      `json:"method"`
+	CashMovementID pgtype.UUID        `json:"cash_movement_id"`
+	ChargedAt      pgtype.Timestamptz `json:"charged_at"`
+	ChargedBy      pgtype.UUID        `json:"charged_by"`
+}
+
+type TournamentPair struct {
+	ID               pgtype.UUID        `json:"id"`
+	CategoryID       pgtype.UUID        `json:"category_id"`
+	ComplexID        pgtype.UUID        `json:"complex_id"`
+	RegistrationID   pgtype.UUID        `json:"registration_id"`
+	PartnerFirstName string             `json:"partner_first_name"`
+	PartnerLastName  string             `json:"partner_last_name"`
+	PartnerPhone     string             `json:"partner_phone"`
+	PartnerEmail     pgtype.Text        `json:"partner_email"`
+	Seed             pgtype.Int4        `json:"seed"`
+	GroupID          pgtype.UUID        `json:"group_id"`
+	Status           string             `json:"status"`
+	WithdrawnAt      pgtype.Timestamptz `json:"withdrawn_at"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
 }
 
 type User struct {

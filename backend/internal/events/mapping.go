@@ -79,8 +79,16 @@ func toGenParticipants(rows []*eventstore.RegistrationRow) []gen.OpenPlayPartici
 // toGenPublicEvent maps an event onto what a visitor sees.
 func toGenPublicEvent(e *eventstore.Event, page *Page) gen.PublicOpenPlayEvent {
 	names := make([]string, len(e.Courts))
+	courts := make([]gen.PublicEventCourt, len(e.Courts))
 	for i, c := range e.Courts {
 		names[i] = c.Name
+		courts[i] = gen.PublicEventCourt{
+			Id: c.ID, Name: c.Name, CourtType: gen.PublicEventCourtCourtType(c.CourtType), HasLighting: c.HasLighting,
+		}
+		if c.Surface != nil {
+			surface := gen.CourtSurface(*c.Surface)
+			courts[i].Surface = &surface
+		}
 	}
 	complexName := page.Complex.Name
 	hours := page.Complex.CancellationHours
@@ -89,7 +97,7 @@ func toGenPublicEvent(e *eventstore.Event, page *Page) gen.PublicOpenPlayEvent {
 		Date: openapi_types.Date{Time: e.Date}, StartTime: e.StartTime, EndTime: endTimeOf(e),
 		DurationMinutes: e.DurationMinutes, Capacity: e.Capacity, SpotsLeft: e.SpotsLeft(),
 		Price: e.Price, ServiceFee: page.ServiceFee, TotalPrice: e.Price + page.ServiceFee,
-		Status: gen.PublicOpenPlayEventStatus(e.Status), CourtNames: names,
+		Status: gen.PublicOpenPlayEventStatus(e.Status), CourtNames: names, Courts: courts,
 		ComplexName: &complexName, CancellationHours: &hours,
 	}
 }

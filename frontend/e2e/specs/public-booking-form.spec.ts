@@ -10,6 +10,7 @@ import {
   findAndClickAvailableSlot,
   waitForOnlineBooking,
 } from '../helpers/public-booking-fixtures';
+import { waitForCheckout } from '../helpers/mp-checkout';
 
 const SLUG = 'complejo-publico-e2e';
 
@@ -69,10 +70,8 @@ test.describe('Public Booking Form Submission', () => {
 
     await publicPage.submitBooking();
 
-    // MercadoPago is faked, so the API cannot create a preference (403 from
-    // MP) and no redirect happens locally: the visitor stays on confirm with
-    // the payment-link error (BOOKING_MESSAGES.publicBooking.paymentLinkError).
-    await expect(page.getByText('No se pudo generar el link de pago')).toBeVisible({ timeout: 15_000 });
+    // On to the fake Mercado Pago's checkout (paid in mp-storefront-payments.spec.ts).
+    await waitForCheckout(page);
   });
 
   test('"Cambiar horario" releases the hold and returns to the hours', async ({ page }) => {

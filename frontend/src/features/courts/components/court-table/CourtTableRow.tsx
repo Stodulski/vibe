@@ -3,12 +3,14 @@ import { Switch } from '@/shared/components/ui/switch';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
 import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { DeactivateCourtDialog } from '../court-card/DeactivateCourtDialog';
 import { useCourtRowActions } from '../court-card/useCourtRowActions';
 import { courtDetailsLine } from '../../lib/courtDetails';
 import { CourtDescriptionCell } from './CourtDescriptionCell';
 import { CourtPriceCell } from './CourtPriceCell';
 import { CourtRowActionsMenu } from './CourtRowActionsMenu';
 import type { CourtWithPrices } from '@/shared/types/api.types';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 const t = ES_AR;
 
@@ -26,8 +28,7 @@ interface CourtTableRowProps {
  * can never disagree about what either action does.
  */
 export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTableRowProps) {
-  const { deleteOpen, setDeleteOpen, handleToggleActive, isTogglePending, handleDelete, isDeleting } =
-    useCourtRowActions(court, complexId);
+  const actions = useCourtRowActions(court, complexId);
 
   return (
     <>
@@ -49,15 +50,15 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
         <TableCell>
           <Switch
             checked={court.is_active}
-            onCheckedChange={handleToggleActive}
-            disabled={isTogglePending}
-            aria-label={`${court.name}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
+            onCheckedChange={actions.handleToggleActive}
+            disabled={actions.isTogglePending}
+            aria-label={`${keepTogether(court.name)}: ${court.is_active ? t.courts.active : t.courts.inactive}`}
           />
         </TableCell>
 
         <TableCell className="text-right">
           <CourtRowActionsMenu
-            courtName={court.name}
+            courtName={keepTogether(court.name)}
             onEdit={() => {
               onEdit(court);
             }}
@@ -65,23 +66,25 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
               onPrices(court);
             }}
             onDelete={() => {
-              setDeleteOpen(true);
+              actions.setDeleteOpen(true);
             }}
           />
         </TableCell>
       </TableRow>
 
+      <DeactivateCourtDialog courtName={court.name} actions={actions} />
+
       <ConfirmDialog
-        open={deleteOpen}
+        open={actions.deleteOpen}
         onClose={() => {
-          setDeleteOpen(false);
+          actions.setDeleteOpen(false);
         }}
-        onConfirm={handleDelete}
+        onConfirm={actions.handleDelete}
         title={t.courts.delete}
         description={t.courts.deleteConfirm}
         confirmLabel={t.common.delete}
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={actions.isDeleting}
       />
     </>
   );
@@ -92,7 +95,7 @@ function CourtNameCell({ court }: { court: CourtWithPrices }) {
   return (
     <TableCell className="max-w-56">
       <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>
-        {court.name}
+        {keepTogether(court.name)}
       </p>
       <p className="text-text-tertiary truncate text-xs">{t.courts.sportTypes[court.sport]}</p>
       {details && (

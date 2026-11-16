@@ -4,6 +4,8 @@ import { PaymentAndNotesFields } from './PaymentAndNotesFields';
 import { PaymentOptionsSection } from './PaymentOptionsSection';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { seriesSummaryRows } from '../../lib/seriesSummary';
+import { InfoRow } from '@/shared/components/common/InfoRow';
 import type { useCreateBookingForm } from './useCreateBookingForm';
 
 const t = ES_AR;
@@ -35,9 +37,32 @@ interface CreateBookingFormBodyProps {
  * (which makes the button `type="button"`) doubles as "Next" so only step 3
  * performs a real form submission.
  */
-/** A series is charged per occurrence at the court, so it swaps the payment choices for a one-line note. */
+/**
+ * A series is charged per occurrence at the court, so it swaps the payment
+ * choices for what it will do (weekday, hours, court, from when) and a one-line
+ * note on payment.
+ */
 function PaymentOptionsOrSeriesNote({ form }: { form: ReturnType<typeof useCreateBookingForm> }) {
-  if (form.series.repeat) return <p className="text-text-tertiary text-sm">{t.bookings.series.paymentNote}</p>;
+  if (form.series.repeat) {
+    return (
+      <div className="space-y-3">
+        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+          {seriesSummaryRows({
+            date: form.date,
+            startTime: form.startTime,
+            durationMinutes: form.durationMinutes,
+            courtName: form.courtName,
+            end: form.series.toEnd(),
+          }).map((row) => (
+            <InfoRow key={row.label} label={row.label}>
+              {row.value}
+            </InfoRow>
+          ))}
+        </div>
+        <p className="text-text-tertiary text-sm">{t.bookings.series.paymentNote}</p>
+      </div>
+    );
+  }
   return (
     <PaymentOptionsSection
       effectivePrice={form.effectivePrice}
@@ -96,7 +121,7 @@ export function CreateBookingFormBody({ step, form, onClose, onNext, onBack }: C
       <SectionFooter
         onCancel={onBack}
         cancelLabel={t.common.back}
-        submitLabel={t.bookings.create}
+        submitLabel={form.series.repeat ? t.bookings.series.createLabel : t.bookings.create}
         pending={form.isSubmitting}
       />
     </>

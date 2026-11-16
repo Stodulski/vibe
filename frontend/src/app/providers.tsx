@@ -3,6 +3,7 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { TooltipProvider } from '@/shared/components/ui/tooltip';
 import { Toaster } from 'sonner';
 import { queryClient } from '@/shared/lib/queryClient';
+import { useMediaQuery } from '@/shared/hooks/useMediaQuery';
 
 /**
  * The React Query devtools panel, in development only.
@@ -22,13 +23,16 @@ interface ProvidersProps {
 }
 
 export function Providers({ children }: ProvidersProps) {
+  // On a phone the bottom edge belongs to the pinned primary button of a drawer or
+  // dialog, so toasts go to the top; from `sm` they keep the bottom-right corner.
+  const isPhone = useMediaQuery('(max-width: 639px)');
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         {children}
         <Toaster
-          position="bottom-right"
-          richColors
+          position={isPhone ? 'top-center' : 'bottom-right'}
+          theme="dark"
           toastOptions={{
             classNames: {
               toast: 'toast-base',

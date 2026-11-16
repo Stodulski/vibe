@@ -117,6 +117,20 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, eventID 
 	if err != nil {
 		return nil, err
 	}
+	return s.SignUpWith(ctx, actor, complex, ev, in, nil)
+}
+
+// PublicComplex loads the active complex a public slug names, for the domains
+// built on events.
+func (s *Service) PublicComplex(ctx context.Context, slug string) (*complexstore.Complex, error) {
+	return s.publicComplex(ctx, slug)
+}
+
+// SignUpWith is SignUp on an event already resolved. The tournaments domain
+// calls it for a category's container with hooks that check and write the pair:
+// the hold, the capacity, the checkout and the confirmation are this code's,
+// unchanged.
+func (s *Service) SignUpWith(ctx context.Context, actor Actor, complex *complexstore.Complex, ev *eventstore.Event, in SignUpInput, hooks *eventstore.SignUpHooks) (*SignUpResult, error) {
 	seller, err := checkout.Seller(complex)
 	if err != nil {
 		return nil, ErrMercadoPagoNotConnected
@@ -132,7 +146,7 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, eventID 
 	}
 	reg, token, err := s.store.SignUp(ctx, eventstore.SignUpInput{
 		EventID: ev.ID, FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Email: email,
-		ServiceFee: fee, IP: httpx.RateLimitKey(actor.IP), MaxHoldsPerIP: s.cfg.MaxHoldsPerIP,
+		ServiceFee: fee, IP: httpx.RateLimitKey(actor.IP), MaxHoldsPerIP: s.cfg.MaxHoldsPerIP, Hooks: hooks,
 	})
 	if err != nil {
 		return nil, signUpError(err)
@@ -182,22 +196,18 @@ func (s *Service) refuseBlockedPhone(ctx context.Context, complexID uuid.UUID, p
 // openCheckout creates the MercadoPago preference that pays for a held spot. The
 // checkout expires when the hold does.
 func (s *Service) openCheckout(ctx context.Context, complex *complexstore.Complex, ev *eventstore.Event, reg *eventstore.Registration, token string, seller mp.Caller) (*mp.Preference, error) {
-	day := shortDay(ev)
+	title, description := checkoutCopy(complex, ev)
 	in := mp.CreatePreferenceInput{
 		RegistrationID: reg.ID,
-		Title:          fmt.Sprintf("%s - %s - %s %s hs", complex.Name, ev.Name, day, ev.StartTime),
-		Description:    fmt.Sprintf("Inscripción a %s en %s. %s a las %s hs.", ev.Name, complex.Name, day, ev.StartTime),
+		Title:          title,
+		Description:    description,
 		ComplexName:    complex.Name,
 		Date:           ev.Date.Format(time.DateOnly),
 		StartTime:      ev.StartTime,
 		Amount:         reg.Price + reg.ServiceFee,
 		MarketplaceFee: reg.ServiceFee,
 		Caller:         seller,
-		BackURLs: mp.BackURLs{
-			Success: booklink.EventSuccess(s.cfg.PublicURL, complex.Slug, ev.ID, token),
-			Failure: booklink.EventFailure(s.cfg.PublicURL, complex.Slug, ev.ID),
-			Pending: booklink.EventPending(s.cfg.PublicURL, complex.Slug, ev.ID, token),
-		},
+		BackURLs:       s.backURLs(complex, ev, token),
 		BackendURL:     s.cfg.BackendURL,
 		ExpiresIn:      time.Until(reg.HeldUntil),
 		PayerFirstName: reg.FirstName,
@@ -212,6 +222,34 @@ func (s *Service) openCheckout(ctx context.Context, complex *complexstore.Comple
 		s.logger.Error("event sign-up: failed to create the MP preference", "error", err, "registration_id", reg.ID)
 	}
 	return pref, err
+}
+
+// checkoutCopy is the title and description MercadoPago shows for a sign-up.
+func checkoutCopy(complex *complexstore.Complex, ev *eventstore.Event) (title, description string) {
+	day := shortDay(ev)
+	if ev.TournamentID != nil {
+		return fmt.Sprintf("%s - %s - desde el %s", complex.Name, ev.Name, day),
+			fmt.Sprintf("Inscripción de la pareja a %s en %s, desde el %s.", ev.Name, complex.Name, day)
+	}
+	return fmt.Sprintf("%s - %s - %s %s hs", complex.Name, ev.Name, day, ev.StartTime),
+		fmt.Sprintf("Inscripción a %s en %s. %s a las %s hs.", ev.Name, complex.Name, day, ev.StartTime)
+}
+
+// backURLs is where the checkout sends the person back to: the event's page,
+// or the tournament's for a category.
+func (s *Service) backURLs(complex *complexstore.Complex, ev *eventstore.Event, token string) mp.BackURLs {
+	if ev.TournamentID != nil {
+		return mp.BackURLs{
+			Success: booklink.TournamentSuccess(s.cfg.PublicURL, complex.Slug, *ev.TournamentID, token),
+			Failure: booklink.TournamentFailure(s.cfg.PublicURL, complex.Slug, *ev.TournamentID),
+			Pending: booklink.TournamentPending(s.cfg.PublicURL, complex.Slug, *ev.TournamentID, token),
+		}
+	}
+	return mp.BackURLs{
+		Success: booklink.EventSuccess(s.cfg.PublicURL, complex.Slug, ev.ID, token),
+		Failure: booklink.EventFailure(s.cfg.PublicURL, complex.Slug, ev.ID),
+		Pending: booklink.EventPending(s.cfg.PublicURL, complex.Slug, ev.ID, token),
+	}
 }
 
 // shortDay is the event's day as the checkout title shows it ("15 nov"), the form
@@ -263,6 +301,9 @@ type Cancellation struct {
 	WithinWindow bool
 	// Deadline is the instant WithinWindow stops being true.
 	Deadline time.Time
+	// Walkover is true for a tournament pair once the draw exists: leaving is a
+	// walkover, and the payment is kept.
+	Walkover bool
 }
 
 // resolve loads the registration a token names with its event and complex. An
@@ -280,7 +321,17 @@ func (s *Service) resolve(ctx context.Context, token string) (*View, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &View{Registration: reg, Event: ev, Complex: complex, Cancellation: s.cancellationOf(reg, ev, complex)}, nil
+	view := &View{Registration: reg, Event: ev, Complex: complex, Cancellation: s.cancellationOf(reg, ev, complex)}
+	if ev.TournamentID != nil && s.tournaments != nil && view.Cancellation.CanCancel {
+		drawn, err := s.tournaments.DrawGenerated(ctx, ev.ID)
+		if err != nil {
+			return nil, err
+		}
+		if drawn {
+			view.Cancellation.Walkover, view.Cancellation.WithinWindow = true, false
+		}
+	}
+	return view, nil
 }
 
 // policyBooking is the booking the complex's cancellation policy is asked about:
@@ -350,6 +401,14 @@ func (s *Service) CancelRegistration(ctx context.Context, actor Actor, token str
 		outcome = paymentstore.RefundOutcome{
 			Result: paymentstore.RefundNotEligible, AmountCentavos: cancelled.Price + cancelled.ServiceFee,
 			Reason: "cancelled outside the complex's refund window",
+		}
+	}
+	if view.Cancellation.Walkover {
+		// The pair leaves a drawn bracket: its matches become walkovers. The money
+		// is kept and the spot is already ended, so a failure here is logged, not
+		// returned: the owner can still load the walkovers by hand.
+		if err := s.tournaments.PairWithdrawn(context.WithoutCancel(ctx), cancelled.ID); err != nil {
+			s.logger.Error("tournament withdrawal: the pair's matches were not turned into walkovers", "error", err, "registration_id", cancelled.ID)
 		}
 	}
 	s.notifyCancelled(cancelled, view.Event, view.Complex, false, outcome)

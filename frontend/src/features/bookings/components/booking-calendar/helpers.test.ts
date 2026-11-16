@@ -81,6 +81,11 @@ describe('fittingDurations', () => {
     expect(fittingDurations([cancelled], [], COURT, '08:00', DAY)).toEqual([60, 90, 120]);
   });
 
+  it('ignores no-show bookings, which the server has already put back on sale', () => {
+    const noShow = booking('09:00', '10:30', { status: 'no_show' });
+    expect(fittingDurations([noShow], [], COURT, '08:00', DAY)).toEqual([60, 90, 120]);
+  });
+
   it('ignores other courts', () => {
     const elsewhere = booking('09:00', '10:30', { court_id: 'court-2' });
     expect(fittingDurations([elsewhere], [], COURT, '08:00', DAY)).toEqual([60, 90, 120]);

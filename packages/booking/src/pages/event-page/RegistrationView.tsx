@@ -1,78 +1,20 @@
-import { CheckCircle2 } from 'lucide-react';
-import { Button, ConfirmDialog, StatusHero, formatDeadline, formatPrice } from '@vibe/ui';
-import { useState } from 'react';
+import { Ban, CheckCircle2 } from 'lucide-react';
+import { StatusHero } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useCancelEventRegistration } from '../../hooks/useEventRegistration';
 import { EventCard } from '../../components/events/EventCard';
-import type { PublicEventRegistration, RefundEnvelope } from '../../api/types';
+import { CancelRegistration, CancelledResult, type CancelCopy } from '../../components/registration/CancelRegistration';
+import type { PublicEventRegistration } from '../../api/types';
 import { BackToComplexButton, ExpiredState, ProcessingState } from './EventPageStates';
 
 const t = BOOKING_MESSAGES;
 
-function CancelledResult({ refund, slug }: { refund: RefundEnvelope; slug: string }) {
-  return (
-    <StatusHero
-      icon={CheckCircle2}
-      tone={refund.status === 'manual' ? 'warning' : 'success'}
-      size="large"
-      title={t.events.cancelledResultTitle}
-      // The server's own Spanish sentence for this exact outcome; rendered as it comes.
-      description={refund.message || t.publicBooking.cancelledSuccessfully}
-      descriptionClassName="max-w-sm"
-    >
-      {refund.amount !== undefined && (
-        <p className="text-text-primary text-base font-semibold">{formatPrice(refund.amount)}</p>
-      )}
-      <BackToComplexButton slug={slug} />
-    </StatusHero>
-  );
-}
-
-function CancelSpot({
-  cancel,
-  registration,
-}: {
-  cancel: ReturnType<typeof useCancelEventRegistration>;
-  registration: PublicEventRegistration;
-}) {
-  const [confirmOpen, setConfirmOpen] = useState(false);
-  const { within_window: withinWindow, deadline } = registration.cancellation;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <p className="text-text-secondary text-center text-sm">
-        {withinWindow ? `${t.events.refundUntilPrefix} ${formatDeadline(deadline)}.` : t.events.refundWindowPassed}
-      </p>
-      <Button
-        variant="destructive"
-        className="min-h-12 w-full"
-        onClick={() => {
-          setConfirmOpen(true);
-        }}
-      >
-        {t.events.cancelSpot}
-      </Button>
-      <ConfirmDialog
-        open={confirmOpen}
-        onClose={() => {
-          setConfirmOpen(false);
-        }}
-        onConfirm={() => {
-          cancel.mutate(undefined, {
-            onSettled: () => {
-              setConfirmOpen(false);
-            },
-          });
-        }}
-        title={t.events.cancelConfirmTitle}
-        description={withinWindow ? t.events.cancelConfirmRefund : t.events.cancelConfirmNoRefund}
-        confirmLabel={t.events.cancelConfirmYes}
-        variant="destructive"
-        isLoading={cancel.isPending}
-      />
-    </div>
-  );
-}
+const CANCEL_COPY: CancelCopy = {
+  action: t.events.cancelSpot,
+  confirmTitle: t.events.cancelConfirmTitle,
+  confirmRefund: t.events.cancelConfirmRefund,
+  confirmNoRefund: t.events.cancelConfirmNoRefund,
+};
 
 interface RegistrationViewProps {
   slug: string;
@@ -97,7 +39,7 @@ export function RegistrationView({
 }: RegistrationViewProps) {
   const cancelled = useCancelEventRegistration(token);
   if (cancelled.data) {
-    return <CancelledResult refund={cancelled.data.refund} slug={slug} />;
+    return <CancelledResult refund={cancelled.data.refund} slug={slug} title={t.events.cancelledResultTitle} />;
   }
 
   switch (registration.status) {
@@ -111,17 +53,29 @@ export function RegistrationView({
           description={t.events.confirmedDescription}
           descriptionClassName="max-w-sm"
         >
-          <div className="flex w-full max-w-sm flex-col gap-6">
-            <EventCard event={registration.event} headingLevel="h2" />
-            {registration.cancellation.can_cancel && <CancelSpot cancel={cancelled} registration={registration} />}
+          <div className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-6 sm:mx-0 sm:w-full">
+            <EventCard
+              event={registration.event}
+              headingLevel="h2"
+              paid={registration.price + registration.service_fee}
+            />
+            {registration.cancellation.can_cancel && (
+              <CancelRegistration
+                withinWindow={registration.cancellation.within_window}
+                deadline={registration.cancellation.deadline}
+                cancel={cancelled}
+                copy={CANCEL_COPY}
+              />
+            )}
           </div>
         </StatusHero>
       );
     case 'cancelled':
       return (
         <StatusHero
-          icon={CheckCircle2}
+          icon={Ban}
           tone="neutral"
+          size="large"
           title={t.events.cancelledByYouTitle}
           description={t.publicBooking.cancelledSuccessfully}
         >

@@ -6,6 +6,11 @@ import { cn } from '@/shared/lib/utils';
 interface ChipListProps {
   'aria-label': string;
   children: ReactNode;
+  /**
+   * Lay the chips out in rows instead of a sideways slider. For a chip row inside a
+   * dialog, where a slider at 320px cuts its last chip mid-word.
+   */
+  wrap?: boolean;
 }
 
 /**
@@ -23,9 +28,17 @@ interface ChipListProps {
  * there is more to scroll. Snapping is off while dragging so it does not
  * fight the pointer.
  */
-export function ChipList({ 'aria-label': ariaLabel, children }: ChipListProps) {
+export function ChipList({ 'aria-label': ariaLabel, children, wrap = false }: ChipListProps) {
   const ref = useRef<HTMLDivElement>(null);
   const { dragging, dragHandlers } = useDragScroll(ref);
+
+  if (wrap) {
+    return (
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label={ariaLabel}>
+        {children}
+      </div>
+    );
+  }
 
   return (
     <div

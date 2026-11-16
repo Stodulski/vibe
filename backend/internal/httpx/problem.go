@@ -121,12 +121,25 @@ type Problem struct {
 	Conflicts []DateConflict `json:"conflicts,omitempty"`
 }
 
+// FreeCourt is another court that is free on a conflict date.
+type FreeCourt struct {
+	CourtID   string `json:"court_id"`
+	CourtName string `json:"court_name"`
+}
+
 // DateConflict is one calendar date a request could not be honoured on, and why.
 type DateConflict struct {
 	// Date is "YYYY-MM-DD".
 	Date string `json:"date"`
 	// Reason is a stable machine code: overlap, blocked, closed_day, no_price.
 	Reason string `json:"reason"`
+	// HeldBy says what holds the date when Reason is overlap: booking, fixed,
+	// event or match. Omitted for any other reason.
+	HeldBy string `json:"held_by,omitempty"`
+	// FreeCourts are the other courts of the same sport free that day at the
+	// request's hours, the most alike the chosen one first. Always present, empty
+	// when none is free.
+	FreeCourts []FreeCourt `json:"free_courts"`
 }
 
 // titles gives every kind a short, stable summary. It intentionally mirrors

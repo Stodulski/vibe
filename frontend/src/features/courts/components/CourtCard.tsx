@@ -7,6 +7,7 @@ import { CardHeader } from './court-card/CardHeader';
 import { PriceSummary } from './court-card/PriceSummary';
 import { CardActions } from './court-card/CardActions';
 import { getPriceRange } from './court-card/priceRange';
+import { DeactivateCourtDialog } from './court-card/DeactivateCourtDialog';
 import { useCourtRowActions } from './court-card/useCourtRowActions';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
@@ -21,8 +22,7 @@ interface CourtCardProps {
 
 export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps) {
   const priceRange = useMemo(() => getPriceRange(court.prices), [court.prices]);
-  const { deleteOpen, setDeleteOpen, handleToggleActive, isTogglePending, handleDelete, isDeleting } =
-    useCourtRowActions(court, complexId);
+  const actions = useCourtRowActions(court, complexId);
 
   return (
     <>
@@ -38,7 +38,11 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
         )}
       >
         <div className={COURT_CARD_BODY_CLASS}>
-          <CardHeader court={court} onToggleActive={handleToggleActive} isTogglePending={isTogglePending} />
+          <CardHeader
+            court={court}
+            onToggleActive={actions.handleToggleActive}
+            isTogglePending={actions.isTogglePending}
+          />
           <div className="mt-4">
             <PriceSummary {...priceRange} />
           </div>
@@ -53,22 +57,24 @@ export function CourtCard({ court, complexId, onEdit, onPrices }: CourtCardProps
             onPrices(court);
           }}
           onDelete={() => {
-            setDeleteOpen(true);
+            actions.setDeleteOpen(true);
           }}
         />
       </div>
 
+      <DeactivateCourtDialog courtName={court.name} actions={actions} />
+
       <ConfirmDialog
-        open={deleteOpen}
+        open={actions.deleteOpen}
         onClose={() => {
-          setDeleteOpen(false);
+          actions.setDeleteOpen(false);
         }}
-        onConfirm={handleDelete}
+        onConfirm={actions.handleDelete}
         title={t.courts.delete}
         description={t.courts.deleteConfirm}
         confirmLabel={t.common.delete}
         variant="destructive"
-        isLoading={isDeleting}
+        isLoading={actions.isDeleting}
       />
     </>
   );

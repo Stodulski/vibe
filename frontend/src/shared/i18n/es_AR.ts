@@ -17,6 +17,7 @@ import { reports } from './es_AR/reports';
 import { cash } from './es_AR/cash';
 import { products } from './es_AR/products';
 import { events } from './es_AR/events';
+import { tournaments } from './es_AR/tournaments';
 
 export const ES_AR = {
   common,
@@ -38,4 +39,5 @@ export const ES_AR = {
   cash,
   products,
   events,
+  tournaments,
 } as const;

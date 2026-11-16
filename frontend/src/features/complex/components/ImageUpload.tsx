@@ -149,6 +149,7 @@ function Slot({
       )}
       {url && (
         <SlotDelete
+          label={type === 'logo' ? t.complex.deleteLogo : t.complex.deleteCover}
           disabled={isLoading}
           onConfirm={() => {
             deleteMutation.mutate({ type, currentUrl: url });
@@ -160,10 +161,10 @@ function Slot({
 }
 
 /** The delete control, revealed on hover or focus over the slot. */
-function SlotDelete({ disabled, onConfirm }: { disabled: boolean; onConfirm: () => void }) {
+function SlotDelete({ label, disabled, onConfirm }: { label: string; disabled: boolean; onConfirm: () => void }) {
   return (
     <div className="absolute top-2 right-2 opacity-0 transition-opacity group-hover/slot:opacity-100 focus-within:opacity-100">
-      <ImageDeleteConfirm disabled={disabled} onConfirm={onConfirm} />
+      <ImageDeleteConfirm label={label} disabled={disabled} onConfirm={onConfirm} />
     </div>
   );
 }

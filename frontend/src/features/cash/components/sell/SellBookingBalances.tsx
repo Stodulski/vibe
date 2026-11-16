@@ -1,3 +1,4 @@
+import { keepTogether } from '@/shared/lib/keepTogether';
 import { useId, useRef, useState, type ReactNode } from 'react';
 import { AlertTriangle, Check, Search } from 'lucide-react';
 import { IconInput } from '@/shared/components/common/IconInput';
@@ -40,7 +41,7 @@ function BookingBalanceTile({ booking, inCart, onAdd, onRemove }: BookingBalance
       className={`focus-self ${inCart ? 'border-primary-500 hover:border-primary-400' : 'border-border-subtle hover:border-border-default'} bg-bg-subtle hover:bg-bg-highlight focus-visible:border-primary-400 active:border-primary-400 flex h-28 min-h-11 w-full touch-manipulation flex-col items-start gap-1.5 rounded-2xl border p-3.5 text-left transition-colors duration-150 active:scale-[0.98]`}
     >
       <span className="flex w-full items-baseline justify-between gap-2">
-        <span className="text-text-primary text-sm font-semibold">{booking.court_name}</span>
+        <span className="text-text-primary text-sm font-semibold">{keepTogether(booking.court_name)}</span>
         <span className="text-text-tertiary text-xs whitespace-nowrap">{`${booking.start_time} a ${booking.end_time}`}</span>
       </span>
       <span className="text-text-secondary w-full truncate text-sm">{booking.client_name}</span>

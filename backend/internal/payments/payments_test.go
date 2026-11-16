@@ -597,6 +597,48 @@ func TestApprovedPaymentIsConfirmedWhenTheComplexCollectedTheMoney(t *testing.T)
 	}
 }
 
+// A complex that charges the whole price online (deposit_percentage 0) stores a
+// deposit equal to the price. That payment settles the booking: it reads "Pago
+// completo", not "Seña pagada" with a balance of zero still to collect.
+func TestApprovedPaymentOfTheWholePriceSettlesTheBookingAsFullyPaid(t *testing.T) {
+	for _, withCheckoutRow := range []bool{true, false} {
+		t.Run(map[bool]string{true: "with checkout row", false: "without checkout row"}[withCheckoutRow], func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, mpPayment := pendingBooking(complexID)
+			booking.DepositAmount = booking.Price
+			mpPayment.TransactionAmount = float64(booking.Price+pricing.ServiceFee(booking.Price)) / 100.0
+			sellerID := "111111111"
+			mpPayment.CollectorID = 111111111
+			f.complexes.complex = &complexstore.Complex{ID: complexID, MPUserID: &sellerID, Name: "Vibe", Slug: "vibe"}
+			f.bookings.booking = booking
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana", LastName: "Diaz"}
+			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
+			if withCheckoutRow {
+				f.payments.byBooking = &paymentstore.Payment{
+					ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID, Amount: booking.Price,
+					ServiceFee: pricing.ServiceFee(booking.Price), Method: "mercadopago", Status: "pending",
+				}
+			}
+
+			if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+
+			if booking.Status != "confirmed" || booking.CollectionStatus != bookingstore.CollectionStatusFullyPaid {
+				t.Errorf("want confirmed and fully_paid; got status=%q collection_status=%q", booking.Status, booking.CollectionStatus)
+			}
+			written := f.payments.inserted
+			if withCheckoutRow {
+				written = f.payments.confirmed
+			}
+			if written == nil || written.Status != "fully_paid" {
+				t.Errorf("want the payment row written as fully_paid; got %+v", written)
+			}
+		})
+	}
+}
+
 // The money-path defect this guard closes: a booking whose slot was given away
 // while its payment was in flight must not be confirmed, and the client must get
 // their money back rather than a court somebody else is already on.

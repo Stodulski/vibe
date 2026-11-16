@@ -111,9 +111,9 @@ describe('SellBookingBalances — the slider', () => {
 
     await user.tab(); // the search box comes first
     await user.tab();
-    expect(screen.getByRole('button', { name: /Cancha 2/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /Cancha\s2/ })).toHaveFocus();
     await user.tab();
-    expect(screen.getByRole('button', { name: /Cancha 1/ })).toHaveFocus();
+    expect(screen.getByRole('button', { name: /Cancha\s1/ })).toHaveFocus();
   });
 
   it('brings a booking that takes keyboard focus fully into the row, even when only its edge is visible', async () => {
@@ -128,7 +128,7 @@ describe('SellBookingBalances — the slider', () => {
       await user.tab();
 
       expect(scrollIntoView).toHaveBeenCalledWith({ block: 'nearest', inline: 'nearest' });
-      expect(screen.getByRole('button', { name: /Cancha 2/ })).toHaveFocus();
+      expect(screen.getByRole('button', { name: /Cancha\s2/ })).toHaveFocus();
     } finally {
       Reflect.deleteProperty(Element.prototype, 'scrollIntoView');
     }

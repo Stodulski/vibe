@@ -35,11 +35,7 @@ export const bookingStatusSchema = z.enum([
   'no_show',
 ]) satisfies z.ZodType<BookingStatus>;
 
-const collectionStatusSchema = z.enum([
-  'unpaid',
-  'deposit_paid',
-  'fully_paid',
-]) satisfies z.ZodType<CollectionStatus>;
+const collectionStatusSchema = z.enum(['unpaid', 'deposit_paid', 'fully_paid']) satisfies z.ZodType<CollectionStatus>;
 
 const bookingRefundStatusSchema = z.enum([
   'none',
@@ -65,6 +61,7 @@ export const bookingSchema = exact<Booking>(
       status: bookingStatusSchema,
       collection_status: collectionStatusSchema,
       refund_status: bookingRefundStatusSchema,
+      attended_at: z.string().nullable().optional(),
       notes: z.string().nullable().optional(),
       court_name: z.string(),
       client_name: z.string(),

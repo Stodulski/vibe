@@ -338,6 +338,9 @@ func TestAnEventSignUpIsThrottledAsAHoldAndNothingElseUnderThePublicTreeIs(t *te
 		{http.MethodPost, "/api/v1/public/complexes/vibe/waitlist", []int{indexGeneral}},
 		{http.MethodPost, "/api/v1/public/complexes/vibe/registrations", []int{indexGeneral}},
 		{http.MethodPost, "/api/v1/public/event-registrations/cancel", []int{indexGeneral}},
+		{http.MethodPost, "/api/v1/public/complexes/vibe/tournaments/0190aaaa-0000-7000-8000-000000000001/categories/0190aaaa-0000-7000-8000-000000000002/pairs", []int{indexGeneral, indexHold}},
+		{http.MethodGet, "/api/v1/public/complexes/vibe/tournaments/0190aaaa-0000-7000-8000-000000000001/categories/0190aaaa-0000-7000-8000-000000000002/pairs", []int{indexGeneral}},
+		{http.MethodPost, "/api/v1/public/tournament-registrations/cancel", []int{indexGeneral}},
 	}
 	for _, tc := range cases {
 		r := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)

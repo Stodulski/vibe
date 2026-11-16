@@ -470,3 +470,23 @@ func TestTurnstileBookingEnforceIsOptIn(t *testing.T) {
 		t.Errorf("an unparseable TURNSTILE_BOOKING_ENFORCE must be an error naming it; got %v", err)
 	}
 }
+
+// TestMPAPIBaseURLLoadsFromEnv covers the fake MercadoPago seam: unset is the
+// real API (empty), and MP_API_BASE_URL reaches the config.
+func TestMPAPIBaseURLLoadsFromEnv(t *testing.T) {
+	cfg, err := config.Load(nil, env(nil))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.MP.APIBaseURL != "" {
+		t.Errorf("default APIBaseURL = %q, want empty", cfg.MP.APIBaseURL)
+	}
+
+	cfg, err = config.Load(nil, env(map[string]string{"MP_API_BASE_URL": "http://localhost:8090"}))
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if cfg.MP.APIBaseURL != "http://localhost:8090" {
+		t.Errorf("APIBaseURL = %q, want http://localhost:8090", cfg.MP.APIBaseURL)
+	}
+}

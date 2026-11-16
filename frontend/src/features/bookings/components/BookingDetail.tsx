@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react';
-import { Sheet, SheetContent, SheetFooter } from '@/shared/components/ui/sheet';
+import { Sheet, SheetContent } from '@/shared/components/ui/sheet';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useBooking } from '../hooks/useBooking';
@@ -11,21 +11,31 @@ import { BookingDetailSheetHeader } from './booking-detail/BookingDetailSheetHea
 import { BookingInfoSection } from './booking-detail/BookingInfoSection';
 import { ClientInfoRow } from './booking-detail/ClientInfoRow';
 import { NotesSection } from './booking-detail/NotesSection';
-import { DetailFooterActions } from './booking-detail/DetailFooterActions';
+import { BookingDetailFooter } from './booking-detail/BookingDetailFooter';
 import { manualRefundOwed } from '../lib/manualRefundOwed';
+import { mercadoPagoRefundInFlight } from '../lib/mercadoPagoRefundInFlight';
+import { bookingDisplayStatus } from '@/shared/types/api.types';
 import type { Booking, BookingSeries, Client, Payment } from '@/shared/types/api.types';
 
 function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   const isCancelled = b.status === 'cancelled';
   const isCompleted = b.status === 'completed';
   const isNoShow = b.status === 'no_show';
-  const canCancel = !isCancelled && !isCompleted && !isNoShow;
+  // Once the hours are over there is nothing left to cancel: the owner marks
+  // whether the client came instead.
+  const isFinished = bookingDisplayStatus(b) === 'finished';
+  const canCancel = !isCancelled && !isCompleted && !isNoShow && !isFinished;
   const canMarkNoShow = b.status === 'confirmed' || b.status === 'completed';
-  const canConfirmPayment = b.collection_status !== 'fully_paid' && b.refund_status === 'none' && !isCancelled;
-  const canMarkManualRefund = isCancelled && b.refund_status === 'partial';
+  const canMarkAttended = isFinished;
+  // The server refuses a payment on a no-show (the deposit is kept) and a
+  // manual refund while Mercado Pago is still sending its part back, so
+  // neither button is offered then.
+  const canConfirmPayment =
+    b.collection_status !== 'fully_paid' && b.refund_status === 'none' && !isCancelled && !isNoShow;
+  const canMarkManualRefund = isCancelled && b.refund_status === 'partial' && !mercadoPagoRefundInFlight(payments);
   const manualRefundAmount = canMarkManualRefund ? manualRefundOwed(payments) : 0;
 
-  return { canCancel, canMarkNoShow, canConfirmPayment, canMarkManualRefund, manualRefundAmount };
+  return { canCancel, canMarkNoShow, canMarkAttended, canConfirmPayment, canMarkManualRefund, manualRefundAmount };
 }
 
 /** The detail query plus the "keep showing the last thing while it exits"
@@ -58,35 +68,6 @@ function useBookingDetailState(complexId: string, open: boolean, booking: Bookin
   };
 }
 
-function BookingDetailFooter({
-  booking,
-  canConfirmPayment,
-  canMarkManualRefund,
-  manualRefundAmount,
-  onConfirmPayment,
-  onManualRefund,
-}: {
-  booking: Booking;
-  canConfirmPayment: boolean;
-  canMarkManualRefund: boolean;
-  manualRefundAmount: number;
-  onConfirmPayment: (booking: Booking) => void;
-  onManualRefund: (booking: Booking, amount: number) => void;
-}) {
-  if (!canConfirmPayment && !canMarkManualRefund) return null;
-
-  return (
-    <SheetFooter>
-      <DetailFooterActions
-        booking={booking}
-        onConfirmPayment={canConfirmPayment ? onConfirmPayment : undefined}
-        onManualRefund={canMarkManualRefund ? onManualRefund : undefined}
-        manualRefundAmount={manualRefundAmount}
-      />
-    </SheetFooter>
-  );
-}
-
 interface BookingDetailProps {
   open: boolean;
   onClose: () => void;
@@ -95,6 +76,7 @@ interface BookingDetailProps {
   onCancel: (booking: Booking) => void;
   onConfirmPayment: (booking: Booking) => void;
   onNoShow: (booking: Booking) => void;
+  onAttended: (booking: Booking) => void;
   onManualRefund: (booking: Booking, amount: number) => void;
   /** Hides the client row — the drawer underneath is already that client. */
   hideClient?: boolean | undefined;
@@ -119,8 +101,10 @@ interface BookingDetailBodyProps {
   isDetailError: boolean;
   refetchDetail: () => unknown;
   canMarkNoShow: boolean;
+  canMarkAttended: boolean;
   canCancel: boolean;
   onNoShow: (booking: Booking) => void;
+  onAttended: (booking: Booking) => void;
   onCancel: (booking: Booking) => void;
   canConfirmPayment: boolean;
   canMarkManualRefund: boolean;
@@ -137,27 +121,13 @@ function BookingDetailBody({
   isDetailPending,
   isDetailError,
   refetchDetail,
-  canMarkNoShow,
-  canCancel,
-  onNoShow,
-  onCancel,
-  canConfirmPayment,
-  canMarkManualRefund,
-  manualRefundAmount,
-  onConfirmPayment,
-  onManualRefund,
+  ...actions
 }: BookingDetailBodyProps) {
+  const isSeries = seriesDetail !== null;
+  const onEndSeries = seriesDetail?.onEnd;
   return (
     <>
-      <BookingDetailSheetHeader
-        booking={booking}
-        canMarkNoShow={canMarkNoShow}
-        canCancel={canCancel}
-        onNoShow={onNoShow}
-        onCancel={onCancel}
-        isSeries={seriesDetail !== null}
-        onEndSeries={seriesDetail?.onEnd}
-      />
+      <BookingDetailSheetHeader booking={booking} {...actions} isSeries={isSeries} onEndSeries={onEndSeries} />
 
       {/* Only the body scrolls: the header and the action footer stay put, and
           the bottom padding keeps the last row off the edge. */}
@@ -178,14 +148,7 @@ function BookingDetailBody({
         {booking.notes && <NotesSection notes={booking.notes} />}
       </div>
 
-      <BookingDetailFooter
-        booking={booking}
-        canConfirmPayment={canConfirmPayment}
-        canMarkManualRefund={canMarkManualRefund}
-        manualRefundAmount={manualRefundAmount}
-        onConfirmPayment={onConfirmPayment}
-        onManualRefund={onManualRefund}
-      />
+      <BookingDetailFooter booking={booking} {...actions} isSeries={isSeries} onEndSeries={onEndSeries} />
     </>
   );
 }
@@ -231,12 +194,9 @@ export function BookingDetail({
   onClose,
   booking,
   complexId,
-  onCancel,
-  onConfirmPayment,
-  onNoShow,
-  onManualRefund,
   hideClient,
   onOpenClient,
+  ...handlers
 }: BookingDetailProps) {
   const { b, client, payments, isDetailPending, isDetailError, refetchDetail, series, isSeriesPending } =
     useBookingDetailState(complexId, open, booking);
@@ -272,10 +232,7 @@ export function BookingDetail({
             isDetailError={isDetailError}
             refetchDetail={refetchDetail}
             {...flags}
-            onNoShow={onNoShow}
-            onCancel={onCancel}
-            onConfirmPayment={onConfirmPayment}
-            onManualRefund={onManualRefund}
+            {...handlers}
           />
         </SheetContent>
       </Sheet>

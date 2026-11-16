@@ -48,7 +48,7 @@ function UntilPicker({ firstDate, series }: { firstDate: string; series: SeriesO
 
 function EndChoice({ firstDate, series }: { firstDate: string; series: SeriesOptions }) {
   return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+    <div className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2">
       <FormField label={t.bookings.series.endLabel} htmlFor="series-end-mode">
         <Select
           value={series.endMode}
@@ -97,7 +97,9 @@ export function SeriesRepeatFields({ firstDate, series }: { firstDate: string; s
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
-        <Label htmlFor="series-repeat">{t.bookings.series.repeatWeekly}</Label>
+        <Label htmlFor="series-repeat" className="text-xs">
+          {t.bookings.series.repeatWeekly}
+        </Label>
         <Switch id="series-repeat" checked={series.repeat} onCheckedChange={series.setRepeat} />
       </div>
       {series.repeat && <EndChoice firstDate={firstDate} series={series} />}

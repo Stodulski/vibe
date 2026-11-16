@@ -36,6 +36,11 @@ describe('PROTECTED_PATH_PREFIXES stays in sync with the router config', () => {
     expect(uncovered).toEqual([]);
   });
 
+  it('treats the events section as a protected area', () => {
+    expect(PROTECTED_PATH_PREFIXES).toContain('/events');
+    expect(isProtectedPath('/events/tournaments/t1')).toBe(true);
+  });
+
   it('has no stale prefix left over from a route that no longer exists', () => {
     const stale = PROTECTED_PATH_PREFIXES.filter(
       (prefix) => !guardedPaths.some((path) => path === prefix || path.startsWith(`${prefix}/`)),

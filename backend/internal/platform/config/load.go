@@ -144,6 +144,9 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 	fs.StringVar(&cfg.MP.CredentialKeys, "mp-credential-keys", "",
 		"MercadoPago credential encryption keyring: kid:base64key[,kid:base64key...] "+
 			"(first entry writes, every entry opens) (MP_CREDENTIAL_KEYS)")
+	fs.StringVar(&cfg.MP.APIBaseURL, "mp-api-base-url", "",
+		"MercadoPago API base URL override for a local fake; empty is the real API, refused in production "+
+			"(MP_API_BASE_URL)")
 
 	fs.StringVar(&cfg.WhatsApp.Token, "whatsapp-token", "", "WhatsApp API token (WHATSAPP_TOKEN)")
 	fs.StringVar(&cfg.WhatsApp.PhoneID, "whatsapp-phone-id", "", "WhatsApp phone number ID (WHATSAPP_PHONE_NUMBER_ID)")
@@ -273,6 +276,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("MP_APP_ID", &cfg.MP.AppID)
 	env.strVal("MP_CLIENT_SECRET", &cfg.MP.ClientSecret)
 	env.strVal("MP_CREDENTIAL_KEYS", &cfg.MP.CredentialKeys)
+	env.strVal("MP_API_BASE_URL", &cfg.MP.APIBaseURL)
 
 	env.strVal("WHATSAPP_TOKEN", &cfg.WhatsApp.Token)
 	env.strVal("WHATSAPP_PHONE_NUMBER_ID", &cfg.WhatsApp.PhoneID)

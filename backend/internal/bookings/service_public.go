@@ -586,7 +586,7 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 	default:
 		outcome = paymentstore.RefundOutcome{
 			Result:         paymentstore.RefundNotEligible,
-			AmountCentavos: booking.DepositAmount,
+			AmountCentavos: keptCentavos(booking),
 			Reason:         "cancelled outside the complex's refund window",
 		}
 	}
@@ -600,4 +600,15 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 	booking.RefundIntentAt = nil
 
 	return PublicCancelResult{Booking: booking, Outcome: outcome}, nil
+}
+
+// keptCentavos is what a late cancellation keeps: everything the client paid.
+// A booking paid in full keeps its whole price, not just the deposit it was
+// once told about; one with part paid keeps that part, which deposit_amount
+// carries as the running total collected.
+func keptCentavos(b *bookingstore.Booking) int {
+	if b.CollectionStatus == bookingstore.CollectionStatusFullyPaid {
+		return b.Price
+	}
+	return b.DepositAmount
 }

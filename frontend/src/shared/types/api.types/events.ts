@@ -24,10 +24,19 @@ export type CancelOpenPlayEventResponse = Ok<'eventsCancel'>;
  * {@link Open}: an event in a sport or state this build predates must cost
  * that one card its label, not the whole list.
  */
-export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 'status'> & {
+export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 'status' | 'courts'> & {
   sport: Open<Spec<'PublicOpenPlayEvent'>['sport']>;
   status: Open<Spec<'PublicOpenPlayEvent'>['status']>;
+  courts: PublicEventCourt[];
 };
+
+/** A court of a public event with its facts; `court_type` and `surface` are {@link Open} like the event's `sport`. */
+export type PublicEventCourt = Omit<Spec<'PublicEventCourt'>, 'court_type' | 'surface'> & {
+  court_type: Open<Spec<'PublicEventCourt'>['court_type']>;
+  surface?: Open<NonNullable<Spec<'PublicEventCourt'>['surface']>> | null;
+};
+
+export type PublicEventSignUpRequest = Body<'eventsPublicSignUp'>;
 
 /** `POST .../registrations`: the held spot and the checkout that pays for it. */
 export type PublicEventSignUp = Omit<Spec<'PublicEventSignUp'>, 'event'> & { event: PublicOpenPlayEvent };

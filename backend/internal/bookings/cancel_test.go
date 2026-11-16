@@ -1160,3 +1160,35 @@ func TestStaffConfirmationSaysWhatIsOwedAndDoesNotEmailTheOwnerAboutTheirOwnEntr
 		t.Error("a complex with only a written address must still get a map button")
 	}
 }
+
+// A client who paid the whole price and cancels late keeps none of it, so the
+// amount they are told is kept is the whole price, not the deposit.
+func TestAnOutOfWindowCancelNamesWhatWasActuallyPaid(t *testing.T) {
+	for name, tc := range map[string]struct {
+		collection bookingstore.CollectionStatus
+		want       float64
+	}{
+		"fully paid":   {bookingstore.CollectionStatusFullyPaid, 600_000},
+		"deposit only": {bookingstore.CollectionStatusDepositPaid, 150_000},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking := outOfWindowBooking(complexID)
+			booking.Price, booking.DepositAmount, booking.CollectionStatus = 600_000, 150_000, tc.collection
+			f.store.booking = booking
+			f.linkResolver.booking = booking
+			f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
+			f.clients.client = &clientstore.Client{ID: booking.ClientID}
+			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
+
+			w := httptest.NewRecorder()
+			f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
+
+			refund, _ := decode(t, w)["refund"].(map[string]any)
+			if refund["amount"] != tc.want {
+				t.Errorf("amount kept = %v, want %v (%s)", refund["amount"], tc.want, w.Body.String())
+			}
+		})
+	}
+}

@@ -17,6 +17,16 @@ import type { Booking, BlockedSlot } from '@/shared/types/api.types';
  */
 
 /**
+ * Whether a booking still holds its court. A cancellation and a no-show both
+ * give the hours back: the server's overlap constraint ignores those two
+ * statuses, so the grid and the slot pickers must too, or they would show as
+ * taken an hour anyone can book.
+ */
+export function occupiesCourt(booking: Pick<Booking, 'status'>): boolean {
+  return booking.status !== 'cancelled' && booking.status !== 'no_show';
+}
+
+/**
  * The spans that put a court out of use on `date`, from both kinds of obstacle.
  *
  * Bookings carry their own instants, so one that began yesterday keeps holding
@@ -32,7 +42,7 @@ export function courtObstacles(
 ): Span[] {
   const spans: Span[] = [];
   for (const b of bookings) {
-    if (b.court_id !== courtId || b.status === 'cancelled') continue;
+    if (b.court_id !== courtId || !occupiesCourt(b)) continue;
     const span = toSpan(b.starts_at, b.ends_at);
     if (span) spans.push(span);
   }

@@ -73,6 +73,10 @@ type stubPayments struct {
 	exhausted bool
 	// claimAmount is what a claim reserves; a zero value means the usual deposit.
 	claimAmount int
+	// claimedMeanwhile stands in for a ClaimRefund that committed between the
+	// webhook's read of the row and its refund write: the conditional writes
+	// (UpdateUnlessRefundPending, RecordWebhookRefund) then write nothing.
+	claimedMeanwhile bool
 
 	updated   *paymentstore.Payment
 	inserted  *paymentstore.Payment
@@ -262,6 +266,27 @@ func (s *stubPayments) RecordManualRefund(_ context.Context, _ uuid.UUID) (int, 
 func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error {
 	s.updated = p
 	return nil
+}
+
+// UpdateUnlessRefundPending is Update, refused when claimedMeanwhile says a claim
+// moved the row to refund_pending after the caller read it.
+func (s *stubPayments) UpdateUnlessRefundPending(_ context.Context, p *paymentstore.Payment) (bool, error) {
+	if s.claimedMeanwhile {
+		return false, nil
+	}
+	s.updated = p
+	return true, nil
+}
+
+// RecordWebhookRefund is ConfirmWebhookPayment, refused the same way.
+func (s *stubPayments) RecordWebhookRefund(ctx context.Context, p *paymentstore.Payment, b *bookingstore.Booking) (bool, error) {
+	if s.claimedMeanwhile {
+		return false, nil
+	}
+	if err := s.ConfirmWebhookPayment(ctx, p, b); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // InsertAndClaimRefund is one transaction in the real store, so a refused claim

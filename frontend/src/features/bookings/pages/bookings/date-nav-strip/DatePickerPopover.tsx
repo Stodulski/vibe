@@ -4,6 +4,7 @@ import { es } from 'date-fns/locale/es';
 import { CalendarIcon } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/components/ui/popover';
 import { Calendar } from '@/shared/components/ui/calendar';
+import { shortDayLabel } from './shortDayLabel';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -31,7 +32,11 @@ export function DatePickerPopover({
           aria-label={`Fecha: ${dateLabel}`}
         >
           <CalendarIcon className="text-primary-400 hidden size-4 shrink-0 sm:block" />
-          <span className="text-text-primary truncate text-sm font-semibold whitespace-nowrap first-letter:uppercase sm:text-base">
+          {/* "Lun 7 dic" below sm so it never truncates at 320px; the long form from sm. */}
+          <span className="text-text-primary text-sm font-semibold whitespace-nowrap first-letter:uppercase sm:hidden">
+            {shortDayLabel(selectedDate)}
+          </span>
+          <span className="text-text-primary hidden truncate text-base font-semibold whitespace-nowrap first-letter:uppercase sm:inline">
             {dateLabel}
           </span>
           {/* Plain text, like the "Ir a hoy" control it shares this slot with:

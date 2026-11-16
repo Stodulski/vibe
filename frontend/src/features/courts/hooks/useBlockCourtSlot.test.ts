@@ -86,3 +86,32 @@ describe('useBlockCourtSlot — onError surfaces the real backend message', () =
     vi.mocked(courtsApi.blockSlot).mockReset();
   });
 });
+
+describe('useBlockCourtSlot — slots held by an event or a match', () => {
+  it.each([
+    [
+      'an open-play event',
+      'this time range belongs to an open-play event (canchas libres), cancel the event to free it',
+      ES_AR.bookings.openPlayEventSlotTaken,
+    ],
+    [
+      'a tournament match',
+      'this time range belongs to a tournament match, unschedule it to free it',
+      ES_AR.bookings.tournamentMatchSlotTaken,
+    ],
+  ])('says in Spanish that %s holds the slot', async (_name, detail, expected) => {
+    const { courtsApi } = await import('../api/courts.api');
+    vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(
+      await makeConsumedHttpError(409, { title: 'Conflict', detail }),
+    );
+
+    const { useBlockCourtSlot } = await import('./useBlockCourtSlot');
+    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createQueryWrapper() });
+    result.current.mutate({ courtId: 'ct1', data: { date: '2026-03-18', start_time: '10:00', end_time: '11:00' } });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(toast.error).toHaveBeenCalledWith(expected);
+  });
+});

@@ -5,7 +5,7 @@ import { GridHourLines } from './GridHourLines';
 import { NowLine } from './NowLine';
 import { CourtColumn } from './CourtColumn';
 import { GRID_HEIGHT_PX } from './gridLayout';
-import type { Booking, BlockedSlot, EventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { Booking, BlockedSlot, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 import type { TimelineColumnData } from './useTimelineColumns';
 
@@ -22,14 +22,14 @@ interface GridBodyProps {
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
-  eventBlocks: EventBlock[];
+  eventBlocks: CourtEventBlock[];
   slots: string[];
   nowMin: number | null;
   onSelectBooking: (booking: Booking) => void;
   onCreateBooking: (prefill: CreateBookingPrefill) => void;
   onSelectBlockedSlot?: ((slot: BlockedSlot) => void) | undefined;
   onSelectFixedBlock?: ((block: FixedBlock) => void) | undefined;
-  onSelectEventBlock?: ((block: EventBlock) => void) | undefined;
+  onSelectEventBlock?: ((block: CourtEventBlock) => void) | undefined;
 }
 
 /**

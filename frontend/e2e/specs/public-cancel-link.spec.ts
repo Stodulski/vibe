@@ -41,7 +41,7 @@ test.describe('Public cancellation link', () => {
     await main.getByRole('button', { name: 'Confirmar cancelación' }).click();
     const confirm = page.getByRole('alertdialog').or(page.getByRole('dialog'));
     await expect(confirm.getByText('¿Cancelar la reserva?')).toBeVisible({ timeout: 5_000 });
-    await expect(confirm.getByText('El complejo te devuelve en mano lo que pagaste.')).toBeVisible();
+    await expect(confirm.getByText('El complejo te devuelve lo que pagaste.')).toBeVisible();
 
     const response = page.waitForResponse(
       (res) => res.url().endsWith('/book/cancel') && res.request().method() === 'POST',

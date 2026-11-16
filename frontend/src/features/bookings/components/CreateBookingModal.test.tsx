@@ -103,7 +103,7 @@ describe('CreateBookingModal', () => {
   it('creates bookings without MercadoPago, which only online booking needs', () => {
     renderWithProviders(<CreateBookingModal {...defaultProps} />);
 
-    expect(screen.queryByText(/mercadopago/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/mercado ?pago/i)).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /siguiente/i })).toBeEnabled();
   });
 

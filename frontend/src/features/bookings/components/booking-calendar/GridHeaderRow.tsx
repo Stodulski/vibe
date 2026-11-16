@@ -1,6 +1,7 @@
 import { cn } from '@/shared/lib/utils';
 import { HEADER_HEIGHT_PX } from './gridLayout';
 import type { TimelineColumnData } from './useTimelineColumns';
+import { keepTogether } from '@/shared/lib/keepTogether';
 
 /**
  * Court names, one cell per column, sized to match the columns they label so
@@ -35,7 +36,7 @@ export function GridHeaderRow({
               stuck && 'bg-bg-elevated',
             )}
           >
-            {column.courtName}
+            {keepTogether(column.courtName)}
           </span>
         </div>
       ))}

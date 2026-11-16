@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 func signUp(f *datatest.Fixture, ev *eventstore.Event, phone string) (*eventstore.Registration, error) {
@@ -302,7 +302,7 @@ func TestARegistrationPaymentCountsInTheComplexCash(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	summary, err := f.Stores.Bookings.GetPaymentSummary(ctx, f.ComplexID, time.Now())
+	summary, err := f.Stores.Bookings.GetPaymentSummary(ctx, f.ComplexID, timezone.Today())
 	if err != nil {
 		t.Fatal(err)
 	}
