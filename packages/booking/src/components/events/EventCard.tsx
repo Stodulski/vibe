@@ -3,6 +3,7 @@ import { formatDateFull, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { keepTogether } from '../../lib/keepTogether';
 import { publicEventPath } from '../../lib/publicPaths';
+import { openPlayTitle } from '../../lib/traitLabels';
 import type { PublicOpenPlayEvent } from '../../api/types';
 import { eventHasStarted, eventTimeRange, isOpenForSignUp, spotsLeftLabel, sportLabel } from './eventFormat';
 
@@ -33,7 +34,7 @@ export function EventCard({ event, slug, headingLevel = 'h3', paid }: EventCardP
   return (
     <article className="border-border-subtle flex w-full flex-col gap-3 rounded-2xl border p-4 text-left sm:p-5">
       <div className="flex flex-col gap-1">
-        <Heading className="text-text-primary text-xl leading-tight font-bold">{event.name}</Heading>
+        <Heading className="text-text-primary text-xl leading-tight font-bold">{openPlayTitle(event)}</Heading>
         <p className="text-text-secondary text-sm first-letter:uppercase">
           {formatDateFull(`${event.date}T12:00:00`)}
         </p>

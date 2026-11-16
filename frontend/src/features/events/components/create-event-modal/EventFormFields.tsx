@@ -5,8 +5,13 @@ import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
 import { Input } from '@/shared/components/ui/input';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { TimeSelectField } from '@/shared/components/common/TimeSelectField';
+import { Button } from '@/shared/components/ui/button';
+import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { Switch } from '@/shared/components/ui/switch';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { LEVELS, levelLabel, modalityLabel, type Modality } from '@/shared/lib/traitLabels';
+import { cn } from '@/shared/lib/utils';
 import { useEventTimeOptions } from '../../hooks/useEventTimeOptions';
 import { eventDurationMinutes, type EventFormValues } from '../../schemas/eventForm.schema';
 import { EventCourtsField } from './EventCourtsField';
@@ -14,6 +19,7 @@ import type { CourtWithPrices, Sport } from '@/shared/types/api.types';
 
 const t = ES_AR;
 const SPORTS = Object.keys(t.courts.sportTypes) as Sport[];
+const MODALITIES: readonly Modality[] = ['men', 'women', 'mixed'];
 
 type Form = UseFormReturn<EventFormValues>;
 
@@ -27,33 +33,152 @@ function required(label: string) {
   );
 }
 
-function NameAndSportFields({ form }: { form: Form }) {
-  const { register, watch, setValue, formState } = form;
+function SportField({ form }: { form: Form }) {
+  const { watch, setValue, formState } = form;
   return (
-    <>
-      <FormField label={required(t.events.form.name)} htmlFor="event-name" error={formState.errors.name?.message}>
-        <Input id="event-name" maxLength={100} placeholder={t.events.form.namePlaceholder} {...register('name')} />
-      </FormField>
-      <FormField label={required(t.events.form.sport)} htmlFor="event-sport">
-        <Select
-          value={watch('sport')}
-          onValueChange={(sport) => {
-            setValue('sport', sport);
+    <FormField label={required(t.events.form.sport)} htmlFor="event-sport" error={formState.errors.sport?.message}>
+      <Select
+        value={watch('sport')}
+        onValueChange={(sport) => {
+          setValue('sport', sport);
+        }}
+      >
+        <SelectTrigger id="event-sport">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {SPORTS.map((sport) => (
+            <SelectItem key={sport} value={sport}>
+              {t.courts.sportTypes[sport]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
+}
+
+/** Caballeros, Damas or Mixto: who may sign up. Required; the title is composed from it (S14). */
+function ModalityField({ form }: { form: Form }) {
+  const modality = form.watch('modality');
+  const error = form.formState.errors.modality?.message;
+  return (
+    <div className="space-y-2">
+      <p className="text-text-primary text-sm font-medium">{required(t.events.form.modality)}</p>
+      <div role="group" aria-label={t.events.form.modality} className="flex flex-wrap gap-2">
+        {MODALITIES.map((value) => {
+          const selected = modality === value;
+          return (
+            <Button
+              key={value}
+              type="button"
+              variant={selected ? 'default' : 'outline'}
+              aria-pressed={selected}
+              className={cn(
+                'h-10 flex-1 rounded-xl border px-3 sm:flex-none sm:px-5',
+                selected && 'border-transparent',
+              )}
+              onClick={() => {
+                form.setValue('modality', value, { shouldValidate: true });
+              }}
+            >
+              {modalityLabel(value)}
+            </Button>
+          );
+        })}
+      </div>
+      {error && (
+        <p role="alert" className="text-error-text text-xs">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function LevelSelect({
+  id,
+  label,
+  value,
+  error,
+  onChange,
+}: {
+  id: string;
+  label: string;
+  value: number | undefined;
+  error: string | undefined;
+  onChange: (level: number) => void;
+}) {
+  return (
+    <FormField label={label} htmlFor={id} error={error}>
+      <Select
+        value={value === undefined ? '' : String(value)}
+        onValueChange={(next) => {
+          onChange(Number(next));
+        }}
+      >
+        <SelectTrigger id={id}>
+          <SelectValue placeholder={t.events.form.levelPlaceholder} />
+        </SelectTrigger>
+        <SelectContent>
+          {LEVELS.map((level) => (
+            <SelectItem key={level} value={String(level)}>
+              {levelLabel(level)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    </FormField>
+  );
+}
+
+/**
+ * Every category, or a range of them: "Desde" is the strongest, "Hasta" the weakest. Both ends or
+ * neither; the toggle is on for neither (the default).
+ */
+function LevelsField({ form }: { form: Form }) {
+  const { watch, setValue, formState } = form;
+  const { errors } = formState;
+  const allLevels = watch('allLevels');
+  return (
+    <fieldset className="space-y-3">
+      <legend className="text-text-primary text-sm font-medium">{t.events.form.levels}</legend>
+      <div className="flex items-center gap-2.5">
+        <Switch
+          id="event-all-levels"
+          checked={allLevels}
+          onCheckedChange={(checked) => {
+            setValue('allLevels', checked, { shouldValidate: true });
           }}
-        >
-          <SelectTrigger id="event-sport">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {SPORTS.map((sport) => (
-              <SelectItem key={sport} value={sport}>
-                {t.courts.sportTypes[sport]}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </FormField>
-    </>
+        />
+        <Label htmlFor="event-all-levels" className="min-w-0 text-sm">
+          {t.events.form.allLevels}
+        </Label>
+      </div>
+      {!allLevels && (
+        <div className="grid grid-cols-2 gap-3">
+          <LevelSelect
+            id="event-level-min"
+            label={t.events.form.levelFrom}
+            value={watch('levelMin')}
+            error={errors.levelMin?.message}
+            onChange={(level) => {
+              setValue('levelMin', level, { shouldValidate: true });
+            }}
+          />
+          <LevelSelect
+            id="event-level-max"
+            label={t.events.form.levelTo}
+            value={watch('levelMax')}
+            error={errors.levelMax?.message}
+            onChange={(level) => {
+              setValue('levelMax', level, { shouldValidate: true });
+            }}
+          />
+        </div>
+      )}
+      <p className="text-text-tertiary text-xs">{t.events.form.levelsHint}</p>
+    </fieldset>
   );
 }
 
@@ -143,7 +268,9 @@ function CapacityAndPriceFields({ form }: { form: Form }) {
 export function EventFormFields({ form, courts }: { form: Form; courts: CourtWithPrices[] }) {
   return (
     <>
-      <NameAndSportFields form={form} />
+      <SportField form={form} />
+      <ModalityField form={form} />
+      <LevelsField form={form} />
       <WhenFields form={form} />
       <EventCourtsField form={form} courts={courts} />
       <CapacityAndPriceFields form={form} />

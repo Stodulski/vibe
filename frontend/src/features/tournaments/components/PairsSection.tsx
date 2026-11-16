@@ -1,5 +1,6 @@
 import { Phone } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { pairFullName, pairName, pairPaymentKey, type PairPaymentKey } from '../lib/tournamentView';
 import { Button } from '@/shared/components/ui/button';
@@ -32,6 +33,16 @@ function PhoneLink({ name, phone }: { name: string; phone: string }) {
   );
 }
 
+/** One player's phone and what they declared at sign-up: "Caballero · 7ma", when they did. */
+function PlayerContact({ name, phone, traits }: { name: string; phone: string; traits: string | null }) {
+  return (
+    <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <PhoneLink name={name} phone={phone} />
+      {traits && <span className="text-text-secondary text-xs">{traits}</span>}
+    </span>
+  );
+}
+
 /** The amount a confirmed pair paid: the badge carries it, so the payment is named once. */
 function paidAmount(pair: TournamentOwnerPair): string | null {
   return pair.payment && pair.registration.status === 'confirmed' ? formatPrice(pair.payment.amount) : null;
@@ -60,8 +71,16 @@ function PairRow({ pair, groupName, onSwap }: { pair: TournamentOwnerPair; group
       <div className="min-w-0 space-y-1">
         <p className="text-text-primary text-sm font-medium break-words">{pairFullName(pair)}</p>
         <div className="flex flex-wrap gap-x-3 gap-y-1">
-          <PhoneLink name={`${pair.payer.first_name} ${pair.payer.last_name}`} phone={pair.payer.phone} />
-          <PhoneLink name={`${pair.partner.first_name} ${pair.partner.last_name}`} phone={pair.partner.phone} />
+          <PlayerContact
+            name={`${pair.payer.first_name} ${pair.payer.last_name}`}
+            phone={pair.payer.phone}
+            traits={playerTraitsLabel(pair.payer)}
+          />
+          <PlayerContact
+            name={`${pair.partner.first_name} ${pair.partner.last_name}`}
+            phone={pair.partner.phone}
+            traits={playerTraitsLabel(pair.partner)}
+          />
         </div>
         {tags.length > 0 && <p className="text-text-tertiary text-xs">{tags.join(' · ')}</p>}
       </div>

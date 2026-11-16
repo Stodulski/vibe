@@ -1,5 +1,6 @@
 import { InfoRow } from '@/shared/components/common/InfoRow';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { categoryStartLabel } from '@/shared/lib/traitLabels';
 import { formatPrice } from '@/shared/lib/utils';
 import type { CourtFeeSummary } from '../lib/courtFee';
 import type { TournamentOwnerCategory } from '@/shared/types/api.types';
@@ -19,6 +20,7 @@ export function CategoryFacts({
   category: TournamentOwnerCategory;
   courtFee: CourtFeeSummary;
 }) {
+  const startLabel = categoryStartLabel(category.starts_on, category.starts_at);
   return (
     <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
       <InfoRow label={t.detail.capacity}>
@@ -27,6 +29,12 @@ export function CategoryFacts({
       <InfoRow label={t.detail.price}>
         <span className="font-medium tabular-nums">{formatPrice(category.price)}</span>
       </InfoRow>
+      {startLabel && <InfoRow label={t.detail.startsLabel}>{startLabel}</InfoRow>}
+      {category.prizes && (
+        <div className="sm:col-span-2">
+          <InfoRow label={t.detail.prizesLabel}>{category.prizes}</InfoRow>
+        </div>
+      )}
       <InfoRow label={t.courtFee.factLabel}>
         {category.court_fee > 0 ? (
           <>

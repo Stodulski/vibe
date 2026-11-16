@@ -19,7 +19,7 @@ async function renderCancel() {
     makeDetail({ pairs: [paid('p1'), paid('p2'), makePair({ id: 'p3', registration: 'held' })] }),
   );
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
-  await screen.findByRole('heading', { name: 'Copa Vibe' });
+  await screen.findByRole('heading', { name: 'Torneo de pádel' });
   return { tournamentsApi, user: userEvent.setup() };
 }
 

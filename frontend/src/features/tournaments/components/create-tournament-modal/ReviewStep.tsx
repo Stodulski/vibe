@@ -3,8 +3,9 @@ import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { pesosToCentavos } from '@/shared/lib/money';
 import { formatPrice } from '@/shared/lib/utils';
+import { tournamentTitle } from '@/shared/lib/traitLabels';
 import { tournamentDays } from '../../lib/tournamentView';
-import { categorySummaryLine } from './categorySummary';
+import { categoryFormTitle, categorySummaryLine } from './categorySummary';
 import type { CategoryFormValues, TournamentFormValues } from '../../schemas/tournamentForm.schema';
 
 const t = ES_AR.tournaments;
@@ -14,7 +15,7 @@ function CategoryReview({ category }: { category: CategoryFormValues }) {
   const groups = category.format === 'groups';
   return (
     <li className="space-y-0.5 py-2.5">
-      <p className="text-text-primary text-sm font-medium">{category.name}</p>
+      <p className="text-text-primary text-sm font-medium">{categoryFormTitle(category)}</p>
       <p className="text-text-secondary text-xs">{categorySummaryLine(category)}</p>
       <p className="text-text-tertiary text-xs">
         {groups && `${t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}. `}
@@ -24,6 +25,11 @@ function CategoryReview({ category }: { category: CategoryFormValues }) {
       <p className="text-text-tertiary text-xs">
         {category.court_fee ? t.courtFee.line(formatPrice(pesosToCentavos(category.court_fee))) : t.courtFee.none}
       </p>
+      {category.prizes.trim() && (
+        <p className="text-text-tertiary text-xs">
+          {t.detail.prizesLabel}: {category.prizes.trim()}
+        </p>
+      )}
     </li>
   );
 }
@@ -45,7 +51,7 @@ export function ReviewStep({ values, error, pending, onBack }: Props) {
           <h3 className="text-text-primary text-sm font-semibold">{c.tournamentHeading}</h3>
           <div className="grid grid-cols-2 gap-x-4 gap-y-2.5">
             <div className="col-span-2">
-              <InfoRow label={t.form.name}>{values.name.trim()}</InfoRow>
+              <InfoRow label={c.titleLabel}>{tournamentTitle(values.sport)}</InfoRow>
             </div>
             <InfoRow label={c.sportLabel}>
               {ES_AR.courts.sportTypes[values.sport as keyof typeof ES_AR.courts.sportTypes]}

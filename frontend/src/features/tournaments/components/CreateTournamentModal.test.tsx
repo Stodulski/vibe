@@ -2,40 +2,48 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { screen, waitFor } from '@/test/test-utils';
 import { makeConsumedHttpError } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { button, field, fillTournament, next, pickDay, reachReview, renderModal } from '../testing/createModalHelpers';
+import {
+  button,
+  field,
+  fillTournament,
+  next,
+  pickDay,
+  pickOption,
+  reachReview,
+  renderModal,
+} from '../testing/createModalHelpers';
 
 vi.mock('../api/tournaments.api', () => ({ tournamentsApi: { create: vi.fn() } }));
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const t = ES_AR.tournaments;
+const ISO_DAY: unknown = expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/);
 
 describe('CreateTournamentModal: steps', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('starts on the tournament step with only its fields', async () => {
+  it('starts on the tournament step with the sport and the days, and no name to type', async () => {
     await renderModal();
 
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(t.createSteps.step1);
-    expect(field(t.form.name)).toBeInTheDocument();
     expect(field(t.form.sport)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Nombre del torneo/)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.form.addCategory })).not.toBeInTheDocument();
   });
 
-  it('asks for the name and both days before leaving step 1, and stays there', async () => {
+  it('asks for both days before leaving step 1, and stays there', async () => {
     const { user } = await renderModal();
 
     await next(user);
 
-    expect(await screen.findByText(t.validation.nameRequired)).toBeInTheDocument();
-    expect(screen.getAllByText(ES_AR.validation.dateRequired)).toHaveLength(2);
+    expect(await screen.findAllByText(ES_AR.validation.dateRequired)).toHaveLength(2);
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(t.createSteps.step1);
   });
 
   it('refuses a last day before the first one on step 1', async () => {
     const { user } = await renderModal();
-    await user.type(field(t.form.name), 'Copa Vibe');
     await pickDay(user, t.form.startDate, true);
     await pickDay(user, t.form.endDate, false);
 
@@ -53,8 +61,8 @@ describe('CreateTournamentModal: steps', () => {
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(t.createSteps.step2);
     await user.click(button(ES_AR.common.back));
 
-    expect(field(t.form.name)).toHaveValue('  Copa Vibe ');
-    expect(screen.queryByText(t.validation.nameRequired)).not.toBeInTheDocument();
+    expect(field(t.form.sport)).toHaveTextContent('Pádel');
+    expect(screen.queryByText(ES_AR.validation.dateRequired)).not.toBeInTheDocument();
   });
 
   it('asks for at least one category before leaving step 2', async () => {
@@ -74,19 +82,19 @@ describe('CreateTournamentModal: review and submit', () => {
     vi.clearAllMocks();
   });
 
-  it('reviews the tournament and each category before creating', async () => {
+  it('reviews the composed title and each category before creating', async () => {
     const { user } = await renderModal();
     await reachReview(user);
 
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(t.createSteps.step3);
-    expect(screen.getByText('Copa Vibe')).toBeInTheDocument();
-    expect(screen.getByText('6ta')).toBeInTheDocument();
+    expect(screen.getByText('Torneo de pádel')).toBeInTheDocument();
+    expect(screen.getByText('Caballeros 6ta')).toBeInTheDocument();
     expect(screen.getByText(t.format.groups, { exact: false })).toBeInTheDocument();
     expect(screen.getByText(t.detail.groupsSetup(3, 2), { exact: false })).toBeInTheDocument();
     expect(button(t.form.submit)).toBeInTheDocument();
   });
 
-  it('sends the category with its group and match format and the price in centavos', async () => {
+  it('sends the category with its modality, level, start and match format, and never a name', async () => {
     const { tournamentsApi, onClose, user } = await renderModal();
     await reachReview(user);
 
@@ -96,10 +104,14 @@ describe('CreateTournamentModal: review and submit', () => {
       expect(tournamentsApi.create).toHaveBeenCalledTimes(1);
     });
     const body = vi.mocked(tournamentsApi.create).mock.calls[0]?.[1];
-    expect(body).toMatchObject({ name: 'Copa Vibe', sport: 'padel' });
+    expect(body).toMatchObject({ sport: 'padel', start_date: ISO_DAY, end_date: ISO_DAY });
+    expect(body).not.toHaveProperty('name');
     expect(body?.categories).toEqual([
       {
-        name: '6ta',
+        modality: 'men',
+        level: 6,
+        starts_on: ISO_DAY,
+        starts_at: '18:00',
         format: 'groups',
         capacity: 16,
         price: 2000000,
@@ -117,6 +129,44 @@ describe('CreateTournamentModal: review and submit', () => {
   });
 });
 
+describe('CreateTournamentModal: suma', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('sends a suma with its prizes, and no level', async () => {
+    const { tournamentsApi, user } = await renderModal();
+    await fillTournament(user);
+    await next(user);
+    await user.click(button(t.form.addCategory));
+    await user.click(button(t.traits.modality.mixed));
+    await pickOption(user, t.form.kind, t.form.kindSuma);
+    await user.type(field(t.form.suma), '15');
+    await pickDay(user, t.form.startsOn, false);
+    await pickOption(user, t.form.startsAt, '20:00');
+    await user.type(field(t.form.price), '20000');
+    await user.type(field(t.form.prizes), 'Trofeo para los campeones');
+    await next(user);
+    await user.click(button(t.createSteps.saveCategory));
+    await next(user);
+
+    await user.click(button(t.form.submit));
+
+    await waitFor(() => {
+      expect(tournamentsApi.create).toHaveBeenCalledTimes(1);
+    });
+    const category = vi.mocked(tournamentsApi.create).mock.calls[0]?.[1].categories[0];
+    expect(category).toMatchObject({
+      modality: 'mixed',
+      suma: 15,
+      starts_at: '20:00',
+      prizes: 'Trofeo para los campeones',
+    });
+    expect(category).not.toHaveProperty('level');
+    expect(category).not.toHaveProperty('name');
+  });
+});
+
 describe('CreateTournamentModal: submit', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -127,7 +177,10 @@ describe('CreateTournamentModal: submit', () => {
     await fillTournament(user);
     await next(user);
     await user.click(button(t.form.addCategory));
-    await user.type(field(t.form.categoryName), '6ta');
+    await user.click(button(t.traits.modality.men));
+    await pickOption(user, t.form.level, '6ta');
+    await pickDay(user, t.form.startsOn, false);
+    await pickOption(user, t.form.startsAt, '18:00');
     await user.type(field(t.form.price), '20000');
     await user.type(field(t.form.courtFee), '1500');
     await next(user);
@@ -148,7 +201,7 @@ describe('CreateTournamentModal: submit', () => {
       await makeConsumedHttpError(422, {
         type: 'https://vibe.com.ar/problems/validation',
         title: 'validation',
-        errors: [{ field: 'name', message: 'required' }],
+        errors: [{ field: 'start_date', message: 'required' }],
       }),
     );
     await reachReview(user);
@@ -157,7 +210,7 @@ describe('CreateTournamentModal: submit', () => {
 
     expect(await screen.findByRole('alert')).toBeInTheDocument();
     expect(screen.getByRole('listitem', { current: 'step' })).toHaveTextContent(t.createSteps.step1);
-    expect(field(t.form.name)).toHaveValue('  Copa Vibe ');
+    expect(field(t.form.sport)).toBeInTheDocument();
   });
 
   it('stays on the review with the message when the server error names no field', async () => {
@@ -175,7 +228,7 @@ describe('CreateTournamentModal: submit', () => {
 describe('CreateTournamentModal: required and optional', () => {
   it('marks every field required or optional in its label, with the hint below the field', async () => {
     const { user } = await renderModal();
-    expect(screen.getByLabelText(`${t.form.name} (${ES_AR.common.requiredMarker})`)).toBeInTheDocument();
+    expect(screen.getByLabelText(`${t.form.sport} (${ES_AR.common.requiredMarker})`)).toBeInTheDocument();
     await fillTournament(user);
     await next(user);
     await user.click(button(t.form.addCategory));

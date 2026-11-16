@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/msw/server';
 import { renderBooking, setBookingUrl } from '../test/booking';
-import { CAT_OPEN, DETAIL, TOURNAMENT } from '../test/tournamentFixtures';
+import { CAT_OPEN, DETAIL } from '../test/tournamentFixtures';
 import { BOOKING_MESSAGES } from '../messages';
 import TournamentPage from './TournamentPage';
 
@@ -31,7 +31,7 @@ describe('TournamentPage checkout parity with a booking', () => {
     await openForm(user);
 
     const ticket = await screen.findByRole('region', { name: t.tournaments.summaryLabel });
-    expect(within(ticket).getByText(TOURNAMENT.name)).toBeInTheDocument();
+    expect(within(ticket).getByText('Torneo de pádel')).toBeInTheDocument();
     expect(within(ticket).getByText(CAT_OPEN.name)).toBeInTheDocument();
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();

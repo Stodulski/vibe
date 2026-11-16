@@ -1,4 +1,7 @@
+import type { PublicTournamentCategory } from '../api/types';
 import { BOOKING_MESSAGES } from '../messages';
+import { getProblem } from './ApiError';
+import { declarationRefusalCopy } from './declaredPlayers';
 import { refusalCopy, type RefusalCopy } from './signUpRefusals';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -12,7 +15,12 @@ const TOURNAMENT_REFUSALS: RefusalCopy = {
   fallback: t.signUpError,
 };
 
-/** The text a refused pair sign-up shows. */
-export function tournamentRefusalCopy(error: unknown): string {
-  return refusalCopy(error, TOURNAMENT_REFUSALS);
+/**
+ * The text a refused pair sign-up shows. A declaration the server found not to
+ * fit is named in the words of its category's rule, the same ones the form
+ * checks before it sends.
+ */
+export function tournamentRefusalCopy(error: unknown, category?: PublicTournamentCategory): string {
+  const declared = category ? declarationRefusalCopy(getProblem(error), { kind: 'pair', category }) : undefined;
+  return declared ?? refusalCopy(error, TOURNAMENT_REFUSALS);
 }

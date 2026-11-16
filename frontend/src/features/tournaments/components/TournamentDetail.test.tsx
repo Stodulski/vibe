@@ -1,3 +1,4 @@
+import { tournamentTitle } from '@/shared/lib/traitLabels';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -24,7 +25,7 @@ async function renderDetail(detail: TournamentDetailResponse) {
   const { tournamentsApi } = await import('../api/tournaments.api');
   vi.mocked(tournamentsApi.get).mockResolvedValue(detail);
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
-  await screen.findByRole('heading', { name: detail.tournament.name });
+  await screen.findByRole('heading', { name: tournamentTitle(detail.tournament.sport) });
   return { tournamentsApi, user: userEvent.setup() };
 }
 

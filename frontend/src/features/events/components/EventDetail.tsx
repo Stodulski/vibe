@@ -8,6 +8,7 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { openPlayTitle } from '@/shared/lib/traitLabels';
 import { formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
@@ -110,7 +111,7 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           onPointerDownOutside={onPointerDownOutside}
         >
           <DetailSheetHeader
-            title={event?.name ?? t.title}
+            title={event ? openPlayTitle(event) : t.title}
             subtitle={
               event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
             }

@@ -7,7 +7,6 @@ import type {
   PublicTournamentMatch,
   PublicTournamentPair,
   PublicTournamentSchedule,
-  PublicTournamentSummary,
 } from '../../api/types';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -50,23 +49,6 @@ export function spotsLeftLabel(spotsLeft: number): string {
 /** Whether a category still takes pairs. The server decides for real; this only shapes the page. */
 export function isOpenForSignUp(category: Pick<PublicTournamentCategory, 'status' | 'spots_left'>): boolean {
   return category.status === 'open' && category.spots_left > 0;
-}
-
-/** Whether a category's sign-up is closed: the state a card names "Inscripción cerrada". */
-export function isSignUpClosed(category: Pick<PublicTournamentCategory, 'status'>): boolean {
-  return category.status === 'closed';
-}
-
-/**
- * The tournaments the public page lists, each with only the categories whose
- * sign-up is not closed: a full or cancelled category still says so. A
- * tournament left with no such category is not listed at all.
- */
-export function listedTournaments(tournaments: PublicTournamentSummary[]): PublicTournamentSummary[] {
-  return tournaments.flatMap((tournament) => {
-    const categories = tournament.categories.filter((category) => !isSignUpClosed(category));
-    return categories.length > 0 ? [{ ...tournament, categories }] : [];
-  });
 }
 
 export type PairLookup = ReadonlyMap<string, PublicTournamentPair>;
@@ -247,7 +229,7 @@ function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
 
-const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+export const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 /** The day number and short month of a `YYYY-MM-DD`, read from the string so no time zone can move it. */
 function shortDay(day: string): { number: string; month: string } {

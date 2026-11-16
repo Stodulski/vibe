@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { submitHandler, toDisplayDate, useAppForm } from '@vibe/ui';
 import { format } from 'date-fns/format';
@@ -8,6 +8,8 @@ import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
 import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
 import { courtFactsLine } from '../../lib/courtFacts';
 import { keepTogether } from '../../lib/keepTogether';
+import { openPlayRequirement } from '../../lib/declaredPlayers';
+import { openPlayTitle, isModality } from '../../lib/traitLabels';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
 import { eventTimeRange, endsNextDay, sportLabel } from './eventFormat';
@@ -43,6 +45,8 @@ function eventCourts(event: PublicOpenPlayEvent) {
  */
 export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const declares = isModality(event.modality);
+  const schema = useMemo(() => eventSignUpSchema(event), [event]);
 
   const {
     register,
@@ -50,11 +54,12 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
     control,
     formState: { errors },
   } = useAppForm<EventSignUpFormData>({
-    resolver: zodResolver(eventSignUpSchema),
-    defaultValues: { first_name: '', last_name: '', phone: '', email: '' },
+    resolver: zodResolver(schema),
+    defaultValues: { first_name: '', last_name: '', phone: '', email: '', gender: '', level: '' },
   });
 
-  const signUp = useEventSignUp(slug, event.id, setErrorMessage);
+  const signUp = useEventSignUp(slug, event, setErrorMessage);
+  const requirement = openPlayRequirement(event);
 
   // The booking hold's bot check: one invisible challenge, one token per sign-up.
   const { challenge, generation, onTokenChange } = useHoldChallenge();
@@ -74,7 +79,7 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
         venue={event.complex_name}
         dateLabel={format(toDisplayDate(event.date), "EEEE d 'de' MMMM", { locale: es })}
         timeLabel={eventTimeRange(event)}
-        title={event.name}
+        title={openPlayTitle(event)}
         tags={[sportLabel(event.sport)]}
         details={eventDetails(event)}
         courts={eventCourts(event)}
@@ -88,7 +93,8 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
       />
 
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
-        <EventSignUpFields register={register} control={control} errors={errors} />
+        {requirement && <p className="text-text-secondary text-sm">{requirement}</p>}
+        <EventSignUpFields register={register} control={control} errors={errors} declares={declares} />
         <TurnstileField key={generation} onTokenChange={onTokenChange} />
         <SubmitFooter isLoading={signUp.isPending} totalOnline={event.total_price} type="submit" />
         <PrivacyNotice text={t.events.privacyNotice} />

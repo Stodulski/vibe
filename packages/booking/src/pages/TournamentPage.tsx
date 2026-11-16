@@ -12,6 +12,7 @@ import {
 } from '../lib/tournamentRegistrationStorage';
 import { CategorySection } from '../components/tournaments/CategorySection';
 import { sportLabel, tournamentDates } from '../components/tournaments/tournamentModel';
+import { tournamentLabel } from '../lib/traitLabels';
 import { BackToComplexButton, PaymentFailedState, RegistrationNotFoundState } from './event-page/EventPageStates';
 import {
   CancelledTournamentNotice,
@@ -79,14 +80,17 @@ function TournamentDetailPage({
   slug,
   tournamentId,
   paymentFailed,
+  preselectedCategoryId,
 }: {
   slug: string;
   tournamentId: string;
   paymentFailed: boolean;
+  /** The category an agenda row signed up to (`?category=`): its sign-up opens on arrival. */
+  preselectedCategoryId: string | null;
 }) {
   const [, setParams] = useQueryParams();
   const [showFailure, setShowFailure] = useState(paymentFailed);
-  const [openFormId, setOpenFormId] = useState<string | null>(null);
+  const [openFormId, setOpenFormId] = useState<string | null>(preselectedCategoryId);
   const { data: detail, isLoading, error, refetch } = useTournament(slug, tournamentId);
   const { pending, retry } = usePaymentRetry(tournamentId, () => {
     setShowFailure(false);
@@ -110,12 +114,9 @@ function TournamentDetailPage({
   return (
     <>
       <header className="flex flex-col gap-1">
-        <h1 className="text-text-primary text-2xl font-bold">{tournament.name}</h1>
+        <h1 className="text-text-primary text-2xl font-bold">{tournamentLabel(tournament.sport)}</h1>
         <p className="text-text-secondary text-sm first-letter:uppercase">{tournamentDates(tournament)}</p>
-        <p className="text-text-secondary text-sm">
-          {sportLabel(tournament.sport)}
-          {detail.complex_name ? `, ${detail.complex_name}` : ''}
-        </p>
+        <p className="text-text-secondary text-sm">{sportLabel(tournament.sport)}</p>
       </header>
       {tournament.status === 'cancelled' && <CancelledTournamentNotice />}
       {detail.categories.map((category) => (
@@ -126,6 +127,7 @@ function TournamentDetailPage({
           category={category}
           openFormId={openFormId}
           onOpenFormChange={setOpenFormId}
+          arrivedFor={category.id === preselectedCategoryId}
         />
       ))}
       <BackToComplexButton slug={slug} />
@@ -153,7 +155,12 @@ export default function TournamentPage({ slug, tournamentId }: { slug: string; t
   }
   return (
     <div className={PAGE}>
-      <TournamentDetailPage slug={slug} tournamentId={tournamentId} paymentFailed={paymentFailed} />
+      <TournamentDetailPage
+        slug={slug}
+        tournamentId={tournamentId}
+        paymentFailed={paymentFailed}
+        preselectedCategoryId={params.get('category')}
+      />
     </div>
   );
 }

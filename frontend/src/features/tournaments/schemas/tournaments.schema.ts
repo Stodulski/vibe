@@ -40,6 +40,12 @@ const categorySchema = exact<TournamentOwnerCategory>(
       id: z.string(),
       tournament_id: z.string(),
       name: z.string(),
+      modality: z.enum(['men', 'women', 'mixed']).nullable(),
+      level: z.number().nullable(),
+      suma: z.number().nullable(),
+      prizes: nullableString,
+      starts_on: nullableString,
+      starts_at: nullableString,
       format: z.enum(['elimination', 'groups']),
       capacity: z.number(),
       price: z.number(),
@@ -61,7 +67,12 @@ const categorySchema = exact<TournamentOwnerCategory>(
 );
 
 const playerSchema = z.object({ first_name: z.string(), last_name: z.string() }).loose();
-const ownerPlayerSchema = playerSchema.extend({ phone: z.string(), email: nullableString });
+const ownerPlayerSchema = playerSchema.extend({
+  phone: z.string(),
+  email: nullableString,
+  gender: z.enum(['men', 'women']).nullable(),
+  level: z.number().nullable(),
+});
 
 const pairSchema = exact<TournamentOwnerPair>(
   z

@@ -15,7 +15,7 @@ import type {
 import { CourtDirectory } from './CourtDirectory';
 import { EventsSection } from '../../components/events/EventsSection';
 import { TournamentsSection } from '../../components/tournaments/TournamentsSection';
-import { listedTournaments } from '../../components/tournaments/tournamentModel';
+import { agendaRows } from '../../components/tournaments/agendaModel';
 import { useComplexEvents } from '../../hooks/useComplexEvents';
 import { useComplexTournaments } from '../../hooks/useComplexTournaments';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -167,10 +167,10 @@ function ComplexOffers({ slug }: { slug: string }) {
   const [picked, setPicked] = useState<OfferKind | null>(null);
 
   const eventList = events ?? [];
-  const tournamentList = listedTournaments(tournaments ?? []);
+  const agenda = agendaRows(tournaments ?? []);
   const choices: { value: OfferKind; label: string }[] = [];
   if (eventList.length > 0) choices.push({ value: 'events', label: BOOKING_MESSAGES.events.sectionTitle });
-  if (tournamentList.length > 0) {
+  if (agenda.length > 0) {
     choices.push({ value: 'tournaments', label: BOOKING_MESSAGES.tournaments.sectionTitle });
   }
   if (choices.length === 0) return null;
@@ -189,7 +189,7 @@ function ComplexOffers({ slug }: { slug: string }) {
         }}
       />
       {shown === 'events' && <EventsSection events={eventList} slug={slug} />}
-      {shown === 'tournaments' && <TournamentsSection tournaments={tournamentList} slug={slug} />}
+      {shown === 'tournaments' && <TournamentsSection rows={agenda} slug={slug} />}
     </div>
   );
 }

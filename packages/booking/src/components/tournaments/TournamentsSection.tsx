@@ -1,15 +1,15 @@
 import { BOOKING_MESSAGES } from '../../messages';
-import type { PublicTournamentSummary } from '../../api/types';
-import { TournamentCard } from './TournamentCard';
+import { TournamentAgenda } from './TournamentAgenda';
+import type { AgendaRow } from './agendaModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
 /**
- * The tournaments the complex's page lists once one is picked, each with the
- * link to its own page. The caller passes only those worth listing: see
- * `listedTournaments`.
+ * The complex's tournaments as an agenda, once "Torneos" is picked: one row per
+ * category open for sign-up with a place left. The caller passes those rows: see
+ * `agendaRows`.
  */
-export function TournamentsSection({ tournaments, slug }: { tournaments: PublicTournamentSummary[]; slug: string }) {
+export function TournamentsSection({ rows, slug }: { rows: AgendaRow[]; slug: string }) {
   return (
     <section aria-labelledby="tournaments-title" className="flex flex-col gap-4">
       <div className="flex flex-col gap-1">
@@ -18,13 +18,7 @@ export function TournamentsSection({ tournaments, slug }: { tournaments: PublicT
         </h3>
         <p className="text-text-secondary text-sm">{t.sectionDescription}</p>
       </div>
-      <ul className={`grid grid-cols-1 gap-3 ${tournaments.length > 1 ? 'md:grid-cols-2' : ''}`}>
-        {tournaments.map((tournament) => (
-          <li key={tournament.id} className="flex">
-            <TournamentCard tournament={tournament} slug={slug} />
-          </li>
-        ))}
-      </ul>
+      <TournamentAgenda rows={rows} slug={slug} />
     </section>
   );
 }

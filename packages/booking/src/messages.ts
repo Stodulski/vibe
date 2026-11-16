@@ -1,3 +1,4 @@
+import { DECLARATION_MESSAGES } from './declarationMessages';
 import { EVENT_MESSAGES } from './eventMessages';
 import { TOURNAMENT_MESSAGES } from './tournamentMessages';
 
@@ -199,6 +200,7 @@ export const BOOKING_MESSAGES = {
   },
   events: EVENT_MESSAGES,
   tournaments: TOURNAMENT_MESSAGES,
+  declaration: DECLARATION_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
     amenities: {

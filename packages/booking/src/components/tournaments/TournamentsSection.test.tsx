@@ -1,46 +1,30 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { screen } from '@testing-library/react';
 import { renderBooking } from '../../test/booking';
-import { CAT_GROUPS, SUMMARY } from '../../test/tournamentFixtures';
+import { CAT_GROUPS, CAT_OPEN, SUMMARY } from '../../test/tournamentFixtures';
 import { BOOKING_MESSAGES } from '../../messages';
+import { agendaRows } from './agendaModel';
 import { TournamentsSection } from './TournamentsSection';
 
 const t = BOOKING_MESSAGES.tournaments;
 
 describe('TournamentsSection', () => {
-  it('lists each tournament with its categories and a link to its page', () => {
-    renderBooking(<TournamentsSection tournaments={[SUMMARY]} slug="test-club" />);
+  it('titles the agenda and lists the open categories with their sign-up', () => {
+    renderBooking(<TournamentsSection rows={agendaRows([SUMMARY])} slug="test-club" />);
 
     expect(screen.getByRole('heading', { level: 3, name: t.sectionTitle })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: SUMMARY.name })).toBeInTheDocument();
-    expect(screen.getByText('8va')).toBeInTheDocument();
-    expect(screen.getByText(/\$20\.000/)).toHaveTextContent('$20.000 por pareja');
-    expect(screen.queryByText(/cargo de servicio/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/\$22\.000/)).not.toBeInTheDocument();
-    expect(screen.getByRole('link', { name: new RegExp(t.viewTournament) })).toHaveAttribute(
+    expect(screen.getByRole('heading', { level: 3, name: CAT_OPEN.name })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Inscribirme/ })).toHaveAttribute(
       'href',
-      '/c/test-club/tournaments/t1',
+      `/c/test-club/tournaments/t1?category=${CAT_OPEN.id}`,
     );
   });
 
-  it('writes a range inside one month as its days and the short month', () => {
-    renderBooking(<TournamentsSection tournaments={[SUMMARY]} slug="test-club" />);
+  it('leaves out a category whose sign-up is closed', () => {
+    const rows = agendaRows([{ ...SUMMARY, categories: [CAT_GROUPS] }]);
+    renderBooking(<TournamentsSection rows={rows} slug="test-club" />);
 
-    expect(screen.getByText('5 al 6 dic')).toBeInTheDocument();
-    expect(screen.queryByText(/Sábado/)).not.toBeInTheDocument();
-  });
-
-  it('shows a category as its name and price on one line, and its format under it', () => {
-    renderBooking(<TournamentsSection tournaments={[SUMMARY]} slug="test-club" />);
-
-    const price = screen.getByText(/\$20\.000/);
-    expect(price).toHaveClass('whitespace-nowrap');
-    expect(screen.getAllByText(t.formatGroups)[0]).toBeInTheDocument();
-  });
-
-  it('marks a closed category as closed when it is given one', () => {
-    renderBooking(<TournamentsSection tournaments={[{ ...SUMMARY, categories: [CAT_GROUPS] }]} slug="test-club" />);
-
-    expect(screen.getByText(t.categoryStatusClosed)).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: CAT_GROUPS.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: /Inscribirme/ })).not.toBeInTheDocument();
   });
 });

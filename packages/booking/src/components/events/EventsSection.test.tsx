@@ -12,7 +12,7 @@ describe('EventsSection', () => {
     renderBooking(<EventsSection events={[EVENT]} slug="test-club" />);
 
     expect(screen.getByRole('heading', { level: 3, name: t.sectionTitle })).toBeInTheDocument();
-    expect(screen.getByRole('heading', { name: EVENT.name })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Cancha abierta de pádel' })).toBeInTheDocument();
     expect(screen.getByText('19:00 a 22:00')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
     expect(screen.getByText('Quedan 7 lugares')).toBeInTheDocument();
@@ -25,7 +25,7 @@ describe('EventsSection', () => {
   it('shows a full event as closed, without a sign-up link', () => {
     renderBooking(<EventsSection events={[{ ...EVENT, spots_left: 0 }]} slug="test-club" />);
 
-    expect(screen.getByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText('Cancha abierta de pádel')).toBeInTheDocument();
     expect(screen.getAllByText(t.full)).toHaveLength(1);
     expect(screen.queryByRole('button', { name: t.full })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: t.signUp })).not.toBeInTheDocument();

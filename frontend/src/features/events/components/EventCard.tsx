@@ -1,5 +1,6 @@
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { openPlayTitle } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { EVENT_CARD_BOTTOM_ROW_CLASS, EVENT_CARD_CLASS, EVENT_CARD_TOP_ROW_CLASS } from '../lib/eventLayout';
@@ -32,7 +33,7 @@ export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect:
     >
       <p className="text-text-tertiary text-xs font-medium">{t.kindLabel.openPlay}</p>
       <div className={EVENT_CARD_TOP_ROW_CLASS}>
-        <p className="text-text-primary min-w-0 truncate text-base font-semibold">{event.name}</p>
+        <p className="text-text-primary min-w-0 truncate text-base font-semibold">{openPlayTitle(event)}</p>
         <EventStateText event={event} />
       </div>
       <p className="text-text-secondary text-sm">

@@ -4,6 +4,7 @@ import { BOOKING_MESSAGES } from '../../messages';
 import { useCancelTournamentRegistration } from '../../hooks/useTournamentRegistration';
 import { CancelRegistration, CancelledResult, type CancelCopy } from '../../components/registration/CancelRegistration';
 import { formatLabel, tournamentDates } from '../../components/tournaments/tournamentModel';
+import { categoryTitle, tournamentLabel } from '../../lib/traitLabels';
 import { BackToComplexButton, ExpiredState, ProcessingState } from '../event-page/EventPageStates';
 import type { PublicPairRegistration } from '../../api/types';
 
@@ -22,11 +23,13 @@ function PairSummary({ registration }: { registration: PublicPairRegistration })
   const { tournament, category, payer, partner } = registration;
   return (
     <div className="border-border-subtle bg-bg-subtle flex w-full flex-col gap-2 rounded-2xl border p-4 text-left sm:p-5">
-      <h2 className="text-text-primary text-2xl leading-tight font-bold">{tournament.name}</h2>
+      <h2 className="text-text-primary text-2xl leading-tight font-bold">
+        {tournamentLabel(tournament.sport)}
+      </h2>
       <p className="text-text-primary text-base font-bold">{tournamentDates(tournament)}</p>
       <p className="text-text-secondary text-sm">
         <span className="text-text-tertiary">{t.tournaments.categoryName}: </span>
-        {category.name}
+        {categoryTitle(category)}
         <span className="text-text-tertiary">{` \u00b7 ${formatLabel(category.format)}`}</span>
       </p>
       <div className="text-text-primary text-sm">

@@ -10,6 +10,10 @@ export const events = {
   noPast: 'No hay eventos pasados',
   // The type badge on each card of the one list (torneos use the same words).
   kindLabel: { openPlay: 'Cancha abierta', tournament: 'Torneo' },
+  // Canchas abiertas are named from their characteristics, never a typed name (S10, S14).
+  openPlayTitle: (sport: string) => `Cancha abierta de ${sport}`,
+  levelRange: (from: string, to: string) => `${from} a ${to}`,
+  levelSolo: (level: string) => `solo ${level}`,
   // The dialog Crear evento opens first: which kind to create.
   typePicker: {
     title: '¿Qué querés crear?',
@@ -34,9 +38,14 @@ export const events = {
 
   // Create form
   form: {
-    name: 'Nombre del evento',
-    namePlaceholder: 'Ej: Americano de los viernes',
     sport: 'Deporte',
+    modality: 'Modalidad',
+    levels: 'Categorías',
+    allLevels: 'Todas las categorías',
+    levelFrom: 'Desde',
+    levelTo: 'Hasta',
+    levelPlaceholder: 'Elegí',
+    levelsHint: 'Desde es la categoría más fuerte. Solo se anotan jugadores dentro del rango.',
     date: 'Fecha',
     startTime: 'Desde',
     endTime: 'Hasta',
@@ -53,8 +62,9 @@ export const events = {
     selectDate: 'Elegí la fecha',
   },
   validation: {
-    nameRequired: 'Ingresá el nombre del evento',
-    nameMax: 'El nombre puede tener hasta 100 caracteres',
+    modalityRequired: 'Elegí la modalidad: Caballeros, Damas o Mixto',
+    levelRangeIncomplete: 'Elegí desde y hasta qué categoría, o marcá todas las categorías',
+    levelRangeOrder: 'La categoría de "Desde" tiene que ser igual o más fuerte que la de "Hasta"',
     courtsRequired: 'Elegí al menos una cancha',
     capacityRange: 'El cupo va de 1 a 500 personas',
     priceRequired: 'Ingresá el precio por persona',

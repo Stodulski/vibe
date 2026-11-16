@@ -1,11 +1,14 @@
+import { useEffect, useRef } from 'react';
 import { Ban, Info, Lock, type LucideIcon } from 'lucide-react';
 import { Button, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { PublicTournament, PublicTournamentDetail, PublicTournamentCategory } from '../../api/types';
+import { categoryTitle } from '../../lib/traitLabels';
 import { BracketView } from './BracketView';
 import { GroupSection } from './GroupSection';
 import { PairSignUpForm } from './PairSignUpForm';
 import { ScheduleList } from './ScheduleList';
+import { categoryWhen } from './agendaModel';
 import { formatLabel, isOpenForSignUp, matchFormatLabel, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
@@ -71,14 +74,28 @@ interface CategoryHeaderProps {
   showOffer: boolean;
 }
 
-/** The category's name and format, and, unless it was cancelled, how it is played, its price and its spots. */
+/**
+ * The category's title, its day and prizes when it has them, its format, and,
+ * unless it was cancelled, how it is played, its price and its spots.
+ */
 function CategoryHeader({ headingId, category, showOffer }: CategoryHeaderProps) {
   const cancelled = category.status === 'cancelled';
   return (
     <div className="flex flex-col gap-1">
       <h2 id={headingId} className="text-text-primary text-lg font-bold">
-        {category.name}
+        {categoryTitle(category)}
       </h2>
+      {category.starts_on && (
+        <p className="text-text-secondary text-sm first-letter:uppercase">
+          {categoryWhen({ date: category.starts_on, time: category.starts_at })}
+        </p>
+      )}
+      {category.prizes && (
+        <p className="text-text-secondary text-sm">
+          <span className="text-text-tertiary">{`${t.prizesLabel}: `}</span>
+          {category.prizes}
+        </p>
+      )}
       <p className="text-text-secondary text-sm">{formatLabel(category.format)}</p>
       {!cancelled && (
         <>
@@ -103,17 +120,41 @@ interface CategorySectionProps {
   /** The category whose sign-up form is open on the page, if any. */
   openFormId: string | null;
   onOpenFormChange: (categoryId: string | null) => void;
+  /** The visitor came here to sign up to this category (`?category=`): its section is brought into view. */
+  arrivedFor?: boolean;
+}
+
+/** The pairs, groups and matches of one category, out of the tournament's whole detail. */
+function sliceOf(detail: PublicTournamentDetail, categoryId: string) {
+  return {
+    pairs: detail.pairs.filter((p) => p.category_id === categoryId),
+    groups: detail.groups.filter((g) => g.category_id === categoryId).sort((a, b) => a.position - b.position),
+    matches: detail.matches.filter((m) => m.category_id === categoryId),
+  };
+}
+
+/** Brings the section into view once when the visitor arrived to sign up to it. The section is scrolled to, not focused. */
+function useArrivalScroll(arrivedFor: boolean) {
+  const ref = useRef<HTMLElement>(null);
+  useEffect(() => {
+    if (arrivedFor) ref.current?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }, [arrivedFor]);
+  return ref;
 }
 
 /** One category: its format, price and spots, the sign-up while open, and its groups, bracket and schedule once drawn. */
-export function CategorySection({ slug, detail, category, openFormId, onOpenFormChange }: CategorySectionProps) {
-  const { tournament, pairs, groups, matches } = detail;
+export function CategorySection({
+  slug,
+  detail,
+  category,
+  openFormId,
+  onOpenFormChange,
+  arrivedFor = false,
+}: CategorySectionProps) {
+  const sectionRef = useArrivalScroll(arrivedFor);
+  const { tournament, groups } = detail;
   const headingId = `tournament-category-${category.id}`;
-  const own = {
-    pairs: pairs.filter((p) => p.category_id === category.id),
-    groups: groups.filter((g) => g.category_id === category.id).sort((a, b) => a.position - b.position),
-    matches: matches.filter((m) => m.category_id === category.id),
-  };
+  const own = sliceOf(detail, category.id);
   const groupNames = new Map(groups.map((g) => [g.id, g.name]));
   const open = isOpenForSignUp(category) && tournament.status === 'active';
   // A cancelled category keeps only its cancelled state: its draw, if any, is not a result anyone plays for.
@@ -125,6 +166,7 @@ export function CategorySection({ slug, detail, category, openFormId, onOpenForm
 
   return (
     <section
+      ref={sectionRef}
       aria-labelledby={headingId}
       className="border-border-subtle bg-bg-subtle flex min-w-0 flex-col gap-5 rounded-2xl border p-4 sm:p-5"
     >

@@ -19,7 +19,9 @@ export function publicEventPath(slug: string, eventId: string): string {
 /**
  * Path of one tournament's public page. The checkout returns here too
  * (`booklink.TournamentSuccess` in the backend), so the shape must agree with it.
+ * With a category, the page opens that category's sign-up: `?category=<id>`.
  */
-export function publicTournamentPath(slug: string, tournamentId: string): string {
-  return `/c/${slug}/tournaments/${tournamentId}`;
+export function publicTournamentPath(slug: string, tournamentId: string, categoryId?: string): string {
+  const path = `/c/${slug}/tournaments/${tournamentId}`;
+  return categoryId ? `${path}?category=${encodeURIComponent(categoryId)}` : path;
 }

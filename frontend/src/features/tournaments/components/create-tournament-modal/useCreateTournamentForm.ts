@@ -11,7 +11,6 @@ import {
 } from '../../schemas/tournamentForm.schema';
 
 const DEFAULTS: TournamentFormValues = {
-  name: '',
   sport: 'padel',
   start_date: '',
   end_date: '',

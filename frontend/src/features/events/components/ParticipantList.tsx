@@ -1,4 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { participantStatusKey, type ParticipantStatusKey } from '../lib/participantStatus';
 import type { OpenPlayParticipant } from '@/shared/types/api.types';
@@ -36,6 +37,7 @@ function cancelledBy(participant: OpenPlayParticipant): string | null {
 
 function ParticipantRow({ participant }: { participant: OpenPlayParticipant }) {
   const key = participantStatusKey(participant);
+  const traits = playerTraitsLabel(participant);
   const detail = [moneyLine(participant), cancelledBy(participant)].filter(Boolean).join(' · ');
 
   return (
@@ -51,6 +53,7 @@ function ParticipantRow({ participant }: { participant: OpenPlayParticipant }) {
         >
           {participant.phone}
         </a>
+        {traits && <p className="text-text-secondary mt-0.5 text-xs">{traits}</p>}
         {detail && <p className="text-text-tertiary mt-0.5 text-xs">{detail}</p>}
       </div>
       <span className={cn('shrink-0 text-xs font-medium', STATUS_STYLES[key])}>{t.participant[key]}</span>

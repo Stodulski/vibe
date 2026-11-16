@@ -77,6 +77,10 @@ const SERVER_ERROR_TEXT: Record<string, string> = {
   'cannot delete court while it has an open-play event (canchas libres), cancel it first':
     ES_AR.courts.deleteHasOpenPlay,
   'client is blocked, cannot create booking': ES_AR.bookings.clientBlocked,
+  // The owner's create-category refusal: one category per modality and level (or suma) per tournament
+  // (`backend/internal/httpx/codes.go`, CodeCategoryDuplicate). The sign-up refusals of the public side
+  // (suma_too_low, modality_mismatch, level_too_strong, level_out_of_range) are mapped by packages/booking.
+  category_duplicate: ES_AR.tournaments.validation.categoryDuplicate,
 };
 
 /**

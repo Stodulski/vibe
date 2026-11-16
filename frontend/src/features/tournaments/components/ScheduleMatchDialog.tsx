@@ -9,6 +9,7 @@ import {
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { submitHandler } from '@/shared/lib/form';
+import { categoryTitle } from '@/shared/lib/traitLabels';
 import { ScheduleFields } from './schedule-dialog/ScheduleFields';
 import { useScheduleForm } from './schedule-dialog/useScheduleForm';
 import type { CourtWithPrices, Tournament, TournamentCategory, TournamentMatch } from '@/shared/types/api.types';
@@ -76,7 +77,7 @@ function ScheduleBody({ onClose, complexId, tournament, category, match, courts 
     <>
       <DialogHeader>
         <DialogTitle>{t.title}</DialogTitle>
-        <DialogDescription>{category.name}</DialogDescription>
+        <DialogDescription>{categoryTitle(category)}</DialogDescription>
       </DialogHeader>
       <form onSubmit={submitHandler(form.handleSubmit, onSubmit)} className="space-y-4" noValidate>
         <ScheduleFields

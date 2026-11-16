@@ -54,7 +54,7 @@ describe('TournamentPage detail', () => {
     serveTournament();
     open();
 
-    expect(await screen.findByRole('heading', { level: 1, name: TOURNAMENT.name })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Torneo de pádel' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '8va' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { name: '6ta' })).toBeInTheDocument();
     expect(screen.getAllByText('Al mejor de 3 sets \u00b7 súper tie-break').length).toBeGreaterThan(0);
@@ -332,7 +332,7 @@ describe('TournamentPage checkout return, failures', () => {
     expect(await screen.findByText(t.publicBooking.paymentFailed)).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: t.events.paymentFailedAction }));
 
-    expect(await screen.findByRole('heading', { level: 1, name: TOURNAMENT.name })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Torneo de pádel' })).toBeInTheDocument();
     expect(cancelBody).toEqual({ token: 'tok-held' });
     expect(window.location.search).toBe('');
   });

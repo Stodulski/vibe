@@ -26,6 +26,13 @@ export const CAT_OPEN: PublicTournamentCategory = {
   id: 'c-open',
   tournament_id: 't1',
   name: '8va',
+  // Legacy: created before the traits, so it keeps its stored name and takes the pair as it is.
+  modality: null,
+  level: null,
+  suma: null,
+  prizes: null,
+  starts_on: null,
+  starts_at: null,
   format: 'groups',
   capacity: 12,
   price: 2_000_000,

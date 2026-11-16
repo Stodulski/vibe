@@ -9,6 +9,7 @@ import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { todayInArgentina } from '@/shared/lib/today';
+import { categoryTitle, tournamentTitle } from '@/shared/lib/traitLabels';
 import { CategoryPanel } from '../components/CategoryPanel';
 import { CategoryTabs } from '../components/CategoryTabs';
 import { TournamentDetailBodySkeleton } from '../components/TournamentDetailBodySkeleton';
@@ -72,7 +73,7 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
 
   return (
     <>
-      <PageHeader title={tournament.name} />
+      <PageHeader title={tournamentTitle(tournament.sport)} />
       <TournamentFacts
         tournament={tournament}
         complexId={complexId}
@@ -82,7 +83,10 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
       <CategoryTabs
         items={categories.map((c) => ({
           value: c.id,
-          label: c.status === 'cancelled' ? `${c.name} · ${t.tournaments.categoryStatus.cancelled}` : c.name,
+          label:
+            c.status === 'cancelled'
+              ? `${categoryTitle(c)} · ${t.tournaments.categoryStatus.cancelled}`
+              : categoryTitle(c),
           muted: c.status === 'cancelled',
         }))}
         active={category?.id ?? ''}

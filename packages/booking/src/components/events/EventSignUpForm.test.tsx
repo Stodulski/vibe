@@ -7,6 +7,7 @@ import { server } from '../../test/msw/server';
 import { renderBooking } from '../../test/booking';
 import { EVENT } from '../../test/eventFixtures';
 import type { BookingConfig } from '../../config';
+import type { PublicOpenPlayEvent } from '../../api/types';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpForm } from './EventSignUpForm';
 
@@ -163,5 +164,107 @@ describe('EventSignUpForm Turnstile refusal', () => {
     });
     expect(bodies[0]).not.toHaveProperty('turnstile_token');
     expect(screen.queryByTestId('turnstile-widget')).not.toBeInTheDocument();
+  });
+});
+
+/** Canchas abiertas de Caballeros, from 6ta to 8va. */
+const MEN_6_TO_8: PublicOpenPlayEvent = {
+  ...EVENT,
+  id: 'ev1',
+  modality: 'men',
+  level_min: 6,
+  level_max: 8,
+};
+
+describe('EventSignUpForm declarations', () => {
+  beforeEach(resetTurnstile);
+
+  it('titles the event by its characteristics and states its requirement', () => {
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    expect(screen.getByRole('heading', { name: 'Cancha abierta de pádel · Caballeros · 6ta a 8va' })).toBeInTheDocument();
+    expect(screen.getByText('Caballeros · de 6ta a 8va')).toBeInTheDocument();
+  });
+
+  it('asks the gender and the category only for an event with a modality', () => {
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    expect(screen.getAllByRole('radio', { name: 'Caballero' })).toHaveLength(1);
+    expect(screen.getAllByLabelText(/categoría/i)).toHaveLength(1);
+  });
+
+  it('sends the declaration with the sign-up', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+    await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.click(screen.getByRole('radio', { name: 'Caballero' }));
+    await user.selectOptions(screen.getByLabelText(/categoría/i), '7');
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).toMatchObject({ gender: 'men', level: 7 });
+  });
+
+});
+
+describe('EventSignUpForm declarations: refusals', () => {
+  beforeEach(resetTurnstile);
+
+  it('refuses a gender the event does not take before anything is sent', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+    await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.click(screen.getByRole('radio', { name: 'Dama' }));
+    await user.selectOptions(screen.getByLabelText(/categoría/i), '7');
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findByText(BOOKING_MESSAGES.declaration.openPlayMenOnly)).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('refuses a level outside the range before anything is sent', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+    await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.click(screen.getByRole('radio', { name: 'Caballero' }));
+    await user.selectOptions(screen.getByLabelText(/categoría/i), '5');
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findByText('Esta cancha abierta es de 6ta a 8va.')).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
+  });
+
+  it('shows the words of a refusal the server gives with a code', async () => {
+    captureSignUp(422, {
+      type: 'https://vibe.com.ar/problems/validation',
+      title: 'Validation failed',
+      status: 422,
+      errors: [{ field: 'level', message: 'level_out_of_range' }],
+    });
+    const user = userEvent.setup();
+    renderBooking(<EventSignUpForm slug="test-club" event={MEN_6_TO_8} />, { config: BASE_CONFIG });
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+    await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.click(screen.getByRole('radio', { name: 'Caballero' }));
+    await user.selectOptions(screen.getByLabelText(/categoría/i), '8');
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findByText('Esta cancha abierta es de 6ta a 8va.')).toBeInTheDocument();
   });
 });

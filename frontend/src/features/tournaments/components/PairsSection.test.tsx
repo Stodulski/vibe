@@ -44,3 +44,27 @@ describe('PairsSection money line', () => {
     }
   });
 });
+
+describe('PairsSection: declared traits', () => {
+  it('shows each player’s declared gender and category next to their phone', () => {
+    renderPair(
+      makePair({
+        id: 'p1',
+        players: ['Ana Pérez', 'Bea Gómez'],
+        declared: [
+          { gender: 'men', level: 7 },
+          { gender: 'women', level: 6 },
+        ],
+      }),
+    );
+
+    expect(screen.getByText('Caballero · 7ma')).toBeInTheDocument();
+    expect(screen.getByText('Dama · 6ta')).toBeInTheDocument();
+  });
+
+  it('shows nothing extra for a pair that signed up before the traits', () => {
+    renderPair(makePair({ id: 'p1', players: ['Ana Pérez', 'Bea Gómez'] }));
+
+    expect(screen.queryByText(/Caballero|Dama/)).not.toBeInTheDocument();
+  });
+});

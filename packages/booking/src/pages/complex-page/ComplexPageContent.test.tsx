@@ -209,23 +209,23 @@ describe('ComplexPageContent tournament options', () => {
     const tournaments = await tournamentsOption();
     expect(events).toHaveAttribute('aria-pressed', 'false');
     expect(tournaments).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('heading', { name: EVENT.name })).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Cancha abierta de pádel' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: CAT_OPEN.name })).not.toBeInTheDocument();
 
     await user.click(events);
     expect(events).toHaveAttribute('aria-pressed', 'true');
-    expect(await screen.findByRole('heading', { name: EVENT.name })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: 'Cancha abierta de pádel' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: CAT_OPEN.name })).not.toBeInTheDocument();
 
     await user.click(tournaments);
     expect(events).toHaveAttribute('aria-pressed', 'false');
     expect(tournaments).toHaveAttribute('aria-pressed', 'true');
-    expect(await screen.findByRole('heading', { name: SUMMARY.name })).toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: EVENT.name })).not.toBeInTheDocument();
+    expect(await screen.findByRole('heading', { name: CAT_OPEN.name })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Cancha abierta de pádel' })).not.toBeInTheDocument();
 
     await user.click(tournaments);
     expect(tournaments).toHaveAttribute('aria-pressed', 'false');
-    expect(screen.queryByRole('heading', { name: SUMMARY.name })).not.toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: CAT_OPEN.name })).not.toBeInTheDocument();
   });
 
   it('hides a category whose sign-up is closed from the tournament list', async () => {

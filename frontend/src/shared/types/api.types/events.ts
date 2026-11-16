@@ -24,8 +24,9 @@ export type CancelOpenPlayEventResponse = Ok<'eventsCancel'>;
  * {@link Open}: an event in a sport or state this build predates must cost
  * that one card its label, not the whole list.
  */
-export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 'status' | 'courts'> & {
+export type PublicOpenPlayEvent = Omit<Spec<'PublicOpenPlayEvent'>, 'sport' | 'status' | 'courts' | 'modality'> & {
   sport: Open<Spec<'PublicOpenPlayEvent'>['sport']>;
+  modality?: Open<NonNullable<Spec<'PublicOpenPlayEvent'>['modality']>> | null;
   status: Open<Spec<'PublicOpenPlayEvent'>['status']>;
   courts: PublicEventCourt[];
 };

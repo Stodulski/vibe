@@ -11,6 +11,7 @@ import { MoneyPesosField } from '@/shared/components/common/MoneyPesosField';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { centavosToPesos, pesosToCentavos } from '@/shared/lib/money';
+import { categoryTitle } from '@/shared/lib/traitLabels';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import { useSetCourtFee } from '../hooks/useTournamentChanges';
 import { MAX_COURT_FEE } from '../schemas/tournamentForm.schema';
@@ -67,7 +68,7 @@ function CourtFeeBody({ onClose, complexId, tournamentId, category }: Omit<Court
     <>
       <DialogHeader>
         <DialogTitle>{t.courtFee.editTitle}</DialogTitle>
-        <DialogDescription>{t.courtFee.editDescription(category.name)}</DialogDescription>
+        <DialogDescription>{t.courtFee.editDescription(categoryTitle(category))}</DialogDescription>
       </DialogHeader>
       <MoneyPesosField
         id="court-fee"

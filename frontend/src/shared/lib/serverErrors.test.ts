@@ -14,6 +14,12 @@ function httpError(status: number, body: unknown): HTTPError {
 }
 
 describe('translateServerError', () => {
+  it('turns category_duplicate into the same-modality-and-level copy', () => {
+    expect(translateServerError('category_duplicate')).toBe(
+      'Ya hay una categoría con esa modalidad y nivel o suma en este torneo.',
+    );
+  });
+
   // Owner request: these API refusals reached the owner in English.
   it('translates the court delete and blocked client refusals', () => {
     expect(translateServerError('cannot delete court while it has active bookings, cancel them first')).toBe(
