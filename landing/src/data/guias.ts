@@ -57,7 +57,15 @@ const e = ejemplo();
 export type Paso = {
   titulo: string;
   texto: string;
-  imagen: { src: string; alt: string; width: number; height: number };
+  imagen: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+    /** The part of the capture the step talks about, cut at its own size and shown on the
+        page instead of the whole screen; the whole capture stays one tap away. */
+    recorte?: { src: string; width: number; height: number };
+  };
 };
 
 export type Bloque =

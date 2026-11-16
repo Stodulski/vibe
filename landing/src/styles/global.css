@@ -821,12 +821,14 @@ body {
   font-weight: 700; font-size: 1.125rem; line-height: 1.4; color: var(--text); margin-bottom: 10px;
 }
 .tutorial-paso-numero { display: block; color: var(--green); }
-.tutorial-paso-ampliar { display: block; border-radius: 12px; }
+.tutorial-paso-ampliar { display: block; width: fit-content; max-width: 100%; border-radius: 12px; }
 .tutorial-paso-ampliar:focus-visible { outline: 2px solid var(--green); outline-offset: 3px; }
 .tutorial-paso-captura {
   display: block; width: 100%; height: auto; margin-top: 16px;
   border: 1px solid var(--border); border-radius: 12px;
 }
+/* A crop is drawn at its own size or smaller, never stretched past it. */
+.tutorial-paso-captura--recorte { width: auto; max-width: 100%; }
 
 .tutorial-faq { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
 .tutorial-faq-item { width: 100%; }

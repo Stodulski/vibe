@@ -40,7 +40,7 @@ test('the Mercado Pago release period tutorial exists and points at its guide an
 
 test('every step has a title, a text, an alt and a capture whose files exist at the declared size', () => {
   const pasos = pasosDe(getTutorial(SLUG)?.bloques ?? []);
-  assert.equal(pasos.length, 3);
+  assert.equal(pasos.length, 6); // one step per marker in the captures
   for (const p of pasosDe(tutoriales.flatMap(t => t.bloques))) {
     assert.ok(p.titulo.trim() && p.texto.trim() && p.imagen.alt.trim(), p.titulo);
     assert.match(p.imagen.src, /^\/tutoriales\/pasos\/[a-z0-9-]+\/[a-z0-9-]+$/);
@@ -81,6 +81,18 @@ test('no tutorial ships a HowTo (Google retired it) and one without steps has no
   assert.equal(articulo.hasPart, undefined);
 });
 
+test('each step of the Mercado Pago tutorial zooms into its markers with a crop on disk', () => {
+  for (const p of pasosDe(getTutorial(SLUG)!.bloques)) {
+    const r = p.imagen.recorte;
+    assert.ok(r, `step without crop: ${p.titulo}`);
+    assert.equal(r.src.slice(0, r.src.lastIndexOf('/')), p.imagen.src.slice(0, p.imagen.src.lastIndexOf('/')));
+    assert.ok(r.width < p.imagen.width && r.height <= p.imagen.height, 'the crop is smaller than the capture');
+    for (const ext of ['png', 'webp']) {
+      assert.deepEqual(medidas(new URL(`.${r.src}.${ext}`, PUBLIC)), [r.width, r.height], `${r.src}.${ext}`);
+    }
+  }
+});
+
 test('the built page renders each step with its number, title, text and a lazy sized capture', { skip: sinBuild }, () => {
   const html = readFileSync(new URL(`tutoriales/${SLUG}/index.html`, DIST), 'utf8');
   const pasos = pasosDe(getTutorial(SLUG)!.bloques);
@@ -88,12 +100,15 @@ test('the built page renders each step with its number, title, text and a lazy s
   pasos.forEach((p, i) => {
     assert.ok(html.includes(`Paso ${i + 1}`), `Paso ${i + 1}`);
     assert.ok(html.includes(p.titulo), p.titulo);
-    const img = html.match(new RegExp(`<img[^>]*src="${p.imagen.src}\\.png"[^>]*>`))?.[0];
-    assert.ok(img, `missing img for ${p.imagen.src}`);
+    // The page shows the zoomed crop around the step's markers; a tap opens the whole capture.
+    const vista = p.imagen.recorte ?? p.imagen;
+    const img = html.match(new RegExp(`<img[^>]*src="${vista.src}\\.png"[^>]*>`))?.[0];
+    assert.ok(img, `missing img for ${vista.src}`);
     assert.match(img, /loading="lazy"/);
-    assert.match(img, new RegExp(`width="${p.imagen.width}"`));
-    assert.match(img, new RegExp(`height="${p.imagen.height}"`));
-    assert.ok(html.includes(`${p.imagen.src}-960.webp 960w`), 'missing small WebP in srcset');
+    assert.match(img, new RegExp(`width="${vista.width}"`));
+    assert.match(img, new RegExp(`height="${vista.height}"`));
+    assert.ok(html.includes(`href="${p.imagen.src}.webp"`), 'missing link to the whole capture');
+    if (!p.imagen.recorte) assert.ok(html.includes(`${p.imagen.src}-960.webp 960w`), 'missing small WebP in srcset');
   });
 });
 

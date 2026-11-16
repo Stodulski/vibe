@@ -487,45 +487,73 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         tipo: 'pasos',
         heading: 'Paso a paso, en tu cuenta de Mercado Pago',
         intro:
-          'Entrá a Mercado Pago desde la computadora, con la cuenta que conectaste a Vibe. Los números '
-          + 'de cada captura marcan dónde tocar.',
+          'Entrá a Mercado Pago desde la computadora, con la cuenta que conectaste a Vibe. El número '
+          + 'marcado en cada captura es el del paso. Si tocás la captura, ves la pantalla completa.',
         pasos: [
           {
             titulo: 'Entrá a Costos y cuotas',
-            texto: 'En el menú de la izquierda, dentro de Negocio, tocá Costos y cuotas (1).',
+            texto: 'En el menú de la izquierda, dentro de Negocio, tocá Costos y cuotas.',
             imagen: {
               src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/01-costos-y-cuotas',
-              alt: 'Inicio de la cuenta de Mercado Pago en la computadora, con Costos y cuotas marcado '
-                + 'con el número 1 en el menú de la izquierda, dentro de Negocio.',
+              alt: 'Menú de la izquierda de Mercado Pago, sección Negocio, con Costos y cuotas marcado con el número 1.',
               width: 1898,
               height: 862,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-01-costos-y-cuotas', width: 244, height: 292 },
             },
           },
           {
-            titulo: 'Abrí la configuración de Checkout por cobro',
-            texto:
-              'Elegí la pestaña Checkout (2), quedate en Por cobro (3) y tocá Configurar costos por '
-              + 'cobro (4). Arriba de ese botón ves lo que te cobra Mercado Pago con el plazo que tenés hoy.',
+            titulo: 'Elegí la pestaña Checkout',
+            texto: 'Arriba de la pantalla, entre las formas de cobrar, tocá Checkout.',
             imagen: {
               src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/02-checkout-por-cobro',
-              alt: 'Pantalla Costos y cuotas de Mercado Pago con la pestaña Checkout marcada con el número 2, '
-                + 'la opción Por cobro con el 3 y Configurar costos por cobro con el 4.',
+              alt: 'Pestañas de Costos y cuotas en Mercado Pago, con Checkout marcada con el número 2.',
               width: 1907,
               height: 860,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-02-checkout', width: 400, height: 80 },
             },
           },
           {
-            titulo: 'Elegí el plazo y guardá',
-            texto:
-              'En Dinero disponible en, elegí cuándo querés tener la plata de cada cobro (5): al instante '
-              + 'o unos días después. Cada opción muestra su costo. Después tocá Guardar (6).',
+            titulo: 'Quedate en Por cobro',
+            texto: 'Por cobro es la opción que ya viene elegida. Debajo ves lo que te cobra Mercado Pago con el plazo que tenés hoy.',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/02-checkout-por-cobro',
+              alt: 'Opción Por cobro de Checkout, marcada con el número 3, al lado de Por ofrecer cuotas.',
+              width: 1907,
+              height: 860,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-03-por-cobro', width: 400, height: 119 },
+            },
+          },
+          {
+            titulo: 'Tocá Configurar costos por cobro',
+            texto: 'Está al final de la lista de costos de Checkout.',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/02-checkout-por-cobro',
+              alt: 'Botón Configurar costos por cobro, marcado con el número 4, al final de la lista de costos.',
+              width: 1907,
+              height: 860,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-04-configurar-costos', width: 420, height: 98 },
+            },
+          },
+          {
+            titulo: 'Elegí el plazo',
+            texto: 'En Dinero disponible en, elegí cuándo querés tener la plata de cada cobro: al instante o unos días después. Cada opción muestra su costo.',
             imagen: {
               src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/03-elegir-plazo',
-              alt: 'Pantalla Elegí tus plazos de acreditación con Checkout: las opciones de Dinero '
-                + 'disponible en, al instante, 10, 18 y 35 días, marcadas con el número 5, y el botón '
-                + 'Guardar con el 6.',
+              alt: 'Opciones de Dinero disponible en, al instante, 10 y 35 días, marcadas con el número 5.',
               width: 1908,
               height: 859,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-05-plazo', width: 519, height: 315 },
+            },
+          },
+          {
+            titulo: 'Guardá el cambio',
+            texto: 'Tocá Guardar para que quede el plazo que elegiste.',
+            imagen: {
+              src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/03-elegir-plazo',
+              alt: 'Botón Guardar, marcado con el número 6, al lado de Cancelar.',
+              width: 1908,
+              height: 859,
+              recorte: { src: '/tutoriales/pasos/plazo-de-acreditacion-mercado-pago/zoom-06-guardar', width: 334, height: 102 },
             },
           },
         ],
