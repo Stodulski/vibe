@@ -1,4 +1,5 @@
 export const bookings = {
+  clientBlocked: 'Este cliente está bloqueado. Desbloquealo desde Clientes para cargarle una reserva.',
   title: 'Reservas',
   create: 'Nueva reserva',
   edit: 'Editar reserva',

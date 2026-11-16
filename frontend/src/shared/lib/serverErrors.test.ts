@@ -14,6 +14,17 @@ function httpError(status: number, body: unknown): HTTPError {
 }
 
 describe('translateServerError', () => {
+  // Owner request: these API refusals reached the owner in English.
+  it('translates the court delete and blocked client refusals', () => {
+    expect(translateServerError('cannot delete court while it has active bookings, cancel them first')).toBe(
+      ES_AR.courts.deleteHasActiveBookings,
+    );
+    expect(
+      translateServerError('cannot delete court while it has an open-play event (canchas libres), cancel it first'),
+    ).toBe(ES_AR.courts.deleteHasOpenPlay);
+    expect(translateServerError('client is blocked, cannot create booking')).toBe(ES_AR.bookings.clientBlocked);
+  });
+
   it('turns a known code into its Spanish text', () => {
     expect(translateServerError('slug_taken')).toBe(ES_AR.validation.server.slugTaken);
     expect(translateServerError('court_name_taken')).toBe(ES_AR.validation.server.courtNameTaken);
@@ -23,8 +34,8 @@ describe('translateServerError', () => {
   // to codes. Showing an imperfect one beats replacing it with a generic that
   // says less.
   it('passes an unknown value through unchanged', () => {
-    expect(translateServerError('cannot delete court while it has active bookings')).toBe(
-      'cannot delete court while it has active bookings',
+    expect(translateServerError('some message without a translation yet')).toBe(
+      'some message without a translation yet',
     );
   });
 

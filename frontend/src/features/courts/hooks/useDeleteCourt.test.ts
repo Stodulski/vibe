@@ -28,8 +28,18 @@ describe('useDeleteCourt — onError', () => {
     expect(toast.error).toHaveBeenCalledWith(ES_AR.courts.deleteHasFixedBookings);
   });
 
-  it('keeps showing the server message for any other refusal', async () => {
+  it('says in Spanish that active bookings block the delete', async () => {
     await failDeleteWith(409, 'cannot delete court while it has active bookings, cancel them first');
-    expect(toast.error).toHaveBeenCalledWith('cannot delete court while it has active bookings, cancel them first');
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.courts.deleteHasActiveBookings);
+  });
+
+  it('says in Spanish that an open-play event blocks the delete', async () => {
+    await failDeleteWith(409, 'cannot delete court while it has an open-play event (canchas libres), cancel it first');
+    expect(toast.error).toHaveBeenCalledWith(ES_AR.courts.deleteHasOpenPlay);
+  });
+
+  it('keeps showing the server message for any other refusal', async () => {
+    await failDeleteWith(409, 'some other refusal');
+    expect(toast.error).toHaveBeenCalledWith('some other refusal');
   });
 });

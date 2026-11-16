@@ -106,6 +106,8 @@ export const courts = {
   deletedSuccess: 'Cancha eliminada',
   deleteError: 'Error al eliminar la cancha',
   deleteHasFixedBookings: 'Esta cancha tiene turnos fijos activos. Cancelalos antes de eliminarla.',
+  deleteHasActiveBookings: 'Esta cancha tiene reservas activas. Cancelalas antes de eliminarla.',
+  deleteHasOpenPlay: 'Esta cancha tiene una cancha libre publicada. Cancelala antes de eliminarla.',
   pricesUpdated: 'Precios actualizados',
   pricesUpdateError: 'Error al actualizar precios',
   blockError: 'Error al bloquear el horario',
