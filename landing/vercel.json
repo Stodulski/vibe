@@ -226,6 +226,87 @@
       ]
     },
     {
+      "source": "/tutoriales/conectar-mercado-pago",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-conectar-mercado-pago.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/perfil-del-complejo-y-link-publico",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-perfil-del-complejo-y-link-publico.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/agregar-y-editar-canchas",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-agregar-y-editar-canchas.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/bloquear-un-cliente",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-bloquear-un-cliente.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/canchas-libres",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-canchas-libres.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/torneos",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-torneos.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/cancelar-una-reserva-y-devolver",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-cancelar-una-reserva-y-devolver.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/turnos-fijos",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-turnos-fijos.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
+      "source": "/tutoriales/asistencia-de-cada-turno",
+      "headers": [
+        {
+          "key": "Link",
+          "value": "<https://vibe.com.ar/tutoriales-asistencia-de-cada-turno.md>; rel=\"alternate\"; type=\"text/markdown\", <https://vibe.com.ar/llms.txt>; rel=\"describedby\"; type=\"text/plain\""
+        }
+      ]
+    },
+    {
       "source": "/tutoriales/plazo-de-acreditacion-mercado-pago",
       "headers": [
         {

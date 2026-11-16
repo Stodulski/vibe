@@ -77,22 +77,58 @@
       "note": "Abrís la caja con el efectivo del cajón. Al cerrar, cargás lo que contaste y ves si sobra o falta, sin sacar la cuenta a mano."
     },
     {
+      "title": "Cómo agregar y editar canchas en tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/agregar-y-editar-canchas",
+      "md": "https://vibe.com.ar/tutoriales-agregar-y-editar-canchas.md",
+      "note": "Cómo agregar una cancha en Vibe con su nombre, deporte, tipo y descripción, editarla, desactivarla por un tiempo o eliminarla, y dónde cargar sus precios."
+    },
+    {
+      "title": "Asistencia de cada turno en tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/asistencia-de-cada-turno",
+      "md": "https://vibe.com.ar/tutoriales-asistencia-de-cada-turno.md",
+      "note": "Cuando termina un turno marcás si el cliente se presentó o no, y esa marca arma sola las ausencias y la asistencia de cada cliente en Vibe."
+    },
+    {
       "title": "Base de clientes para tu complejo deportivo | Vibe",
       "url": "https://vibe.com.ar/tutoriales/base-de-clientes",
       "md": "https://vibe.com.ar/tutoriales-base-de-clientes.md",
       "note": "Cada persona que reserva queda guardada con su teléfono, su historial y su asistencia. Sin fichas a mano ni planillas: la base se llena sola."
     },
     {
+      "title": "Cómo bloquear a un cliente para que no reserve online | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/bloquear-un-cliente",
+      "md": "https://vibe.com.ar/tutoriales-bloquear-un-cliente.md",
+      "note": "Cómo bloquear a un cliente desde Clientes en Vibe para que no reserve online en tu complejo, qué ve cuando intenta reservar y cómo desbloquearlo."
+    },
+    {
+      "title": "Cancelar una reserva y devolver la seña | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/cancelar-una-reserva-y-devolver",
+      "md": "https://vibe.com.ar/tutoriales-cancelar-una-reserva-y-devolver.md",
+      "note": "Cómo cancelar una reserva desde el panel de Vibe, qué pasa con la seña pagada con Mercado Pago y con lo cobrado a mano, y cuándo cancela el cliente."
+    },
+    {
+      "title": "Canchas libres con inscripción y pago online | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/canchas-libres",
+      "md": "https://vibe.com.ar/tutoriales-canchas-libres.md",
+      "note": "Cómo publicar canchas libres en Vibe: elegís canchas, cupo y precio por persona, los jugadores se anotan y pagan desde tu página, y si cancelás se les devuelve."
+    },
+    {
       "title": "Cómo cobrar una reserva en el mostrador | Vibe",
       "url": "https://vibe.com.ar/tutoriales/cobrar-una-reserva-en-el-mostrador",
       "md": "https://vibe.com.ar/tutoriales-cobrar-una-reserva-en-el-mostrador.md",
-      "note": "Un turno confirmado sin cobrar todavía se cobra igual desde el panel: elegís el método real y queda registrado, sin pasar por MercadoPago."
+      "note": "Un turno con saldo pendiente se cobra igual desde el panel: elegís el método real y queda registrado, sin pasar por Mercado Pago."
+    },
+    {
+      "title": "Cómo conectar Mercado Pago a tu complejo en Vibe | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/conectar-mercado-pago",
+      "md": "https://vibe.com.ar/tutoriales-conectar-mercado-pago.md",
+      "note": "Cómo conectar tu cuenta de Mercado Pago en Vibe para cobrar la seña al reservar, y cómo elegir el porcentaje de seña y las horas para cancelar sin cargo."
     },
     {
       "title": "Cómo configurar horarios y seña de tu complejo | Vibe",
       "url": "https://vibe.com.ar/tutoriales/configuracion-del-complejo",
       "md": "https://vibe.com.ar/tutoriales-configuracion-del-complejo.md",
-      "note": "Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de MercadoPago: todo se define en una sola pantalla."
+      "note": "Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de Mercado Pago: todo se define en una sola pantalla."
     },
     {
       "title": "Grilla de reservas para un complejo deportivo | Vibe",
@@ -111,6 +147,12 @@
       "url": "https://vibe.com.ar/tutoriales/panel-de-control",
       "md": "https://vibe.com.ar/tutoriales-panel-de-control.md",
       "note": "Lo que facturaste hoy, las reservas, la ocupación y el mapa de horas muertas: qué ves apenas entrás al panel de Vibe, con la caja incluida."
+    },
+    {
+      "title": "Cómo armar el perfil de tu complejo y tu link | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/perfil-del-complejo-y-link-publico",
+      "md": "https://vibe.com.ar/tutoriales-perfil-del-complejo-y-link-publico.md",
+      "note": "Cómo cargar la portada, el logo, los datos y los servicios de tu complejo en Vibe, copiar el link de tu página de reservas y qué ven los jugadores."
     },
     {
       "title": "Cómo cambiar el plazo de acreditación de Mercado Pago | Vibe",
@@ -135,6 +177,18 @@
       "url": "https://vibe.com.ar/tutoriales/reportes-de-facturacion",
       "md": "https://vibe.com.ar/tutoriales-reportes-de-facturacion.md",
       "note": "El mes cerrado solo: comparado con el anterior, abierto por método de pago y por cancha, y en Excel para el contador, con la caja incluida."
+    },
+    {
+      "title": "Torneos con inscripción online, zonas y cuadro | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/torneos",
+      "md": "https://vibe.com.ar/tutoriales-torneos.md",
+      "note": "Cómo armar un torneo en Vibe: categorías con cupo y precio por pareja, inscripción y pago desde tu página, sorteo de zonas y cuadro, partidos y resultados."
+    },
+    {
+      "title": "Turnos fijos semanales para tu complejo | Vibe",
+      "url": "https://vibe.com.ar/tutoriales/turnos-fijos",
+      "md": "https://vibe.com.ar/tutoriales-turnos-fijos.md",
+      "note": "Cómo cargar un turno fijo semanal en Vibe, cancelar una sola fecha cuando el cliente no viene y terminar el turno fijo desde la fecha que elijas."
     },
     {
       "title": "Vender productos desde el mostrador | Vibe",
