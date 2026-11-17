@@ -116,6 +116,7 @@ function matchMenuItems(
 }
 
 function MatchRow({
+  number,
   match,
   lookups,
   actions,
@@ -123,6 +124,8 @@ function MatchRow({
   editable,
   locked,
 }: {
+  /** The match's place in the category's playing order, counted from 1. */
+  number: number;
   match: TournamentOwnerMatch;
   lookups: Lookups;
   actions: MatchActions;
@@ -137,6 +140,7 @@ function MatchRow({
   return (
     <li className="border-border-subtle border-b py-3 last:border-b-0">
       <div className="flex min-w-0 items-start gap-2">
+        <span className="text-text-tertiary shrink-0 text-sm font-semibold tabular-nums">{`${String(number)}.`}</span>
         <div className="min-w-0 flex-1 space-y-2">
           <MatchNames
             first={matchSide(match, 1, lookups.pairs, lookups.groupNames)}
@@ -164,6 +168,8 @@ interface Block {
   key: string;
   title: string;
   matches: TournamentOwnerMatch[];
+  /** The number of the block's first match: matches are numbered across the whole category. */
+  firstNumber: number;
 }
 
 /** The matches in the order they are played: each group's matchdays, then the bracket round by round. Byes are left out. */
@@ -182,7 +188,14 @@ function blocksOf(matches: TournamentOwnerMatch[], groupNames: Map<string, strin
     title: roundName(index + 1, bracketRounds(matches).length, round.length),
     matches: round,
   }));
-  return [...groupBlocks, ...bracketBlocks].filter((block) => block.matches.length > 0);
+  let next = 1;
+  return [...groupBlocks, ...bracketBlocks]
+    .filter((block) => block.matches.length > 0)
+    .map((block) => {
+      const firstNumber = next;
+      next += block.matches.length;
+      return { ...block, firstNumber };
+    });
 }
 
 interface MatchesSectionProps extends Lookups {
@@ -204,9 +217,10 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
         <section key={block.key} aria-label={block.title}>
           <h3 className="text-primary-400 mb-1 truncate text-base font-bold">{block.title}</h3>
           <ul>
-            {block.matches.map((match) => (
+            {block.matches.map((match, index) => (
               <MatchRow
                 key={match.id}
+                number={block.firstNumber + index}
                 match={match}
                 lookups={{ pairs, groupNames }}
                 actions={actions}
