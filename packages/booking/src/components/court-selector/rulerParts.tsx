@@ -32,7 +32,7 @@ interface RulerTickProps {
 
 /** One hour on the wheel: a tick and its time under it, placed and sized by its offset. */
 export function RulerTick({ option, offset, half, width, focused, ghost, last, onPick }: RulerTickProps) {
-  const depth = tickDepth(offset, half);
+  const depth = tickDepth(offset, half, width);
   return (
     <button
       type="button"
