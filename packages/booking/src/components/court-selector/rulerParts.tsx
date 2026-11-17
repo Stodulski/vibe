@@ -44,7 +44,8 @@ export function RulerTick({ option, offset, half, width, focused, ghost, last, o
       onClick={onPick}
       style={{
         width,
-        left: half + offset - width / 2,
+        // Placed from the real center (50%), so a stale width can never shift the wheel sideways.
+        left: `calc(50% + ${(offset - width / 2).toFixed(1)}px)`,
         opacity: depth.opacity,
         transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
       }}

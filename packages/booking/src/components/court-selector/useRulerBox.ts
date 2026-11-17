@@ -1,10 +1,13 @@
-import { useEffect, useLayoutEffect, useState, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 
-/** The ruler's width, measured; a stand-in before the first measure and where there is no layout. */
-export function useWidth(ref: RefObject<HTMLDivElement | null>): number {
+/**
+ * The ruler's width, measured whenever the element mounts or resizes; a stand-in before
+ * the first measure and where there is no layout. Returns a callback ref for the element.
+ */
+export function useWidth(): [number, HTMLDivElement | null, (element: HTMLDivElement | null) => void] {
   const [width, setWidth] = useState(360);
+  const [element, setElement] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
-    const element = ref.current;
     if (!element) return;
     const measure = () => {
       if (element.clientWidth > 0) setWidth(element.clientWidth);
@@ -15,18 +18,17 @@ export function useWidth(ref: RefObject<HTMLDivElement | null>): number {
     return () => {
       observer?.disconnect();
     };
-  }, [ref]);
-  return width;
+  }, [element]);
+  return [width, element, setElement];
 }
 
 /** Hands the native wheel event to the picker: React's onWheel is passive and cannot stop the page from scrolling. */
-export function useNativeWheel(ref: RefObject<HTMLDivElement | null>, onWheel: (event: WheelEvent) => void) {
+export function useNativeWheel(element: HTMLDivElement | null, onWheel: (event: WheelEvent) => void) {
   useEffect(() => {
-    const element = ref.current;
     if (!element) return;
     element.addEventListener('wheel', onWheel, { passive: false });
     return () => {
       element.removeEventListener('wheel', onWheel);
     };
-  }, [ref, onWheel]);
+  }, [element, onWheel]);
 }

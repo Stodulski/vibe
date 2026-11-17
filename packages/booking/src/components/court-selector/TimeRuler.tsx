@@ -1,4 +1,3 @@
-import { useRef } from 'react';
 import { Button } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { RulerHint, RulerReadout, RulerTick } from './rulerParts';
@@ -35,13 +34,12 @@ interface TimeRulerProps {
  * never lags behind a fast swipe.
  */
 export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
-  const ref = useRef<HTMLDivElement>(null);
-  const width = useWidth(ref);
+  const [width, element, measureRef] = useWidth();
   const tick = tickWidthFor(width);
   const half = width / 2;
   const count = options.length;
   const wheel = useWheelPicker(Math.max(0, options.findIndex((option) => option.startTime === initialStartTime)), tick);
-  useNativeWheel(ref, wheel.onWheel);
+  useNativeWheel(element, wheel.onWheel);
   const current = options[wrapIndex(wheel.center, Math.max(1, count))];
   if (!current) return null;
 
@@ -58,7 +56,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         <RulerReadout option={current} severalCourts={severalCourts} />
       </div>
       <div
-        ref={ref}
+        ref={measureRef}
         {...wheel.handlers}
         className="relative -mt-20 h-44 cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing"
       >
