@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
@@ -1046,58 +1045,3 @@ func courtWire(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	return out.Court
 }
 
-// Courts no longer have a description, but panels still open on the previous
-// bundle send one on every save. For this release the key is accepted and
-// ignored: same answer as a request without it, and nothing of it stored. A
-// value past the old 200-character cap shows it is not validated either.
-func TestDeprecatedDescriptionIsAcceptedAndIgnored(t *testing.T) {
-	long := strings.Repeat("x", 300)
-
-	t.Run("create", func(t *testing.T) {
-		complexID := uuid.New()
-		create := func(body string) (*stubStore, *httptest.ResponseRecorder) {
-			store := &stubStore{}
-			h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
-			w := httptest.NewRecorder()
-			h.Create(w, ownerRequest(t, http.MethodPost, "/", complexID, nil, body))
-			return store, w
-		}
-		plainStore, plain := create(`{"name":"C1","sport":"tennis","court_type":"outdoor","surface":"clay"}`)
-		for _, desc := range []string{"x", "", long} {
-			body := `{"name":"C1","sport":"tennis","court_type":"outdoor","surface":"clay","description":"` + desc + `"}`
-			store, w := create(body)
-			if w.Code != plain.Code || w.Code != http.StatusCreated {
-				t.Fatalf("description %q: want %d like a create without it; got %d (%s)", desc, plain.Code, w.Code, w.Body.String())
-			}
-			got, want := *store.inserted, *plainStore.inserted
-			got.ID, want.ID = uuid.Nil, uuid.Nil
-			if !reflect.DeepEqual(got, want) {
-				t.Errorf("description %q changed what was stored: %+v, want %+v", desc, got, want)
-			}
-			if g, p := courtWire(t, w), courtWire(t, plain); !reflect.DeepEqual(g, p) {
-				t.Errorf("description %q changed the response: %v, want %v", desc, g, p)
-			}
-		}
-	})
-
-	t.Run("update", func(t *testing.T) {
-		court := func() *courtstore.Court {
-			return &courtstore.Court{ID: uuid.MustParse("0190f0e0-0000-7000-8000-000000000001"),
-				ComplexID: uuid.MustParse("0190f0e0-0000-7000-8000-000000000002"),
-				Name:      "C1", Sport: "tennis", CourtType: "outdoor", Surface: strPtr("clay"), Version: 3}
-		}
-		plainStore, plain := updateWith(t, court(), `{"name":"C2"}`)
-		for _, desc := range []string{"x", "", long} {
-			store, w := updateWith(t, court(), `{"name":"C2","description":"`+desc+`"}`)
-			if w.Code != plain.Code || w.Code != http.StatusOK {
-				t.Fatalf("description %q: want %d like an update without it; got %d (%s)", desc, plain.Code, w.Code, w.Body.String())
-			}
-			if !reflect.DeepEqual(*store.updated, *plainStore.updated) {
-				t.Errorf("description %q changed what was stored: %+v, want %+v", desc, *store.updated, *plainStore.updated)
-			}
-			if g, p := courtWire(t, w), courtWire(t, plain); !reflect.DeepEqual(g, p) {
-				t.Errorf("description %q changed the response: %v, want %v", desc, g, p)
-			}
-		}
-	})
-}

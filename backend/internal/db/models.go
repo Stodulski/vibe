@@ -373,7 +373,6 @@ type ActiveCourt struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Description pgtype.Text        `json:"description"`
 	Version     int32              `json:"version"`
 	HasLighting bool               `json:"has_lighting"`
 	Surface     pgtype.Text        `json:"surface"`
@@ -587,7 +586,6 @@ type Court struct {
 	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
 	CreatedAt   pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Description pgtype.Text        `json:"description"`
 	Version     int32              `json:"version"`
 	HasLighting bool               `json:"has_lighting"`
 	Surface     pgtype.Text        `json:"surface"`
