@@ -71,7 +71,7 @@ function AgendaMeta({
   onViewDetail: () => void;
 }) {
   return (
-    <p className="text-text-secondary flex flex-wrap items-baseline gap-x-3 gap-y-2 text-sm sm:gap-x-0 sm:gap-y-0.5">
+    <p className="text-text-secondary flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm sm:gap-x-0">
       {tokens.map((token, index) => (
         <Fragment key={token.key}>
           {index > 0 && (
@@ -96,7 +96,7 @@ function AgendaMeta({
       <button
         type="button"
         onClick={onViewDetail}
-        className="text-primary-400 hover:text-primary-300 cursor-pointer font-medium whitespace-nowrap underline-offset-4 hover:underline"
+        className="text-primary-400 hover:text-primary-300 -my-2 inline-flex cursor-pointer items-center font-medium whitespace-nowrap underline-offset-4 hover:underline sm:my-0"
       >
         {viewDetailLabel}
       </button>
