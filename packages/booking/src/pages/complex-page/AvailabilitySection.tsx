@@ -1,5 +1,6 @@
 import { SkeletonSlotGrid } from '../../components/SkeletonSlotGrid';
 import { CourtSelector, type SelectedSlot } from '../../components/CourtSelector';
+import { MissingSlotWaitlist } from '../../components/waitlist/MissingSlotWaitlist';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { CourtAvailability } from '../../api/types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';
@@ -84,6 +85,7 @@ export function AvailabilitySection({
           pendingStartTime={pendingStartTime}
           onPendingStartTimeChange={onPendingStartTimeChange}
         />
+        <MissingSlotWaitlist slug={fullDay.slug} date={dateStr} courts={courts} />
       </div>
     );
   }

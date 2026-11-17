@@ -72,7 +72,7 @@ function WaitlistForm({ slug, request, onClose }: { slug: string; request: Waitl
   const id = useId();
   const [email, setEmail] = useState('');
   const [slot, setSlot] = useState('');
-  const [problem, setProblem] = useState<string | null>(null);
+  const [problem, setProblem] = useState<{ field: 'slot' | 'email'; message: string } | null>(null);
   const join = useJoinPlaceWaitlist(slug);
   const { challenge, generation, onTokenChange } = useHoldChallenge();
   const send = useChallengedSubmit<{ target: WaitlistTarget; email: string }>(challenge, (data, token) => {
@@ -86,11 +86,11 @@ function WaitlistForm({ slug, request, onClose }: { slug: string; request: Waitl
     const parsed = emailField.safeParse(email);
     const target = slots ? slots.find((option) => option.value === slot)?.target : request.target;
     if (slots && !target) {
-      setProblem(t.slotRequired);
+      setProblem({ field: 'slot', message: t.slotRequired });
       return;
     }
     if (!parsed.success) {
-      setProblem(t.emailInvalid);
+      setProblem({ field: 'email', message: t.emailInvalid });
       return;
     }
     if (!target) return;
@@ -111,8 +111,8 @@ function WaitlistForm({ slug, request, onClose }: { slug: string; request: Waitl
         <AlertDialogTitle className="text-text-primary text-xl leading-tight font-bold">{request.title}</AlertDialogTitle>
         <AlertDialogDescription className="text-text-secondary text-sm">{request.description}</AlertDialogDescription>
       </div>
-      {slots && <SlotSelect id={`${id}-slot`} slots={slots} value={slot} onChange={setSlot} />}
-      <FormField label={t.emailLabel} htmlFor={`${id}-email`} error={problem ?? (join.isError ? t.error : undefined)}>
+      {slots && <SlotSelect id={`${id}-slot`} slots={slots} value={slot} onChange={setSlot} error={problem?.field === 'slot' ? problem.message : undefined} />}
+      <FormField label={t.emailLabel} htmlFor={`${id}-email`} error={problem?.field === 'email' ? problem.message : join.isError ? t.error : undefined}>
         <Input
           id={`${id}-email`}
           type="email"
@@ -149,14 +149,16 @@ function SlotSelect({
   slots,
   value,
   onChange,
+  error,
 }: {
   id: string;
   slots: readonly WaitlistSlotOption[];
   value: string;
   onChange: (value: string) => void;
+  error: string | undefined;
 }) {
   return (
-    <FormField label={t.slotLabel} htmlFor={id}>
+    <FormField label={t.slotLabel} htmlFor={id} error={error}>
       <Select value={value} onValueChange={onChange}>
         <SelectTrigger id={id} className="h-12 w-full">
           <SelectValue placeholder={t.slotPlaceholder} />

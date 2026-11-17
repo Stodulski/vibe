@@ -12,7 +12,7 @@ export const WAITLIST_MESSAGES = {
   missingSlot: '¿No está el horario que buscás?',
   emailLabel: 'Email',
   emailInvalid: 'Revisá el email',
-  slotRequired: 'Elegí un horario',
+  slotRequired: 'Falta elegir el horario',
   send: 'Enviar',
   sendSlot: 'Avisarme cuando se libere',
   sending: 'Enviando...',
