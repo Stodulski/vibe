@@ -119,12 +119,12 @@ function EventSignUpPage({ slug, eventId, paymentFailed }: { slug: string; event
   const cancelled = event.status === 'cancelled';
   const open = isOpenForSignUp(event) && !started;
   if (open) {
-    // The way back goes to the complex with its canchas abiertas already picked. No "Ver el complejo": this page is the checkout.
+    // The way back goes to the complex. No "Ver el complejo": this page is the checkout.
     return (
       <CheckoutLayout
         currentStep={2}
         steps={OPEN_PLAY_STEPS}
-        back={{ label: t.events.backToOffers, href: `${publicComplexPath(slug)}?offer=events` }}
+        back={{ label: t.events.back, href: publicComplexPath(slug) }}
         summary={<EventSignUpSummary event={event} />}
       >
         <EventSignUpForm slug={slug} event={event} />

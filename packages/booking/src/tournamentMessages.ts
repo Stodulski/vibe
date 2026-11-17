@@ -1,7 +1,5 @@
 /** The copy of the public tournament pages. Part of `BOOKING_MESSAGES.tournaments`. */
 export const TOURNAMENT_MESSAGES = {
-  sectionTitle: 'Torneos',
-  sectionDescription: 'Inscribite en pareja, pagá la inscripción y seguí el cuadro.',
   viewTournament: 'Ver torneo',
   datesSeparator: 'al',
   categoriesLabel: 'Categorías',
@@ -98,13 +96,7 @@ export const TOURNAMENT_MESSAGES = {
   cancelledResultTitle: 'Inscripción cancelada',
   cancelledByYouTitle: 'La inscripción fue cancelada',
   backToTournament: 'Ver el torneo',
-  // The agenda: one row per category open for sign-up with a place left.
-  onlyWithSpots: 'Solo te mostramos categorías con lugar.',
-  filterModality: 'Modalidad',
-  filterDay: 'Día',
-  filterAll: 'Todas',
-  filterAllDays: 'Todos',
-  noAgendaRows: 'No hay categorías con lugar para estos filtros.',
+  // A category's row on the Eventos list: its places and its detail.
   lastSpots: 'Últimos lugares',
   viewDetail: 'Ver detalle',
   signUpCategory: 'Inscribirme',

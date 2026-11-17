@@ -1,15 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { PublicTournamentCategory, PublicTournamentSummary } from '../../api/types';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
-import {
-  agendaRows,
-  categoryWhen,
-  dayChips,
-  dayParts,
-  filterAgenda,
-  formatDetailLabel,
-  spotsNotice,
-} from './agendaModel';
+import { dayChips, dayParts } from '../agenda/agendaModel';
+import { agendaRows, categoryWhen, formatDetailLabel, spotsNotice } from './agendaModel';
 
 const men8: PublicTournamentCategory = {
   ...CAT_OPEN,
@@ -101,39 +94,12 @@ describe('dayChips', () => {
     const rows = agendaRows([summary([men8, women5, mixedSuma])]);
 
     expect(dayChips(rows)).toEqual([
-      { date: '2099-12-05', label: 'Sáb 5' },
-      { date: '2099-12-06', label: 'Dom 6' },
+      { date: '2099-12-05', label: 'Sáb 5 dic' },
+      { date: '2099-12-06', label: 'Dom 6 dic' },
     ]);
   });
 });
 
-describe('filterAgenda', () => {
-  const legacy = agendaRows([summary([CAT_OPEN])])[0];
-  const rows = [...agendaRows([summary([men8, women5, mixedSuma])]), ...(legacy ? [legacy] : [])];
-
-  it('keeps every row for all modalities and all days', () => {
-    expect(filterAgenda(rows, { modality: 'all', day: null })).toHaveLength(4);
-  });
-
-  it('keeps the rows of one modality only', () => {
-    expect(filterAgenda(rows, { modality: 'men', day: null }).map((r) => r.category.id)).toEqual(['c-men8']);
-    expect(filterAgenda(rows, { modality: 'women', day: null }).map((r) => r.category.id)).toEqual(['c-women5']);
-  });
-
-  it('never lists a legacy row under a modality', () => {
-    for (const modality of ['men', 'women', 'mixed'] as const) {
-      expect(filterAgenda(rows, { modality, day: null }).map((r) => r.category.id)).not.toContain(CAT_OPEN.id);
-    }
-  });
-
-  it('keeps the rows of one day', () => {
-    expect(filterAgenda(rows, { modality: 'all', day: '2099-12-06' }).map((r) => r.category.id)).toEqual(['c-men8']);
-  });
-
-  it('combines a modality and a day', () => {
-    expect(filterAgenda(rows, { modality: 'women', day: '2099-12-06' })).toEqual([]);
-  });
-});
 
 describe('spotsNotice', () => {
   it('says how many places are left while there are more than two', () => {

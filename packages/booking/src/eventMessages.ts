@@ -1,11 +1,9 @@
 /** The copy of the open-play events (canchas abiertas) pages. Part of `BOOKING_MESSAGES.events`. */
 export const EVENT_MESSAGES = {
-  sectionTitle: 'Canchas abiertas',
   stepCourt: 'Cancha abierta',
-  backToOffers: 'Volver',
+  back: 'Volver',
   /** The ticket counts the courts of an entry beyond two instead of naming them. */
   courtsCount: (count: number) => `${String(count)} canchas`,
-  sectionDescription: 'Eventos con cupo limitado. Te inscribís, pagás tu lugar y jugás.',
   pickerTitle: 'Eventos',
   signUp: 'Inscribirme',
   perPerson: 'por persona',
@@ -62,4 +60,17 @@ export const EVENT_MESSAGES = {
   refundWindowPassed: 'Ya no podés cancelar con devolución.',
   cancelledResultTitle: 'Lugar cancelado',
   refreshStatus: 'Actualizar',
+  // The Eventos list: one row per event open for sign-up with a place left, of either kind.
+  onlyWithSpots: 'Solo te mostramos eventos con lugar.',
+  filterModality: 'Modalidad',
+  filterDay: 'Día',
+  filterAll: 'Todas',
+  filterAllDays: 'Todos',
+  noAgendaRows: 'No hay eventos con lugar para estos filtros.',
+  lastSpots: 'Últimos lugares',
+  viewDetail: 'Ver detalle',
+  closeDetail: 'Cerrar',
+  openToAll: 'Abierta a todos',
+  detailPriceLabel: 'Precio',
+  detailRequirementLabel: 'Quién puede jugar',
 } as const;

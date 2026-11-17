@@ -1,5 +1,5 @@
 import { TicketCourt } from '../ticket/TicketParts';
-import { BOOKING_MESSAGES } from '../../messages';
+import { courtNamesLine, MAX_NAMED_COURTS } from '../../lib/courtNames';
 
 export interface TicketCourtRow {
   id: string;
@@ -15,9 +15,6 @@ export interface TicketCourtRow {
  * a booking's. One or two courts are named; more are counted ("6 canchas"). Nothing when
  * there are none.
  */
-/** Beyond this many courts the ticket counts them instead of naming each one. */
-const MAX_NAMED_COURTS = 2;
-
 export function TicketCourtList({
   courts,
   label,
@@ -28,10 +25,7 @@ export function TicketCourtList({
   bare?: boolean;
 }) {
   if (courts.length === 0) return null;
-  const names =
-    courts.length <= MAX_NAMED_COURTS
-      ? courts.map((court) => court.name).join(', ')
-      : BOOKING_MESSAGES.events.courtsCount(courts.length);
+  const names = courtNamesLine(courts.map((court) => court.name));
   const tags = [...new Set(courts.flatMap((court) => court.tags))];
   return (
     <div>

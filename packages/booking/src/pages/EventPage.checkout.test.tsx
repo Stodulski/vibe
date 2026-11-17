@@ -29,14 +29,11 @@ describe('EventPage checkout', () => {
     expect(steps.querySelector('[aria-current="step"]')).toHaveTextContent(t.publicBooking.stepData);
   });
 
-  it('links back to the complex with the open play option already picked, and offers no "Ver el complejo"', async () => {
+  it('links back to the complex, and offers no "Ver el complejo"', async () => {
     serveEvent();
     open();
 
-    expect(await screen.findByRole('link', { name: t.events.backToOffers })).toHaveAttribute(
-      'href',
-      '/c/test-club?offer=events',
-    );
+    expect(await screen.findByRole('link', { name: t.events.back })).toHaveAttribute('href', '/c/test-club');
     expect(screen.queryByRole('link', { name: t.events.backToComplex })).not.toBeInTheDocument();
   });
 

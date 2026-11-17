@@ -1,6 +1,7 @@
 import { formatDateFull } from '@vibe/ui';
 import { keepTogether } from '../../lib/keepTogether';
 import { BOOKING_MESSAGES } from '../../messages';
+import { SHORT_MONTHS } from '../agenda/agendaModel';
 import type {
   PublicTournament,
   PublicTournamentCategory,
@@ -228,8 +229,6 @@ export function qualifiersNote(count: number): string {
 function capitalize(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
 }
-
-export const SHORT_MONTHS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
 
 /** The day number and short month of a `YYYY-MM-DD`, read from the string so no time zone can move it. */
 function shortDay(day: string): { number: string; month: string } {

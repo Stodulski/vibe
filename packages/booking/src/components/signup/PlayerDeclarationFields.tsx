@@ -2,14 +2,12 @@ import { get, type FieldErrors, type FieldValues, type Path, type UseFormRegiste
 import { FieldRequirement, FormField } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { declarationWords, levelLabel } from '../../lib/traitLabels';
+import { SELECT_CLASS } from '../selectStyles';
 
 const d = BOOKING_MESSAGES.declaration;
 
 /** The levels a person can declare: 1ra (1) to 9na (9). */
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
-
-const SELECT_CLASS =
-  'border-border-interactive bg-bg-base text-text-primary hover:border-border-interactive-hover hover:bg-bg-elevated focus-visible:border-primary-500/60 focus-visible:ring-primary-500/15 aria-invalid:border-error-border aria-invalid:bg-error-bg/30 h-12 w-full min-w-0 rounded-xl border px-3.5 text-base outline-none focus-visible:ring-[3px]';
 
 interface GenderChoiceProps<T extends FieldValues> {
   register: UseFormRegister<T>;

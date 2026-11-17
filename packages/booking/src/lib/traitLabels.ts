@@ -113,6 +113,11 @@ export function categoryTitle(
   return category.name;
 }
 
+/** The small label above an open-play event's title: "Cancha abierta de pádel". */
+export function openPlayLabel(sport: string): string {
+  return `Cancha abierta de ${sportNoun(sport)}`;
+}
+
 /**
  * An open-play event's title, which replaces its stored name everywhere:
  * "Cancha abierta de pádel", then its modality and level range when it has them,
@@ -124,9 +129,26 @@ export function openPlayTitle(
 ): string {
   const modality = isModality(event.modality) ? event.modality : null;
   if (modality && !hasLevels(event.sport)) return modalityLabel(modality, event.sport);
-  const parts = [`Cancha abierta de ${sportNoun(event.sport)}`];
+  const parts = [openPlayLabel(event.sport)];
   if (modality) parts.push(modalityLabel(modality, event.sport));
   const { level_min: min, level_max: max } = event;
   if (typeof min === 'number' && typeof max === 'number') parts.push(levelRangeLabel(min, max));
   return parts.join(' · ');
+}
+
+/**
+ * Who an open-play event is for, the title of its agenda row: "Damas · 6ta a 8va",
+ * "Caballeros · solo 4ta", "Femenino" for a sport without levels, or "Abierta a
+ * todos" when it names neither a modality nor a level.
+ */
+export function openPlayAudience(
+  event: Pick<PublicOpenPlayEvent, 'sport' | 'modality' | 'level_min' | 'level_max'>,
+): string {
+  const modality = isModality(event.modality) ? event.modality : null;
+  if (modality && !hasLevels(event.sport)) return modalityLabel(modality, event.sport);
+  const parts: string[] = [];
+  if (modality) parts.push(modalityLabel(modality, event.sport));
+  const { level_min: min, level_max: max } = event;
+  if (typeof min === 'number' && typeof max === 'number') parts.push(levelRangeLabel(min, max));
+  return parts.length > 0 ? parts.join(' · ') : BOOKING_MESSAGES.events.openToAll;
 }

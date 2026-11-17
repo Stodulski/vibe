@@ -1,6 +1,43 @@
 import { describe, expect, it } from 'vitest';
 import { CAT_OPEN } from '../test/tournamentFixtures';
-import { categoryTitle, declarationWords, levelLabel, modalityLabel, openPlayTitle, tournamentLabel } from './traitLabels';
+import {
+  categoryTitle,
+  declarationWords,
+  levelLabel,
+  modalityLabel,
+  openPlayAudience,
+  openPlayLabel,
+  openPlayTitle,
+  tournamentLabel,
+} from './traitLabels';
+
+describe('openPlayLabel', () => {
+  it('names the open play of a sport in its own noun', () => {
+    expect(openPlayLabel('padel')).toBe('Cancha abierta de pádel');
+    expect(openPlayLabel('soccer')).toBe('Cancha abierta de fútbol');
+  });
+});
+
+describe('openPlayAudience', () => {
+  it('names the modality and the level range of pádel', () => {
+    expect(openPlayAudience({ sport: 'padel', modality: 'women', level_min: 6, level_max: 8 })).toBe('Damas · 6ta a 8va');
+  });
+
+  it('names a single level as solo', () => {
+    expect(openPlayAudience({ sport: 'padel', modality: 'men', level_min: 4, level_max: 4 })).toBe(
+      'Caballeros · solo 4ta',
+    );
+  });
+
+  it('names a sport without levels by its modality alone', () => {
+    expect(openPlayAudience({ sport: 'soccer', modality: 'women' })).toBe('Femenino');
+  });
+
+  it('is open to everyone when the event has no modality', () => {
+    expect(openPlayAudience({ sport: 'padel' })).toBe('Abierta a todos');
+    expect(openPlayAudience({ sport: 'tennis', modality: null })).toBe('Abierta a todos');
+  });
+});
 
 describe('levelLabel', () => {
   it('names the nine levels from 1ra to 9na', () => {
