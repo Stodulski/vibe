@@ -90,6 +90,20 @@ function refundedLine(pair: TournamentOwnerPair): string | null {
   return refund > 0 ? t.refundedAmount(formatPrice(refund)) : null;
 }
 
+/** A phone lists the players one under the other; a wider screen joins them with a slash. */
+function PairNames({ pair }: { pair: TournamentOwnerPair }) {
+  return (
+    <p className="text-text-primary text-sm font-medium" title={pairFullName(pair)}>
+      {pair.players.map((player, index) => (
+        <span key={`${player.first_name}-${player.last_name}-${String(index)}`} className="block truncate sm:inline">
+          {index > 0 && <span className="hidden sm:inline"> / </span>}
+          {player.first_name} {player.last_name}
+        </span>
+      ))}
+    </p>
+  );
+}
+
 function PairRow({
   pair,
   price,
@@ -114,16 +128,13 @@ function PairRow({
     refundedLine(pair),
   ].filter((detail): detail is string => !!detail);
 
-  const fullName = pairFullName(pair);
   const detailLine = details.join(' · ');
 
-  // Flat on every width: a phone stacks the names over the actions, a wider screen puts them side by side.
+  // Flat on every width: the names on the left, the contact and any badge on the right, on one row.
   return (
-    <li className="border-border-subtle flex flex-col gap-2 border-b py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-      <div className="min-w-0 space-y-0.5 sm:flex-1">
-        <p className="text-text-primary truncate text-sm font-medium" title={fullName}>
-          {fullName}
-        </p>
+    <li className="border-border-subtle flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
+      <div className="min-w-0 flex-1 space-y-0.5">
+        <PairNames pair={pair} />
         {details.length > 0 && (
           <p className="text-text-tertiary truncate text-xs" title={detailLine}>
             {detailLine}
