@@ -43,9 +43,14 @@ describe('EventCard', () => {
     expect(screen.getByText(t.cancelledBadge)).toHaveClass('text-error-text');
   });
 
-  it('labels the card as a cancha abierta, so it reads apart from a tournament in the one list', () => {
+  it('labels the card as a cancha abierta of its sport, so it reads apart from a tournament in the one list', () => {
     render(<EventCard event={EVENT} onSelect={vi.fn()} />);
-    expect(screen.getByText(t.kindLabel.openPlay)).toBeInTheDocument();
+    expect(screen.getByText(t.openPlayTitle('pádel'))).toBeInTheDocument();
+  });
+
+  it('titles the card with who can play, and says it is open to everyone without a modality', () => {
+    render(<EventCard event={{ ...EVENT, modality: null, level_min: null, level_max: null }} onSelect={vi.fn()} />);
+    expect(screen.getByText(t.openToEveryone)).toBeInTheDocument();
   });
 
   it('capitalises the weekday on a block of its own, not on an inline span', () => {

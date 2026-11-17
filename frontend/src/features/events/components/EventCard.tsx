@@ -1,6 +1,6 @@
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { openPlayTitle } from '@/shared/lib/traitLabels';
+import { openPlayAudience, openPlayKind } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { EVENT_CARD_BOTTOM_ROW_CLASS, EVENT_CARD_CLASS, EVENT_CARD_TOP_ROW_CLASS } from '../lib/eventLayout';
@@ -31,15 +31,15 @@ export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect:
       }}
       className={cn(EVENT_CARD_CLASS, 'focus-self hover:border-border-default cursor-pointer transition-colors')}
     >
-      <p className="text-text-tertiary text-xs font-medium">{t.kindLabel.openPlay}</p>
+      <p className="text-text-tertiary text-xs font-medium">{openPlayKind(event)}</p>
       <div className={EVENT_CARD_TOP_ROW_CLASS}>
-        <p className="text-text-primary min-w-0 truncate text-base font-semibold">{openPlayTitle(event)}</p>
+        <p className="text-text-primary min-w-0 truncate text-base font-semibold">{openPlayAudience(event)}</p>
         <EventStateText event={event} />
       </div>
       <p className="text-text-secondary text-sm">
         <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
         {' · '}
-        <span className="score-text">{formatEventTimeRange(event.start_time, event.end_time)}</span>
+        <span className="score-text whitespace-nowrap">{formatEventTimeRange(event.start_time, event.end_time)}</span>
       </p>
       <p className="text-text-tertiary truncate text-xs" title={courtNames}>
         {t.courtsCount(event.courts.length)} · {courtNames}

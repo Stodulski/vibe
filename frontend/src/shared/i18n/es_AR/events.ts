@@ -9,11 +9,12 @@ export const events = {
   noUpcomingDescription: 'Creá una cancha abierta o un torneo para que la gente se anote online.',
   noPast: 'No hay eventos pasados',
   // The type badge on each card of the one list (torneos use the same words).
-  kindLabel: { openPlay: 'Cancha abierta', tournament: 'Torneo' },
   // Canchas abiertas are named from their characteristics, never a typed name (S10, S14).
   openPlayTitle: (sport: string) => `Cancha abierta de ${sport}`,
   levelRange: (from: string, to: string) => `${from} a ${to}`,
   levelSolo: (level: string) => `solo ${level}`,
+  /** The audience of an open play with no modality and no range. */
+  openToEveryone: 'Abierta a todos',
   // The dialog Crear evento opens first: which kind to create.
   typePicker: {
     title: '¿Qué querés crear?',

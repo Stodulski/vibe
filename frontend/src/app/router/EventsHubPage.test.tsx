@@ -89,10 +89,8 @@ describe('EventsHubPage: one list for both kinds', () => {
     const [first, second] = within(list).getAllByRole('listitem');
     if (!first || !second) throw new Error('expected two list items');
     expect(first).toHaveTextContent('Torneo de pádel');
-    expect(first).toHaveTextContent(t.kindLabel.tournament);
     expect(within(first).getByRole('link')).toHaveAttribute('href', '/events/tournaments/t1');
     expect(second).toHaveTextContent('Cancha abierta de pádel');
-    expect(second).toHaveTextContent(t.kindLabel.openPlay);
   });
 
   it('has no Canchas abiertas or Torneos tabs', async () => {
@@ -159,8 +157,8 @@ describe('EventsHubPage: Pasados', () => {
     await user.click(screen.getByRole('button', { name: t.past }));
 
     const items = await screen.findAllByRole('listitem');
-    expect(items[0]).toHaveTextContent('Cancha abierta de pádel · Damas');
-    expect(items[1]).toHaveTextContent('Cancha abierta de pádel · Caballeros');
+    expect(items[0]).toHaveTextContent('Cancha abierta de pádelDamas');
+    expect(items[1]).toHaveTextContent('Cancha abierta de pádelCaballeros');
     const events = pastEventsRange(todayInArgentina());
     expect(eventsApi.list).toHaveBeenCalledWith('c1', events.from, events.to, expect.anything());
     const tournaments = pastTournamentsRange(todayInArgentina());

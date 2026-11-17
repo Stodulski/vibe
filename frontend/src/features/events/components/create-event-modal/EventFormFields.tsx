@@ -183,7 +183,7 @@ function LevelsField({ form }: { form: Form }) {
           />
         </div>
       )}
-      <p className="text-text-tertiary text-xs">{t.events.form.levelsHint}</p>
+      {!allLevels && <p className="text-text-tertiary text-xs">{t.events.form.levelsHint}</p>}
     </fieldset>
   );
 }

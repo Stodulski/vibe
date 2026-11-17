@@ -85,15 +85,26 @@ export interface OpenPlayTraits {
  * single level. Another sport's open play has its modality and no range. An event
  * created before the traits has only the sport.
  */
-export function openPlayTitle(event: OpenPlayTraits): string {
-  const parts = [e.openPlayTitle(sportTitleLabel(event.sport))];
+/** What an open play is and where: "Cancha abierta de pádel". */
+export function openPlayKind(event: Pick<OpenPlayTraits, 'sport'>): string {
+  return e.openPlayTitle(sportTitleLabel(event.sport));
+}
+
+/** Who an open play is for: "Damas · 6ta a 8va", "Masculino", or "Abierta a todos". */
+export function openPlayAudience(event: OpenPlayTraits): string {
+  const parts: string[] = [];
   if (event.modality) parts.push(modalityLabel(event.modality, event.sport));
   if (event.level_min != null && event.level_max != null) {
     const from = levelLabel(event.level_min);
     const to = levelLabel(event.level_max);
     parts.push(event.level_min === event.level_max ? e.levelSolo(from) : e.levelRange(from, to));
   }
-  return parts.join(' · ');
+  return parts.length > 0 ? parts.join(' · ') : e.openToEveryone;
+}
+
+export function openPlayTitle(event: OpenPlayTraits): string {
+  const audience = openPlayAudience(event);
+  return audience === e.openToEveryone ? openPlayKind(event) : `${openPlayKind(event)} · ${audience}`;
 }
 
 /** "Torneo de pádel". The dates sit beside the title, not inside it. */
