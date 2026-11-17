@@ -19,6 +19,15 @@ export function formatEventWhen(date: string, start: string, end: string): strin
   return `${formatEventDay(date)} · ${formatEventTimeRange(start, end)}`;
 }
 
+/**
+ * The day in figures for a phone line where the long date would wrap: "Dom 22/11".
+ * Read from the `YYYY-MM-DD` string, like `eventDayParts`, so no time zone can move it.
+ */
+export function formatEventDayShort(date: string): string {
+  const [, month = '01', day = '01'] = date.split('-');
+  return `${eventDayParts(date).weekday} ${day}/${month}`;
+}
+
 export interface EventDayParts {
   /** "Mié" */
   weekday: string;

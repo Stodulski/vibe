@@ -9,7 +9,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { tournamentDays } from '../lib/tournamentView';
+import { tournamentDays, tournamentDaysShort } from '../lib/tournamentView';
 import { CancelTournamentDialog } from './CancelDialogs';
 import type { Tournament } from '@/shared/types/api.types';
 
@@ -33,16 +33,19 @@ interface TournamentHeaderProps {
 export function TournamentHeader({ title, tournament, complexId, paidCount, canCancel }: TournamentHeaderProps) {
   usePageHeading(title);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const days = tournamentDays(tournament.start_date, tournament.end_date);
+  const daysShort = tournamentDaysShort(tournament.start_date, tournament.end_date);
 
   return (
     <>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
-          <h1 className="font-display text-text-primary text-xl leading-tight font-semibold sm:text-2xl md:hidden">
+          <h1 className="font-display text-text-primary truncate text-xl leading-tight font-semibold sm:text-2xl md:hidden">
             {title}
           </h1>
-          <p className="text-text-tertiary block text-sm first-letter:uppercase">
-            {tournamentDays(tournament.start_date, tournament.end_date)}
+          <p className="text-text-tertiary block truncate text-sm first-letter:uppercase" title={days}>
+            <span className="sm:hidden">{daysShort}</span>
+            <span className="hidden sm:inline">{days}</span>
           </p>
         </div>
         {canCancel && (
@@ -66,9 +69,11 @@ export function TournamentHeader({ title, tournament, complexId, paidCount, canC
         )}
       </div>
       {tournament.status === 'cancelled' && (
-        <div className="text-error-text flex flex-col gap-0.5 text-sm">
-          <p>{t.detail.cancelledNote}</p>
-          <p>{ES_AR.events.detail.cancelledFreeCourts}</p>
+        <div className="text-error-text flex min-w-0 flex-col gap-0.5 text-sm">
+          <p className="truncate">{t.detail.cancelledNote}</p>
+          <p className="truncate" title={ES_AR.events.detail.cancelledFreeCourts}>
+            {ES_AR.events.detail.cancelledFreeCourts}
+          </p>
         </div>
       )}
       <CancelTournamentDialog

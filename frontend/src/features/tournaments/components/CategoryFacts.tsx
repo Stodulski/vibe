@@ -9,10 +9,28 @@ import type { TournamentOwnerCategory } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
 
+/** Joins the facts that are there: a fact with no value (no start date yet) is left out. */
+function factsLine(facts: (string | null)[]): string {
+  return facts.filter((fact): fact is string => !!fact).join(' · ');
+}
+
+/** The rules behind "Ver reglas", one line each: zones, sets and games, the court fee and what it has collected. */
+function categoryRules(category: TournamentOwnerCategory, courtFee: CourtFeeSummary): string[] {
+  return [
+    category.format === 'groups' ? t.detail.groupsSetup(category.group_size, category.qualifiers_per_group) : null,
+    t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider),
+    category.court_fee > 0 ? t.courtFee.line(formatPrice(category.court_fee)) : null,
+    courtFee.collected > 0 || courtFee.pending > 0
+      ? t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))
+      : null,
+  ].filter((rule): rule is string => !!rule);
+}
+
 /**
  * The category in one line of key facts: pairs taken, price per pair, format and
- * start. The rules (zones, sets and games, court fee) wait behind "Ver reglas",
- * closed until the owner asks for them.
+ * start. A phone drops "por pareja" from the price to keep the line on one row.
+ * The rules (zones, sets and games, court fee) wait behind "Ver reglas", closed
+ * until the owner asks for them.
  */
 export function CategoryFacts({
   category,
@@ -23,17 +41,25 @@ export function CategoryFacts({
 }) {
   const [rulesOpen, setRulesOpen] = useState(false);
   const rulesId = useId();
-  const facts = [
-    t.detail.pairsRatio(category.confirmed_count, category.capacity),
-    t.pricePerPair(formatPrice(category.price)),
-    t.format[category.format],
-    categoryStartLabel(category.starts_on, category.starts_at),
-  ].filter((fact): fact is string => !!fact);
+  const pairs = t.detail.pairsRatio(category.confirmed_count, category.capacity);
+  const price = formatPrice(category.price);
+  const format = t.format[category.format];
+  const start = categoryStartLabel(category.starts_on, category.starts_at);
+  const summaryFull = factsLine([pairs, t.pricePerPair(price), format, start]);
+  const summaryShort = factsLine([pairs, price, format, start]);
+  const rules = categoryRules(category, courtFee);
 
   return (
     <div className="min-w-0 flex-1 space-y-2">
-      <p className="text-text-secondary text-sm">{facts.join(' · ')}</p>
-      {category.prizes && <p className="text-text-tertiary text-xs">{category.prizes}</p>}
+      <p className="text-text-secondary truncate text-sm" title={summaryFull}>
+        <span className="sm:hidden">{summaryShort}</span>
+        <span className="hidden sm:inline">{summaryFull}</span>
+      </p>
+      {category.prizes && (
+        <p className="text-text-tertiary truncate text-xs" title={category.prizes}>
+          {category.prizes}
+        </p>
+      )}
       <Button
         type="button"
         variant="ghost"
@@ -52,17 +78,12 @@ export function CategoryFacts({
         />
       </Button>
       {rulesOpen && (
-        <div id={rulesId} className="text-text-secondary space-y-1 text-sm">
-          {category.format === 'groups' && (
-            <p>{t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}</p>
-          )}
-          <p>{t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider)}</p>
-          {category.court_fee > 0 && <p className="tabular-nums">{t.courtFee.line(formatPrice(category.court_fee))}</p>}
-          {(courtFee.collected > 0 || courtFee.pending > 0) && (
-            <p className="tabular-nums">
-              {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
+        <div id={rulesId} className="text-text-secondary min-w-0 space-y-1 text-sm">
+          {rules.map((rule) => (
+            <p key={rule} className="truncate" title={rule}>
+              {rule}
             </p>
-          )}
+          ))}
         </div>
       )}
     </div>

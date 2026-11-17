@@ -13,6 +13,7 @@ import {
   scoreText,
   slotLabel,
   tournamentDays,
+  tournamentDaysShort,
 } from './tournamentView';
 
 const t = ES_AR.tournaments;
@@ -121,6 +122,13 @@ describe('resultText', () => {
   it('says nothing for a match that is not played yet or a bye', () => {
     expect(resultText(makeMatch({ id: 'm', pair1Id: 'p1', pair2Id: 'p2' }), pairs)).toBe('');
     expect(resultText(makeMatch({ ...played, bye: true }), pairs)).toBe('');
+  });
+});
+
+describe('tournamentDaysShort', () => {
+  it('writes the days in figures for a phone line', () => {
+    expect(tournamentDaysShort('2026-11-22', '2026-11-23')).toBe('Dom 22/11 al Lun 23/11');
+    expect(tournamentDaysShort('2026-11-22', '2026-11-22')).toBe('Dom 22/11');
   });
 });
 

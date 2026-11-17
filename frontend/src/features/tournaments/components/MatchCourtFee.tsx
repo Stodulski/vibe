@@ -8,8 +8,8 @@ import type { TournamentCourtFee, TournamentOwnerMatch, TournamentOwnerPair } fr
 
 const t = ES_AR.tournaments.courtFee;
 
-/** Charging and undoing are the same kind of action on the same row: one look for both. */
-const FEE_BUTTON = 'rounded-lg';
+/** Charging and undoing are the same kind of action on the same row: one look for both. Labels never break. */
+const FEE_BUTTON = 'rounded-lg whitespace-nowrap';
 
 export interface CourtFeeActions {
   onCharge: (target: CourtFeeTarget) => void;
@@ -32,6 +32,46 @@ function methodLabel(method: string): string {
   return known ? ES_AR.bookings.paymentMethods[known] : method;
 }
 
+/** A pair that paid: the amount, the method it paid with, and the undo while the match can still change. */
+function PaidFee({
+  name,
+  side,
+  target,
+  actions,
+  editable,
+}: {
+  name: string;
+  side: TournamentCourtFee;
+  target: CourtFeeTarget;
+  actions: CourtFeeActions;
+  editable: boolean;
+}) {
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <span className="text-text-primary font-medium whitespace-nowrap">{t.paid(formatPrice(side.amount))}</span>
+      {side.method && (
+        <span className="text-text-tertiary min-w-0 truncate text-xs" title={methodLabel(side.method)}>
+          {methodLabel(side.method)}
+        </span>
+      )}
+      {editable && (
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={FEE_BUTTON}
+          aria-label={t.undoAria(name)}
+          onClick={() => {
+            actions.onUndo(target);
+          }}
+        >
+          {t.undo}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 function FeeRow({
   name,
   side,
@@ -47,27 +87,12 @@ function FeeRow({
 }) {
   const target = { matchId: match.id, side: side.side };
   return (
-    <li className="grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] items-center gap-x-3 gap-y-1 text-sm">
-      <span className="text-text-secondary min-w-0 break-words">{name}</span>
+    <li className="flex flex-col gap-1 text-sm sm:grid sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:items-center sm:gap-x-3">
+      <span className="text-text-secondary min-w-0 truncate" title={name}>
+        {name}
+      </span>
       {side.charged ? (
-        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <span className="text-text-primary font-medium">{t.paid(formatPrice(side.amount))}</span>
-          {side.method && <span className="text-text-tertiary text-xs">{methodLabel(side.method)}</span>}
-          {editable && (
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className={FEE_BUTTON}
-              aria-label={t.undoAria(name)}
-              onClick={() => {
-                actions.onUndo(target);
-              }}
-            >
-              {t.undo}
-            </Button>
-          )}
-        </div>
+        <PaidFee name={name} side={side} target={target} actions={actions} editable={editable} />
       ) : (
         editable && (
           <div>
@@ -100,7 +125,11 @@ export function MatchCourtFee({ match, fee, pairs, groupNames, actions, editable
   if (fee <= 0 && rows.length === 0) return null;
   return (
     <div className="space-y-1.5">
-      {fee > 0 && <p className="text-text-secondary text-xs">{t.line(formatPrice(fee))}</p>}
+      {fee > 0 && (
+        <p className="text-text-secondary truncate text-xs" title={t.line(formatPrice(fee))}>
+          {t.line(formatPrice(fee))}
+        </p>
+      )}
       {rows.length > 0 && (
         <ul className="space-y-1">
           {rows.map((side) => (

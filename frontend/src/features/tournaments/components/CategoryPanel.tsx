@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { MoreHorizontal } from 'lucide-react';
-import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
@@ -77,8 +76,9 @@ function CategoryMenu({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFe
 
 /**
  * One category: its summary line with its menu, the section switch, the draw
- * while it can still be made, and the chosen section inside its own card. A
- * drawn category opens on its matches, one before the draw on its pairs.
+ * while it can still be made, and the chosen section flat on the page, without a
+ * card at any width. A drawn category opens on its matches, one before the draw
+ * on its pairs.
  */
 export function CategoryPanel({ detail, category, complexId, live }: CategoryPanelProps) {
   const view = categoryView(detail, category.id);
@@ -110,7 +110,7 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           view={view}
         />
       )}
-      <Panel size="md" mobile="card" className="min-w-0">
+      <div className="min-w-0">
         <CategorySection
           section={section}
           category={category}
@@ -119,7 +119,7 @@ export function CategoryPanel({ detail, category, complexId, live }: CategoryPan
           dialogs={dialogs}
           onUnschedule={unschedule.mutate}
         />
-      </Panel>
+      </div>
       <CategoryDialogsHost
         complexId={complexId}
         tournament={detail.tournament}

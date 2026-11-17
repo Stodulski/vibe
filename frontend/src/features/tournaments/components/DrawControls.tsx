@@ -1,6 +1,5 @@
 import { useState } from 'react';
 import { ConfirmDialog } from '@/shared/components/common/ConfirmDialog';
-import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useGenerateDraw } from '../hooks/useTournamentChanges';
@@ -57,7 +56,7 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
 
   return (
     <>
-      <Panel size="md" mobile="card" className="space-y-4">
+      <div className="border-border-subtle space-y-4 border-b pb-4">
         <div className="space-y-1">
           <h3 className="text-text-primary text-sm font-semibold">{t.title}</h3>
           <p className="text-text-tertiary text-xs">{drawHint(category, drawn)}</p>
@@ -86,7 +85,7 @@ export function DrawControls({ complexId, tournamentId, category, drawn, view }:
             if (!reason) setConfirmOpen(true);
           }}
         />
-      </Panel>
+      </div>
       <DrawConfirm
         open={confirmOpen}
         drawn={drawn}

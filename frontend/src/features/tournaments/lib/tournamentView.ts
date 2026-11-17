@@ -1,5 +1,5 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { formatEventDay } from '@/shared/lib/eventDates';
+import { formatEventDay, formatEventDayShort } from '@/shared/lib/eventDates';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
@@ -138,4 +138,9 @@ export function tournamentDays(start: string, end: string): string {
   }
   if (start.slice(0, 7) === end.slice(0, 7)) return t.days(first.split(' de ')[0] ?? first, last);
   return t.days(first, last);
+}
+
+/** The same days on a phone line: "Dom 22/11 al Lun 23/11". */
+export function tournamentDaysShort(start: string, end: string): string {
+  return t.days(formatEventDayShort(start), formatEventDayShort(end));
 }

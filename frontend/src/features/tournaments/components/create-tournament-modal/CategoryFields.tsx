@@ -40,7 +40,6 @@ function ModalityField({ form, index, sport }: Props & { sport: string }) {
           if (value) form.setValue(categoryField(index, 'modality'), value, { shouldValidate: true });
         }}
         ariaLabel={t.form.modality}
-        wrap
       />
       {error && (
         <p role="alert" className="text-error-text text-xs">

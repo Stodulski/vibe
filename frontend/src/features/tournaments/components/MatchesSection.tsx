@@ -1,5 +1,5 @@
 import { keepTogether } from '@/shared/lib/keepTogether';
-import { formatEventDay } from '@/shared/lib/eventDates';
+import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { Button } from '@/shared/components/ui/button';
 import { cn, formatTime } from '@/shared/lib/utils';
@@ -9,6 +9,9 @@ import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tourname
 import type { TournamentOwnerMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.matches;
+
+/** Every action button of a match row: one line of label, smaller below `sm` so two of them sit side by side at 320 px. */
+const ACTION_BUTTON = 'rounded-lg whitespace-nowrap px-2.5 text-xs sm:px-3 sm:text-sm';
 
 interface Lookups {
   pairs: Map<string, TournamentOwnerPair>;
@@ -21,12 +24,13 @@ interface MatchActions {
   onResult: (matchId: string) => void;
 }
 
+/** "Pádel 1 · Dom 22/11 · 09:00": the court, the day in figures and the time, on one line. */
 function whenText(match: TournamentOwnerMatch): string {
   const schedule = match.schedule;
   if (!schedule) return t.unscheduled;
   return t.scheduledAt(
     keepTogether(schedule.court_name),
-    formatEventDay(schedule.date),
+    formatEventDayShort(schedule.date),
     formatTime(schedule.start_time),
   );
 }
@@ -49,7 +53,7 @@ function ResultButton({
         type="button"
         size="sm"
         variant={primary ? 'default' : 'outline'}
-        className="rounded-lg"
+        className={ACTION_BUTTON}
         disabled={locked}
         aria-describedby={locked ? `locked-${match.id}` : undefined}
         onClick={() => {
@@ -59,7 +63,11 @@ function ResultButton({
         {match.status === 'completed' ? t.correctResult : t.loadResult}
       </Button>
       {locked && (
-        <span id={`locked-${match.id}`} className="text-text-tertiary self-center text-xs">
+        <span
+          id={`locked-${match.id}`}
+          className="text-text-tertiary max-w-full min-w-0 self-center truncate text-xs"
+          title={t.correctLocked}
+        >
           {t.correctLocked}
         </span>
       )}
@@ -92,7 +100,7 @@ function MatchButtons({
           type="button"
           variant="outline"
           size="sm"
-          className="rounded-lg"
+          className={ACTION_BUTTON}
           onClick={() => {
             actions.onSchedule(match.id);
           }}
@@ -105,7 +113,7 @@ function MatchButtons({
           type="button"
           variant="ghost"
           size="sm"
-          className="rounded-lg"
+          className={ACTION_BUTTON}
           onClick={() => {
             actions.onUnschedule(match.id);
           }}
@@ -116,7 +124,9 @@ function MatchButtons({
       {ready ? (
         <ResultButton match={match} actions={actions} locked={locked} primary={primary} />
       ) : (
-        <span className="text-text-tertiary self-center text-xs">{t.notReady}</span>
+        <span className="text-text-tertiary max-w-full min-w-0 self-center truncate text-xs" title={t.notReady}>
+          {t.notReady}
+        </span>
       )}
     </div>
   );
@@ -143,27 +153,32 @@ function MatchRow({
   const ready = !!match.pair1_id && !!match.pair2_id;
   const name = (side: 1 | 2) => slotLabel(match, side, lookups.pairs, lookups.groupNames);
   const winner = match.winner_pair_id;
+  const when = whenText(match);
   return (
     <li className="border-border-subtle space-y-2 border-b py-3 last:border-b-0">
-      <p className="text-sm break-words">
+      <p className="flex min-w-0 text-sm" title={`${name(1)} ${t.versus} ${name(2)}`}>
         <span
           className={cn(
+            'min-w-0 flex-1 truncate',
             winner && winner === match.pair1_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
           )}
         >
           {name(1)}
         </span>
-        <span className="text-text-tertiary"> {t.versus} </span>
+        <span className="text-text-tertiary shrink-0 px-1.5">{t.versus}</span>
         <span
           className={cn(
+            'min-w-0 flex-1 truncate',
             winner && winner === match.pair2_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
           )}
         >
           {name(2)}
         </span>
       </p>
-      {score && <p className="text-text-primary text-sm font-semibold tabular-nums">{score}</p>}
-      <p className="text-text-tertiary text-xs break-words first-letter:uppercase">{whenText(match)}</p>
+      {score && <p className="text-text-primary truncate text-sm font-semibold tabular-nums">{score}</p>}
+      <p className="text-text-tertiary truncate text-xs first-letter:uppercase" title={when}>
+        {when}
+      </p>
       <MatchCourtFee
         match={match}
         fee={courtFee.fee}
@@ -223,7 +238,9 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
     <div className="space-y-5">
       {blocks.map((block) => (
         <section key={block.key} aria-label={block.title}>
-          <h3 className="text-text-primary mb-1 text-sm font-semibold">{block.title}</h3>
+          <h3 className="text-text-primary mb-1 truncate text-sm font-semibold" title={block.title}>
+            {block.title}
+          </h3>
           <ul>
             {block.matches.map((match) => (
               <MatchRow

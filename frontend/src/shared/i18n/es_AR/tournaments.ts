@@ -79,7 +79,7 @@ export const tournaments = {
   // Pairs
   pairs: {
     none: 'Todavía no se anotó ninguna pareja',
-    seed: (seed: number) => `Cabeza de serie ${String(seed)}`,
+    seed: (seed: number) => `Serie ${String(seed)}`,
     group: (name: string) => `Zona ${name}`,
     withdrawn: 'Se bajó',
     payer: 'Pagó la inscripción',
@@ -152,7 +152,9 @@ export const tournaments = {
       lost: 'PP',
       sets: 'Sets',
       games: 'Games',
+      difference: 'Dif.',
     },
+    differenceTitle: 'Diferencia de sets',
     qualifies: 'Clasifica',
   },
 
@@ -171,7 +173,6 @@ export const tournaments = {
     sourceOf: (rank: number, group: string) => `${String(rank)}º de la zona ${group}`,
     walkover: 'W.O.',
     wonBy: (name: string) => `Ganó ${name}`,
-    scrollHint: 'Deslizá para ver todas las rondas',
   },
 
   // Matches

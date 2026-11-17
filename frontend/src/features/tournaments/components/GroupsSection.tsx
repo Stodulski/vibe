@@ -1,3 +1,4 @@
+import { Check } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { pairName } from '../lib/tournamentView';
@@ -5,44 +6,47 @@ import type { TournamentGroup, TournamentOwnerPair, TournamentStanding } from '@
 
 const t = ES_AR.tournaments.groups;
 
-const HEAD_CELL = 'text-text-tertiary px-2 py-2 text-xs font-medium';
+const HEAD_CELL = 'text-text-tertiary px-1.5 py-2 text-xs font-medium';
+const FIGURE = 'score-text px-1.5 py-2.5 text-center';
 
-const COLUMNS = ['position', 'pair', 'played', 'won', 'lost', 'sets', 'games'] as const;
-
-/** Fixed widths so every zone lines its columns up with the others, whatever its pairs are called. */
-const COLUMN_WIDTHS: Record<(typeof COLUMNS)[number], string> = {
-  position: 'w-12',
-  pair: '',
-  played: 'w-12',
-  won: 'w-12',
-  lost: 'w-12',
-  sets: 'w-16',
-  games: 'w-20',
-};
+/**
+ * The columns, in order, with the width each one keeps. Fixed widths line every
+ * zone's columns up with the others, whatever its pairs are called. A phone keeps
+ * position, pair, wins and the set difference; from `sm` the table shows every
+ * figure and drops the difference.
+ */
+const COLUMNS = [
+  { key: 'position', width: 'w-10', visibility: '' },
+  { key: 'pair', width: '', visibility: '' },
+  { key: 'played', width: 'w-10', visibility: 'hidden sm:table-cell' },
+  { key: 'won', width: 'w-10', visibility: '' },
+  { key: 'lost', width: 'w-10', visibility: 'hidden sm:table-cell' },
+  { key: 'sets', width: 'w-16', visibility: 'hidden sm:table-cell' },
+  { key: 'games', width: 'w-20', visibility: 'hidden sm:table-cell' },
+  { key: 'difference', width: 'w-12', visibility: 'sm:hidden' },
+] as const;
 
 function GroupHead() {
   return (
-    <>
-      <colgroup>
-        {COLUMNS.map((column) => (
-          <col key={column} className={COLUMN_WIDTHS[column]} />
+    <thead>
+      <tr className="border-border-subtle border-b text-left">
+        {COLUMNS.map(({ key, width, visibility }) => (
+          <th
+            key={key}
+            scope="col"
+            className={cn(HEAD_CELL, width, visibility, key !== 'position' && key !== 'pair' && 'text-center')}
+          >
+            {key === 'difference' ? <abbr title={t.differenceTitle}>{t.columns.difference}</abbr> : t.columns[key]}
+          </th>
         ))}
-      </colgroup>
-      <thead>
-        <tr className="border-border-subtle border-b text-left">
-          {COLUMNS.map((column) => (
-            <th
-              key={column}
-              scope="col"
-              className={cn(HEAD_CELL, column !== 'position' && column !== 'pair' && 'text-center')}
-            >
-              {t.columns[column]}
-            </th>
-          ))}
-        </tr>
-      </thead>
-    </>
+      </tr>
+    </thead>
   );
+}
+
+/** A set difference with its sign: "+2", "0", "-1". */
+function signed(value: number): string {
+  return value > 0 ? `+${String(value)}` : String(value);
 }
 
 function StandingRow({
@@ -54,19 +58,29 @@ function StandingRow({
   pair?: TournamentOwnerPair;
   qualifies: boolean;
 }) {
-  const figure = 'score-text px-2 py-2.5 text-center';
+  const name = pair ? pairName(pair) : '';
   return (
     <tr className={cn('border-border-subtle border-b last:border-b-0', qualifies && 'bg-success-bg/30')}>
-      <td className="score-text px-2 py-2.5">{row.rank}</td>
-      <td className="min-w-0 px-2 py-2.5">
-        <span className="text-text-primary block break-words">{pair ? pairName(pair) : ''}</span>
-        {qualifies && <span className="text-success-text text-xs">{t.qualifies}</span>}
+      <td className="score-text px-1.5 py-2.5">{row.rank}</td>
+      <td className="min-w-0 px-1.5 py-2.5">
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className="text-text-primary min-w-0 truncate" title={name || undefined}>
+            {name}
+          </span>
+          {qualifies && (
+            <>
+              <Check className="text-success-text size-3.5 shrink-0" aria-hidden="true" />
+              <span className="sr-only">{t.qualifies}</span>
+            </>
+          )}
+        </span>
       </td>
-      <td className={figure}>{row.played}</td>
-      <td className={figure}>{row.won}</td>
-      <td className={figure}>{row.lost}</td>
-      <td className={figure}>{`${String(row.sets_for)}-${String(row.sets_against)}`}</td>
-      <td className={figure}>{`${String(row.games_for)}-${String(row.games_against)}`}</td>
+      <td className={cn(FIGURE, 'hidden sm:table-cell')}>{row.played}</td>
+      <td className={FIGURE}>{row.won}</td>
+      <td className={cn(FIGURE, 'hidden sm:table-cell')}>{row.lost}</td>
+      <td className={cn(FIGURE, 'hidden sm:table-cell')}>{`${String(row.sets_for)}-${String(row.sets_against)}`}</td>
+      <td className={cn(FIGURE, 'hidden sm:table-cell')}>{`${String(row.games_for)}-${String(row.games_against)}`}</td>
+      <td className={cn(FIGURE, 'sm:hidden')}>{signed(row.sets_for - row.sets_against)}</td>
     </tr>
   );
 }
@@ -80,27 +94,23 @@ function GroupTable({
   pairs: Map<string, TournamentOwnerPair>;
   qualifiers: number;
 }) {
+  const title = t.zone(group.name);
   return (
-    <section className="space-y-2">
-      <h3 className="text-text-primary text-sm font-semibold">{t.zone(group.name)}</h3>
-      <div className="border-border-subtle overflow-x-auto rounded-xl border">
-        <table aria-label={t.table(group.name)} className="w-full min-w-[26rem] table-fixed text-sm">
-          <GroupHead />
-          <tbody>
-            {group.standings.map((row) => {
-              const pair = pairs.get(row.pair_id);
-              return (
-                <StandingRow
-                  key={row.pair_id}
-                  row={row}
-                  {...(pair ? { pair } : {})}
-                  qualifies={row.rank <= qualifiers}
-                />
-              );
-            })}
-          </tbody>
-        </table>
-      </div>
+    <section className="min-w-0 space-y-2">
+      <h3 className="text-text-primary truncate text-sm font-semibold" title={title}>
+        {title}
+      </h3>
+      <table aria-label={t.table(group.name)} className="w-full table-fixed text-sm">
+        <GroupHead />
+        <tbody>
+          {group.standings.map((row) => {
+            const pair = pairs.get(row.pair_id);
+            return (
+              <StandingRow key={row.pair_id} row={row} {...(pair ? { pair } : {})} qualifies={row.rank <= qualifiers} />
+            );
+          })}
+        </tbody>
+      </table>
     </section>
   );
 }

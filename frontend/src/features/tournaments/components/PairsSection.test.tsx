@@ -59,7 +59,7 @@ describe('PairsSection payment badge', () => {
 describe('PairsSection row', () => {
   it('shows the zone and seed under the names when they are set', () => {
     renderPairs([makePair({ id: 'p1', seed: 7, groupId: 'g1' })]);
-    expect(screen.getByText('Zona B · Cabeza de serie 7')).toBeInTheDocument();
+    expect(screen.getByText('Zona B · Serie 7')).toBeInTheDocument();
   });
 
   it('shows each player’s declared gender and category on the detail line', () => {

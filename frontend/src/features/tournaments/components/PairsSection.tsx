@@ -114,15 +114,25 @@ function PairRow({
     refundedLine(pair),
   ].filter((detail): detail is string => !!detail);
 
+  const fullName = pairFullName(pair);
+  const detailLine = details.join(' · ');
+
+  // Flat on every width: a phone stacks the names over the actions, a wider screen puts them side by side.
   return (
-    <li className="border-border-subtle flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
-      <div className="min-w-0 flex-1 space-y-0.5">
-        <p className="text-text-primary truncate text-sm font-medium">{pairFullName(pair)}</p>
-        {details.length > 0 && <p className="text-text-tertiary truncate text-xs">{details.join(' · ')}</p>}
+    <li className="border-border-subtle flex flex-col gap-2 border-b py-3 last:border-b-0 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+      <div className="min-w-0 space-y-0.5 sm:flex-1">
+        <p className="text-text-primary truncate text-sm font-medium" title={fullName}>
+          {fullName}
+        </p>
+        {details.length > 0 && (
+          <p className="text-text-tertiary truncate text-xs" title={detailLine}>
+            {detailLine}
+          </p>
+        )}
       </div>
-      <div className="flex shrink-0 items-center gap-1.5">
+      <div className="flex shrink-0 items-center justify-end gap-1.5">
         {badge && (
-          <Tag tone={badge.tone} className={cn('text-xs', badge.className)}>
+          <Tag tone={badge.tone} className={cn('text-xs whitespace-nowrap', badge.className)}>
             {badge.text}
           </Tag>
         )}
@@ -132,7 +142,7 @@ function PairRow({
             type="button"
             variant="outline"
             size="sm"
-            className="rounded-lg"
+            className="rounded-lg whitespace-nowrap"
             aria-label={`${t.swap} ${pairName(pair)}`}
             onClick={onSwap}
           >

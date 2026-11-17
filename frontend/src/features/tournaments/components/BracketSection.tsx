@@ -1,5 +1,5 @@
 import { keepTogether } from '@/shared/lib/keepTogether';
-import { formatEventDay } from '@/shared/lib/eventDates';
+import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatTime } from '@/shared/lib/utils';
 import { bracketGrid, bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
@@ -17,14 +17,16 @@ function BracketSlot({ match, side, lookups }: { match: TournamentMatch; side: 1
   const pairId = side === 1 ? match.pair1_id : match.pair2_id;
   const won = !!winnerId && winnerId === pairId;
   const known = !!pairId;
+  const label = slotLabel(match, side, lookups.pairs, lookups.groupNames);
   return (
     <p
       className={cn(
-        'min-w-0 px-2.5 py-1.5 text-sm break-words',
+        'min-w-0 truncate py-0.5 text-sm lg:px-2.5 lg:py-1.5',
         won ? 'text-text-primary font-semibold' : known ? 'text-text-secondary' : 'text-text-tertiary italic',
       )}
+      title={label}
     >
-      {slotLabel(match, side, lookups.pairs, lookups.groupNames)}
+      {label}
     </p>
   );
 }
@@ -36,7 +38,8 @@ interface Connectors {
   in: boolean;
 }
 
-const CONNECTOR = 'border-border-default pointer-events-none absolute';
+/** Connectors only exist side by side, from `lg`: stacked rounds have no columns to join. */
+const CONNECTOR = 'border-border-default pointer-events-none absolute hidden lg:block';
 
 function BracketMatchCard({
   match,
@@ -56,13 +59,14 @@ function BracketMatchCard({
   const when = match.schedule
     ? ES_AR.tournaments.matches.scheduledAt(
         keepTogether(match.schedule.court_name),
-        formatEventDay(match.schedule.date),
+        formatEventDayShort(match.schedule.date),
         formatTime(match.schedule.start_time),
       )
     : null;
+  const meta = [score, when].filter((part): part is string => !!part).join(' · ');
   return (
     <li
-      className="relative flex items-center py-1.5"
+      className="border-border-subtle relative flex min-w-0 flex-col justify-center border-b py-2.5 last:border-b-0 lg:border-0 lg:py-1.5"
       style={{ gridRow: `${String(rowStart)} / span ${String(rowSpan)}` }}
     >
       {connectors.in && (
@@ -72,14 +76,12 @@ function BracketMatchCard({
           className={cn(CONNECTOR, 'top-1/2 -left-3 w-3 border-t')}
         />
       )}
-      <div className="border-border-subtle bg-bg-subtle divide-border-subtle w-full divide-y rounded-xl border">
+      <div className="divide-border-subtle lg:bg-bg-subtle lg:border-border-subtle w-full min-w-0 lg:divide-y lg:rounded-xl lg:border">
         <BracketSlot match={match} side={1} lookups={lookups} />
         <BracketSlot match={match} side={2} lookups={lookups} />
-        {(score || when) && (
-          <p className="text-text-tertiary px-2.5 py-1 text-xs break-words">
-            {score && <span className="tabular-nums">{score}</span>}
-            {score && when && ' · '}
-            {when && <span className="first-letter:uppercase">{when}</span>}
+        {meta && (
+          <p className="text-text-tertiary truncate py-0.5 text-xs lg:px-2.5 lg:py-1" title={meta}>
+            {meta}
           </p>
         )}
       </div>
@@ -119,9 +121,10 @@ interface BracketSectionProps extends Lookups {
 }
 
 /**
- * The bracket as one column per round, first round to the final. It scrolls
- * sideways inside its own region (never the page) when the columns do not fit,
- * 320 px included.
+ * The bracket, first round to the final. Below `lg` each round stacks under its
+ * heading, one match per row, flat on the page. From `lg` the rounds sit side by
+ * side in equal columns, with the match boxes and their connectors. Nothing
+ * scrolls sideways at any width.
  */
 export function BracketSection({ matches, pairs, groupNames }: BracketSectionProps) {
   const rounds = bracketRounds(matches);
@@ -130,48 +133,44 @@ export function BracketSection({ matches, pairs, groupNames }: BracketSectionPro
   const grid = bracketGrid(rounds.map((round) => round.length));
 
   return (
-    <div className="space-y-1.5">
-      <p className="text-text-tertiary text-xs sm:hidden">{t.scrollHint}</p>
-      <div
-        role="region"
-        aria-label={t.label}
-        className="focus-self border-border-subtle max-w-full overflow-x-auto rounded-xl border p-3"
-      >
-        <div
-          className="grid min-w-max gap-x-6"
-          style={{
-            gridTemplateColumns: `repeat(${String(rounds.length)}, 14rem)`,
-            gridTemplateRows: `auto repeat(${String(grid.rows)}, 1fr)`,
-          }}
-        >
-          {rounds.map((round, index) => {
-            const span = grid.spans[index] ?? 1;
-            return (
-              <section
-                key={index}
-                className="grid"
-                style={{ gridRow: `1 / span ${String(grid.rows + 1)}`, gridTemplateRows: 'subgrid' }}
-              >
-                <h3 className="text-text-secondary pb-2 text-xs font-semibold">
-                  {roundName(index + 1, rounds.length, round.length)}
-                </h3>
-                <ul className="grid" style={{ gridRow: `2 / span ${String(grid.rows)}`, gridTemplateRows: 'subgrid' }}>
-                  {round.map((match, position) => (
-                    <BracketMatchCard
-                      key={match.id}
-                      match={match}
-                      lookups={lookups}
-                      connectors={connectorsOf(rounds, index, position)}
-                      rowStart={position * span + 1}
-                      rowSpan={span}
-                    />
-                  ))}
-                </ul>
-              </section>
-            );
-          })}
-        </div>
-      </div>
+    <div
+      role="region"
+      aria-label={t.label}
+      className="flex min-w-0 flex-col gap-6 lg:grid lg:gap-x-6 lg:gap-y-0"
+      style={{
+        gridTemplateColumns: `repeat(${String(rounds.length)}, minmax(0, 1fr))`,
+        gridTemplateRows: `auto repeat(${String(grid.rows)}, 1fr)`,
+      }}
+    >
+      {rounds.map((round, index) => {
+        const span = grid.spans[index] ?? 1;
+        return (
+          <section
+            key={index}
+            className="flex min-w-0 flex-col lg:grid"
+            style={{ gridRow: `1 / span ${String(grid.rows + 1)}`, gridTemplateRows: 'subgrid' }}
+          >
+            <h3 className="text-text-primary lg:text-text-secondary pb-1.5 text-sm font-semibold lg:pb-2 lg:text-xs">
+              {roundName(index + 1, rounds.length, round.length)}
+            </h3>
+            <ul
+              className="flex min-w-0 flex-col lg:grid"
+              style={{ gridRow: `2 / span ${String(grid.rows)}`, gridTemplateRows: 'subgrid' }}
+            >
+              {round.map((match, position) => (
+                <BracketMatchCard
+                  key={match.id}
+                  match={match}
+                  lookups={lookups}
+                  connectors={connectorsOf(rounds, index, position)}
+                  rowStart={position * span + 1}
+                  rowSpan={span}
+                />
+              ))}
+            </ul>
+          </section>
+        );
+      })}
     </div>
   );
 }

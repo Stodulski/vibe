@@ -46,6 +46,33 @@ describe('BracketSection connectors', () => {
   });
 });
 
+describe('BracketSection match line', () => {
+  it('writes the schedule on one truncated line with the day in figures', () => {
+    const schedule = {
+      court_id: 'ct1',
+      court_name: 'Pádel 3',
+      date: '2026-11-22',
+      start_time: '14:00',
+      end_time: '15:30',
+      duration_minutes: 90,
+    };
+    const matches = [makeMatch({ id: 'a', round: 1, position: 1, pair1Id: 'p1', pair2Id: 'p2', schedule })];
+    render(<BracketSection matches={matches} pairs={pairs} groupNames={new Map()} />);
+
+    expect(screen.getByText(/Dom 22\/11/)).toHaveClass('truncate');
+    expect(screen.queryByText(/domingo/)).not.toBeInTheDocument();
+  });
+
+  it('keeps each pair name on one truncated line', () => {
+    const matches = [makeMatch({ id: 'a', round: 1, position: 1, pair1Id: 'p1', pair2Id: 'p2' })];
+    render(<BracketSection matches={matches} pairs={pairs} groupNames={new Map()} />);
+
+    const slot = screen.getAllByText(/ \/ /)[0];
+    if (!slot) throw new Error('the match shows no pair name');
+    expect(slot).toHaveClass('truncate');
+  });
+});
+
 describe('BracketSection geometry', () => {
   const eight = new Map(
     Array.from({ length: 8 }, (_, i) => [`p${String(i + 1)}`, makePair({ id: `p${String(i + 1)}` })]),

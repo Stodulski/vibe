@@ -38,7 +38,10 @@ describe('owner tournament layout', () => {
     render(<GroupsSection groups={detail.groups} pairs={pairs} qualifiers={2} />);
     for (const table of screen.getAllByRole('table')) {
       expect(table.className).toContain('table-fixed');
-      expect(table.querySelectorAll('colgroup > col')).toHaveLength(7);
+      expect(table.querySelectorAll('thead th')).toHaveLength(8);
+      for (const row of table.querySelectorAll('tbody tr')) {
+        expect(row.querySelectorAll('td')).toHaveLength(8);
+      }
     }
   });
 
@@ -66,6 +69,34 @@ describe('owner tournament layout', () => {
     const words = screen.getByText(/^(Ganó|W\.O\.)/);
     expect(words.className).not.toContain('score-text');
     expect(words.className).toContain('tabular-nums');
+  });
+});
+
+describe('owner tournament match rows', () => {
+  it('keeps a match schedule on one truncated line with the day in figures', () => {
+    const detail = makeDrawnDetail();
+    const pairs = new Map(detail.pairs.map((p) => [p.id, p]));
+    const schedule = {
+      court_id: 'ct1',
+      court_name: 'Pádel 3',
+      date: '2026-11-22',
+      start_time: '14:00',
+      end_time: '15:30',
+      duration_minutes: 90,
+    };
+    const match = makeMatch({ id: 'm1', pair1Id: 'p1', pair2Id: 'p2', schedule });
+    render(
+      <MatchesSection
+        matches={[match]}
+        pairs={pairs}
+        groupNames={new Map()}
+        editable={false}
+        actions={{ onSchedule: vi.fn(), onUnschedule: vi.fn(), onResult: vi.fn() }}
+        courtFee={{ fee: 0, actions: { onCharge: vi.fn(), onUndo: vi.fn() } }}
+      />,
+    );
+    expect(screen.getByText(/Dom 22\/11/)).toHaveClass('truncate');
+    expect(screen.getByText(t.matches.versus)).toHaveClass('shrink-0');
   });
 });
 
@@ -104,8 +135,8 @@ describe('owner tournament menus and tabs', () => {
     const days = screen.getByText(
       /^(L|l)unes|^(S|s)ábado|^(D|d)omingo|^(V|v)iernes|^(J|j)ueves|^(M|m)i[eé]rcoles|^(M|m)artes/,
     );
-    expect(days.className).toContain('block');
-    expect(days.className).toContain('first-letter:uppercase');
+    const line = days.closest('p');
+    expect(line).toHaveClass('block', 'truncate', 'first-letter:uppercase');
   });
 });
 
@@ -131,7 +162,9 @@ describe('owner tournament cancelled and facts layout', () => {
     const detail = makeDetail({ categories: [makeCategory({ status: 'cancelled' })] });
     await renderDetail(detail);
     const note = screen.getByText(t.detail.categoryCancelledNote);
-    const summary = screen.getByText(/6\/16 parejas/);
+    // The summary carries its phone and desktop wording in two spans of one line; the first is enough for the order.
+    const [summary] = screen.getAllByText(/6\/16 parejas/);
+    if (!summary) throw new Error('the summary line is missing');
     expect(summary.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 

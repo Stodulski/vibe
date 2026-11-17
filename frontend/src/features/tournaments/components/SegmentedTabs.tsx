@@ -8,24 +8,16 @@ interface SegmentedTabsProps<T extends string> {
   active: T;
   onChange: (value: T) => void;
   ariaLabel: string;
-  /** Wrap onto more lines instead of scrolling sideways: for a few choices inside a narrow dialog. */
-  wrap?: boolean;
 }
 
 /**
- * The app's segmented control: equal 40px toggles in one row, the same switch
- * the Eventos list uses for Próximos and Pasados. When the labels do not fit
- * (320 px) the row scrolls inside its own container, never the page.
+ * The app's segmented control: 40px toggles, the same switch the Eventos list
+ * uses for Próximos and Pasados. On a phone they lay out in two columns and from
+ * `sm` in one row; labels never break or scroll, whatever the width.
  */
-export function SegmentedTabs<T extends string>({
-  items,
-  active,
-  onChange,
-  ariaLabel,
-  wrap = false,
-}: SegmentedTabsProps<T>) {
+export function SegmentedTabs<T extends string>({ items, active, onChange, ariaLabel }: SegmentedTabsProps<T>) {
   return (
-    <div role="group" aria-label={ariaLabel} className={cn(SEGMENTED_TABS_CLASS, wrap && 'flex-wrap overflow-visible')}>
+    <div role="group" aria-label={ariaLabel} className={SEGMENTED_TABS_CLASS}>
       {items.map((item) => {
         const selected = active === item.value;
         return (

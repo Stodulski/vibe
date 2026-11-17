@@ -1,4 +1,3 @@
-import { Panel } from '@/shared/components/common/Panel';
 import { Skeleton } from '@/shared/components/ui/skeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { TOURNAMENT_DETAIL_CLASS } from '../lib/tournamentLayout';
@@ -8,7 +7,7 @@ import { SegmentedTabsSkeleton } from './SegmentedTabsSkeleton';
 /**
  * Loading shape of the detail body, line for line: the header (name on a phone,
  * days under it), the category tabs, the category's summary line, the section
- * switch, then the list card.
+ * switch, then the section's rows flat on the page, as the loaded body draws them.
  */
 export function TournamentDetailBodySkeleton() {
   return (
@@ -23,11 +22,11 @@ export function TournamentDetailBodySkeleton() {
         <Skeleton className="h-4 w-24 rounded-lg" />
       </div>
       <SegmentedTabsSkeleton count={4} />
-      <Panel size="md" mobile="card" className="space-y-3" aria-hidden="true">
+      <div className="space-y-3" aria-hidden="true">
         {Array.from({ length: 4 }, (_, i) => (
           <Skeleton key={i} className="h-14 w-full rounded-lg" />
         ))}
-      </Panel>
+      </div>
     </div>
   );
 }
