@@ -2,7 +2,7 @@ import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicTournamentSignUpPath } from '../../lib/publicPaths';
 import type { AgendaDetail } from '../agenda/AgendaDetailDialog';
-import { categoryWhen, formatDetailLabel, type AgendaRow } from './agendaModel';
+import { categoryWhen, formatDetailLines, type AgendaRow } from './agendaModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -18,7 +18,7 @@ export function tournamentDetail(row: AgendaRow, slug: string): AgendaDetail {
     facts: [
       { term: t.inscriptionLabel, value: `${formatPrice(category.price)} ${t.perPair}` },
       ...(category.prizes ? [{ term: t.prizesLabel, value: category.prizes }] : []),
-      { term: t.formatLabel, value: formatDetailLabel(category) },
+      { term: t.formatLabel, value: formatDetailLines(category) },
     ],
     signUp: { href: publicTournamentSignUpPath(slug, row.tournamentId, category.id), label: t.signUpCategory },
   };

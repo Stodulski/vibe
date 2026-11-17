@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PublicTournamentCategory, PublicTournamentSummary } from '../../api/types';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
 import { dayChips, dayParts } from '../agenda/agendaModel';
-import { agendaRows, categoryWhen, formatDetailLabel, spotsNotice } from './agendaModel';
+import { agendaRows, categoryWhen, formatDetailLines, spotsNotice } from './agendaModel';
 
 const men8: PublicTournamentCategory = {
   ...CAT_OPEN,
@@ -112,15 +112,17 @@ describe('spotsNotice', () => {
   });
 });
 
-describe('formatDetailLabel', () => {
-  it('writes the groups with their size and how many pass', () => {
-    expect(formatDetailLabel({ ...CAT_OPEN, format: 'groups', group_size: 4, qualifiers_per_group: 2 })).toBe(
-      'Zonas y cuadro · Zonas de 4 parejas, pasan 2',
-    );
+describe('formatDetailLines', () => {
+  it('lists the groups format, their size and how many pass, one a line', () => {
+    expect(formatDetailLines({ ...CAT_OPEN, format: 'groups', group_size: 4, qualifiers_per_group: 2 })).toEqual([
+      'Zonas y cuadro',
+      'Zonas de 4 parejas',
+      'Pasan 2 por zona',
+    ]);
   });
 
-  it('writes an elimination as its format alone', () => {
-    expect(formatDetailLabel({ ...CAT_OPEN, format: 'elimination' })).toBe('Eliminación directa');
+  it('lists an elimination as its format alone', () => {
+    expect(formatDetailLines({ ...CAT_OPEN, format: 'elimination' })).toEqual(['Eliminación directa']);
   });
 });
 

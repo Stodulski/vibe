@@ -68,14 +68,20 @@ export function spotsNotice(spotsLeft: number): SpotsNotice {
   return sharedSpotsNotice(spotsLeft, { lastSpots: t.lastSpots, spotsLeft: spotsLeftLabel });
 }
 
-/** The format in words, with a group stage's size and how many pass: "Zonas y cuadro · Zonas de 4 parejas, pasan 2". */
-export function formatDetailLabel(
+/**
+ * The format as a list, one fact a line: "Zonas y cuadro", "Zonas de 4 parejas", "Pasan 2 por zona".
+ * An elimination is its format alone.
+ */
+export function formatDetailLines(
   category: Pick<PublicTournamentCategory, 'format' | 'group_size' | 'qualifiers_per_group'>,
-): string {
+): string[] {
   const label = formatLabel(category.format);
-  if (category.format !== 'groups') return label;
-  const zones = `${t.zonesOf} ${String(category.group_size)} ${t.pairsPassed} ${String(category.qualifiers_per_group)}`;
-  return `${label} · ${zones}`;
+  if (category.format !== 'groups') return [label];
+  return [
+    label,
+    `${t.zonesOf} ${String(category.group_size)} ${t.zonesPairs}`,
+    `${t.qualifiersPass} ${String(category.qualifiers_per_group)} ${t.qualifiersPerZone}`,
+  ];
 }
 
 /** "Sábado 05/12 · 18:00 hs": the day and, when it has one, the time. */

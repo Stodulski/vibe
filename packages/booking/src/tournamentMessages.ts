@@ -106,6 +106,8 @@ export const TOURNAMENT_MESSAGES = {
   prizesLabel: 'Premios',
   formatLabel: 'Formato',
   zonesOf: 'Zonas de',
-  pairsPassed: 'parejas, pasan',
+  zonesPairs: 'parejas',
+  qualifiersPass: 'Pasan',
+  qualifiersPerZone: 'por zona',
   closeDetail: 'Cerrar',
 } as const;

@@ -8,7 +8,8 @@ import {
 
 export interface AgendaDetailFact {
   term: string;
-  value: string;
+  /** One line, or a list of them shown one under the other. */
+  value: string | string[];
 }
 
 /** What the detail of one agenda row says: its title, its day and time, its facts and its sign-up. */
@@ -26,11 +27,21 @@ interface AgendaDetailDialogProps {
   onClose: () => void;
 }
 
-function Fact({ term, children }: { term: string; children: string }) {
+function Fact({ term, value }: AgendaDetailFact) {
   return (
     <div className="flex flex-col gap-0.5">
       <dt className="text-text-tertiary text-xs font-semibold tracking-wide uppercase">{term}</dt>
-      <dd className="text-text-primary text-sm">{children}</dd>
+      <dd className="text-text-primary text-sm">
+        {typeof value === 'string' ? (
+          value
+        ) : (
+          <ul className="flex flex-col gap-0.5">
+            {value.map((line) => (
+              <li key={line}>{line}</li>
+            ))}
+          </ul>
+        )}
+      </dd>
     </div>
   );
 }
@@ -57,9 +68,7 @@ export function AgendaDetailDialog({ detail, closeLabel, onClose }: AgendaDetail
 
             <dl className="flex flex-col gap-4">
               {detail.facts.map((fact) => (
-                <Fact key={fact.term} term={fact.term}>
-                  {fact.value}
-                </Fact>
+                <Fact key={fact.term} term={fact.term} value={fact.value} />
               ))}
             </dl>
 
