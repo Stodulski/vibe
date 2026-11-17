@@ -1,5 +1,6 @@
 import { Button, cn, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
+import { NotifyWhenFree } from './NotifyWhenFree';
 import type { RulerHour } from './rulerHours';
 import type { TimeOption } from './timeOptions';
 import { tickDepth } from './wheelMath';
@@ -103,10 +104,15 @@ interface RulerActionProps {
   onSelectTime: (option: TimeOption) => void;
   /** Turns the wheel to the nearest free hour; `null` when the day has none. */
   onGoToFree: (() => void) | null;
+  /** The complex and day a taken hour's waitlist is for; without them a taken hour only points to a free one. */
+  waitlist: { slug: string; date: string } | null;
 }
 
-/** A free hour opens its courts; a taken one offers the nearest free hour instead. */
-export function RulerAction({ hour, onSelectTime, onGoToFree }: RulerActionProps) {
+/**
+ * A free hour opens its courts. A taken one asks to be told when it frees, or,
+ * where there is no waitlist to join, offers the nearest free hour instead.
+ */
+export function RulerAction({ hour, onSelectTime, onGoToFree, waitlist }: RulerActionProps) {
   const free = hour.free;
   if (free) {
     return (
@@ -121,6 +127,7 @@ export function RulerAction({ hour, onSelectTime, onGoToFree }: RulerActionProps
       </Button>
     );
   }
+  if (waitlist && hour.taken.length > 0) return <NotifyWhenFree hour={hour} slug={waitlist.slug} date={waitlist.date} />;
   if (!onGoToFree) return null;
   return (
     <Button variant="outline" size="lg" className="min-h-12 w-full" onClick={onGoToFree}>

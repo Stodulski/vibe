@@ -1,5 +1,5 @@
 import type { CourtAvailability } from '../../api/types';
-import { buildTimeOptions, type TimeOption } from './timeOptions';
+import { buildTimeOptions, type CourtAtTime, type TimeOption } from './timeOptions';
 
 /** Argentina has no daylight saving time, so the venue's offset is fixed. */
 const VENUE_UTC_OFFSET = '-03:00';
@@ -11,6 +11,8 @@ export interface RulerHour {
   endTime: string;
   /** `null` when every court is taken at this hour. */
   free: TimeOption | null;
+  /** The courts taken at this hour, for "Avisarme cuando se libere". */
+  taken: CourtAtTime[];
 }
 
 /** When a slot starts: the day's midnight in the venue's zone plus its minutes, which run past 1440 overnight. */
@@ -28,13 +30,15 @@ export function buildRulerHours(courts: CourtAvailability[], date?: string, now:
   for (const court of courts) {
     for (const slot of court.slots) {
       if (!slot.available && date !== undefined && startsAt(date, slot.start_min) <= now.getTime()) continue;
-      if (hours.has(slot.start_time)) continue;
-      hours.set(slot.start_time, {
+      const hour = hours.get(slot.start_time) ?? {
         startTime: slot.start_time,
         startMin: slot.start_min,
         endTime: slot.end_time,
         free: free.get(slot.start_time) ?? null,
-      });
+        taken: [],
+      };
+      if (!slot.available) hour.taken.push({ court, slot });
+      hours.set(slot.start_time, hour);
     }
   }
   return [...hours.values()].sort((a, b) => a.startMin - b.startMin);
