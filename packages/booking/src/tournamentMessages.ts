@@ -14,6 +14,8 @@ export const TOURNAMENT_MESSAGES = {
   matchGamesSuffix: 'games',
   matchSuperTiebreak: 'súper tie-break',
   perPair: 'por pareja',
+  /** The agenda row's short form: "$30.000/pareja". */
+  perPairShort: '/pareja',
   paidPrefix: 'Pagaste',
   categoryStatusClosed: 'Inscripción cerrada',
   categoryStatusCancelled: 'Cancelada',

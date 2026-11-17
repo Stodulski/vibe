@@ -7,6 +7,8 @@ export const EVENT_MESSAGES = {
   pickerTitle: 'Eventos',
   signUp: 'Inscribirme',
   perPerson: 'por persona',
+  /** The agenda row's short form: "$8.000/persona". */
+  perPersonShort: '/persona',
   paidPrefix: 'Pagaste',
   courtsLabel: 'Canchas',
   spotsLeftOne: 'Queda 1 lugar',

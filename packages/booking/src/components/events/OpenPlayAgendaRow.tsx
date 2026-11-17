@@ -20,7 +20,7 @@ export function OpenPlayAgendaRow({ row, slug, onViewDetail }: OpenPlayAgendaRow
   const spots = spotsNotice(event.spots_left, { lastSpots: t.lastSpots, spotsLeft: spotsLeftLabel });
   const meta: AgendaMetaToken[] = [
     { key: 'spots', text: spots.text, emphasis: spots.last },
-    { key: 'price', text: `${formatPrice(event.price)} ${t.perPerson}` },
+    { key: 'price', text: `${formatPrice(event.price)}${t.perPersonShort}` },
   ];
 
   return (
