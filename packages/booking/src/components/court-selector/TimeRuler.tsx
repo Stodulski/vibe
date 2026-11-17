@@ -137,6 +137,18 @@ function useMouseDrag(trackRef: React.RefObject<HTMLDivElement | null>) {
   return { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd, onClickCapture };
 }
 
+/** The hour on the marker, large, with its end, price and free courts. */
+function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCourts: boolean }) {
+  return (
+    <div className="text-center" aria-live="polite">
+      <p className="text-text-primary text-3xl font-bold tabular-nums">
+        {option.startTime} <span className="text-text-tertiary">–</span> {option.endTime}
+      </p>
+      <p className="text-text-secondary mt-1 text-sm">{priceLine(option, severalCourts)}</p>
+    </div>
+  );
+}
+
 interface TimeRulerProps {
   options: TimeOption[];
   /** The hour already chosen, centered when the ruler opens. */
@@ -179,7 +191,6 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
       <div className="relative">
         {/* The fixed marker the ruler slides under. */}
         <span aria-hidden="true" className="bg-primary-500 pointer-events-none absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- the drag is a mouse shortcut; the ticks and Continuar are the accessible controls */}
         <div
           ref={trackRef}
           {...dragHandlers}
