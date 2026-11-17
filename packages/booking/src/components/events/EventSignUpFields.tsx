@@ -28,6 +28,7 @@ export function EventSignUpFields({ register, control, errors, event }: EventSig
       {(asksGender || asksLevel) && (
         <PlayerDeclarationFields
           register={register}
+          control={control}
           errors={errors}
           idPrefix="event_"
           sport={event.sport}

@@ -1,6 +1,7 @@
 import { AlertTriangle, CalendarX2 } from 'lucide-react';
-import { EVENT_LIST_CLASS, EventCard, EventListSkeleton } from '@/features/events';
+import { EventCard, EventListSkeleton } from '@/features/events';
 import { TournamentCard } from '@/features/tournaments';
+import { AGENDA_LIST_CLASS } from '@/shared/components/common/agendaRowLayout';
 import { EmptyState } from '@/shared/components/common/EmptyState';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import type { AgendaItem, AgendaTab } from './eventsHubAgenda';
@@ -16,14 +17,25 @@ interface EventsHubListProps {
   /** Which tab this is: an empty upcoming list invites creating one, an empty past list does not. */
   kind: AgendaTab;
   onCreate: () => void;
+  /** Rows are loaded, but the filters above hide every one of them. */
+  hiddenByFilters: boolean;
 }
 
 /**
- * Cancha abierta and torneo cards in one grid, in the order the agenda gives them. The
+ * Cancha abierta and torneo rows in one column, in the order the agenda gives them. The
  * empty upcoming list is the one empty state of the page; its action is outlined because
  * the header already carries the primary Crear evento button.
  */
-export function EventsHubList({ items, isLoading, isError, onRetry, onSelect, kind, onCreate }: EventsHubListProps) {
+export function EventsHubList({
+  items,
+  isLoading,
+  isError,
+  onRetry,
+  onSelect,
+  kind,
+  onCreate,
+  hiddenByFilters,
+}: EventsHubListProps) {
   if (isLoading) return <EventListSkeleton />;
 
   if (isError) {
@@ -39,6 +51,9 @@ export function EventsHubList({ items, isLoading, isError, onRetry, onSelect, ki
   }
 
   if (items.length === 0) {
+    if (hiddenByFilters) {
+      return <EmptyState icon={CalendarX2} title={t.events.noMatches} description={t.events.noMatchesDescription} />;
+    }
     return kind === 'upcoming' ? (
       <EmptyState
         icon={CalendarX2}
@@ -54,9 +69,9 @@ export function EventsHubList({ items, isLoading, isError, onRetry, onSelect, ki
   }
 
   return (
-    <ul className={EVENT_LIST_CLASS} aria-label={t.events.listLabel}>
+    <ul className={AGENDA_LIST_CLASS} aria-label={t.events.listLabel}>
       {items.map((item) => (
-        <li key={item.key} className="flex">
+        <li key={item.key}>
           {item.kind === 'openPlay' ? (
             <EventCard event={item.event} onSelect={onSelect} />
           ) : (

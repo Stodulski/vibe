@@ -1,13 +1,13 @@
+import { AGENDA_LIST_CLASS } from '@/shared/components/common/agendaRowLayout';
+import { AgendaRowSkeleton } from '@/shared/components/common/AgendaRowSkeleton';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { EVENT_LIST_CLASS } from '../lib/eventLayout';
-import { EventCardSkeleton } from './EventCardSkeleton';
 
-/** Loading shape of the events list on the events page. The one `role="status"` of the page body. */
+/** Loading shape of the events list on the events page: four rows of the one list. The one `role="status"` of the page body. */
 export function EventListSkeleton() {
   return (
-    <div role="status" aria-label={ES_AR.common.loading} className={EVENT_LIST_CLASS}>
+    <div role="status" aria-label={ES_AR.common.loading} className={AGENDA_LIST_CLASS}>
       {Array.from({ length: 4 }, (_, i) => (
-        <EventCardSkeleton key={i} />
+        <AgendaRowSkeleton key={i} />
       ))}
     </div>
   );

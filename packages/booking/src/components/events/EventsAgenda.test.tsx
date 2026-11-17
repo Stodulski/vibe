@@ -3,6 +3,7 @@ import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import type { PublicOpenPlayEvent, PublicTournamentCategory, PublicTournamentSummary } from '../../api/types';
 import { renderBooking } from '../../test/booking';
+import { chooseOption } from '../../test/chooseOption';
 import { EVENT } from '../../test/eventFixtures';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -159,18 +160,18 @@ describe('EventsAgenda list', () => {
       ),
     );
 
-    await user.selectOptions(modalityFilter(), 'Damas');
-    expect(modalityFilter()).toHaveValue('women');
+    await chooseOption(user, modalityFilter(),'Damas');
+    expect(modalityFilter()).toHaveTextContent('Damas');
     expect(screen.getByRole('heading', { name: 'Damas 5ta' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Abierta a todos' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(1);
 
-    await user.selectOptions(modalityFilter(), t.filterAll);
-    await user.selectOptions(dayFilter(), 'Dom 6 dic');
+    await chooseOption(user, modalityFilter(),t.filterAll);
+    await chooseOption(user, dayFilter(),'Dom 6 dic');
     expect(screen.getAllByRole('article')).toHaveLength(1);
     expect(screen.getByRole('heading', { name: 'Damas 5ta' })).toBeInTheDocument();
 
-    await user.selectOptions(dayFilter(), t.filterAllDays);
+    await chooseOption(user, dayFilter(),t.filterAllDays);
     expect(screen.getAllByRole('article')).toHaveLength(3);
   });
 
@@ -178,13 +179,14 @@ describe('EventsAgenda list', () => {
     const user = userEvent.setup();
     renderAgenda(eventRows(openPlayRows([EVENT]), tournamentRows(category('t-women5', '2099-12-06', '10:00', 'women', 5))));
 
-    await user.selectOptions(modalityFilter(), 'Damas');
-    await user.selectOptions(dayFilter(), 'Sáb 5 dic');
+    await chooseOption(user, modalityFilter(),'Damas');
+    await chooseOption(user, dayFilter(),'Sáb 5 dic');
 
     expect(screen.getByText(t.noAgendaRows)).toBeInTheDocument();
   });
 
-  it('names the modality options of both kinds in the words of their sport', () => {
+  it('names the modality options of both kinds in the words of their sport', async () => {
+    const user = userEvent.setup();
     renderAgenda(
       eventRows(
         openPlayRows([EVENT]),
@@ -192,8 +194,10 @@ describe('EventsAgenda list', () => {
       ),
     );
 
-    expect(within(modalityFilter()).getByRole('option', { name: 'Damas' })).toBeInTheDocument();
-    expect(within(modalityFilter()).queryByRole('option', { name: 'Caballeros' })).not.toBeInTheDocument();
+    await user.click(modalityFilter());
+
+    expect(await screen.findByRole('option', { name: 'Damas' })).toBeInTheDocument();
+    expect(screen.queryByRole('option', { name: 'Caballeros' })).not.toBeInTheDocument();
   });
 
 });
@@ -272,7 +276,7 @@ describe('EventsAgenda infinite scroll', () => {
     sentinelEnters();
     expect(screen.getAllByRole('article')).toHaveLength(20);
 
-    await user.selectOptions(modalityFilter(), 'Caballeros');
+    await chooseOption(user, modalityFilter(),'Caballeros');
     expect(screen.getAllByRole('article')).toHaveLength(10);
     expect(isWatchingSentinel()).toBe(true);
 

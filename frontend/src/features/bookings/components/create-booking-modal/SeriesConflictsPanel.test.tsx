@@ -51,6 +51,20 @@ function renderPanel({
   return { onCreate, onBack };
 }
 
+/** Picks one day's option by name, opening that day's selector first. */
+async function pick(user: ReturnType<typeof userEvent.setup>, trigger: HTMLElement, option: string) {
+  await user.click(trigger);
+  await user.click(await screen.findByRole('option', { name: named(option) }));
+}
+
+/** The options one day's selector offers: it is opened to read them, then closed again. */
+async function optionsOf(user: ReturnType<typeof userEvent.setup>, trigger: HTMLElement): Promise<string[]> {
+  await user.click(trigger);
+  const names = (await screen.findAllByRole('option')).map((option) => plain(option.textContent));
+  await user.keyboard('{Escape}');
+  return names;
+}
+
 describe('SeriesConflictsPanel, the problem', () => {
   it('states it with the court and the weekday', () => {
     renderPanel();
@@ -113,23 +127,16 @@ describe('SeriesConflictsPanel, the occupied dates', () => {
 });
 
 describe('SeriesConflictsPanel, what to do each day', () => {
-  it('defaults every day to "No reservar ese día", offering only the courts free that day', () => {
+  it('defaults every day to "No reservar ese día", offering only the courts free that day', async () => {
+    const user = userEvent.setup();
     renderPanel();
 
     const first = screen.getByRole('combobox', { name: named('Ese día: Lunes 7 de diciembre de 2026') });
     const second = screen.getByRole('combobox', { name: named('Ese día: Lunes 21 de diciembre de 2026') });
-    expect(first).toHaveValue('');
-    expect(second).toHaveValue('');
-    expect(
-      within(first)
-        .getAllByRole('option')
-        .map((o) => plain(o.textContent)),
-    ).toEqual(['No reservar ese día', 'Cancha 2']);
-    expect(
-      within(second)
-        .getAllByRole('option')
-        .map((o) => plain(o.textContent)),
-    ).toEqual(['No reservar ese día', 'Cancha 2', 'Cancha 3']);
+    expect(first).toHaveTextContent('No reservar ese día');
+    expect(second).toHaveTextContent('No reservar ese día');
+    expect(await optionsOf(user, first)).toEqual(['No reservar ese día', 'Cancha 2']);
+    expect(await optionsOf(user, second)).toEqual(['No reservar ese día', 'Cancha 2', 'Cancha 3']);
   });
 
   it('says so, with no selector, on a day no other court is free', () => {
@@ -147,9 +154,10 @@ describe('SeriesConflictsPanel, creating', () => {
     const user = userEvent.setup();
     const { onCreate } = renderPanel();
 
-    await user.selectOptions(
+    await pick(
+      user,
       screen.getByRole('combobox', { name: named('Ese día: Lunes 21 de diciembre de 2026') }),
-      'ct3',
+      'Cancha 3',
     );
     await user.click(screen.getByRole('button', { name: 'Crear turno fijo' }));
 
@@ -170,8 +178,8 @@ describe('SeriesConflictsPanel, creating', () => {
     const { onCreate } = renderPanel();
     const select = screen.getByRole('combobox', { name: named('Ese día: Lunes 7 de diciembre de 2026') });
 
-    await user.selectOptions(select, 'ct2');
-    await user.selectOptions(select, '');
+    await pick(user, select, 'Cancha 2');
+    await pick(user, select, 'No reservar ese día');
     await user.click(screen.getByRole('button', { name: 'Crear turno fijo' }));
 
     expect(onCreate).toHaveBeenCalledExactlyOnceWith([]);
@@ -183,15 +191,17 @@ describe('SeriesConflictsPanel, creating', () => {
 
     expect(screen.getByText('3 días sin reservar')).toBeInTheDocument();
 
-    await user.selectOptions(
+    await pick(
+      user,
       screen.getByRole('combobox', { name: named('Ese día: Lunes 7 de diciembre de 2026') }),
-      'ct2',
+      'Cancha 2',
     );
     expect(screen.getByText('1 día en otra cancha, 2 días sin reservar')).toBeInTheDocument();
 
-    await user.selectOptions(
+    await pick(
+      user,
       screen.getByRole('combobox', { name: named('Ese día: Lunes 21 de diciembre de 2026') }),
-      'ct3',
+      'Cancha 3',
     );
     expect(screen.getByText('2 días en otra cancha, 1 día sin reservar')).toBeInTheDocument();
   });

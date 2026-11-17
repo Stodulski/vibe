@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { formatEventDay, formatEventTimeRange, formatEventWhen } from './eventDates';
+import { eventDayParts, formatEventDay, formatEventTimeRange, formatEventWhen } from './eventDates';
 
 describe('event dates', () => {
+  it('splits a day into the short weekday, the number without a leading zero, and the short month', () => {
+    expect(eventDayParts('2026-11-18')).toEqual({ weekday: 'Mié', day: '18', month: 'nov' });
+    expect(eventDayParts('2026-01-05')).toEqual({ weekday: 'Lun', day: '5', month: 'ene' });
+  });
+
   it('writes the day as weekday, number and month', () => {
     expect(formatEventDay('2026-11-20')).toBe('viernes 20 de noviembre');
   });

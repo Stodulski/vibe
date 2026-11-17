@@ -3,9 +3,9 @@ import { useSelectedComplex } from '@/features/complex';
 import { CreateEventModal, EVENTS_PAGE_CLASS, EventDetail, EventTypePicker } from '@/features/events';
 import { CreateTournamentModal } from '@/features/tournaments';
 import { PageHeader } from '@/shared/components/common/PageHeader';
-import { UpcomingPastSwitch } from '@/shared/components/common/UpcomingPastSwitch';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { EventsHubFilters } from './EventsHubFilters';
 import { EventsHubList } from './EventsHubList';
 import { useEventsHub } from './useEventsHub';
 
@@ -21,6 +21,38 @@ export default function EventsHubPage() {
   const { selectedComplexId } = useSelectedComplex();
   if (!selectedComplexId) return null;
   return <EventsHubContent complexId={selectedComplexId} />;
+}
+
+type HubState = ReturnType<typeof useEventsHub>;
+
+/** The filters and the list: everything between the header and the dialogs. */
+function EventsHubBody({ state }: { state: HubState }) {
+  return (
+    <div className={EVENTS_PAGE_CLASS}>
+      <EventsHubFilters
+        tab={state.tab}
+        onTabChange={state.setTab}
+        filter={state.filter}
+        onChange={state.setFilter}
+        modalities={state.modalities}
+        days={state.days}
+      />
+      <EventsHubList
+        items={state.items}
+        isLoading={state.isLoading}
+        isError={state.isError}
+        onRetry={() => {
+          void state.refetch();
+        }}
+        onSelect={state.selectEvent}
+        kind={state.tab}
+        onCreate={() => {
+          state.setPickerOpen(true);
+        }}
+        hiddenByFilters={state.hiddenByFilters}
+      />
+    </div>
+  );
 }
 
 function EventsHubContent({ complexId }: { complexId: string }) {
@@ -39,22 +71,7 @@ function EventsHubContent({ complexId }: { complexId: string }) {
         }}
       />
 
-      <div className={EVENTS_PAGE_CLASS}>
-        <UpcomingPastSwitch value={state.tab} onChange={state.setTab} />
-        <EventsHubList
-          items={state.items}
-          isLoading={state.isLoading}
-          isError={state.isError}
-          onRetry={() => {
-            void state.refetch();
-          }}
-          onSelect={state.selectEvent}
-          kind={state.tab}
-          onCreate={() => {
-            state.setPickerOpen(true);
-          }}
-        />
-      </div>
+      <EventsHubBody state={state} />
 
       <EventTypePicker
         open={state.pickerOpen}

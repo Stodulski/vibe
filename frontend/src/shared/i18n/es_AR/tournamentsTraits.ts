@@ -9,6 +9,4 @@ export const tournamentsTraits = {
   levels: ['1ra', '2da', '3ra', '4ta', '5ta', '6ta', '7ma', '8va', '9na'],
   suma: 'Suma',
   tournamentTitle: (sport: string) => `Torneo de ${sport}`,
-  weekdays: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
-  months: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
 } as const;

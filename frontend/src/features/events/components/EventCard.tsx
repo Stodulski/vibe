@@ -1,9 +1,10 @@
+import { AGENDA_ROW_CLASS } from '@/shared/components/common/agendaRowLayout';
+import { AgendaRow, type AgendaRowToken } from '@/shared/components/common/AgendaRow';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { openPlayAudience, openPlayKind } from '@/shared/lib/traitLabels';
-import { cn, formatPrice } from '@/shared/lib/utils';
-import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
-import { EVENT_CARD_BOTTOM_ROW_CLASS, EVENT_CARD_CLASS, EVENT_CARD_TOP_ROW_CLASS } from '../lib/eventLayout';
+import { formatPrice } from '@/shared/lib/utils';
+import { formatEventTimeRange } from '@/shared/lib/eventDates';
 import type { OpenPlayEvent } from '@/shared/types/api.types';
 
 const t = ES_AR.events;
@@ -19,35 +20,40 @@ function EventStateText({ event }: { event: OpenPlayEvent }) {
   return null;
 }
 
-/** A row of the events list: what, when, where, how full and the price. Pressing it opens the detail. */
-export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect: (eventId: string) => void }) {
-  const courtNames = event.courts.map((court) => keepTogether(court.name)).join(', ');
+/** The courts as the row names them: their names when there are two or fewer, otherwise how many. */
+function courtsToken(event: OpenPlayEvent): string {
+  if (event.courts.length <= 2) return event.courts.map((court) => keepTogether(court.name)).join(', ');
+  return t.courtsCount(event.courts.length);
+}
 
+/** The meta line of an open play: its hours, the places taken, the price and the courts. */
+function eventMeta(event: OpenPlayEvent): AgendaRowToken[] {
+  const meta: AgendaRowToken[] = [
+    { key: 'hours', text: formatEventTimeRange(event.start_time, event.end_time) },
+    { key: 'spots', text: t.spotsTaken(event.confirmed_count, event.capacity) },
+    { key: 'price', text: formatPrice(event.price) },
+  ];
+  if (event.courts.length > 0) meta.push({ key: 'courts', text: courtsToken(event) });
+  return meta;
+}
+
+/** A row of the events list: its day, what it is, who it is for, when, how full, the price and the courts. Pressing it opens the detail. */
+export function EventCard({ event, onSelect }: { event: OpenPlayEvent; onSelect: (eventId: string) => void }) {
   return (
     <button
       type="button"
       onClick={() => {
         onSelect(event.id);
       }}
-      className={cn(EVENT_CARD_CLASS, 'focus-self hover:border-border-default cursor-pointer transition-colors')}
+      className={AGENDA_ROW_CLASS}
     >
-      <p className="text-text-tertiary text-xs font-medium">{openPlayKind(event)}</p>
-      <div className={EVENT_CARD_TOP_ROW_CLASS}>
-        <p className="text-text-primary min-w-0 truncate text-base font-semibold">{openPlayAudience(event)}</p>
-        <EventStateText event={event} />
-      </div>
-      <p className="text-text-secondary text-sm">
-        <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
-        {' · '}
-        <span className="score-text whitespace-nowrap">{formatEventTimeRange(event.start_time, event.end_time)}</span>
-      </p>
-      <p className="text-text-tertiary truncate text-xs" title={courtNames}>
-        {t.courtsCount(event.courts.length)} · {courtNames}
-      </p>
-      <div className={EVENT_CARD_BOTTOM_ROW_CLASS}>
-        <span className="text-text-secondary text-sm">{t.spotsTaken(event.confirmed_count, event.capacity)}</span>
-        <span className="score-text text-text-primary text-sm font-medium">{formatPrice(event.price)}</span>
-      </div>
+      <AgendaRow
+        date={event.date}
+        kicker={openPlayKind(event)}
+        title={openPlayAudience(event)}
+        badge={<EventStateText event={event} />}
+        meta={eventMeta(event)}
+      />
     </button>
   );
 }

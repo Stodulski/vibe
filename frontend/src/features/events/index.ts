@@ -3,7 +3,7 @@
 // that the main bundle never pulls in these components.
 export { useEvents } from './hooks/useEvents';
 export { upcomingRange as upcomingEventsRange, pastRange as pastEventsRange } from './lib/eventRanges';
-export { EVENT_LIST_CLASS, EVENTS_PAGE_CLASS } from './lib/eventLayout';
+export { EVENTS_PAGE_CLASS } from './lib/eventLayout';
 export { CreateEventModal } from './components/CreateEventModal';
 export { EventCard } from './components/EventCard';
 export { EventDetail } from './components/EventDetail';

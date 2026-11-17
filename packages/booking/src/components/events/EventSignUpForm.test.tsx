@@ -5,6 +5,7 @@ import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '../../test/msw/server';
 import { renderBooking } from '../../test/booking';
+import { chooseOption } from '../../test/chooseOption';
 import { EVENT, MEN_6_TO_8 } from '../../test/eventFixtures';
 import type { BookingConfig } from '../../config';
 import type { PublicOpenPlayEvent } from '../../api/types';
@@ -171,7 +172,7 @@ describe('EventSignUpForm declarations', () => {
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
-    await user.selectOptions(screen.getByLabelText(/categoría/i), '7');
+    await chooseOption(user, screen.getByLabelText(/categoría/i), '7ma');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     await waitFor(() => {
@@ -194,7 +195,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
     await user.click(screen.getByRole('radio', { name: 'Dama' }));
-    await user.selectOptions(screen.getByLabelText(/categoría/i), '7');
+    await chooseOption(user, screen.getByLabelText(/categoría/i), '7ma');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     expect(await screen.findByText(BOOKING_MESSAGES.declaration.openPlayOnly('Caballeros'))).toBeInTheDocument();
@@ -210,7 +211,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
-    await user.selectOptions(screen.getByLabelText(/categoría/i), '5');
+    await chooseOption(user, screen.getByLabelText(/categoría/i), '5ta');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     expect(await screen.findByText('Esta cancha abierta es de 6ta a 8va.')).toBeInTheDocument();
@@ -231,7 +232,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
-    await user.selectOptions(screen.getByLabelText(/categoría/i), '8');
+    await chooseOption(user, screen.getByLabelText(/categoría/i), '8va');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     expect(await screen.findByText('Esta cancha abierta es de 6ta a 8va.')).toBeInTheDocument();

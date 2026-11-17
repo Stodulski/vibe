@@ -1,13 +1,23 @@
-import { get, type FieldErrors, type FieldValues, type Path, type UseFormRegister } from 'react-hook-form';
-import { FieldRequirement, FormField } from '@vibe/ui';
+import {
+  Controller,
+  get,
+  type Control,
+  type FieldErrors,
+  type FieldValues,
+  type Path,
+  type UseFormRegister,
+} from 'react-hook-form';
+import { FieldRequirement, FormField, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { declarationWords, levelLabel } from '../../lib/traitLabels';
-import { SELECT_CLASS } from '../selectStyles';
 
 const d = BOOKING_MESSAGES.declaration;
 
 /** The levels a person can declare: 1ra (1) to 9na (9). */
 const LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9] as const;
+
+/** Radix takes no empty value on an item, so the placeholder choice stands for "no level" under this one. */
+const NO_LEVEL = '__no_level__';
 
 interface GenderChoiceProps<T extends FieldValues> {
   register: UseFormRegister<T>;
@@ -49,8 +59,71 @@ function GenderChoice<T extends FieldValues>({ register, name, idPrefix, error, 
   );
 }
 
+interface LevelFieldProps<T extends FieldValues> {
+  control: Control<T>;
+  name: Path<T>;
+  id: string;
+  error: string | undefined;
+}
+
+/**
+ * The level as the app's Select. Its first choice is the placeholder, and choosing it
+ * puts the level back to none, as the native select this replaces did.
+ */
+function LevelField<T extends FieldValues>({ control, name, id, error }: LevelFieldProps<T>) {
+  const errorId = `${id}-error`;
+  return (
+    <Controller
+      control={control}
+      name={name}
+      render={({ field }) => {
+        const current = (field.value as string | undefined) ?? '';
+        return (
+          <FormField
+            label={
+              <>
+                {d.levelLabel}
+                <FieldRequirement required />
+              </>
+            }
+            htmlFor={id}
+            error={error}
+          >
+            <Select
+              value={current === '' ? NO_LEVEL : current}
+              onValueChange={(value) => {
+                field.onChange(value === NO_LEVEL ? '' : value);
+              }}
+            >
+              <SelectTrigger
+                id={id}
+                ref={field.ref}
+                onBlur={field.onBlur}
+                aria-invalid={!!error}
+                aria-describedby={error ? errorId : undefined}
+              >
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={NO_LEVEL}>{d.levelPlaceholder}</SelectItem>
+                {LEVELS.map((level) => (
+                  <SelectItem key={level} value={String(level)}>
+                    {levelLabel(level)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </FormField>
+        );
+      }}
+    />
+  );
+}
+
 interface PlayerDeclarationFieldsProps<T extends FieldValues> {
   register: UseFormRegister<T>;
+  /** Controls the level, which is a Select and so takes a Controller rather than a register. */
+  control: Control<T>;
   errors: FieldErrors<T>;
   /** Where the person's fields live in the form: `''` for the payer, `'partner.'` for the partner. */
   namePrefix?: string;
@@ -71,6 +144,7 @@ interface PlayerDeclarationFieldsProps<T extends FieldValues> {
  */
 export function PlayerDeclarationFields<T extends FieldValues>({
   register,
+  control,
   errors,
   namePrefix = '',
   idPrefix,
@@ -80,7 +154,6 @@ export function PlayerDeclarationFields<T extends FieldValues>({
 }: PlayerDeclarationFieldsProps<T>) {
   const path = (field: string) => `${namePrefix}${field}` as Path<T>;
   const errorOf = (field: string) => (get(errors, path(field)) as { message?: string } | undefined)?.message;
-  const levelError = errorOf('level');
   const words = declarationWords(sport);
   const genders = [
     { value: 'men', label: words.gender.men },
@@ -101,30 +174,7 @@ export function PlayerDeclarationFields<T extends FieldValues>({
       )}
 
       {asksLevel && (
-        <FormField
-          label={
-            <>
-              {d.levelLabel}
-              <FieldRequirement required />
-            </>
-          }
-          htmlFor={`${idPrefix}level`}
-          error={levelError}
-        >
-          <select
-            id={`${idPrefix}level`}
-            className={SELECT_CLASS}
-            aria-invalid={!!levelError}
-            {...register(path('level'))}
-          >
-            <option value="">{d.levelPlaceholder}</option>
-            {LEVELS.map((level) => (
-              <option key={level} value={String(level)}>
-                {levelLabel(level)}
-              </option>
-            ))}
-          </select>
-        </FormField>
+        <LevelField control={control} name={path('level')} id={`${idPrefix}level`} error={errorOf('level')} />
       )}
     </div>
   );

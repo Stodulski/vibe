@@ -5,10 +5,12 @@ import { http, HttpResponse } from 'msw';
 import { toast } from 'sonner';
 import { server } from '../../test/msw/server';
 import { renderBooking } from '../../test/booking';
+import { chooseOption } from '../../test/chooseOption';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
 import type { BookingConfig } from '../../config';
 import type { PublicTournamentCategory } from '../../api/types';
 import { BOOKING_MESSAGES } from '../../messages';
+import { levelLabel } from '../../lib/traitLabels';
 import { PairSignUpForm } from './PairSignUpForm';
 
 const t = BOOKING_MESSAGES.publicBooking;
@@ -174,7 +176,7 @@ async function declarePlayer(user: ReturnType<typeof userEvent.setup>, index: nu
   const category = screen.getAllByLabelText(/categoría/i)[index];
   if (!choice || !category) throw new Error(`no declaration #${String(index)}`);
   await user.click(choice);
-  await user.selectOptions(category, level);
+  await chooseOption(user, category, levelLabel(Number(level)));
 }
 
 describe('PairSignUpForm declarations', () => {

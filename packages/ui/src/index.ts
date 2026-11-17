@@ -6,6 +6,18 @@ export { Button } from './components/ui/button';
 export { buttonVariants } from './components/ui/button-variants';
 export { Input } from './components/ui/input';
 export { Label } from './components/ui/label';
+export {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectScrollDownButton,
+  SelectScrollUpButton,
+  SelectSeparator,
+  SelectTrigger,
+  SelectValue,
+} from './components/ui/select';
 export { Skeleton } from './components/ui/skeleton';
 export { Textarea } from './components/ui/textarea';
 

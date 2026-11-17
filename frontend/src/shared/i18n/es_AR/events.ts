@@ -8,6 +8,20 @@ export const events = {
   noUpcoming: 'No hay eventos próximos',
   noUpcomingDescription: 'Creá una cancha abierta o un torneo para que la gente se anote online.',
   noPast: 'No hay eventos pasados',
+  // The three selects above the list. They narrow the rows already loaded; no request is made.
+  filters: {
+    when: 'Cuándo',
+    kind: 'Tipo',
+    modality: 'Modalidad',
+    day: 'Día',
+    allKinds: 'Todos',
+    kindOpenPlay: 'Canchas abiertas',
+    kindTournament: 'Torneos',
+    allModalities: 'Todas',
+    allDays: 'Todos',
+  },
+  noMatches: 'No hay eventos con esos filtros',
+  noMatchesDescription: 'Probá con otro tipo, modalidad o día.',
   // The type badge on each card of the one list (torneos use the same words).
   // Canchas abiertas are named from their characteristics, never a typed name (S10, S14).
   openPlayTitle: (sport: string) => `Cancha abierta de ${sport}`,

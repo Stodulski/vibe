@@ -13,6 +13,8 @@ import { ES_AR } from '@/shared/i18n/es_AR';
  */
 
 export type Modality = 'men' | 'women' | 'mixed';
+/** Every modality, in the order a list offers them. */
+export const MODALITIES: readonly Modality[] = ['men', 'women', 'mixed'];
 type PlayerGender = 'men' | 'women';
 
 const PADEL = 'padel';
@@ -119,7 +121,7 @@ export function tournamentTitle(sport: string): string {
 export function categoryStartLabel(startsOn: string | null | undefined, startsAt?: string | null): string | null {
   if (!startsOn) return null;
   const day = parseISO(startsOn);
-  const date = `${t.weekdays[day.getDay()] ?? ''} ${String(day.getDate())} ${t.months[day.getMonth()] ?? ''}`;
+  const date = `${ES_AR.common.weekdaysShort[day.getDay()] ?? ''} ${String(day.getDate())} ${ES_AR.common.monthsShort[day.getMonth()] ?? ''}`;
   return startsAt ? `${date} · ${startsAt}` : date;
 }
 

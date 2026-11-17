@@ -51,7 +51,13 @@ function makeEvent(overrides: Partial<OpenPlayEvent>): OpenPlayEvent {
   };
 }
 
-function summary(id: string, name: string, startDate = '2099-01-02', status: 'active' | 'cancelled' = 'active') {
+function summary(
+  id: string,
+  name: string,
+  startDate = '2099-01-02',
+  status: 'active' | 'cancelled' = 'active',
+  endDate = startDate,
+) {
   const { tournament } = makeDetail();
   return {
     ...tournament,
@@ -59,7 +65,7 @@ function summary(id: string, name: string, startDate = '2099-01-02', status: 'ac
     name,
     status,
     start_date: startDate,
-    end_date: startDate,
+    end_date: endDate,
     unscheduled_count: 0,
     categories: [
       makeCategory({ confirmed_count: 6 }),
@@ -86,6 +92,8 @@ describe('EventsHubPage: one list for both kinds', () => {
     renderWithProviders(<EventsHubPage />);
 
     const list = await screen.findByRole('list', { name: t.listLabel });
+    expect(list).toHaveClass('divide-y');
+    expect(list).not.toHaveClass('grid');
     const [first, second] = within(list).getAllByRole('listitem');
     if (!first || !second) throw new Error('expected two list items');
     expect(first).toHaveTextContent('Torneo de pádel');
@@ -93,12 +101,14 @@ describe('EventsHubPage: one list for both kinds', () => {
     expect(second).toHaveTextContent('Cancha abierta de pádel');
   });
 
-  it('has no Canchas abiertas or Torneos tabs', async () => {
+  it('shows the window as a select, not as tabs', async () => {
     renderWithProviders(<EventsHubPage />);
 
     await screen.findByText(t.noUpcoming);
     expect(screen.queryByRole('navigation', { name: ES_AR.navigation.events })).not.toBeInTheDocument();
     expect(screen.queryByRole('link', { name: tt.title })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.past })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(t.filters.when)).toHaveTextContent(t.upcoming);
   });
 });
 
@@ -154,7 +164,7 @@ describe('EventsHubPage: Pasados', () => {
     const user = userEvent.setup();
 
     await screen.findByText(t.noUpcoming);
-    await user.click(screen.getByRole('button', { name: t.past }));
+    await chooseOption(user, t.filters.when, t.past);
 
     const items = await screen.findAllByRole('listitem');
     expect(items[0]).toHaveTextContent('Cancha abierta de pádelDamas');
@@ -192,6 +202,103 @@ describe('EventsHubPage: Crear evento asks the kind first', () => {
     await user.click(within(picker).getByRole('button', { name: /Torneo/ }));
 
     expect(await screen.findByRole('dialog', { name: tt.form.title })).toBeInTheDocument();
+  });
+});
+
+async function chooseOption(user: ReturnType<typeof userEvent.setup>, label: string, option: string | RegExp) {
+  await user.click(screen.getByLabelText(label));
+  await user.click(await screen.findByRole('option', { name: option }));
+}
+
+describe('EventsHubPage: filters over the loaded rows', () => {
+  it('shows only the tournaments when the kind is Torneos', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
+    vi.mocked(tournamentsApi.list).mockResolvedValue({ tournaments: [summary('t1', 'Copa Vibe')] });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: /Cancha abierta de pádel/ });
+    await chooseOption(user, t.filters.kind, t.filters.kindTournament);
+
+    expect(screen.queryByRole('button', { name: /Cancha abierta de pádel/ })).not.toBeInTheDocument();
+    expect(within(screen.getByRole('list', { name: t.listLabel })).getByRole('link')).toHaveAttribute(
+      'href',
+      '/events/tournaments/t1',
+    );
+  });
+
+  it('shows only the open plays when the kind is Canchas abiertas', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
+    vi.mocked(tournamentsApi.list).mockResolvedValue({ tournaments: [summary('t1', 'Copa Vibe')] });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('link', { name: /Caballeros 6ta/ });
+    await chooseOption(user, t.filters.kind, t.filters.kindOpenPlay);
+
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Cancha abierta de pádel/ })).toBeInTheDocument();
+  });
+
+  it('keeps only the rows of the chosen modality, a tournament by any of its categories', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({
+      events: [makeEvent({ id: 'men', modality: 'men' }), makeEvent({ id: 'women', modality: 'women' })],
+    });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: /Caballeros/ });
+    await chooseOption(user, t.filters.modality, 'Damas');
+
+    expect(screen.getByRole('button', { name: /Damas/ })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Caballeros/ })).not.toBeInTheDocument();
+  });
+});
+
+describe('EventsHubPage: filters by day, the empty state and the reset', () => {
+  it('matches a tournament on any day of its range, and an open play on its own day', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({ date: '2099-01-03' })] });
+    vi.mocked(tournamentsApi.list).mockResolvedValue({
+      tournaments: [summary('t1', 'Copa Vibe', '2099-01-02', 'active', '2099-01-04')],
+    });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: /Cancha abierta de pádel/ });
+    await chooseOption(user, t.filters.day, / 2 ene$/);
+    expect(screen.queryByRole('button', { name: /Cancha abierta de pádel/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Caballeros 6ta/ })).toBeInTheDocument();
+
+    await chooseOption(user, t.filters.day, / 3 ene$/);
+    expect(screen.getByRole('button', { name: /Cancha abierta de pádel/ })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Caballeros 6ta/ })).toBeInTheDocument();
+  });
+
+  it('shows the no-match state when the filters hide every row', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: /Cancha abierta de pádel/ });
+    await chooseOption(user, t.filters.kind, t.filters.kindTournament);
+
+    expect(await screen.findByText(t.noMatches)).toBeInTheDocument();
+    expect(screen.queryByText(t.noUpcoming)).not.toBeInTheDocument();
+  });
+
+  it('clears the filters when the other tab is chosen', async () => {
+    vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
+    vi.mocked(tournamentsApi.list).mockResolvedValue({ tournaments: [summary('t1', 'Copa Vibe')] });
+    renderWithProviders(<EventsHubPage />);
+    const user = userEvent.setup();
+
+    await screen.findByRole('button', { name: /Cancha abierta de pádel/ });
+    await chooseOption(user, t.filters.kind, t.filters.kindTournament);
+    expect(screen.getByLabelText(t.filters.kind)).toHaveTextContent(t.filters.kindTournament);
+
+    await chooseOption(user, t.filters.when, t.past);
+
+    expect(await screen.findByLabelText(t.filters.kind)).toHaveTextContent(t.filters.allKinds);
   });
 });
 

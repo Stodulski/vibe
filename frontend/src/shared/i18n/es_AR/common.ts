@@ -61,4 +61,7 @@ export const common = {
   // Non-blocking notice shown over cached data when a background refetch
   // fails — the view itself keeps rendering (see StaleDataNotice).
   staleDataNotice: 'No pudimos actualizar. Mostrando los últimos datos guardados.',
+  // The short names of a date block on a row of an agenda: "Mié 18 nov".
+  weekdaysShort: ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'],
+  monthsShort: ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'],
 } as const;

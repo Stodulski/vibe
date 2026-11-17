@@ -43,6 +43,7 @@ function PlayersFieldsets({ register, control, errors, categoryId, sport, asksGe
         {asksAnything && (
           <PlayerDeclarationFields
             register={register}
+            control={control}
             errors={errors}
             idPrefix={`pair_${categoryId}_`}
             sport={sport}
@@ -70,6 +71,7 @@ function PlayersFieldsets({ register, control, errors, categoryId, sport, asksGe
         {asksAnything && (
           <PlayerDeclarationFields
             register={register}
+            control={control}
             errors={errors}
             namePrefix="partner."
             idPrefix={`pair_${categoryId}_partner_`}

@@ -1,9 +1,8 @@
 import { useId, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { keepTogether } from '@/shared/lib/keepTogether';
-import { cn } from '@/shared/lib/utils';
 import { formatSeriesDay, weekdayOf } from '../../lib/seriesDates';
 import type { BookingSeriesConflict, CreateBookingSeriesRequest } from '@/shared/types/api.types';
 
@@ -18,7 +17,10 @@ function conflictTag(conflict: BookingSeriesConflict): string {
   return s.conflictTags[conflict.reason];
 }
 
-/** The selector of one date: a native select, because a long series lists dozens and a Radix root per row freezes the dialog. */
+/** Radix takes no empty value on an item, so "no reservar ese día" is this stand-in value. */
+const SKIP_DAY = '__skip_day__';
+
+/** The selector of one date: the app's Select, offering "no reservar ese día" and then the courts free that day. */
 function CourtSelect({
   conflict,
   labelledBy,
@@ -33,33 +35,26 @@ function CourtSelect({
   onChange: (courtId: string) => void;
 }) {
   return (
-    <div className="relative min-w-0 flex-1">
-      <select
-        value={value}
+    <div className="min-w-0 flex-1">
+      <Select
+        value={value === '' ? SKIP_DAY : value}
         disabled={disabled}
-        aria-labelledby={labelledBy}
-        onChange={(event) => {
-          onChange(event.target.value);
+        onValueChange={(courtId) => {
+          onChange(courtId === SKIP_DAY ? '' : courtId);
         }}
-        className={cn(
-          'border-border-interactive bg-bg-base/60 h-10 w-full appearance-none rounded-xl border',
-          'text-text-primary transition-input pr-8 pl-3.5 text-sm shadow-xs outline-none',
-          'hover:border-border-interactive-hover hover:bg-bg-base/80',
-          'focus-visible:border-primary-500/60 focus-visible:bg-bg-base focus-visible:ring-primary-500/15 focus-visible:ring-[3px]',
-          'disabled:cursor-not-allowed disabled:opacity-50',
-        )}
       >
-        <option value="">{s.skipDayOption}</option>
-        {(conflict.free_courts ?? []).map((court) => (
-          <option key={court.court_id} value={court.court_id}>
-            {keepTogether(court.court_name)}
-          </option>
-        ))}
-      </select>
-      <ChevronDown
-        aria-hidden="true"
-        className="text-text-tertiary pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2"
-      />
+        <SelectTrigger aria-labelledby={labelledBy}>
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={SKIP_DAY}>{s.skipDayOption}</SelectItem>
+          {(conflict.free_courts ?? []).map((court) => (
+            <SelectItem key={court.court_id} value={court.court_id}>
+              {keepTogether(court.court_name)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
     </div>
   );
 }
