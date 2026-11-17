@@ -2,6 +2,7 @@ package waitlist
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,6 +17,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/waitlist/store"
@@ -26,20 +28,26 @@ type eventJoin struct {
 	email              string
 }
 
+// fakeSlot is one slot entry the fake store keeps, in created_at order.
+type fakeSlot struct {
+	store.FreedSlotEntry
+	duration int
+	notified bool
+}
+
 // fakePlaceStore records what the place service asks of it. missing makes the
-// "can this be waited for" lookups answer data.ErrRecordNotFound.
+// "can this be waited for" lookups answer data.ErrRecordNotFound; spotsLeft is
+// what they report free; waiting is the count CountWaiting answers.
 type fakePlaceStore struct {
 	missing       bool
+	spotsLeft     int
+	waiting       int
 	categoryEvent uuid.UUID
 	events        []eventJoin
 	slots         []store.NewSlotEntry
 	freedEvents   []store.FreedEventEntry
-	waitingSlots  []store.WaitingSlotEntry
-	claimAsked    [][]uuid.UUID
-	// claimKeeps, when set, is the subset Claim reports as claimed (another
-	// sweep took the rest); otherwise every asked id is claimed.
-	claimKeeps []uuid.UUID
-	fromDay    time.Time
+	waitingSlots  []*fakeSlot
+	gridPages     int
 }
 
 func (f *fakePlaceStore) lookup() error {
@@ -49,16 +57,20 @@ func (f *fakePlaceStore) lookup() error {
 	return nil
 }
 
-func (f *fakePlaceStore) WaitlistableEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) error {
-	return f.lookup()
+func (f *fakePlaceStore) WaitlistableEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (int, error) {
+	return f.spotsLeft, f.lookup()
 }
 
-func (f *fakePlaceStore) WaitlistableCategoryEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (uuid.UUID, error) {
-	return f.categoryEvent, f.lookup()
+func (f *fakePlaceStore) WaitlistableCategoryEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (uuid.UUID, int, error) {
+	return f.categoryEvent, f.spotsLeft, f.lookup()
 }
 
 func (f *fakePlaceStore) WaitlistableCourt(context.Context, uuid.UUID, uuid.UUID) error {
 	return f.lookup()
+}
+
+func (f *fakePlaceStore) CountWaiting(context.Context, uuid.UUID, string) (int, error) {
+	return f.waiting, nil
 }
 
 func (f *fakePlaceStore) InsertEvent(_ context.Context, complexID, eventID uuid.UUID, email string) error {
@@ -75,37 +87,82 @@ func (f *fakePlaceStore) ClaimFreedEvents(context.Context, time.Time, int) ([]st
 	return f.freedEvents, nil
 }
 
-func (f *fakePlaceStore) ListWaitingSlots(_ context.Context, fromDay time.Time, _ int) ([]store.WaitingSlotEntry, error) {
-	f.fromDay = fromDay
-	return f.waitingSlots, nil
+// gridLess is the key order ListWaitingSlotGrids walks: day, then duration (the
+// fake keeps one complex).
+func gridLess(a, b store.SlotGrid) bool {
+	if !a.Day.Equal(b.Day) {
+		return a.Day.Before(b.Day)
+	}
+	return a.DurationMinutes < b.DurationMinutes
 }
 
-func (f *fakePlaceStore) Claim(_ context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
-	f.claimAsked = append(f.claimAsked, ids)
-	if f.claimKeeps != nil {
-		return f.claimKeeps, nil
+// ListWaitingGrids answers like the query: distinct grids of the waiting
+// entries, in key order after the cursor, at most limit.
+func (f *fakePlaceStore) ListWaitingGrids(_ context.Context, _ time.Time, after *store.SlotGrid, limit int) ([]store.SlotGrid, error) {
+	f.gridPages++
+	seen := map[store.SlotGrid]bool{}
+	var grids []store.SlotGrid
+	for _, e := range f.waitingSlots {
+		g := store.SlotGrid{ComplexSlug: e.ComplexSlug, Day: e.Day, DurationMinutes: e.duration}
+		if e.notified || seen[g] || (after != nil && !gridLess(*after, g)) {
+			continue
+		}
+		seen[g] = true
+		grids = append(grids, g)
 	}
-	return ids, nil
+	for i := 1; i < len(grids); i++ {
+		for j := i; j > 0 && gridLess(grids[j], grids[j-1]); j-- {
+			grids[j], grids[j-1] = grids[j-1], grids[j]
+		}
+	}
+	if len(grids) > limit {
+		grids = grids[:limit]
+	}
+	return grids, nil
+}
+
+// ClaimFreeSlots claims, once, the waiting entries of grid at the positions given.
+func (f *fakePlaceStore) ClaimFreeSlots(_ context.Context, g store.SlotGrid, positions []string) ([]store.FreedSlotEntry, error) {
+	var out []store.FreedSlotEntry
+	for _, e := range f.waitingSlots {
+		if e.notified || !e.Day.Equal(g.Day) || e.duration != g.DurationMinutes {
+			continue
+		}
+		for _, pos := range positions {
+			if pos == e.CourtID.String()+" "+e.StartTime {
+				e.notified = true
+				out = append(out, e.FreedSlotEntry)
+				break
+			}
+		}
+	}
+	return out, nil
 }
 
 func (f *fakePlaceStore) DeletePast(context.Context, time.Time) (int64, error) { return 0, nil }
 
-// fakeGrid answers Availability with one court whose free starts are given.
+// fakeGrid answers Availability with one court. free and taken are its starts
+// on every grid, unless freeOn names the free starts per "date/duration".
 type fakeGrid struct {
 	courtID string
 	free    []string
 	taken   []string
+	freeOn  map[string][]string
 	reads   int
 }
 
-func (g *fakeGrid) Availability(context.Context, string, string, time.Time, int) (*courts.AvailabilityResponse, error) {
+func (g *fakeGrid) Availability(_ context.Context, _, dateStr string, _ time.Time, duration int) (*courts.AvailabilityResponse, error) {
 	g.reads++
-	c := courts.CourtAvailability{CourtID: g.courtID}
-	for _, s := range g.free {
-		c.Slots = append(c.Slots, courts.AvailabilitySlot{StartTime: s, Available: true})
+	free, taken := g.free, g.taken
+	if g.freeOn != nil {
+		free, taken = g.freeOn[fmt.Sprintf("%s/%d", dateStr, duration)], nil
 	}
-	for _, s := range g.taken {
-		c.Slots = append(c.Slots, courts.AvailabilitySlot{StartTime: s, Available: false})
+	c := courts.CourtAvailability{CourtID: g.courtID}
+	for _, s := range free {
+		c.Slots = append(c.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: true})
+	}
+	for _, s := range taken {
+		c.Slots = append(c.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: false})
 	}
 	return &courts.AvailabilityResponse{IsOpen: true, Courts: []courts.CourtAvailability{c}}, nil
 }
@@ -125,8 +182,12 @@ func newPlaceService(st *fakePlaceStore, cx *fakeComplexes, g *fakeGrid, n *fake
 }
 
 func newPlaceHandler(st *fakePlaceStore, cx *fakeComplexes, gate *turnstile.Gate) *PlaceHandler {
+	return newPlaceHandlerOn(st, cx, &fakeGrid{}, gate)
+}
+
+func newPlaceHandlerOn(st *fakePlaceStore, cx *fakeComplexes, g *fakeGrid, gate *turnstile.Gate) *PlaceHandler {
 	respond := httpx.NewResponder(discard())
-	return NewPlaceHandler(newPlaceService(st, cx, &fakeGrid{}, &fakePlaceNotifier{}), respond, gate)
+	return NewPlaceHandler(newPlaceService(st, cx, g, &fakePlaceNotifier{}), respond, gate)
 }
 
 func postPlace(t *testing.T, h *PlaceHandler, body string) *httptest.ResponseRecorder {
@@ -152,7 +213,7 @@ func slotBody(courtID uuid.UUID, date, start string, minutes string) string {
 func TestJoinPlaceAnswers204ForEveryKindAndOnARepeat(t *testing.T) {
 	complexID, eventID, categoryEvent, courtID := uuid.New(), uuid.New(), uuid.New(), uuid.New()
 	st := &fakePlaceStore{categoryEvent: categoryEvent}
-	h := newPlaceHandler(st, activeComplex(complexID), nil)
+	h := newPlaceHandlerOn(st, activeComplex(complexID), &fakeGrid{courtID: courtID.String(), taken: []string{"19:00"}}, nil)
 
 	bodies := []string{
 		`{"email":"  Ana@Example.COM ","kind":"open_play","event_id":"` + eventID.String() + `"}`,
@@ -288,17 +349,18 @@ func TestSweepEmailsEveryClaimedEventEntry(t *testing.T) {
 	}
 }
 
+func slotEntry(courtID uuid.UUID, day time.Time, start string, duration int) *fakeSlot {
+	return &fakeSlot{FreedSlotEntry: store.FreedSlotEntry{ID: uuid.New(), Email: "ana@example.com", CourtID: courtID,
+		CourtName: "1", Day: day, StartTime: start, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}, duration: duration}
+}
+
 // S4: a slot entry is claimed and emailed only when the courts grid says its
 // slot is on sale now; one grid read serves every entry of the same day.
 func TestSweepEmailsOnlyTheSlotsTheGridSaysAreFree(t *testing.T) {
 	courtID := uuid.New()
-	free, taken := uuid.New(), uuid.New()
 	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
-	entry := func(id uuid.UUID, start string) store.WaitingSlotEntry {
-		return store.WaitingSlotEntry{ID: id, Email: "ana@example.com", CourtID: courtID, CourtName: "1",
-			Day: wednesday, StartTime: start, DurationMinutes: 90, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}
-	}
-	st := &fakePlaceStore{waitingSlots: []store.WaitingSlotEntry{entry(free, "19:00"), entry(taken, "20:30")}}
+	free, taken := slotEntry(courtID, wednesday, "19:00", 90), slotEntry(courtID, wednesday, "20:30", 90)
+	st := &fakePlaceStore{waitingSlots: []*fakeSlot{free, taken}}
 	g := &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}, taken: []string{"20:30"}}
 	n := &fakePlaceNotifier{}
 	newPlaceService(st, activeComplex(uuid.New()), g, n).Sweep(t.Context())
@@ -306,32 +368,105 @@ func TestSweepEmailsOnlyTheSlotsTheGridSaysAreFree(t *testing.T) {
 	if g.reads != 1 {
 		t.Errorf("want one grid read for one day; got %d", g.reads)
 	}
-	if len(st.claimAsked) != 1 || len(st.claimAsked[0]) != 1 || st.claimAsked[0][0] != free {
-		t.Fatalf("want only the free slot's entry claimed; got %v", st.claimAsked)
+	if !free.notified || taken.notified {
+		t.Fatalf("want only the free slot's entry claimed; free=%v taken=%v", free.notified, taken.notified)
 	}
 	if len(n.sent) != 1 {
 		t.Fatalf("want one email; got %d", len(n.sent))
 	}
 	got := n.sent[0]
-	if got.EntryID != free.String() || got.PlaceLabel != "Cancha 1 el miércoles 18/11 a las 19:00" ||
+	if got.EntryID != free.ID.String() || got.PlaceLabel != "Cancha 1 el miércoles 18/11 a las 19:00" ||
 		got.BookURL != "https://vibe.test/c/vibe-padel?date=2026-11-18" {
 		t.Errorf("slot email = %+v", got)
 	}
 }
 
-// S4: an entry another sweep already claimed is not emailed again.
-func TestSweepEmailsOnlyWhatItsOwnClaimTook(t *testing.T) {
-	courtID, id := uuid.New(), uuid.New()
-	st := &fakePlaceStore{
-		waitingSlots: []store.WaitingSlotEntry{{ID: id, Email: "ana@example.com", CourtID: courtID, CourtName: "Cancha 2",
-			Day: time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC), StartTime: "19:00", DurationMinutes: 60}},
-		claimKeeps: []uuid.UUID{},
-	}
+// S4: a claimed entry is not emailed again by the next run.
+func TestSweepEmailsASlotEntryOnce(t *testing.T) {
+	courtID := uuid.New()
+	st := &fakePlaceStore{waitingSlots: []*fakeSlot{slotEntry(courtID, time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC), "19:00", 60)}}
 	n := &fakePlaceNotifier{}
-	newPlaceService(st, activeComplex(uuid.New()), &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}, n).Sweep(t.Context())
+	svc := newPlaceService(st, activeComplex(uuid.New()), &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}, n)
+	svc.Sweep(t.Context())
+	svc.Sweep(t.Context())
 
-	if len(n.sent) != 0 {
-		t.Fatalf("an entry claimed elsewhere must not be emailed here; got %+v", n.sent)
+	if len(n.sent) != 1 {
+		t.Fatalf("want one email over two runs; got %d", len(n.sent))
+	}
+}
+
+// B1 regression: a batch of older entries whose slots stay taken must not
+// starve a newer one whose slot is free. The walk over the grids resumes after
+// the last one read, so the free entry is reached within a few runs, and is
+// emailed exactly once.
+func TestSweepReachesASlotEntryBehindABatchOfStillTakenOnes(t *testing.T) {
+	courtID := uuid.New()
+	base := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	st := &fakePlaceStore{}
+	// sweepBatch older entries, each on its own grid, every slot still taken.
+	for i := 0; i < sweepBatch; i++ {
+		st.waitingSlots = append(st.waitingSlots, slotEntry(courtID, base.AddDate(0, 0, i/10), "19:00", 30+i%10))
+	}
+	// The newest entry, on the last grid in key order, whose slot is free.
+	newest := slotEntry(courtID, base.AddDate(0, 0, sweepBatch), "19:00", 60)
+	st.waitingSlots = append(st.waitingSlots, newest)
+	g := &fakeGrid{courtID: courtID.String(), freeOn: map[string][]string{
+		base.AddDate(0, 0, sweepBatch).Format(time.DateOnly) + "/60": {"19:00"},
+	}}
+	n := &fakePlaceNotifier{}
+	svc := newPlaceService(st, activeComplex(uuid.New()), g, n)
+
+	for run := 0; run < 3; run++ {
+		svc.Sweep(t.Context())
+	}
+
+	if !newest.notified {
+		t.Fatal("the free entry behind a full batch of taken ones was never claimed")
+	}
+	if len(n.sent) != 1 || n.sent[0].EntryID != newest.ID.String() {
+		t.Fatalf("want exactly one email, for the free entry; got %+v", n.sent)
+	}
+}
+
+// B2 regression: a wait is only for a place that is full now. A place with a
+// spot free, a slot the grid does not sell, a slot that has begun and an address
+// already waiting for too many places are refused with a 422 naming the field,
+// and nothing is stored, so the join cannot make the sweep email anyone at once.
+func TestJoinPlaceDoesNotStoreAWaitForAPlaceThatIsFree(t *testing.T) {
+	courtID := uuid.New()
+	eventBody := `{"email":"ana@example.com","kind":"open_play","event_id":"` + uuid.NewString() + `"}`
+	categoryBody := `{"email":"ana@example.com","kind":"tournament_category","category_id":"` + uuid.NewString() + `"}`
+	taken := &fakeGrid{courtID: courtID.String(), taken: []string{"19:00"}}
+	cases := map[string]struct {
+		st          *fakePlaceStore
+		grid        *fakeGrid
+		body, field string
+	}{
+		"event with a spot":    {&fakePlaceStore{spotsLeft: 1}, taken, eventBody, "event_id"},
+		"category with a spot": {&fakePlaceStore{spotsLeft: 1}, taken, categoryBody, "category_id"},
+		"free slot": {&fakePlaceStore{}, &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}},
+			slotBody(courtID, inDays(2), "19:00", "90"), "start_time"},
+		"slot off the grid": {&fakePlaceStore{}, taken, slotBody(courtID, inDays(2), "03:17", "7"), "start_time"},
+		"another court's slot": {&fakePlaceStore{}, taken,
+			slotBody(uuid.New(), inDays(2), "19:00", "90"), "start_time"},
+		"slot already begun": {&fakePlaceStore{}, &fakeGrid{courtID: courtID.String(), taken: []string{"00:00"}},
+			slotBody(courtID, inDays(0), "00:00", "90"), "start_time"},
+		"too many waits": {&fakePlaceStore{waiting: MaxWaitingPerEmail}, taken, eventBody, "email"},
+	}
+	for name, c := range cases {
+		w := postPlace(t, newPlaceHandlerOn(c.st, activeComplex(uuid.New()), c.grid, nil), c.body)
+		if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), `"`+c.field+`"`) {
+			t.Errorf("%s: want 422 naming %s; got %d (%s)", name, c.field, w.Code, w.Body.String())
+		}
+		if len(c.st.events)+len(c.st.slots) != 0 {
+			t.Errorf("%s: nothing may be stored; got %d events, %d slots", name, len(c.st.events), len(c.st.slots))
+		}
+	}
+
+	// One under the cap is still accepted.
+	st := &fakePlaceStore{waiting: MaxWaitingPerEmail - 1}
+	if w := postPlace(t, newPlaceHandlerOn(st, activeComplex(uuid.New()), taken, nil), eventBody); w.Code != http.StatusNoContent {
+		t.Errorf("one under the cap: want 204; got %d (%s)", w.Code, w.Body.String())
 	}
 }
 

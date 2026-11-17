@@ -2,9 +2,11 @@ package waitlist
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/courts"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/waitlist/store"
 )
@@ -25,20 +28,43 @@ const (
 	KindSlot               = "slot"
 )
 
-// sweepBatch bounds how many entries one sweep run claims or inspects per kind;
-// the next run, a minute later, picks up the rest.
+// sweepBatch bounds one sweep run: how many event entries it claims, and how
+// many slot grids (complex, day, duration) it reads. The next run, a minute
+// later, picks up the rest: event claims skip what was already claimed, and the
+// grid walk resumes after the last grid read, so no entry is starved.
 const sweepBatch = 500
+
+// MaxWaitingPerEmail caps the places one address can be waiting for at one
+// complex at a time, so the join cannot be used to fill someone's inbox.
+const MaxWaitingPerEmail = 20
+
+// The join's refusals, each answered as a 422 naming the field it is about.
+var (
+	// ErrPlaceFree is a join for a place that has a free spot right now: it is
+	// to be booked, not waited for, and a wait stored for it would be emailed at
+	// once by the next sweep.
+	ErrPlaceFree = errors.New("waitlist: the place is free now")
+	// ErrNotOnGrid is a slot the court's grid does not sell on that day for that
+	// duration, so it can never free.
+	ErrNotOnGrid = errors.New("waitlist: the slot is not on the court's grid")
+	// ErrPlaceStarted is a slot that has already begun.
+	ErrPlaceStarted = errors.New("waitlist: the slot has already started")
+	// ErrTooManyWaits is an address already waiting for MaxWaitingPerEmail places
+	// at the complex.
+	ErrTooManyWaits = errors.New("waitlist: the address is waiting for too many places")
+)
 
 // PlaceStore is the persistence the place waitlist needs. See store.PlaceStore.
 type PlaceStore interface {
-	WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) error
-	WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, error)
+	WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) (int, error)
+	WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, int, error)
 	WaitlistableCourt(ctx context.Context, complexID, courtID uuid.UUID) error
+	CountWaiting(ctx context.Context, complexID uuid.UUID, email string) (int, error)
 	InsertEvent(ctx context.Context, complexID, eventID uuid.UUID, email string) error
 	InsertSlot(ctx context.Context, e store.NewSlotEntry) error
 	ClaimFreedEvents(ctx context.Context, now time.Time, limit int) ([]store.FreedEventEntry, error)
-	ListWaitingSlots(ctx context.Context, fromDay time.Time, limit int) ([]store.WaitingSlotEntry, error)
-	Claim(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error)
+	ListWaitingGrids(ctx context.Context, fromDay time.Time, after *store.SlotGrid, limit int) ([]store.SlotGrid, error)
+	ClaimFreeSlots(ctx context.Context, grid store.SlotGrid, positions []string) ([]store.FreedSlotEntry, error)
 	DeletePast(ctx context.Context, today time.Time) (int64, error)
 }
 
@@ -77,6 +103,13 @@ type PlaceService struct {
 	publicURL string
 	logger    *slog.Logger
 	now       func() time.Time
+
+	// gridBatch is how many slot grids one sweep reads (sweepBatch; a test
+	// lowers it). gridCursor is the last grid the previous run read, nil to
+	// start from the first; the walk wraps round when a page comes back short.
+	gridBatch  int
+	gridMu     sync.Mutex
+	gridCursor *store.SlotGrid
 }
 
 // NewPlaceService returns a PlaceService. publicURL is the storefront base the
@@ -84,14 +117,17 @@ type PlaceService struct {
 func NewPlaceService(st PlaceStore, complexes ComplexLookup, grid SlotGrid, notify PlaceNotifier, publicURL string, logger *slog.Logger) *PlaceService {
 	return &PlaceService{
 		store: st, complexes: complexes, grid: grid, notify: notify,
-		publicURL: publicURL, logger: logger, now: timezone.Now,
+		publicURL: publicURL, logger: logger, now: timezone.Now, gridBatch: sweepBatch,
 	}
 }
 
 // Join puts email on the waitlist for target at the complex with the given
-// slug. Joining the same place twice is not an error. An unknown or inactive
-// complex, and an event, category or court that is not that complex's or can no
-// longer be waited for, answer data.ErrRecordNotFound.
+// slug. Joining the same place twice while waiting is not an error. An unknown
+// or inactive complex, and an event, category or court that is not that
+// complex's or can no longer be waited for, answer data.ErrRecordNotFound. A
+// place with a free spot now answers ErrPlaceFree, a slot the grid does not sell
+// ErrNotOnGrid, a slot already begun ErrPlaceStarted, and an address already
+// waiting for MaxWaitingPerEmail places there ErrTooManyWaits.
 func (s *PlaceService) Join(ctx context.Context, slug string, target PlaceTarget, email string) error {
 	complex, err := s.complexes.GetBySlug(ctx, slug)
 	if err != nil {
@@ -103,20 +139,38 @@ func (s *PlaceService) Join(ctx context.Context, slug string, target PlaceTarget
 	ctx = data.ContextWithTenant(ctx, complex.ID)
 	now := s.now()
 
+	waiting, err := s.store.CountWaiting(ctx, complex.ID, email)
+	if err != nil {
+		return err
+	}
+	if waiting >= MaxWaitingPerEmail {
+		return ErrTooManyWaits
+	}
+
 	switch target.Kind {
 	case KindOpenPlay:
-		if err := s.store.WaitlistableEvent(ctx, complex.ID, target.EventID, now); err != nil {
+		spots, err := s.store.WaitlistableEvent(ctx, complex.ID, target.EventID, now)
+		if err != nil {
 			return err
+		}
+		if spots > 0 {
+			return ErrPlaceFree
 		}
 		return s.store.InsertEvent(ctx, complex.ID, target.EventID, email)
 	case KindTournamentCategory:
-		eventID, err := s.store.WaitlistableCategoryEvent(ctx, complex.ID, target.CategoryID, now)
+		eventID, spots, err := s.store.WaitlistableCategoryEvent(ctx, complex.ID, target.CategoryID, now)
 		if err != nil {
 			return err
+		}
+		if spots > 0 {
+			return ErrPlaceFree
 		}
 		return s.store.InsertEvent(ctx, complex.ID, eventID, email)
 	case KindSlot:
 		if err := s.store.WaitlistableCourt(ctx, complex.ID, target.CourtID); err != nil {
+			return err
+		}
+		if err := s.slotIsTaken(ctx, slug, target, now); err != nil {
 			return err
 		}
 		return s.store.InsertSlot(ctx, store.NewSlotEntry{
@@ -126,6 +180,39 @@ func (s *PlaceService) Join(ctx context.Context, slug string, target PlaceTarget
 	default:
 		return fmt.Errorf("waitlist: unknown place kind %q", target.Kind)
 	}
+}
+
+// slotIsTaken reads the court's grid for the slot's day and duration, the one
+// the storefront shows and the sweep reads, and answers nil only for a slot the
+// grid sells, that has not begun, and that is taken now.
+func (s *PlaceService) slotIsTaken(ctx context.Context, slug string, target PlaceTarget, now time.Time) error {
+	dateStr := target.Day.Format(time.DateOnly)
+	grid, err := s.grid.Availability(ctx, slug, dateStr, target.Day, target.DurationMinutes)
+	if err != nil {
+		return err
+	}
+	for _, c := range grid.Courts {
+		if c.CourtID != target.CourtID.String() {
+			continue
+		}
+		for _, sl := range c.Slots {
+			if sl.StartTime != target.StartTime {
+				continue
+			}
+			// Placed on the calendar day it falls on: the 00:30 of a window that
+			// trades past midnight is the next day's.
+			start := slots.At(target.Day.AddDate(0, 0, slots.CalendarDays(sl.StartMin)), sl.StartTime)
+			switch {
+			case !start.After(now):
+				return ErrPlaceStarted
+			case sl.Available:
+				return ErrPlaceFree
+			default:
+				return nil
+			}
+		}
+	}
+	return ErrNotOnGrid
 }
 
 // Sweep emails every entry whose place has a free spot now and has not begun,
@@ -161,55 +248,50 @@ func (s *PlaceService) sweepEvents(ctx context.Context, now time.Time) {
 	}
 }
 
-// gridKey names one day's grid of one venue for one duration: the slot entries
-// that share it are checked against a single Availability read.
-type gridKey struct {
-	slug     string
-	day      string
-	duration int
-}
-
+// sweepSlots reads the next page of the grids slot entries wait on, one
+// Availability read each, and claims the entries whose position the grid sells
+// now. The page starts after the grid the previous run read last and wraps to
+// the first when it comes back short, so every waiting entry is inspected in
+// turn however many older ones are still taken.
 func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
+	s.gridMu.Lock()
+	defer s.gridMu.Unlock()
+
 	today := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, timezone.Argentina)
-	waiting, err := s.store.ListWaitingSlots(ctx, today.AddDate(0, 0, -1), sweepBatch)
+	// From yesterday: a venue trading past midnight files tonight's 00:30 under
+	// yesterday's grid.
+	grids, err := s.store.ListWaitingGrids(ctx, today.AddDate(0, 0, -1), s.gridCursor, s.gridBatch)
 	if err != nil {
-		s.logger.Error("waitlist: could not list the slot entries still waiting", "error", err)
+		s.logger.Error("waitlist: could not list the grids slot entries wait on", "error", err)
 		return
+	}
+	if len(grids) < s.gridBatch {
+		s.gridCursor = nil
+	} else {
+		last := grids[len(grids)-1]
+		s.gridCursor = &last
 	}
 
-	free := make(map[gridKey]map[string]bool) // per grid: "courtID start" -> free now
-	var freedIDs []uuid.UUID
-	byID := make(map[uuid.UUID]store.WaitingSlotEntry, len(waiting))
-	for _, e := range waiting {
-		key := gridKey{slug: e.ComplexSlug, day: e.Day.Format(time.DateOnly), duration: e.DurationMinutes}
-		slotsFree, ok := free[key]
-		if !ok {
-			slotsFree = s.freeSlots(ctx, key)
-			free[key] = slotsFree
+	for _, g := range grids {
+		positions := s.freePositions(ctx, g)
+		if len(positions) == 0 {
+			continue
 		}
-		if slotsFree[e.CourtID.String()+" "+e.StartTime] {
-			freedIDs = append(freedIDs, e.ID)
-			byID[e.ID] = e
+		claimed, err := s.store.ClaimFreeSlots(ctx, g, positions)
+		if err != nil {
+			s.logger.Error("waitlist: could not claim the slot entries of a freed grid", "error", err,
+				"complex_id", g.ComplexID, "date", g.Day.Format(time.DateOnly))
+			continue
 		}
-	}
-	if len(freedIDs) == 0 {
-		return
-	}
-
-	claimed, err := s.store.Claim(ctx, freedIDs)
-	if err != nil {
-		s.logger.Error("waitlist: could not claim the slot entries with a freed slot", "error", err)
-		return
-	}
-	for _, id := range claimed {
-		e := byID[id]
-		day := timezone.Day(e.Day)
-		s.notify.WaitlistPlaceFreed(notifications.WaitlistPlaceFreedEmail{
-			EntryID: e.ID.String(), Email: e.Email, ComplexName: e.ComplexName,
-			PlaceLabel: fmt.Sprintf("%s el %s %s a las %s", courtLabel(e.CourtName),
-				notifications.SpanishWeekday(day.Weekday()), day.Format("02/01"), e.StartTime),
-			BookURL: booklink.StorefrontOnDate(s.publicURL, e.ComplexSlug, day),
-		})
+		for _, e := range claimed {
+			day := timezone.Day(e.Day)
+			s.notify.WaitlistPlaceFreed(notifications.WaitlistPlaceFreedEmail{
+				EntryID: e.ID.String(), Email: e.Email, ComplexName: e.ComplexName,
+				PlaceLabel: fmt.Sprintf("%s el %s %s a las %s", courtLabel(e.CourtName),
+					notifications.SpanishWeekday(day.Weekday()), day.Format("02/01"), e.StartTime),
+				BookURL: booklink.StorefrontOnDate(s.publicURL, e.ComplexSlug, day),
+			})
+		}
 	}
 }
 
@@ -222,25 +304,26 @@ func courtLabel(name string) string {
 	return "Cancha " + name
 }
 
-// freeSlots reads one day's grid and returns the court positions that are on
-// sale now, keyed "courtID start". The grid already leaves out what is booked,
-// held, blocked or begun. A grid that cannot be read frees nothing this run.
-func (s *PlaceService) freeSlots(ctx context.Context, key gridKey) map[string]bool {
-	out := map[string]bool{}
-	day, err := timezone.ParseDay(key.day)
+// freePositions reads one grid and returns the court positions on sale now,
+// each "<court id> HH:MM". The grid already leaves out what is booked, held,
+// blocked or begun. A grid that cannot be read frees nothing this run.
+func (s *PlaceService) freePositions(ctx context.Context, g store.SlotGrid) []string {
+	dateStr := g.Day.Format(time.DateOnly)
+	day, err := timezone.ParseDay(dateStr)
 	if err != nil {
-		return out
+		return nil
 	}
-	grid, err := s.grid.Availability(ctx, key.slug, key.day, day, key.duration)
+	grid, err := s.grid.Availability(ctx, g.ComplexSlug, dateStr, day, g.DurationMinutes)
 	if err != nil {
 		s.logger.Warn("waitlist: could not read the grid for waiting slot entries",
-			"error", err, "slug", key.slug, "date", key.day, "duration", key.duration)
-		return out
+			"error", err, "slug", g.ComplexSlug, "date", dateStr, "duration", g.DurationMinutes)
+		return nil
 	}
+	var out []string
 	for _, c := range grid.Courts {
 		for _, sl := range c.Slots {
 			if sl.Available {
-				out[c.CourtID+" "+sl.StartTime] = true
+				out = append(out, c.CourtID+" "+sl.StartTime)
 			}
 		}
 	}

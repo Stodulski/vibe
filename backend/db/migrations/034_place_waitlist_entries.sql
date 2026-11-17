@@ -37,10 +37,12 @@ CREATE TABLE place_waitlist_entries (
     notified_at      TIMESTAMPTZ,
     CONSTRAINT place_waitlist_entries_complex_id_fkey
         FOREIGN KEY (complex_id) REFERENCES complexes (id) ON DELETE CASCADE,
-    CONSTRAINT place_waitlist_entries_event_id_fkey
-        FOREIGN KEY (event_id) REFERENCES open_play_events (id) ON DELETE CASCADE,
-    CONSTRAINT place_waitlist_entries_court_id_fkey
-        FOREIGN KEY (court_id) REFERENCES courts (id) ON DELETE CASCADE,
+    -- Composite keys, as 030 does: an entry cannot name another tenant's event
+    -- or court.
+    CONSTRAINT place_waitlist_entries_event_fkey
+        FOREIGN KEY (event_id, complex_id) REFERENCES open_play_events (id, complex_id) ON DELETE CASCADE,
+    CONSTRAINT place_waitlist_entries_court_fkey
+        FOREIGN KEY (court_id, complex_id) REFERENCES courts (id, complex_id) ON DELETE CASCADE,
     CONSTRAINT place_waitlist_entries_kind_valid CHECK (kind IN ('open_play', 'slot')),
     -- Each kind names exactly its own place and nothing of the other's.
     CONSTRAINT place_waitlist_entries_target CHECK (
@@ -57,15 +59,25 @@ CREATE TABLE place_waitlist_entries (
         CHECK (email = lower(btrim(email)) AND char_length(email) BETWEEN 3 AND 254)
 );
 
--- One entry per address per place; a second join is a no-op.
+-- One waiting entry per address per place; a second join while still waiting is
+-- a no-op. Notified rows are left out, so an address that was told and missed
+-- the place can wait for it again: the new row gets its own notice.
 CREATE UNIQUE INDEX idx_place_waitlist_entries_open_play_email
-    ON place_waitlist_entries (event_id, email) WHERE kind = 'open_play';
+    ON place_waitlist_entries (event_id, email) WHERE kind = 'open_play' AND notified_at IS NULL;
 CREATE UNIQUE INDEX idx_place_waitlist_entries_slot_email
-    ON place_waitlist_entries (court_id, date, start_time, duration_minutes, email) WHERE kind = 'slot';
+    ON place_waitlist_entries (court_id, date, start_time, duration_minutes, email)
+    WHERE kind = 'slot' AND notified_at IS NULL;
 
--- The every-minute sweep reads only the rows still waiting.
-CREATE INDEX idx_place_waitlist_entries_unnotified
-    ON place_waitlist_entries (kind, created_at) WHERE notified_at IS NULL;
+-- The per-address cap on the join counts the waiting entries of one address.
+CREATE INDEX idx_place_waitlist_entries_waiting_email
+    ON place_waitlist_entries (complex_id, email) WHERE notified_at IS NULL;
+
+-- The every-minute sweep reads only the rows still waiting: the event entries,
+-- and the distinct grids (complex, day, duration) the slot entries wait on.
+CREATE INDEX idx_place_waitlist_entries_unnotified_events
+    ON place_waitlist_entries (created_at) WHERE kind = 'open_play' AND notified_at IS NULL;
+CREATE INDEX idx_place_waitlist_entries_unnotified_slots
+    ON place_waitlist_entries (date, complex_id, duration_minutes) WHERE kind = 'slot' AND notified_at IS NULL;
 
 ALTER TABLE place_waitlist_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE place_waitlist_entries FORCE ROW LEVEL SECURITY;

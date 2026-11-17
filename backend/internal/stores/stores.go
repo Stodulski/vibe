@@ -250,14 +250,15 @@ type WaitlistStore interface {
 // join, the every-minute sweep that claims and notifies them once, and the daily
 // cleanup. waitlist.PlaceStore is the consumer's declaration of the same set.
 type PlaceWaitlistStore interface {
-	WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) error
-	WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, error)
+	WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) (int, error)
+	WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, int, error)
 	WaitlistableCourt(ctx context.Context, complexID, courtID uuid.UUID) error
+	CountWaiting(ctx context.Context, complexID uuid.UUID, email string) (int, error)
 	InsertEvent(ctx context.Context, complexID, eventID uuid.UUID, email string) error
 	InsertSlot(ctx context.Context, e waitliststore.NewSlotEntry) error
 	ClaimFreedEvents(ctx context.Context, now time.Time, limit int) ([]waitliststore.FreedEventEntry, error)
-	ListWaitingSlots(ctx context.Context, fromDay time.Time, limit int) ([]waitliststore.WaitingSlotEntry, error)
-	Claim(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error)
+	ListWaitingGrids(ctx context.Context, fromDay time.Time, after *waitliststore.SlotGrid, limit int) ([]waitliststore.SlotGrid, error)
+	ClaimFreeSlots(ctx context.Context, grid waitliststore.SlotGrid, positions []string) ([]waitliststore.FreedSlotEntry, error)
 	DeletePast(ctx context.Context, today time.Time) (int64, error)
 }
 

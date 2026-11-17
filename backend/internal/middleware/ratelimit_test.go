@@ -372,3 +372,24 @@ func TestTheSlotHoldIsThrottledLikeABookingInItsOwnBucket(t *testing.T) {
 		t.Errorf("the hold ceiling must have POST /book's numbers under its own name; got %+v vs %+v", holdCeiling, bookingCeiling)
 	}
 }
+
+// B2 regression: joining the place waitlist stores an address the platform will
+// email, so it spends the same strict hold ceiling as the sign-ups; the per-day
+// waitlist and other shapes under the tree are left alone.
+func TestPlaceWaitlistJoinSpendsTheHoldCeiling(t *testing.T) {
+	cases := []struct {
+		method, path string
+		want         []int
+	}{
+		{http.MethodPost, "/api/v1/public/complexes/x/waitlist/places", generalAndHold},
+		{http.MethodGet, "/api/v1/public/complexes/x/waitlist/places", generalOnly},
+		{http.MethodPost, "/api/v1/public/complexes/x/waitlist", generalOnly},
+		{http.MethodPost, "/api/v1/public/complexes/x/y/waitlist/places", generalOnly},
+	}
+	for _, tc := range cases {
+		r := httptest.NewRequestWithContext(t.Context(), tc.method, tc.path, nil)
+		if got := ceilingsFor(r); !slices.Equal(got, tc.want) {
+			t.Errorf("%s %s: ceilings = %v; want %v", tc.method, tc.path, got, tc.want)
+		}
+	}
+}

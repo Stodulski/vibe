@@ -120,9 +120,36 @@ func (h *PlaceHandler) Join(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case errors.Is(err, data.ErrRecordNotFound):
 		h.respond.NotFound(w, r)
+	case errors.Is(err, ErrPlaceFree):
+		h.refuse(w, r, placeField(target.Kind), "is free now: book it instead of waiting")
+	case errors.Is(err, ErrNotOnGrid):
+		h.refuse(w, r, "start_time", "is not a slot the court sells on that day for that duration")
+	case errors.Is(err, ErrPlaceStarted):
+		h.refuse(w, r, "start_time", "must be in the future")
+	case errors.Is(err, ErrTooManyWaits):
+		h.refuse(w, r, "email", fmt.Sprintf("is already waiting for %d places at this complex", MaxWaitingPerEmail))
 	case err != nil:
 		h.respond.ServerError(w, r, err)
 	default:
 		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+// refuse answers a join the service turned down as a 422 naming field.
+func (h *PlaceHandler) refuse(w http.ResponseWriter, r *http.Request, field, message string) {
+	v := validator.New()
+	v.AddError(field, message)
+	h.respond.FailedValidation(w, r, v.Errors)
+}
+
+// placeField is the request field that names the place of a kind.
+func placeField(kind string) string {
+	switch kind {
+	case KindOpenPlay:
+		return "event_id"
+	case KindTournamentCategory:
+		return "category_id"
+	default:
+		return "start_time"
 	}
 }

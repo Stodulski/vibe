@@ -27,16 +27,20 @@ func (m *mockWaitlistStore) DeleteBefore(context.Context, time.Time) (int64, err
 // here every place can be waited for and nothing is waiting.
 type mockPlaceWaitlistStore struct{}
 
-func (m *mockPlaceWaitlistStore) WaitlistableEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) error {
-	return nil
+func (m *mockPlaceWaitlistStore) WaitlistableEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (int, error) {
+	return 0, nil
 }
 
-func (m *mockPlaceWaitlistStore) WaitlistableCategoryEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (uuid.UUID, error) {
-	return uuid.New(), nil
+func (m *mockPlaceWaitlistStore) WaitlistableCategoryEvent(context.Context, uuid.UUID, uuid.UUID, time.Time) (uuid.UUID, int, error) {
+	return uuid.New(), 0, nil
 }
 
 func (m *mockPlaceWaitlistStore) WaitlistableCourt(context.Context, uuid.UUID, uuid.UUID) error {
 	return nil
+}
+
+func (m *mockPlaceWaitlistStore) CountWaiting(context.Context, uuid.UUID, string) (int, error) {
+	return 0, nil
 }
 
 func (m *mockPlaceWaitlistStore) InsertEvent(context.Context, uuid.UUID, uuid.UUID, string) error {
@@ -51,11 +55,11 @@ func (m *mockPlaceWaitlistStore) ClaimFreedEvents(context.Context, time.Time, in
 	return nil, nil
 }
 
-func (m *mockPlaceWaitlistStore) ListWaitingSlots(context.Context, time.Time, int) ([]waitliststore.WaitingSlotEntry, error) {
+func (m *mockPlaceWaitlistStore) ListWaitingGrids(context.Context, time.Time, *waitliststore.SlotGrid, int) ([]waitliststore.SlotGrid, error) {
 	return nil, nil
 }
 
-func (m *mockPlaceWaitlistStore) Claim(context.Context, []uuid.UUID) ([]uuid.UUID, error) {
+func (m *mockPlaceWaitlistStore) ClaimFreeSlots(context.Context, waitliststore.SlotGrid, []string) ([]waitliststore.FreedSlotEntry, error) {
 	return nil, nil
 }
 

@@ -2902,7 +2902,12 @@ paths:
         of the complex: a spot of an open-play event (`open_play`, `event_id`), a pair's spot of a
         tournament category whose sign-up is still open (`tournament_category`, `category_id`), or
         one court slot (`slot`, `court_id`, `date`, `start_time`, `duration_minutes`). Joining again
-        for the same address and place answers the same `204`. Every address waiting for a place is
+        for the same address and place while still waiting answers the same `204`; after the notice
+        was sent, joining again waits again and is told again. Only a full place can be waited for:
+        `422` names `event_id` / `category_id` / `start_time` when the place has a spot free now (book
+        it instead), `start_time` when the slot is not on the court's grid for that date and duration
+        or has already begun, and `email` when the address is already waiting for 20 places at the
+        complex. Throttled under the same `hold` ceiling as the sign-ups. Every address waiting for a place is
         emailed once, all at the same time, within about a minute of a spot freeing (a cancellation,
         a refund or an unpaid hold that ran out); nothing is held for them, the first to pay keeps
         it. Nothing is sent once the event or slot has started. When Cloudflare Turnstile is

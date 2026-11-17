@@ -11,6 +11,77 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimFreeSlotEntries = `-- name: ClaimFreeSlotEntries :many
+UPDATE place_waitlist_entries w
+SET notified_at = NOW()
+FROM courts ct, complexes cx
+WHERE ct.id = w.court_id
+  AND cx.id = w.complex_id
+  AND w.kind = 'slot'
+  AND w.notified_at IS NULL
+  AND w.complex_id = $1::uuid
+  AND w.date = $2::date
+  AND w.duration_minutes = $3::int
+  AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY($4::text[])
+RETURNING w.id, w.email, w.court_id, ct.name AS court_name, w.date, w.start_time,
+          cx.name AS complex_name, cx.slug AS complex_slug
+`
+
+type ClaimFreeSlotEntriesParams struct {
+	ComplexID       pgtype.UUID `json:"complex_id"`
+	Date            pgtype.Date `json:"date"`
+	DurationMinutes int32       `json:"duration_minutes"`
+	Positions       []string    `json:"positions"`
+}
+
+type ClaimFreeSlotEntriesRow struct {
+	ID          pgtype.UUID `json:"id"`
+	Email       string      `json:"email"`
+	CourtID     pgtype.UUID `json:"court_id"`
+	CourtName   string      `json:"court_name"`
+	Date        pgtype.Date `json:"date"`
+	StartTime   pgtype.Time `json:"start_time"`
+	ComplexName string      `json:"complex_name"`
+	ComplexSlug string      `json:"complex_slug"`
+}
+
+// Marks notified, and returns with what the email needs, every entry still
+// waiting on one grid whose position is among the free ones given, each written
+// "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
+func (q *Queries) ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEntriesParams) ([]ClaimFreeSlotEntriesRow, error) {
+	rows, err := q.db.Query(ctx, claimFreeSlotEntries,
+		arg.ComplexID,
+		arg.Date,
+		arg.DurationMinutes,
+		arg.Positions,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ClaimFreeSlotEntriesRow
+	for rows.Next() {
+		var i ClaimFreeSlotEntriesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.CourtID,
+			&i.CourtName,
+			&i.Date,
+			&i.StartTime,
+			&i.ComplexName,
+			&i.ComplexSlug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const claimFreedOpenPlayWaitlist = `-- name: ClaimFreedOpenPlayWaitlist :many
 WITH freed AS (
     SELECT w.id, w.event_id
@@ -103,34 +174,25 @@ func (q *Queries) ClaimFreedOpenPlayWaitlist(ctx context.Context, arg ClaimFreed
 	return items, nil
 }
 
-const claimPlaceWaitlistEntries = `-- name: ClaimPlaceWaitlistEntries :many
-UPDATE place_waitlist_entries
-SET notified_at = NOW()
-WHERE id = ANY($1::uuid[])
+const countWaitingPlaceEntriesOfEmail = `-- name: CountWaitingPlaceEntriesOfEmail :one
+SELECT count(*)::int FROM place_waitlist_entries
+WHERE complex_id = $1::uuid
+  AND email = $2::text
   AND notified_at IS NULL
-RETURNING id
 `
 
-// Marks the given entries notified and returns the ones this call claimed; an
-// entry already claimed is left out, so it is never emailed twice.
-func (q *Queries) ClaimPlaceWaitlistEntries(ctx context.Context, ids []pgtype.UUID) ([]pgtype.UUID, error) {
-	rows, err := q.db.Query(ctx, claimPlaceWaitlistEntries, ids)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []pgtype.UUID
-	for rows.Next() {
-		var id pgtype.UUID
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type CountWaitingPlaceEntriesOfEmailParams struct {
+	ComplexID pgtype.UUID `json:"complex_id"`
+	Email     string      `json:"email"`
+}
+
+// How many places one address is still waiting for at one complex; the join
+// caps it.
+func (q *Queries) CountWaitingPlaceEntriesOfEmail(ctx context.Context, arg CountWaitingPlaceEntriesOfEmailParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countWaitingPlaceEntriesOfEmail, arg.ComplexID, arg.Email)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const deletePastPlaceWaitlistEntries = `-- name: DeletePastPlaceWaitlistEntries :execrows
@@ -160,7 +222,11 @@ func (q *Queries) DeletePastPlaceWaitlistEntries(ctx context.Context, arg Delete
 }
 
 const getWaitlistableCategoryEvent = `-- name: GetWaitlistableCategoryEvent :one
-SELECT e.id FROM tournament_categories c
+SELECT e.id, (e.capacity - (
+           SELECT count(*) FROM open_play_registrations r
+           WHERE r.event_id = e.id
+             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 WHERE c.id = $1::uuid
   AND c.complex_id = $2::uuid
@@ -177,18 +243,24 @@ type GetWaitlistableCategoryEventParams struct {
 	NowTime    pgtype.Time `json:"now_time"`
 }
 
+type GetWaitlistableCategoryEventRow struct {
+	ID        pgtype.UUID `json:"id"`
+	SpotsLeft int32       `json:"spots_left"`
+}
+
 // The sign-up container of a tournament category a person can wait for: live,
-// of this complex, sign-up still open (no draw), and its day not yet begun.
-func (q *Queries) GetWaitlistableCategoryEvent(ctx context.Context, arg GetWaitlistableCategoryEventParams) (pgtype.UUID, error) {
+// of this complex, sign-up still open (no draw), and its day not yet begun, with
+// its pair spots left (the same rule as GetWaitlistableOpenPlayEvent).
+func (q *Queries) GetWaitlistableCategoryEvent(ctx context.Context, arg GetWaitlistableCategoryEventParams) (GetWaitlistableCategoryEventRow, error) {
 	row := q.db.QueryRow(ctx, getWaitlistableCategoryEvent,
 		arg.CategoryID,
 		arg.ComplexID,
 		arg.NowDate,
 		arg.NowTime,
 	)
-	var id pgtype.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i GetWaitlistableCategoryEventRow
+	err := row.Scan(&i.ID, &i.SpotsLeft)
+	return i, err
 }
 
 const getWaitlistableCourt = `-- name: GetWaitlistableCourt :one
@@ -212,7 +284,11 @@ func (q *Queries) GetWaitlistableCourt(ctx context.Context, arg GetWaitlistableC
 }
 
 const getWaitlistableOpenPlayEvent = `-- name: GetWaitlistableOpenPlayEvent :one
-SELECT e.id FROM open_play_events e
+SELECT e.id, (e.capacity - (
+           SELECT count(*) FROM open_play_registrations r
+           WHERE r.event_id = e.id
+             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+FROM open_play_events e
 WHERE e.id = $1::uuid
   AND e.complex_id = $2::uuid
   AND e.status = 'active'
@@ -227,19 +303,25 @@ type GetWaitlistableOpenPlayEventParams struct {
 	NowTime   pgtype.Time `json:"now_time"`
 }
 
+type GetWaitlistableOpenPlayEventRow struct {
+	ID        pgtype.UUID `json:"id"`
+	SpotsLeft int32       `json:"spots_left"`
+}
+
 // An open-play event a person can wait for: live, of this complex, not a
 // tournament's sign-up container, and not started yet (now_* is the product's
-// wall-clock).
-func (q *Queries) GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (pgtype.UUID, error) {
+// wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
+// the confirmed registrations and the holds still inside their window.
+func (q *Queries) GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (GetWaitlistableOpenPlayEventRow, error) {
 	row := q.db.QueryRow(ctx, getWaitlistableOpenPlayEvent,
 		arg.EventID,
 		arg.ComplexID,
 		arg.NowDate,
 		arg.NowTime,
 	)
-	var id pgtype.UUID
-	err := row.Scan(&id)
-	return id, err
+	var i GetWaitlistableOpenPlayEventRow
+	err := row.Scan(&i.ID, &i.SpotsLeft)
+	return i, err
 }
 
 const insertPlaceWaitlistOpenPlay = `-- name: InsertPlaceWaitlistOpenPlay :exec
@@ -289,60 +371,61 @@ func (q *Queries) InsertPlaceWaitlistSlot(ctx context.Context, arg InsertPlaceWa
 	return err
 }
 
-const listWaitingSlotEntries = `-- name: ListWaitingSlotEntries :many
-SELECT w.id, w.email, w.court_id, w.date, w.start_time, w.duration_minutes,
-       ct.name AS court_name, cx.name AS complex_name, cx.slug AS complex_slug
+const listWaitingSlotGrids = `-- name: ListWaitingSlotGrids :many
+SELECT DISTINCT w.complex_id, cx.slug AS complex_slug, w.date, w.duration_minutes
 FROM place_waitlist_entries w
-JOIN courts ct ON ct.id = w.court_id
 JOIN complexes cx ON cx.id = w.complex_id
 WHERE w.kind = 'slot'
   AND w.notified_at IS NULL
   AND cx.is_active
   AND w.date >= $1::date
-ORDER BY w.created_at
-LIMIT $2::int
+  AND ($2::date IS NULL
+       OR (w.date, w.complex_id, w.duration_minutes)
+          > ($2::date, $3::uuid, $4::int))
+ORDER BY w.date, w.complex_id, w.duration_minutes
+LIMIT $5::int
 `
 
-type ListWaitingSlotEntriesParams struct {
-	FromDate   pgtype.Date `json:"from_date"`
-	BatchLimit int32       `json:"batch_limit"`
+type ListWaitingSlotGridsParams struct {
+	FromDate       pgtype.Date `json:"from_date"`
+	AfterDate      pgtype.Date `json:"after_date"`
+	AfterComplexID pgtype.UUID `json:"after_complex_id"`
+	AfterDuration  pgtype.Int4 `json:"after_duration"`
+	BatchLimit     int32       `json:"batch_limit"`
 }
 
-type ListWaitingSlotEntriesRow struct {
-	ID              pgtype.UUID `json:"id"`
-	Email           string      `json:"email"`
-	CourtID         pgtype.UUID `json:"court_id"`
-	Date            pgtype.Date `json:"date"`
-	StartTime       pgtype.Time `json:"start_time"`
-	DurationMinutes pgtype.Int4 `json:"duration_minutes"`
-	CourtName       string      `json:"court_name"`
-	ComplexName     string      `json:"complex_name"`
+type ListWaitingSlotGridsRow struct {
+	ComplexID       pgtype.UUID `json:"complex_id"`
 	ComplexSlug     string      `json:"complex_slug"`
+	Date            pgtype.Date `json:"date"`
+	DurationMinutes pgtype.Int4 `json:"duration_minutes"`
 }
 
-// The slot entries still waiting whose day may still be ahead: from yesterday,
-// because a venue trading past midnight files tonight's 00:30 under yesterday's
-// grid. Whether each slot is free and still in the future is the courts grid's
-// call, not this query's.
-func (q *Queries) ListWaitingSlotEntries(ctx context.Context, arg ListWaitingSlotEntriesParams) ([]ListWaitingSlotEntriesRow, error) {
-	rows, err := q.db.Query(ctx, listWaitingSlotEntries, arg.FromDate, arg.BatchLimit)
+// The distinct grids (complex, day, duration) that slot entries still wait on,
+// from from_date, in key order after the cursor (NULL: from the start). The
+// sweep reads each grid once and walks the keys in pages, wrapping round, so
+// every waiting entry is inspected however many are still taken: an entry is
+// never starved behind older ones.
+func (q *Queries) ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error) {
+	rows, err := q.db.Query(ctx, listWaitingSlotGrids,
+		arg.FromDate,
+		arg.AfterDate,
+		arg.AfterComplexID,
+		arg.AfterDuration,
+		arg.BatchLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListWaitingSlotEntriesRow
+	var items []ListWaitingSlotGridsRow
 	for rows.Next() {
-		var i ListWaitingSlotEntriesRow
+		var i ListWaitingSlotGridsRow
 		if err := rows.Scan(
-			&i.ID,
-			&i.Email,
-			&i.CourtID,
-			&i.Date,
-			&i.StartTime,
-			&i.DurationMinutes,
-			&i.CourtName,
-			&i.ComplexName,
+			&i.ComplexID,
 			&i.ComplexSlug,
+			&i.Date,
+			&i.DurationMinutes,
 		); err != nil {
 			return nil, err
 		}

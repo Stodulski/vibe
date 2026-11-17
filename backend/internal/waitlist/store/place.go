@@ -46,17 +46,26 @@ type FreedEventEntry struct {
 	ComplexSlug  string
 }
 
-// WaitingSlotEntry is a slot entry still waiting, with what its email says.
-type WaitingSlotEntry struct {
-	ID              uuid.UUID
-	Email           string
-	CourtID         uuid.UUID
-	CourtName       string
-	Day             time.Time
-	StartTime       string // "HH:MM"
-	DurationMinutes int
-	ComplexName     string
+// SlotGrid names one storefront grid that slot entries wait on: one complex,
+// one day, one duration. It is also the sweep's cursor over those grids.
+type SlotGrid struct {
+	ComplexID       uuid.UUID
 	ComplexSlug     string
+	Day             time.Time
+	DurationMinutes int
+}
+
+// FreedSlotEntry is a slot entry claimed because its slot is on sale again,
+// with what its email says.
+type FreedSlotEntry struct {
+	ID          uuid.UUID
+	Email       string
+	CourtID     uuid.UUID
+	CourtName   string
+	Day         time.Time
+	StartTime   string // "HH:MM"
+	ComplexName string
+	ComplexSlug string
 }
 
 // notFound turns "no row" into data.ErrRecordNotFound.
@@ -68,34 +77,53 @@ func notFound(err error) error {
 }
 
 // WaitlistableEvent reports whether eventID is an open-play event of complexID
-// a person can still wait for: live and not started at now (the product's
-// wall-clock). Anything else answers data.ErrRecordNotFound.
-func (s *PlaceStore) WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) error {
+// a person can still wait for (live, not started at now, the product's
+// wall-clock) and how many spots it has left. Anything else answers
+// data.ErrRecordNotFound.
+func (s *PlaceStore) WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) (int, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	_, err := s.Q.GetWaitlistableOpenPlayEvent(ctx, db.GetWaitlistableOpenPlayEventParams{
+	row, err := s.Q.GetWaitlistableOpenPlayEvent(ctx, db.GetWaitlistableOpenPlayEventParams{
 		EventID: data.UUIDToPg(eventID), ComplexID: data.UUIDToPg(complexID),
 		NowDate: data.DateToPg(now), NowTime: data.TimeStrToPg(now.Format("15:04")),
 	})
-	return notFound(err)
+	if err != nil {
+		return 0, notFound(err)
+	}
+	return int(row.SpotsLeft), nil
 }
 
 // WaitlistableCategoryEvent returns the sign-up container of a tournament
-// category of complexID a person can still wait for: live, sign-up open, not
-// begun at now. Anything else answers data.ErrRecordNotFound.
-func (s *PlaceStore) WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, error) {
+// category of complexID a person can still wait for (live, sign-up open, not
+// begun at now) and its pair spots left. Anything else answers
+// data.ErrRecordNotFound.
+func (s *PlaceStore) WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, int, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	id, err := s.Q.GetWaitlistableCategoryEvent(ctx, db.GetWaitlistableCategoryEventParams{
+	row, err := s.Q.GetWaitlistableCategoryEvent(ctx, db.GetWaitlistableCategoryEventParams{
 		CategoryID: data.UUIDToPg(categoryID), ComplexID: data.UUIDToPg(complexID),
 		NowDate: data.DateToPg(now), NowTime: data.TimeStrToPg(now.Format("15:04")),
 	})
 	if err != nil {
-		return uuid.Nil, notFound(err)
+		return uuid.Nil, 0, notFound(err)
 	}
-	return data.PgToUUID(id), nil
+	return data.PgToUUID(row.ID), int(row.SpotsLeft), nil
+}
+
+// CountWaiting returns how many places email is still waiting for at complexID.
+func (s *PlaceStore) CountWaiting(ctx context.Context, complexID uuid.UUID, email string) (int, error) {
+	if err := data.AssertTenant(ctx, complexID); err != nil {
+		return 0, err
+	}
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	n, err := s.Q.CountWaitingPlaceEntriesOfEmail(ctx, db.CountWaitingPlaceEntriesOfEmailParams{
+		ComplexID: data.UUIDToPg(complexID), Email: email,
+	})
+	return int(n), err
 }
 
 // WaitlistableCourt reports whether courtID is an active court of complexID.
@@ -165,47 +193,62 @@ func (s *PlaceStore) ClaimFreedEvents(ctx context.Context, now time.Time, limit 
 	return out, nil
 }
 
-// ListWaitingSlots returns up to limit slot entries still waiting whose grid day
-// is fromDay or later.
-func (s *PlaceStore) ListWaitingSlots(ctx context.Context, fromDay time.Time, limit int) ([]WaitingSlotEntry, error) {
+// ListWaitingGrids returns up to limit of the distinct grids slot entries still
+// wait on, from fromDay, in key order after the cursor after (nil: from the
+// first). A page shorter than limit means the walk reached the end.
+func (s *PlaceStore) ListWaitingGrids(ctx context.Context, fromDay time.Time, after *SlotGrid, limit int) ([]SlotGrid, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	rows, err := s.Q.ListWaitingSlotEntries(ctx, db.ListWaitingSlotEntriesParams{
+	params := db.ListWaitingSlotGridsParams{
 		FromDate: data.DateToPg(fromDay),
 		//nolint:gosec // G115: a small constant batch size.
 		BatchLimit: int32(limit),
-	})
+	}
+	if after != nil {
+		params.AfterDate = data.DateToPg(after.Day)
+		params.AfterComplexID = data.UUIDToPg(after.ComplexID)
+		params.AfterDuration = data.Int4ToPg(after.DurationMinutes)
+	}
+	rows, err := s.Q.ListWaitingSlotGrids(ctx, params)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]WaitingSlotEntry, 0, len(rows))
+	out := make([]SlotGrid, 0, len(rows))
 	for _, r := range rows {
-		out = append(out, WaitingSlotEntry{
-			ID: data.PgToUUID(r.ID), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName,
-			Day: data.PgToDate(r.Date), StartTime: data.PgToTimeStr(r.StartTime),
-			DurationMinutes: data.PgToInt(r.DurationMinutes), ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
+		out = append(out, SlotGrid{
+			ComplexID: data.PgToUUID(r.ComplexID), ComplexSlug: r.ComplexSlug,
+			Day: data.PgToDate(r.Date), DurationMinutes: data.PgToInt(r.DurationMinutes),
 		})
 	}
 	return out, nil
 }
 
-// Claim marks the given entries notified and returns the ids this call
-// claimed. An entry another call already claimed is left out.
-func (s *PlaceStore) Claim(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error) {
-	if len(ids) == 0 {
+// ClaimFreeSlots marks notified, and returns, every entry still waiting on grid
+// whose position is among positions, each "<court id> HH:MM". A row is claimed
+// at most once.
+func (s *PlaceStore) ClaimFreeSlots(ctx context.Context, grid SlotGrid, positions []string) ([]FreedSlotEntry, error) {
+	if len(positions) == 0 {
 		return nil, nil
 	}
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	rows, err := s.Q.ClaimPlaceWaitlistEntries(ctx, data.UUIDSliceToPg(ids))
+	rows, err := s.Q.ClaimFreeSlotEntries(ctx, db.ClaimFreeSlotEntriesParams{
+		ComplexID: data.UUIDToPg(grid.ComplexID), Date: data.DateToPg(grid.Day),
+		//nolint:gosec // G115: validated by the handler (1..720).
+		DurationMinutes: int32(grid.DurationMinutes), Positions: positions,
+	})
 	if err != nil {
 		return nil, err
 	}
-	out := make([]uuid.UUID, 0, len(rows))
-	for _, id := range rows {
-		out = append(out, data.PgToUUID(id))
+	out := make([]FreedSlotEntry, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, FreedSlotEntry{
+			ID: data.PgToUUID(r.ID), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName,
+			Day: data.PgToDate(r.Date), StartTime: data.PgToTimeStr(r.StartTime),
+			ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
+		})
 	}
 	return out, nil
 }

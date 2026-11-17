@@ -14,8 +14,13 @@ ON CONFLICT DO NOTHING;
 -- name: GetWaitlistableOpenPlayEvent :one
 -- An open-play event a person can wait for: live, of this complex, not a
 -- tournament's sign-up container, and not started yet (now_* is the product's
--- wall-clock).
-SELECT e.id FROM open_play_events e
+-- wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
+-- the confirmed registrations and the holds still inside their window.
+SELECT e.id, (e.capacity - (
+           SELECT count(*) FROM open_play_registrations r
+           WHERE r.event_id = e.id
+             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+FROM open_play_events e
 WHERE e.id = sqlc.arg(event_id)::uuid
   AND e.complex_id = sqlc.arg(complex_id)::uuid
   AND e.status = 'active'
@@ -24,8 +29,13 @@ WHERE e.id = sqlc.arg(event_id)::uuid
 
 -- name: GetWaitlistableCategoryEvent :one
 -- The sign-up container of a tournament category a person can wait for: live,
--- of this complex, sign-up still open (no draw), and its day not yet begun.
-SELECT e.id FROM tournament_categories c
+-- of this complex, sign-up still open (no draw), and its day not yet begun, with
+-- its pair spots left (the same rule as GetWaitlistableOpenPlayEvent).
+SELECT e.id, (e.capacity - (
+           SELECT count(*) FROM open_play_registrations r
+           WHERE r.event_id = e.id
+             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 WHERE c.id = sqlc.arg(category_id)::uuid
   AND c.complex_id = sqlc.arg(complex_id)::uuid
@@ -82,31 +92,50 @@ RETURNING w.id, w.email, e.id AS event_id, e.name AS event_name, e.date AS event
           e.start_time AS event_start_time, e.tournament_id, COALESCE(tc.name, '')::text AS category_name,
           cx.name AS complex_name, cx.slug AS complex_slug;
 
--- name: ListWaitingSlotEntries :many
--- The slot entries still waiting whose day may still be ahead: from yesterday,
--- because a venue trading past midnight files tonight's 00:30 under yesterday's
--- grid. Whether each slot is free and still in the future is the courts grid's
--- call, not this query's.
-SELECT w.id, w.email, w.court_id, w.date, w.start_time, w.duration_minutes,
-       ct.name AS court_name, cx.name AS complex_name, cx.slug AS complex_slug
+-- name: CountWaitingPlaceEntriesOfEmail :one
+-- How many places one address is still waiting for at one complex; the join
+-- caps it.
+SELECT count(*)::int FROM place_waitlist_entries
+WHERE complex_id = sqlc.arg(complex_id)::uuid
+  AND email = sqlc.arg(email)::text
+  AND notified_at IS NULL;
+
+-- name: ListWaitingSlotGrids :many
+-- The distinct grids (complex, day, duration) that slot entries still wait on,
+-- from from_date, in key order after the cursor (NULL: from the start). The
+-- sweep reads each grid once and walks the keys in pages, wrapping round, so
+-- every waiting entry is inspected however many are still taken: an entry is
+-- never starved behind older ones.
+SELECT DISTINCT w.complex_id, cx.slug AS complex_slug, w.date, w.duration_minutes
 FROM place_waitlist_entries w
-JOIN courts ct ON ct.id = w.court_id
 JOIN complexes cx ON cx.id = w.complex_id
 WHERE w.kind = 'slot'
   AND w.notified_at IS NULL
   AND cx.is_active
   AND w.date >= sqlc.arg(from_date)::date
-ORDER BY w.created_at
+  AND (sqlc.narg(after_date)::date IS NULL
+       OR (w.date, w.complex_id, w.duration_minutes)
+          > (sqlc.narg(after_date)::date, sqlc.narg(after_complex_id)::uuid, sqlc.narg(after_duration)::int))
+ORDER BY w.date, w.complex_id, w.duration_minutes
 LIMIT sqlc.arg(batch_limit)::int;
 
--- name: ClaimPlaceWaitlistEntries :many
--- Marks the given entries notified and returns the ones this call claimed; an
--- entry already claimed is left out, so it is never emailed twice.
-UPDATE place_waitlist_entries
+-- name: ClaimFreeSlotEntries :many
+-- Marks notified, and returns with what the email needs, every entry still
+-- waiting on one grid whose position is among the free ones given, each written
+-- "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
+UPDATE place_waitlist_entries w
 SET notified_at = NOW()
-WHERE id = ANY(sqlc.arg(ids)::uuid[])
-  AND notified_at IS NULL
-RETURNING id;
+FROM courts ct, complexes cx
+WHERE ct.id = w.court_id
+  AND cx.id = w.complex_id
+  AND w.kind = 'slot'
+  AND w.notified_at IS NULL
+  AND w.complex_id = sqlc.arg(complex_id)::uuid
+  AND w.date = sqlc.arg(date)::date
+  AND w.duration_minutes = sqlc.arg(duration_minutes)::int
+  AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY(sqlc.arg(positions)::text[])
+RETURNING w.id, w.email, w.court_id, ct.name AS court_name, w.date, w.start_time,
+          cx.name AS complex_name, cx.slug AS complex_slug;
 
 -- name: DeletePastPlaceWaitlistEntries :execrows
 -- The daily cleanup: slot entries whose day is gone (kept one extra day for the

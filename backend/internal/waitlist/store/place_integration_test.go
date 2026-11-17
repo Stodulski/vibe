@@ -130,28 +130,34 @@ func TestOnlyAWaitlistablePlaceIsFound(t *testing.T) {
 	future := newEvent(t, f, timezone.Today().AddDate(0, 0, 5), "20:00", 4)
 	past := newEvent(t, f, timezone.Today().AddDate(0, 0, -1), "20:00", 4)
 
-	if err := st.WaitlistableEvent(ctx, f.ComplexID, future, now); err != nil {
-		t.Errorf("a future event: %v", err)
+	if spots, err := st.WaitlistableEvent(ctx, f.ComplexID, future, now); err != nil || spots != 4 {
+		t.Errorf("a future empty event: want 4 spots left; got %d (%v)", spots, err)
+	}
+	register(t, f, future, "confirmed", time.Hour)
+	register(t, f, future, "held", time.Hour)
+	register(t, f, future, "held", -time.Minute)
+	if spots, _ := st.WaitlistableEvent(ctx, f.ComplexID, future, now); spots != 2 {
+		t.Errorf("confirmed and live holds count, an expired hold does not: want 2 left; got %d", spots)
 	}
 	for name, id := range map[string]uuid.UUID{"started": past, "unknown": uuid.New()} {
-		if err := st.WaitlistableEvent(ctx, f.ComplexID, id, now); !errors.Is(err, data.ErrRecordNotFound) {
+		if _, err := st.WaitlistableEvent(ctx, f.ComplexID, id, now); !errors.Is(err, data.ErrRecordNotFound) {
 			t.Errorf("%s event: want ErrRecordNotFound; got %v", name, err)
 		}
 	}
-	if err := st.WaitlistableEvent(ctx, uuid.New(), future, now); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := st.WaitlistableEvent(ctx, uuid.New(), future, now); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("another complex's event: want ErrRecordNotFound; got %v", err)
 	}
 
 	categoryID, eventID, _ := newCategory(t, f, timezone.Today().AddDate(0, 0, 5), 2)
-	got, err := st.WaitlistableCategoryEvent(ctx, f.ComplexID, categoryID, now)
-	if err != nil || got != eventID {
-		t.Errorf("an open category resolves to its event: got %v (%v), want %v", got, err, eventID)
+	got, spots, err := st.WaitlistableCategoryEvent(ctx, f.ComplexID, categoryID, now)
+	if err != nil || got != eventID || spots != 2 {
+		t.Errorf("an open category resolves to its event with its spots: got %v, %d (%v), want %v, 2", got, spots, err, eventID)
 	}
-	if err := st.WaitlistableEvent(ctx, f.ComplexID, eventID, now); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, err := st.WaitlistableEvent(ctx, f.ComplexID, eventID, now); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a category's container is not an open-play event to wait for; got %v", err)
 	}
 	exec(t, f, `UPDATE tournament_categories SET draw_generated_at = NOW() WHERE id = $1`, categoryID)
-	if _, err := st.WaitlistableCategoryEvent(ctx, f.ComplexID, categoryID, now); !errors.Is(err, data.ErrRecordNotFound) {
+	if _, _, err := st.WaitlistableCategoryEvent(ctx, f.ComplexID, categoryID, now); !errors.Is(err, data.ErrRecordNotFound) {
 		t.Errorf("a category after its draw: want ErrRecordNotFound; got %v", err)
 	}
 
@@ -250,37 +256,87 @@ func TestClaimFreedEventsForATournamentCategoryStopsAtTheDraw(t *testing.T) {
 	}
 }
 
-// S4: slot entries are listed while waiting, and the id claim is one-shot.
-func TestSlotEntriesAreListedAndClaimedOnce(t *testing.T) {
+// S4: the grids slot entries wait on are listed once each, in key order after
+// the cursor, and the claim takes only the entries at the free positions given,
+// once.
+func TestSlotGridsAreListedAndFreeSlotsClaimedOnce(t *testing.T) {
 	f := datatest.Isolated(t)
 	st := newPlaceStore(f)
 	ctx := f.Scoped(context.Background())
 	day := timezone.Today().AddDate(0, 0, 3)
-	if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: "ana@example.com",
-		CourtID: f.CourtID, Day: day, StartTime: "19:00", DurationMinutes: 90}); err != nil {
+	for _, e := range []struct {
+		email, start string
+		minutes      int
+	}{{"ana@example.com", "19:00", 90}, {"bruno@example.com", "19:00", 90}, {"carla@example.com", "20:30", 90}, {"dario@example.com", "19:00", 60}} {
+		if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: e.email,
+			CourtID: f.CourtID, Day: day, StartTime: e.start, DurationMinutes: e.minutes}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	from := timezone.Today().AddDate(0, 0, -1)
+
+	grids, err := st.ListWaitingGrids(sweepCtx(), from, nil, 100)
+	if err != nil || len(grids) != 2 {
+		t.Fatalf("want two grids (60 and 90 minutes); got %+v (%v)", grids, err)
+	}
+	if grids[0].DurationMinutes != 60 || grids[1].DurationMinutes != 90 || grids[0].ComplexID != f.ComplexID ||
+		grids[0].ComplexSlug == "" || grids[0].Day.Format(time.DateOnly) != day.Format(time.DateOnly) {
+		t.Errorf("grids = %+v", grids)
+	}
+	page, err := st.ListWaitingGrids(sweepCtx(), from, &grids[0], 1)
+	if err != nil || len(page) != 1 || page[0].DurationMinutes != 90 {
+		t.Fatalf("the page after the first grid is the second; got %+v (%v)", page, err)
+	}
+
+	pos := f.CourtID.String() + " 19:00"
+	first, err := st.ClaimFreeSlots(sweepCtx(), grids[1], []string{pos})
+	if err != nil || len(first) != 2 {
+		t.Fatalf("want both 19:00 entries of the 90-minute grid claimed; got %+v (%v)", first, err)
+	}
+	if first[0].CourtID != f.CourtID || first[0].StartTime != "19:00" || first[0].CourtName == "" || first[0].ComplexName == "" {
+		t.Errorf("claimed entry = %+v", first[0])
+	}
+	if again, err := st.ClaimFreeSlots(sweepCtx(), grids[1], []string{pos}); err != nil || len(again) != 0 {
+		t.Fatalf("a claimed entry is never claimed again; got %d (%v)", len(again), err)
+	}
+	if n, _ := st.CountWaiting(ctx, f.ComplexID, "carla@example.com"); n != 1 {
+		t.Errorf("the 20:30 entry is still waiting; got %d", n)
+	}
+	if n, _ := st.CountWaiting(ctx, f.ComplexID, "dario@example.com"); n != 1 {
+		t.Errorf("the 60-minute grid's entry is still waiting; got %d", n)
+	}
+	if n, _ := st.CountWaiting(ctx, f.ComplexID, "ana@example.com"); n != 0 {
+		t.Errorf("a notified entry is no longer waiting; got %d", n)
+	}
+}
+
+// B3 regression: an address that was told and missed the place can wait for it
+// again; the new wait is a new row with its own notice.
+func TestRejoinAfterANoticeWaitsAgain(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	eventID := newEvent(t, f, timezone.Today().AddDate(0, 0, 5), "20:00", 1)
+	reg := register(t, f, eventID, "confirmed", time.Hour)
+	if err := st.InsertEvent(ctx, f.ComplexID, eventID, "ana@example.com"); err != nil {
 		t.Fatal(err)
 	}
+	exec(t, f, `UPDATE open_play_registrations SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, reg)
 
-	waiting, err := st.ListWaitingSlots(sweepCtx(), timezone.Today().AddDate(0, 0, -1), 100)
-	if err != nil || len(waiting) != 1 {
-		t.Fatalf("want the waiting slot listed; got %d (%v)", len(waiting), err)
-	}
-	w := waiting[0]
-	if w.CourtID != f.CourtID || w.StartTime != "19:00" || w.DurationMinutes != 90 ||
-		w.Day.Format(time.DateOnly) != day.Format(time.DateOnly) || w.CourtName == "" {
-		t.Errorf("listed entry = %+v", w)
-	}
-
-	first, err := st.Claim(sweepCtx(), []uuid.UUID{w.ID})
+	first, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100)
 	if err != nil || len(first) != 1 {
-		t.Fatalf("first claim = %v (%v)", first, err)
+		t.Fatalf("first notice: got %d (%v)", len(first), err)
 	}
-	second, err := st.Claim(sweepCtx(), []uuid.UUID{w.ID})
-	if err != nil || len(second) != 0 {
-		t.Fatalf("a claimed entry is never claimed again; got %v (%v)", second, err)
+
+	if err := st.InsertEvent(ctx, f.ComplexID, eventID, "ana@example.com"); err != nil {
+		t.Fatalf("re-join: %v", err)
 	}
-	if again, _ := st.ListWaitingSlots(sweepCtx(), timezone.Today().AddDate(0, 0, -1), 100); len(again) != 0 {
-		t.Errorf("a notified entry is no longer waiting; got %d", len(again))
+	second, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100)
+	if err != nil || len(second) != 1 {
+		t.Fatalf("the re-join must wait again and be told again; got %d (%v)", len(second), err)
+	}
+	if second[0].ID == first[0].ID {
+		t.Errorf("the second notice must come from a new entry (a new dedup key); both are %v", first[0].ID)
 	}
 }
 
