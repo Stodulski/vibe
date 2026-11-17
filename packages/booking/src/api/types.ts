@@ -41,6 +41,12 @@ export type CourtSurface =
 /** The durations the slot picker offers and the price bands are keyed on. */
 export type DurationMinutes = 60 | 90 | 120;
 
+/** Who may play a category or an open-play event: Caballeros, Damas or Mixto. */
+export type Modality = 'men' | 'women' | 'mixed';
+
+/** The gender a player declares at sign-up. */
+export type DeclaredGender = 'men' | 'women';
+
 export type Amenity =
   | 'parking'
   | 'changing_rooms'

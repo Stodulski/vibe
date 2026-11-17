@@ -1,5 +1,7 @@
 import { courtFee } from './tournamentsCourtFee';
 import { createSteps } from './tournamentsCreate';
+import { tournamentsForm } from './tournamentsForm';
+import { tournamentsTraits } from './tournamentsTraits';
 
 const plural = (count: number, one: string, many: string) => (count === 1 ? `1 ${one}` : `${String(count)} ${many}`);
 
@@ -27,49 +29,24 @@ export const tournaments = {
   pricePerPair: (price: string) => `${price} por pareja`,
   format: { elimination: 'Eliminación directa', groups: 'Zonas y cuadro' },
   categoryStatus: { open: 'Inscripción abierta', closed: 'Sorteo hecho', cancelled: 'Cancelada' },
+  traits: tournamentsTraits,
 
   // Create form
   createSteps,
-  form: {
-    title: 'Crear torneo',
-    description: 'Cada categoría tiene su cupo, su precio por pareja y su formato.',
-    name: 'Nombre del torneo',
-    namePlaceholder: 'Ej: Torneo de primavera',
-    sport: 'Deporte',
-    startDate: 'Primer día',
-    endDate: 'Último día',
-    selectDate: 'Elegí la fecha',
-    categoryName: 'Nombre',
-    categoryNamePlaceholder: 'Ej: 6ta',
-    categoryFormat: 'Formato',
-    capacity: 'Cupo (parejas)',
-    price: 'Precio por pareja',
-    priceHint: 'Paga una sola persona por la pareja y el costo del servicio de pago se suma aparte.',
-    groupSize: 'Parejas por zona',
-    groupSizeHint: 'Máximo de parejas por zona. Si una zona quedara muy chica, sus parejas se suman a las otras.',
-    qualifiers: 'Pasan por zona',
-    qualifiersHint: 'Las mejores de cada zona juegan el cuadro.',
-    matchFormat: 'Formato de partido',
-    setsToWin: { 1: 'Un set', 2: 'Al mejor de tres sets' },
-    gamesPerSet: 'Games por set',
-    superTiebreak: 'El tercer set es un súper tie-break a 10 puntos',
-    matchDuration: 'Duración de cada partido (minutos)',
-    courtFee: 'Cancha por partido (por pareja)',
-    courtFeeHint: 'Se cobra en el complejo el día del partido, no online.',
-    addCategory: 'Agregar categoría',
-    submit: 'Crear torneo',
-    createSuccess: 'Torneo creado',
-    createError: 'No pudimos crear el torneo',
-  },
+  form: tournamentsForm,
   validation: {
-    nameRequired: 'Ingresá el nombre del torneo',
-    nameMax: 'El nombre puede tener hasta 60 caracteres',
     endBeforeStart: 'El último día no puede ser anterior al primero',
     tooLong: 'El torneo puede durar hasta 60 días',
     categoriesRequired: 'Agregá al menos una categoría',
     categoriesMax: 'Un torneo puede tener hasta 20 categorías',
-    categoryNameRequired: 'Ingresá el nombre de la categoría',
-    categoryNameMax: 'El nombre puede tener hasta 30 caracteres',
+    modalityRequired: 'Elegí la modalidad: Caballeros, Damas o Mixto',
+    levelRequired: 'Elegí el nivel de la categoría',
+    sumaRange: 'La suma va de 2 a 18',
+    startsOnRequired: 'Elegí la fecha de la categoría',
+    startsOnRange: 'La fecha tiene que caer dentro de los días del torneo',
+    startsAtRequired: 'Elegí la hora de inicio',
+    prizesMax: 'Los premios pueden tener hasta 200 caracteres',
+    categoryDuplicate: 'Ya hay una categoría con esa modalidad y nivel o suma en este torneo.',
     capacityRange: 'El cupo va de 2 a 128 parejas',
     priceRequired: 'Ingresá el precio por pareja',
     pricePositive: 'El precio tiene que ser mayor a 0',
@@ -88,6 +65,8 @@ export const tournaments = {
     capacity: 'Cupo',
     price: 'Precio',
     formatLabel: 'Formato',
+    startsLabel: 'Fecha y hora',
+    prizesLabel: 'Premios',
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1

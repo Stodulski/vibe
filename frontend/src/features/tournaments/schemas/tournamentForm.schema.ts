@@ -8,13 +8,25 @@ import type { CreateTournamentRequest, Sport } from '@/shared/types/api.types';
 const t = ES_AR.tournaments.validation;
 
 const MAX_DAYS = 60;
+const MODALITIES = ['men', 'women', 'mixed'] as const;
+const MAX_PRIZES = 200;
+
+/** The one sport whose categories take a level or a suma; every sport's category takes a modality (S15). */
+export const PADEL_SPORT = 'padel';
 
 /** The most a pair can be asked per match, in pesos; the API's own ceiling. */
 export const MAX_COURT_FEE = 1_000_000;
 
 const categoryFormSchema = z
   .object({
-    name: z.string().trim().min(1, t.categoryNameRequired).max(30, t.categoryNameMax),
+    modality: z.enum(MODALITIES).optional(),
+    /** `none` on a sport whose categories take no level or suma (S15); padel takes a level or a suma. */
+    kind: z.enum(['level', 'suma', 'none']),
+    level: z.number().int().min(1, t.levelRequired).max(9, t.levelRequired).optional(),
+    suma: z.number({ error: t.sumaRange }).int(t.sumaRange).min(2, t.sumaRange).max(18, t.sumaRange).optional(),
+    starts_on: z.string(),
+    starts_at: z.string(),
+    prizes: z.string().trim().max(MAX_PRIZES, t.prizesMax),
     format: z.enum(['elimination', 'groups']),
     capacity: z
       .number({ error: t.capacityRange })
@@ -38,6 +50,21 @@ const categoryFormSchema = z
       .min(30, t.durationRange)
       .max(480, t.durationRange),
   })
+  // `when` runs these even when a number is still blank: otherwise zod skips the object's checks
+  // and the owner sees the modality error only after typing the price.
+  .refine((data) => !!data.modality, { message: t.modalityRequired, path: ['modality'], when: () => true })
+  .refine((data) => data.kind !== 'level' || data.level !== undefined, {
+    message: t.levelRequired,
+    path: ['level'],
+    when: () => true,
+  })
+  .refine((data) => data.kind !== 'suma' || data.suma !== undefined, {
+    message: t.sumaRange,
+    path: ['suma'],
+    when: () => true,
+  })
+  .refine((data) => !!data.starts_on, { message: t.startsOnRequired, path: ['starts_on'], when: () => true })
+  .refine((data) => !!data.starts_at, { message: t.startsAtRequired, path: ['starts_at'], when: () => true })
   .superRefine((data, ctx) => {
     if (data.format !== 'groups') return;
     const sizeOk = Number.isInteger(data.group_size) && data.group_size >= 2 && data.group_size <= 12;
@@ -55,11 +82,10 @@ const categoryFormSchema = z
  * The create-tournament form's own shape, not the wire shape
  * (`CreateTournamentRequest`, built from it by `toCreateRequest`). Prices are
  * pesos here, centavos on the wire. The court fee is optional: blank or 0 sends none. Group settings only count for a `groups`
- * category, and the match tiebreak only for best of three.
+ * category, and the match tiebreak only for best of three. A tournament has no name (S10): it is composed from its sport.
  */
 export const tournamentFormSchema = z
   .object({
-    name: z.string().trim().min(1, t.nameRequired).max(60, t.nameMax),
     sport: z.string().min(1),
     start_date: z.string().min(1, ES_AR.validation.dateRequired),
     end_date: z.string().min(1, ES_AR.validation.dateRequired),
@@ -70,14 +96,28 @@ export const tournamentFormSchema = z
     const days = differenceInCalendarDays(parseISO(data.end_date), parseISO(data.start_date));
     if (days < 0) ctx.addIssue({ code: 'custom', path: ['end_date'], message: t.endBeforeStart });
     else if (days > MAX_DAYS) ctx.addIssue({ code: 'custom', path: ['end_date'], message: t.tooLong });
+    // A category starts on a day of the tournament itself, judged only against a valid range (ISO dates compare as text).
+    if (days < 0 || days > MAX_DAYS) return;
+    data.categories.forEach((category, index) => {
+      if (!category.starts_on) return;
+      if (category.starts_on < data.start_date || category.starts_on > data.end_date) {
+        ctx.addIssue({ code: 'custom', path: ['categories', index, 'starts_on'], message: t.startsOnRange });
+      }
+    });
   });
 
 export type TournamentFormValues = z.infer<typeof tournamentFormSchema>;
 export type CategoryFormValues = TournamentFormValues['categories'][number];
 
-/** A new category row: groups of 3 with 2 advancing, best of three to 6 games with a match tiebreak, 90 minutes a match. */
+/**
+ * A new category row: a level category still to be chosen, groups of 3 with 2 advancing, best of
+ * three to 6 games with a match tiebreak, 90 minutes a match.
+ */
 export const DEFAULT_CATEGORY: CategoryFormValues = {
-  name: '',
+  kind: 'level',
+  starts_on: '',
+  starts_at: '',
+  prizes: '',
   format: 'groups',
   capacity: 16,
   price: Number.NaN,
@@ -91,9 +131,28 @@ export const DEFAULT_CATEGORY: CategoryFormValues = {
 
 type CategoryRequest = CreateTournamentRequest['categories'][number];
 
-function categoryRequest(category: CategoryFormValues): CategoryRequest {
+/**
+ * The modality of a category, and on padel its level or suma. The schema has required them before a
+ * request is built; these guards narrow the optional form fields for the type.
+ */
+function traitsOf(category: CategoryFormValues, sport: string): Pick<CategoryRequest, 'modality' | 'level' | 'suma'> {
+  if (!category.modality) throw new Error('a category reaches the request with its modality');
+  if (sport !== PADEL_SPORT) return { modality: category.modality };
+  if (category.kind === 'suma') {
+    if (category.suma === undefined) throw new Error('a suma category reaches the request with its suma');
+    return { modality: category.modality, suma: category.suma };
+  }
+  if (category.level === undefined) throw new Error('a level category reaches the request with its level');
+  return { modality: category.modality, level: category.level };
+}
+
+function categoryRequest(category: CategoryFormValues, sport: string): CategoryRequest {
+  const prizes = category.prizes.trim();
   return {
-    name: category.name.trim(),
+    ...traitsOf(category, sport),
+    starts_on: category.starts_on,
+    starts_at: category.starts_at,
+    ...(prizes ? { prizes } : {}),
     format: category.format,
     capacity: category.capacity,
     price: pesosToCentavos(category.price),
@@ -110,11 +169,10 @@ function categoryRequest(category: CategoryFormValues): CategoryRequest {
 
 export function toCreateRequest(values: TournamentFormValues): CreateTournamentRequest {
   return {
-    name: values.name.trim(),
     sport: values.sport as Sport,
     start_date: values.start_date,
     end_date: values.end_date,
-    categories: values.categories.map(categoryRequest),
+    categories: values.categories.map((category) => categoryRequest(category, values.sport)),
   };
 }
 

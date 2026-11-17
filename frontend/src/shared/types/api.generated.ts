@@ -1099,7 +1099,7 @@ export interface paths {
     put?: never;
     /**
      * Create a tournament with its categories
-     * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament and 30 for a category.
+     * @description Each category has its own capacity (pairs), entry price per pair (centavos, above zero) and format: `elimination` is a single-elimination bracket sized to the next power of two with byes for the top seeds; `groups` is round-robin groups followed by a knockout of the best `qualifiers_per_group` of each. For `groups`, `group_size` (the target pairs per group, default 3) and `qualifiers_per_group` (default 2, at least 1 and below `group_size`) are the owner's to set per category. So is the match format, all optional: `sets_to_win` (1 a single set, 2 best of three; default 2), `games_per_set` (4 to 9; default 6), `super_tiebreak_decider` (the deciding set is a match tiebreak to 10 points, only meaningful with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60 characters for the tournament, named after its sport when it has none. A category is composed from its modality and exactly one of `level` (1 to 9) or `suma` (2 to 18): the server names it, the owner never types it. `prizes` (at most 200 characters) is optional; `starts_on` (within the tournament's dates) and `starts_at` (HH:MM) are required.
      */
     post: operations['tournamentsCreate'];
     delete?: never;
@@ -3180,6 +3180,15 @@ export interface components {
     };
     /** @description An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person. */
     OpenPlayEvent: {
+      /**
+       * @description Null on an event without a modality.
+       * @enum {string|null}
+       */
+      modality?: 'men' | 'women' | 'mixed' | null;
+      /** @description The strongest level allowed, or null. */
+      level_min?: number | null;
+      /** @description The weakest level allowed, or null. */
+      level_max?: number | null;
       /** Format: uuid */
       id: string;
       /** Format: uuid */
@@ -3218,6 +3227,13 @@ export interface components {
       created_at: string;
     };
     OpenPlayParticipant: {
+      /**
+       * @description The gender declared at sign-up.
+       * @enum {string|null}
+       */
+      gender?: 'men' | 'women' | null;
+      /** @description The level declared at sign-up. */
+      level?: number | null;
       /** Format: uuid */
       id: string;
       first_name: string;
@@ -3265,6 +3281,10 @@ export interface components {
     };
     /** @description An event as a visitor sees it on the complex's page. */
     PublicOpenPlayEvent: {
+      /** @enum {string|null} */
+      modality?: 'men' | 'women' | 'mixed' | null;
+      level_min?: number | null;
+      level_max?: number | null;
       /** Format: uuid */
       id: string;
       name: string;
@@ -3395,7 +3415,19 @@ export interface components {
       id: string;
       /** Format: uuid */
       tournament_id: string;
+      /** @description Composed from the traits, e.g. Caballeros 8va or Mixto Suma 15; a category created before the traits keeps the name it was given. */
       name: string;
+      /**
+       * @description Null on a category created before the traits.
+       * @enum {string|null}
+       */
+      modality: 'men' | 'women' | 'mixed' | null;
+      level: number | null;
+      suma: number | null;
+      prizes: string | null;
+      /** Format: date */
+      starts_on: string | null;
+      starts_at: string | null;
       /** @enum {string} */
       format: 'elimination' | 'groups';
       /** @description Pairs. */
@@ -3446,6 +3478,13 @@ export interface components {
       last_name: string;
       phone: string;
       email: string | null;
+      /**
+       * @description The gender declared at sign-up.
+       * @enum {string|null}
+       */
+      gender: 'men' | 'women' | null;
+      /** @description The level declared at sign-up. */
+      level: number | null;
     };
     /** @description `players` is the payer then the partner. `seed` and `group_id` are set by the draw. `status` is `withdrawn` for a pair that left after the draw. */
     TournamentPair: {
@@ -5613,7 +5652,17 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          name: string;
+          /** @description Optional; an event given none is named after its sport. */
+          name?: string;
+          /**
+           * @description Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
+           * @enum {string}
+           */
+          modality?: 'men' | 'women' | 'mixed';
+          /** @description Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport. */
+          level_min?: number;
+          /** @description The weakest level allowed; level_min must not be above it. */
+          level_max?: number;
           /**
            * @default padel
            * @enum {string}
@@ -7336,7 +7385,8 @@ export interface operations {
     requestBody: {
       content: {
         'application/json': {
-          name: string;
+          /** @description Optional; a tournament given none is named after its sport. */
+          name?: string;
           /**
            * @default padel
            * @enum {string}
@@ -7350,7 +7400,23 @@ export interface operations {
            */
           end_date: string;
           categories: {
-            name: string;
+            /**
+             * @description Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it.
+             * @enum {string}
+             */
+            modality: 'men' | 'women' | 'mixed';
+            /** @description Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport. */
+            level?: number;
+            /** @description Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport. */
+            suma?: number;
+            prizes?: string;
+            /**
+             * Format: date
+             * @description The day the category starts, within the tournament's dates.
+             */
+            starts_on: string;
+            /** @description The time the category starts, HH:MM. */
+            starts_at: string;
             /** @enum {string} */
             format: 'elimination' | 'groups';
             /** @description Pairs. */
@@ -8036,6 +8102,13 @@ export interface operations {
           phone: string;
           /** @description Optional. */
           email?: string;
+          /**
+           * @description Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise).
+           * @enum {string}
+           */
+          gender?: 'men' | 'women';
+          /** @description Required when the category has a modality. A level category refuses a player whose level is stronger than its level (level_too_strong). A Suma needs both levels to add up to the suma (suma_too_low). All before anything is held. */
+          level?: number;
           partner: {
             first_name: string;
             last_name: string;
@@ -8043,6 +8116,9 @@ export interface operations {
             phone: string;
             /** @description Optional. */
             email?: string;
+            /** @enum {string} */
+            gender?: 'men' | 'women';
+            level?: number;
           };
           /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
           turnstile_token?: string;
@@ -8264,6 +8340,13 @@ export interface operations {
           phone: string;
           /** @description Optional. */
           email?: string;
+          /**
+           * @description Required when the event has a modality; the gender must fit it (modality_mismatch).
+           * @enum {string}
+           */
+          gender?: 'men' | 'women';
+          /** @description Required when the event has a modality; it must sit in the event's range (level_out_of_range). */
+          level?: number;
           /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through. */
           turnstile_token?: string;
         };

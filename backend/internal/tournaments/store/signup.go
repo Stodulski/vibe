@@ -20,7 +20,7 @@ import (
 // Admit refuses once the draw exists (ErrEventClosed) and when any of the two
 // players already holds a live spot in the category, as the payer or as a
 // partner (ErrAlreadyRegistered). Attach writes the pair beside the registration.
-func (m *Store) PairHooks(payerPhone string, partner Player) *eventstore.SignUpHooks {
+func (m *Store) PairHooks(payer, partner Player) *eventstore.SignUpHooks {
 	return &eventstore.SignUpHooks{
 		Admit: func(ctx context.Context, q *db.Queries, event db.OpenPlayEvent) error {
 			cat, err := q.GetTournamentCategoryByEvent(ctx, event.ID)
@@ -35,7 +35,7 @@ func (m *Store) PairHooks(payerPhone string, partner Player) *eventstore.SignUpH
 				return eventstore.ErrEventClosed
 			}
 			taken, err := q.PairPlayersTaken(ctx, db.PairPlayersTakenParams{
-				CategoryID: cat.ID, Phones: []string{payerPhone, partner.Phone},
+				CategoryID: cat.ID, Phones: []string{payer.Phone, partner.Phone},
 			})
 			if err != nil {
 				return fmt.Errorf("tournaments: check players: %w", err)
@@ -54,6 +54,7 @@ func (m *Store) PairHooks(payerPhone string, partner Player) *eventstore.SignUpH
 				CategoryID: cat.ID, ComplexID: cat.ComplexID, RegistrationID: reg.ID,
 				PartnerFirstName: partner.FirstName, PartnerLastName: partner.LastName,
 				PartnerPhone: partner.Phone, PartnerEmail: data.TextToPg(partner.Email),
+				PartnerGender: data.TextToPg(partner.Gender), PartnerLevel: data.Int4PtrToPg(partner.Level),
 			}); err != nil {
 				return fmt.Errorf("tournaments: insert pair: %w", err)
 			}

@@ -15,7 +15,7 @@ import (
 
 func validInput() CreateInput {
 	return CreateInput{
-		Name: "Canchas abiertas", Date: timezone.Day(time.Now()).AddDate(0, 0, 3),
+		Name: "Canchas abiertas", Modality: ModalityMixed, Date: timezone.Day(time.Now()).AddDate(0, 0, 3),
 		StartTime: "19:00", EndTime: "21:00", Capacity: 20, Price: 800_000,
 	}
 }
@@ -23,7 +23,6 @@ func validInput() CreateInput {
 // S1: the shape of an event is checked field by field.
 func TestCreateRejectsAnInvalidEventFieldByField(t *testing.T) {
 	cases := map[string]func(*CreateInput){
-		"name":       func(in *CreateInput) { in.Name = "  " },
 		"sport":      func(in *CreateInput) { in.Sport = "curling" },
 		"capacity":   func(in *CreateInput) { in.Capacity = 0 },
 		"price":      func(in *CreateInput) { in.Price = 0 },

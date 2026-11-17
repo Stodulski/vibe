@@ -691,6 +691,30 @@ func (e HealthStatusStatus) Valid() bool {
 	}
 }
 
+// Defines values for OpenPlayEventModality.
+const (
+	OpenPlayEventModalityLessThannil OpenPlayEventModality = "<nil>"
+	OpenPlayEventModalityMen         OpenPlayEventModality = "men"
+	OpenPlayEventModalityMixed       OpenPlayEventModality = "mixed"
+	OpenPlayEventModalityWomen       OpenPlayEventModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayEventModality enum.
+func (e OpenPlayEventModality) Valid() bool {
+	switch e {
+	case OpenPlayEventModalityLessThannil:
+		return true
+	case OpenPlayEventModalityMen:
+		return true
+	case OpenPlayEventModalityMixed:
+		return true
+	case OpenPlayEventModalityWomen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OpenPlayEventSport.
 const (
 	OpenPlayEventSportBasketball OpenPlayEventSport = "basketball"
@@ -757,6 +781,27 @@ func (e OpenPlayParticipantCancelledBy) Valid() bool {
 	case OpenPlayParticipantCancelledByOwner:
 		return true
 	case OpenPlayParticipantCancelledByParticipant:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OpenPlayParticipantGender.
+const (
+	OpenPlayParticipantGenderLessThannil OpenPlayParticipantGender = "<nil>"
+	OpenPlayParticipantGenderMen         OpenPlayParticipantGender = "men"
+	OpenPlayParticipantGenderWomen       OpenPlayParticipantGender = "women"
+)
+
+// Valid indicates whether the value is a known member of the OpenPlayParticipantGender enum.
+func (e OpenPlayParticipantGender) Valid() bool {
+	switch e {
+	case OpenPlayParticipantGenderLessThannil:
+		return true
+	case OpenPlayParticipantGenderMen:
+		return true
+	case OpenPlayParticipantGenderWomen:
 		return true
 	default:
 		return false
@@ -1072,6 +1117,30 @@ func (e PublicEventSignUpRegistrationStatus) Valid() bool {
 	}
 }
 
+// Defines values for PublicOpenPlayEventModality.
+const (
+	PublicOpenPlayEventModalityLessThannil PublicOpenPlayEventModality = "<nil>"
+	PublicOpenPlayEventModalityMen         PublicOpenPlayEventModality = "men"
+	PublicOpenPlayEventModalityMixed       PublicOpenPlayEventModality = "mixed"
+	PublicOpenPlayEventModalityWomen       PublicOpenPlayEventModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the PublicOpenPlayEventModality enum.
+func (e PublicOpenPlayEventModality) Valid() bool {
+	switch e {
+	case PublicOpenPlayEventModalityLessThannil:
+		return true
+	case PublicOpenPlayEventModalityMen:
+		return true
+	case PublicOpenPlayEventModalityMixed:
+		return true
+	case PublicOpenPlayEventModalityWomen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicOpenPlayEventSport.
 const (
 	PublicOpenPlayEventSportBasketball PublicOpenPlayEventSport = "basketball"
@@ -1351,6 +1420,30 @@ func (e TournamentCategoryFormat) Valid() bool {
 	}
 }
 
+// Defines values for TournamentCategoryModality.
+const (
+	TournamentCategoryModalityLessThannil TournamentCategoryModality = "<nil>"
+	TournamentCategoryModalityMen         TournamentCategoryModality = "men"
+	TournamentCategoryModalityMixed       TournamentCategoryModality = "mixed"
+	TournamentCategoryModalityWomen       TournamentCategoryModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentCategoryModality enum.
+func (e TournamentCategoryModality) Valid() bool {
+	switch e {
+	case TournamentCategoryModalityLessThannil:
+		return true
+	case TournamentCategoryModalityMen:
+		return true
+	case TournamentCategoryModalityMixed:
+		return true
+	case TournamentCategoryModalityWomen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for TournamentCategorySetsToWin.
 const (
 	TournamentCategorySetsToWinN1 TournamentCategorySetsToWin = 1
@@ -1477,6 +1570,30 @@ func (e TournamentOwnerCategoryFormat) Valid() bool {
 	case TournamentOwnerCategoryFormatElimination:
 		return true
 	case TournamentOwnerCategoryFormatGroups:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentOwnerCategoryModality.
+const (
+	TournamentOwnerCategoryModalityLessThannil TournamentOwnerCategoryModality = "<nil>"
+	TournamentOwnerCategoryModalityMen         TournamentOwnerCategoryModality = "men"
+	TournamentOwnerCategoryModalityMixed       TournamentOwnerCategoryModality = "mixed"
+	TournamentOwnerCategoryModalityWomen       TournamentOwnerCategoryModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentOwnerCategoryModality enum.
+func (e TournamentOwnerCategoryModality) Valid() bool {
+	switch e {
+	case TournamentOwnerCategoryModalityLessThannil:
+		return true
+	case TournamentOwnerCategoryModalityMen:
+		return true
+	case TournamentOwnerCategoryModalityMixed:
+		return true
+	case TournamentOwnerCategoryModalityWomen:
 		return true
 	default:
 		return false
@@ -1636,6 +1753,27 @@ func (e TournamentOwnerPairStatus) Valid() bool {
 	case TournamentOwnerPairStatusActive:
 		return true
 	case TournamentOwnerPairStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentOwnerPlayerGender.
+const (
+	TournamentOwnerPlayerGenderLessThannil TournamentOwnerPlayerGender = "<nil>"
+	TournamentOwnerPlayerGenderMen         TournamentOwnerPlayerGender = "men"
+	TournamentOwnerPlayerGenderWomen       TournamentOwnerPlayerGender = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentOwnerPlayerGender enum.
+func (e TournamentOwnerPlayerGender) Valid() bool {
+	switch e {
+	case TournamentOwnerPlayerGenderLessThannil:
+		return true
+	case TournamentOwnerPlayerGenderMen:
+		return true
+	case TournamentOwnerPlayerGenderWomen:
 		return true
 	default:
 		return false
@@ -2335,6 +2473,27 @@ func (e CourtsUpdateJSONBodySurface) Valid() bool {
 	}
 }
 
+// Defines values for EventsCreateJSONBodyModality.
+const (
+	EventsCreateJSONBodyModalityMen   EventsCreateJSONBodyModality = "men"
+	EventsCreateJSONBodyModalityMixed EventsCreateJSONBodyModality = "mixed"
+	EventsCreateJSONBodyModalityWomen EventsCreateJSONBodyModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the EventsCreateJSONBodyModality enum.
+func (e EventsCreateJSONBodyModality) Valid() bool {
+	switch e {
+	case EventsCreateJSONBodyModalityMen:
+		return true
+	case EventsCreateJSONBodyModalityMixed:
+		return true
+	case EventsCreateJSONBodyModalityWomen:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsCreateJSONBodySport.
 const (
 	EventsCreateJSONBodySportBasketball EventsCreateJSONBodySport = "basketball"
@@ -2503,6 +2662,27 @@ func (e TournamentsCreateJSONBodyCategoriesFormat) Valid() bool {
 	case TournamentsCreateJSONBodyCategoriesFormatElimination:
 		return true
 	case TournamentsCreateJSONBodyCategoriesFormatGroups:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsCreateJSONBodyCategoriesModality.
+const (
+	TournamentsCreateJSONBodyCategoriesModalityMen   TournamentsCreateJSONBodyCategoriesModality = "men"
+	TournamentsCreateJSONBodyCategoriesModalityMixed TournamentsCreateJSONBodyCategoriesModality = "mixed"
+	TournamentsCreateJSONBodyCategoriesModalityWomen TournamentsCreateJSONBodyCategoriesModality = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentsCreateJSONBodyCategoriesModality enum.
+func (e TournamentsCreateJSONBodyCategoriesModality) Valid() bool {
+	switch e {
+	case TournamentsCreateJSONBodyCategoriesModalityMen:
+		return true
+	case TournamentsCreateJSONBodyCategoriesModalityMixed:
+		return true
+	case TournamentsCreateJSONBodyCategoriesModalityWomen:
 		return true
 	default:
 		return false
@@ -2692,6 +2872,60 @@ func (e ComplexesPresignUploadJSONBodyType) Valid() bool {
 	case Cover:
 		return true
 	case Logo:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EventsPublicSignUpJSONBodyGender.
+const (
+	EventsPublicSignUpJSONBodyGenderMen   EventsPublicSignUpJSONBodyGender = "men"
+	EventsPublicSignUpJSONBodyGenderWomen EventsPublicSignUpJSONBodyGender = "women"
+)
+
+// Valid indicates whether the value is a known member of the EventsPublicSignUpJSONBodyGender enum.
+func (e EventsPublicSignUpJSONBodyGender) Valid() bool {
+	switch e {
+	case EventsPublicSignUpJSONBodyGenderMen:
+		return true
+	case EventsPublicSignUpJSONBodyGenderWomen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsPublicSignUpJSONBodyGender.
+const (
+	TournamentsPublicSignUpJSONBodyGenderMen   TournamentsPublicSignUpJSONBodyGender = "men"
+	TournamentsPublicSignUpJSONBodyGenderWomen TournamentsPublicSignUpJSONBodyGender = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentsPublicSignUpJSONBodyGender enum.
+func (e TournamentsPublicSignUpJSONBodyGender) Valid() bool {
+	switch e {
+	case TournamentsPublicSignUpJSONBodyGenderMen:
+		return true
+	case TournamentsPublicSignUpJSONBodyGenderWomen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TournamentsPublicSignUpJSONBodyPartnerGender.
+const (
+	TournamentsPublicSignUpJSONBodyPartnerGenderMen   TournamentsPublicSignUpJSONBodyPartnerGender = "men"
+	TournamentsPublicSignUpJSONBodyPartnerGenderWomen TournamentsPublicSignUpJSONBodyPartnerGender = "women"
+)
+
+// Valid indicates whether the value is a known member of the TournamentsPublicSignUpJSONBodyPartnerGender enum.
+func (e TournamentsPublicSignUpJSONBodyPartnerGender) Valid() bool {
+	switch e {
+	case TournamentsPublicSignUpJSONBodyPartnerGenderMen:
+		return true
+	case TournamentsPublicSignUpJSONBodyPartnerGenderWomen:
 		return true
 	default:
 		return false
@@ -3516,7 +3750,16 @@ type OpenPlayEvent struct {
 	// HeldCount Spots held by people still paying.
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
-	Name      string             `json:"name"`
+
+	// LevelMax The weakest level allowed, or null.
+	LevelMax *int `json:"level_max,omitempty"`
+
+	// LevelMin The strongest level allowed, or null.
+	LevelMin *int `json:"level_min,omitempty"`
+
+	// Modality Null on an event without a modality.
+	Modality *OpenPlayEventModality `json:"modality,omitempty"`
+	Name     string                 `json:"name"`
 
 	// Price Centavos ARS per person.
 	Price int                `json:"price"`
@@ -3527,6 +3770,9 @@ type OpenPlayEvent struct {
 	StartTime string              `json:"start_time"`
 	Status    OpenPlayEventStatus `json:"status"`
 }
+
+// OpenPlayEventModality Null on an event without a modality.
+type OpenPlayEventModality string
 
 // OpenPlayEventSport defines model for OpenPlayEvent.Sport.
 type OpenPlayEventSport string
@@ -3542,8 +3788,14 @@ type OpenPlayParticipant struct {
 	CreatedAt   time.Time                       `json:"created_at"`
 	Email       *string                         `json:"email,omitempty"`
 	FirstName   string                          `json:"first_name"`
-	Id          openapi_types.UUID              `json:"id"`
-	LastName    string                          `json:"last_name"`
+
+	// Gender The gender declared at sign-up.
+	Gender   *OpenPlayParticipantGender `json:"gender,omitempty"`
+	Id       openapi_types.UUID         `json:"id"`
+	LastName string                     `json:"last_name"`
+
+	// Level The level declared at sign-up.
+	Level *int `json:"level,omitempty"`
 
 	// Payment The payment carrying the person's money; `null` while no checkout was ever opened.
 	Payment *struct {
@@ -3572,6 +3824,9 @@ type OpenPlayParticipant struct {
 
 // OpenPlayParticipantCancelledBy defines model for OpenPlayParticipant.CancelledBy.
 type OpenPlayParticipantCancelledBy string
+
+// OpenPlayParticipantGender The gender declared at sign-up.
+type OpenPlayParticipantGender string
 
 // OpenPlayParticipantPaymentMethod defines model for OpenPlayParticipant.Payment.Method.
 type OpenPlayParticipantPaymentMethod string
@@ -4046,12 +4301,15 @@ type PublicOpenPlayEvent struct {
 	CourtNames        []string `json:"court_names"`
 
 	// Courts The event's courts with what a player compares, in the order of `court_names`.
-	Courts          []PublicEventCourt `json:"courts"`
-	Date            openapi_types.Date `json:"date"`
-	DurationMinutes int                `json:"duration_minutes"`
-	EndTime         string             `json:"end_time"`
-	Id              openapi_types.UUID `json:"id"`
-	Name            string             `json:"name"`
+	Courts          []PublicEventCourt           `json:"courts"`
+	Date            openapi_types.Date           `json:"date"`
+	DurationMinutes int                          `json:"duration_minutes"`
+	EndTime         string                       `json:"end_time"`
+	Id              openapi_types.UUID           `json:"id"`
+	LevelMax        *int                         `json:"level_max,omitempty"`
+	LevelMin        *int                         `json:"level_min,omitempty"`
+	Modality        *PublicOpenPlayEventModality `json:"modality,omitempty"`
+	Name            string                       `json:"name"`
 
 	// Price Centavos ARS per person.
 	Price int `json:"price"`
@@ -4068,6 +4326,9 @@ type PublicOpenPlayEvent struct {
 	// TotalPrice Centavos ARS: `price` plus `service_fee`.
 	TotalPrice int `json:"total_price"`
 }
+
+// PublicOpenPlayEventModality defines model for PublicOpenPlayEvent.Modality.
+type PublicOpenPlayEventModality string
 
 // PublicOpenPlayEventSport defines model for PublicOpenPlayEvent.Sport.
 type PublicOpenPlayEventSport string
@@ -4332,20 +4593,30 @@ type TournamentCategory struct {
 	GroupSize int                `json:"group_size"`
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
+	Level     *int               `json:"level"`
 
 	// MatchDurationMinutes Court time a match gets when scheduled without a duration.
-	MatchDurationMinutes int    `json:"match_duration_minutes"`
-	Name                 string `json:"name"`
+	MatchDurationMinutes int `json:"match_duration_minutes"`
+
+	// Modality Null on a category created before the traits.
+	Modality *TournamentCategoryModality `json:"modality"`
+
+	// Name Composed from the traits, e.g. Caballeros 8va or Mixto Suma 15; a category created before the traits keeps the name it was given.
+	Name string `json:"name"`
 
 	// Price Centavos per pair.
-	Price              int  `json:"price"`
-	QualifiersPerGroup int  `json:"qualifiers_per_group"`
-	ServiceFee         *int `json:"service_fee,omitempty"`
+	Price              int     `json:"price"`
+	Prizes             *string `json:"prizes"`
+	QualifiersPerGroup int     `json:"qualifiers_per_group"`
+	ServiceFee         *int    `json:"service_fee,omitempty"`
 
 	// SetsToWin 1 is a single set, 2 is best of three.
 	SetsToWin TournamentCategorySetsToWin `json:"sets_to_win"`
 	SpotsLeft int                         `json:"spots_left"`
+	StartsAt  *string                     `json:"starts_at"`
+	StartsOn  *openapi_types.Date         `json:"starts_on"`
 	Status    TournamentCategoryStatus    `json:"status"`
+	Suma      *int                        `json:"suma"`
 
 	// SuperTiebreakDecider The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2.
 	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
@@ -4355,6 +4626,9 @@ type TournamentCategory struct {
 
 // TournamentCategoryFormat defines model for TournamentCategory.Format.
 type TournamentCategoryFormat string
+
+// TournamentCategoryModality Null on a category created before the traits.
+type TournamentCategoryModality string
 
 // TournamentCategorySetsToWin 1 is a single set, 2 is best of three.
 type TournamentCategorySetsToWin int
@@ -4455,20 +4729,30 @@ type TournamentOwnerCategory struct {
 	GroupSize int                `json:"group_size"`
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
+	Level     *int               `json:"level"`
 
 	// MatchDurationMinutes Court time a match gets when scheduled without a duration.
-	MatchDurationMinutes int    `json:"match_duration_minutes"`
-	Name                 string `json:"name"`
+	MatchDurationMinutes int `json:"match_duration_minutes"`
+
+	// Modality Null on a category created before the traits.
+	Modality *TournamentOwnerCategoryModality `json:"modality"`
+
+	// Name Composed from the traits, e.g. Caballeros 8va or Mixto Suma 15; a category created before the traits keeps the name it was given.
+	Name string `json:"name"`
 
 	// Price Centavos per pair.
-	Price              int  `json:"price"`
-	QualifiersPerGroup int  `json:"qualifiers_per_group"`
-	ServiceFee         *int `json:"service_fee,omitempty"`
+	Price              int     `json:"price"`
+	Prizes             *string `json:"prizes"`
+	QualifiersPerGroup int     `json:"qualifiers_per_group"`
+	ServiceFee         *int    `json:"service_fee,omitempty"`
 
 	// SetsToWin 1 is a single set, 2 is best of three.
 	SetsToWin TournamentOwnerCategorySetsToWin `json:"sets_to_win"`
 	SpotsLeft int                              `json:"spots_left"`
+	StartsAt  *string                          `json:"starts_at"`
+	StartsOn  *openapi_types.Date              `json:"starts_on"`
 	Status    TournamentOwnerCategoryStatus    `json:"status"`
+	Suma      *int                             `json:"suma"`
 
 	// SuperTiebreakDecider The third set is a match tiebreak to 10 points; only meaningful when sets_to_win is 2.
 	SuperTiebreakDecider bool               `json:"super_tiebreak_decider"`
@@ -4478,6 +4762,9 @@ type TournamentOwnerCategory struct {
 
 // TournamentOwnerCategoryFormat defines model for TournamentOwnerCategory.Format.
 type TournamentOwnerCategoryFormat string
+
+// TournamentOwnerCategoryModality Null on a category created before the traits.
+type TournamentOwnerCategoryModality string
 
 // TournamentOwnerCategorySetsToWin 1 is a single set, 2 is best of three.
 type TournamentOwnerCategorySetsToWin int
@@ -4570,9 +4857,18 @@ type TournamentOwnerPairStatus string
 type TournamentOwnerPlayer struct {
 	Email     *string `json:"email"`
 	FirstName string  `json:"first_name"`
-	LastName  string  `json:"last_name"`
-	Phone     string  `json:"phone"`
+
+	// Gender The gender declared at sign-up.
+	Gender   *TournamentOwnerPlayerGender `json:"gender"`
+	LastName string                       `json:"last_name"`
+
+	// Level The level declared at sign-up.
+	Level *int   `json:"level"`
+	Phone string `json:"phone"`
 }
+
+// TournamentOwnerPlayerGender The gender declared at sign-up.
+type TournamentOwnerPlayerGender string
 
 // TournamentOwnerSummary defines model for TournamentOwnerSummary.
 type TournamentOwnerSummary struct {
@@ -5419,13 +5715,27 @@ type EventsCreateJSONBody struct {
 
 	// EndTime Between 30 minutes and 12 hours after `start_time`.
 	EndTime string `json:"end_time"`
-	Name    string `json:"name"`
+
+	// LevelMax The weakest level allowed; level_min must not be above it.
+	LevelMax *int `json:"level_max,omitempty"`
+
+	// LevelMin Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport.
+	LevelMin *int `json:"level_min,omitempty"`
+
+	// Modality Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone).
+	Modality *EventsCreateJSONBodyModality `json:"modality,omitempty"`
+
+	// Name Optional; an event given none is named after its sport.
+	Name *string `json:"name,omitempty"`
 
 	// Price Centavos ARS per person, greater than zero.
 	Price     int                        `json:"price"`
 	Sport     *EventsCreateJSONBodySport `json:"sport,omitempty"`
 	StartTime string                     `json:"start_time"`
 }
+
+// EventsCreateJSONBodyModality defines parameters for EventsCreate.
+type EventsCreateJSONBodyModality string
 
 // EventsCreateJSONBodySport defines parameters for EventsCreate.
 type EventsCreateJSONBodySport string
@@ -5646,30 +5956,50 @@ type TournamentsCreateJSONBody struct {
 		GamesPerSet *int                                      `json:"games_per_set,omitempty"`
 		GroupSize   *int                                      `json:"group_size,omitempty"`
 
+		// Level Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport.
+		Level *int `json:"level,omitempty"`
+
 		// MatchDurationMinutes Court time given to a match scheduled without a duration.
-		MatchDurationMinutes *int   `json:"match_duration_minutes,omitempty"`
-		Name                 string `json:"name"`
+		MatchDurationMinutes *int `json:"match_duration_minutes,omitempty"`
+
+		// Modality Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it.
+		Modality TournamentsCreateJSONBodyCategoriesModality `json:"modality"`
 
 		// Price Centavos per pair.
-		Price              int  `json:"price"`
-		QualifiersPerGroup *int `json:"qualifiers_per_group,omitempty"`
+		Price              int     `json:"price"`
+		Prizes             *string `json:"prizes,omitempty"`
+		QualifiersPerGroup *int    `json:"qualifiers_per_group,omitempty"`
 
 		// SetsToWin 1 plays a single set, 2 is best of three.
 		SetsToWin *TournamentsCreateJSONBodyCategoriesSetsToWin `json:"sets_to_win,omitempty"`
+
+		// StartsAt The time the category starts, HH:MM.
+		StartsAt string `json:"starts_at"`
+
+		// StartsOn The day the category starts, within the tournament's dates.
+		StartsOn openapi_types.Date `json:"starts_on"`
+
+		// Suma Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport.
+		Suma *int `json:"suma,omitempty"`
 
 		// SuperTiebreakDecider The deciding (third) set is a match tiebreak to 10 points; ignored when sets_to_win is 1.
 		SuperTiebreakDecider *bool `json:"super_tiebreak_decider,omitempty"`
 	} `json:"categories"`
 
 	// EndDate On or after start_date, at most 60 days later.
-	EndDate   openapi_types.Date              `json:"end_date"`
-	Name      string                          `json:"name"`
+	EndDate openapi_types.Date `json:"end_date"`
+
+	// Name Optional; a tournament given none is named after its sport.
+	Name      *string                         `json:"name,omitempty"`
 	Sport     *TournamentsCreateJSONBodySport `json:"sport,omitempty"`
 	StartDate openapi_types.Date              `json:"start_date"`
 }
 
 // TournamentsCreateJSONBodyCategoriesFormat defines parameters for TournamentsCreate.
 type TournamentsCreateJSONBodyCategoriesFormat string
+
+// TournamentsCreateJSONBodyCategoriesModality defines parameters for TournamentsCreate.
+type TournamentsCreateJSONBodyCategoriesModality string
 
 // TournamentsCreateJSONBodyCategoriesSetsToWin defines parameters for TournamentsCreate.
 type TournamentsCreateJSONBodyCategoriesSetsToWin int
@@ -5786,7 +6116,13 @@ type EventsPublicSignUpJSONBody struct {
 	// Email Optional.
 	Email     *string `json:"email,omitempty"`
 	FirstName string  `json:"first_name"`
-	LastName  string  `json:"last_name"`
+
+	// Gender Required when the event has a modality; the gender must fit it (modality_mismatch).
+	Gender   *EventsPublicSignUpJSONBodyGender `json:"gender,omitempty"`
+	LastName string                            `json:"last_name"`
+
+	// Level Required when the event has a modality; it must sit in the event's range (level_out_of_range).
+	Level *int `json:"level,omitempty"`
 
 	// Phone Normalized to E.164.
 	Phone string `json:"phone"`
@@ -5794,6 +6130,9 @@ type EventsPublicSignUpJSONBody struct {
 	// TurnstileToken Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through.
 	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
+
+// EventsPublicSignUpJSONBodyGender defines parameters for EventsPublicSignUp.
+type EventsPublicSignUpJSONBodyGender string
 
 // CourtsPublicNextAvailableParams defines parameters for CourtsPublicNextAvailable.
 type CourtsPublicNextAvailableParams struct {
@@ -5809,12 +6148,20 @@ type TournamentsPublicSignUpJSONBody struct {
 	// Email Optional.
 	Email     *string `json:"email,omitempty"`
 	FirstName string  `json:"first_name"`
-	LastName  string  `json:"last_name"`
-	Partner   struct {
+
+	// Gender Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise).
+	Gender   *TournamentsPublicSignUpJSONBodyGender `json:"gender,omitempty"`
+	LastName string                                 `json:"last_name"`
+
+	// Level Required when the category has a modality. A level category refuses a player whose level is stronger than its level (level_too_strong). A Suma needs both levels to add up to the suma (suma_too_low). All before anything is held.
+	Level   *int `json:"level,omitempty"`
+	Partner struct {
 		// Email Optional.
-		Email     *string `json:"email,omitempty"`
-		FirstName string  `json:"first_name"`
-		LastName  string  `json:"last_name"`
+		Email     *string                                       `json:"email,omitempty"`
+		FirstName string                                        `json:"first_name"`
+		Gender    *TournamentsPublicSignUpJSONBodyPartnerGender `json:"gender,omitempty"`
+		LastName  string                                        `json:"last_name"`
+		Level     *int                                          `json:"level,omitempty"`
 
 		// Phone Must differ from the payer's.
 		Phone string `json:"phone"`
@@ -5826,6 +6173,12 @@ type TournamentsPublicSignUpJSONBody struct {
 	// TurnstileToken Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the same rule as `POST /api/v1/book/holds`. A missing or rejected token answers 422 on this field with `required` or `invalid`, before any spot is held; Cloudflare being unreachable lets the sign-up through.
 	TurnstileToken *string `json:"turnstile_token,omitempty"`
 }
+
+// TournamentsPublicSignUpJSONBodyGender defines parameters for TournamentsPublicSignUp.
+type TournamentsPublicSignUpJSONBodyGender string
+
+// TournamentsPublicSignUpJSONBodyPartnerGender defines parameters for TournamentsPublicSignUp.
+type TournamentsPublicSignUpJSONBodyPartnerGender string
 
 // WaitlistJoinJSONBody defines parameters for WaitlistJoin.
 type WaitlistJoinJSONBody struct {

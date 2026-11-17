@@ -36,9 +36,10 @@ RETURNING *;
 -- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
     tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
-    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee,
+    modality, level, suma, prizes, starts_on, starts_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
 RETURNING *;
 
 -- name: GetTournamentCategory :one
@@ -80,9 +81,10 @@ WHERE id = $1;
 
 -- name: InsertTournamentPair :one
 INSERT INTO tournament_pairs (
-    category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email
+    category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email,
+    partner_gender, partner_level
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING *;
 
 -- name: GetTournamentPair :one
@@ -97,7 +99,7 @@ SELECT * FROM tournament_pairs WHERE registration_id = $1;
 -- it, oldest sign-up first. Registrations that never held a spot (expired
 -- holds, a cancelled one that never carried money) are left out.
 SELECT pr.*,
-       r.first_name, r.last_name, r.phone, r.email,
+       r.first_name, r.last_name, r.phone, r.email, r.player_gender, r.player_level,
        r.status AS registration_status, r.price AS registration_price, r.service_fee AS registration_service_fee,
        r.held_until, r.confirmed_at, r.cancelled_at AS registration_cancelled_at, r.cancelled_by, r.created_at AS signed_up_at,
        p.id AS payment_id,

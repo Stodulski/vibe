@@ -30,7 +30,18 @@ func toGenEvent(e *eventstore.Event) gen.OpenPlayEvent {
 		Status: gen.OpenPlayEventStatus(e.Status), CancelReason: e.CancelReason, CancelledAt: e.CancelledAt,
 		Courts: courts, ConfirmedCount: e.ConfirmedCount, HeldCount: e.HeldCount, SpotsLeft: e.SpotsLeft(),
 		CreatedAt: e.CreatedAt,
+		Modality:  optionalOf[gen.OpenPlayEventModality](e.Modality), LevelMin: e.LevelMin, LevelMax: e.LevelMax,
 	}
+}
+
+// optionalOf is a wire enum read from an optional stored value: null when the
+// value is absent.
+func optionalOf[T ~string](v *string) *T {
+	if v == nil {
+		return nil
+	}
+	out := T(*v)
+	return &out
 }
 
 func toGenEvents(events []*eventstore.Event) []gen.OpenPlayEvent {
@@ -48,6 +59,7 @@ func toGenParticipant(r *eventstore.RegistrationRow) gen.OpenPlayParticipant {
 		Id: r.ID, FirstName: r.FirstName, LastName: r.LastName, Phone: r.Phone, Email: r.Email,
 		Status: gen.OpenPlayParticipantStatus(r.Status), Price: r.Price, ServiceFee: r.ServiceFee,
 		CreatedAt: r.CreatedAt, ConfirmedAt: r.ConfirmedAt, CancelledAt: r.CancelledAt,
+		Gender: optionalOf[gen.OpenPlayParticipantGender](r.Gender), Level: r.Level,
 	}
 	if r.CancelledBy != nil {
 		by := gen.OpenPlayParticipantCancelledBy(*r.CancelledBy)
@@ -97,6 +109,7 @@ func toGenPublicEvent(e *eventstore.Event, page *Page) gen.PublicOpenPlayEvent {
 		Date: openapi_types.Date{Time: e.Date}, StartTime: e.StartTime, EndTime: endTimeOf(e),
 		DurationMinutes: e.DurationMinutes, Capacity: e.Capacity, SpotsLeft: e.SpotsLeft(),
 		Price: e.Price, ServiceFee: page.ServiceFee, TotalPrice: e.Price + page.ServiceFee,
+		Modality: optionalOf[gen.PublicOpenPlayEventModality](e.Modality), LevelMin: e.LevelMin, LevelMax: e.LevelMax,
 		Status: gen.PublicOpenPlayEventStatus(e.Status), CourtNames: names, Courts: courts,
 		ComplexName: &complexName, CancellationHours: &hours,
 	}

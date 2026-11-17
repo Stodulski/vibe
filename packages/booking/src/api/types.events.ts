@@ -1,4 +1,4 @@
-import type { CourtSurface, CourtType, Open, RefundEnvelope, Sport } from './types';
+import type { CourtSurface, CourtType, DeclaredGender, Modality, Open, RefundEnvelope, Sport } from './types';
 
 // ─── Open-play events (canchas abiertas) ───
 
@@ -40,6 +40,12 @@ export interface PublicOpenPlayEvent {
   complex_name?: string;
   /** A paid spot is refunded when cancelled at least this many hours ahead. */
   cancellation_hours?: number;
+  /** Who may sign up; `null` or absent on an event without a modality. */
+  modality?: Open<Modality> | null;
+  /** The strongest level allowed (the lowest number), with `level_max`; `null` or absent without a range. */
+  level_min?: number | null;
+  /** The weakest level allowed. */
+  level_max?: number | null;
 }
 
 export interface PublicEventListResponse {
@@ -50,12 +56,19 @@ export interface PublicEventResponse {
   event: PublicOpenPlayEvent;
 }
 
-/** Sign-up is per person. The phone is required, the email optional. */
+/**
+ * Sign-up is per person. The phone is required, the email optional. An event
+ * with a modality also takes the person's gender and level, and refuses one
+ * that does not fit (`modality_mismatch`, `level_out_of_range`).
+ */
 export interface PublicEventSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
   email?: string | undefined;
+  gender?: DeclaredGender | undefined;
+  /** 1ra (1) to 9na (9). */
+  level?: number | undefined;
   /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
   turnstile_token?: string | undefined;
 }

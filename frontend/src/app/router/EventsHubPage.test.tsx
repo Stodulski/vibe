@@ -61,7 +61,10 @@ function summary(id: string, name: string, startDate = '2099-01-02', status: 'ac
     start_date: startDate,
     end_date: startDate,
     unscheduled_count: 0,
-    categories: [makeCategory({ confirmed_count: 6 }), makeCategory({ id: 'cat2', name: '7ma', confirmed_count: 4 })],
+    categories: [
+      makeCategory({ confirmed_count: 6 }),
+      makeCategory({ id: 'cat2', name: 'Caballeros 7ma', level: 7, confirmed_count: 4 }),
+    ],
   } as TournamentOwnerSummary;
 }
 
@@ -70,7 +73,7 @@ describe('EventsHubPage: one list for both kinds', () => {
     vi.mocked(eventsApi.list).mockResolvedValue({ events: [makeEvent({})] });
     renderWithProviders(<EventsHubPage />);
 
-    const card = await screen.findByRole('button', { name: /Americano de viernes/ });
+    const card = await screen.findByRole('button', { name: /Cancha abierta de pádel/ });
     expect(card).toHaveTextContent('Cancha 1');
     expect(card).toHaveTextContent(t.spotsTaken(5, 20));
     const { from, to } = upcomingEventsRange(todayInArgentina());
@@ -85,10 +88,10 @@ describe('EventsHubPage: one list for both kinds', () => {
     const list = await screen.findByRole('list', { name: t.listLabel });
     const [first, second] = within(list).getAllByRole('listitem');
     if (!first || !second) throw new Error('expected two list items');
-    expect(first).toHaveTextContent('Copa Vibe');
+    expect(first).toHaveTextContent('Torneo de pádel');
     expect(first).toHaveTextContent(t.kindLabel.tournament);
     expect(within(first).getByRole('link')).toHaveAttribute('href', '/events/tournaments/t1');
-    expect(second).toHaveTextContent('Americano de viernes');
+    expect(second).toHaveTextContent('Cancha abierta de pádel');
     expect(second).toHaveTextContent(t.kindLabel.openPlay);
   });
 
@@ -105,14 +108,14 @@ describe('EventsHubPage: badges and the empty state', () => {
   it('marks a cancelled event and a full one', async () => {
     vi.mocked(eventsApi.list).mockResolvedValue({
       events: [
-        makeEvent({ id: 'a', name: 'Cancelado', status: 'cancelled' }),
-        makeEvent({ id: 'b', name: 'Lleno', spots_left: 0, confirmed_count: 20 }),
+        makeEvent({ id: 'a', modality: 'men', status: 'cancelled' }),
+        makeEvent({ id: 'b', modality: 'women', spots_left: 0, confirmed_count: 20 }),
       ],
     });
     renderWithProviders(<EventsHubPage />);
 
-    expect(await screen.findByRole('button', { name: /Cancelado/ })).toHaveTextContent(t.cancelledBadge);
-    expect(screen.getByRole('button', { name: /Lleno/ })).toHaveTextContent(t.fullBadge);
+    expect(await screen.findByRole('button', { name: /Caballeros/ })).toHaveTextContent(t.cancelledBadge);
+    expect(screen.getByRole('button', { name: /Damas/ })).toHaveTextContent(t.fullBadge);
   });
 
   it('marks a cancelled tournament', async () => {
@@ -144,8 +147,8 @@ describe('EventsHubPage: Pasados', () => {
           from === upcomingEventsRange(todayInArgentina()).from
             ? []
             : [
-                makeEvent({ id: 'old', name: 'Viejo', date: '2020-01-01' }),
-                makeEvent({ id: 'new', name: 'Reciente', date: '2020-06-01' }),
+                makeEvent({ id: 'old', modality: 'men', date: '2020-01-01' }),
+                makeEvent({ id: 'new', modality: 'women', date: '2020-06-01' }),
               ],
       }),
     );
@@ -156,8 +159,8 @@ describe('EventsHubPage: Pasados', () => {
     await user.click(screen.getByRole('button', { name: t.past }));
 
     const items = await screen.findAllByRole('listitem');
-    expect(items[0]).toHaveTextContent('Reciente');
-    expect(items[1]).toHaveTextContent('Viejo');
+    expect(items[0]).toHaveTextContent('Cancha abierta de pádel · Damas');
+    expect(items[1]).toHaveTextContent('Cancha abierta de pádel · Caballeros');
     const events = pastEventsRange(todayInArgentina());
     expect(eventsApi.list).toHaveBeenCalledWith('c1', events.from, events.to, expect.anything());
     const tournaments = pastTournamentsRange(todayInArgentina());
@@ -210,7 +213,7 @@ describe('EventsHubPage: detail of an open-play event', () => {
     renderWithProviders(<EventsHubPage />);
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole('button', { name: /Americano de viernes/ }));
+    await user.click(await screen.findByRole('button', { name: /Cancha abierta de pádel/ }));
 
     await waitFor(() => {
       expect(eventsApi.get).toHaveBeenCalledWith('c1', 'ev1', expect.anything());

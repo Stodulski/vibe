@@ -1,4 +1,3 @@
-import { cn } from '@vibe/ui';
 import type { CourtWithPrices, PublicComplex, Schedule } from '../api/types';
 import { sportSummaries } from '../lib/courtPrices';
 import { complexCoverAlt } from '../lib/complexImageAlt';
@@ -10,6 +9,7 @@ import { ShareComplexButton } from './complex-header/ShareComplexButton';
 import { ComplexDetails } from './complex-header/ComplexDetails';
 import { CourtSummary } from './complex-header/CourtSummary';
 import { BackToLandingLink } from './complex-header/BackToLandingLink';
+import { BRAND_BAND_CLASS } from './brandBand';
 
 const t = BOOKING_MESSAGES;
 
@@ -59,28 +59,8 @@ export function ComplexHeader({ complex, schedules, courts = [], selectedDate }:
       <BackToLandingLink className="hidden lg:flex" />
       {/* Solid brand green at every width, like the booking tickets. At `lg` it
           is a bordered card inside the page; below that, a full-bleed band.
-
-          The green is applied by re-pointing the theme's text, accent and rule
-          colours inside the block, so every child (contact row, share button,
-          courts, hours) takes the near-black ink without a variant of its own.
-          The cover and the logo tile keep their own surfaces. */}
-      <div
-        className={cn(
-          'bg-primary-500 relative font-medium',
-          // Below `lg` the green bleeds to the screen edges and up to the navbar:
-          // the margins cancel the page gutter (`px-4 py-5`, `sm:p-8` on <main>)
-          // and the same padding puts the content back where it was. The bottom
-          // gets a bit more than the side gutter, and rounded corners.
-          '-mx-4 -mt-5 rounded-b-3xl px-4 pt-5 pb-6 sm:-mx-8 sm:-mt-8 sm:px-8 sm:pt-8 sm:pb-10',
-          'lg:m-0 lg:rounded-2xl lg:border lg:p-7',
-          'lg:border-primary-500',
-          '[--color-text-primary:var(--color-text-inverse)]',
-          '[--color-text-secondary:var(--color-text-inverse)]',
-          '[--color-text-tertiary:var(--color-text-inverse)]',
-          '[--color-primary-400:var(--color-text-inverse)]',
-          '[--color-border-subtle:rgb(11_11_11/0.2)]',
-        )}
-      >
+          The band's classes live in BRAND_BAND_CLASS, shared with the checkout. */}
+      <div className={BRAND_BAND_CLASS}>
         {/* Phones: "Volver" sits on the green, above the cover, so the band
             still reaches the navbar. */}
         <BackToLandingLink className="lg:hidden" />

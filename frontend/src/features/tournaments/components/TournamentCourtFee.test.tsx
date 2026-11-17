@@ -1,3 +1,4 @@
+import { tournamentTitle } from '@/shared/lib/traitLabels';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { toast } from 'sonner';
 import { makeConsumedHttpError } from '@/test/factories';
@@ -56,7 +57,7 @@ async function renderOnMatches(detail: TournamentDetailResponse) {
   const { tournamentsApi } = await import('../api/tournaments.api');
   vi.mocked(tournamentsApi.get).mockResolvedValue(detail);
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
-  await screen.findByRole('heading', { name: detail.tournament.name });
+  await screen.findByRole('heading', { name: tournamentTitle(detail.tournament.sport) });
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: t.detail.sections.matches }));
   return { tournamentsApi, user };

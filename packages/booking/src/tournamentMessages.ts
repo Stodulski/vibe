@@ -1,11 +1,11 @@
 /** The copy of the public tournament pages. Part of `BOOKING_MESSAGES.tournaments`. */
 export const TOURNAMENT_MESSAGES = {
-  sectionTitle: 'Torneos',
-  sectionDescription: 'Inscribite en pareja, pagá la inscripción y seguí el cuadro.',
   viewTournament: 'Ver torneo',
   datesSeparator: 'al',
   categoriesLabel: 'Categorías',
   pageTitle: 'Torneo',
+  stepCategory: 'Categoría',
+  backToTournamentLink: 'Volver',
   formatGroups: 'Zonas y cuadro',
   formatElimination: 'Eliminación directa',
   matchBestOfThree: 'Al mejor de 3 sets',
@@ -96,4 +96,16 @@ export const TOURNAMENT_MESSAGES = {
   cancelledResultTitle: 'Inscripción cancelada',
   cancelledByYouTitle: 'La inscripción fue cancelada',
   backToTournament: 'Ver el torneo',
+  // A category's row on the Eventos list: its places and its detail.
+  lastSpots: 'Últimos lugares',
+  viewDetail: 'Ver detalle',
+  signUpCategory: 'Inscribirme',
+  hoursSuffix: 'hs',
+  detailTitleDate: 'Fecha y hora',
+  inscriptionLabel: 'Inscripción',
+  prizesLabel: 'Premios',
+  formatLabel: 'Formato',
+  zonesOf: 'Zonas de',
+  pairsPassed: 'parejas, pasan',
+  closeDetail: 'Cerrar',
 } as const;

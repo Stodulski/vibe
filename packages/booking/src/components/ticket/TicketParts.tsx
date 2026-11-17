@@ -1,4 +1,4 @@
-import { formatPrice } from '@vibe/ui';
+import { cn, formatPrice } from '@vibe/ui';
 
 /**
  * Pieces shared by the two green tickets, the summary before paying and the
@@ -10,8 +10,14 @@ import { formatPrice } from '@vibe/ui';
  * with two notches carved out of the card's edges, filled with the page's
  * background colour. The negative margins match the cards' padding
  * (p-6, sm:p-8) so the notches sit on the edge.
+ *
+ * `bare` is for a ticket set inside a band that already is the card: the rule
+ * spans the band's inner width, with no notches and no negative margins.
  */
-export function TicketStub() {
+export function TicketStub({ bare = false }: { bare?: boolean }) {
+  if (bare) {
+    return <div className="border-text-inverse/30 my-6 border-t border-dashed" />;
+  }
   return (
     <div className="relative -mx-6 my-6 sm:-mx-8">
       <div className="border-text-inverse/30 border-t border-dashed" />
@@ -36,6 +42,11 @@ interface TicketCourtProps {
   description?: string | null | undefined;
   /** The ticket's own heading on a page that has no other: the name is then the page's `h1`. */
   as?: 'p' | 'h1';
+  /**
+   * Inside a green band the band re-points `primary-400` to the ink, so the chips
+   * take the band's own brand green instead. Otherwise the chips keep their tint.
+   */
+  bare?: boolean;
 }
 
 /**
@@ -43,7 +54,7 @@ interface TicketCourtProps {
  * owner's description on its own line, since it is free text of any length.
  * Whatever the data lacks is not rendered.
  */
-export function TicketCourt({ name, tags, description, as: Name = 'p' }: TicketCourtProps) {
+export function TicketCourt({ name, tags, description, as: Name = 'p', bare = false }: TicketCourtProps) {
   return (
     <div>
       <Name className="text-text-inverse text-base font-semibold">{name}</Name>
@@ -52,7 +63,10 @@ export function TicketCourt({ name, tags, description, as: Name = 'p' }: TicketC
           {tags.map((tag) => (
             <span
               key={tag}
-              className="bg-text-inverse text-primary-400 rounded-full px-2.5 py-0.5 text-xs font-medium"
+              className={cn(
+                'bg-text-inverse rounded-full px-2.5 py-0.5 text-xs font-medium',
+                bare ? 'text-primary-500' : 'text-primary-400',
+              )}
             >
               {tag}
             </span>

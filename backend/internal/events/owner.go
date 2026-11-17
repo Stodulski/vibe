@@ -16,6 +16,7 @@ import (
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
+	"github.com/stodulski/vibe-server/internal/sports"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -33,12 +34,29 @@ const (
 	MaxNameLength = 100
 )
 
-var sports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
+// modalities are the modalities an event can carry.
+var modalities = []string{ModalityMen, ModalityWomen, ModalityMixed}
+
+// optionalLevel is nil for a level bound the event does not have.
+func optionalLevel(n int) *int {
+	if n == 0 {
+		return nil
+	}
+	return &n
+}
+
+var allowedSports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
 
 // CreateInput is an owner publishing an event.
 type CreateInput struct {
 	Name  string
 	Sport string
+	// Modality is men, women or mixed. LevelMin and LevelMax bound the level range
+	// a participant must sit in, LevelMin being the strongest (lowest number); both
+	// or neither, zero for none.
+	Modality string
+	LevelMin int
+	LevelMax int
 	// Date is the day the event starts on, midnight UTC like a parsed request date.
 	Date      time.Time
 	StartTime string
@@ -63,17 +81,21 @@ func durationOf(start, end string) int {
 	return int(e.Sub(s) / time.Minute)
 }
 
+// sportPadel is the one sport whose open play has a modality and a level range.
+const sportPadel = "padel"
+
+// onlyPadelLevels is the refusal of a level range on open play of another sport.
+const onlyPadelLevels = "only padel open play takes a level range; other sports take a modality alone"
+
 // validate checks the shape of an event, field by field.
 func (in *CreateInput) validate(now time.Time) map[string]string {
 	errs := map[string]string{}
-	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len([]rune(in.Name)) > MaxNameLength {
-		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
-	}
 	if in.Sport == "" {
-		in.Sport = "padel"
+		in.Sport = sportPadel
 	}
-	if !slices.Contains(sports, in.Sport) {
+	in.validateName(errs)
+	in.validateTraits(errs)
+	if !slices.Contains(allowedSports, in.Sport) {
 		errs["sport"] = "must be a supported sport"
 	}
 	if in.Capacity < 1 || in.Capacity > MaxCapacity {
@@ -82,14 +104,61 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	if in.Price <= 0 || in.Price > MaxPrice {
 		errs["price"] = "must be a positive amount in centavos"
 	}
+	in.validateWindow(errs, now)
+	return errs
+}
+
+// validateName trims the name, or composes it from the sport when none is given:
+// the name is optional, and an event given none is named after its sport.
+func (in *CreateInput) validateName(errs map[string]string) {
+	in.Name = strings.TrimSpace(in.Name)
+	switch {
+	case in.Name == "":
+		in.Name = "Cancha abierta de " + sports.Lowercase(in.Sport)
+	case len([]rune(in.Name)) > MaxNameLength:
+		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
+	}
+}
+
+// validateTraits checks the modality, which every sport's open play may take, and the
+// level range, which only padel takes: another sport's event refuses it.
+func (in *CreateInput) validateTraits(errs map[string]string) {
+	// An empty modality is an event open to everyone, as every event was before
+	// modalities existed: an app not yet updated keeps creating events. The owner
+	// app always sends one.
+	if in.Modality != "" && !slices.Contains(modalities, in.Modality) {
+		errs["modality"] = "must be men, women or mixed"
+	}
+	if in.Sport != sportPadel {
+		if in.LevelMin != 0 {
+			errs["level_min"] = onlyPadelLevels
+		}
+		if in.LevelMax != 0 {
+			errs["level_max"] = onlyPadelLevels
+		}
+		return
+	}
+	switch {
+	case (in.LevelMin == 0) != (in.LevelMax == 0):
+		errs["level_max"] = "level_min and level_max must be set together"
+	case in.LevelMin != 0 && (in.LevelMin < MinLevel || in.LevelMin > MaxLevel || in.LevelMax < MinLevel || in.LevelMax > MaxLevel):
+		errs["level_min"] = fmt.Sprintf("levels must be between %d and %d", MinLevel, MaxLevel)
+	case in.LevelMin > in.LevelMax:
+		errs["level_max"] = "must be at least level_min, the strongest level"
+	}
+}
+
+// validateWindow checks the start and end times, the length they make and the day.
+// A malformed time stops the check: the length and the day mean nothing without it.
+func (in *CreateInput) validateWindow(errs map[string]string, now time.Time) {
 	if !slots.ValidFormat(in.StartTime) {
 		errs["start_time"] = "must be in HH:MM format (00:00-23:59)"
 	}
 	if !slots.ValidFormat(in.EndTime) {
 		errs["end_time"] = "must be in HH:MM format (00:00-23:59)"
 	}
-	if len(errs) > 0 && (errs["start_time"] != "" || errs["end_time"] != "") {
-		return errs
+	if errs["start_time"] != "" || errs["end_time"] != "" {
+		return
 	}
 	if d := durationOf(in.StartTime, in.EndTime); d < MinDurationMinutes || d > MaxDurationMinutes {
 		errs["end_time"] = fmt.Sprintf("the event must last between %d minutes and %d hours", MinDurationMinutes, MaxDurationMinutes/60)
@@ -104,7 +173,6 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	case !slots.At(date, in.StartTime).After(now):
 		errs["start_time"] = "must be in the future"
 	}
-	return errs
 }
 
 // courtsFor resolves the courts an event holds: the ones asked for, which must
@@ -157,10 +225,15 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		return nil, err
 	}
 
+	var modality *string
+	if in.Modality != "" {
+		modality = &in.Modality
+	}
 	ev := &eventstore.Event{
 		ComplexID: complex.ID, Name: in.Name, Sport: in.Sport, Date: timezone.Day(in.Date),
 		StartTime: in.StartTime, DurationMinutes: durationOf(in.StartTime, in.EndTime),
 		Capacity: in.Capacity, Price: in.Price, CreatedBy: *actor.UserID,
+		Modality: modality, LevelMin: optionalLevel(in.LevelMin), LevelMax: optionalLevel(in.LevelMax),
 	}
 	if err := s.store.CreateEvent(ctx, ev, courtIDs); err != nil {
 		var held *eventstore.ConflictError

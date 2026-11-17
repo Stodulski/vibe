@@ -23,3 +23,12 @@ export function publicEventPath(slug: string, eventId: string): string {
 export function publicTournamentPath(slug: string, tournamentId: string): string {
   return `/c/${slug}/tournaments/${tournamentId}`;
 }
+
+/**
+ * Path of the page where one category's pair signs up: its own checkout, with
+ * the category in the query (`?category=<id>`). The tournament page and the
+ * agenda link here.
+ */
+export function publicTournamentSignUpPath(slug: string, tournamentId: string, categoryId: string): string {
+  return `${publicTournamentPath(slug, tournamentId)}/inscripcion?category=${encodeURIComponent(categoryId)}`;
+}

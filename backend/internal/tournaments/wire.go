@@ -30,6 +30,12 @@ type wireCategory struct {
 	ID                   uuid.UUID `json:"id"`
 	TournamentID         uuid.UUID `json:"tournament_id"`
 	Name                 string    `json:"name"`
+	Modality             *string   `json:"modality"`
+	Level                *int      `json:"level"`
+	Suma                 *int      `json:"suma"`
+	Prizes               *string   `json:"prizes"`
+	StartsOn             *string   `json:"starts_on"`
+	StartsAt             *string   `json:"starts_at"`
 	Format               string    `json:"format"`
 	Capacity             int       `json:"capacity"`
 	Price                int       `json:"price"`
@@ -58,6 +64,9 @@ type wireOwnerPlayer struct {
 	LastName  string  `json:"last_name"`
 	Phone     string  `json:"phone"`
 	Email     *string `json:"email"`
+	// Gender and Level are what the player declared at sign-up, null when none was given.
+	Gender *string `json:"gender"`
+	Level  *int    `json:"level"`
 }
 
 type wirePair struct {
@@ -186,10 +195,15 @@ func toWireCategory(c *tournamentstore.Category, serviceFee *int) wireCategory {
 	}
 	out := wireCategory{
 		ID: c.ID, TournamentID: c.TournamentID, Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
+		Modality: c.Modality, Level: c.Level, Suma: c.Suma, Prizes: c.Prizes, StartsAt: c.StartsAt,
 		SpotsLeft: c.SpotsLeft(), ConfirmedCount: c.ConfirmedCount, HeldCount: c.HeldCount,
 		GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup, Status: status,
 		SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: c.SuperTiebreakDecider,
 		MatchDurationMinutes: c.MatchDurationMinutes, DrawGenerated: c.DrawGeneratedAt != nil,
+	}
+	if c.StartsOn != nil {
+		day := c.StartsOn.Format(time.DateOnly)
+		out.StartsOn = &day
 	}
 	if serviceFee != nil {
 		total := c.Price + *serviceFee
@@ -223,8 +237,8 @@ func toWirePair(p *tournamentstore.PairRow) wirePair {
 func toWireOwnerPair(p *tournamentstore.PairRow) wireOwnerPair {
 	out := wireOwnerPair{
 		wirePair: toWirePair(p),
-		Payer:    wireOwnerPlayer{FirstName: p.Payer.FirstName, LastName: p.Payer.LastName, Phone: p.Payer.Phone, Email: p.Payer.Email},
-		Partner:  wireOwnerPlayer{FirstName: p.Partner.FirstName, LastName: p.Partner.LastName, Phone: p.Partner.Phone, Email: p.Partner.Email},
+		Payer:    wireOwnerPlayer{FirstName: p.Payer.FirstName, LastName: p.Payer.LastName, Phone: p.Payer.Phone, Email: p.Payer.Email, Gender: p.Payer.Gender, Level: p.Payer.Level},
+		Partner:  wireOwnerPlayer{FirstName: p.Partner.FirstName, LastName: p.Partner.LastName, Phone: p.Partner.Phone, Email: p.Partner.Email, Gender: p.Partner.Gender, Level: p.Partner.Level},
 		Registration: wireRegistration{
 			Status: p.RegistrationStatus, Price: p.Price, ServiceFee: p.ServiceFee, HeldUntil: p.HeldUntil,
 			ConfirmedAt: p.ConfirmedAt, CancelledBy: p.CancelledBy, SignedUpAt: p.SignedUpAt,

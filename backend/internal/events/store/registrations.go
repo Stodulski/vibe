@@ -48,6 +48,9 @@ type SignUpInput struct {
 	LastName  string
 	Phone     string
 	Email     *string
+	// Gender and Level are what the person declared, stored on the registration.
+	Gender *string
+	Level  *int
 	// ServiceFee is the flat fee the person pays on top of the event's price.
 	ServiceFee int
 	// IP is the rate-limit key of the address signing up, and MaxHoldsPerIP the
@@ -148,6 +151,8 @@ func (m *Store) signUpInTx(ctx context.Context, tx pgx.Tx, q *db.Queries, in Sig
 		HoldSeconds:     m.PaymentExpiry.Seconds(),
 		AccessTokenHash: hash,
 		HoldIp:          data.TextToPg(&in.IP),
+		PlayerGender:    data.TextToPg(in.Gender),
+		PlayerLevel:     data.Int4PtrToPg(in.Level),
 	})
 	if err != nil {
 		var pgErr *pgconn.PgError
@@ -272,7 +277,7 @@ func (m *Store) ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOn
 			ID: r.ID, EventID: r.EventID, ComplexID: r.ComplexID, FirstName: r.FirstName, LastName: r.LastName,
 			Phone: r.Phone, Email: r.Email, Status: r.Status, Price: r.Price, ServiceFee: r.ServiceFee,
 			HeldUntil: r.HeldUntil, ConfirmedAt: r.ConfirmedAt, CancelledAt: r.CancelledAt,
-			CancelledBy: r.CancelledBy, CreatedAt: r.CreatedAt,
+			CancelledBy: r.CancelledBy, CreatedAt: r.CreatedAt, PlayerGender: r.PlayerGender, PlayerLevel: r.PlayerLevel,
 		})}
 		if r.PaymentID.Valid {
 			row.Payment = &RegistrationPayment{
@@ -372,6 +377,8 @@ func registrationFromDB(r db.OpenPlayRegistration) *Registration {
 		LastName:    r.LastName,
 		Phone:       r.Phone,
 		Email:       data.PgToTextPtr(r.Email),
+		Gender:      data.PgToTextPtr(r.PlayerGender),
+		Level:       data.PgToInt4Ptr(r.PlayerLevel),
 		Status:      r.Status,
 		Price:       int(r.Price),
 		ServiceFee:  int(r.ServiceFee),

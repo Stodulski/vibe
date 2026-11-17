@@ -2,23 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { QuickBookView } from './QuickBookView';
-import type { BookingSlotInfo } from './types';
 import type { BookingPricing } from './pricing';
-
-const slotInfo: BookingSlotInfo = {
-  complexId: 'c1',
-  complexName: 'Padel Club Norte',
-  complexPhone: '1155550000',
-  courtId: 'ct1',
-  courtName: 'Cancha 1',
-  date: '2026-03-20',
-  startTime: '10:00',
-  endTime: '11:30',
-  durationMinutes: 90,
-  price: 1500000,
-  depositPercentage: 30,
-  cancellationHours: 24,
-};
 
 const pricing: BookingPricing = {
   depositAmount: 450000,
@@ -40,7 +24,6 @@ describe('QuickBookView phone prefix', () => {
 
     render(
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={{
           client_first_name: 'Juan',
@@ -66,7 +49,6 @@ describe('QuickBookView phone prefix', () => {
   it('always displays the fixed +54 prefix in the summary, regardless of a stale saved prefix', () => {
     render(
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={{
           client_first_name: 'Juan',
@@ -103,7 +85,6 @@ describe('QuickBookView identity confirmation', () => {
   it('renders no submit/pay button before the identity is confirmed', () => {
     render(
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={saved}
         isLoading={false}
@@ -123,7 +104,6 @@ describe('QuickBookView identity confirmation', () => {
     const onSubmit = vi.fn();
     render(
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={saved}
         isLoading={false}
@@ -160,7 +140,6 @@ describe('QuickBookView identity confirmation, "No, soy otra persona"', () => {
     const onNotMe = vi.fn();
     render(
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={saved}
         isLoading={false}

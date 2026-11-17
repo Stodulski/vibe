@@ -86,6 +86,7 @@ func insertEventParams(e *Event) db.InsertOpenPlayEventParams {
 		Price:        int32(e.Price),
 		CreatedBy:    data.UUIDToPg(e.CreatedBy),
 		TournamentID: data.UUIDPtrToPg(e.TournamentID),
+		Modality:     data.TextToPg(e.Modality), LevelMin: data.Int4PtrToPg(e.LevelMin), LevelMax: data.Int4PtrToPg(e.LevelMax),
 	}
 }
 
@@ -246,7 +247,7 @@ func (m *Store) ListEvents(ctx context.Context, complexID uuid.UUID, from, to ti
 			StartTime: r.StartTime, DurationMinutes: r.DurationMinutes, Capacity: r.Capacity,
 			Price: r.Price, Status: r.Status, CancelReason: r.CancelReason, CancelledAt: r.CancelledAt,
 			CancelledBy: r.CancelledBy, CreatedBy: r.CreatedBy, CreatedAt: r.CreatedAt, UpdatedAt: r.UpdatedAt,
-			TournamentID: r.TournamentID,
+			TournamentID: r.TournamentID, Modality: r.Modality, LevelMin: r.LevelMin, LevelMax: r.LevelMax,
 		})
 		e.ConfirmedCount, e.HeldCount = int(r.ConfirmedCount), int(r.HeldCount)
 		if err := m.fillCourts(ctx, e); err != nil {
@@ -321,5 +322,8 @@ func eventFromDB(e db.OpenPlayEvent) *Event {
 		CreatedBy:       data.PgToUUID(e.CreatedBy),
 		CreatedAt:       data.PgToTime(e.CreatedAt),
 		TournamentID:    data.PgToUUIDPtr(e.TournamentID),
+		Modality:        data.PgToTextPtr(e.Modality),
+		LevelMin:        data.PgToInt4Ptr(e.LevelMin),
+		LevelMax:        data.PgToInt4Ptr(e.LevelMax),
 	}
 }

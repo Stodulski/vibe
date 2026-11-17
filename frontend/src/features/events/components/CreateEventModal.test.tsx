@@ -16,6 +16,7 @@ vi.mock('@/features/complex', () => ({
 }));
 
 const t = ES_AR.events;
+const modality = ES_AR.tournaments.traits.modality;
 
 function court(id: string, name: string, isActive = true): CourtWithPrices {
   return {
@@ -36,8 +37,9 @@ const COURTS = [court('ct1', 'Cancha 1'), court('ct2', 'Cancha 2'), court('ct3',
 
 type User = ReturnType<typeof userEvent.setup>;
 
+/** The start and end selects are both "Desde" and "Hasta" in name only; the level range uses the same words without the requirement mark. */
 async function pickTime(user: User, label: string, time: string) {
-  await user.click(screen.getByRole('combobox', { name: new RegExp(label) }));
+  await user.click(screen.getByRole('combobox', { name: `${label} (${ES_AR.common.requiredMarker})` }));
   await user.click(await screen.findByRole('option', { name: time }));
 }
 
@@ -52,8 +54,9 @@ async function pickLastEnabledDay(user: User) {
   await user.click(last);
 }
 
+/** Every trait the form asks for, as the owner fills it: Caballeros, the whole day's categories, 19:00 to 21:00. */
 async function fillValid(user: User) {
-  await user.type(screen.getByLabelText(new RegExp(t.form.name)), '  Americano de viernes ');
+  await user.click(screen.getByRole('button', { name: modality.men }));
   await pickLastEnabledDay(user);
   await pickTime(user, t.form.startTime, '19:00');
   await pickTime(user, t.form.endTime, '21:00');
@@ -76,12 +79,35 @@ describe('CreateEventModal', () => {
   it('marks every field of the form as required, with the hints below the controls', async () => {
     await renderModal();
 
-    for (const label of [t.form.name, t.form.sport, t.form.date, t.form.startTime, t.form.endTime, t.form.capacity]) {
+    for (const label of [
+      t.form.sport,
+      t.form.modality,
+      t.form.date,
+      t.form.startTime,
+      t.form.endTime,
+      t.form.capacity,
+    ]) {
       expect(screen.getByText(label)).toHaveTextContent(`${label} (${ES_AR.common.requiredMarker})`);
     }
     const hint = screen.getByText(t.form.capacityHint);
     const input = screen.getByLabelText(new RegExp(t.form.capacity));
     expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
+  });
+
+  it('shows the three modalities as one choice, with none picked yet', async () => {
+    await renderModal();
+
+    const group = screen.getByRole('group', { name: t.form.modality });
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .map((b) => b.textContent),
+    ).toEqual([modality.men, modality.women, modality.mixed]);
+    expect(
+      within(group)
+        .getAllByRole('button')
+        .every((b) => b.getAttribute('aria-pressed') === 'false'),
+    ).toBe(true);
   });
 
   it('offers only the hours the complex is open, both ends included', async () => {
@@ -95,16 +121,72 @@ describe('CreateEventModal', () => {
     expect(options).not.toContain('07:30');
   });
 
-  it('asks for the name, date, hours and price when sent empty, and sends nothing', async () => {
+  it('asks for the modality, date, hours and price when sent empty, and sends nothing', async () => {
     const { eventsApi, user } = await renderModal();
 
     await user.click(screen.getByRole('button', { name: t.form.submit }));
 
-    expect(await screen.findByText(t.validation.nameRequired)).toBeInTheDocument();
+    expect(await screen.findByText(t.validation.modalityRequired)).toBeInTheDocument();
     expect(screen.getByText(ES_AR.validation.dateRequired)).toBeInTheDocument();
     expect(screen.getAllByText(ES_AR.validation.timeRequired)).toHaveLength(2);
     expect(screen.getByText(t.validation.priceRequired)).toBeInTheDocument();
     expect(eventsApi.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('CreateEventModal categories', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('starts with every category, and the range selects appear only once that is switched off', async () => {
+    const { user } = await renderModal();
+
+    expect(screen.getByRole('switch', { name: t.form.allLevels })).toBeChecked();
+    expect(screen.queryByRole('combobox', { name: t.form.levelFrom })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('switch', { name: t.form.allLevels }));
+
+    expect(screen.getByRole('combobox', { name: t.form.levelFrom })).toBeInTheDocument();
+    expect(screen.getByRole('combobox', { name: t.form.levelTo })).toBeInTheDocument();
+  });
+
+  it('asks for both ends of the range once it is off, and does not send without them', async () => {
+    const { eventsApi, user } = await renderModal();
+    await user.click(screen.getByRole('switch', { name: t.form.allLevels }));
+    await fillValid(user);
+
+    await user.click(screen.getByRole('button', { name: t.form.submit }));
+
+    expect(await screen.findByText(t.validation.levelRangeIncomplete)).toBeInTheDocument();
+    expect(eventsApi.create).not.toHaveBeenCalled();
+  });
+
+  it('refuses a range whose "Desde" is weaker than its "Hasta"', async () => {
+    const { eventsApi, user } = await renderModal();
+    await user.click(screen.getByRole('switch', { name: t.form.allLevels }));
+    await fillValid(user);
+    await user.click(screen.getByRole('combobox', { name: t.form.levelFrom }));
+    await user.click(await screen.findByRole('option', { name: '8va' }));
+    await user.click(screen.getByRole('combobox', { name: t.form.levelTo }));
+    await user.click(await screen.findByRole('option', { name: '6ta' }));
+
+    await user.click(screen.getByRole('button', { name: t.form.submit }));
+
+    expect(await screen.findByText(t.validation.levelRangeOrder)).toBeInTheDocument();
+    expect(eventsApi.create).not.toHaveBeenCalled();
+  });
+});
+
+// S15: off padel the modality is worded by the sport and no level range is offered.
+describe('CreateEventModal by sport', () => {
+  it('words the modality as masculino and offers no level range on soccer', async () => {
+    const { user } = await renderModal();
+    await user.click(screen.getByLabelText(new RegExp(t.form.sport)));
+    await user.click(await screen.findByRole('option', { name: ES_AR.courts.sportTypes.soccer }));
+
+    expect(screen.getByRole('button', { name: ES_AR.tournaments.traits.modalityMasculine.men })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: t.form.allLevels })).not.toBeInTheDocument();
   });
 });
 
@@ -113,7 +195,7 @@ describe('CreateEventModal submit', () => {
     vi.clearAllMocks();
   });
 
-  it('sends every court as an absent court_ids, the price in centavos and a trimmed name', async () => {
+  it('sends the modality, every court as an absent court_ids, and the price in centavos, and no name', async () => {
     const { eventsApi, onClose, user } = await renderModal();
     vi.mocked(eventsApi.create).mockResolvedValueOnce({ event: {} as never });
 
@@ -127,18 +209,48 @@ describe('CreateEventModal submit', () => {
     });
     const body = vi.mocked(eventsApi.create).mock.calls[0]?.[1];
     expect(body).toMatchObject({
-      name: 'Americano de viernes',
+      modality: 'men',
       sport: 'padel',
       start_time: '19:00',
       end_time: '21:00',
       capacity: 24,
       price: 500000,
     });
+    expect(body).not.toHaveProperty('name');
+    expect(body).not.toHaveProperty('level_min');
     expect(body).not.toHaveProperty('court_ids');
     expect(body?.date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('sends the category range, strongest first, when it is set', async () => {
+    const { eventsApi, user } = await renderModal();
+    vi.mocked(eventsApi.create).mockResolvedValueOnce({ event: {} as never });
+    await user.click(screen.getByRole('switch', { name: t.form.allLevels }));
+    await fillValid(user);
+    await user.click(screen.getByRole('combobox', { name: t.form.levelFrom }));
+    await user.click(await screen.findByRole('option', { name: '6ta' }));
+    await user.click(screen.getByRole('combobox', { name: t.form.levelTo }));
+    await user.click(await screen.findByRole('option', { name: '8va' }));
+
+    await user.click(screen.getByRole('button', { name: t.form.submit }));
+
+    await waitFor(() => {
+      expect(eventsApi.create).toHaveBeenCalledTimes(1);
+    });
+    expect(vi.mocked(eventsApi.create).mock.calls[0]?.[1]).toMatchObject({
+      modality: 'men',
+      level_min: 6,
+      level_max: 8,
+    });
+  });
+});
+
+describe('CreateEventModal courts and hours', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
   });
 
   it('sends only the chosen courts, and never offers an inactive one', async () => {
@@ -203,7 +315,7 @@ describe('CreateEventModal failures', () => {
     expect(alert).toHaveTextContent(t.conflict.booking('Cancha 2'));
     expect(alert).not.toHaveTextContent('holds those hours');
     expect(onClose).not.toHaveBeenCalled();
-    expect(screen.getByLabelText(new RegExp(t.form.name))).toHaveValue('  Americano de viernes ');
+    expect(screen.getByLabelText(new RegExp(t.form.capacity))).toHaveValue(20);
   });
 
   it('shows the server message for any other failure', async () => {

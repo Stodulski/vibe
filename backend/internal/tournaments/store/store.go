@@ -52,6 +52,10 @@ var (
 	ErrCancelled = errors.New("the tournament or category was cancelled")
 	// ErrUnknownPair is returned for a pair id that is not a drawable pair of the category.
 	ErrUnknownPair = errors.New("unknown pair")
+
+	// ErrCategoryTaken is a category whose modality and level, or modality and
+	// suma, the tournament already has: the unique name the database enforces.
+	ErrCategoryTaken = errors.New("the tournament already has this category")
 	// ErrInvalidMove is returned for a move the draw does not allow.
 	ErrInvalidMove = errors.New("invalid move")
 	// ErrMatchNotReady is returned when a result is loaded for a match that does
@@ -100,11 +104,20 @@ type Tournament struct {
 
 // Category is one category of a tournament with what its sign-up container says.
 type Category struct {
-	ID                 uuid.UUID
-	TournamentID       uuid.UUID
-	ComplexID          uuid.UUID
-	EventID            uuid.UUID
-	Name               string
+	ID           uuid.UUID
+	TournamentID uuid.UUID
+	ComplexID    uuid.UUID
+	EventID      uuid.UUID
+	Name         string
+	// Modality is men, women or mixed; Level (1 to 9) or Suma (2 to 18) is set,
+	// the other nil. Prizes is free text; StartsOn and StartsAt are when the
+	// category begins. All are nil on a category created before these traits.
+	Modality           *string
+	Level              *int
+	Suma               *int
+	Prizes             *string
+	StartsOn           *time.Time
+	StartsAt           *string
 	Format             string
 	GroupSize          int
 	QualifiersPerGroup int
@@ -152,12 +165,16 @@ type Pair struct {
 	Partner        Player
 }
 
-// Player is a person in a pair.
+// Player is a person in a pair. Level is the category the player declared at
+// sign-up, nil when none was given.
 type Player struct {
 	FirstName string
 	LastName  string
 	Phone     string
 	Email     *string
+	// Gender and Level are what the player declared at sign-up, nil when none.
+	Gender *string
+	Level  *int
 }
 
 // PairRow is a pair with its payer, the state of its spot and its payment, as the
@@ -311,6 +328,8 @@ func categoryFromRow(r db.ListTournamentCategoriesRow) *Category {
 	return &Category{
 		ID: data.PgToUUID(r.ID), TournamentID: data.PgToUUID(r.TournamentID), ComplexID: data.PgToUUID(r.ComplexID),
 		EventID: data.PgToUUID(r.EventID), Name: r.Name, Format: r.Format,
+		Modality: data.PgToTextPtr(r.Modality), Level: data.PgToInt4Ptr(r.Level), Suma: data.PgToInt4Ptr(r.Suma),
+		Prizes: data.PgToTextPtr(r.Prizes), StartsOn: data.PgToDatePtr(r.StartsOn), StartsAt: startsAtPtr(r.StartsAt),
 		GroupSize: int(r.GroupSize), QualifiersPerGroup: int(r.QualifiersPerGroup),
 		SetsToWin: int(r.SetsToWin), GamesPerSet: int(r.GamesPerSet), SuperTiebreakDecider: r.SuperTiebreakDecider,
 		MatchDurationMinutes: int(r.MatchDurationMinutes), CourtFee: int(r.CourtFee),
@@ -325,7 +344,7 @@ func pairFromDB(p db.TournamentPair) Pair {
 		Seed: data.PgToInt4Ptr(p.Seed), GroupID: data.PgToUUIDPtr(p.GroupID), Status: p.Status,
 		Partner: Player{
 			FirstName: p.PartnerFirstName, LastName: p.PartnerLastName, Phone: p.PartnerPhone,
-			Email: data.PgToTextPtr(p.PartnerEmail),
+			Email: data.PgToTextPtr(p.PartnerEmail), Gender: data.PgToTextPtr(p.PartnerGender), Level: data.PgToInt4Ptr(p.PartnerLevel),
 		},
 	}
 }
@@ -335,9 +354,13 @@ func pairRowFromDB(r db.ListTournamentPairsRow) *PairRow {
 		Pair: pairFromDB(db.TournamentPair{
 			ID: r.ID, CategoryID: r.CategoryID, ComplexID: r.ComplexID, RegistrationID: r.RegistrationID,
 			PartnerFirstName: r.PartnerFirstName, PartnerLastName: r.PartnerLastName, PartnerPhone: r.PartnerPhone,
-			PartnerEmail: r.PartnerEmail, Seed: r.Seed, GroupID: r.GroupID, Status: r.Status,
+			PartnerEmail: r.PartnerEmail, PartnerGender: r.PartnerGender, PartnerLevel: r.PartnerLevel,
+			Seed: r.Seed, GroupID: r.GroupID, Status: r.Status,
 		}),
-		Payer:              Player{FirstName: r.FirstName, LastName: r.LastName, Phone: r.Phone, Email: data.PgToTextPtr(r.Email)},
+		Payer: Player{
+			FirstName: r.FirstName, LastName: r.LastName, Phone: r.Phone, Email: data.PgToTextPtr(r.Email),
+			Gender: data.PgToTextPtr(r.PlayerGender), Level: data.PgToInt4Ptr(r.PlayerLevel),
+		},
 		RegistrationStatus: r.RegistrationStatus, Price: int(r.RegistrationPrice), ServiceFee: int(r.RegistrationServiceFee),
 		HeldUntil: data.PgToTime(r.HeldUntil), ConfirmedAt: data.PgToTimePtr(r.ConfirmedAt),
 		CancelledBy: data.PgToTextPtr(r.CancelledBy), SignedUpAt: data.PgToTime(r.SignedUpAt),
@@ -411,4 +434,13 @@ func matchFromDB(m db.TournamentMatch) *Match {
 		out.StartTime = &st
 	}
 	return out
+}
+
+// startsAtPtr is a category's start time as "HH:MM", nil when it has none.
+func startsAtPtr(t pgtype.Time) *string {
+	if !t.Valid {
+		return nil
+	}
+	s := data.PgToTimeStr(t)
+	return &s
 }

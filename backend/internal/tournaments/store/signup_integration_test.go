@@ -54,7 +54,7 @@ func TestAPlayerCannotBeInTwoPairsOfTheCategory(t *testing.T) {
 	signUpWith := func(payer, partner, ip string) error {
 		_, _, err := f.Stores.Events.SignUp(f.ctx, eventstore.SignUpInput{
 			EventID: cat.EventID, FirstName: "X", LastName: "Y", Phone: payer, IP: ip, MaxHoldsPerIP: 100,
-			Hooks: f.Stores.Tournaments.PairHooks(payer, tournamentstore.Player{FirstName: "P", LastName: "Q", Phone: partner}),
+			Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, tournamentstore.Player{FirstName: "P", LastName: "Q", Phone: partner}),
 		})
 		return err
 	}
@@ -124,7 +124,7 @@ func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 			_, _, results[i] = f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
 				EventID: cats[0].EventID, FirstName: "A", LastName: "B", Phone: payer, ServiceFee: 1000,
 				IP: fmt.Sprintf("198.51.100.%d", i+1), MaxHoldsPerIP: 100,
-				Hooks: f.Stores.Tournaments.PairHooks(payer, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: fmt.Sprintf("+54922000%04d", i)}),
+				Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: fmt.Sprintf("+54922000%04d", i)}),
 			})
 		}()
 	}

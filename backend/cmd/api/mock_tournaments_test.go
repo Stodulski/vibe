@@ -121,7 +121,7 @@ func (m *mockTournamentStore) Unschedule(context.Context, uuid.UUID) (*tournamen
 	return m.firstMatch()
 }
 
-func (m *mockTournamentStore) PairHooks(string, tournamentstore.Player) *eventstore.SignUpHooks {
+func (m *mockTournamentStore) PairHooks(_, _ tournamentstore.Player) *eventstore.SignUpHooks {
 	return nil
 }
 

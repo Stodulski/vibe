@@ -3,6 +3,7 @@ package tournaments
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/stodulski/vibe-server/internal/bookings"
@@ -77,12 +78,19 @@ type signUpPlayer struct {
 	LastName  string  `json:"last_name"`
 	Phone     string  `json:"phone"`
 	Email     *string `json:"email"`
+	// Gender is "men" or "women" and Level the category the player declares,
+	// MinLevel to MaxLevel. A category with traits needs both.
+	Gender *string `json:"gender"`
+	Level  *int    `json:"level"`
 }
 
 // playerInput validates one player of a pair: name and phone are required, the
 // phone is normalized to E.164, and the email, when given, must look like one.
 func playerInput(v *validator.Validator, prefix string, p signUpPlayer) events.SignUpInput {
-	in := events.SignUpInput{FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone}
+	in := events.SignUpInput{FirstName: p.FirstName, LastName: p.LastName, Phone: p.Phone, Gender: p.Gender, Level: p.Level}
+	if p.Gender != nil {
+		v.Check(*p.Gender == events.GenderMen || *p.Gender == events.GenderWomen, prefix+"gender", "must be men or women")
+	}
 	v.Check(in.FirstName != "", prefix+"first_name", "must be provided")
 	v.Check(in.LastName != "", prefix+"last_name", "must be provided")
 	v.Check(len([]rune(in.FirstName)) <= 100 && len([]rune(in.LastName)) <= 100, prefix+"first_name", "is too long")
@@ -97,6 +105,9 @@ func playerInput(v *validator.Validator, prefix string, p signUpPlayer) events.S
 	if p.Email != nil && *p.Email != "" {
 		in.Email = *p.Email
 		v.Check(validator.Matches(in.Email, validator.EmailRX), prefix+"email", "must be a valid email address")
+	}
+	if p.Level != nil {
+		v.Check(*p.Level >= MinLevel && *p.Level <= MaxLevel, prefix+"level", fmt.Sprintf("must be between %d and %d", MinLevel, MaxLevel))
 	}
 	return in
 }

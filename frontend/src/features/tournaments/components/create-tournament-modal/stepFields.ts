@@ -4,12 +4,7 @@ import { categoryField, type CategoryFormValues, type TournamentFormValues } fro
 export type CreateStep = 1 | 2 | 3;
 
 /** What step 1 validates before advancing. */
-export const BASICS_FIELDS = [
-  'name',
-  'sport',
-  'start_date',
-  'end_date',
-] as const satisfies (keyof TournamentFormValues)[];
+export const BASICS_FIELDS = ['sport', 'start_date', 'end_date'] as const satisfies (keyof TournamentFormValues)[];
 
 type CategoryKey = keyof CategoryFormValues;
 
@@ -17,9 +12,21 @@ function paths(index: number, keys: CategoryKey[]) {
   return keys.map((key) => categoryField(index, key));
 }
 
-/** The fields of a category's first view ("Categoría"). */
+/** The fields of a category's first view ("Categoría"): its traits, its start, and what it costs. */
 export function categoryViewFields(index: number) {
-  return paths(index, ['name', 'format', 'capacity', 'price', 'court_fee']);
+  return paths(index, [
+    'modality',
+    'kind',
+    'level',
+    'suma',
+    'starts_on',
+    'starts_at',
+    'format',
+    'capacity',
+    'price',
+    'court_fee',
+    'prizes',
+  ]);
 }
 
 /** The fields of a category's second view ("Cómo se juega"); the zone settings only count for zones. */

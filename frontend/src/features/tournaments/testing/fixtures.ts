@@ -8,10 +8,19 @@ import type {
   TournamentSet,
 } from '@/shared/types/api.types';
 
+/** What a player declared at sign-up: gender and category, both null for a sign-up made before them. */
+export interface DeclaredTraits {
+  gender: 'men' | 'women' | null;
+  level: number | null;
+}
+const UNDECLARED: DeclaredTraits = { gender: null, level: null };
+
 /** Test builders for the owner tournament payloads. Not shipped: only tests import them. */
 export function makePair(opts: {
   id: string;
   players?: [string, string];
+  /** The payer's and the partner's declared traits. */
+  declared?: [DeclaredTraits, DeclaredTraits];
   registration?: 'held' | 'confirmed' | 'cancelled' | 'expired';
   payment?: string | null;
   seed?: number | null;
@@ -20,11 +29,17 @@ export function makePair(opts: {
   status?: 'active' | 'withdrawn';
 }): TournamentOwnerPair {
   const [first = 'Ana Pérez', second = 'Bea Gómez'] = opts.players ?? [];
+  const [payerTraits = UNDECLARED, partnerTraits = UNDECLARED] = opts.declared ?? [];
   const player = (full: string) => {
     const [given = '', ...rest] = full.split(' ');
     return { first_name: given, last_name: rest.join(' ') };
   };
-  const owner = (full: string) => ({ ...player(full), phone: '1155550000', email: null });
+  const owner = (full: string, traits: DeclaredTraits) => ({
+    ...player(full),
+    phone: '1155550000',
+    email: null,
+    ...traits,
+  });
   const registration = opts.registration ?? 'confirmed';
   return {
     id: opts.id,
@@ -33,8 +48,8 @@ export function makePair(opts: {
     seed: opts.seed ?? null,
     group_id: opts.groupId ?? null,
     status: opts.status ?? 'active',
-    payer: owner(first),
-    partner: owner(second),
+    payer: owner(first, payerTraits),
+    partner: owner(second, partnerTraits),
     registration: {
       status: registration,
       price: 2000000,
@@ -125,7 +140,13 @@ export function makeCategory(overrides: Partial<TournamentOwnerCategory> = {}): 
     court_fee: 0,
     id: 'cat1',
     tournament_id: 't1',
-    name: '6ta',
+    name: 'Caballeros 6ta',
+    modality: 'men',
+    level: 6,
+    suma: null,
+    prizes: null,
+    starts_on: '2099-01-03',
+    starts_at: '18:00',
     format: 'groups',
     capacity: 16,
     price: 2000000,

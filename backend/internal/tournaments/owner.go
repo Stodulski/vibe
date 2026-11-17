@@ -15,6 +15,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
@@ -25,12 +26,11 @@ import (
 // has them. The names are short because a category's sign-up container is named
 // "tournament · category" and event names stop at 100 characters.
 const (
-	MaxNameLength         = 60
-	MaxCategoryNameLength = 30
-	MaxCategories         = 20
-	MinCapacity           = 2
-	MaxCapacity           = 128
-	MaxPrice              = events.MaxPrice
+	MaxNameLength = 60
+	MaxCategories = 20
+	MinCapacity   = 2
+	MaxCapacity   = 128
+	MaxPrice      = events.MaxPrice
 	// HorizonDays is how far ahead a tournament may start, the booking horizon.
 	HorizonDays = 365
 	// MaxDays is the longest a tournament may last.
@@ -53,11 +53,31 @@ const (
 	MaxGamesPerSet     = 9
 )
 
-var sports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
+var allowedSports = []string{"padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"}
 
-// CategoryInput is a category an owner creates with a tournament.
+// sportPadel is the one sport whose categories take a level or a suma. Every
+// sport's category takes a modality.
+const sportPadel = "padel"
+
+// onlyPadelCategory is the refusal of a level or a suma on a category of another sport.
+const onlyPadelCategory = "only padel categories take a level or a suma; other sports take a modality alone"
+
+// CategoryInput is a category an owner creates with a tournament. Every category
+// takes a modality; padel also takes a level or a suma. The name is composed from
+// those traits and never typed.
 type CategoryInput struct {
-	Name     string
+	// Modality is ModalityMen, ModalityWomen or ModalityMixed.
+	Modality string
+	// Level (MinLevel to MaxLevel) or Suma (MinSuma to MaxSuma) is set on padel, the
+	// other zero: a category is a level or a suma, never both. Other sports take neither.
+	Level int
+	Suma  int
+	// Prizes is optional free text, at most MaxPrizesLength characters.
+	Prizes string
+	// StartsOn is the day the category starts, within the tournament's dates, and
+	// StartsAt its time as HH:MM.
+	StartsOn time.Time
+	StartsAt string
 	Format   string
 	Capacity int
 	// Price is centavos per pair.
@@ -90,14 +110,18 @@ type CreateInput struct {
 
 func (in *CreateInput) validate(now time.Time) map[string]string {
 	errs := map[string]string{}
+	if in.Sport == "" {
+		in.Sport = sportPadel
+	}
+	// The name is optional: a tournament given none is named after its sport.
 	in.Name = strings.TrimSpace(in.Name)
-	if in.Name == "" || len([]rune(in.Name)) > MaxNameLength {
+	switch {
+	case in.Name == "":
+		in.Name = defaultTournamentName(in.Sport)
+	case len([]rune(in.Name)) > MaxNameLength:
 		errs["name"] = fmt.Sprintf("must be between 1 and %d characters", MaxNameLength)
 	}
-	if in.Sport == "" {
-		in.Sport = "padel"
-	}
-	if !slices.Contains(sports, in.Sport) {
+	if !slices.Contains(allowedSports, in.Sport) {
 		errs["sport"] = "must be a supported sport"
 	}
 	today, start, end := timezone.Day(now), timezone.Day(in.StartDate), timezone.Day(in.EndDate)
@@ -118,21 +142,19 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	}
 	seen := map[string]bool{}
 	for i := range in.Categories {
-		in.Categories[i].validate(i, seen, errs)
+		in.Categories[i].validate(in.Sport, i, start, end, seen, errs)
 	}
 	return errs
 }
 
-func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]string) {
+// validate checks one category of a tournament that runs from start to end. Its
+// traits decide its composed name, which must be new in the tournament, so a
+// repeated one is refused.
+func (c *CategoryInput) validate(sport string, i int, start, end time.Time, seen map[string]bool, errs map[string]string) {
 	field := func(name string) string { return fmt.Sprintf("categories[%d].%s", i, name) }
-	c.Name = strings.TrimSpace(c.Name)
-	if c.Name == "" || len([]rune(c.Name)) > MaxCategoryNameLength {
-		errs[field("name")] = fmt.Sprintf("must be between 1 and %d characters", MaxCategoryNameLength)
-	} else if key := strings.ToLower(c.Name); seen[key] {
-		errs[field("name")] = "must be different from the other categories"
-	} else {
-		seen[key] = true
-	}
+	c.validateTraits(sport, field, seen, errs)
+	c.validatePrizes(field, errs)
+	c.validateStart(field, start, end, errs)
 	if c.Format != tournamentstore.FormatElimination && c.Format != tournamentstore.FormatGroups {
 		errs[field("format")] = "must be elimination or groups"
 	}
@@ -159,6 +181,96 @@ func (c *CategoryInput) validate(i int, seen map[string]bool, errs map[string]st
 	if c.CourtFee < 0 || c.CourtFee > MaxPrice {
 		errs[field("court_fee")] = "must be an amount in centavos, 0 for none"
 	}
+}
+
+// validateTraits checks a category's modality, which every sport's category takes,
+// and its level or suma, which only padel takes: any other sport refuses both. The
+// composed name must be new in the tournament; a repeat is reported under the field
+// the category is identified by, with the stable code.
+func (c *CategoryInput) validateTraits(sport string, field func(string) string, seen map[string]bool, errs map[string]string) {
+	ok := true
+	if c.Modality != ModalityMen && c.Modality != ModalityWomen && c.Modality != ModalityMixed {
+		errs[field("modality")] = "must be men, women or mixed"
+		ok = false
+	}
+	trait := field("modality")
+	if sport == sportPadel {
+		trait = field("level")
+		if c.Suma != 0 {
+			trait = field("suma")
+		}
+		ok = c.validateLevelOrSuma(field, errs) && ok
+	} else {
+		ok = c.refuseLevelAndSuma(field, errs) && ok
+	}
+	if !ok {
+		return
+	}
+	if key := strings.ToLower(c.composedName(sport)); seen[key] {
+		errs[trait] = httpx.CodeCategoryDuplicate
+	} else {
+		seen[key] = true
+	}
+}
+
+// validateLevelOrSuma checks a padel category's level or suma: exactly one, in range.
+func (c *CategoryInput) validateLevelOrSuma(field func(string) string, errs map[string]string) bool {
+	switch {
+	case c.Level != 0 && c.Suma != 0:
+		errs[field("level")] = "must not be set together with suma: a category is a level or a suma"
+	case c.Level == 0 && c.Suma == 0:
+		errs[field("level")] = fmt.Sprintf("must be set (%d to %d), or suma (%d to %d) instead", MinLevel, MaxLevel, MinSuma, MaxSuma)
+	case c.Level != 0 && (c.Level < MinLevel || c.Level > MaxLevel):
+		errs[field("level")] = fmt.Sprintf("must be between %d and %d", MinLevel, MaxLevel)
+	case c.Suma != 0 && (c.Suma < MinSuma || c.Suma > MaxSuma):
+		errs[field("suma")] = fmt.Sprintf("must be between %d and %d", MinSuma, MaxSuma)
+	default:
+		return true
+	}
+	return false
+}
+
+// refuseLevelAndSuma refuses a level or a suma on a category of a sport other than
+// padel, which takes neither.
+func (c *CategoryInput) refuseLevelAndSuma(field func(string) string, errs map[string]string) bool {
+	if c.Level != 0 {
+		errs[field("level")] = onlyPadelCategory
+	}
+	if c.Suma != 0 {
+		errs[field("suma")] = onlyPadelCategory
+	}
+	return c.Level == 0 && c.Suma == 0
+}
+
+// validatePrizes trims a category's prizes and refuses a text over MaxPrizesLength.
+func (c *CategoryInput) validatePrizes(field func(string) string, errs map[string]string) {
+	c.Prizes = strings.TrimSpace(c.Prizes)
+	if len([]rune(c.Prizes)) > MaxPrizesLength {
+		errs[field("prizes")] = fmt.Sprintf("must be at most %d characters", MaxPrizesLength)
+	}
+}
+
+// validateStart checks the day and the time a category starts. Both are required:
+// the day has to fall within the tournament's dates.
+func (c *CategoryInput) validateStart(field func(string) string, start, end time.Time, errs map[string]string) {
+	switch day := timezone.Day(c.StartsOn); {
+	case c.StartsOn.IsZero():
+		errs[field("starts_on")] = "must be provided"
+	case day.Before(start) || day.After(end):
+		errs[field("starts_on")] = "must be within the tournament's dates"
+	}
+	t, err := time.Parse("15:04", c.StartsAt)
+	if err != nil {
+		errs[field("starts_at")] = "must be a time in HH:MM format"
+		return
+	}
+	c.StartsAt = t.Format("15:04")
+}
+
+// composedName is the name a category is stored under, composed from its traits: the
+// modality and the level or suma on padel, the modality's label alone on any other sport.
+func (c *CategoryInput) composedName(sport string) string {
+	return ComposeCategoryName(sport, c.Modality, c.Level, c.Suma)
 }
 
 // validateMatchFormat fills the match format's defaults and refuses a value out
@@ -203,7 +315,9 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	cats := make([]tournamentstore.NewCategory, len(in.Categories))
 	for i, c := range in.Categories {
 		cats[i] = tournamentstore.NewCategory{
-			Name: c.Name, Format: c.Format, Capacity: c.Capacity, Price: c.Price,
+			Name: c.composedName(in.Sport), Modality: c.Modality, Level: c.Level, Suma: c.Suma,
+			Prizes: optionalText(c.Prizes), StartsOn: timezone.Day(c.StartsOn), StartsAt: c.StartsAt,
+			Format: c.Format, Capacity: c.Capacity, Price: c.Price,
 			GroupSize: c.GroupSize, QualifiersPerGroup: c.QualifiersPerGroup,
 			SetsToWin: c.SetsToWin, GamesPerSet: c.GamesPerSet, SuperTiebreakDecider: *c.SuperTiebreakDecider,
 			MatchDurationMinutes: c.MatchDurationMinutes, CourtFee: c.CourtFee,

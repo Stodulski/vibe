@@ -16,6 +16,7 @@ export const createSteps = {
   saveCategory: 'Guardar categoría',
   reviewIntro: 'Revisá los datos antes de crear el torneo.',
   tournamentHeading: 'Torneo',
+  titleLabel: 'Título',
   daysLabel: 'Días',
   sportLabel: 'Deporte',
   categoriesHeading: 'Categorías',

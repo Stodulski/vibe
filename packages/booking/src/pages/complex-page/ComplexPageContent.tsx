@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { ComplexHeader } from '../../components/ComplexHeader';
 import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { DateSelector } from '../../components/DateSelector';
@@ -14,15 +14,14 @@ import type {
 } from '../../api/types';
 import { CourtDirectory } from './CourtDirectory';
 import { EventsSection } from '../../components/events/EventsSection';
-import { TournamentsSection } from '../../components/tournaments/TournamentsSection';
-import { listedTournaments } from '../../components/tournaments/tournamentModel';
+import { eventRows } from '../../components/events/eventRows';
+import { openPlayRows } from '../../components/events/openPlayAgendaModel';
+import { agendaRows } from '../../components/tournaments/agendaModel';
 import { useComplexEvents } from '../../hooks/useComplexEvents';
 import { useComplexTournaments } from '../../hooks/useComplexTournaments';
-import { BOOKING_MESSAGES } from '../../messages';
 import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
-import { StepChoice } from './booking-steps/StepChoice';
 import { HoldExpiredNotice } from './HoldExpiredNotice';
 import type { EmptyDay } from './emptyDay';
 
@@ -152,44 +151,20 @@ export function ComplexPageContent({
   );
 }
 
-type OfferKind = 'events' | 'tournaments';
-
 /**
- * The complex's events under one question, "Eventos": canchas abiertas or
- * torneos. An option is offered only when it has something to list, nothing
- * lists until one is picked, and picking the one on screen again closes it.
- * Renders nothing while loading, on a failure, or when neither has anything to
- * list.
+ * The complex's events under one heading, "Eventos": its open play and its
+ * tournaments in one list, soonest first. Renders nothing while loading, on a
+ * failure, or when neither has anything to list.
  */
 function ComplexOffers({ slug }: { slug: string }) {
   const { data: events } = useComplexEvents(slug);
   const { data: tournaments } = useComplexTournaments(slug);
-  const [picked, setPicked] = useState<OfferKind | null>(null);
-
-  const eventList = events ?? [];
-  const tournamentList = listedTournaments(tournaments ?? []);
-  const choices: { value: OfferKind; label: string }[] = [];
-  if (eventList.length > 0) choices.push({ value: 'events', label: BOOKING_MESSAGES.events.sectionTitle });
-  if (tournamentList.length > 0) {
-    choices.push({ value: 'tournaments', label: BOOKING_MESSAGES.tournaments.sectionTitle });
-  }
-  if (choices.length === 0) return null;
-
-  // A pick whose list has emptied since it was made is no longer on screen.
-  const shown = choices.find((choice) => choice.value === picked)?.value ?? null;
+  const rows = eventRows(openPlayRows(events ?? []), agendaRows(tournaments ?? []));
+  if (rows.length === 0) return null;
 
   return (
-    <div className="mt-8 flex flex-col gap-4 sm:mt-12">
-      <StepChoice
-        question={BOOKING_MESSAGES.events.pickerTitle}
-        choices={choices}
-        selected={shown}
-        onChoose={(value) => {
-          setPicked((current) => (current === value ? null : (value as OfferKind)));
-        }}
-      />
-      {shown === 'events' && <EventsSection events={eventList} slug={slug} />}
-      {shown === 'tournaments' && <TournamentsSection tournaments={tournamentList} slug={slug} />}
+    <div className="mt-8 sm:mt-12">
+      <EventsSection rows={rows} slug={slug} />
     </div>
   );
 }

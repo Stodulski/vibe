@@ -15,7 +15,7 @@ const cancelOpenPlayEvent = `-- name: CancelOpenPlayEvent :one
 UPDATE open_play_events
 SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2, cancel_reason = $3
 WHERE id = $1 AND status = 'active'
-RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id
+RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id, modality, level_min, level_max
 `
 
 type CancelOpenPlayEventParams struct {
@@ -46,6 +46,9 @@ func (q *Queries) CancelOpenPlayEvent(ctx context.Context, arg CancelOpenPlayEve
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TournamentID,
+		&i.Modality,
+		&i.LevelMin,
+		&i.LevelMax,
 	)
 	return i, err
 }
@@ -89,7 +92,7 @@ const cancelOpenPlayRegistration = `-- name: CancelOpenPlayRegistration :one
 UPDATE open_play_registrations
 SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2
 WHERE id = $1 AND status IN ('held', 'confirmed')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
 `
 
 type CancelOpenPlayRegistrationParams struct {
@@ -119,6 +122,8 @@ func (q *Queries) CancelOpenPlayRegistration(ctx context.Context, arg CancelOpen
 		&i.CancelledBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlayerGender,
+		&i.PlayerLevel,
 	)
 	return i, err
 }
@@ -127,7 +132,7 @@ const confirmOpenPlayRegistration = `-- name: ConfirmOpenPlayRegistration :one
 UPDATE open_play_registrations
 SET status = 'confirmed', confirmed_at = NOW()
 WHERE id = $1 AND status IN ('held', 'expired')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
 `
 
 // A hold that ran out and was swept can still be confirmed by a payment that
@@ -155,6 +160,8 @@ func (q *Queries) ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUI
 		&i.CancelledBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlayerGender,
+		&i.PlayerLevel,
 	)
 	return i, err
 }
@@ -235,7 +242,7 @@ func (q *Queries) ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpen
 }
 
 const getOpenPlayEvent = `-- name: GetOpenPlayEvent :one
-SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id FROM open_play_events
+SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id, modality, level_min, level_max FROM open_play_events
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -269,12 +276,15 @@ func (q *Queries) GetOpenPlayEvent(ctx context.Context, arg GetOpenPlayEventPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TournamentID,
+		&i.Modality,
+		&i.LevelMin,
+		&i.LevelMax,
 	)
 	return i, err
 }
 
 const getOpenPlayRegistration = `-- name: GetOpenPlayRegistration :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level FROM open_play_registrations
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -307,12 +317,14 @@ func (q *Queries) GetOpenPlayRegistration(ctx context.Context, arg GetOpenPlayRe
 		&i.CancelledBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlayerGender,
+		&i.PlayerLevel,
 	)
 	return i, err
 }
 
 const getOpenPlayRegistrationByTokenHash = `-- name: GetOpenPlayRegistrationByTokenHash :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level FROM open_play_registrations
 WHERE access_token_hash = $1
 `
 
@@ -338,16 +350,19 @@ func (q *Queries) GetOpenPlayRegistrationByTokenHash(ctx context.Context, access
 		&i.CancelledBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlayerGender,
+		&i.PlayerLevel,
 	)
 	return i, err
 }
 
 const insertOpenPlayEvent = `-- name: InsertOpenPlayEvent :one
 INSERT INTO open_play_events (
-    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id
+    complex_id, name, sport, date, start_time, duration_minutes, capacity, price, created_by, tournament_id,
+    modality, level_min, level_max
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $13, $10, $11, $12)
+RETURNING id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id, modality, level_min, level_max
 `
 
 type InsertOpenPlayEventParams struct {
@@ -360,6 +375,9 @@ type InsertOpenPlayEventParams struct {
 	Capacity        int32       `json:"capacity"`
 	Price           int32       `json:"price"`
 	CreatedBy       pgtype.UUID `json:"created_by"`
+	Modality        pgtype.Text `json:"modality"`
+	LevelMin        pgtype.Int4 `json:"level_min"`
+	LevelMax        pgtype.Int4 `json:"level_max"`
 	TournamentID    pgtype.UUID `json:"tournament_id"`
 }
 
@@ -374,6 +392,9 @@ func (q *Queries) InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEve
 		arg.Capacity,
 		arg.Price,
 		arg.CreatedBy,
+		arg.Modality,
+		arg.LevelMin,
+		arg.LevelMax,
 		arg.TournamentID,
 	)
 	var i OpenPlayEvent
@@ -395,6 +416,9 @@ func (q *Queries) InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEve
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TournamentID,
+		&i.Modality,
+		&i.LevelMin,
+		&i.LevelMax,
 	)
 	return i, err
 }
@@ -418,15 +442,16 @@ func (q *Queries) InsertOpenPlayEventCourt(ctx context.Context, arg InsertOpenPl
 const insertOpenPlayRegistration = `-- name: InsertOpenPlayRegistration :one
 INSERT INTO open_play_registrations (
     event_id, complex_id, first_name, last_name, phone, email,
-    price, service_fee, held_until, access_token_hash, hold_ip
+    price, service_fee, held_until, access_token_hash, hold_ip, player_gender, player_level
 )
 VALUES (
     $1, $2, $3, $4,
     $5, $6, $7, $8,
     NOW() + make_interval(secs => $9::float8),
-    $10, $11
+    $10, $11,
+    $12::text, $13::int
 )
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
 `
 
 type InsertOpenPlayRegistrationParams struct {
@@ -441,6 +466,8 @@ type InsertOpenPlayRegistrationParams struct {
 	HoldSeconds     float64     `json:"hold_seconds"`
 	AccessTokenHash []byte      `json:"access_token_hash"`
 	HoldIp          pgtype.Text `json:"hold_ip"`
+	PlayerGender    pgtype.Text `json:"player_gender"`
+	PlayerLevel     pgtype.Int4 `json:"player_level"`
 }
 
 // The hold ends hold_seconds from now on the database's clock, the one every
@@ -458,6 +485,8 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 		arg.HoldSeconds,
 		arg.AccessTokenHash,
 		arg.HoldIp,
+		arg.PlayerGender,
+		arg.PlayerLevel,
 	)
 	var i OpenPlayRegistration
 	err := row.Scan(
@@ -479,6 +508,8 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 		&i.CancelledBy,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PlayerGender,
+		&i.PlayerLevel,
 	)
 	return i, err
 }
@@ -526,7 +557,7 @@ func (q *Queries) ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UU
 }
 
 const listOpenPlayEvents = `-- name: ListOpenPlayEvents :many
-SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_minutes, e.capacity, e.price, e.status, e.cancel_reason, e.cancelled_at, e.cancelled_by, e.created_by, e.created_at, e.updated_at, e.tournament_id,
+SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_minutes, e.capacity, e.price, e.status, e.cancel_reason, e.cancelled_at, e.cancelled_by, e.created_by, e.created_at, e.updated_at, e.tournament_id, e.modality, e.level_min, e.level_max,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
@@ -566,6 +597,9 @@ type ListOpenPlayEventsRow struct {
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	TournamentID    pgtype.UUID        `json:"tournament_id"`
+	Modality        pgtype.Text        `json:"modality"`
+	LevelMin        pgtype.Int4        `json:"level_min"`
+	LevelMax        pgtype.Int4        `json:"level_max"`
 	ConfirmedCount  int32              `json:"confirmed_count"`
 	HeldCount       int32              `json:"held_count"`
 }
@@ -608,6 +642,9 @@ func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEvents
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.TournamentID,
+			&i.Modality,
+			&i.LevelMin,
+			&i.LevelMax,
 			&i.ConfirmedCount,
 			&i.HeldCount,
 		); err != nil {
@@ -622,7 +659,7 @@ func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEvents
 }
 
 const listOpenPlayRegistrations = `-- name: ListOpenPlayRegistrations :many
-SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at,
+SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at, r.player_gender, r.player_level,
        p.id AS payment_id,
        COALESCE(p.status::text, '')::text AS payment_status,
        COALESCE(p.amount, 0)::int AS payment_amount,
@@ -665,6 +702,8 @@ type ListOpenPlayRegistrationsRow struct {
 	CancelledBy         pgtype.Text        `json:"cancelled_by"`
 	CreatedAt           pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
+	PlayerGender        pgtype.Text        `json:"player_gender"`
+	PlayerLevel         pgtype.Int4        `json:"player_level"`
 	PaymentID           pgtype.UUID        `json:"payment_id"`
 	PaymentStatus       string             `json:"payment_status"`
 	PaymentAmount       int32              `json:"payment_amount"`
@@ -705,6 +744,8 @@ func (q *Queries) ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPla
 			&i.CancelledBy,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PlayerGender,
+			&i.PlayerLevel,
 			&i.PaymentID,
 			&i.PaymentStatus,
 			&i.PaymentAmount,
@@ -769,7 +810,7 @@ func (q *Queries) ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, 
 }
 
 const lockOpenPlayEvent = `-- name: LockOpenPlayEvent :one
-SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id FROM open_play_events
+SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id, modality, level_min, level_max FROM open_play_events
 WHERE id = $1
 FOR UPDATE
 `
@@ -798,6 +839,9 @@ func (q *Queries) LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPl
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.TournamentID,
+		&i.Modality,
+		&i.LevelMin,
+		&i.LevelMax,
 	)
 	return i, err
 }

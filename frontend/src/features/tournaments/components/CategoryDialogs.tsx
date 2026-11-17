@@ -1,4 +1,5 @@
 import { useCourts } from '@/features/courts';
+import { categoryTitle } from '@/shared/lib/traitLabels';
 import type { CategoryView } from '../lib/categoryView';
 import { CancelCategoryDialog } from './CancelDialogs';
 import { CourtFeeDialogs } from './CourtFeeDialogs';
@@ -72,7 +73,7 @@ export function CategoryDialogsHost({ complexId, tournament, category, view, dia
         complexId={complexId}
         tournamentId={tournament.id}
         categoryId={category.id}
-        categoryName={category.name}
+        categoryName={categoryTitle({ ...category, sport: tournament.sport })}
         paidCount={view.paidPairs.length}
       />
     </>

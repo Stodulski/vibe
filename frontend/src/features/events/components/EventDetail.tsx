@@ -8,6 +8,7 @@ import { InfoRow } from '@/shared/components/common/InfoRow';
 import { useExitingValue } from '@/shared/hooks/useExitingValue';
 import { useOutsideClickGrace } from '@/shared/hooks/useOutsideClickGrace';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { openPlayTitle } from '@/shared/lib/traitLabels';
 import { formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
@@ -60,7 +61,7 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
         <h3 className="text-text-primary mb-1 text-sm font-semibold">
           {t.detail.participants} · {t.detail.confirmedCount(paidCount(participants))}
         </h3>
-        <ParticipantList participants={sortParticipants(participants)} />
+        <ParticipantList participants={sortParticipants(participants)} sport={event.sport} />
       </section>
     </div>
   );
@@ -110,7 +111,7 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
           onPointerDownOutside={onPointerDownOutside}
         >
           <DetailSheetHeader
-            title={event?.name ?? t.title}
+            title={event ? openPlayTitle(event) : t.title}
             subtitle={
               event && <span className="inline-block first-letter:uppercase">{formatEventDay(event.date)}</span>
             }

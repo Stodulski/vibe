@@ -184,7 +184,7 @@ func (q *Queries) GetTournament(ctx context.Context, arg GetTournamentParams) (T
 }
 
 const getTournamentCategory = `-- name: GetTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at, modality, level, suma, prizes, starts_on, starts_at FROM tournament_categories
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -215,12 +215,18 @@ func (q *Queries) GetTournamentCategory(ctx context.Context, arg GetTournamentCa
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Modality,
+		&i.Level,
+		&i.Suma,
+		&i.Prizes,
+		&i.StartsOn,
+		&i.StartsAt,
 	)
 	return i, err
 }
 
 const getTournamentCategoryByEvent = `-- name: GetTournamentCategoryByEvent :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE event_id = $1
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at, modality, level, suma, prizes, starts_on, starts_at FROM tournament_categories WHERE event_id = $1
 `
 
 func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgtype.UUID) (TournamentCategory, error) {
@@ -243,6 +249,12 @@ func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgty
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Modality,
+		&i.Level,
+		&i.Suma,
+		&i.Prizes,
+		&i.StartsOn,
+		&i.StartsAt,
 	)
 	return i, err
 }
@@ -287,7 +299,7 @@ func (q *Queries) GetTournamentMatch(ctx context.Context, id pgtype.UUID) (Tourn
 }
 
 const getTournamentPair = `-- name: GetTournamentPair :one
-SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at FROM tournament_pairs WHERE id = $1
+SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level FROM tournament_pairs WHERE id = $1
 `
 
 func (q *Queries) GetTournamentPair(ctx context.Context, id pgtype.UUID) (TournamentPair, error) {
@@ -308,12 +320,14 @@ func (q *Queries) GetTournamentPair(ctx context.Context, id pgtype.UUID) (Tourna
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PartnerGender,
+		&i.PartnerLevel,
 	)
 	return i, err
 }
 
 const getTournamentPairByRegistration = `-- name: GetTournamentPairByRegistration :one
-SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at FROM tournament_pairs WHERE registration_id = $1
+SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level FROM tournament_pairs WHERE registration_id = $1
 `
 
 func (q *Queries) GetTournamentPairByRegistration(ctx context.Context, registrationID pgtype.UUID) (TournamentPair, error) {
@@ -334,6 +348,8 @@ func (q *Queries) GetTournamentPairByRegistration(ctx context.Context, registrat
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PartnerGender,
+		&i.PartnerLevel,
 	)
 	return i, err
 }
@@ -384,10 +400,11 @@ func (q *Queries) InsertTournament(ctx context.Context, arg InsertTournamentPara
 const insertTournamentCategory = `-- name: InsertTournamentCategory :one
 INSERT INTO tournament_categories (
     tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group,
-    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee
+    sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee,
+    modality, level, suma, prizes, starts_on, starts_at
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+RETURNING id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at, modality, level, suma, prizes, starts_on, starts_at
 `
 
 type InsertTournamentCategoryParams struct {
@@ -403,6 +420,12 @@ type InsertTournamentCategoryParams struct {
 	SuperTiebreakDecider bool        `json:"super_tiebreak_decider"`
 	MatchDurationMinutes int32       `json:"match_duration_minutes"`
 	CourtFee             int32       `json:"court_fee"`
+	Modality             pgtype.Text `json:"modality"`
+	Level                pgtype.Int4 `json:"level"`
+	Suma                 pgtype.Int4 `json:"suma"`
+	Prizes               pgtype.Text `json:"prizes"`
+	StartsOn             pgtype.Date `json:"starts_on"`
+	StartsAt             pgtype.Time `json:"starts_at"`
 }
 
 func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTournamentCategoryParams) (TournamentCategory, error) {
@@ -419,6 +442,12 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		arg.SuperTiebreakDecider,
 		arg.MatchDurationMinutes,
 		arg.CourtFee,
+		arg.Modality,
+		arg.Level,
+		arg.Suma,
+		arg.Prizes,
+		arg.StartsOn,
+		arg.StartsAt,
 	)
 	var i TournamentCategory
 	err := row.Scan(
@@ -438,6 +467,12 @@ func (q *Queries) InsertTournamentCategory(ctx context.Context, arg InsertTourna
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Modality,
+		&i.Level,
+		&i.Suma,
+		&i.Prizes,
+		&i.StartsOn,
+		&i.StartsAt,
 	)
 	return i, err
 }
@@ -549,10 +584,11 @@ func (q *Queries) InsertTournamentMatch(ctx context.Context, arg InsertTournamen
 
 const insertTournamentPair = `-- name: InsertTournamentPair :one
 INSERT INTO tournament_pairs (
-    category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email
+    category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email,
+    partner_gender, partner_level
 )
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level
 `
 
 type InsertTournamentPairParams struct {
@@ -563,6 +599,8 @@ type InsertTournamentPairParams struct {
 	PartnerLastName  string      `json:"partner_last_name"`
 	PartnerPhone     string      `json:"partner_phone"`
 	PartnerEmail     pgtype.Text `json:"partner_email"`
+	PartnerGender    pgtype.Text `json:"partner_gender"`
+	PartnerLevel     pgtype.Int4 `json:"partner_level"`
 }
 
 func (q *Queries) InsertTournamentPair(ctx context.Context, arg InsertTournamentPairParams) (TournamentPair, error) {
@@ -574,6 +612,8 @@ func (q *Queries) InsertTournamentPair(ctx context.Context, arg InsertTournament
 		arg.PartnerLastName,
 		arg.PartnerPhone,
 		arg.PartnerEmail,
+		arg.PartnerGender,
+		arg.PartnerLevel,
 	)
 	var i TournamentPair
 	err := row.Scan(
@@ -591,6 +631,8 @@ func (q *Queries) InsertTournamentPair(ctx context.Context, arg InsertTournament
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PartnerGender,
+		&i.PartnerLevel,
 	)
 	return i, err
 }
@@ -650,7 +692,7 @@ func (q *Queries) ListCategoryMatches(ctx context.Context, categoryID pgtype.UUI
 }
 
 const listCategoryPairs = `-- name: ListCategoryPairs :many
-SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at FROM tournament_pairs WHERE category_id = $1 ORDER BY seed NULLS LAST, id
+SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level FROM tournament_pairs WHERE category_id = $1 ORDER BY seed NULLS LAST, id
 `
 
 func (q *Queries) ListCategoryPairs(ctx context.Context, categoryID pgtype.UUID) ([]TournamentPair, error) {
@@ -677,6 +719,8 @@ func (q *Queries) ListCategoryPairs(ctx context.Context, categoryID pgtype.UUID)
 			&i.WithdrawnAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PartnerGender,
+			&i.PartnerLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -689,7 +733,7 @@ func (q *Queries) ListCategoryPairs(ctx context.Context, categoryID pgtype.UUID)
 }
 
 const listDrawablePairs = `-- name: ListDrawablePairs :many
-SELECT pr.id, pr.category_id, pr.complex_id, pr.registration_id, pr.partner_first_name, pr.partner_last_name, pr.partner_phone, pr.partner_email, pr.seed, pr.group_id, pr.status, pr.withdrawn_at, pr.created_at, pr.updated_at FROM tournament_pairs pr
+SELECT pr.id, pr.category_id, pr.complex_id, pr.registration_id, pr.partner_first_name, pr.partner_last_name, pr.partner_phone, pr.partner_email, pr.seed, pr.group_id, pr.status, pr.withdrawn_at, pr.created_at, pr.updated_at, pr.partner_gender, pr.partner_level FROM tournament_pairs pr
 JOIN open_play_registrations r ON r.id = pr.registration_id
 WHERE pr.category_id = $1 AND pr.status = 'active' AND r.status = 'confirmed'
 ORDER BY pr.seed NULLS LAST, r.created_at, pr.id
@@ -721,6 +765,8 @@ func (q *Queries) ListDrawablePairs(ctx context.Context, categoryID pgtype.UUID)
 			&i.WithdrawnAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PartnerGender,
+			&i.PartnerLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -733,7 +779,7 @@ func (q *Queries) ListDrawablePairs(ctx context.Context, categoryID pgtype.UUID)
 }
 
 const listPairsOfGroup = `-- name: ListPairsOfGroup :many
-SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at FROM tournament_pairs WHERE group_id = $1 ORDER BY seed, id
+SELECT id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level FROM tournament_pairs WHERE group_id = $1 ORDER BY seed, id
 `
 
 // The pairs of a group in seed order, withdrawn ones included: a group table
@@ -762,6 +808,8 @@ func (q *Queries) ListPairsOfGroup(ctx context.Context, groupID pgtype.UUID) ([]
 			&i.WithdrawnAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PartnerGender,
+			&i.PartnerLevel,
 		); err != nil {
 			return nil, err
 		}
@@ -774,7 +822,7 @@ func (q *Queries) ListPairsOfGroup(ctx context.Context, groupID pgtype.UUID) ([]
 }
 
 const listTournamentCategories = `-- name: ListTournamentCategories :many
-SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.sets_to_win, c.games_per_set, c.super_tiebreak_decider, c.match_duration_minutes, c.court_fee, c.draw_generated_at, c.created_at, c.updated_at,
+SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.group_size, c.qualifiers_per_group, c.sets_to_win, c.games_per_set, c.super_tiebreak_decider, c.match_duration_minutes, c.court_fee, c.draw_generated_at, c.created_at, c.updated_at, c.modality, c.level, c.suma, c.prizes, c.starts_on, c.starts_at,
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
@@ -805,6 +853,12 @@ type ListTournamentCategoriesRow struct {
 	DrawGeneratedAt      pgtype.Timestamptz `json:"draw_generated_at"`
 	CreatedAt            pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+	Modality             pgtype.Text        `json:"modality"`
+	Level                pgtype.Int4        `json:"level"`
+	Suma                 pgtype.Int4        `json:"suma"`
+	Prizes               pgtype.Text        `json:"prizes"`
+	StartsOn             pgtype.Date        `json:"starts_on"`
+	StartsAt             pgtype.Time        `json:"starts_at"`
 	Capacity             int32              `json:"capacity"`
 	Price                int32              `json:"price"`
 	EventStatus          string             `json:"event_status"`
@@ -841,6 +895,12 @@ func (q *Queries) ListTournamentCategories(ctx context.Context, tournamentID pgt
 			&i.DrawGeneratedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Modality,
+			&i.Level,
+			&i.Suma,
+			&i.Prizes,
+			&i.StartsOn,
+			&i.StartsAt,
 			&i.Capacity,
 			&i.Price,
 			&i.EventStatus,
@@ -1020,8 +1080,8 @@ func (q *Queries) ListTournamentMatches(ctx context.Context, tournamentID pgtype
 }
 
 const listTournamentPairs = `-- name: ListTournamentPairs :many
-SELECT pr.id, pr.category_id, pr.complex_id, pr.registration_id, pr.partner_first_name, pr.partner_last_name, pr.partner_phone, pr.partner_email, pr.seed, pr.group_id, pr.status, pr.withdrawn_at, pr.created_at, pr.updated_at,
-       r.first_name, r.last_name, r.phone, r.email,
+SELECT pr.id, pr.category_id, pr.complex_id, pr.registration_id, pr.partner_first_name, pr.partner_last_name, pr.partner_phone, pr.partner_email, pr.seed, pr.group_id, pr.status, pr.withdrawn_at, pr.created_at, pr.updated_at, pr.partner_gender, pr.partner_level,
+       r.first_name, r.last_name, r.phone, r.email, r.player_gender, r.player_level,
        r.status AS registration_status, r.price AS registration_price, r.service_fee AS registration_service_fee,
        r.held_until, r.confirmed_at, r.cancelled_at AS registration_cancelled_at, r.cancelled_by, r.created_at AS signed_up_at,
        p.id AS payment_id,
@@ -1058,10 +1118,14 @@ type ListTournamentPairsRow struct {
 	WithdrawnAt             pgtype.Timestamptz `json:"withdrawn_at"`
 	CreatedAt               pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt               pgtype.Timestamptz `json:"updated_at"`
+	PartnerGender           pgtype.Text        `json:"partner_gender"`
+	PartnerLevel            pgtype.Int4        `json:"partner_level"`
 	FirstName               string             `json:"first_name"`
 	LastName                string             `json:"last_name"`
 	Phone                   string             `json:"phone"`
 	Email                   pgtype.Text        `json:"email"`
+	PlayerGender            pgtype.Text        `json:"player_gender"`
+	PlayerLevel             pgtype.Int4        `json:"player_level"`
 	RegistrationStatus      string             `json:"registration_status"`
 	RegistrationPrice       int32              `json:"registration_price"`
 	RegistrationServiceFee  int32              `json:"registration_service_fee"`
@@ -1105,10 +1169,14 @@ func (q *Queries) ListTournamentPairs(ctx context.Context, tournamentID pgtype.U
 			&i.WithdrawnAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.PartnerGender,
+			&i.PartnerLevel,
 			&i.FirstName,
 			&i.LastName,
 			&i.Phone,
 			&i.Email,
+			&i.PlayerGender,
+			&i.PlayerLevel,
 			&i.RegistrationStatus,
 			&i.RegistrationPrice,
 			&i.RegistrationServiceFee,
@@ -1221,7 +1289,7 @@ func (q *Queries) LockTournament(ctx context.Context, id pgtype.UUID) (Tournamen
 }
 
 const lockTournamentCategory = `-- name: LockTournamentCategory :one
-SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at FROM tournament_categories WHERE id = $1 FOR UPDATE
+SELECT id, tournament_id, complex_id, event_id, name, format, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, court_fee, draw_generated_at, created_at, updated_at, modality, level, suma, prizes, starts_on, starts_at FROM tournament_categories WHERE id = $1 FOR UPDATE
 `
 
 // Every change to a category's draw, matches or results takes this lock first,
@@ -1246,6 +1314,12 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 		&i.DrawGeneratedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Modality,
+		&i.Level,
+		&i.Suma,
+		&i.Prizes,
+		&i.StartsOn,
+		&i.StartsAt,
 	)
 	return i, err
 }
@@ -1480,7 +1554,7 @@ const withdrawTournamentPair = `-- name: WithdrawTournamentPair :one
 UPDATE tournament_pairs
 SET status = 'withdrawn', withdrawn_at = NOW()
 WHERE id = $1 AND status = 'active'
-RETURNING id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at
+RETURNING id, category_id, complex_id, registration_id, partner_first_name, partner_last_name, partner_phone, partner_email, seed, group_id, status, withdrawn_at, created_at, updated_at, partner_gender, partner_level
 `
 
 func (q *Queries) WithdrawTournamentPair(ctx context.Context, id pgtype.UUID) (TournamentPair, error) {
@@ -1501,6 +1575,8 @@ func (q *Queries) WithdrawTournamentPair(ctx context.Context, id pgtype.UUID) (T
 		&i.WithdrawnAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.PartnerGender,
+		&i.PartnerLevel,
 	)
 	return i, err
 }

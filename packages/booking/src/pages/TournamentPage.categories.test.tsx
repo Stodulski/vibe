@@ -1,6 +1,5 @@
 import { describe, it, expect } from 'vitest';
 import { screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/msw/server';
 import { renderBooking, setBookingUrl } from '../test/booking';
@@ -46,19 +45,16 @@ describe('TournamentPage categories', () => {
     expect(screen.getAllByRole('region', { name: t.tournaments.bracketTitle })).toHaveLength(1);
   });
 
-  it('demotes the other categories sign-up while one form is open', async () => {
+  it('links each open category to its own sign-up page, not to a form on this one', async () => {
     const second = { ...CAT_OPEN, id: 'c-open-2', name: '9na' };
     serveTournament({ ...DETAIL, categories: [CAT_OPEN, second] });
     open();
-    const user = userEvent.setup();
-    const [first] = await screen.findAllByRole('button', { name: t.tournaments.signUp });
-    if (!first) throw new Error('no sign-up button');
-    expect(first.className).toMatch(/(^|\s)bg-primary/);
-    await user.click(first);
 
-    const others = screen.getAllByRole('button', { name: t.tournaments.signUp });
-    expect(others).toHaveLength(1);
-    expect(others[0]?.className).not.toMatch(/(^|\s)bg-primary/);
+    const links = await screen.findAllByRole('link', { name: t.tournaments.signUp });
+    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+      '/c/test-club/tournaments/t1/inscripcion?category=c-open',
+      '/c/test-club/tournaments/t1/inscripcion?category=c-open-2',
+    ]);
+    expect(screen.queryByRole('group', { name: t.tournaments.payerTitle })).not.toBeInTheDocument();
   });
-
 });

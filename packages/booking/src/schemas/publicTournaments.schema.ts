@@ -53,6 +53,13 @@ export const publicTournamentCategorySchema = exact<PublicTournamentCategory>(
       id: z.string(),
       tournament_id: z.string(),
       name: z.string(),
+      // Open vocabulary: a modality this build predates still renders, through its stored name.
+      modality: z.string().nullable(),
+      level: z.number().nullable(),
+      suma: z.number().nullable(),
+      prizes: z.string().nullable(),
+      starts_on: z.string().nullable(),
+      starts_at: z.string().nullable(),
       format: z.string(),
       capacity: z.number(),
       price: z.number(),

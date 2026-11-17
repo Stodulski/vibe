@@ -1,4 +1,4 @@
-import type { Open, RefundEnvelope, Sport } from './types';
+import type { DeclaredGender, Modality, Open, RefundEnvelope, Sport } from './types';
 
 // ─── Tournaments (public reads and pair sign-up) ───
 
@@ -26,7 +26,19 @@ export interface PublicTournament {
 export interface PublicTournamentCategory {
   id: string;
   tournament_id: string;
+  /** Composed by the server from the traits; a category created before them keeps the name it was given. */
   name: string;
+  /** Caballeros, Damas or Mixto; `null` on a category created before the traits. */
+  modality: Open<Modality> | null;
+  /** 1ra (1) to 9na (9); `null` for a Suma or a category created before the traits. */
+  level: number | null;
+  /** The two players' levels added together (2 to 18); `null` for a level category. */
+  suma: number | null;
+  prizes: string | null;
+  /** The day the category starts (`YYYY-MM-DD`); `null` on a category created before it had one. */
+  starts_on: string | null;
+  /** The time the category starts (`HH:MM`); `null` on a category created before it had one. */
+  starts_at: string | null;
   format: Open<TournamentFormat>;
   /** Pairs. */
   capacity: number;
@@ -160,11 +172,19 @@ export interface PublicTournamentDetail {
   cancellation_hours: number;
 }
 
+/**
+ * What a player declares. Both are required when the category has a modality
+ * and must fit it (`modality_mismatch`, `level_too_strong`); a category without
+ * one takes the pair as it is, with neither sent.
+ */
 export interface PublicTournamentPartnerRequest {
   first_name: string;
   last_name: string;
   phone: string;
   email?: string | undefined;
+  gender?: DeclaredGender | undefined;
+  /** 1ra (1) to 9na (9). */
+  level?: number | undefined;
 }
 
 /** One person signs up both players and pays the whole entry. */
@@ -173,6 +193,9 @@ export interface PublicPairSignUpRequest {
   last_name: string;
   phone: string;
   email?: string | undefined;
+  /** The payer's own declaration, the same as the partner's. */
+  gender?: DeclaredGender | undefined;
+  level?: number | undefined;
   partner: PublicTournamentPartnerRequest;
   /** Cloudflare Turnstile token, sent only when the storefront has a site key. Single use. */
   turnstile_token?: string | undefined;

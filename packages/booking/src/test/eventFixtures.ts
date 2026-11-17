@@ -23,6 +23,15 @@ export const EVENT: PublicOpenPlayEvent = {
   cancellation_hours: 24,
 };
 
+/** Canchas abiertas de Caballeros, from 6ta to 8va. */
+export const MEN_6_TO_8: PublicOpenPlayEvent = {
+  ...EVENT,
+  id: 'ev1',
+  modality: 'men',
+  level_min: 6,
+  level_max: 8,
+};
+
 export function registration(overrides: Partial<PublicEventRegistration> = {}): PublicEventRegistration {
   return {
     status: 'confirmed',

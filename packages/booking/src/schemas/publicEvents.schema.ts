@@ -51,6 +51,10 @@ export const publicOpenPlayEventSchema = exact<PublicOpenPlayEvent>(
         .transform((v) => v ?? []),
       complex_name: z.string().optional(),
       cancellation_hours: z.number().optional(),
+      // Absent on an event without a modality; a Go nil marshals to null.
+      modality: z.string().nullish(),
+      level_min: z.number().nullish(),
+      level_max: z.number().nullish(),
     })
     .loose(),
 );

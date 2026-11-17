@@ -71,7 +71,6 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
   if (quickBookMode) {
     return (
       <QuickBookView
-        slotInfo={slotInfo}
         pricing={pricing}
         saved={saved}
         isLoading={isLoading}
@@ -90,7 +89,6 @@ export function BookingForm({ slotInfo, onSubmit, isLoading }: BookingFormProps)
 
   return (
     <FullFormView
-      slotInfo={slotInfo}
       pricing={pricing}
       isLoading={isLoading}
       register={register}

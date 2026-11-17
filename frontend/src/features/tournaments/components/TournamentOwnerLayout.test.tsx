@@ -1,3 +1,4 @@
+import { tournamentTitle } from '@/shared/lib/traitLabels';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { renderWithProviders, screen, userEvent, within } from '@/test/test-utils';
@@ -22,7 +23,7 @@ async function renderDetail(detail: TournamentDetailResponse) {
   const { tournamentsApi } = await import('../api/tournaments.api');
   vi.mocked(tournamentsApi.get).mockResolvedValue(detail);
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
-  await screen.findByRole('heading', { name: detail.tournament.name });
+  await screen.findByRole('heading', { name: tournamentTitle(detail.tournament.sport) });
   return userEvent.setup();
 }
 
@@ -95,8 +96,8 @@ describe('owner tournament cancelled and facts layout', () => {
   it('marks a cancelled category tab as muted', async () => {
     const detail = makeDetail({
       categories: [
-        makeCategory({ id: 'a', name: 'Damas 5ta', status: 'cancelled' }),
-        makeCategory({ id: 'b', name: '6ta' }),
+        makeCategory({ id: 'a', modality: 'women', level: 5, status: 'cancelled' }),
+        makeCategory({ id: 'b', modality: 'men', level: 6 }),
       ],
     });
     await renderDetail(detail);

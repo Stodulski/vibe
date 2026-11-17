@@ -1,21 +1,16 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { submitHandler, toDisplayDate, useAppForm } from '@vibe/ui';
-import { format } from 'date-fns/format';
-import { es } from 'date-fns/locale/es';
+import { submitHandler, useAppForm } from '@vibe/ui';
 import { useEventSignUp } from '../../hooks/useEventSignUp';
 import { useChallengedSubmit } from '../../hooks/useChallengedSubmit';
 import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
-import { courtFactsLine } from '../../lib/courtFacts';
-import { keepTogether } from '../../lib/keepTogether';
+import { openPlayRequirement } from '../../lib/declaredPlayers';
 import { BOOKING_MESSAGES } from '../../messages';
 import { EventSignUpFields } from './EventSignUpFields';
-import { eventTimeRange, endsNextDay, sportLabel } from './eventFormat';
 import { TurnstileField } from '../booking-form/TurnstileField';
 import { FormErrorAlert } from '../booking-form/FormErrorAlert';
 import { PrivacyNotice } from '../booking-form/PrivacyNotice';
 import { SubmitFooter } from '../booking-form/SubmitFooter';
-import { SignUpSummaryCard } from '../signup/SignUpSummaryCard';
 import { eventSignUpSchema, type EventSignUpFormData } from '../../schemas/event-signup.schema';
 import type { PublicOpenPlayEvent } from '../../api/types';
 
@@ -26,23 +21,15 @@ interface EventSignUpFormProps {
   event: PublicOpenPlayEvent;
 }
 
-function eventDetails(event: PublicOpenPlayEvent): string[] {
-  return endsNextDay(event) ? [t.events.nextDayNote] : [];
-}
-
-/** One row per court: its name kept together, then roof, surface and lighting the way the booking flow words them. */
-function eventCourts(event: PublicOpenPlayEvent) {
-  return event.courts.map((court) => ({ id: court.id, name: keepTogether(court.name), facts: courtFactsLine(court) }));
-}
-
 /**
- * The same checkout as a booking: the ticket of what is being paid for, then
- * name and phone required and email optional, the total beside the pay button
- * and the privacy line. Submitting holds the spot and hands the person to the
- * Mercado Pago checkout.
+ * The fields of an open play's checkout: name and phone required and email
+ * optional, the total beside the pay button and the privacy line. The ticket of
+ * what is paid for is set above it by the page (see EventSignUpSummary).
+ * Submitting holds the spot and hands the person to the Mercado Pago checkout.
  */
 export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const schema = useMemo(() => eventSignUpSchema(event), [event]);
 
   const {
     register,
@@ -50,11 +37,12 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
     control,
     formState: { errors },
   } = useAppForm<EventSignUpFormData>({
-    resolver: zodResolver(eventSignUpSchema),
-    defaultValues: { first_name: '', last_name: '', phone: '', email: '' },
+    resolver: zodResolver(schema),
+    defaultValues: { first_name: '', last_name: '', phone: '', email: '', gender: '', level: '' },
   });
 
-  const signUp = useEventSignUp(slug, event.id, setErrorMessage);
+  const signUp = useEventSignUp(slug, event, setErrorMessage);
+  const requirement = openPlayRequirement(event);
 
   // The booking hold's bot check: one invisible challenge, one token per sign-up.
   const { challenge, generation, onTokenChange } = useHoldChallenge();
@@ -69,26 +57,9 @@ export function EventSignUpForm({ slug, event }: EventSignUpFormProps) {
 
   return (
     <div className="space-y-5">
-      <SignUpSummaryCard
-        ariaLabel={t.events.summaryLabel}
-        venue={event.complex_name}
-        dateLabel={format(toDisplayDate(event.date), "EEEE d 'de' MMMM", { locale: es })}
-        timeLabel={eventTimeRange(event)}
-        title={event.name}
-        tags={[sportLabel(event.sport)]}
-        details={eventDetails(event)}
-        courts={eventCourts(event)}
-        courtsLabel={t.events.courtsLabel}
-        priceLabel={t.events.priceLabel}
-        price={event.price}
-        serviceFee={event.service_fee}
-        total={event.total_price}
-        feeNote={t.events.feeNote}
-        cancellationHours={event.cancellation_hours}
-      />
-
       <form onSubmit={submitHandler(handleSubmit, onSubmit)} className="space-y-4">
-        <EventSignUpFields register={register} control={control} errors={errors} />
+        {requirement && <p className="text-text-secondary text-sm">{requirement}</p>}
+        <EventSignUpFields register={register} control={control} errors={errors} event={event} />
         <TurnstileField key={generation} onTokenChange={onTokenChange} />
         <SubmitFooter isLoading={signUp.isPending} totalOnline={event.total_price} type="submit" />
         <PrivacyNotice text={t.events.privacyNotice} />

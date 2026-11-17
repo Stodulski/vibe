@@ -1,18 +1,21 @@
-import { useContext, useState } from 'react';
+import { useContext, useState, type ReactNode } from 'react';
 import { SkeletonCancelInfo } from '@vibe/ui';
 import { HTTPError } from 'ky';
 import { useEvent } from '../hooks/useEvent';
 import { useEventRegistration } from '../hooks/useEventRegistration';
 import { useQueryParams } from '../lib/navigation';
-import { publicEventPath } from '../lib/publicPaths';
+import { publicComplexPath, publicEventPath } from '../lib/publicPaths';
 import { PublicBookingApiContext } from '../api/context';
 import {
   clearEventRegistrationToken,
   readEventRegistrationToken,
 } from '../lib/eventRegistrationStorage';
+import { CheckoutLayout } from '../components/CheckoutLayout';
 import { EventCard } from '../components/events/EventCard';
 import { EventSignUpForm } from '../components/events/EventSignUpForm';
+import { EventSignUpSummary } from '../components/events/EventSignUpSummary';
 import { eventHasStarted, isOpenForSignUp } from '../components/events/eventFormat';
+import { BOOKING_MESSAGES } from '../messages';
 import {
   BackToComplexButton,
   CancelledEventNotice,
@@ -25,7 +28,17 @@ import {
 } from './event-page/EventPageStates';
 import { RegistrationView } from './event-page/RegistrationView';
 
+const t = BOOKING_MESSAGES;
+
 const PAGE = 'animate-fade-in mx-auto flex w-full max-w-md flex-col gap-6 px-4 py-8 sm:py-12';
+
+/** The open-play checkout: the court was chosen on the complex page, so the progress starts at the data. */
+const OPEN_PLAY_STEPS = [t.events.stepCourt, t.publicBooking.stepData, t.publicBooking.stepPay] as const;
+
+/** A state that is not the sign-up keeps the page's own narrow column. */
+function framed(children: ReactNode) {
+  return <div className={PAGE}>{children}</div>;
+}
 
 /** The registration a returning person holds: read through the token in the URL. */
 function RegistrationPage({ slug, eventId, token }: { slug: string; eventId: string; token: string }) {
@@ -88,32 +101,44 @@ function EventSignUpPage({ slug, eventId, paymentFailed }: { slug: string; event
     setParams(new URLSearchParams());
   });
 
-  if (isLoading) return <SkeletonCancelInfo />;
-  if (error instanceof HTTPError && error.response.status === 404) return <EventNotFoundState slug={slug} />;
+  if (isLoading) return framed(<SkeletonCancelInfo />);
+  if (error instanceof HTTPError && error.response.status === 404) return framed(<EventNotFoundState slug={slug} />);
   if (error || !event) {
-    return (
+    return framed(
       <EventLoadErrorState
         onRetry={() => {
           void refetch();
         }}
-      />
+      />,
     );
   }
 
-  if (showFailure) return <PaymentFailedState onRetry={() => void retry()} isRetrying={pending} />;
+  if (showFailure) return framed(<PaymentFailedState onRetry={() => void retry()} isRetrying={pending} />);
 
   const started = eventHasStarted(event);
   const cancelled = event.status === 'cancelled';
   const open = isOpenForSignUp(event) && !started;
-  return (
+  if (open) {
+    // The way back goes to the complex. No "Ver el complejo": this page is the checkout.
+    return (
+      <CheckoutLayout
+        currentStep={2}
+        steps={OPEN_PLAY_STEPS}
+        back={{ label: t.events.back, href: publicComplexPath(slug) }}
+        summary={<EventSignUpSummary event={event} />}
+      >
+        <EventSignUpForm slug={slug} event={event} />
+      </CheckoutLayout>
+    );
+  }
+  return framed(
     <>
-      {!open && <EventCard event={event} headingLevel="h1" />}
+      <EventCard event={event} headingLevel="h1" />
       {cancelled && <CancelledEventNotice />}
       {!cancelled && started && <SignUpClosedNotice />}
-      {!cancelled && !started && !open && <FullEventNotice />}
-      {open && <EventSignUpForm slug={slug} event={event} />}
+      {!cancelled && !started && <FullEventNotice />}
       <BackToComplexButton slug={slug} />
-    </>
+    </>,
   );
 }
 
@@ -127,14 +152,12 @@ export default function EventPage({ slug, eventId }: { slug: string; eventId: st
   const token = params.get('token');
   const paymentFailed = params.get('error') === 'payment_failed';
 
-  return (
-    <div className={PAGE}>
-      {token ? (
+  if (token) {
+    return (
+      <div className={PAGE}>
         <RegistrationPage slug={slug} eventId={eventId} token={token} />
-      ) : (
-        <EventSignUpPage slug={slug} eventId={eventId} paymentFailed={paymentFailed} />
-      )}
-    </div>
-  );
+      </div>
+    );
+  }
+  return <EventSignUpPage slug={slug} eventId={eventId} paymentFailed={paymentFailed} />;
 }
-

@@ -81,4 +81,27 @@ const (
 	// booking's span, so the caller must supply an explicit price instead of
 	// relying on the computed one.
 	CodePriceRequired = "price_required"
+
+	// CodeCategoryDuplicate means the tournament already has a category with the
+	// same modality and level, or the same modality and suma: they are one
+	// category, so the second one is refused.
+	CodeCategoryDuplicate = "category_duplicate"
+
+	// CodeSumaTooLow means the two players' declared levels add up to less than
+	// the suma of the Suma category they sign up for. It is refused before any
+	// spot is held, so nothing is charged.
+	CodeSumaTooLow = "suma_too_low"
+
+	// CodeModalityMismatch means a person's gender does not fit the modality of the
+	// event or category they sign up for: a men's one takes men only, a women's one
+	// women only, a mixed pair is one of each.
+	CodeModalityMismatch = "modality_mismatch"
+
+	// CodeLevelTooStrong means a player's declared level is stronger than the
+	// category allows: a 6ta player cannot enter an 8va category.
+	CodeLevelTooStrong = "level_too_strong"
+
+	// CodeLevelOutOfRange means a participant's declared level is outside the
+	// level range of the open-play event.
+	CodeLevelOutOfRange = "level_out_of_range"
 )

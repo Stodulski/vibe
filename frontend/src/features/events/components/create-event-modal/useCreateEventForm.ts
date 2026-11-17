@@ -7,8 +7,8 @@ import { eventFormSchema, type EventFormValues } from '../../schemas/eventForm.s
 import type { Sport } from '@/shared/types/api.types';
 
 const DEFAULTS: EventFormValues = {
-  name: '',
   sport: 'padel',
+  allLevels: true,
   date: '',
   start_time: '',
   end_time: '',
@@ -31,9 +31,17 @@ export function useCreateEventForm(complexId: string, onDone: () => void) {
   });
 
   const onSubmit = (data: EventFormValues) => {
+    // The schema has required the modality and, off "todas", both ends of the range before this runs.
+    if (!data.modality) throw new Error('an event reaches the request with its modality');
+    const range =
+      data.allLevels || data.levelMin === undefined || data.levelMax === undefined
+        ? {}
+        : { level_min: data.levelMin, level_max: data.levelMax };
     createEvent.mutate(
       {
-        name: data.name.trim(),
+        modality: data.modality,
+        // Absent means every category; otherwise both ends, the strongest first.
+        ...range,
         sport: data.sport as Sport,
         date: data.date,
         start_time: data.start_time,

@@ -12,6 +12,7 @@ import {
 } from '../lib/tournamentRegistrationStorage';
 import { CategorySection } from '../components/tournaments/CategorySection';
 import { sportLabel, tournamentDates } from '../components/tournaments/tournamentModel';
+import { tournamentLabel } from '../lib/traitLabels';
 import { BackToComplexButton, PaymentFailedState, RegistrationNotFoundState } from './event-page/EventPageStates';
 import {
   CancelledTournamentNotice,
@@ -86,7 +87,6 @@ function TournamentDetailPage({
 }) {
   const [, setParams] = useQueryParams();
   const [showFailure, setShowFailure] = useState(paymentFailed);
-  const [openFormId, setOpenFormId] = useState<string | null>(null);
   const { data: detail, isLoading, error, refetch } = useTournament(slug, tournamentId);
   const { pending, retry } = usePaymentRetry(tournamentId, () => {
     setShowFailure(false);
@@ -110,23 +110,13 @@ function TournamentDetailPage({
   return (
     <>
       <header className="flex flex-col gap-1">
-        <h1 className="text-text-primary text-2xl font-bold">{tournament.name}</h1>
+        <h1 className="text-text-primary text-2xl font-bold">{tournamentLabel(tournament.sport)}</h1>
         <p className="text-text-secondary text-sm first-letter:uppercase">{tournamentDates(tournament)}</p>
-        <p className="text-text-secondary text-sm">
-          {sportLabel(tournament.sport)}
-          {detail.complex_name ? `, ${detail.complex_name}` : ''}
-        </p>
+        <p className="text-text-secondary text-sm">{sportLabel(tournament.sport)}</p>
       </header>
       {tournament.status === 'cancelled' && <CancelledTournamentNotice />}
       {detail.categories.map((category) => (
-        <CategorySection
-          key={category.id}
-          slug={slug}
-          detail={detail}
-          category={category}
-          openFormId={openFormId}
-          onOpenFormChange={setOpenFormId}
-        />
+        <CategorySection key={category.id} slug={slug} detail={detail} category={category} />
       ))}
       <BackToComplexButton slug={slug} />
     </>
@@ -135,7 +125,7 @@ function TournamentDetailPage({
 
 /**
  * `/c/<slug>/tournaments/<id>`: the tournament with its categories, groups,
- * bracket and schedule, the pair sign-up while a category is open and, when
+ * bracket and schedule, each open category linking to its own sign-up page and, when
  * the checkout returns here (`?token=...&registered=1`, `&status=pending`, or
  * `?error=payment_failed`), what became of the payment.
  */

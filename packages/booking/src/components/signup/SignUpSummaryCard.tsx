@@ -4,7 +4,6 @@ import { cancellationWindowText } from '../booking-confirmed/cancellationCopy';
 import { TicketCourt, TicketPriceRow, TicketStub } from '../ticket/TicketParts';
 import { TicketCourtList, type TicketCourtRow } from './TicketCourtList';
 
-
 interface SignUpSummaryCardProps {
   ariaLabel: string;
   /** The complex, on the ticket's first line. */
@@ -13,13 +12,15 @@ interface SignUpSummaryCardProps {
   dateLabel: string;
   /** The hours in large type, when the entry has them. */
   timeLabel?: string | undefined;
-  /** What the person signs up for: the event or the tournament. It is the page's `h1`. */
+  /** The small line above the title: what kind of entry it is, "Torneo de pádel". */
+  kicker?: string | undefined;
+  /** What the person signs up for: the event or the category. It is the page's `h1`. */
   title: string;
-  /** Chips under the title (sport, category, format). */
+  /** Chips under the title (sport, format). */
   tags: string[];
   /** Free lines under the chips (how it is played). */
   details?: string[];
-  /** The courts, one per row under `courtsLabel`: the name, then what a player compares ("Techada · Césped sintético"). */
+  /** The courts, one per row under `courtsLabel`: the name as text, then its facts as chips. */
   courts?: TicketCourtRow[];
   courtsLabel?: string;
   /** What the entry is called on the first money row: "Lugar", "Inscripción de la pareja". */
@@ -32,7 +33,11 @@ interface SignUpSummaryCardProps {
   feeNote: string;
   /** The window the person is told before paying, when the club sets one. */
   cancellationHours?: number | undefined;
+  /** Inside the checkout's green band, which already is the card: no surface, rounding or padding of its own. */
+  bare?: boolean;
 }
+
+const CARD_SURFACE = 'bg-primary-500 text-text-inverse rounded-3xl p-6 sm:p-8';
 
 /**
  * The ticket a booking shows before paying, for an event or a tournament
@@ -45,6 +50,7 @@ export function SignUpSummaryCard({
   venue,
   dateLabel,
   timeLabel,
+  kicker,
   title,
   tags,
   details = [],
@@ -56,6 +62,7 @@ export function SignUpSummaryCard({
   total,
   feeNote,
   cancellationHours,
+  bare = false,
 }: SignUpSummaryCardProps) {
   const pricing: BookingPricing = {
     depositAmount: 0,
@@ -68,7 +75,7 @@ export function SignUpSummaryCard({
   const cancellationWindow = cancellationHours === undefined ? null : cancellationWindowText(cancellationHours);
 
   return (
-    <section aria-label={ariaLabel} className="bg-primary-500 text-text-inverse rounded-3xl p-6 sm:p-8">
+    <section aria-label={ariaLabel} className={bare ? 'text-text-inverse' : CARD_SURFACE}>
       <div className="space-y-6">
         {venue && <p className="text-text-inverse text-sm font-semibold">{venue}</p>}
         <div>
@@ -76,16 +83,17 @@ export function SignUpSummaryCard({
           {timeLabel && <p className="text-text-inverse text-3xl font-bold tabular-nums">{timeLabel}</p>}
         </div>
         <div className="space-y-2">
-          <TicketCourt name={title} tags={tags} as="h1" />
+          {kicker && <p className="text-text-inverse text-sm">{kicker}</p>}
+          <TicketCourt name={title} tags={tags} as="h1" bare={bare} />
           {details.map((line) => (
             <p key={line} className="text-text-inverse text-sm">
               {line}
             </p>
           ))}
-          <TicketCourtList courts={courts} label={courtsLabel} />
+          <TicketCourtList courts={courts} label={courtsLabel} bare={bare} />
         </div>
       </div>
-      <TicketStub />
+      <TicketStub bare={bare} />
       <TicketPriceRow label={priceLabel} amount={price} />
       <PriceBreakdown depositPercentage={0} pricing={pricing} feeNote={feeNote} />
       {cancellationWindow && <p className="text-text-inverse mt-6 text-sm">{cancellationWindow}</p>}

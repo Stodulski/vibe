@@ -1,9 +1,13 @@
 import { describe, it, expect } from 'vitest';
+import { ES_AR } from '@/shared/i18n/es_AR';
 import { eventDurationMinutes, eventFormSchema } from './eventForm.schema';
 
+const v = ES_AR.events.validation;
+
 const valid = {
-  name: 'Americano',
   sport: 'padel',
+  modality: 'men' as const,
+  allLevels: true,
   date: '2099-01-01',
   start_time: '19:00',
   end_time: '21:00',
@@ -12,6 +16,11 @@ const valid = {
   capacity: 20,
   price: 5000,
 };
+
+function messages(input: unknown): string[] {
+  const result = eventFormSchema.safeParse(input);
+  return result.success ? [] : result.error.issues.map((issue) => issue.message);
+}
 
 describe('eventDurationMinutes', () => {
   it('measures within a day', () => {
@@ -25,7 +34,7 @@ describe('eventDurationMinutes', () => {
 });
 
 describe('eventFormSchema', () => {
-  it('accepts a complete event', () => {
+  it('accepts a complete event for every level', () => {
     expect(eventFormSchema.safeParse(valid).success).toBe(true);
   });
 
@@ -49,8 +58,34 @@ describe('eventFormSchema', () => {
     expect(eventFormSchema.safeParse({ ...valid, allCourts: false, courtIds: ['ct1'] }).success).toBe(true);
   });
 
-  it('refuses a name of only spaces and one over 100 characters', () => {
-    expect(eventFormSchema.safeParse({ ...valid, name: '   ' }).success).toBe(false);
-    expect(eventFormSchema.safeParse({ ...valid, name: 'a'.repeat(101) }).success).toBe(false);
+  it('needs a modality: the event is men’s, women’s or mixed', () => {
+    expect(messages({ ...valid, modality: undefined })).toEqual([v.modalityRequired]);
+  });
+
+  // S15: the modality is every sport's, so a tennis or soccer event needs one too.
+  it('needs a modality on a sport other than padel as well', () => {
+    expect(messages({ ...valid, sport: 'tennis', modality: undefined })).toEqual([v.modalityRequired]);
+    expect(messages({ ...valid, sport: 'soccer', modality: 'women' as const })).toEqual([]);
+  });
+
+  it('accepts one level as "solo 4ta" (both ends equal) and a range "6ta a 8va"', () => {
+    expect(messages({ ...valid, allLevels: false, levelMin: 4, levelMax: 4 })).toEqual([]);
+    expect(messages({ ...valid, allLevels: false, levelMin: 6, levelMax: 8 })).toEqual([]);
+  });
+
+  it('needs both ends of the range once all levels is off, and neither when it is on', () => {
+    expect(messages({ ...valid, allLevels: false })).toEqual([v.levelRangeIncomplete]);
+    expect(messages({ ...valid, allLevels: false, levelMin: 6 })).toEqual([v.levelRangeIncomplete]);
+    expect(messages({ ...valid, allLevels: false, levelMax: 8 })).toEqual([v.levelRangeIncomplete]);
+    expect(messages({ ...valid, allLevels: true, levelMin: 6, levelMax: 8 })).toEqual([]);
+  });
+
+  it('refuses a range whose "Desde" is weaker than its "Hasta"', () => {
+    expect(messages({ ...valid, allLevels: false, levelMin: 8, levelMax: 6 })).toEqual([v.levelRangeOrder]);
+  });
+
+  it('keeps each level between 1ra and 9na', () => {
+    expect(messages({ ...valid, allLevels: false, levelMin: 0, levelMax: 8 }).length).toBeGreaterThan(0);
+    expect(messages({ ...valid, allLevels: false, levelMin: 6, levelMax: 10 }).length).toBeGreaterThan(0);
   });
 });

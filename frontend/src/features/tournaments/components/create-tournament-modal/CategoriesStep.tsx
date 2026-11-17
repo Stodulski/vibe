@@ -28,6 +28,7 @@ export function CategoriesStep({ flow, onBack, onNext }: Props) {
   const { form } = flow;
   const [editing, setEditing] = useState<Editing | null>(null);
   const saved = form.watch('categories');
+  const sport = form.watch('sport');
   const listError = form.formState.errors.categories?.root?.message ?? form.formState.errors.categories?.message;
 
   const open = (index: number, before: CategoryFormValues | null) => {
@@ -61,6 +62,7 @@ export function CategoriesStep({ flow, onBack, onNext }: Props) {
     <>
       <CategorySummaryList
         categories={saved}
+        sport={sport}
         error={listError}
         onAdd={() => {
           open(flow.addCategory(), null);

@@ -33,6 +33,7 @@ type stubStore struct {
 	scheduled   []tournamentstore.ScheduleInput
 	results     []tournamentstore.ResultInput
 	hooksFor    []string
+	pairHooks   []pairHook
 	drawn       bool
 	feeErr      error
 	feeSet      []int
@@ -163,8 +164,12 @@ func (s *stubStore) Unschedule(_ context.Context, id uuid.UUID) (*tournamentstor
 	return &tournamentstore.Match{ID: id}, nil
 }
 
-func (s *stubStore) PairHooks(payerPhone string, partner tournamentstore.Player) *eventstore.SignUpHooks {
-	s.hooksFor = append(s.hooksFor, payerPhone+"+"+partner.Phone)
+// pairHook is the pair a sign-up's hooks were built for: its payer and partner.
+type pairHook struct{ payer, partner tournamentstore.Player }
+
+func (s *stubStore) PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks {
+	s.hooksFor = append(s.hooksFor, payer.Phone+"+"+partner.Phone)
+	s.pairHooks = append(s.pairHooks, pairHook{payer: payer, partner: partner})
 	return &eventstore.SignUpHooks{}
 }
 

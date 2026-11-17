@@ -79,8 +79,9 @@ export type PublicTournament = Omit<Tournament, 'sport' | 'status'> & {
 };
 
 /** A category as a visitor sees it, with the match format and the sign-up counts. */
-export type PublicTournamentCategory = Omit<TournamentCategory, 'format' | 'status'> & {
+export type PublicTournamentCategory = Omit<TournamentCategory, 'format' | 'status' | 'modality'> & {
   format: Open<TournamentCategory['format']>;
+  modality: Open<NonNullable<TournamentCategory['modality']>> | null;
   status: Open<TournamentCategory['status']>;
 };
 

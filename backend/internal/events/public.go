@@ -84,6 +84,79 @@ type SignUpInput struct {
 	LastName  string
 	Phone     string
 	Email     string
+	// Gender (GenderMen or GenderWomen) and Level (1 to 9) are what the person
+	// declares. An event with a modality needs both; any other keeps them if given.
+	Gender *string
+	Level  *int
+}
+
+// The gender a person declares, and the modality an event or category is open to.
+const (
+	GenderMen   = "men"
+	GenderWomen = "women"
+
+	ModalityMen   = "men"
+	ModalityWomen = "women"
+	ModalityMixed = "mixed"
+
+	// MinLevel and MaxLevel bound a declared level: 1ra to 9na.
+	MinLevel = 1
+	MaxLevel = 9
+)
+
+// Stable codes a sign-up is refused with when its declaration does not fit.
+// CodeModalityMismatch: the gender is not the one the modality allows.
+// CodeLevelOutOfRange: the level is outside the event's range.
+const (
+	CodeModalityMismatch = httpx.CodeModalityMismatch
+	CodeLevelOutOfRange  = httpx.CodeLevelOutOfRange
+)
+
+// noLevelRange refuses a level declared on an event that has no level range.
+const noLevelRange = "must not be sent: this event has no level range"
+
+// checkDeclaredPlayer holds a sign-up to its event before anything is held: an event
+// with a modality needs the person's gender, whatever the sport, and the gender must
+// fit the modality. Only an event with a level range (padel) also needs the level,
+// which must sit inside that range. An event without a modality takes anyone.
+func checkDeclaredPlayer(ev *eventstore.Event, in SignUpInput) error {
+	if ev.Modality == nil {
+		return nil
+	}
+	errs := map[string]string{}
+	if in.Gender == nil {
+		errs["gender"] = "must be provided"
+	}
+	if ev.LevelMin != nil && ev.LevelMax != nil {
+		if in.Level == nil {
+			errs["level"] = "must be provided"
+		}
+	} else if in.Level != nil {
+		errs["level"] = noLevelRange
+	}
+	if len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	if !genderFits(*ev.Modality, *in.Gender) {
+		return &ValidationError{Errors: map[string]string{"gender": CodeModalityMismatch}}
+	}
+	if ev.LevelMin != nil && ev.LevelMax != nil && (*in.Level < *ev.LevelMin || *in.Level > *ev.LevelMax) {
+		return &ValidationError{Errors: map[string]string{"level": CodeLevelOutOfRange}}
+	}
+	return nil
+}
+
+// genderFits is whether a person of this gender may sign up to an event of this
+// modality: a men's event takes men, a women's takes women, a mixed one both.
+func genderFits(modality, gender string) bool {
+	switch modality {
+	case ModalityMen:
+		return gender == GenderMen
+	case ModalityWomen:
+		return gender == GenderWomen
+	default:
+		return true
+	}
 }
 
 // SignUpResult is a held spot and the checkout to pay for it.
@@ -131,6 +204,9 @@ func (s *Service) PublicComplex(ctx context.Context, slug string) (*complexstore
 // the hold, the capacity, the checkout and the confirmation are this code's,
 // unchanged.
 func (s *Service) SignUpWith(ctx context.Context, actor Actor, complex *complexstore.Complex, ev *eventstore.Event, in SignUpInput, hooks *eventstore.SignUpHooks) (*SignUpResult, error) {
+	if err := checkDeclaredPlayer(ev, in); err != nil {
+		return nil, err
+	}
 	seller, err := checkout.Seller(complex)
 	if err != nil {
 		return nil, ErrMercadoPagoNotConnected
@@ -147,6 +223,7 @@ func (s *Service) SignUpWith(ctx context.Context, actor Actor, complex *complexs
 	reg, token, err := s.store.SignUp(ctx, eventstore.SignUpInput{
 		EventID: ev.ID, FirstName: in.FirstName, LastName: in.LastName, Phone: in.Phone, Email: email,
 		ServiceFee: fee, IP: httpx.RateLimitKey(actor.IP), MaxHoldsPerIP: s.cfg.MaxHoldsPerIP, Hooks: hooks,
+		Gender: in.Gender, Level: in.Level,
 	})
 	if err != nil {
 		return nil, signUpError(err)

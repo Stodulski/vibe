@@ -1497,9 +1497,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, date, start_time, end_time, capacity, price]
+              required: [date, start_time, end_time, capacity, price]
               properties:
-                name: {type: string, maxLength: 100}
+                name: {type: string, maxLength: 100, description: "Optional; an event given none is named after its sport."}
+                modality: {type: string, enum: [men, women, mixed], description: "Required on every sport. Who may sign up: men, women, or mixed (one of each in a pair is not required; anyone)."}
+                level_min: {type: integer, minimum: 1, maximum: 9, description: "Padel only. The strongest level allowed (the lowest number). Give both level_min and level_max, or neither. Solo 4ta is 4 and 4. Refused (422) on any other sport."}
+                level_max: {type: integer, minimum: 1, maximum: 9, description: "The weakest level allowed; level_min must not be above it."}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball], default: padel}
                 date: {type: string, format: date, description: "The day the event starts on. Not in the past, within 365 days."}
                 start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
@@ -3000,7 +3003,9 @@ paths:
         with `sets_to_win` 2; default true) and `match_duration_minutes` (30 to 480, the court time a
         match gets when scheduled without a duration; default 90). A category's sign-up is paid by one person for the whole pair and
         works like an open-play event sign-up; it closes when the draw is generated. Names: at most 60
-        characters for the tournament and 30 for a category.
+        characters for the tournament, named after its sport when it has none. A category is composed from its
+        modality and exactly one of `level` (1 to 9) or `suma` (2 to 18): the server names it, the owner never types it.
+        `prizes` (at most 200 characters) is optional; `starts_on` (within the tournament's dates) and `starts_at` (HH:MM) are required.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}
@@ -3010,9 +3015,9 @@ paths:
           application/json:
             schema:
               type: object
-              required: [name, start_date, end_date, categories]
+              required: [start_date, end_date, categories]
               properties:
-                name: {type: string}
+                name: {type: string, maxLength: 60, description: "Optional; a tournament given none is named after its sport."}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball], default: padel}
                 start_date: {type: string, format: date}
                 end_date: {type: string, format: date, description: "On or after start_date, at most 60 days later."}
@@ -3022,9 +3027,14 @@ paths:
                   maxItems: 20
                   items:
                     type: object
-                    required: [name, format, capacity, price]
+                    required: [modality, format, capacity, price, starts_on, starts_at]
                     properties:
-                      name: {type: string}
+                      modality: {type: string, enum: [men, women, mixed], description: "Every sport. Caballeros, Damas or Mixto for padel, tennis and pickleball; Masculino, Femenino or Mixto for soccer, basketball, volleyball and hockey. The name is composed from it."}
+                      level: {type: integer, minimum: 1, maximum: 9, description: "Padel only: 1ra (1) to 9na (9). Exactly one of level and suma; refused (422) on any other sport."}
+                      suma: {type: integer, minimum: 2, maximum: 18, description: "Padel only: the two players' levels added together. Exactly one of level and suma; refused (422) on any other sport."}
+                      prizes: {type: string, maxLength: 200}
+                      starts_on: {type: string, format: date, description: "The day the category starts, within the tournament's dates."}
+                      starts_at: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$", description: "The time the category starts, HH:MM."}
                       format: {type: string, enum: [elimination, groups]}
                       capacity: {type: integer, minimum: 2, maximum: 128, description: Pairs.}
                       price: {type: integer, description: "Centavos per pair."}
@@ -3629,6 +3639,8 @@ paths:
                 last_name: {type: string}
                 phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
                 email: {type: string, description: Optional.}
+                gender: {type: string, enum: [men, women], description: "Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise)."}
+                level: {type: integer, minimum: 1, maximum: 9, description: "Required when the category has a modality. A level category refuses a player whose level is stronger than its level (level_too_strong). A Suma needs both levels to add up to the suma (suma_too_low). All before anything is held."}
                 partner:
                   type: object
                   required: [first_name, last_name, phone]
@@ -3637,6 +3649,8 @@ paths:
                     last_name: {type: string}
                     phone: {type: string, description: "Must differ from the payer's."}
                     email: {type: string, description: Optional.}
+                    gender: {type: string, enum: [men, women]}
+                    level: {type: integer, minimum: 1, maximum: 9}
                 turnstile_token:
                   type: string
                   description: >-
@@ -3870,6 +3884,8 @@ paths:
                 last_name: {type: string}
                 phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
                 email: {type: string, description: Optional.}
+                gender: {type: string, enum: [men, women], description: "Required when the event has a modality; the gender must fit it (modality_mismatch)."}
+                level: {type: integer, minimum: 1, maximum: 9, description: "Required when the event has a modality; it must sit in the event's range (level_out_of_range)."}
                 turnstile_token:
                   type: string
                   description: >-
@@ -7110,6 +7126,9 @@ components:
         [id, complex_id, name, sport, date, start_time, end_time, duration_minutes, capacity, price,
          status, courts, confirmed_count, held_count, spots_left, created_at]
       properties:
+        modality: {type: [string, "null"], enum: [men, women, mixed, null], description: "Null on an event without a modality."}
+        level_min: {type: [integer, "null"], minimum: 1, maximum: 9, description: "The strongest level allowed, or null."}
+        level_max: {type: [integer, "null"], minimum: 1, maximum: 9, description: "The weakest level allowed, or null."}
         id: {type: string, format: uuid}
         complex_id: {type: string, format: uuid}
         name: {type: string}
@@ -7140,6 +7159,8 @@ components:
       type: object
       required: [id, first_name, last_name, phone, status, price, service_fee, created_at]
       properties:
+        gender: {type: [string, "null"], enum: [men, women, null], description: "The gender declared at sign-up."}
+        level: {type: [integer, "null"], minimum: 1, maximum: 9, description: "The level declared at sign-up."}
         id: {type: string, format: uuid}
         first_name: {type: string}
         last_name: {type: string}
@@ -7185,6 +7206,9 @@ components:
         [id, name, sport, date, start_time, end_time, duration_minutes, capacity, spots_left, price,
          service_fee, total_price, status, court_names, courts]
       properties:
+        modality: {type: [string, "null"], enum: [men, women, mixed, null]}
+        level_min: {type: [integer, "null"], minimum: 1, maximum: 9}
+        level_max: {type: [integer, "null"], minimum: 1, maximum: 9}
         id: {type: string, format: uuid}
         name: {type: string}
         sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
@@ -7301,11 +7325,17 @@ components:
       description: >-
         `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or
         `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
-      required: [id, tournament_id, name, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, status, draw_generated]
+      required: [id, tournament_id, name, modality, level, suma, prizes, starts_on, starts_at, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, status, draw_generated]
       properties:
         id: {type: string, format: uuid}
         tournament_id: {type: string, format: uuid}
-        name: {type: string}
+        name: {type: string, description: "Composed from the traits, e.g. Caballeros 8va or Mixto Suma 15; a category created before the traits keeps the name it was given."}
+        modality: {type: [string, "null"], enum: [men, women, mixed, null], description: "Null on a category created before the traits."}
+        level: {type: [integer, "null"], minimum: 1, maximum: 9}
+        suma: {type: [integer, "null"], minimum: 2, maximum: 18}
+        prizes: {type: [string, "null"], maxLength: 200}
+        starts_on: {type: [string, "null"], format: date}
+        starts_at: {type: [string, "null"], pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
         format: {type: string, enum: [elimination, groups]}
         capacity: {type: integer, description: Pairs.}
         price: {type: integer, description: "Centavos per pair."}
@@ -7368,12 +7398,14 @@ components:
 
     TournamentOwnerPlayer:
       type: object
-      required: [first_name, last_name, phone, email]
+      required: [first_name, last_name, phone, email, gender, level]
       properties:
         first_name: {type: string}
         last_name: {type: string}
         phone: {type: string}
         email: {type: [string, "null"]}
+        gender: {type: [string, "null"], enum: [men, women, null], description: "The gender declared at sign-up."}
+        level: {type: [integer, "null"], minimum: 1, maximum: 9, description: "The level declared at sign-up."}
 
     TournamentPair:
       type: object

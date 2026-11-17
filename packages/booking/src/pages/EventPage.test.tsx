@@ -39,7 +39,7 @@ describe('EventPage event', () => {
     serveEvent();
     open();
 
-    expect(await screen.findByRole('heading', { level: 1, name: EVENT.name })).toBeInTheDocument();
+    expect(await screen.findByRole('heading', { level: 1, name: 'Cancha abierta de pádel' })).toBeInTheDocument();
     expect(screen.getByLabelText(/^Nombre/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Apellido/)).toBeInTheDocument();
     expect(screen.getByLabelText(/^Teléfono/)).toBeInTheDocument();
@@ -182,7 +182,7 @@ describe('EventPage checkout return', () => {
     open('?token=tok-1&registered=1');
 
     expect(await screen.findByText(t.events.confirmedTitle)).toBeInTheDocument();
-    expect(screen.getByText(EVENT.name)).toBeInTheDocument();
+    expect(screen.getByText('Cancha abierta de pádel')).toBeInTheDocument();
     expect(screen.getByText(new RegExp(t.events.refundUntilPrefix))).toBeInTheDocument();
   });
 
@@ -274,11 +274,13 @@ describe('EventPage checkout parity with a booking', () => {
     open();
 
     const ticket = await screen.findByRole('region', { name: t.events.summaryLabel });
-    expect(within(ticket).getByRole('heading', { level: 1, name: EVENT.name })).toBeInTheDocument();
+    expect(within(ticket).getByRole('heading', { level: 1, name: 'Cancha abierta de pádel' })).toBeInTheDocument();
     expect(within(ticket).getByText('Club Norte')).toBeInTheDocument();
     expect(within(ticket).getByText('19:00 a 22:00')).toBeInTheDocument();
-    expect(within(ticket).getAllByRole('listitem')).toHaveLength(2);
-    expect(within(ticket).getByText('Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
+    expect(within(ticket).getByText(/, /)).toBeInTheDocument();
+    for (const chip of ['Techada', 'Césped sintético', 'Con iluminación']) {
+      expect(within(ticket).getByText(chip)).toBeInTheDocument();
+    }
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();
     expect(within(ticket).getByText(/24h/)).toBeInTheDocument();

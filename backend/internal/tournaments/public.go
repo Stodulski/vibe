@@ -10,6 +10,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/timezone"
@@ -85,6 +86,11 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, tourname
 	if t.Status != tournamentstore.StatusActive || cat.Cancelled || cat.DrawGeneratedAt != nil {
 		return nil, events.ErrEventClosed
 	}
+	// Refused before AnyEvent, the hold and the checkout: a pair that does not fit
+	// its category never costs anything.
+	if err := checkDeclaredPlayers(cat, in.Payer, in.Partner); err != nil {
+		return nil, err
+	}
 	ev, err := s.events.AnyEvent(ctx, complex.ID, cat.EventID)
 	if err != nil {
 		return nil, err
@@ -93,14 +99,91 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, tourname
 	if in.Partner.Email != "" {
 		partnerEmail = &in.Partner.Email
 	}
-	hooks := s.store.PairHooks(in.Payer.Phone, tournamentstore.Player{
-		FirstName: in.Partner.FirstName, LastName: in.Partner.LastName, Phone: in.Partner.Phone, Email: partnerEmail,
-	})
+	hooks := s.store.PairHooks(
+		tournamentstore.Player{Phone: in.Payer.Phone},
+		tournamentstore.Player{
+			FirstName: in.Partner.FirstName, LastName: in.Partner.LastName, Phone: in.Partner.Phone, Email: partnerEmail,
+			Gender: in.Partner.Gender, Level: in.Partner.Level,
+		},
+	)
 	res, err := s.events.SignUpWith(ctx, actor, complex, ev, in.Payer, hooks)
 	if err != nil {
 		return nil, err
 	}
 	return &PairSignUpResult{SignUpResult: res, Tournament: t, Category: cat}, nil
+}
+
+// noLevelDeclared refuses a level declared on a category that has no level or suma.
+const noLevelDeclared = "must not be sent: this category has no level or suma"
+
+// checkDeclaredPlayers holds a pair to its category before anything is held. A
+// category with a modality needs both players to declare a gender, whatever the
+// sport; the genders must fit the modality. A category with a level or a suma (padel
+// only) also needs each player's level: a level category takes no player stronger
+// than its level, and a Suma takes a pair whose levels add up to at least its suma.
+// A category without a modality (created before it) takes the pair as it is.
+func checkDeclaredPlayers(cat *tournamentstore.Category, payer, partner events.SignUpInput) error {
+	if cat.Modality == nil {
+		return nil
+	}
+	errs := map[string]string{}
+	if payer.Gender == nil {
+		errs["gender"] = "must be provided"
+	}
+	if partner.Gender == nil {
+		errs["partner.gender"] = "must be provided"
+	}
+	if cat.Level != nil || cat.Suma != nil {
+		if payer.Level == nil {
+			errs["level"] = "must be provided"
+		}
+		if partner.Level == nil {
+			errs["partner.level"] = "must be provided"
+		}
+	} else {
+		if payer.Level != nil {
+			errs["level"] = noLevelDeclared
+		}
+		if partner.Level != nil {
+			errs["partner.level"] = noLevelDeclared
+		}
+	}
+	if len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	if !pairFits(*cat.Modality, *payer.Gender, *partner.Gender) {
+		errs["modality"] = httpx.CodeModalityMismatch
+	}
+	if cat.Level != nil {
+		if *payer.Level < *cat.Level {
+			errs["level"] = httpx.CodeLevelTooStrong
+		}
+		if *partner.Level < *cat.Level {
+			errs["partner.level"] = httpx.CodeLevelTooStrong
+		}
+	}
+	if cat.Suma != nil && *payer.Level+*partner.Level < *cat.Suma {
+		errs["levels"] = httpx.CodeSumaTooLow
+	}
+	if len(errs) > 0 {
+		return &ValidationError{Errors: errs}
+	}
+	return nil
+}
+
+// pairFits is whether two players of these genders may play a category of this
+// modality: men's both men, women's both women, mixed one of each.
+func pairFits(modality, payer, partner string) bool {
+	switch modality {
+	case ModalityMen:
+		return payer == GenderMen && partner == GenderMen
+	case ModalityWomen:
+		return payer == GenderWomen && partner == GenderWomen
+	case ModalityMixed:
+		return (payer == GenderMen && partner == GenderWomen) || (payer == GenderWomen && partner == GenderMen)
+	default:
+		return false
+	}
 }
 
 // PairView is a pair's own spot with everything the status page renders.

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type MockInstance } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderBooking, setBookingUrl } from '../test/booking';
 import { BOOKING_MESSAGES } from '../messages';
@@ -158,6 +158,64 @@ function stubThrowingSessionStorage() {
     Object.defineProperty(window, 'sessionStorage', { configurable: true, value: original });
   };
 }
+
+describe('BookConfirmPage ticket', () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  // The ticket is the checkout's green band: the countdown and the steps sit
+  // with it, and the form, the pay button included, is below the band.
+  it('sets the ticket in the green band above the form, beside the countdown', async () => {
+    await renderPage();
+
+    const summary = await screen.findByRole('region', { name: /resumen de la reserva/i });
+    const band = summary.closest('.bg-primary-500');
+    expect(band).not.toBeNull();
+    expect(band).toContainElement(screen.getByRole('timer'));
+    expect(band).not.toContainElement(screen.getByRole('button', { name: /pagar/i }));
+    expect(summary).not.toHaveClass('rounded-3xl');
+  });
+
+  it('renders the court name in the summary', async () => {
+    await renderPage();
+    expect(await screen.findByText('Cancha 1')).toBeInTheDocument();
+  });
+
+  it('renders the time range in the summary', async () => {
+    await renderPage();
+    expect(await screen.findByText(/10:00/)).toBeInTheDocument();
+    expect(screen.getByText(/11:30/)).toBeInTheDocument();
+  });
+
+  it('renders the deposit amount in the summary', async () => {
+    await renderPage();
+    expect(await screen.findByText(/30%/)).toBeInTheDocument();
+  });
+
+  it('renders the service fee in the summary', async () => {
+    await renderPage();
+    expect((await screen.findAllByText(/cargo de servicio/i)).length).toBeGreaterThan(0);
+  });
+
+  it('renders the total online amount in the summary', async () => {
+    await renderPage();
+    const summary = await screen.findByRole('region', { name: /resumen de la reserva/i });
+    expect(within(summary).getByText(/pag.s ahora/i)).toBeInTheDocument();
+  });
+
+  // The pay button restates the total beside itself, so the amount is confirmed
+  // once in the summary above and once right by the action.
+  it('restates the total online amount beside the pay button', async () => {
+    await renderPage();
+    expect(await screen.findAllByText(/pag.s ahora/i)).toHaveLength(2);
+  });
+
+  it('renders the service-fee helper line under the fee row', async () => {
+    await renderPage();
+    expect(await screen.findByText(/no se descuenta del precio de la cancha/i)).toBeInTheDocument();
+  });
+});
 
 describe('BookConfirmPage happy path', () => {
   it('renders the booking form with the draft slot', async () => {

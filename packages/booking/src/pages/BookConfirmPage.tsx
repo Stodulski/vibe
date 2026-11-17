@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react';
-import { ArrowLeft } from 'lucide-react';
 import { BookingForm } from '../components/BookingForm';
+import { BookingSummaryCard } from '../components/booking-form/BookingSummaryCard';
+import { computeBookingPricing } from '../components/booking-form/pricing';
 import { FormErrorAlert } from '../components/booking-form/FormErrorAlert';
 import { StepIndicator } from '../components/StepIndicator';
+import { CheckoutLayout } from '../components/CheckoutLayout';
 import { LoadingSpinner } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../messages';
 import { publicComplexPath } from '../lib/publicPaths';
@@ -57,26 +59,18 @@ function BookConfirmPageContent({ slug, draft }: BookConfirmPageContentProps) {
   }
 
   return (
-    <div className="animate-fade-in w-full space-y-6 sm:space-y-8">
-      <StepIndicator currentStep={2} />
-
-      {/* Back to slot selection, giving the held slot back */}
-      <button
-        type="button"
-        onClick={hold.changeTime}
-        className="text-text-tertiary hover:text-text-secondary flex min-h-12 items-center gap-1.5 text-sm transition-colors sm:min-h-0"
-      >
-        <ArrowLeft className="size-3.5" />
-        {t.publicBooking.changeTimeSlot}
-      </button>
-
-      <HoldCountdown expiresAt={draft.holdExpiresAt} onExpire={hold.expire} />
-
+    // Back to slot selection gives the held slot back, so the back link is an action, not a link.
+    <CheckoutLayout
+      currentStep={2}
+      back={{ label: t.publicBooking.changeTimeSlot, onClick: hold.changeTime }}
+      aside={<HoldCountdown expiresAt={draft.holdExpiresAt} onExpire={hold.expire} />}
+      summary={<BookingSummaryCard slotInfo={draft} pricing={computeBookingPricing(draft)} bare />}
+    >
       <BookingForm slotInfo={draft} onSubmit={handleSubmit} isLoading={isLoading} />
 
       {paymentLinkError && (
         <FormErrorAlert message={t.publicBooking.paymentLinkError} onRetry={retry} retryDisabled={isLoading} />
       )}
-    </div>
+    </CheckoutLayout>
   );
 }

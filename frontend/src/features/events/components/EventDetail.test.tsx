@@ -15,6 +15,9 @@ const EVENT: OpenPlayEvent = {
   id: 'ev1',
   complex_id: 'c1',
   name: 'Americano de viernes',
+  modality: 'men',
+  level_min: 6,
+  level_max: 8,
   sport: 'padel',
   date: '2099-01-02',
   start_time: '19:00',
@@ -89,7 +92,7 @@ describe('EventDetail', () => {
   it('shows the event facts', async () => {
     await renderDetail();
 
-    expect(await screen.findByText('Americano de viernes')).toBeInTheDocument();
+    expect(await screen.findByText('Cancha abierta de pádel · Caballeros · 6ta a 8va')).toBeInTheDocument();
     expect(screen.getByText('Cancha 1, Cancha 2')).toBeInTheDocument();
     expect(screen.getByText('19:00 a 21:00')).toBeInTheDocument();
     expect(screen.getByText(t.spotsTaken(2, 20))).toBeInTheDocument();
@@ -257,7 +260,7 @@ describe('EventDetail cancel', () => {
   it('offers no cancel for an event whose day is over', async () => {
     await renderDetail({ ...EVENT, date: '2020-01-02' });
 
-    await screen.findByText('Americano de viernes');
+    await screen.findByText('Cancha abierta de pádel · Caballeros · 6ta a 8va');
     expect(screen.queryByRole('button', { name: t.cancel.action })).not.toBeInTheDocument();
   });
 });
