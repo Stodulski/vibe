@@ -95,6 +95,49 @@ function useWheelSlides(trackRef: React.RefObject<HTMLDivElement | null>) {
   }, [trackRef]);
 }
 
+/**
+ * Dragging the ruler with a mouse, as a finger does on a phone. Snapping is off while
+ * it moves, and on release the nearest hour settles under the marker. A drag never
+ * counts as a tap on the tick it ends over.
+ */
+function useMouseDrag(trackRef: React.RefObject<HTMLDivElement | null>) {
+  const drag = useRef<{ x: number; left: number; moved: boolean } | null>(null);
+  const justDragged = useRef(false);
+  const onPointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (event.pointerType !== 'mouse' || event.button !== 0) return;
+    drag.current = { x: event.clientX, left: event.currentTarget.scrollLeft, moved: false };
+  };
+  const onPointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    if (!state) return;
+    const dx = event.clientX - state.x;
+    if (!state.moved && Math.abs(dx) < 5) return;
+    if (!state.moved) {
+      state.moved = true;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      event.currentTarget.style.scrollSnapType = 'none';
+    }
+    event.currentTarget.scrollLeft = state.left - dx;
+  };
+  const onPointerEnd = (event: React.PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    drag.current = null;
+    if (!state?.moved) return;
+    justDragged.current = true;
+    const track = event.currentTarget;
+    track.style.scrollSnapType = '';
+    centerTick(trackRef.current, centeredIndex(track));
+  };
+  // Swallows the click a drag ends with, so the tick under the pointer is not tapped.
+  const onClickCapture = (event: React.MouseEvent) => {
+    if (!justDragged.current) return;
+    justDragged.current = false;
+    event.stopPropagation();
+    event.preventDefault();
+  };
+  return { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd, onClickCapture };
+}
+
 /** The ‹ › buttons at the ruler's ends: one hour back or forward. */
 function RulerArrow({ side, disabled, onClick }: { side: 'prev' | 'next'; disabled: boolean; onClick: () => void }) {
   const Icon = side === 'prev' ? ChevronLeft : ChevronRight;
@@ -149,6 +192,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
   );
   const [focused, setFocused] = useState(initial);
   useWheelSlides(trackRef);
+  const dragHandlers = useMouseDrag(trackRef);
   const current = options[Math.min(focused, options.length - 1)];
 
   // Centers the starting hour once, without animation.
@@ -169,9 +213,11 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         <span aria-hidden="true" className="bg-primary-500 pointer-events-none absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
         <RulerArrow side="prev" disabled={focused === 0} onClick={() => { centerTick(trackRef.current, focused - 1); }} />
         <RulerArrow side="next" disabled={focused >= options.length - 1} onClick={() => { centerTick(trackRef.current, focused + 1); }} />
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- the drag is a mouse shortcut; the ticks and ‹ › are the accessible controls */}
         <div
           ref={trackRef}
-          className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_25%,black_75%,transparent)]"
+          {...dragHandlers}
+          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_25%,black_75%,transparent)]"
           onScroll={(event) => {
             setFocused(centeredIndex(event.currentTarget));
           }}
