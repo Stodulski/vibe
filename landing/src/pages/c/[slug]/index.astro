@@ -12,8 +12,14 @@ import { PUBLIC_TURNSTILE_SITE_KEY } from 'astro:env/client';
 import { ComplexPageEntry } from '@vibe/booking/complex-page';
 import { buildComplexSchema } from '@vibe/booking/complex-schema';
 import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
+import { publicEventListResponseSchema } from '@vibe/booking/events-response';
+import { publicTournamentListResponseSchema } from '@vibe/booking/tournaments-response';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
-import type { PublicComplexResponse } from '@vibe/booking/types';
+import type {
+  PublicComplexResponse,
+  PublicEventListResponse,
+  PublicTournamentListResponse,
+} from '@vibe/booking/types';
 import BookingLayout from '../../../layouts/BookingLayout.astro';
 import StorefrontLayout from '../../../layouts/StorefrontLayout.astro';
 import Nav from '../../../components/Nav.astro';
@@ -36,11 +42,33 @@ let gone: GoneView | null = null;
 let status = 200;
 
 const api = createPublicApi({ baseUrl: PUBLIC_API_URL, timeoutMs: API_TIMEOUT_MS });
+
+/**
+ * The complex's open play and tournaments, read beside the complex so its "Eventos" list is in
+ * the markup. Either one is an extra: a failure or an unexpected body leaves it to the browser.
+ */
+function optional<T>(read: Promise<unknown>, schema: { safeParse(raw: unknown): { success: true; data: T } | { success: false } }) {
+  return read.then(
+    (raw) => {
+      const parsed = schema.safeParse(raw);
+      return parsed.success ? parsed.data : undefined;
+    },
+    () => undefined,
+  );
+}
+const offers: Promise<[PublicEventListResponse | undefined, PublicTournamentListResponse | undefined]> = Promise.all([
+  optional(api.events(slug), publicEventListResponseSchema),
+  optional(api.tournaments(slug), publicTournamentListResponseSchema),
+]);
+
+let events: PublicEventListResponse | undefined;
+let tournaments: PublicTournamentListResponse | undefined;
 try {
   const raw = await api.complex(slug);
   const parsed = publicComplexResponseSchema.safeParse(raw);
   if (!parsed.success) throw new ApiError('unavailable', 200, { cause: parsed.error });
   data = parsed.data;
+  [events, tournaments] = await offers;
 } catch (error) {
   if (error instanceof ApiError && error.kind === 'gone' && error.gone) {
     status = 410;
@@ -140,7 +168,7 @@ const errorLead = status === 404 ? t.publicBooking.complexNotFoundDescription : 
           client:load
           slug={slug}
           config={config}
-          initialComplex={{ slug, data }}
+          initialComplex={{ slug, data, events, tournaments }}
           initialSearch={Astro.url.search}
         />
       </div>

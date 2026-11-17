@@ -75,6 +75,10 @@ export interface PublicApiOptions {
 export interface PublicApi {
   /** The public complex record, unparsed. The page validates it against the booking schema. */
   complex(slug: string): Promise<unknown>;
+  /** The complex's upcoming open play, unparsed. */
+  events(slug: string): Promise<unknown>;
+  /** The complex's upcoming tournaments, unparsed. */
+  tournaments(slug: string): Promise<unknown>;
   hubData(city: string): Promise<HubData>;
   /** Every city that has a complex, for the city index. */
   hubIndex(): Promise<HubIndex>;
@@ -127,6 +131,12 @@ export function createPublicApi({
   return {
     complex(slug) {
       return getJson(`/public/complexes/${encodeURIComponent(slug)}`);
+    },
+    events(slug) {
+      return getJson(`/public/complexes/${encodeURIComponent(slug)}/events`);
+    },
+    tournaments(slug) {
+      return getJson(`/public/complexes/${encodeURIComponent(slug)}/tournaments`);
     },
     async hubData(city) {
       const json = await getJson(`/public/hubs/${encodeURIComponent(city)}/data`);
