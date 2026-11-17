@@ -50,7 +50,7 @@ function AgendaDateBlock({ date, time }: { date: string; time: string | undefine
       </time>
       <span aria-hidden="true" className="bg-primary-500 hidden w-px rounded-full sm:block" />
       {time && (
-        <span className="text-text-primary ml-auto self-center text-lg leading-none font-bold whitespace-nowrap tabular-nums sm:hidden">
+        <span className="text-text-primary ml-auto self-center text-base leading-none font-semibold whitespace-nowrap tabular-nums sm:hidden">
           {time}
         </span>
       )}
