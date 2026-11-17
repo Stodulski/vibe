@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, cn, formatPrice } from '@vibe/ui';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { TimeOption } from './timeOptions';
 
@@ -69,6 +70,61 @@ function RulerTick({
   );
 }
 
+/** Brings tick `index` under the marker, smoothly. */
+function centerTick(track: HTMLElement | null, index: number) {
+  const tick = track?.children[index] as HTMLElement | undefined;
+  if (!track || !tick) return;
+  track.scrollTo({ left: tick.offsetLeft + tick.offsetWidth / 2 - track.clientWidth / 2, behavior: 'smooth' });
+}
+
+/** A mouse wheel moves the ruler sideways: a desktop without a trackpad has no other way to slide it. */
+function useWheelSlides(trackRef: React.RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    const track = trackRef.current;
+    if (!track) return;
+    const onWheel = (event: WheelEvent) => {
+      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      event.preventDefault();
+      track.scrollBy({ left: event.deltaY });
+    };
+    track.addEventListener('wheel', onWheel, { passive: false });
+    return () => {
+      track.removeEventListener('wheel', onWheel);
+    };
+  }, [trackRef]);
+}
+
+/** The ‹ › buttons at the ruler's ends: one hour back or forward. */
+function RulerArrow({ side, disabled, onClick }: { side: 'prev' | 'next'; disabled: boolean; onClick: () => void }) {
+  const Icon = side === 'prev' ? ChevronLeft : ChevronRight;
+  return (
+    <button
+      type="button"
+      aria-label={side === 'prev' ? t.rulerPrev : t.rulerNext}
+      disabled={disabled}
+      onClick={onClick}
+      className={cn(
+        'border-border-subtle bg-bg-subtle text-text-primary hover:bg-bg-overlay absolute top-3 z-20 flex size-9 cursor-pointer items-center justify-center rounded-full border transition-opacity disabled:cursor-default disabled:opacity-0',
+        side === 'prev' ? 'left-0' : 'right-0',
+      )}
+    >
+      <Icon className="size-4" aria-hidden="true" />
+    </button>
+  );
+}
+
+/** The hour on the marker, large, with its end, price and free courts. */
+function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCourts: boolean }) {
+  return (
+    <div className="text-center" aria-live="polite">
+      <p className="text-text-primary text-3xl font-bold tabular-nums">
+        {option.startTime} <span className="text-text-tertiary">–</span> {option.endTime}
+      </p>
+      <p className="text-text-secondary mt-1 text-sm">{priceLine(option, severalCourts)}</p>
+    </div>
+  );
+}
+
 interface TimeRulerProps {
   options: TimeOption[];
   /** The hour already chosen, centered when the ruler opens. */
@@ -81,7 +137,8 @@ interface TimeRulerProps {
 /**
  * The hours of the day as a ruler that slides under a fixed marker. The hour on
  * the marker is shown large above it, with its end, price and free courts, and
- * "Continuar" takes it. Tapping a tick takes that hour at once.
+ * "Continuar" takes it. Tapping a tick takes that hour at once. It slides with a
+ * finger or a trackpad, with the mouse wheel, and with the ‹ › buttons at its ends.
  */
 export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -90,6 +147,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
     options.findIndex((option) => option.startTime === initialStartTime),
   );
   const [focused, setFocused] = useState(initial);
+  useWheelSlides(trackRef);
   const current = options[Math.min(focused, options.length - 1)];
 
   // Centers the starting hour once, without animation.
@@ -103,16 +161,13 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
 
   return (
     <section aria-label={t.rulerLabel} className="flex flex-col gap-4">
-      <div className="text-center" aria-live="polite">
-        <p className="text-text-primary text-3xl font-bold tabular-nums">
-          {current.startTime} <span className="text-text-tertiary">–</span> {current.endTime}
-        </p>
-        <p className="text-text-secondary mt-1 text-sm">{priceLine(current, severalCourts)}</p>
-      </div>
+      <RulerReadout option={current} severalCourts={severalCourts} />
 
       <div className="relative">
         {/* The fixed marker the ruler slides under. */}
-        <span aria-hidden="true" className="bg-primary-500 absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
+        <span aria-hidden="true" className="bg-primary-500 pointer-events-none absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
+        <RulerArrow side="prev" disabled={focused === 0} onClick={() => { centerTick(trackRef.current, focused - 1); }} />
+        <RulerArrow side="next" disabled={focused >= options.length - 1} onClick={() => { centerTick(trackRef.current, focused + 1); }} />
         <div
           ref={trackRef}
           className="scrollbar-none flex snap-x snap-mandatory overflow-x-auto px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_25%,black_75%,transparent)]"
