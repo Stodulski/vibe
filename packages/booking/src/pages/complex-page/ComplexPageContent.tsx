@@ -55,7 +55,7 @@ interface ComplexPageContentProps {
   /**
    * `null` until the visitor actually answers the duration question — unlike
    * `duration`, which is defaulted for the availability fetch. This is what
-   * the duration `StepChoice` uses for its `selected` prop, so no option
+   * the duration dial starts on, so no option
    * renders as chosen before anything has been.
    */
   selectedDuration: DurationMinutes | null;

@@ -186,7 +186,8 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     // The hours are behind the duration question now: the flow asks what
     // changes the inventory before showing what is in it. This fixture has a
     // single sport, so that step is skipped and the duration is the only one.
-    fireEvent.click(screen.getByRole('button', { name: '90 min' }));
+    // The duration dial opens on 1 h 30; Continuar answers it.
+    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
 
     // The hour button's accessible name is the time alone now; the price
     // moved to the court cards.
@@ -226,12 +227,13 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     expect(screen.getByRole('heading', { name: /cuánto tiempo/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: '90 min' }));
+    // The duration dial opens on 1 h 30; Continuar answers it.
+    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
 
     expect(screen.queryByRole('heading', { name: /cuánto tiempo/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^10:00\b/ })).toBeInTheDocument();
     // And it stays reachable, as the breadcrumb that shows what was answered.
-    expect(screen.getAllByRole('button', { name: /duración.*90 min/i })).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /duración.*1 h 30/i })).toHaveLength(1);
   });
 
   it('payments_enabled: false — the phone replaces the grid and the Continue path is unreachable', async () => {
@@ -270,7 +272,8 @@ describe('ComplexPage — changing the day', () => {
       error: null,
     });
     await renderComplexPage();
-    fireEvent.click(screen.getByRole('button', { name: '90 min' }));
+    // The duration dial opens on 1 h 30; Continuar answers it.
+    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
     expect(screen.getByRole('button', { name: /^10:00\b/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'another day' }));

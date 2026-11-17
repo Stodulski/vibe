@@ -46,7 +46,7 @@ export async function bookStorefrontUpToCheckout(page: Page, slug: string, clien
   const publicPage = new PublicBookingPage(page);
   await publicPage.goto(slug);
   await waitForStorefrontHydration(page);
-  await page.getByRole('button', { name: '90 min' }).click();
+  await page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 
   const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));

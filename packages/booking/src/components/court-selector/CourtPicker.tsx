@@ -1,63 +1,12 @@
-import { cn } from '@vibe/ui';
 import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { courtFactsLine } from '../../lib/courtFacts';
-import type { CourtAtTime, TimeOption } from './timeOptions';
 import { keepTogether } from '../../lib/keepTogether';
+import { ChoiceWheel } from '../choice-wheel/ChoiceWheel';
+import { SportGlyph } from '../choice-wheel/SportGlyph';
+import type { CourtAtTime, TimeOption } from './timeOptions';
 
 const t = BOOKING_MESSAGES;
-
-const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
-
-interface CourtCardProps {
-  entry: CourtAtTime;
-  isSelected: boolean;
-  onSelect: (entry: CourtAtTime) => void;
-}
-
-/**
- * One court as a card, read top to bottom: name, sport and type, the price
- * at this hour, then the description. A court without a description says so
- * instead of being shorter than its neighbours, so every card keeps the same
- * shape.
- */
-function CourtCard({ entry, isSelected, onSelect }: CourtCardProps) {
-  const { court, slot } = entry;
-  const emphasis = isSelected ? 'text-primary-400' : 'text-text-primary';
-
-  return (
-    <button
-      onClick={() => {
-        onSelect(entry);
-      }}
-      aria-pressed={isSelected}
-      className={cn(
-        // Visible idle edge + a slight fill + a stronger selected fill than
-        // idle (odd/tasks/app-dark-contrast.md T4) — see `DateButton` for the
-        // same change. Idle used to be `bg-bg-base`, the page's own color, so
-        // its "fill" had zero contrast against the page it sits on; it is now
-        // the same card-tier fill the date and slot buttons use.
-        'flex cursor-pointer flex-col items-start gap-1 rounded-lg border p-3 text-left transition-colors duration-200',
-        isSelected
-          ? 'border-primary-500 bg-primary-500/20'
-          : 'border-border-interactive bg-bg-subtle hover:border-border-interactive-hover hover:bg-bg-highlight',
-      )}
-    >
-      {/* One line, cut with an ellipsis: a long name must not stretch its
-          whole grid row. `title` keeps the full name a hover away. */}
-      <span className={cn('w-full truncate text-sm font-semibold', emphasis)} title={court.court_name}>
-        {keepTogether(court.court_name)}
-      </span>
-      <span className="text-text-tertiary w-full truncate text-xs" title={courtFactsLine(court)}>
-        {SPORT_LABELS[court.sport] ?? court.sport} · {courtFactsLine(court)}
-      </span>
-      <span className={cn('text-base font-semibold tabular-nums', emphasis)}>{formatPrice(slot.price)}</span>
-      <span className={cn('text-xs', court.description ? 'text-text-secondary' : 'text-text-tertiary italic')}>
-        {court.description ?? t.courts.noDescription}
-      </span>
-    </button>
-  );
-}
 
 interface CourtPickerProps {
   option: TimeOption;
@@ -66,38 +15,40 @@ interface CourtPickerProps {
 }
 
 /**
- * The second question, always asked: which of the courts free at the chosen
- * hour. With a single court it is one card, and tapping it continues.
- *
- * One flat list of cards, in the order the API sent them. Each card carries
- * what a player compares before choosing: the court's type, its sport, the
- * owner's description, and the price at this hour. The courts used to be
- * grouped under a type-and-price heading as name-only chips; the heading did
- * the comparing for the player and hid the description entirely.
-
+ * The courts free at the chosen hour, on the same wheel as the sport: each one drawn
+ * from above, with its facts and its price, the one at the center large and green.
+ * It opens on the first court; tapping the centered one, or "Reservar <cancha>", books it.
  */
 export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerProps) {
+  const byId = new Map(option.courts.map((entry) => [entry.court.court_id, entry]));
   return (
-    <div className="mt-3">
-      {/* The hour is already on the answered chip above; repeating it here
-          would say the same thing twice on one screen. */}
-      <p className="text-text-secondary text-xs font-semibold">{t.publicBooking.selectCourt}</p>
-      {/* One card per row on a phone, so the name and the sport line never
-          fight for width; three across from sm, four on a desktop. */}
-      <div
-        className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3 lg:grid-cols-4"
-        role="group"
-        aria-label={t.publicBooking.selectCourt}
-      >
-        {option.courts.map((entry) => (
-          <CourtCard
-            key={entry.court.court_id}
-            entry={entry}
-            isSelected={entry.court.court_id === selectedCourtId}
-            onSelect={onSelect}
-          />
-        ))}
-      </div>
-    </div>
+    <ChoiceWheel
+      question={t.publicBooking.selectCourt}
+      startAt="first"
+      size="large"
+      selected={selectedCourtId}
+      choices={option.courts.map(({ court, slot }) => ({
+        value: court.court_id,
+        label: keepTogether(court.court_name),
+        title: court.court_name,
+        art: <SportGlyph sport={court.sport} />,
+        detail: (
+          <>
+            <span className="text-text-tertiary w-full truncate text-xs">
+              {(t.courts.sportTypes as Record<string, string | undefined>)[court.sport] ?? court.sport} · {courtFactsLine(court)}
+            </span>
+            <span className="text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>
+            <span className={court.description ? 'text-text-secondary w-full truncate text-xs' : 'text-text-tertiary w-full truncate text-xs italic'}>
+              {court.description ?? t.courts.noDescription}
+            </span>
+          </>
+        ),
+      }))}
+      continueLabel={(choice) => `${t.publicBooking.reserveCourt} ${choice.label}`}
+      onChoose={(courtId) => {
+        const entry = byId.get(courtId);
+        if (entry) onSelect(entry);
+      }}
+    />
   );
 }

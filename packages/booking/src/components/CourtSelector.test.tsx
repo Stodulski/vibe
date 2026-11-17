@@ -203,7 +203,8 @@ describe('CourtSelector — the court is always asked after the hour', () => {
 
     // The card's accessible name carries type, sport and price after the
     // court's name, so match the name at the start.
-    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
+    // One tap brings Cancha 2 to the center, the next books it.
+    await user.dblClick(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
     expect(defaultProps.onSelect).toHaveBeenCalledWith(
       expect.objectContaining({ courtId: 'court-2', courtType: 'outdoor' }),
     );
@@ -248,7 +249,7 @@ describe('CourtSelector — the question owns the screen', () => {
     expect(screen.getByRole('button', { name: 'Cambiar horario 08:00' })).toBeInTheDocument();
   });
 
-  it('continues in the same tap that chooses the court, with no button', async () => {
+  it('continues on the tap that books the centered court', async () => {
     const user = userEvent.setup();
     const mixed = [
       court('court-1', 'Cancha 1', 'indoor', [slot('08:00', '09:30', 500000)]),
@@ -261,7 +262,7 @@ describe('CourtSelector — the question owns the screen', () => {
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
     expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
-    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
+    await user.dblClick(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
     // The selection travels with the call: the page has not stored it yet.
     expect(defaultProps.onContinue).toHaveBeenCalledWith(expect.objectContaining({ courtId: 'court-2' }));
   });

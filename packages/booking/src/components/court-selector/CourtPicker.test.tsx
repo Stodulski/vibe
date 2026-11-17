@@ -82,6 +82,9 @@ describe('CourtPicker — selection', () => {
     const onSelect = vi.fn<(entry: CourtAtTime) => void>();
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={onSelect} />);
 
+    // The first tap brings Cancha 2 to the center; the second, on the centered card, books it.
+    await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
+    expect(onSelect).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
 
     expect(onSelect).toHaveBeenCalledTimes(1);
@@ -103,7 +106,9 @@ describe('CourtPicker — a single free court', () => {
 
     render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
 
-    expect(screen.getAllByRole('button')).toHaveLength(1);
+    // Its card, centered, and the button that books it.
+    expect(screen.getByRole('button', { name: /^Cancha/ })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getAllByRole('button')).toHaveLength(2);
   });
 });
 

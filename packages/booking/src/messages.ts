@@ -132,6 +132,7 @@ export const BOOKING_MESSAGES = {
     rulerHintMouse: 'Arrastrá para elegir el horario',
     rulerLabel: 'Horarios',
     rulerContinue: 'Continuar',
+    reserveCourt: 'Reservar',
     courtsFreeOne: '1 cancha',
     courtsFreeMany: 'canchas',
     noAvailableSlots: 'Sin disponibilidad',

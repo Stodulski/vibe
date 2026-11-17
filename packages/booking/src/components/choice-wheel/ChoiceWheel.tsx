@@ -1,0 +1,146 @@
+import { useRef, type ReactNode } from 'react';
+import { Button, cn } from '@vibe/ui';
+import { useNativeWheel, useWidth } from '../court-selector/useRulerBox';
+import { useWheelPicker } from '../court-selector/useWheelPicker';
+import { tickDepth } from '../court-selector/wheelMath';
+
+export interface WheelChoice<T extends string> {
+  value: T;
+  label: string;
+  /** What the card draws above its label. */
+  art: ReactNode;
+  /** Lines under the label: a court's facts and price. */
+  detail?: ReactNode;
+  /** The label in full, shown on hover where the card cuts it. Defaults to the label. */
+  title?: string;
+}
+
+interface ChoiceWheelProps<T extends string> {
+  question: string;
+  choices: WheelChoice<T>[];
+  /** The answer already given, centered when the wheel opens; else the middle choice. */
+  selected: T | null;
+  /** The confirm button's words, for the choice at the center. */
+  continueLabel: string | ((choice: WheelChoice<T>) => string);
+  onChoose: (value: T) => void;
+  /** Where the wheel opens with nothing chosen: the middle choice, or the first. */
+  startAt?: 'middle' | 'first';
+  /** Larger cards, for choices with more to say (a court's facts and price). */
+  size?: 'regular' | 'large';
+}
+
+/** The gap a card takes on the wheel: larger cards and larger screens get more. */
+function cardWidth(size: 'regular' | 'large', width: number): number {
+  if (size === 'large') return width >= 640 ? 208 : 156;
+  return width >= 640 ? 168 : 128;
+}
+
+const TRACK = 'relative cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing';
+
+/** How high the outer cards climb: lower than the time ruler's, cards are larger. */
+const CARD_ARC = 40;
+
+interface WheelCardProps<T extends string> {
+  choice: WheelChoice<T>;
+  /** Pixels from the wheel's center to this card's center. */
+  offset: number;
+  half: number;
+  width: number;
+  focused: boolean;
+  onTap: () => void;
+}
+
+/** One choice on the wheel, placed and sized by its offset from the center. */
+function WheelCard<T extends string>({ choice, offset, half, width, focused, onTap }: WheelCardProps<T>) {
+  const depth = tickDepth(offset, half, width, CARD_ARC);
+  return (
+    <button
+      type="button"
+      aria-pressed={focused}
+      onClick={onTap}
+      style={{
+        width,
+        left: `calc(50% + ${(offset - width / 2).toFixed(1)}px)`,
+        opacity: depth.opacity,
+        transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
+      }}
+      className={cn(
+        'absolute bottom-3 flex origin-bottom cursor-pointer flex-col items-center gap-3 rounded-2xl border px-3 pt-4 pb-3',
+        focused ? 'border-primary-500 bg-primary-500/10 text-primary-400' : 'border-border-subtle bg-bg-subtle text-text-secondary',
+      )}
+    >
+      {choice.art}
+      <span className="w-full truncate text-base font-semibold" title={choice.title ?? choice.label}>
+        {choice.label}
+      </span>
+      {choice.detail}
+    </button>
+  );
+}
+
+/**
+ * A question answered on a wheel, in the language of the time ruler: the choices are
+ * cards on a curve that turns by dragging, the mouse wheel or a tap, the one at the
+ * center large and green. Tapping the centered card, or "Continuar", answers.
+ */
+export function ChoiceWheel<T extends string>({
+  question,
+  choices,
+  selected,
+  continueLabel,
+  onChoose,
+  startAt = 'middle',
+  size = 'regular',
+}: ChoiceWheelProps<T>) {
+  const [width, element, measureRef] = useWidth();
+  const card = cardWidth(size, width);
+  const half = width / 2;
+  const chosen = choices.findIndex((choice) => choice.value === selected);
+  // The card a tap is bringing to the center: a second quick tap on it chooses it, even mid-turn.
+  const heading = useRef<number | null>(null);
+  const opening = startAt === 'first' ? 0 : Math.floor((choices.length - 1) / 2);
+  const wheel = useWheelPicker(chosen >= 0 ? chosen : opening, choices.length, card);
+  useNativeWheel(element, wheel.onWheel);
+  const current = choices[Math.min(choices.length - 1, Math.max(0, wheel.center))];
+  if (!current) return null;
+
+  return (
+    <section aria-label={question} className="flex flex-col gap-4">
+      <h2 className="text-text-primary text-xl font-bold">{question}</h2>
+      <div
+        ref={measureRef}
+        {...wheel.handlers}
+        role="group"
+        aria-label={question}
+        className={cn(TRACK, size === 'large' ? 'h-72' : 'h-48')}>
+        {choices.map((choice, index) => (
+          <WheelCard
+            key={choice.value}
+            choice={choice}
+            offset={(index - wheel.pos) * card}
+            half={half}
+            width={card - 16}
+            focused={index === wheel.center}
+            onTap={() => {
+              if (index === wheel.center || index === heading.current) {
+                onChoose(choice.value);
+                return;
+              }
+              heading.current = index;
+              wheel.goTo(index);
+            }}
+          />
+        ))}
+      </div>
+      <Button
+        size="lg"
+        className="min-h-12 w-full"
+        onClick={() => {
+          onChoose(current.value);
+        }}
+      >
+        {typeof continueLabel === 'string' ? continueLabel : continueLabel(current)}
+      </Button>
+    </section>
+  );
+}

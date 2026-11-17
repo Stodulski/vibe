@@ -30,7 +30,7 @@ describe('BookingSteps — answered questions collapse to crumbs', () => {
   it('shows the duration and time crumbs plus the hours when both are already answered', () => {
     renderSteps();
 
-    expect(screen.getByRole('button', { name: /Duración/ })).toHaveTextContent('60 min');
+    expect(screen.getByRole('button', { name: /Duración/ })).toHaveTextContent('1 h');
     expect(screen.getByRole('button', { name: /Horario/ })).toHaveTextContent('08:30');
     expect(screen.getByText('HOURS')).toBeInTheDocument();
   });
@@ -62,7 +62,9 @@ describe('BookingSteps — answered questions collapse to crumbs', () => {
     const { onDurationChange } = renderSteps();
 
     await user.click(screen.getByRole('button', { name: /Duración/ }));
-    await user.click(screen.getByRole('button', { name: '90 min' }));
+    await user.click(screen.getByRole('radio', { name: '1 h 30' }));
+    expect(onDurationChange).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('button', { name: 'Continuar' }));
 
     expect(onDurationChange).toHaveBeenCalledWith(90);
   });
@@ -76,8 +78,8 @@ describe('BookingSteps — answered questions collapse to crumbs', () => {
 
     await user.click(screen.getByRole('button', { name: /Duración/ }));
 
-    expect(screen.getByRole('button', { name: '60 min' })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: '90 min' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByRole('radio', { name: '1 h' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '1 h 30' })).toHaveAttribute('aria-checked', 'false');
   });
 });
 
@@ -102,14 +104,16 @@ describe('BookingSteps — nothing answered yet', () => {
     expect(screen.queryByRole('button', { name: /Duración/ })).not.toBeInTheDocument();
   });
 
-  // U-01: 90 min used to render pressed here — `duration` (the availability
-  // fetch's default) was the only value the question had to work with, and
-  // it painted the answer before the visitor gave one.
-  it('marks no duration option as selected before the visitor picks one', () => {
-    renderSteps({ answeredFromUrl: { sport: false, duration: false }, selectedDuration: null, timeAnswer: null });
+  // U-01: nothing counts as answered before the visitor answers. The dial has to
+  // rest somewhere, so it opens on the middle duration, but only Continuar answers.
+  it('opens the dial on the middle duration without answering for the visitor', () => {
+    const { onDurationChange } = renderSteps({
+      answeredFromUrl: { sport: false, duration: false },
+      selectedDuration: null,
+      timeAnswer: null,
+    });
 
-    for (const option of ['60 min', '90 min', '120 min']) {
-      expect(screen.getByRole('button', { name: option })).toHaveAttribute('aria-pressed', 'false');
-    }
+    expect(screen.getByRole('radio', { name: '1 h 30' })).toHaveAttribute('aria-checked', 'true');
+    expect(onDurationChange).not.toHaveBeenCalled();
   });
 });

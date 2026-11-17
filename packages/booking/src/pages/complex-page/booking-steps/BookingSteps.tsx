@@ -1,7 +1,10 @@
 import { BOOKING_MESSAGES } from '../../../messages';
 import { DURATION_OPTIONS } from '../../../components/court-selector/constants';
 import type { DurationMinutes, Sport } from '../../../api/types';
-import { StepChoice } from './StepChoice';
+import { ChoiceWheel } from '../../../components/choice-wheel/ChoiceWheel';
+import { DurationDial } from '../../../components/choice-wheel/DurationDial';
+import { durationLabel } from '../../../components/choice-wheel/dialMath';
+import { SportGlyph } from '../../../components/choice-wheel/SportGlyph';
 import { StepBreadcrumbs, type Crumb } from '@vibe/ui';
 import { useBookingSteps, type StepId } from './useBookingSteps';
 
@@ -12,7 +15,7 @@ interface BookingStepsProps {
   sportFilter: Sport | null;
   onSportFilterChange: (sport: Sport | null) => void;
   duration: DurationMinutes;
-  /** `null` until answered — what the duration `StepChoice` marks as selected. */
+  /** `null` until answered — what the duration dial starts on. */
   selectedDuration: DurationMinutes | null;
   onDurationChange: (duration: DurationMinutes) => void;
   /**
@@ -47,7 +50,7 @@ function buildCrumbs(
       : {
           id,
           label: t.publicBooking.stepDurationLabel,
-          answer: `${String(duration)} ${t.publicBooking.minutesShort}`,
+          answer: durationLabel(duration),
         },
   );
   if (timeAnswer !== null) {
@@ -87,31 +90,30 @@ export function BookingSteps({
   // from a breadcrumb.
   const question =
     steps.activeStep === 'sport' ? (
-      <StepChoice
+      <ChoiceWheel
         question={t.publicBooking.stepSportQuestion}
         choices={availableSports.map((sport) => ({
           value: sport,
           label: t.courts.sportTypes[sport],
+          art: <SportGlyph sport={sport} />,
         }))}
         selected={sportFilter}
+        continueLabel={t.publicBooking.rulerContinue}
         onChoose={(value) => {
-          onSportFilterChange(value as Sport);
+          onSportFilterChange(value);
           steps.answer('sport');
         }}
       />
     ) : steps.activeStep === 'duration' ? (
-      <StepChoice
+      <DurationDial
         question={t.publicBooking.stepDurationQuestion}
-        choices={DURATION_OPTIONS.map((option) => ({
-          value: String(option),
-          label: `${String(option)} ${t.publicBooking.minutesShort}`,
-        }))}
+        options={DURATION_OPTIONS}
         // `selectedDuration`, not `duration`: `duration` is defaulted for the
         // availability fetch (see `useComplexPageState`) and would otherwise
         // paint 90 min as chosen before the visitor has answered anything.
-        selected={selectedDuration === null ? null : String(selectedDuration)}
+        selected={selectedDuration}
         onChoose={(value) => {
-          onDurationChange(Number(value) as DurationMinutes);
+          onDurationChange(value);
           steps.answer('duration');
         }}
       />

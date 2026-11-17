@@ -29,7 +29,7 @@ async function answerDurationQuestion(page: Page): Promise<void> {
   // useComplexPageState.ts) -- clicking it answers the step (steps.answer)
   // without necessarily changing `duration`, so it may not trigger a new
   // network request. Wait for the resulting UI instead of a response.
-  await page.getByRole('button', { name: '90 min' }).click();
+  await page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: 'Continuar' }).click();
   await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 }
 
