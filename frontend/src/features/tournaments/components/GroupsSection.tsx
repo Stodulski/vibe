@@ -97,9 +97,7 @@ function GroupTable({
   const title = t.zone(group.name);
   return (
     <section className="min-w-0 space-y-2">
-      <h3 className="text-text-primary truncate text-sm font-semibold" title={title}>
-        {title}
-      </h3>
+      <h3 className="text-primary-400 truncate text-base font-bold">{title}</h3>
       <table aria-label={t.table(group.name)} className="w-full table-fixed text-sm">
         <GroupHead />
         <tbody>

@@ -194,12 +194,10 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
   const blocks = blocksOf(matches, groupNames);
   if (blocks.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   return (
-    <div className="space-y-5">
+    <div className="space-y-8">
       {blocks.map((block) => (
         <section key={block.key} aria-label={block.title}>
-          <h3 className="text-text-primary mb-1 truncate text-sm font-semibold" title={block.title}>
-            {block.title}
-          </h3>
+          <h3 className="text-primary-400 mb-1 truncate text-base font-bold">{block.title}</h3>
           <ul>
             {block.matches.map((match) => (
               <MatchRow

@@ -1,8 +1,7 @@
-import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatTime } from '@/shared/lib/utils';
-import { bracketGrid, bracketRounds, matchSide, resultText, roundName, winnerSide } from '../lib/tournamentView';
+import { bracketGrid, bracketRounds, matchSide, roundName, winnerSide } from '../lib/tournamentView';
 import { MatchNames } from './MatchNames';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
@@ -24,16 +23,12 @@ interface Connectors {
 const CONNECTOR = 'border-border-default pointer-events-none absolute hidden lg:block';
 
 /** The result and the schedule of a bracket match, joined on one line. */
-function bracketMeta(match: TournamentMatch, pairs: Map<string, TournamentOwnerPair>): string {
-  const score = resultText(match, pairs);
-  const when = match.schedule
-    ? ES_AR.tournaments.matches.scheduledAt(
-        keepTogether(match.schedule.court_name),
-        formatEventDayShort(match.schedule.date),
-        formatTime(match.schedule.start_time),
-      )
-    : null;
-  return [score, when].filter((part): part is string => !!part).join(' · ');
+/**
+ * What a bracket card says under the pairs: only when it is played, "Dom 22/11 14:00".
+ * The winner is already the bold pair; the score and the court live in Partidos.
+ */
+function bracketMeta(match: TournamentMatch): string {
+  return match.schedule ? `${formatEventDayShort(match.schedule.date)} ${formatTime(match.schedule.start_time)}` : '';
 }
 
 function BracketMatchCard({
@@ -50,7 +45,7 @@ function BracketMatchCard({
   rowStart: number;
   rowSpan: number;
 }) {
-  const meta = bracketMeta(match, lookups.pairs);
+  const meta = bracketMeta(match);
   return (
     <li
       className="border-border-subtle relative flex min-w-0 flex-col justify-center border-b py-2.5 last:border-b-0 lg:border-0 lg:py-1.5"
@@ -142,7 +137,7 @@ export function BracketSection({ matches, pairs, groupNames }: BracketSectionPro
             className="flex min-w-0 flex-col lg:grid"
             style={{ gridRow: `1 / span ${String(grid.rows + 1)}`, gridTemplateRows: 'subgrid' }}
           >
-            <h3 className="text-text-primary lg:text-text-secondary pb-1.5 text-sm font-semibold lg:pb-2 lg:text-xs">
+            <h3 className="text-primary-400 pb-1.5 text-base font-bold lg:pb-2">
               {roundName(index + 1, rounds.length, round.length)}
             </h3>
             <ul
