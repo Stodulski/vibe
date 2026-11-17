@@ -21,8 +21,8 @@ function courtLines(bookingInfo: BookingInfo): string[] {
 }
 
 // The ticket's top half: date, a big time range, and what was booked. Name
-// only — the address was on the complex page and travels in the WhatsApp
-// message the complex sends, so repeating it here is noise.
+// only — the address was on the complex page and comes in the booking
+// confirmation email, so repeating it here is noise.
 function TicketHeader({ bookingInfo }: BookingSummaryProps) {
   return (
     <div className="space-y-6">

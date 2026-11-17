@@ -98,7 +98,7 @@ describe('EventPage sign-up', () => {
     expect(post).not.toHaveBeenCalled();
   });
 
-  it('sends the person, omits an empty email and goes to the Mercado Pago checkout', async () => {
+  it('sends the person with the email and goes to the Mercado Pago checkout', async () => {
     serveEvent();
     let body: unknown;
     server.use(
@@ -122,12 +122,13 @@ describe('EventPage sign-up', () => {
     await user.type(await screen.findByLabelText(/^Nombre/), 'Ana');
     await user.type(screen.getByLabelText(/^Apellido/), 'Pérez');
     await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
+    await user.type(screen.getByLabelText(/^Email/), 'ana@example.com');
     await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
 
     await waitFor(() => {
       expect(navigateTo).toHaveBeenCalledWith('https://mp.test/checkout');
     });
-    expect(body).toEqual({ first_name: 'Ana', last_name: 'Pérez', phone: '+541123456789' });
+    expect(body).toEqual({ first_name: 'Ana', last_name: 'Pérez', phone: '+541123456789', email: 'ana@example.com' });
     expect(sessionStorage.getItem('vibe_event_registration:ev1')).toBe('"tok-1"');
   });
 
@@ -157,6 +158,7 @@ describe('EventPage refused sign-up', () => {
     await user.type(await screen.findByLabelText(/^Nombre/), 'Ana');
     await user.type(screen.getByLabelText(/^Apellido/), 'Pérez');
     await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
+    await user.type(screen.getByLabelText(/^Email/), 'ana@example.com');
     await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
 
     expect(await screen.findByRole('alert')).toHaveTextContent(copy);
@@ -318,6 +320,7 @@ describe('EventPage checkout parity with a booking', () => {
     await user.type(await screen.findByLabelText(/^Nombre/), 'Ana');
     await user.type(screen.getByLabelText(/^Apellido/), 'Pérez');
     await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
+    await user.type(screen.getByLabelText(/^Email/), 'ana@example.com');
     await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
     const alert = await screen.findByRole('alert');
     expect(alert.className).toContain('bg-error-bg');

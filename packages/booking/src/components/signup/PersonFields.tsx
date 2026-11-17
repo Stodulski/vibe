@@ -28,7 +28,7 @@ interface PersonFieldsProps<T extends FieldValues> {
   /** Keeps the element ids of two people on one page apart (`event_`, `pair_partner_`). */
   idPrefix: string;
   labels?: PersonFieldLabels;
-  /** Email is optional; a form that does not ask for it leaves it out. */
+  /** Email is required; a form that does not ask for it leaves it out. */
   withEmail?: boolean;
 }
 
@@ -139,7 +139,7 @@ function EmailField<T extends FieldValues>({ access }: { access: FieldAccess<T> 
       label={
         <>
           {t.publicBooking.email}
-          <FieldRequirement required={false} />
+          <FieldRequirement required />
         </>
       }
       htmlFor={id('email')}
@@ -161,9 +161,9 @@ function EmailField<T extends FieldValues>({ access }: { access: FieldAccess<T> 
 }
 
 /**
- * One person's sign-up fields: name and phone required, email optional. The
- * same chrome as the booking form, shared by every public sign-up (an event's
- * person, a tournament's payer and partner).
+ * One person's sign-up fields: name and phone required, and the email too where
+ * the form asks for it. The same chrome as the booking form, shared by every
+ * public sign-up (an event's person, a tournament's payer and partner).
  */
 export function PersonFields<T extends FieldValues>({
   register,

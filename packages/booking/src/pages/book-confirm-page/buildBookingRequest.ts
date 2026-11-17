@@ -27,8 +27,7 @@ export function buildBookingRequest(
     client_first_name: formData.client_first_name,
     client_last_name: formData.client_last_name,
     client_phone: formData.client_phone,
-    // Optional on the form; the API reads an empty string as no email.
-    client_email: formData.client_email ?? '',
+    client_email: formData.client_email,
     // `client_notes?: string` on `PublicBookingRequest` is absent-or-present,
     // not present-with-`undefined` — only include it when there is one.
     ...(clientNotes !== undefined ? { client_notes: clientNotes } : {}),

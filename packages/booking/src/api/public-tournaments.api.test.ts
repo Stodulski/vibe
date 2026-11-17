@@ -92,6 +92,7 @@ describe('public tournaments api writes', () => {
       first_name: 'Ana',
       last_name: 'Pérez',
       phone: '+541123456789',
+      email: 'ana@example.com',
       partner: { first_name: 'Luis', last_name: 'Gómez', phone: '+541198765432' },
     };
     const result = await api.signUpPairForTournament('club', 't1', 'c1', request);

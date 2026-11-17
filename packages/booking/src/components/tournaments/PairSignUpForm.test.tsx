@@ -68,6 +68,7 @@ async function fillAndPay(user: ReturnType<typeof userEvent.setup>) {
   await typeInto(user, /nombre/i, 0, 'Ana');
   await typeInto(user, /apellido/i, 0, 'Diaz');
   await typeInto(user, /tel.fono/i, 0, '1123456789');
+  await typeInto(user, /email/i, 0, 'ana@example.com');
   await typeInto(user, /nombre/i, 1, 'Beto');
   await typeInto(user, /apellido/i, 1, 'Socio');
   await typeInto(user, /tel.fono/i, 1, '1198765432');
@@ -165,6 +166,7 @@ async function fillPlayers(user: ReturnType<typeof userEvent.setup>) {
   await typeInto(user, /nombre/i, 0, 'Ana');
   await typeInto(user, /apellido/i, 0, 'Diaz');
   await typeInto(user, /tel.fono/i, 0, '1123456789');
+  await typeInto(user, /email/i, 0, 'ana@example.com');
   await typeInto(user, /nombre/i, 1, 'Beto');
   await typeInto(user, /apellido/i, 1, 'Socio');
   await typeInto(user, /tel.fono/i, 1, '1198765432');
@@ -354,5 +356,20 @@ describe('PairSignUpForm by sport', () => {
     });
     expect(bodies[0]).toMatchObject({ gender: 'men', partner: { gender: 'men' } });
     expect(bodies[0]).not.toHaveProperty('level');
+  });
+});
+
+describe('PairSignUpForm email', () => {
+  it('asks the payer for an email and sends nothing without it', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<PairSignUpForm slug="test-club" tournament={TOURNAMENT} category={CAT_OPEN} />, { config: BASE_CONFIG });
+
+    await fillPlayers(user);
+    await user.clear(screen.getByLabelText(/email/i));
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findByText(BOOKING_MESSAGES.validation.emailRequired)).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
   });
 });

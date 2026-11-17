@@ -60,6 +60,7 @@ async function fillAndPay(user: ReturnType<typeof userEvent.setup>) {
   await user.type(screen.getByLabelText(/nombre/i), 'Ana');
   await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
   await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+  await user.type(screen.getByLabelText(/email/i), 'ana@example.com');
   await user.click(screen.getByRole('button', { name: /pagar/i }));
 }
 
@@ -171,6 +172,7 @@ describe('EventSignUpForm declarations', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.type(screen.getByLabelText(/email/i), 'ana@example.com');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
     await chooseOption(user, screen.getByLabelText(/categoría/i), '7ma');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
@@ -194,6 +196,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.type(screen.getByLabelText(/email/i), 'ana@example.com');
     await user.click(screen.getByRole('radio', { name: 'Dama' }));
     await chooseOption(user, screen.getByLabelText(/categoría/i), '7ma');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
@@ -210,6 +213,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.type(screen.getByLabelText(/email/i), 'ana@example.com');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
     await chooseOption(user, screen.getByLabelText(/categoría/i), '5ta');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
@@ -231,6 +235,7 @@ describe('EventSignUpForm declarations: refusals', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Ana');
     await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.type(screen.getByLabelText(/email/i), 'ana@example.com');
     await user.click(screen.getByRole('radio', { name: 'Caballero' }));
     await chooseOption(user, screen.getByLabelText(/categoría/i), '8va');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
@@ -248,5 +253,23 @@ describe('EventSignUpForm by sport', () => {
 
     expect(screen.getByRole('radio', { name: 'Femenino' })).toBeInTheDocument();
     expect(screen.queryByLabelText(/categoría/i)).not.toBeInTheDocument();
+  });
+});
+
+describe('EventSignUpForm email', () => {
+  beforeEach(resetTurnstile);
+
+  it('asks for an email and sends nothing without it', async () => {
+    const bodies = captureSignUp();
+    const user = userEvent.setup();
+    renderBooking(<EventSignUpForm slug="test-club" event={EVENT} />, { config: BASE_CONFIG });
+
+    await user.type(screen.getByLabelText(/nombre/i), 'Ana');
+    await user.type(screen.getByLabelText(/apellido/i), 'Diaz');
+    await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.click(screen.getByRole('button', { name: /pagar/i }));
+
+    expect(await screen.findByText(BOOKING_MESSAGES.validation.emailRequired)).toBeInTheDocument();
+    expect(bodies).toHaveLength(0);
   });
 });

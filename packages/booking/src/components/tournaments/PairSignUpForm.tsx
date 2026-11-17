@@ -92,8 +92,8 @@ interface PairSignUpFormProps {
 }
 
 /**
- * The payer's name and phone (email optional) and the partner's name and
- * phone. Submitting holds the spot and hands the payer to the Mercado Pago
+ * The payer's name, phone and email, and the partner's name and phone.
+ * Submitting holds the spot and hands the payer to the Mercado Pago
  * checkout for the whole entry. The ticket of what the pair pays for is set
  * above it by the page (see PairSummary).
  */

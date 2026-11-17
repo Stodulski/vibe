@@ -1,22 +1,23 @@
 import '../lib/zodConfig';
 import { z } from 'zod';
 import { BOOKING_MESSAGES } from '../messages';
-import { optionalEmailField, phoneField, firstNameField, lastNameField } from '../lib/validations';
+import { emailField, phoneField, firstNameField, lastNameField } from '../lib/validations';
 import { pairDeclaresLevel, pairIssues, toDeclared, type PairCategory } from '../lib/declaredPlayers';
 import { declarationWords, isModality, type DeclarationWords } from '../lib/traitLabels';
 
 const d = BOOKING_MESSAGES.declaration;
 
 /**
- * The fields of the pair sign-up form. The payer's name and phone are required,
- * email is optional, and the partner's name and phone are required. Each
- * player's gender and level are strings until the person chooses them.
+ * The fields of the pair sign-up form. The payer's name, phone and email are
+ * required, and the partner's name and phone are required (the partner has no
+ * email field). Each player's gender and level are strings until the person
+ * chooses them.
  */
 const pairFields = z.object({
   first_name: firstNameField,
   last_name: lastNameField,
   phone: phoneField,
-  email: optionalEmailField,
+  email: emailField,
   gender: z.string(),
   level: z.string(),
   partner: z.object({

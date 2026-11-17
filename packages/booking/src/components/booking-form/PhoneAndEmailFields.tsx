@@ -50,7 +50,7 @@ export function PhoneAndEmailFields({ register, control, errors }: PhoneAndEmail
         label={
           <>
             {t.publicBooking.email}
-            <FieldRequirement required={false} />
+            <FieldRequirement required />
           </>
         }
         htmlFor="client_email"

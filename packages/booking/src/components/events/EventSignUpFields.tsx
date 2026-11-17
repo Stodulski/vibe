@@ -15,7 +15,7 @@ interface EventSignUpFieldsProps {
 }
 
 /**
- * Name and phone required, email optional, the same chrome as the booking form.
+ * Name, phone and email required, the same chrome as the booking form.
  * An event with a modality adds the person's gender; one with a range adds the
  * person's level.
  */

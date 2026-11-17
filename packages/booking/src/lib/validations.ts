@@ -8,11 +8,9 @@ const t = BOOKING_MESSAGES.validation;
 // `shared/lib/validations.ts`, with the same Spanish messages, including the
 // trim-first rule: padding never counts as content.
 
+// Required on every public form that asks for it: the confirmation goes there.
+// A whitespace-only value trims to '' and fails as empty, not as an invalid email.
 export const emailField = z.string().trim().min(1, t.emailRequired).pipe(z.email(t.emailInvalid));
-
-// A whitespace-only value trims to '' and matches the second branch, so it is
-// treated as empty instead of failing as an invalid email.
-export const optionalEmailField = emailField.optional().or(z.string().trim().length(0));
 
 export const phoneField = z
   .string()

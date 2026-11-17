@@ -14,8 +14,8 @@ describe('publicBookingSchema', () => {
     expect(publicBookingSchema.safeParse(validForm).success).toBe(true);
   });
 
-  it('accepts an empty client_email, which is optional', () => {
-    expect(publicBookingSchema.safeParse({ ...validForm, client_email: '' }).success).toBe(true);
+  it('rejects an empty client_email, which is required', () => {
+    expect(publicBookingSchema.safeParse({ ...validForm, client_email: '' }).success).toBe(false);
   });
 
   it('rejects a malformed, non-empty client_email', () => {
@@ -56,17 +56,14 @@ describe('publicBookingSchema — whitespace is not a value', () => {
     expect(publicBookingSchema.safeParse({ ...validForm, client_first_name: '   ' }).success).toBe(false);
   });
 
-  it('trims a padded phone and treats a whitespace-only email as empty', () => {
-    const result = publicBookingSchema.safeParse({
-      ...validForm,
-      client_phone: ' +541155550000 ',
-      client_email: '   ',
-    });
+  it('trims a padded phone', () => {
+    const result = publicBookingSchema.safeParse({ ...validForm, client_phone: ' +541155550000 ' });
     expect(result.success).toBe(true);
-    if (result.success) {
-      expect(result.data.client_phone).toBe('+541155550000');
-      expect(result.data.client_email).toBe('');
-    }
+    if (result.success) expect(result.data.client_phone).toBe('+541155550000');
+  });
+
+  it('rejects a whitespace-only email as empty', () => {
+    expect(publicBookingSchema.safeParse({ ...validForm, client_email: '   ' }).success).toBe(false);
   });
 
   it('trims client_notes and turns whitespace-only notes into an empty string', () => {

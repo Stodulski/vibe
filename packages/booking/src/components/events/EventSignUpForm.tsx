@@ -22,8 +22,8 @@ interface EventSignUpFormProps {
 }
 
 /**
- * The fields of an open play's checkout: name and phone required and email
- * optional, the total beside the pay button and the privacy line. The ticket of
+ * The fields of an open play's checkout: name, phone and email required, the
+ * total beside the pay button and the privacy line. The ticket of
  * what is paid for is set above it by the page (see EventSignUpSummary).
  * Submitting holds the spot and hands the person to the Mercado Pago checkout.
  */
