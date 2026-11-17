@@ -53,11 +53,14 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
 
   return (
     <section aria-label={t.rulerLabel} className="flex flex-col gap-4">
-      <RulerReadout option={current} severalCourts={severalCourts} />
+      {/* The readout sits in the wheel's empty top: only the ends climb that high, at the sides. */}
+      <div className="relative z-10">
+        <RulerReadout option={current} severalCourts={severalCourts} />
+      </div>
       <div
         ref={ref}
         {...wheel.handlers}
-        className="relative h-44 cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing"
+        className="relative -mt-20 h-44 cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing"
       >
         {visibleRange(wheel.pos, half, tick, count).map((index) => {
           const option = options[wrapIndex(index, count)];
