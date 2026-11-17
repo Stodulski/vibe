@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 const TAP_SLOP = 5;
 /** How much speed a fling keeps every 16ms. */
 const FRICTION = 0.94;
+/** How far past the first or last hour a drag may pull, in ticks, before it settles back. */
+const OVERSCROLL = 0.35;
 
 interface Motion {
   posRef: RefObject<number>;
@@ -12,18 +14,26 @@ interface Motion {
   stop: () => void;
   goTo: (index: number) => void;
   fling: (velocity: number) => void;
+  /** The hour index nearest `value`, within the ruler. */
+  nearest: (value: number) => number;
 }
 
 /** The wheel's position and its two animations: easing to a tick, and a fling that slows down and settles. */
-function useWheelMotion(initial: number): Motion & { pos: number; target: number | null } {
+function useWheelMotion(initial: number, max: number): Motion & { pos: number; target: number | null } {
   const [pos, setPosState] = useState(initial);
   const [target, setTarget] = useState<number | null>(null);
   const posRef = useRef(initial);
   const frame = useRef<number | null>(null);
-  const setPos = useCallback((value: number) => {
-    posRef.current = value;
-    setPosState(value);
-  }, []);
+  // The ruler ends at its first and last hour: a drag can pull a little past them, no further.
+  const setPos = useCallback(
+    (value: number) => {
+      const bounded = Math.min(max + OVERSCROLL, Math.max(-OVERSCROLL, value));
+      posRef.current = bounded;
+      setPosState(bounded);
+    },
+    [max],
+  );
+  const nearest = useCallback((value: number) => Math.min(max, Math.max(0, Math.round(value))), [max]);
   const stop = useCallback(() => {
     if (frame.current !== null) cancelAnimationFrame(frame.current);
     frame.current = null;
@@ -52,8 +62,9 @@ function useWheelMotion(initial: number): Motion & { pos: number; target: number
         const dt = Math.min(48, now - last);
         last = now;
         speed *= FRICTION ** (dt / 16);
-        if (Math.abs(speed) < 0.002) {
-          goTo(Math.round(posRef.current));
+        const atEnd = posRef.current <= -OVERSCROLL || posRef.current >= max + OVERSCROLL;
+        if (Math.abs(speed) < 0.002 || atEnd) {
+          goTo(nearest(posRef.current));
           return;
         }
         setPos(posRef.current + speed * dt);
@@ -61,10 +72,10 @@ function useWheelMotion(initial: number): Motion & { pos: number; target: number
       };
       frame.current = requestAnimationFrame(step);
     },
-    [goTo, setPos, stop],
+    [goTo, max, nearest, setPos, stop],
   );
   useEffect(() => stop, [stop]);
-  return { pos, target, posRef, setPos, setTarget, stop, goTo, fling };
+  return { pos, target, posRef, setPos, setTarget, stop, goTo, fling, nearest };
 }
 
 interface Drag {
@@ -118,7 +129,7 @@ function usePointerDrag(motion: Motion, tickWidth: number) {
     },
     onPointerCancel: () => {
       drag.current = null;
-      motion.goTo(Math.round(motion.posRef.current));
+      motion.goTo(motion.nearest(motion.posRef.current));
     },
     onClickCapture: (event: React.MouseEvent) => {
       if (!swallowClick.current) return;
@@ -138,7 +149,7 @@ function useWheelInput(motion: Motion, tickWidth: number) {
     },
     [],
   );
-  const { stop, setTarget, setPos, posRef, goTo } = motion;
+  const { stop, setTarget, setPos, posRef, goTo, nearest } = motion;
   return useCallback(
     (event: WheelEvent) => {
       const delta = Math.abs(event.deltaY) > Math.abs(event.deltaX) ? event.deltaY : event.deltaX;
@@ -149,21 +160,21 @@ function useWheelInput(motion: Motion, tickWidth: number) {
       setPos(posRef.current + delta / tickWidth);
       clearTimeout(timer.current);
       timer.current = setTimeout(() => {
-        goTo(Math.round(posRef.current));
+        goTo(nearest(posRef.current));
       }, 120);
     },
-    [goTo, posRef, setPos, setTarget, stop, tickWidth],
+    [goTo, nearest, posRef, setPos, setTarget, stop, tickWidth],
   );
 }
 
 /**
- * The position of an endless wheel, in ticks, moved by dragging with a fling that settles
+ * The position of the wheel, in ticks from its first hour to its last, moved by dragging with a fling that settles
  * on the nearest tick, by the mouse wheel, and by `goTo`. Position and drawing come from
  * the same state in the same frame, so the wheel never lags behind the finger. `center`
  * is the tick at the center, or the one a settle or a tap is heading to.
  */
-export function useWheelPicker(initial: number, tickWidth: number) {
-  const motion = useWheelMotion(initial);
+export function useWheelPicker(initial: number, count: number, tickWidth: number) {
+  const motion = useWheelMotion(initial, Math.max(0, count - 1));
   const handlers = usePointerDrag(motion, tickWidth);
   const onWheel = useWheelInput(motion, tickWidth);
   return { pos: motion.pos, center: motion.target ?? Math.round(motion.pos), handlers, onWheel, goTo: motion.goTo };

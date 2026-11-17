@@ -6,11 +6,6 @@ export function tickWidthFor(containerWidth: number): number {
   return containerWidth >= 640 ? 80 : 48;
 }
 
-/** `value` modulo `size`, never negative: the hour a tick of the endless ruler shows. */
-export function wrapIndex(value: number, size: number): number {
-  return ((value % size) + size) % size;
-}
-
 /** How much of a half circle the arc follows: below 1 it stops short of going vertical at the edge. */
 const ARC_SPAN = 0.85;
 /** The arc's height at the edge for that span, so the ends still climb exactly ARC_HEIGHT. */

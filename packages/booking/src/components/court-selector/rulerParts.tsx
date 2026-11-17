@@ -24,22 +24,18 @@ interface RulerTickProps {
   half: number;
   width: number;
   focused: boolean;
-  /** Another copy of an hour already announced: drawn and tappable, but not read twice. */
-  ghost: boolean;
   last: boolean;
   onPick: () => void;
 }
 
 /** One hour on the wheel: a tick and its time under it, placed and sized by its offset. */
-export function RulerTick({ option, offset, half, width, focused, ghost, last, onPick }: RulerTickProps) {
+export function RulerTick({ option, offset, half, width, focused, last, onPick }: RulerTickProps) {
   const depth = tickDepth(offset, half, width);
   return (
     <button
       type="button"
       aria-label={last ? `${option.startTime}, ${t.lastCourtLeft}` : option.startTime}
-      data-slot-time={ghost ? undefined : option.startTime}
-      aria-hidden={ghost || undefined}
-      tabIndex={ghost ? -1 : undefined}
+      data-slot-time={option.startTime}
       aria-pressed={focused}
       onClick={onPick}
       style={{
