@@ -192,11 +192,11 @@ describe('owner tournament selects', () => {
     expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.pairs);
   });
 
-  it.each([1, 4])('sets the category select and the section select side by side with %i categories', async (count) => {
+  it.each([1, 4])('keeps the category select and the section select in one row with %i categories', async (count) => {
     const categories = [1, 2, 3, 4].slice(0, count).map((level) => makeCategory({ id: `c${String(level)}`, level }));
     await renderDetail(makeDetail({ categories }));
     const row = screen.getByRole('combobox', { name: t.detail.categoriesLabel }).closest('.grid');
-    expect(row).toHaveClass('grid-cols-[minmax(0,1fr)_7.25rem]');
+    expect(row).toHaveClass('grid-cols-1', 'sm:grid-cols-[16rem_12rem]');
     expect(row).toContainElement(screen.getByRole('combobox', { name: t.detail.sectionLabel }));
   });
 });

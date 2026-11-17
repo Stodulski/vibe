@@ -59,7 +59,12 @@ export const tournaments = {
   // Detail
   detail: {
     categoriesLabel: 'Categoría',
-    sections: { pairs: 'Parejas', groups: 'Zonas', bracket: 'Cuadro', matches: 'Partidos' },
+    sections: {
+      pairs: 'Parejas inscriptas',
+      groups: 'Posiciones por zona',
+      bracket: 'Cuadro final',
+      matches: 'Partidos',
+    },
     sectionLabel: 'Ver',
     prizesLabel: 'Premios',
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
