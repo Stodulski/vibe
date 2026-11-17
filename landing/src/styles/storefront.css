@@ -12,33 +12,3 @@
 /* Utility classes used only inside the shared packages must be generated too. */
 @source '../../../packages/ui/src';
 @source '../../../packages/booking/src';
-
-/*
- * The time ruler as a wheel (packages/booking TimeRuler): each tick is sized by where it
- * is in the ruler's view, full and low at the center, smaller, fainter and higher toward
- * each edge on half an ellipse. Driven by the scroll itself where the browser supports
- * scroll-driven animations, so it keeps up with a fast swipe on a phone; elsewhere
- * rulerDepth.ts draws the same curve from JavaScript. The stops follow its formula:
- * d = distance from the center (0 to 1), rise = -96px * (1 - sqrt(1 - d^2)),
- * scale = 1.15 - 0.6d, opacity = 1 - 0.55d.
- */
-@supports (animation-timeline: view()) {
-  .ruler-tick {
-    animation: ruler-depth linear both;
-    animation-timeline: view(inline);
-  }
-}
-
-@keyframes ruler-depth {
-  0% { transform: translateY(-96.0px) scale(0.550); opacity: 0.450; }
-  10% { transform: translateY(-38.4px) scale(0.670); opacity: 0.560; }
-  20% { transform: translateY(-19.2px) scale(0.790); opacity: 0.670; }
-  30% { transform: translateY(-8.0px) scale(0.910); opacity: 0.780; }
-  40% { transform: translateY(-1.9px) scale(1.030); opacity: 0.890; }
-  50% { transform: translateY(-0.0px) scale(1.150); opacity: 1.000; }
-  60% { transform: translateY(-1.9px) scale(1.030); opacity: 0.890; }
-  70% { transform: translateY(-8.0px) scale(0.910); opacity: 0.780; }
-  80% { transform: translateY(-19.2px) scale(0.790); opacity: 0.670; }
-  90% { transform: translateY(-38.4px) scale(0.670); opacity: 0.560; }
-  100% { transform: translateY(-96.0px) scale(0.550); opacity: 0.450; }
-}
