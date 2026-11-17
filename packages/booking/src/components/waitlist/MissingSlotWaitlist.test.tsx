@@ -71,3 +71,26 @@ describe('MissingSlotWaitlist', () => {
     expect(screen.queryByRole('button', { name: t.missingSlot })).not.toBeInTheDocument();
   });
 });
+
+describe('waitlist refusals', () => {
+  it('says the place is free now when the server refuses the wait for that reason', async () => {
+    const user = userEvent.setup();
+    server.use(
+      http.post('*/public/complexes/:slug/waitlist/places', () =>
+        HttpResponse.json(
+          { title: 'Unprocessable', status: 422, errors: [{ field: 'start_time', message: 'is free now: book it instead of waiting' }] },
+          { status: 422, headers: { 'Content-Type': 'application/problem+json' } },
+        ),
+      ),
+    );
+    renderBooking(<MissingSlotWaitlist slug="club" date="2099-12-05" courts={[court(false)]} />);
+
+    await user.click(screen.getByRole('button', { name: t.missingSlot }));
+    const dialog = await screen.findByRole('alertdialog');
+    await chooseOption(user, within(dialog).getByRole('combobox', { name: t.slotLabel }), '19:00 · Pádel 1');
+    await user.type(within(dialog).getByLabelText(t.emailLabel), 'ana@example.com');
+    await user.click(within(dialog).getByRole('button', { name: t.sendSlot }));
+
+    expect(await within(dialog).findByText(t.placeFree)).toBeInTheDocument();
+  });
+});

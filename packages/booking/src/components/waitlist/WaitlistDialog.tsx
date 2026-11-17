@@ -20,8 +20,10 @@ import { emailField } from '../../lib/validations';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useHoldChallenge } from '../../pages/complex-page/useHoldChallenge';
 import { TurnstileField } from '../booking-form/TurnstileField';
+import { waitlistRefusal } from './waitlistRefusal';
 
 const t = BOOKING_MESSAGES.waitlist;
+
 
 /** One taken slot the visitor can pick in the booking's "¿No está el horario que buscás?". */
 export interface WaitlistSlotOption {
@@ -112,7 +114,7 @@ function WaitlistForm({ slug, request, onClose }: { slug: string; request: Waitl
         <AlertDialogDescription className="text-text-secondary text-sm">{request.description}</AlertDialogDescription>
       </div>
       {slots && <SlotSelect id={`${id}-slot`} slots={slots} value={slot} onChange={setSlot} error={problem?.field === 'slot' ? problem.message : undefined} />}
-      <FormField label={t.emailLabel} htmlFor={`${id}-email`} error={problem?.field === 'email' ? problem.message : join.isError ? t.error : undefined}>
+      <FormField label={t.emailLabel} htmlFor={`${id}-email`} error={problem?.field === 'email' ? problem.message : join.isError ? waitlistRefusal(join.error) : undefined}>
         <Input
           id={`${id}-email`}
           type="email"

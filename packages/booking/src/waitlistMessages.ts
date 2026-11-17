@@ -20,4 +20,8 @@ export const WAITLIST_MESSAGES = {
   cancel: 'Cancelar',
   done: 'Listo, te avisamos por email apenas se libere. El primero que paga se queda con el lugar.',
   error: 'No pudimos guardar tu email. Probá de nuevo.',
+  placeFree: 'Ya hay lugar libre: podés inscribirte o reservar ahora.',
+  slotGone: 'Ese horario ya no se puede esperar. Elegí otro.',
+  capReached: 'Ya estás esperando muchos lugares en este complejo.',
+  tooMany: 'Probá de nuevo en un rato.',
 } as const;
