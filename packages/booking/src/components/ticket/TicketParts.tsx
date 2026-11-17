@@ -38,8 +38,6 @@ interface TicketCourtProps {
   name: string;
   /** Sport and court type, shown as chips in one row. */
   tags: string[];
-  /** The owner's free text, on its own line below the chips. */
-  description?: string | null | undefined;
   /** The ticket's own heading on a page that has no other: the name is then the page's `h1`. */
   as?: 'p' | 'h1';
   /**
@@ -50,11 +48,10 @@ interface TicketCourtProps {
 }
 
 /**
- * The court under its name: sport and type as chips in one row, then the
- * owner's description on its own line, since it is free text of any length.
- * Whatever the data lacks is not rendered.
+ * The court under its name: sport and type as chips in one row. Whatever the
+ * data lacks is not rendered.
  */
-export function TicketCourt({ name, tags, description, as: Name = 'p', bare = false }: TicketCourtProps) {
+export function TicketCourt({ name, tags, as: Name = 'p', bare = false }: TicketCourtProps) {
   return (
     <div>
       <Name className="text-text-inverse text-base font-semibold">{name}</Name>
@@ -73,7 +70,6 @@ export function TicketCourt({ name, tags, description, as: Name = 'p', bare = fa
           ))}
         </div>
       )}
-      {description && <p className="text-text-inverse mt-2 text-sm">{description}</p>}
     </div>
   );
 }

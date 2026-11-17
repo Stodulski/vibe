@@ -19,28 +19,17 @@ const baseSlotInfo: BookingSlotInfo = {
 };
 
 describe('SlotHeaderRow — sport and court type line', () => {
-  it('joins the sport and the court type with a middle dot, and shows the description', () => {
-    render(
-      <SlotHeaderRow
-        slotInfo={{
-          ...baseSlotInfo,
-          sport: 'padel',
-          courtType: 'indoor',
-          courtDescription: 'Césped sintético',
-        }}
-      />,
-    );
+  it('shows the sport and the court type', () => {
+    render(<SlotHeaderRow slotInfo={{ ...baseSlotInfo, sport: 'padel', courtType: 'indoor' }} />);
 
     expect(screen.getByText('Pádel')).toBeInTheDocument();
     expect(screen.getByText('Techada')).toBeInTheDocument();
-    expect(screen.getByText('Césped sintético')).toBeInTheDocument();
   });
 
-  it('renders neither line when sport, court type and description are all absent', () => {
+  it('renders neither line when sport and court type are both absent', () => {
     render(<SlotHeaderRow slotInfo={baseSlotInfo} />);
 
     expect(screen.queryByText(/·/)).not.toBeInTheDocument();
-    expect(screen.queryByText('Césped sintético')).not.toBeInTheDocument();
   });
 
   it('shows the sport alone, with no separator, when the court type is absent', () => {

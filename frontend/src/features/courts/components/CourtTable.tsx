@@ -34,7 +34,6 @@ export function CourtTable({ courts, complexId, onEdit, onPrices }: CourtTablePr
           <TableRow className="border-border-subtle hover:bg-transparent">
             <TableHead className={HEAD_CELL}>{t.courts.table.court}</TableHead>
             <TableHead className={HEAD_CELL}>{t.courts.table.type}</TableHead>
-            <TableHead className={HEAD_CELL}>{t.courts.table.description}</TableHead>
             <TableHead className={`${HEAD_CELL} text-right`}>{t.courts.price}</TableHead>
             <TableHead className={HEAD_CELL}>{t.courts.table.status}</TableHead>
             <TableHead className={`${HEAD_CELL} text-right`}>{t.common.actions}</TableHead>

@@ -18,7 +18,7 @@ WHERE id = $1
   AND deleted_at IS NULL
   AND ($2::int IS NULL
        OR version = $2::int)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
+RETURNING version
 `
 
 type BumpCourtVersionParams struct {
@@ -37,29 +37,16 @@ type BumpCourtVersionParams struct {
 // The UPDATE names deleted_at as its assignment precisely because it changes
 // nothing: the trigger on this table fires on any UPDATE, which is the whole
 // effect wanted here.
-func (q *Queries) BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (Court, error) {
+func (q *Queries) BumpCourtVersion(ctx context.Context, arg BumpCourtVersionParams) (int32, error) {
 	row := q.db.QueryRow(ctx, bumpCourtVersion, arg.ID, arg.ExpectedVersion)
-	var i Court
-	err := row.Scan(
-		&i.ID,
-		&i.ComplexID,
-		&i.Name,
-		&i.Sport,
-		&i.CourtType,
-		&i.IsActive,
-		&i.DeletedAt,
-		&i.CreatedAt,
-		&i.UpdatedAt,
-		&i.Description,
-		&i.Version,
-		&i.HasLighting,
-		&i.Surface,
-	)
-	return i, err
+	var version int32
+	err := row.Scan(&version)
+	return version, err
 }
 
 const getCourtByID = `-- name: GetCourtByID :one
-SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface FROM active_courts
+SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, version, has_lighting, surface
+FROM active_courts
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -70,14 +57,29 @@ type GetCourtByIDParams struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
 }
 
+type GetCourtByIDRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	ComplexID   pgtype.UUID        `json:"complex_id"`
+	Name        string             `json:"name"`
+	Sport       SportType          `json:"sport"`
+	CourtType   CourtType          `json:"court_type"`
+	IsActive    bool               `json:"is_active"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
+}
+
 // Reads active_courts: a court whose complex was soft-deleted is not a court
 // anyone may book, edit or price, and filtering only on the court's own
 // deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
 // Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
 // predicate is optional.
-func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (ActiveCourt, error) {
+func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (GetCourtByIDRow, error) {
 	row := q.db.QueryRow(ctx, getCourtByID, arg.ID, arg.ComplexID)
-	var i ActiveCourt
+	var i GetCourtByIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
@@ -88,7 +90,6 @@ func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (Act
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Description,
 		&i.Version,
 		&i.HasLighting,
 		&i.Surface,
@@ -97,10 +98,26 @@ func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (Act
 }
 
 const getCourtsByComplex = `-- name: GetCourtsByComplex :many
-SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface FROM active_courts
+SELECT id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, version, has_lighting, surface
+FROM active_courts
 WHERE complex_id = $1
 ORDER BY NULLIF(regexp_replace(name, '\D', '', 'g'), '')::int NULLS LAST, name
 `
+
+type GetCourtsByComplexRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	ComplexID   pgtype.UUID        `json:"complex_id"`
+	Name        string             `json:"name"`
+	Sport       SportType          `json:"sport"`
+	CourtType   CourtType          `json:"court_type"`
+	IsActive    bool               `json:"is_active"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
+}
 
 // Ordered naturally rather than lexically: courts are almost always named
 // "Cancha 1", "Cancha 2", ... "Cancha 10", and a plain ORDER BY name sorts
@@ -108,15 +125,15 @@ ORDER BY NULLIF(regexp_replace(name, '\D', '', 'g'), '')::int NULLS LAST, name
 // so the numeric part of the name (if any) is extracted and sorted as an
 // integer first, with non-numeric names falling back to plain name order
 // after every numbered court.
-func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]ActiveCourt, error) {
+func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]GetCourtsByComplexRow, error) {
 	rows, err := q.db.Query(ctx, getCourtsByComplex, complexID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ActiveCourt
+	var items []GetCourtsByComplexRow
 	for rows.Next() {
-		var i ActiveCourt
+		var i GetCourtsByComplexRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ComplexID,
@@ -127,7 +144,6 @@ func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID)
 			&i.DeletedAt,
 			&i.CreatedAt,
 			&i.UpdatedAt,
-			&i.Description,
 			&i.Version,
 			&i.HasLighting,
 			&i.Surface,
@@ -143,9 +159,9 @@ func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID)
 }
 
 const insertCourt = `-- name: InsertCourt :one
-INSERT INTO courts (complex_id, name, sport, court_type, description, has_lighting, surface)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
+INSERT INTO courts (complex_id, name, sport, court_type, has_lighting, surface)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, version, has_lighting, surface
 `
 
 type InsertCourtParams struct {
@@ -153,22 +169,39 @@ type InsertCourtParams struct {
 	Name        string      `json:"name"`
 	Sport       SportType   `json:"sport"`
 	CourtType   CourtType   `json:"court_type"`
-	Description pgtype.Text `json:"description"`
 	HasLighting bool        `json:"has_lighting"`
 	Surface     pgtype.Text `json:"surface"`
 }
 
-func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error) {
+type InsertCourtRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	ComplexID   pgtype.UUID        `json:"complex_id"`
+	Name        string             `json:"name"`
+	Sport       SportType          `json:"sport"`
+	CourtType   CourtType          `json:"court_type"`
+	IsActive    bool               `json:"is_active"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
+}
+
+// Every court query names its columns instead of using *: sqlc expands * into
+// the column list at generation time, so a * here would keep selecting
+// courts.description (unused since the API dropped it) and break the moment
+// the column is dropped.
+func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (InsertCourtRow, error) {
 	row := q.db.QueryRow(ctx, insertCourt,
 		arg.ComplexID,
 		arg.Name,
 		arg.Sport,
 		arg.CourtType,
-		arg.Description,
 		arg.HasLighting,
 		arg.Surface,
 	)
-	var i Court
+	var i InsertCourtRow
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
@@ -179,7 +212,6 @@ func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Description,
 		&i.Version,
 		&i.HasLighting,
 		&i.Surface,
@@ -206,14 +238,13 @@ SET name = $1,
     sport = $2,
     court_type = $3,
     is_active = $4,
-    description = $5,
-    has_lighting = $6,
-    surface = $7
-WHERE id = $8
+    has_lighting = $5,
+    surface = $6
+WHERE id = $7
   AND deleted_at IS NULL
-  AND ($9::int IS NULL
-       OR version = $9::int)
-RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, description, version, has_lighting, surface
+  AND ($8::int IS NULL
+       OR version = $8::int)
+RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, version, has_lighting, surface
 `
 
 type UpdateCourtParams struct {
@@ -221,30 +252,43 @@ type UpdateCourtParams struct {
 	Sport           SportType   `json:"sport"`
 	CourtType       CourtType   `json:"court_type"`
 	IsActive        bool        `json:"is_active"`
-	Description     pgtype.Text `json:"description"`
 	HasLighting     bool        `json:"has_lighting"`
 	Surface         pgtype.Text `json:"surface"`
 	ID              pgtype.UUID `json:"id"`
 	ExpectedVersion pgtype.Int4 `json:"expected_version"`
 }
 
+type UpdateCourtRow struct {
+	ID          pgtype.UUID        `json:"id"`
+	ComplexID   pgtype.UUID        `json:"complex_id"`
+	Name        string             `json:"name"`
+	Sport       SportType          `json:"sport"`
+	CourtType   CourtType          `json:"court_type"`
+	IsActive    bool               `json:"is_active"`
+	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+	Version     int32              `json:"version"`
+	HasLighting bool               `json:"has_lighting"`
+	Surface     pgtype.Text        `json:"surface"`
+}
+
 // expected_version is the caller's optimistic-concurrency precondition and is
 // optional (API-08): NULL is the last-write-wins this endpoint had before
 // versions existed. Zero rows means either the court is gone or somebody else
 // wrote it first; courtstore.Store.Update tells those apart by re-reading.
-func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error) {
+func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (UpdateCourtRow, error) {
 	row := q.db.QueryRow(ctx, updateCourt,
 		arg.Name,
 		arg.Sport,
 		arg.CourtType,
 		arg.IsActive,
-		arg.Description,
 		arg.HasLighting,
 		arg.Surface,
 		arg.ID,
 		arg.ExpectedVersion,
 	)
-	var i Court
+	var i UpdateCourtRow
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
@@ -255,7 +299,6 @@ func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court
 		&i.DeletedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
-		&i.Description,
 		&i.Version,
 		&i.HasLighting,
 		&i.Surface,

@@ -6,18 +6,15 @@ import type { CourtWithPrices } from '@/shared/types/api.types';
 /** The form's `defaultValues` for a given court, or a blank court to create. */
 export function courtDefaultValues(court: CourtWithPrices | undefined): CreateCourtDto {
   if (!court) {
-    return { name: '', sport: 'padel', court_type: 'outdoor', description: '', has_lighting: false, surface: '' };
+    return { name: '', sport: 'padel', court_type: 'outdoor', has_lighting: false, surface: '' };
   }
   return {
     name: court.name,
     sport: court.sport,
     court_type: court.court_type,
-    // The server omits the key when there is none; the form still needs a
-    // string, and an empty one round-trips back to no description.
-    description: court.description ?? '',
     has_lighting: court.has_lighting,
-    // Same for the surface: absent means unspecified, which the select shows
-    // as its empty option.
+    // The server omits the key when there is none; absent means unspecified,
+    // which the select shows as its empty option.
     surface: court.surface ?? '',
   };
 }

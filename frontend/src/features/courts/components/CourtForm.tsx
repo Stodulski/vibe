@@ -9,7 +9,6 @@ import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { NameField } from './court-form/NameField';
 import { SportAndTypeFields } from './court-form/SportAndTypeFields';
 import { SurfaceAndLightingFields } from './court-form/SurfaceAndLightingFields';
-import { DescriptionField } from './court-form/DescriptionField';
 import { useCourtFormSubmit, courtDefaultValues } from './court-form/useCourtFormSubmit';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 
@@ -95,8 +94,6 @@ function CourtFormBody({
         <SportAndTypeFields control={control} errors={errors} setValue={setValue} getValues={getValues} />
 
         <SurfaceAndLightingFields control={control} errors={errors} />
-
-        <DescriptionField register={register} errors={errors} />
 
         <SectionFooter
           onCancel={onClose}

@@ -6,7 +6,6 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { DeactivateCourtDialog } from '../court-card/DeactivateCourtDialog';
 import { useCourtRowActions } from '../court-card/useCourtRowActions';
 import { courtDetailsLine } from '../../lib/courtDetails';
-import { CourtDescriptionCell } from './CourtDescriptionCell';
 import { CourtPriceCell } from './CourtPriceCell';
 import { CourtRowActionsMenu } from './CourtRowActionsMenu';
 import type { CourtWithPrices } from '@/shared/types/api.types';
@@ -37,10 +36,6 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
 
         <TableCell className="text-text-secondary text-sm whitespace-nowrap">
           {t.courts.courtTypes[court.court_type]}
-        </TableCell>
-
-        <TableCell className="max-w-64">
-          <CourtDescriptionCell description={court.description} />
         </TableCell>
 
         <TableCell className="text-right">

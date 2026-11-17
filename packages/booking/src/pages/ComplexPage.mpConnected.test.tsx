@@ -134,7 +134,6 @@ const PADEL_COURT: CourtWithPrices = {
     name: 'Cancha 1',
     sport: 'padel',
     court_type: 'indoor',
-    description: 'Con iluminación LED',
   }),
   prices: [
     {
@@ -156,7 +155,6 @@ const TENNIS_COURT: CourtWithPrices = {
     name: 'Cancha 2',
     sport: 'tennis',
     court_type: 'outdoor',
-    description: null,
   }),
   prices: [],
 };
@@ -298,26 +296,16 @@ describe('ComplexPage — phone-only courts directory', () => {
     await renderComplexPage();
   }
 
-  it('lists the active courts with their name, sport, court type and description', async () => {
+  it('lists the active courts with their name, sport and court type', async () => {
     await renderWith(false, COURTS);
 
     const directory = screen.getByRole('region', { name: /canchas/i });
     expect(within(directory).getByText('Cancha 1')).toBeInTheDocument();
     expect(within(directory).getByText('Pádel')).toBeInTheDocument();
     expect(within(directory).getByText('Techada')).toBeInTheDocument();
-    expect(within(directory).getByText('Con iluminación LED')).toBeInTheDocument();
     expect(within(directory).getByText('Cancha 2')).toBeInTheDocument();
     expect(within(directory).getByText('Tenis')).toBeInTheDocument();
     expect(within(directory).getByText('Descubierta')).toBeInTheDocument();
-  });
-
-  it('renders the owner description as text, never as markup', async () => {
-    const markup = '<b>Techada</b> <img src="x" alt="">';
-    await renderWith(false, [{ ...PADEL_COURT, description: markup }]);
-
-    const directory = screen.getByRole('region', { name: /canchas/i });
-    expect(within(directory).getByText(markup)).toBeInTheDocument();
-    expect(directory.querySelector('b, img')).toBeNull();
   });
 
   it('never shows a price on the phone-only page', async () => {

@@ -120,7 +120,6 @@ export interface Court {
   sport: Sport;
   court_type: CourtType;
   is_active: boolean;
-  description?: string | null;
   has_lighting: boolean;
   /** Absent when the owner has not said. */
   surface?: CourtSurface | null;
@@ -172,7 +171,6 @@ export interface CourtAvailability {
   court_name: string;
   sport: Open<Sport>;
   court_type: Open<CourtType>;
-  description?: string;
   has_lighting: boolean;
   /** Absent when the owner has not said. Open like `sport`: a surface this build predates still renders. */
   surface?: Open<CourtSurface>;

@@ -24,10 +24,6 @@ type Court struct {
 	Sport     string    `json:"sport"`
 	CourtType string    `json:"court_type"`
 	IsActive  bool      `json:"is_active"`
-	// What this court is like — floor, walls, lighting. Free text the owner
-	// writes for a player choosing between two courts that the other columns
-	// describe identically. Nil when never written, matching Complex.
-	Description *string `json:"description,omitempty"`
 	// HasLighting is whether the court can be played after dark. Surface is the
 	// playing floor, one of the values of courts_surface_known; nil when the
 	// owner has not said.
@@ -166,7 +162,6 @@ func (m *Store) Insert(ctx context.Context, c *Court) error {
 		Name:        c.Name,
 		Sport:       db.SportType(c.Sport),
 		CourtType:   db.CourtType(c.CourtType),
-		Description: data.TextToPg(c.Description),
 		HasLighting: c.HasLighting,
 		Surface:     data.TextToPg(c.Surface),
 	})
@@ -196,7 +191,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Court, error) {
 		}
 		return nil, err
 	}
-	return courtFromDB(courtRowFromActive(dbCourt)), nil
+	return courtFromDB(dbCourt), nil
 }
 
 // GetByComplex returns every court belonging to the complex.
@@ -211,7 +206,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court
 
 	result := make([]*Court, len(dbCourts))
 	for i, c := range dbCourts {
-		result[i] = courtFromDB(courtRowFromActive(c))
+		result[i] = courtFromDB(db.GetCourtByIDRow(c))
 	}
 	return result, nil
 }
@@ -235,7 +230,6 @@ func (m *Store) Update(ctx context.Context, c *Court, expectedVersion *int) erro
 		Sport:           db.SportType(c.Sport),
 		CourtType:       db.CourtType(c.CourtType),
 		IsActive:        c.IsActive,
-		Description:     data.TextToPg(c.Description),
 		HasLighting:     c.HasLighting,
 		Surface:         data.TextToPg(c.Surface),
 		ID:              data.UUIDToPg(c.ID),
@@ -926,16 +920,12 @@ func (m *Store) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// courtRowFromActive re-labels a row of the active_courts view as a row of the
-// courts table. Same reason and same guarantee as complexRowFromActive in
-// complexes.go: sqlc gives a view its own struct, one mapper is better than two
-// that can drift, and the conversion compiles only while the view still carries
-// every column of the table in the same order.
-func courtRowFromActive(c db.ActiveCourt) db.Court {
-	return db.Court(c)
-}
-
-func courtFromDB(c db.Court) *Court {
+// courtFromDB maps a court row onto the store type. GetCourtByID and
+// GetCourtsByComplex select the same columns, so sqlc gives them two structs
+// with identical fields; GetCourtsByComplex's rows are converted to this one
+// rather than keeping two mappers that can drift, and the conversion compiles
+// only while the two column lists stay the same.
+func courtFromDB(c db.GetCourtByIDRow) *Court {
 	return &Court{
 		ID:          data.PgToUUID(c.ID),
 		ComplexID:   data.PgToUUID(c.ComplexID),
@@ -943,7 +933,6 @@ func courtFromDB(c db.Court) *Court {
 		Sport:       string(c.Sport),
 		CourtType:   string(c.CourtType),
 		IsActive:    c.IsActive,
-		Description: data.PgToTextPtr(c.Description),
 		HasLighting: c.HasLighting,
 		Surface:     data.PgToTextPtr(c.Surface),
 		CreatedAt:   data.PgToTime(c.CreatedAt),

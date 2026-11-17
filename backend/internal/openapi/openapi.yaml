@@ -4061,7 +4061,10 @@ paths:
                 name: {type: string, maxLength: 100}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
-                description: {type: string, maxLength: 200}
+                description:
+                  type: string
+                  deprecated: true
+                  description: Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
                 has_lighting: {type: boolean, description: "Defaults to false when omitted."}
                 surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: "Optional. Must be allowed for the court's sport."}
 
@@ -4107,7 +4110,10 @@ paths:
                 name: {type: string, maxLength: 100}
                 sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
                 court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
-                description: {type: string, maxLength: 200}
+                description:
+                  type: string
+                  deprecated: true
+                  description: Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
                 is_active: {type: boolean}
                 has_lighting: {type: boolean}
                 surface:
@@ -6613,7 +6619,6 @@ components:
         sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
         is_active: {type: boolean}
-        description: {type: [string, "null"]}
         has_lighting: {type: boolean}
         surface:
           oneOf: [{$ref: "#/components/schemas/CourtSurface"}, {type: "null"}]
@@ -7842,7 +7847,6 @@ components:
         court_name: {type: string}
         sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
-        description: {type: string}
         has_lighting: {type: boolean}
         surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: Omitted when the owner has not said.}
         slots:

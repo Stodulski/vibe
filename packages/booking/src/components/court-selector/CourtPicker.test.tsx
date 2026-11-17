@@ -42,17 +42,12 @@ function mixedOption() {
   return option;
 }
 
-describe('CourtPicker — a court description', () => {
-  it('shows nothing in place of a missing description', () => {
+describe('CourtPicker — no court description', () => {
+  it('shows neither the description the API sends nor a placeholder for a missing one', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
 
+    expect(screen.queryByText('Césped sintético')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
-  });
-
-  it('shows the real description, not the fallback, when the court has one', () => {
-    render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
-
-    expect(screen.getByText('Césped sintético')).toBeInTheDocument();
   });
 });
 

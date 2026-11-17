@@ -70,10 +70,11 @@ describe('CourtTable', () => {
     expect(screen.getByText('Sin precios configurados')).toBeInTheDocument();
   });
 
-  it('shows the description with the empty-state string when there is none', () => {
+  it('has no description column: the court facts say it all', () => {
     renderTable([courtWithRange, courtNoPrices]);
-    expect(screen.getByText('Con luz')).toBeInTheDocument();
-    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /descripci/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Con luz')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
   });
 
   it('renders the active toggle', () => {

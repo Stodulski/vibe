@@ -2701,7 +2701,6 @@ export interface components {
       /** @enum {string} */
       court_type: 'indoor' | 'outdoor' | 'semi_covered';
       is_active: boolean;
-      description?: string | null;
       has_lighting: boolean;
       /** @description Playing surface; null when the owner has not said. */
       surface?: components['schemas']['CourtSurface'] | null;
@@ -3902,7 +3901,6 @@ export interface components {
       sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
       /** @enum {string} */
       court_type: 'indoor' | 'outdoor' | 'semi_covered';
-      description?: string;
       has_lighting: boolean;
       /**
        * @description Omitted when the owner has not said.
@@ -8548,6 +8546,10 @@ export interface operations {
           sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
           /** @enum {string} */
           court_type: 'indoor' | 'outdoor' | 'semi_covered';
+          /**
+           * @deprecated
+           * @description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
+           */
           description?: string;
           /** @description Defaults to false when omitted. */
           has_lighting?: boolean;
@@ -8610,6 +8612,10 @@ export interface operations {
           sport?: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
           /** @enum {string} */
           court_type?: 'indoor' | 'outdoor' | 'semi_covered';
+          /**
+           * @deprecated
+           * @description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
+           */
           description?: string;
           is_active?: boolean;
           has_lighting?: boolean;

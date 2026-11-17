@@ -38,8 +38,6 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
               {(t.courts.sportTypes as Record<string, string | undefined>)[court.sport] ?? court.sport} · {courtFactsLine(court)}
             </span>
             <span className="text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>
-            {/* Only a real description: a "no description" placeholder is noise on every card. */}
-            {court.description && <span className="text-text-secondary w-full truncate text-xs">{court.description}</span>}
           </>
         ),
       }))}

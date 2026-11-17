@@ -76,6 +76,12 @@ describe('CourtCard - content', () => {
     expect(screen.getByText(/descubierta/i)).toBeInTheDocument();
   });
 
+  it('shows no description, not even an empty-state line', () => {
+    render(<CourtCard {...defaultProps} court={{ ...mockCourt, description: 'Con luz' }} />);
+    expect(screen.queryByText('Con luz')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
+  });
+
   it('renders active toggle switch', () => {
     render(<CourtCard {...defaultProps} />);
     const switchEl = screen.getByRole('switch');

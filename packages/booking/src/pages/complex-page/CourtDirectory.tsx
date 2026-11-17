@@ -7,14 +7,14 @@ import { keepTogether } from '../../lib/keepTogether';
 const t = BOOKING_MESSAGES;
 
 /** What the directory shows of a court. Nothing priced: the page cannot take a booking yet. */
-type DirectoryCourt = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'description' | 'surface' | 'has_lighting'>;
+type DirectoryCourt = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'surface' | 'has_lighting'>;
 
 /**
  * The complex's courts, listed for a visitor who cannot book them online.
  *
  * Read-only on purpose: there are no prices and no control, because nothing
- * here can be acted on until the club takes online bookings. The owner's
- * description is free text and is rendered as text, never as markup.
+ * here can be acted on until the club takes online bookings. The sport and
+ * the facts (roof, surface, lighting) say all a visitor needs about a court.
  */
 export function CourtDirectory({ courts }: { courts: DirectoryCourt[] }) {
   const titleId = useId();
@@ -47,15 +47,6 @@ export function CourtDirectory({ courts }: { courts: DirectoryCourt[] }) {
                   </span>
                 ))}
               </div>
-              <p
-                className={
-                  court.description?.trim()
-                    ? 'text-text-secondary mt-2 text-sm'
-                    : 'text-text-tertiary mt-2 text-sm italic'
-                }
-              >
-                {court.description?.trim() ? court.description : t.publicBooking.courtNoDescription}
-              </p>
           </li>
         ))}
       </ul>

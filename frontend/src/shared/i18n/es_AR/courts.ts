@@ -66,8 +66,6 @@ export const courts = {
   withLighting: 'Con iluminación',
   dayTypes: {},
   applyToAll: 'Aplicar a todos',
-  descriptionOptional: 'Descripción (opcional)',
-  noDescription: 'Sin descripción',
   pricesAppliedToAll: 'Precios aplicados a todos los días',
   // Down from two paragraphs (the proportional-charging explanation and a
   // sentence about differentiated prices) to this one line: the owner does
@@ -134,7 +132,6 @@ export const courts = {
   table: {
     court: 'Cancha',
     type: 'Tipo',
-    description: 'Descripción',
     status: 'Estado',
   },
 } as const;
