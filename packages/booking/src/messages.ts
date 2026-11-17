@@ -88,6 +88,7 @@ export const BOOKING_MESSAGES = {
     bookingRef: 'Reserva',
     tryAgain: 'Reintentar',
     makeAnother: 'Nueva reserva',
+    bookingsTitle: 'Reservas',
     schedule: 'Horario',
     address: 'Dirección',
     mapUnavailable: 'No pudimos cargar el mapa',

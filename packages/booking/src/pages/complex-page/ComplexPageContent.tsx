@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { ComplexHeader } from '../../components/ComplexHeader';
 import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { DateSelector } from '../../components/DateSelector';
+import { BOOKING_MESSAGES } from '../../messages';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import type {
   AvailabilityData,
@@ -129,7 +130,9 @@ export function ComplexPageContent({
           narrows the inventory inside one day, and this is the one that says
           which day. It is also what gets swept across most, so it never hides
           behind a step. */}
-      <div className="mt-6 sm:mt-10">
+      <div className="mt-6 flex flex-col gap-4 sm:mt-10">
+        {/* Names the booking section as "Eventos" names the one below it. */}
+        <h2 className="text-text-primary text-xl font-bold">{BOOKING_MESSAGES.publicBooking.bookingsTitle}</h2>
         <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
       </div>
 
