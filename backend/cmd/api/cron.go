@@ -64,6 +64,8 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("clean_unverified_users", 24*time.Hour, app.cronCleanUnverifiedUsers),
 		job("clean_jobs", 24*time.Hour, app.cronCleanJobs),
 		job("clean_waitlist_entries", 24*time.Hour, app.cronCleanWaitlistEntries),
+		job("notify_place_waitlist", time.Minute, app.placeWaitlistService.Sweep),
+		job("clean_place_waitlist_entries", 24*time.Hour, app.cronCleanPlaceWaitlistEntries),
 		job("send_lifecycle_nudges", 15*time.Minute, app.cronLifecycleNudges),
 		// One-off campaign (2026-10). Remove after it has been sent.
 		job("campaign_benefits_2026_10", 10*time.Minute, app.cronCampaignBenefits),
@@ -225,6 +227,18 @@ func (app *application) cronCleanWaitlistEntries(ctx context.Context) {
 		return
 	}
 	app.logger.Info("cron_clean_waitlist_entries: completed", "deleted", count)
+}
+
+// cronCleanPlaceWaitlistEntries deletes the place-waitlist entries whose place
+// has gone: a slot whose day passed, an event that was cancelled or whose day
+// passed. An address is kept only while the place it asked for can still free.
+func (app *application) cronCleanPlaceWaitlistEntries(ctx context.Context) {
+	count, err := app.placeWaitlistService.Purge(ctx)
+	if err != nil {
+		app.logger.Error("cron_clean_place_waitlist_entries: failed", "error", err)
+		return
+	}
+	app.logger.Info("cron_clean_place_waitlist_entries: completed", "deleted", count)
 }
 
 // cronLifecycleNudges sends the owner and lead nudges that have fallen due. It runs

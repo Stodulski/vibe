@@ -417,6 +417,7 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/social/reconcile":                                                                 "the content sync is authenticated by a GitHub Actions OIDC bearer token, not a cookie, so no cookie-borne CSRF token is in play",
 	"POST /api/v1/public/leads/abandoned-registration":                                              "reached before an account exists, so no cookie is in play",
 	"POST /api/v1/public/complexes/{slug}/waitlist":                                                 "public waitlist: the player has no account, so no cookie is in play",
+	"POST /api/v1/public/complexes/{slug}/waitlist/places":                                          "public place waitlist: the player has no account, so no cookie is in play",
 	"POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations":                           "public event sign-up: the person has no account, so no cookie is in play",
 	"POST /api/v1/public/event-registrations/cancel":                                                "same flow, authenticated by the registration's own token",
 	"POST /api/v1/public/complexes/{slug}/tournaments/{tournamentID}/categories/{categoryID}/pairs": "public pair sign-up: the person has no account, so no cookie is in play",

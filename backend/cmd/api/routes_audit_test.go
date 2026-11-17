@@ -27,6 +27,7 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/public/complexes/{slug}/availability":                                              "slot grid on the public booking page",
 	"GET /api/v1/public/complexes/{slug}/next-available":                                            "looks past a full day for the next one with room on the storefront",
 	"POST /api/v1/public/complexes/{slug}/waitlist":                                                 "adds an email to the waitlist for a fully booked day, from the storefront without an account",
+	"POST /api/v1/public/complexes/{slug}/waitlist/places":                                          "adds an email to the waitlist for one full event, tournament category or court slot, from the storefront without an account",
 	"GET /api/v1/public/complexes/{slug}/events":                                                    "the open-play events a visitor can sign up for, on the complex's public page",
 	"GET /api/v1/public/complexes/{slug}/events/{eventID}":                                          "one open-play event, for its shareable sign-up page",
 	"POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations":                           "a person signs up for an open-play event and pays, with no account",

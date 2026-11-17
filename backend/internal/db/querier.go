@@ -43,9 +43,20 @@ type Querier interface {
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.
 	ClaimCampaign(ctx context.Context, arg ClaimCampaignParams) (int64, error)
+	// Claims, in one statement, every entry still waiting for an event that has a
+	// free spot now and has not started, and returns what the email needs. A spot
+	// is free when capacity exceeds the confirmed registrations plus the holds still
+	// inside their window (the CountOpenPlaySpotsTaken rule). A tournament's
+	// category is only waited for while its sign-up is open (no draw yet). SKIP
+	// LOCKED and the notified_at IS NULL guard make the claim one-shot even with two
+	// sweeps running at once.
+	ClaimFreedOpenPlayWaitlist(ctx context.Context, arg ClaimFreedOpenPlayWaitlistParams) ([]ClaimFreedOpenPlayWaitlistRow, error)
 	// Records that a nudge is going out. The primary key makes each kind once-only
 	// per owner: a second claim inserts nothing.
 	ClaimOwnerNudge(ctx context.Context, arg ClaimOwnerNudgeParams) (int64, error)
+	// Marks the given entries notified and returns the ones this call claimed; an
+	// entry already claimed is left out, so it is never emailed twice.
+	ClaimPlaceWaitlistEntries(ctx context.Context, ids []pgtype.UUID) ([]pgtype.UUID, error)
 	// Sets nudged_at once. A lead already claimed matches no row.
 	ClaimRegistrationLeadNudge(ctx context.Context, email string) (int64, error)
 	// Marks every entry still waiting for this day as notified and returns them, in
@@ -82,6 +93,10 @@ type Querier interface {
 	DeleteEmailVerificationTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
 	DeleteExpiredRefreshTokens(ctx context.Context) error
+	// The daily cleanup: slot entries whose day is gone (kept one extra day for the
+	// hours past midnight), and event entries whose event was cancelled or whose day
+	// has passed.
+	DeletePastPlaceWaitlistEntries(ctx context.Context, arg DeletePastPlaceWaitlistEntriesParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, id pgtype.UUID) error
 	DeleteRegistrationLeadsOlderThan30Days(ctx context.Context) (int64, error)
 	DeleteTournamentGroups(ctx context.Context, categoryID pgtype.UUID) error
@@ -325,6 +340,15 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserIdentitiesByUser(ctx context.Context, userID pgtype.UUID) ([]UserIdentity, error)
 	GetUserIdentityByProviderSubject(ctx context.Context, arg GetUserIdentityByProviderSubjectParams) (UserIdentity, error)
+	// The sign-up container of a tournament category a person can wait for: live,
+	// of this complex, sign-up still open (no draw), and its day not yet begun.
+	GetWaitlistableCategoryEvent(ctx context.Context, arg GetWaitlistableCategoryEventParams) (pgtype.UUID, error)
+	// An active court of this complex.
+	GetWaitlistableCourt(ctx context.Context, arg GetWaitlistableCourtParams) (pgtype.UUID, error)
+	// An open-play event a person can wait for: live, of this complex, not a
+	// tournament's sign-up container, and not started yet (now_* is the product's
+	// wall-clock).
+	GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (pgtype.UUID, error)
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
@@ -355,6 +379,10 @@ type Querier interface {
 	// capacity count compares held_until against.
 	InsertOpenPlayRegistration(ctx context.Context, arg InsertOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
+	// A second join of the same address for the same event is a no-op.
+	InsertPlaceWaitlistOpenPlay(ctx context.Context, arg InsertPlaceWaitlistOpenPlayParams) error
+	// A second join of the same address for the same court slot is a no-op.
+	InsertPlaceWaitlistSlot(ctx context.Context, arg InsertPlaceWaitlistSlotParams) error
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
 	InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, error)
@@ -527,6 +555,11 @@ type Querier interface {
 	// include_cancelled is what the owner's list sets and the public one does not.
 	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
+	// The slot entries still waiting whose day may still be ahead: from yesterday,
+	// because a venue trading past midnight files tonight's 00:30 under yesterday's
+	// grid. Whether each slot is free and still in the future is the courts grid's
+	// call, not this query's.
+	ListWaitingSlotEntries(ctx context.Context, arg ListWaitingSlotEntriesParams) ([]ListWaitingSlotEntriesRow, error)
 	// Every write that changes how many spots are taken (a sign-up, a payment
 	// confirmed late, the owner cancelling) takes this lock first, so two of them
 	// can never both read the same count and both fit into the last spot.

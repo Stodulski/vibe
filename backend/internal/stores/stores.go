@@ -245,6 +245,22 @@ type WaitlistStore interface {
 	DeleteBefore(ctx context.Context, today time.Time) (int64, error)
 }
 
+// PlaceWaitlistStore holds the places (an event spot, a tournament category
+// spot, a court slot) players asked to hear about when one frees up: the public
+// join, the every-minute sweep that claims and notifies them once, and the daily
+// cleanup. waitlist.PlaceStore is the consumer's declaration of the same set.
+type PlaceWaitlistStore interface {
+	WaitlistableEvent(ctx context.Context, complexID, eventID uuid.UUID, now time.Time) error
+	WaitlistableCategoryEvent(ctx context.Context, complexID, categoryID uuid.UUID, now time.Time) (uuid.UUID, error)
+	WaitlistableCourt(ctx context.Context, complexID, courtID uuid.UUID) error
+	InsertEvent(ctx context.Context, complexID, eventID uuid.UUID, email string) error
+	InsertSlot(ctx context.Context, e waitliststore.NewSlotEntry) error
+	ClaimFreedEvents(ctx context.Context, now time.Time, limit int) ([]waitliststore.FreedEventEntry, error)
+	ListWaitingSlots(ctx context.Context, fromDay time.Time, limit int) ([]waitliststore.WaitingSlotEntry, error)
+	Claim(ctx context.Context, ids []uuid.UUID) ([]uuid.UUID, error)
+	DeletePast(ctx context.Context, today time.Time) (int64, error)
+}
+
 // ComplexStore composes every complex-related store capability.
 type ComplexStore interface {
 	ComplexCRUD
@@ -867,6 +883,7 @@ type Stores struct {
 	Audit             AuditStore
 	Reports           reportstore.ReportStore
 	Waitlist          WaitlistStore
+	PlaceWaitlist     PlaceWaitlistStore
 	Leads             RegistrationLeadStore
 	Lifecycle         LifecycleStore
 	// Campaign is the one-off benefits email's recipients and claims. Remove with the campaign.
@@ -913,6 +930,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Tournaments:       &tournamentstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		BookingLinkTokens: &booklinkstore.Store{DB: pooled},
 		Waitlist:          &waitliststore.Store{Q: q},
+		PlaceWaitlist:     &waitliststore.PlaceStore{Q: q},
 		Leads:             &leadsstore.Store{Q: q},
 		Lifecycle:         &lifecyclestore.Store{Q: q},
 		Campaign:          &campaignstore.Store{Q: q},

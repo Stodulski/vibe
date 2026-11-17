@@ -22,6 +22,7 @@ func TestEveryNotificationTaskHasItsPayloadScrubbed(t *testing.T) {
 		TaskEmailBenefitsCampaign,
 		TaskEmailLifecycleNudge,
 		TaskEmailWaitlistSlotFreed,
+		TaskEmailWaitlistPlaceFreed,
 		TaskEmailWelcome,
 		TaskEmailSeriesCreated,
 		TaskEmailSeriesCancelled,

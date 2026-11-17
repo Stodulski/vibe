@@ -49,6 +49,7 @@ func handle[T any](taskType string, deliver func(ctx context.Context, p T) error
 //nolint:funlen // see the registration-table note above
 func (s *Service) RegisterWorkers() {
 	s.registerWaitlistWorkers()
+	s.registerWaitlistPlaceWorkers()
 	s.registerLifecycleWorkers()
 	s.registerCampaignWorkers()
 	s.registerSeriesWorkers()

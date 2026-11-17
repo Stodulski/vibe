@@ -70,6 +70,7 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/public/complexes/{slug}/availability":                                              {},
 	"GET /api/v1/public/complexes/{slug}/next-available":                                            {},
 	"POST /api/v1/public/complexes/{slug}/waitlist":                                                 {},
+	"POST /api/v1/public/complexes/{slug}/waitlist/places":                                          {},
 	"GET /api/v1/complexes/{id}/open-play-events":                                                   {},
 	"POST /api/v1/complexes/{id}/open-play-events":                                                  {},
 	"GET /api/v1/complexes/{id}/open-play-events/{eventID}":                                         {},

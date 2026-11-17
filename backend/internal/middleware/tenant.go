@@ -84,6 +84,7 @@ var crossTenantRoutes = map[string]string{ //nolint:gosec // G101: route pattern
 	"GET /api/v1/public/complexes/{slug}/availability":                                              "resolves: the availability grid finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/next-available":                                            "resolves: the next-day search finds its complex by slug",
 	"POST /api/v1/public/complexes/{slug}/waitlist":                                                 "resolves: the waitlist join finds its complex by slug",
+	"POST /api/v1/public/complexes/{slug}/waitlist/places":                                          "resolves: the place waitlist join finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/events":                                                    "resolves: the event list finds its complex by slug",
 	"GET /api/v1/public/complexes/{slug}/events/{eventID}":                                          "resolves: the event page finds its complex by slug",
 	"POST /api/v1/public/complexes/{slug}/events/{eventID}/registrations":                           "resolves: the sign-up finds its complex by slug, and counts the address's live holds across every complex",

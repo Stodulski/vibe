@@ -109,6 +109,7 @@ func validateDeps(d deps) error {
 		{"models.Events", d.models.Events != nil},
 		{"models.Tournaments", d.models.Tournaments != nil},
 		{"models.Waitlist", d.models.Waitlist != nil},
+		{"models.PlaceWaitlist", d.models.PlaceWaitlist != nil},
 		{"models.Leads", d.models.Leads != nil},
 		{"models.Lifecycle", d.models.Lifecycle != nil},
 		{"models.BookingLinkTokens", d.models.BookingLinkTokens != nil},
@@ -650,6 +651,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// The waitlist is handed to the bookings service below, so it is built here.
 	waitlistService := waitlist.NewService(d.models.Waitlist, d.models.Complexes, notify, cfg.PublicBaseURL(), d.logger)
 	waitlistHandler := waitlist.NewHandler(waitlistService, respond)
+	// The place waitlist asks the courts grid whether a waited-for slot is on
+	// sale again, so a notice never names a slot the booking path would refuse.
+	placeWaitlistService := waitlist.NewPlaceService(d.models.PlaceWaitlist, d.models.Complexes, courtsService,
+		notify, cfg.PublicBaseURL(), d.logger)
 
 	authConfig := auth.Config{
 		JWTSecret:         cfg.JWT.Secret,
@@ -878,6 +883,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	})
 	openPlayService.SetTournaments(tournamentsService)
 	tournamentsHandler := tournaments.NewHandler(tournamentsService, respond, d.trustedProxies, signUpGate)
+	// Joining the place waitlist asks the same bot check as the sign-ups it
+	// stands in for while a place is full.
+	placeWaitlistHandler := waitlist.NewPlaceHandler(placeWaitlistService, respond, signUpGate)
 
 	// The locker is wrapped so a run that never happened still leaves a line:
 	// the scheduler calls a job only when it took the lock, so on a
@@ -905,6 +913,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.courts = courtsHandler
 	app.waitlist = waitlistHandler
 	app.waitlistService = waitlistService
+	app.placeWaitlist = placeWaitlistHandler
+	app.placeWaitlistService = placeWaitlistService
 	app.cashbox = cashboxHandler
 	app.products = productsHandler
 	app.sales = salesHandler

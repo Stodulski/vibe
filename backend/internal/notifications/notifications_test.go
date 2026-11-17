@@ -145,6 +145,10 @@ func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, d
 	return m.record("waitlist_slot_freed", to, complexName, date, bookURL)
 }
 
+func (m *stubMailer) SendWaitlistPlaceFreed(_ context.Context, to, complexName, placeLabel, bookURL string) error {
+	return m.record("waitlist_place_freed", to, complexName, placeLabel, bookURL)
+}
+
 func (m *stubMailer) SendLifecycleNudge(_ context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error {
 	return m.record("lifecycle_nudge", to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL)
 }

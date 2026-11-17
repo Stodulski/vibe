@@ -53,6 +53,7 @@ type Mailer interface {
 	SendEventRegistered(ctx context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string) error
 	SendEventCancelled(ctx context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string) error
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
+	SendWaitlistPlaceFreed(ctx context.Context, to, complexName, placeLabel, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error
 	SendWelcome(ctx context.Context, to, firstName string) error
 	// SendBenefitsCampaign is the one-off benefits email. See campaign.go.
