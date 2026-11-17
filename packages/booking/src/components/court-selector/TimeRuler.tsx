@@ -149,6 +149,16 @@ function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCo
   );
 }
 
+/** How to move the ruler: a finger slides it, a mouse drags it. */
+function RulerHint() {
+  return (
+    <p className="text-text-tertiary text-center text-xs">
+      <span className="pointer-fine:hidden">{t.rulerHint}</span>
+      <span className="hidden pointer-fine:inline">{t.rulerHintMouse}</span>
+    </p>
+  );
+}
+
 interface TimeRulerProps {
   options: TimeOption[];
   /** The hour already chosen, centered when the ruler opens. */
@@ -213,7 +223,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
           ))}
         </div>
       </div>
-      <p className="text-text-tertiary text-center text-xs">{t.rulerHint}</p>
+      <RulerHint />
 
       <Button
         size="lg"

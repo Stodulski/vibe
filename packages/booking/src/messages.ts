@@ -129,6 +129,7 @@ export const BOOKING_MESSAGES = {
     shareCopied: 'Link copiado',
     lastCourtLeft: 'Última cancha',
     rulerHint: 'Deslizá para elegir el horario',
+    rulerHintMouse: 'Arrastrá para elegir el horario',
     rulerLabel: 'Horarios',
     rulerContinue: 'Continuar',
     courtsFreeOne: '1 cancha',
