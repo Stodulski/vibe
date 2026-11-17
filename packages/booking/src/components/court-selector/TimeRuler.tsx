@@ -209,7 +209,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         <div
           ref={trackRef}
           {...dragHandlers}
-          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
+          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.75rem)] pt-10 pb-2 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
           onScroll={(event) => {
             applyRulerDepth(event.currentTarget);
             setFocused(centeredIndex(event.currentTarget));
