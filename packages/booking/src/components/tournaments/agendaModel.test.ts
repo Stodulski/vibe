@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PublicTournamentCategory, PublicTournamentSummary } from '../../api/types';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
 import { dayChips, dayParts } from '../agenda/agendaModel';
-import { agendaRows, categoryWhen, formatDetailLines, spotsNotice } from './agendaModel';
+import { agendaRows, categoryWhen, formatDetailLines, rowWhenTag, spotsNotice } from './agendaModel';
 
 const men8: PublicTournamentCategory = {
   ...CAT_OPEN,
@@ -123,6 +123,31 @@ describe('formatDetailLines', () => {
 
   it('lists an elimination as its format alone', () => {
     expect(formatDetailLines({ ...CAT_OPEN, format: 'elimination' })).toEqual(['Eliminación directa']);
+  });
+});
+
+describe('rowWhenTag', () => {
+  const oneDay = { ...TOURNAMENT, start_date: '2099-12-05', end_date: '2099-12-05' };
+  const month = { ...TOURNAMENT, start_date: '2099-11-18', end_date: '2099-12-12' };
+
+  it('shows the hours of a tournament played in one day', () => {
+    const [row] = agendaRows([{ ...oneDay, categories: [{ ...CAT_OPEN, starts_on: '2099-12-05', starts_at: '18:00' }] }]);
+    expect(row && rowWhenTag(row)).toBe('18:00 hs');
+  });
+
+  it('shows the last day of a tournament played over several days, instead of the hours', () => {
+    const [row] = agendaRows([{ ...month, categories: [{ ...CAT_OPEN, starts_on: '2099-11-18', starts_at: '18:00' }] }]);
+    expect(row && rowWhenTag(row)).toBe('Hasta 12/12');
+  });
+
+  it('shows the hours of a category that starts on its tournament last day', () => {
+    const [row] = agendaRows([{ ...month, categories: [{ ...CAT_OPEN, starts_on: '2099-12-12', starts_at: '10:00' }] }]);
+    expect(row && rowWhenTag(row)).toBe('10:00 hs');
+  });
+
+  it('shows nothing for a one-day category without a time', () => {
+    const [row] = agendaRows([{ ...oneDay, categories: [{ ...CAT_OPEN, starts_on: null, starts_at: null }] }]);
+    expect(row && rowWhenTag(row)).toBeUndefined();
   });
 });
 

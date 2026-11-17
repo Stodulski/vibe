@@ -2,7 +2,7 @@ import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { publicTournamentSignUpPath } from '../../lib/publicPaths';
 import { AgendaRowShell, type AgendaMetaToken } from '../agenda/AgendaRowShell';
-import { spotsNotice, type AgendaRow as AgendaRowData } from './agendaModel';
+import { rowWhenTag, spotsNotice, type AgendaRow as AgendaRowData } from './agendaModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -30,7 +30,7 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
       date={row.date}
       label={row.label}
       title={row.title}
-      time={row.time === null ? undefined : `${row.time} ${t.hoursSuffix}`}
+      time={rowWhenTag(row)}
       meta={meta}
       viewDetailLabel={t.viewDetail}
       onViewDetail={() => {

@@ -101,6 +101,7 @@ export const TOURNAMENT_MESSAGES = {
   viewDetail: 'Ver detalle',
   signUpCategory: 'Inscribirme',
   hoursSuffix: 'hs',
+  until: 'Hasta',
   detailTitleDate: 'Fecha y hora',
   inscriptionLabel: 'Inscripción',
   prizesLabel: 'Premios',

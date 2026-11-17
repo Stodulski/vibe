@@ -18,6 +18,8 @@ export interface AgendaRow {
   date: string;
   /** `HH:MM`, or `null` for a category created before it had a time. */
   time: string | null;
+  /** The tournament's last day (`YYYY-MM-DD`) when it is played over several days, `null` when it ends the day the category starts. */
+  endDate: string | null;
   title: string;
 }
 
@@ -56,6 +58,7 @@ export function agendaRows(tournaments: readonly PublicTournamentSummary[]): Age
         label: tournamentLabel(tournament.sport),
         date: category.starts_on ?? tournament.start_date,
         time: category.starts_at,
+        endDate: tournament.end_date > (category.starts_on ?? tournament.start_date) ? tournament.end_date : null,
         title: categoryTitle(category, tournament.sport),
       });
     }
@@ -82,6 +85,18 @@ export function formatDetailLines(
     `${t.zonesOf} ${String(category.group_size)} ${t.zonesPairs}`,
     `${t.qualifiersPass} ${String(category.qualifiers_per_group)} ${t.qualifiersPerZone}`,
   ];
+}
+
+/**
+ * What the row shows beside its date: "Hasta 12/12" for a tournament played over several days,
+ * its hours ("18:00 hs") for one played in a day, nothing for a category without a time.
+ */
+export function rowWhenTag(row: Pick<AgendaRow, 'time' | 'endDate'>): string | undefined {
+  if (row.endDate !== null) {
+    const [, month = '', day = ''] = row.endDate.split('-');
+    return `${t.until} ${day}/${month}`;
+  }
+  return row.time === null ? undefined : `${row.time} ${t.hoursSuffix}`;
 }
 
 /** "Sábado 05/12 · 18:00 hs": the day and, when it has one, the time. */
