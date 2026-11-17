@@ -1,53 +1,30 @@
 import { Skeleton } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../messages';
-import { TIME_GROUPS } from './court-selector/constants';
-import type { TimeGroup } from './court-selector/slotMath';
 
 const t = BOOKING_MESSAGES;
 
-// A typical day at `lg:` (8 columns): one row of morning hours, two each for
-// the afternoon and the evening, so the page does not jump when they arrive.
-const TILES_PER_GROUP: Record<TimeGroup, number> = { morning: 8, afternoon: 16, evening: 16 };
-// Below `sm:` (3 columns) the same day fills fewer tiles per row's worth of
-// height: about ten rows in all, so the extra tiles are hidden there.
-const MOBILE_TILES_PER_GROUP: Record<TimeGroup, number> = { morning: 6, afternoon: 12, evening: 12 };
+/** Ticks drawn in the loading ruler: enough to fill a desktop row, every other one taller like an hour. */
+const TICKS = 11;
 
 /**
- * Mirrors `CourtSelector`'s hour-major grid, not the court-major layout it
- * replaced (odd/tasks/public-pending-polish.md T1): a period header — the
- * same icon and label `TimeGroupGrid` renders, since neither depends on
- * data — followed by a grid of hour-sized placeholders at the same column
- * breakpoints as `TimeSlotButton` (`grid-cols-3 sm:grid-cols-4 md:grid-cols-6
- * lg:grid-cols-8`). All three parts of the day are drawn, as `TimeGroupList`
- * draws them for a full day, so the page does not grow when hours arrive.
- * Each tile is `h-11`, the nearest step to a real hour button, whose height
- * comes from its content: `py-3` around one `text-sm` line and its border
- * (46px in total).
- *
- * No fake breadcrumb or duration-chip row: those live in `BookingSteps`,
- * outside `AvailabilitySection`, and are already on screen — real, not
- * skeleton — by the time this ever renders there. Depicting them here would
- * only draw a second, fake copy right below the real one.
+ * Mirrors `TimeRuler`: the large hour and its price line, the ruler of ticks under
+ * a marker, the hint, and the Continuar button, at the same heights, so the page
+ * does not jump when the hours arrive.
  */
 export function SkeletonSlotGrid() {
   return (
-    <div className="space-y-6" role="status" aria-label={t.publicBooking.checkingAvailability}>
-      {TIME_GROUPS.map(({ key, icon: Icon }) => (
-        <div key={key}>
-          <div className="mb-2 flex items-center gap-1.5">
-            <Icon className="text-text-tertiary size-3.5" />
-            <Skeleton className="h-3 w-14 rounded-full" />
-          </div>
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8">
-            {Array.from({ length: TILES_PER_GROUP[key] }, (_, slotIdx) => (
-              <Skeleton
-                key={slotIdx}
-                className={slotIdx < MOBILE_TILES_PER_GROUP[key] ? 'h-11 rounded-xl' : 'hidden h-11 rounded-xl sm:block'}
-              />
-            ))}
-          </div>
-        </div>
-      ))}
+    <div className="flex flex-col gap-4" role="status" aria-label={t.publicBooking.checkingAvailability}>
+      <div className="flex flex-col items-center gap-2">
+        <Skeleton className="h-9 w-48 rounded-lg" />
+        <Skeleton className="h-4 w-36 rounded-full" />
+      </div>
+      <div data-testid="ruler-skeleton" className="flex justify-center gap-[3.25rem] overflow-hidden py-2">
+        {Array.from({ length: TICKS }, (_, index) => (
+          <Skeleton key={index} className={index % 2 === 0 ? 'h-8 w-0.5 shrink-0' : 'h-5 w-0.5 shrink-0'} />
+        ))}
+      </div>
+      <Skeleton className="mx-auto h-3 w-40 rounded-full" />
+      <Skeleton className="h-12 w-full rounded-full" />
     </div>
   );
 }

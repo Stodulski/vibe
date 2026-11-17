@@ -349,9 +349,20 @@ describe('CourtSelector — U-06: an hour restored from the confirm page', () =>
   });
 });
 
-describe('CourtSelector — no Continue button', () => {
-  it('shows no Continue button even with a settled selection', () => {
+describe('CourtSelector — the time ruler', () => {
+  it('shows the hour on the marker large, and Continuar takes it to the court question', async () => {
+    const user = userEvent.setup();
+    render(<Harness {...defaultProps} />);
+
+    expect(screen.getByRole('button', { name: '08:00' })).toHaveAttribute('aria-pressed', 'true');
+    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+
+    expect(screen.queryByRole('button', { name: t.publicBooking.rulerContinue })).not.toBeInTheDocument();
+  });
+
+  it('puts the hour already chosen on the marker when the hours reopen', () => {
     render(<Harness {...defaultProps} selected={selection} />);
-    expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
+
+    expect(screen.getByRole('button', { name: selection.slot.start_time })).toHaveAttribute('aria-pressed', 'true');
   });
 });

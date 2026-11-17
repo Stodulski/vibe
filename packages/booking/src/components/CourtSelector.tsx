@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { BOOKING_MESSAGES } from '../messages';
 import type { CourtAvailability } from '../api/types';
-import { TimeGroupList } from './court-selector/TimeGroupList';
+import { TimeRuler } from './court-selector/TimeRuler';
 import { CourtQuestion } from './court-selector/CourtQuestion';
 import { useCourtSelectorState } from './court-selector/useCourtSelectorState';
-import { buildTimeOptions, groupTimeOptions, type CourtAtTime, type TimeOption } from './court-selector/timeOptions';
+import { buildTimeOptions, type CourtAtTime, type TimeOption } from './court-selector/timeOptions';
 import type { SelectedSlot } from './court-selector/types';
 
 export type { SelectedSlot } from './court-selector/types';
@@ -62,13 +62,6 @@ export function CourtSelector({
   const { handleSlotClick } = useCourtSelectorState({ onSelect });
 
   const options = useMemo(() => buildTimeOptions(courts), [courts]);
-  const grouped = useMemo(() => groupTimeOptions(options), [options]);
-  // Whether this venue has courts of more than one type — decided once for
-  // the whole grid. A club whose courts are all covered has nothing to warn
-  // about, and a label that never varies is not a label.
-  const typesVary = new Set(courts.map((court) => court.court_type)).size > 1;
-  // "Última cancha" only means something where there was more than one.
-  const severalCourts = courts.length > 1;
   // `pendingStartTime` already answers itself away once its hour stops being
   // on offer — the page derives it from the same availability this grid is
   // built from (see `ComplexPage`'s `isStartTimeStillOffered`) rather than
@@ -126,11 +119,10 @@ export function CourtSelector({
 
   return (
     <div ref={questionRef} data-testid="time-options" className="scroll-mt-6 space-y-6">
-      <TimeGroupList
-        grouped={grouped}
-        typesVary={typesVary}
-        severalCourts={severalCourts}
-        selected={selected}
+      <TimeRuler
+        options={options}
+        initialStartTime={selected?.slot.start_time ?? null}
+        severalCourts={courts.length > 1}
         onSelectTime={handleSelectTime}
       />
     </div>
