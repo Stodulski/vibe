@@ -34,7 +34,7 @@ func (s *stubTurnstile) Verify(_ context.Context, token, remoteIP string) error 
 // the booking enforcement flag.
 func withTurnstile(f *fixture, verifier *stubTurnstile, enforce bool) {
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
-	f.handler = NewHandler(f.service, f.whatsapp, verifier, enforce, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
+	f.handler = NewHandler(f.service, verifier, enforce, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 }
 
 // withToken adds a turnstile_token to a publicBookBody.

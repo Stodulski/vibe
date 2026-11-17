@@ -588,8 +588,6 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// (bookingstore.Booking.LinkToken); it is the credential every public route
 	// authorizes on, not the booking's primary key.
 	cancelURL := booklink.Cancel(s.cfg.PublicURL, complex.Slug, booking.LinkToken)
-	cancelPath := booklink.CancelPath(complex.Slug, booking.LinkToken)
-	mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 	mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 	address := booklink.Address(complex.Address, complex.City)
 	clientFullName := client.FirstName + " " + client.LastName
@@ -603,15 +601,12 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		// person who just made this booking.
 		Source:        notifications.SourceStaffCreate,
 		Email:         clientEmail,
-		Phone:         client.Phone,
 		ComplexName:   complex.Name,
 		CourtName:     court.Name,
 		ClientName:    clientFullName,
 		Date:          booking.Date.Format("02/01"),
 		StartTime:     timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
 		CancelURL:     cancelURL,
-		CancelPath:    cancelPath,
-		MapsQuery:     mapsQuery,
 		Address:       address,
 		MapsURL:       mapsURL,
 		DepositAmount: confirmDepositAmount,

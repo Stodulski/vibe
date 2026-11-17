@@ -9,7 +9,7 @@ import (
 
 // A booking cancelled outside the window may have been paid in full, not
 // only with a deposit, so the sentence the client reads in the API answer,
-// the email and WhatsApp must not call the money "la seña".
+// the email must not call the money "la seña".
 func TestRefundMessageNotEligibleDoesNotAssumeADeposit(t *testing.T) {
 	cases := map[string]struct {
 		amount int

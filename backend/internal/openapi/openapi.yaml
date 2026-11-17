@@ -761,61 +761,6 @@ paths:
   # ---------------------------------------------------------------------
   # bookings
   # ---------------------------------------------------------------------
-  /api/v1/webhooks/whatsapp:
-    get:
-      tags: [bookings]
-      operationId: bookingsWhatsAppVerifyWebhook
-      summary: Meta's WhatsApp webhook subscription handshake
-      description: Public, not rate limited. Authenticated by Meta's `hub.verify_token`, not a session.
-      security: []
-      parameters:
-        - name: hub.mode
-          in: query
-          required: true
-          schema: {type: string, enum: [subscribe]}
-        - name: hub.verify_token
-          in: query
-          required: true
-          schema: {type: string}
-        - name: hub.challenge
-          in: query
-          required: true
-          schema: {type: string}
-      responses:
-        "200":
-          description: Echoes `hub.challenge` back verbatim.
-          content:
-            text/plain:
-              schema: {type: string}
-        "403":
-          description: Bad mode or wrong verify token.
-          content:
-            application/problem+json:
-              schema: {$ref: "#/components/schemas/Problem"}
-    post:
-      tags: [bookings]
-      operationId: bookingsWhatsAppWebhook
-      summary: Receive a WhatsApp Cloud API webhook delivery
-      description: >-
-        Public, not rate limited. HMAC-SHA256 signed (`X-Hub-Signature-256`), verified before
-        the body is trusted. Always answers `200` except for a bad signature (`401`, empty
-        body), so Meta never redelivers a message this service already saw. Inbound text is
-        only logged, this endpoint changes no booking state.
-      security: []
-      requestBody:
-        required: true
-        content:
-          application/json:
-            schema:
-              type: object
-              description: Meta Cloud API webhook payload.
-              additionalProperties: true
-      responses:
-        "200":
-          description: Accepted (also returned for an unreadable or unparseable body, to stop redelivery).
-        "401":
-          description: Invalid signature. Empty body.
-
   /api/v1/book:
     post:
       tags: [bookings]
@@ -869,7 +814,7 @@ paths:
               type: object
               required:
                 [complex_id, court_id, date, start_time, duration_minutes,
-                 client_first_name, client_last_name, client_phone]
+                 client_first_name, client_last_name, client_phone, client_email]
               properties:
                 complex_id: {type: string, format: uuid}
                 court_id: {type: string, format: uuid}
@@ -879,7 +824,7 @@ paths:
                 client_first_name: {type: string}
                 client_last_name: {type: string}
                 client_phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
-                client_email: {type: string}
+                client_email: {type: string, description: "Required: the confirmation and the reminders are sent here."}
                 client_notes: {type: string, maxLength: 2000}
                 turnstile_token:
                   type: string
@@ -3633,12 +3578,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [first_name, last_name, phone, partner]
+              required: [first_name, last_name, phone, email, partner]
               properties:
                 first_name: {type: string}
                 last_name: {type: string}
                 phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
-                email: {type: string, description: Optional.}
+                email: {type: string, description: "Required: the registration is confirmed by email. The partner's email is optional."}
                 gender: {type: string, enum: [men, women], description: "Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise)."}
                 level: {type: integer, minimum: 1, maximum: 9, description: "Required when the category has a modality. A level category refuses a player whose level is stronger than its level (level_too_strong). A Suma needs both levels to add up to the suma (suma_too_low). All before anything is held."}
                 partner:
@@ -3878,12 +3823,12 @@ paths:
           application/json:
             schema:
               type: object
-              required: [first_name, last_name, phone]
+              required: [first_name, last_name, phone, email]
               properties:
                 first_name: {type: string}
                 last_name: {type: string}
                 phone: {type: string, description: "Normalized to E.164.", example: "+5491112345678"}
-                email: {type: string, description: Optional.}
+                email: {type: string, description: "Required: the sign-up is confirmed by email."}
                 gender: {type: string, enum: [men, women], description: "Required when the event has a modality; the gender must fit it (modality_mismatch)."}
                 level: {type: integer, minimum: 1, maximum: 9, description: "Required when the event has a modality; it must sit in the event's range (level_out_of_range)."}
                 turnstile_token:

@@ -239,12 +239,12 @@ const queueMetricsName = "notifier"
 //
 // It exists so internal/health does not import internal/circuitbreaker, and so
 // the decision that MercadoPago is the one whose failure stops the money —
-// rather than WhatsApp or the mailer — is made here, in the composition root,
+// rather than the mailer — is made here, in the composition root,
 // next to where the three breakers are built.
 type breakerProbe struct {
 	cb *circuitbreaker.CircuitBreaker
-	// blocksRevenue is true only for the payment provider. An open WhatsApp or
-	// mailer circuit costs notifications; an open MercadoPago circuit means no
+	// blocksRevenue is true only for the payment provider. An open mailer
+	// circuit costs notifications; an open MercadoPago circuit means no
 	// client on any tenant can pay.
 	blocksRevenue bool
 }

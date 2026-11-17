@@ -13,7 +13,7 @@ import (
 // The owner hears about it with their own copy, enqueued once per booking and
 // owner, and nothing else is sent for it through this method.
 func TestAMercadoPagoRefundEmailsTheOwnerOnce(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	ownerID := uuid.New().String()
 	bookingID := uuid.New().String()
@@ -44,7 +44,7 @@ func TestAMercadoPagoRefundEmailsTheOwnerOnce(t *testing.T) {
 }
 
 func TestAMercadoPagoRefundNeedsAnOwnerToEmail(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	s.OwnerBookingRefunded(OwnerBookingRefund{CourtName: "Cancha 1", BookingID: uuid.New().String()})
 
@@ -54,7 +54,7 @@ func TestAMercadoPagoRefundNeedsAnOwnerToEmail(t *testing.T) {
 }
 
 func TestOwnerIsEmailedAboutAMercadoPagoRefund(t *testing.T) {
-	s, q, mailer, _, users := newTestService(t, true)
+	s, q, mailer, users := newTestService(t)
 	s.RegisterWorkers()
 
 	users.user = &authstore.User{Email: "owner@example.com"}

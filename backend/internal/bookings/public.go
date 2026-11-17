@@ -89,8 +89,10 @@ func (h *Handler) PublicBook(w http.ResponseWriter, r *http.Request) {
 			input.ClientPhone = normalized
 		}
 	}
-	// Optional: every notification below already skips an empty address, and
-	// the payer email on the MercadoPago preference is sent only when present.
+	// Required: email is the only channel a self-service client is reached on,
+	// so a booking without one would be a booking nobody can tell about its
+	// confirmation, reminder or cancellation. This runs before any hold or payment.
+	v.Check(input.ClientEmail != "", "client_email", "must be provided")
 	if input.ClientEmail != "" {
 		// 254 is RFC 5321's own practical ceiling on a full email address
 		// (local-part@domain, both bounded), and EmailRX's character classes

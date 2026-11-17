@@ -6,18 +6,18 @@ import (
 )
 
 func TestEventNoticesAreEmailOnlyAndNeedAnAddress(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	s.EventRegistered(EventRegistration{FirstName: "Ana", EventName: "Canchas abiertas", RegistrationID: "reg-1"})
 	s.EventCancelled(EventCancellation{FirstName: "Ana", EventName: "Canchas abiertas", RegistrationID: "reg-1"})
 	if len(q.tasks) != 0 {
-		t.Fatalf("no email address, nothing to send (there is no WhatsApp template for events); got %v", q.types())
+		t.Fatalf("no email address, nothing to send; got %v", q.types())
 	}
 
 	s.EventRegistered(EventRegistration{Email: "ana@example.com", RegistrationID: "reg-1"})
 	s.EventCancelled(EventCancellation{Email: "ana@example.com", ByOwner: true, RegistrationID: "reg-1"})
 	if got := q.types(); !slices.Equal(got, []string{TaskEmailEventRegistered, TaskEmailEventCancelled}) {
-		t.Fatalf("tasks = %v, want the two emails and no WhatsApp", got)
+		t.Fatalf("tasks = %v, want the two emails", got)
 	}
 	for _, task := range []string{TaskEmailEventRegistered, TaskEmailEventCancelled} {
 		if key, _ := q.keyOf(task); key == "" {
@@ -27,7 +27,7 @@ func TestEventNoticesAreEmailOnlyAndNeedAnAddress(t *testing.T) {
 }
 
 func TestEventCancelledKeyDistinguishesTheRefundThatFollowsTheNotice(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 	s.EventCancelled(EventCancellation{Email: "ana@example.com", RegistrationID: "reg-1"})
 	first, _ := q.keyOf(TaskEmailEventCancelled)
 	q.tasks = nil
@@ -39,7 +39,7 @@ func TestEventCancelledKeyDistinguishesTheRefundThatFollowsTheNotice(t *testing.
 }
 
 func TestEventWorkersDeliverTheirEmails(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, true)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 	for _, task := range []string{TaskEmailEventRegistered, TaskEmailEventCancelled} {
 		if _, ok := q.handlers[task]; !ok {

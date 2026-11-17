@@ -806,8 +806,7 @@ func TestNoEmailUsesAForbiddenWord(t *testing.T) {
 }
 
 // The two sentences about money and cancellation are rendered once, by
-// internal/notifications, and quoted by both the email and the WhatsApp
-// message. The email that drops one of them is the email that says nothing
+// internal/notifications, and quoted by the email. The email that drops one of them is the email that says nothing
 // about the deposit, which is the whole defect this change is about.
 func TestTheClientEmailsQuoteTheSentencesTheyAreGiven(t *testing.T) {
 	bodies := captureSent(t)

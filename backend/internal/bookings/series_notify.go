@@ -65,7 +65,6 @@ func (s *Service) notifySeriesCancelled(ctx context.Context, complex *complexsto
 		return
 	}
 	c := notifications.SeriesCancellation{
-		Phone:       client.Phone,
 		ComplexName: complex.Name,
 		CourtName:   court.Name,
 		Weekday:     time.Weekday(ser.Weekday),
@@ -74,7 +73,6 @@ func (s *Service) notifySeriesCancelled(ctx context.Context, complex *complexsto
 		// always a Monday of the series even when the owner picked another day.
 		From:     firstRuleDate(ser, from).Format("02/01"),
 		KeptPaid: keptPaid,
-		BookPath: booklink.BookPath(complex.Slug),
 		BookURL:  booklink.Book(s.cfg.PublicURL, complex.Slug),
 		SeriesID: ser.ID.String(),
 	}

@@ -29,7 +29,7 @@ type EnqueueStore interface {
 // the failure instead, for a caller that can retry.
 //
 // It is deliberately detached from the caller's context. The job it records (an
-// email, a WhatsApp message) must survive the cancellation of the request that
+// email) must survive the cancellation of the request that
 // triggered it and is delivered later by an independent pool, not synchronously
 // here — so a caller must not be able to tie the durability of a confirmation to
 // whether the browser stayed connected. Do not add a ctx parameter; thread a

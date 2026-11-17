@@ -64,9 +64,8 @@ type Breaker interface {
 	// State is "closed", "open" or "half-open".
 	State() string
 	// BlocksRevenue reports whether an open circuit means no client, on any
-	// tenant, can complete a payment. Only the payment provider does: losing
-	// WhatsApp or the mailer costs notifications, which is bad, but the
-	// product still takes money.
+	// tenant, can complete a payment. Only the payment provider does: losing the
+	// mailer costs notifications, which is bad, but the product still takes money.
 	BlocksRevenue() bool
 }
 

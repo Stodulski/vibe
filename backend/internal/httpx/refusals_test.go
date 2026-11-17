@@ -125,8 +125,8 @@ func TestDomainErrorWithKeepsTheTablesStatus(t *testing.T) {
 	}
 }
 
-// A refusal with no message writes the status alone. The WhatsApp webhook
-// depends on it: Meta reads the code and nothing else.
+// A refusal with no message writes the status alone. A provider callback that
+// reads only the status code depends on it.
 func TestARefusalWithoutAMessageWritesNoBody(t *testing.T) {
 	rs := newResponder()
 	status, body := answer(t, func(w http.ResponseWriter, r *http.Request) {

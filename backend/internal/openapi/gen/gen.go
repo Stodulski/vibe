@@ -3043,21 +3043,6 @@ func (e SocialPutPost200JSONResponseBodyStatus) Valid() bool {
 	}
 }
 
-// Defines values for BookingsWhatsAppVerifyWebhookParamsHubMode.
-const (
-	Subscribe BookingsWhatsAppVerifyWebhookParamsHubMode = "subscribe"
-)
-
-// Valid indicates whether the value is a known member of the BookingsWhatsAppVerifyWebhookParamsHubMode enum.
-func (e BookingsWhatsAppVerifyWebhookParamsHubMode) Valid() bool {
-	switch e {
-	case Subscribe:
-		return true
-	default:
-		return false
-	}
-}
-
 // AuditLogRow Every pointer field lacks `omitempty` in Go, so an absent value serializes as JSON `null`, not as an absent key.
 type AuditLogRow struct {
 	Action     string              `json:"action"`
@@ -5220,7 +5205,8 @@ type AuthVerifyEmailJSONBody struct {
 
 // BookingsPublicCreateJSONBody defines parameters for BookingsPublicCreate.
 type BookingsPublicCreateJSONBody struct {
-	ClientEmail     *string `json:"client_email,omitempty"`
+	// ClientEmail Required: the confirmation and the reminders are sent here.
+	ClientEmail     string  `json:"client_email"`
 	ClientFirstName string  `json:"client_first_name"`
 	ClientLastName  string  `json:"client_last_name"`
 	ClientNotes     *string `json:"client_notes,omitempty"`
@@ -6113,9 +6099,9 @@ type CourtsPublicAvailabilityParams struct {
 
 // EventsPublicSignUpJSONBody defines parameters for EventsPublicSignUp.
 type EventsPublicSignUpJSONBody struct {
-	// Email Optional.
-	Email     *string `json:"email,omitempty"`
-	FirstName string  `json:"first_name"`
+	// Email Required: the sign-up is confirmed by email.
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
 
 	// Gender Required when the event has a modality; the gender must fit it (modality_mismatch).
 	Gender   *EventsPublicSignUpJSONBodyGender `json:"gender,omitempty"`
@@ -6145,9 +6131,9 @@ type CourtsPublicNextAvailableParams struct {
 
 // TournamentsPublicSignUpJSONBody defines parameters for TournamentsPublicSignUp.
 type TournamentsPublicSignUpJSONBody struct {
-	// Email Optional.
-	Email     *string `json:"email,omitempty"`
-	FirstName string  `json:"first_name"`
+	// Email Required: the registration is confirmed by email. The partner's email is optional.
+	Email     string `json:"email"`
+	FirstName string `json:"first_name"`
 
 	// Gender Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise).
 	Gender   *TournamentsPublicSignUpJSONBodyGender `json:"gender,omitempty"`
@@ -6337,19 +6323,6 @@ type PaymentsMercadoPagoWebhookParams struct {
 	XSignature string  `json:"x-signature"`
 	XRequestId string  `json:"x-request-id"`
 }
-
-// BookingsWhatsAppVerifyWebhookParams defines parameters for BookingsWhatsAppVerifyWebhook.
-type BookingsWhatsAppVerifyWebhookParams struct {
-	HubMode        BookingsWhatsAppVerifyWebhookParamsHubMode `form:"hub.mode" json:"hub.mode"`
-	HubVerifyToken string                                     `form:"hub.verify_token" json:"hub.verify_token"`
-	HubChallenge   string                                     `form:"hub.challenge" json:"hub.challenge"`
-}
-
-// BookingsWhatsAppVerifyWebhookParamsHubMode defines parameters for BookingsWhatsAppVerifyWebhook.
-type BookingsWhatsAppVerifyWebhookParamsHubMode string
-
-// BookingsWhatsAppWebhookJSONBody defines parameters for BookingsWhatsAppWebhook.
-type BookingsWhatsAppWebhookJSONBody map[string]interface{}
 
 // AuthConfirmEmailChangeJSONRequestBody defines body for AuthConfirmEmailChange for application/json ContentType.
 type AuthConfirmEmailChangeJSONRequestBody AuthConfirmEmailChangeJSONBody
@@ -6551,9 +6524,6 @@ type SocialThreadsUninstallFormdataRequestBody SocialThreadsUninstallFormdataBod
 
 // PaymentsMercadoPagoWebhookJSONRequestBody defines body for PaymentsMercadoPagoWebhook for application/json ContentType.
 type PaymentsMercadoPagoWebhookJSONRequestBody PaymentsMercadoPagoWebhookJSONBody
-
-// BookingsWhatsAppWebhookJSONRequestBody defines body for BookingsWhatsAppWebhook for application/json ContentType.
-type BookingsWhatsAppWebhookJSONRequestBody BookingsWhatsAppWebhookJSONBody
 
 // AsGoogleSignInResult0 returns the union data inside the GoogleSignInResult as a GoogleSignInResult0
 func (t GoogleSignInResult) AsGoogleSignInResult0() (GoogleSignInResult0, error) {
@@ -7038,12 +7008,6 @@ type ServerInterface interface {
 	// PaymentsMercadoPagoWebhook Receive a MercadoPago IPN notification
 	// (POST /api/v1/webhooks/mercadopago)
 	PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Request, params PaymentsMercadoPagoWebhookParams)
-	// BookingsWhatsAppVerifyWebhook Meta's WhatsApp webhook subscription handshake
-	// (GET /api/v1/webhooks/whatsapp)
-	BookingsWhatsAppVerifyWebhook(w http.ResponseWriter, r *http.Request, params BookingsWhatsAppVerifyWebhookParams)
-	// BookingsWhatsAppWebhook Receive a WhatsApp Cloud API webhook delivery
-	// (POST /api/v1/webhooks/whatsapp)
-	BookingsWhatsAppWebhook(w http.ResponseWriter, r *http.Request)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -11895,79 +11859,6 @@ func (siw *ServerInterfaceWrapper) PaymentsMercadoPagoWebhook(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
-// BookingsWhatsAppVerifyWebhook operation middleware
-func (siw *ServerInterfaceWrapper) BookingsWhatsAppVerifyWebhook(w http.ResponseWriter, r *http.Request) {
-
-	var err error
-	_ = err
-
-	// Parameter object where we will unmarshal all parameters from the context
-	var params BookingsWhatsAppVerifyWebhookParams
-
-	// ------------- Required query parameter "hub.mode" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.mode", r.URL.Query(), &params.HubMode, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.mode"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.mode", Err: err})
-		}
-		return
-	}
-
-	// ------------- Required query parameter "hub.verify_token" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.verify_token", r.URL.Query(), &params.HubVerifyToken, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.verify_token"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.verify_token", Err: err})
-		}
-		return
-	}
-
-	// ------------- Required query parameter "hub.challenge" -------------
-
-	err = runtime.BindQueryParameterWithOptions("form", true, true, "hub.challenge", r.URL.Query(), &params.HubChallenge, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
-	if err != nil {
-		var requiredError *runtime.RequiredParameterError
-		if errors.As(err, &requiredError) {
-			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "hub.challenge"})
-		} else {
-			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "hub.challenge", Err: err})
-		}
-		return
-	}
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.BookingsWhatsAppVerifyWebhook(w, r, params)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
-// BookingsWhatsAppWebhook operation middleware
-func (siw *ServerInterfaceWrapper) BookingsWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
-
-	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.BookingsWhatsAppWebhook(w, r)
-	}))
-
-	for _, middleware := range siw.HandlerMiddlewares {
-		handler = middleware(handler)
-	}
-
-	handler.ServeHTTP(w, r)
-}
-
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -12104,8 +11995,6 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthDeleteAccount)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthGetCurrentUser)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/auth/me", wrapper.AuthUpdateCurrentUser)
-	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/webhooks/whatsapp", wrapper.BookingsWhatsAppVerifyWebhook)
-	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/webhooks/whatsapp", wrapper.BookingsWhatsAppWebhook)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book", wrapper.BookingsPublicCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds", wrapper.BookingsPublicHoldCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/release", wrapper.BookingsPublicHoldRelease)

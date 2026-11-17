@@ -11,7 +11,6 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 type enqueued struct {
@@ -158,21 +157,6 @@ func (m *stubMailer) SendBenefitsCampaign(_ context.Context, to, firstName, segm
 	return m.record("benefits_campaign", to, firstName+"|"+segment)
 }
 
-type sentWA struct {
-	to   string
-	tmpl whatsapp.TemplateMessage
-}
-
-type stubWhatsApp struct {
-	sent []sentWA
-	err  error
-}
-
-func (w *stubWhatsApp) SendTemplate(_ context.Context, to string, tmpl whatsapp.TemplateMessage) error {
-	w.sent = append(w.sent, sentWA{to: to, tmpl: tmpl})
-	return w.err
-}
-
 type stubUsers struct {
 	user *authstore.User
 	err  error
@@ -182,21 +166,21 @@ func (u *stubUsers) GetByID(context.Context, uuid.UUID) (*authstore.User, error)
 	return u.user, u.err
 }
 
-func newTestService(t *testing.T, whatsappEnabled bool) (*Service, *stubQueue, *stubMailer, *stubWhatsApp, *stubUsers) {
+func newTestService(t *testing.T) (*Service, *stubQueue, *stubMailer, *stubUsers) {
 	t.Helper()
-	q, m, w := newStubQueue(), &stubMailer{}, &stubWhatsApp{}
+	q, m := newStubQueue(), &stubMailer{}
 	users := &stubUsers{user: &authstore.User{Email: "owner@example.com"}}
-	s := NewService(q, m, w, users, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), whatsappEnabled)
-	return s, q, m, w, users
+	s := NewService(q, m, users, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	return s, q, m, users
 }
 
 func fullConfirmation() BookingConfirmation {
 	return BookingConfirmation{
-		Source: SourceOnlineCheckout, Email: "ana@example.com", Phone: "+5411",
+		Source: SourceOnlineCheckout, Email: "ana@example.com",
 		ComplexName: "Vibe", CourtName: "Cancha 1", ClientName: "Ana",
 		Date: "04/03", StartTime: "18:00 - 19:30",
-		Address:   "Av. Santa Fe 1200, Buenos Aires",
-		CancelURL: "https://vibe.test/cancel", CancelPath: "cancel/abc", MapsQuery: "Vibe+Palermo",
+		Address:          "Av. Santa Fe 1200, Buenos Aires",
+		CancelURL:        "https://vibe.test/cancel",
 		MapsURL:          "https://www.google.com/maps/search/?api=1&query=Vibe+Palermo",
 		DepositAmount:    "$5.000",
 		BalanceAmount:    "$15.000",
@@ -207,20 +191,20 @@ func fullConfirmation() BookingConfirmation {
 
 func fullCancellation() Cancellation {
 	return Cancellation{
-		Email: "ana@example.com", Phone: "+5411",
+		Email:       "ana@example.com",
 		ComplexName: "Vibe", CourtName: "Cancha 1",
 		Date: "04/03", StartTime: "18:00 - 19:30",
 		RefundLine:   "$5.000 enviados, se acreditan en los próximos días hábiles.",
 		RefundAmount: "$5.000",
-		BookPath:     "vibe/book", BookURL: "https://vibe.test/vibe/book",
+		BookURL:      "https://vibe.test/vibe/book",
 	}
 }
 
 func fullRefund() Refund {
 	return Refund{
-		Email: "ana@example.com", Phone: "+5411",
+		Email:       "ana@example.com",
 		ComplexName: "Vibe", Amount: "$5.000",
-		BookPath: "vibe/book", BookURL: "https://vibe.test/vibe/book",
+		BookURL: "https://vibe.test/vibe/book",
 	}
 }
 
@@ -228,7 +212,7 @@ func fullRefund() Refund {
 // be the booking alone, so the queue treated the second part as a redelivery of the
 // first and the client was never told about the second refund.
 func TestEachPartialRefundOfABookingHasItsOwnNoticeKey(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, false)
+	s, q, _, _ := newTestService(t)
 	bookingID := uuid.New().String()
 
 	first := fullRefund()
@@ -258,32 +242,31 @@ func TestEachPartialRefundOfABookingHasItsOwnNoticeKey(t *testing.T) {
 
 func fullReminder() Reminder {
 	return Reminder{
-		Email: "ana@example.com", Phone: "+5411",
+		Email:       "ana@example.com",
 		ComplexName: "Vibe", CourtName: "Cancha 1",
 		Date: "04/03", StartTime: "18:00 - 19:30",
 		Address: "Av. Santa Fe 1200, Buenos Aires", BalanceAmount: "$15.000",
-		MapsQuery: "Vibe+Palermo", CancelPath: "vibe/book/cancel?token=abc",
 		MapsURL:   "https://www.google.com/maps/search/?api=1&query=Vibe+Palermo",
 		CancelURL: "https://vibe.test/vibe/book/cancel?token=abc",
 	}
 }
 
-func TestBookingConfirmedNotifiesEveryChannel(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+func TestBookingConfirmedNotifiesTheClientAndTheOwner(t *testing.T) {
+	s, q, _, _ := newTestService(t)
 
 	s.BookingConfirmed(fullConfirmation())
 
-	for _, want := range []string{TaskEmailBookingConfirmation, TaskWABookingConfirmation, TaskEmailOwnerNewBooking} {
+	for _, want := range []string{TaskEmailBookingConfirmation, TaskEmailOwnerNewBooking} {
 		if !q.has(want) {
 			t.Errorf("%s was not enqueued; got %v", want, q.types())
 		}
 	}
 }
 
-// A client who gave no email still gets WhatsApp, and the owner is told either
-// way — the channels are independent.
-func TestBookingConfirmedSkipsOnlyTheMissingChannel(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+// A client who gave no email gets no confirmation, and the owner is told
+// regardless: the two recipients are independent.
+func TestBookingConfirmedSkipsAClientWithNoEmail(t *testing.T) {
+	s, q, _, _ := newTestService(t)
 
 	c := fullConfirmation()
 	c.Email = ""
@@ -292,177 +275,47 @@ func TestBookingConfirmedSkipsOnlyTheMissingChannel(t *testing.T) {
 	if q.has(TaskEmailBookingConfirmation) {
 		t.Error("a client email was enqueued with no address")
 	}
-	if !q.has(TaskWABookingConfirmation) {
-		t.Error("WhatsApp must still be sent when there is no email")
-	}
 	if !q.has(TaskEmailOwnerNewBooking) {
-		t.Error("the owner must be told regardless of the client's channels")
+		t.Error("the owner must be told regardless of the client's email")
 	}
 }
 
-func TestWhatsAppIsSkippedWhenNotConfigured(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, false)
+func TestReminderQueuesTheClientEmail(t *testing.T) {
+	s, q, _, _ := newTestService(t)
 
-	s.BookingConfirmed(fullConfirmation())
-
-	if q.has(TaskWABookingConfirmation) {
-		t.Error("WhatsApp was enqueued with the channel disabled")
-	}
-	if !q.has(TaskEmailBookingConfirmation) {
-		t.Error("the email must still go out")
-	}
-}
-
-// A complex with no coordinates used to lose the WhatsApp channel entirely:
-// the maps parameter came out empty and the guard below refused the task, with
-// the email still going out to hide it. booklink.MapsQuery now falls back to
-// the written address, so this is what the caller hands over.
-func TestConfirmationIsNotSkippedForAComplexWithoutCoordinates(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
-
-	c := fullConfirmation()
-	// What booklink.MapsQuery returns for a complex with no latitude.
-	c.MapsQuery = "Vibe+Palermo%2C+Av.+Santa+Fe+1200%2C+Buenos+Aires"
-	s.BookingConfirmed(c)
-
-	if !q.has(TaskWABookingConfirmation) {
-		t.Errorf("a complex with only a written address must still get WhatsApp; got %v", q.types())
-	}
-}
-
-// Meta rejects a template whose buttons are unbound, so enqueueing it would
-// only produce a task that can never succeed.
-func TestWhatsAppIsSkippedWhenButtonParametersAreMissing(t *testing.T) {
-	for _, missing := range []string{"cancel path", "maps query"} {
-		t.Run(missing, func(t *testing.T) {
-			s, q, _, _, _ := newTestService(t, true)
-
-			c := fullConfirmation()
-			if missing == "cancel path" {
-				c.CancelPath = ""
-			} else {
-				c.MapsQuery = ""
-			}
-			s.BookingConfirmed(c)
-
-			if q.has(TaskWABookingConfirmation) {
-				t.Error("a template with an unbound button was enqueued")
-			}
-			if !q.has(TaskEmailBookingConfirmation) {
-				t.Error("the email must be unaffected")
-			}
-		})
-	}
-}
-
-func TestReminderUsesBothChannels(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
-
-	s.ReminderDue(fullReminder())
-
-	if !q.has(TaskEmailReminder2h) || !q.has(TaskWAReminder2h) {
-		t.Errorf("want both reminder channels; got %v", q.types())
-	}
-}
-
-// The cron mints a fresh access token per reminder, and a mint that fails
-// leaves nothing to bind the cancel button to. The email still goes out.
-func TestReminderWhatsAppIsSkippedWithoutACancelLink(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
-
-	rem := fullReminder()
-	rem.CancelPath = ""
-	s.ReminderDue(rem)
-
-	if q.has(TaskWAReminder2h) {
-		t.Error("a reminder template with an unbound button was enqueued")
+	if err := s.ReminderDue(fullReminder()); err != nil {
+		t.Fatalf("want no error; got %v", err)
 	}
 	if !q.has(TaskEmailReminder2h) {
-		t.Error("the reminder email must still go out")
+		t.Errorf("want the reminder email queued; got %v", q.types())
 	}
 }
 
 // The cron flags a booking only when its reminder is queued, so ReminderDue
-// must report a channel the queue refused. Either channel counts: the email
-// is queued first, and a refused WhatsApp fails the reminder all the same.
-func TestReminderReturnsTheChannelTheQueueRefused(t *testing.T) {
-	for _, taskType := range []string{TaskEmailReminder2h, TaskWAReminder2h} {
-		t.Run(taskType, func(t *testing.T) {
-			s, q, _, _, _ := newTestService(t, true)
-			refusal := errors.New("database is down")
-			q.failOn = map[string]error{taskType: refusal}
+// must report a refusal from the queue, and the booking stays unflagged.
+func TestReminderReturnsTheRefusalFromTheQueue(t *testing.T) {
+	s, q, _, _ := newTestService(t)
+	refusal := errors.New("database is down")
+	q.failOn = map[string]error{TaskEmailReminder2h: refusal}
 
-			err := s.ReminderDue(fullReminder())
+	err := s.ReminderDue(fullReminder())
 
-			if !errors.Is(err, refusal) {
-				t.Fatalf("a refused %s must fail the reminder so the booking stays unflagged; got %v", taskType, err)
-			}
-		})
+	if !errors.Is(err, refusal) {
+		t.Fatalf("a refused reminder must fail so the booking stays unflagged; got %v", err)
 	}
 }
 
-// A queue that accepts both channels leaves ReminderDue with nothing to report.
+// A queue that accepts the reminder leaves ReminderDue with nothing to report.
 // That includes a dedup hit, which the queue itself reports as success.
-func TestReminderSucceedsWhenTheQueueAcceptsEveryChannel(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+func TestReminderSucceedsWhenTheQueueAcceptsIt(t *testing.T) {
+	s, q, _, _ := newTestService(t)
 
 	if err := s.ReminderDue(fullReminder()); err != nil {
-		t.Fatalf("both channels queued: want no error; got %v", err)
+		t.Fatalf("queued: want no error; got %v", err)
 	}
-	if !q.has(TaskEmailReminder2h) || !q.has(TaskWAReminder2h) {
-		t.Errorf("want both reminder channels queued; got %v", q.types())
+	if !q.has(TaskEmailReminder2h) {
+		t.Errorf("want the reminder email queued; got %v", q.types())
 	}
-}
-
-// A client who gave a phone number and got their confirmation and reminder over
-// WhatsApp used to hear about the cancellation, and about their money coming
-// back, only by email — the payloads for those two events had no phone field at
-// all, so the channel was not so much disabled as unrepresentable.
-func TestCancellationAndRefundReachWhatsApp(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
-
-	s.BookingCancelled(fullCancellation())
-	s.DepositRefunded(fullRefund())
-
-	for _, want := range []string{
-		TaskEmailBookingCancelled, TaskWABookingCancelled,
-		TaskEmailDepositRefunded, TaskWADepositRefunded,
-	} {
-		if !q.has(want) {
-			t.Errorf("%s was not enqueued; got %v", want, q.types())
-		}
-	}
-}
-
-// The channel gates are unchanged: no phone, or WhatsApp not configured, and
-// only the email goes out.
-func TestCancellationAndRefundKeepTheirChannelGates(t *testing.T) {
-	t.Run("no phone", func(t *testing.T) {
-		s, q, _, _, _ := newTestService(t, true)
-
-		cancellation, refund := fullCancellation(), fullRefund()
-		cancellation.Phone, refund.Phone = "", ""
-		s.BookingCancelled(cancellation)
-		s.DepositRefunded(refund)
-
-		if q.has(TaskWABookingCancelled) || q.has(TaskWADepositRefunded) {
-			t.Errorf("WhatsApp was enqueued for a client who gave no number; got %v", q.types())
-		}
-		if len(q.tasks) != 2 {
-			t.Errorf("want exactly the two emails; got %v", q.types())
-		}
-	})
-
-	t.Run("whatsapp not configured", func(t *testing.T) {
-		s, q, _, _, _ := newTestService(t, false)
-
-		s.BookingCancelled(fullCancellation())
-		s.DepositRefunded(fullRefund())
-
-		if q.has(TaskWABookingCancelled) || q.has(TaskWADepositRefunded) {
-			t.Errorf("WhatsApp was enqueued with the channel disabled; got %v", q.types())
-		}
-	})
 }
 
 // The owner is told about a sale, not about their own data entry. An owner who
@@ -470,7 +323,7 @@ func TestCancellationAndRefundKeepTheirChannelGates(t *testing.T) {
 // booking they had just made themselves, every single time.
 func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
 	t.Run("online checkout", func(t *testing.T) {
-		s, q, _, _, _ := newTestService(t, true)
+		s, q, _, _ := newTestService(t)
 
 		c := fullConfirmation()
 		c.Source = SourceOnlineCheckout
@@ -482,7 +335,7 @@ func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
 	})
 
 	t.Run("staff created it from the dashboard", func(t *testing.T) {
-		s, q, _, _, _ := newTestService(t, true)
+		s, q, _, _ := newTestService(t)
 
 		c := fullConfirmation()
 		c.Source = SourceStaffCreate
@@ -491,8 +344,8 @@ func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
 		if q.has(TaskEmailOwnerNewBooking) {
 			t.Errorf("the owner was emailed about the booking they just made; got %v", q.types())
 		}
-		if !q.has(TaskEmailBookingConfirmation) || !q.has(TaskWABookingConfirmation) {
-			t.Errorf("the client must still be notified on both channels; got %v", q.types())
+		if !q.has(TaskEmailBookingConfirmation) {
+			t.Errorf("the client must still be notified by email; got %v", q.types())
 		}
 	})
 }
@@ -501,7 +354,7 @@ func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
 // can resell it, so they are told. The owner's panel cancel is their own action,
 // and an expired unpaid booking was never announced to them.
 func TestClientCancellationEmailsTheOwner(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	c := fullCancellation()
 	c.Source = SourceClientCancel
@@ -535,7 +388,7 @@ func TestClientCancellationEmailsTheOwner(t *testing.T) {
 func TestOnlyAClientCancellationEmailsTheOwner(t *testing.T) {
 	for _, source := range []string{SourceOwnerCancel, SourceExpiredUnpaid, ""} {
 		t.Run("source "+source, func(t *testing.T) {
-			s, q, _, _, _ := newTestService(t, true)
+			s, q, _, _ := newTestService(t)
 
 			c := fullCancellation()
 			c.Source = source
@@ -553,7 +406,7 @@ func TestOnlyAClientCancellationEmailsTheOwner(t *testing.T) {
 }
 
 func TestClientCancellationNeedsAnOwnerToEmail(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	c := fullCancellation()
 	c.Source = SourceClientCancel
@@ -565,7 +418,7 @@ func TestClientCancellationNeedsAnOwnerToEmail(t *testing.T) {
 }
 
 func TestOwnerIsEmailedAboutAClientCancellation(t *testing.T) {
-	s, q, mailer, _, users := newTestService(t, true)
+	s, q, mailer, users := newTestService(t)
 	s.RegisterWorkers()
 
 	users.user = &authstore.User{Email: "owner@example.com"}
@@ -590,13 +443,13 @@ func TestOwnerIsEmailedAboutAClientCancellation(t *testing.T) {
 }
 
 func TestNothingIsEnqueuedWithoutARecipient(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	s.BookingCancelled(Cancellation{})
 	s.DepositRefunded(Refund{})
 	s.ReminderDue(Reminder{})
-	s.BookingCancelled(Cancellation{Phone: "+5411"})
-	s.DepositRefunded(Refund{Phone: "+5411"})
+	s.BookingCancelled(Cancellation{})
+	s.DepositRefunded(Refund{})
 
 	if len(q.tasks) != 0 {
 		t.Errorf("want nothing enqueued with no recipient; got %v", q.types())
@@ -604,7 +457,7 @@ func TestNothingIsEnqueuedWithoutARecipient(t *testing.T) {
 }
 
 func TestWorkersDeliverEachTaskType(t *testing.T) {
-	s, q, mailer, wa, _ := newTestService(t, true)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	// Every task the service can enqueue must have a worker registered, or it
@@ -613,8 +466,6 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		TaskEmailBookingConfirmation, TaskEmailReminder2h, TaskEmailBookingCancelled,
 		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailOwnerBookingRefunded, TaskEmailVerification,
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
-		TaskWABookingConfirmation, TaskWAReminder2h,
-		TaskWABookingCancelled, TaskWADepositRefunded,
 		TaskEmailLifecycleNudge, TaskEmailWelcome,
 	} {
 		if _, ok := q.handlers[taskType]; !ok {
@@ -622,7 +473,7 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		}
 	}
 
-	// Drive one email and one WhatsApp worker end to end.
+	// Drive one email worker end to end.
 	payload, _ := json.Marshal(Cancellation{Email: "ana@example.com", ComplexName: "Vibe"})
 	if err := q.handlers[TaskEmailBookingCancelled](t.Context(), payload); err != nil {
 		t.Fatalf("delivering a cancellation: %v", err)
@@ -631,53 +482,13 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		t.Errorf("the cancellation was not delivered; got %v", mailer.sent)
 	}
 
-	payload, _ = json.Marshal(waReminder{Phone: "+5411", ComplexName: "Vibe"})
-	if err := q.handlers[TaskWAReminder2h](t.Context(), payload); err != nil {
-		t.Fatalf("delivering a WhatsApp reminder: %v", err)
-	}
-	if len(wa.sent) != 1 || wa.sent[0].to != "+5411" {
-		t.Errorf("the WhatsApp reminder was not delivered; got %v", wa.sent)
-	}
-}
-
-// Each WhatsApp worker must build its own template. Registering the wrong
-// builder for a task type is a mistake nothing else catches: the send succeeds,
-// and the client gets a confirmation for a booking that was just cancelled.
-func TestWhatsAppWorkersBuildTheRightTemplate(t *testing.T) {
-	for _, c := range []struct {
-		taskType string
-		payload  any
-		want     string
-	}{
-		{TaskWABookingConfirmation, waBookingConfirmation{Phone: "+5411"}, "booking_confirmation"},
-		{TaskWAReminder2h, waReminder{Phone: "+5411"}, "reminder_2h"},
-		{TaskWABookingCancelled, waBookingCancelled{Phone: "+5411"}, "booking_cancelled"},
-		{TaskWADepositRefunded, waDepositRefunded{Phone: "+5411"}, "deposit_returned"},
-	} {
-		t.Run(c.want, func(t *testing.T) {
-			s, q, _, wa, _ := newTestService(t, true)
-			s.RegisterWorkers()
-
-			raw, _ := json.Marshal(c.payload)
-			if err := q.handlers[c.taskType](t.Context(), raw); err != nil {
-				t.Fatalf("delivering %s: %v", c.taskType, err)
-			}
-			if len(wa.sent) != 1 {
-				t.Fatalf("nothing was sent for %s", c.taskType)
-			}
-			if got := wa.sent[0].tmpl.TemplateName; got != c.want {
-				t.Errorf("%s built template %q; want %q", c.taskType, got, c.want)
-			}
-		})
-	}
 }
 
 // The cancellation and refund email payloads are durable storage too, so they
 // carry what their worker reads and nothing more. Enqueueing the whole
-// Cancellation would write the client's phone number and two WhatsApp button
-// suffixes into Redis on every cancellation.
+// Cancellation would write fields no worker reads into Redis on every cancellation.
 func TestCancellationEmailPayloadCarriesOnlyWhatTheEmailNeeds(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	s.BookingCancelled(fullCancellation())
 	s.DepositRefunded(fullRefund())
@@ -724,7 +535,7 @@ func TestCancellationEmailPayloadCarriesOnlyWhatTheEmailNeeds(t *testing.T) {
 // The owner's address is looked up at delivery, not captured at enqueue, so a
 // task queued before an address change still reaches the current one.
 func TestOwnerEmailIsResolvedAtDeliveryTime(t *testing.T) {
-	s, q, mailer, _, users := newTestService(t, true)
+	s, q, mailer, users := newTestService(t)
 	s.RegisterWorkers()
 
 	users.user = &authstore.User{Email: "new-owner@example.com"}
@@ -739,7 +550,7 @@ func TestOwnerEmailIsResolvedAtDeliveryTime(t *testing.T) {
 }
 
 func TestOwnerEmailFailsLoudlyOnAnUnknownOwner(t *testing.T) {
-	s, q, _, _, users := newTestService(t, true)
+	s, q, _, users := newTestService(t)
 	s.RegisterWorkers()
 
 	users.err = errors.New("no such user")
@@ -752,7 +563,7 @@ func TestOwnerEmailFailsLoudlyOnAnUnknownOwner(t *testing.T) {
 
 // A malformed payload must surface as an error naming the task, not a panic.
 func TestWorkersRejectMalformedPayloads(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	err := q.handlers[TaskEmailReminder2h](t.Context(), json.RawMessage(`{"email":`))
@@ -768,7 +579,7 @@ func TestWorkersRejectMalformedPayloads(t *testing.T) {
 // reads and nothing more. Enqueueing the whole BookingConfirmation put the
 // client's phone number and the owner id into Redis on every booking.
 func TestBookingEmailPayloadCarriesOnlyWhatTheEmailNeeds(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 
 	s.BookingConfirmed(fullConfirmation())
 
@@ -857,7 +668,7 @@ func TestAccountEmailsCarryTheirOwnLink(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			s, q, _, _, _ := newTestService(t, false)
+			s, q, _, _ := newTestService(t)
 			tt.send(s)
 
 			if len(q.tasks) != 1 || q.tasks[0].taskType != tt.taskType {
@@ -882,7 +693,7 @@ func TestAccountEmailsCarryTheirOwnLink(t *testing.T) {
 // The account emails are the ones that gate access to an account, so each is
 // driven end to end through its worker.
 func TestAccountEmailWorkersDeliver(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, false)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	cases := []struct {
@@ -935,7 +746,7 @@ func TestAccountEmailWorkersDeliver(t *testing.T) {
 
 // A delivery failure has to reach the queue so it can retry, not be swallowed.
 func TestDeliveryFailuresPropagateToTheQueue(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, false)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 	mailer.err = errors.New("smtp unavailable")
 
@@ -957,7 +768,7 @@ func TestDeliveryFailuresPropagateToTheQueue(t *testing.T) {
 func TestEachDeliveryCarriesADeduplicationKey(t *testing.T) {
 	bookingID := uuid.New().String()
 
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 	confirmation := fullConfirmation()
 	confirmation.BookingID = bookingID
 	s.BookingConfirmed(confirmation)
@@ -1000,9 +811,9 @@ func TestTheSameDeliveryTwiceAsksForTheSameKey(t *testing.T) {
 
 	first, second := newStubQueue(), newStubQueue()
 	for _, q := range []*stubQueue{first, second} {
-		s := NewService(q, &stubMailer{}, &stubWhatsApp{},
+		s := NewService(q, &stubMailer{},
 			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
-			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), true)
+			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 		s.BookingConfirmed(confirmation)
 	}
 
@@ -1026,9 +837,9 @@ func TestTwoClientsOfOneBookingDoNotShareAKey(t *testing.T) {
 	keys := make(map[string]string, 2)
 	for _, email := range []string{"ana@example.com", "beto@example.com"} {
 		q := newStubQueue()
-		s := NewService(q, &stubMailer{}, &stubWhatsApp{},
+		s := NewService(q, &stubMailer{},
 			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
-			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), false)
+			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 
 		confirmation := fullConfirmation()
 		confirmation.BookingID, confirmation.Email = bookingID, email
@@ -1047,7 +858,7 @@ func TestTwoClientsOfOneBookingDoNotShareAKey(t *testing.T) {
 }
 
 func TestLifecycleNudgeIsDeduplicatedPerKindAndSubjectAndDelivered(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, false)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	e := LifecycleNudgeEmail{

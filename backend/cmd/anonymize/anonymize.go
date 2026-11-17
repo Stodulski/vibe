@@ -49,7 +49,7 @@ const (
 // both have to hold: clients.phone is NOT NULL and UNIQUE per complex, so a
 // blank or a constant would refuse the second anonymization in a venue; and it
 // must not look like a phone number, because a value that does can be dialled,
-// messaged on WhatsApp, or matched by GetClientByPhone against a real person
+// messaged, or matched by GetClientByPhone against a real person
 // who later books with it.
 func anonymizedPhone(clientID uuid.UUID) string {
 	return "anonymized-" + clientID.String()

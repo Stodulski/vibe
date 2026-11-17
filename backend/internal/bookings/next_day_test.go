@@ -112,7 +112,7 @@ func TestPublicStatusCarriesAnEndOnTheNextLocalDay(t *testing.T) {
 }
 
 // The confirmation the client actually receives is the other half. It is one
-// line of copy in an email and a WhatsApp template, and it used to be built as
+// line of copy in an email, and it used to be built as
 // `StartTime + " - " + EndTime` — which for this booking said "23:00 - 01:00".
 func TestTheConfirmationCopyMarksAnEndOnTheNextDay(t *testing.T) {
 	f, complexID, courtID := staffFixture(t)

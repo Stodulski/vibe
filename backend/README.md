@@ -1,6 +1,6 @@
 # Vibe API
 
-Backend API for Vibe, a booking platform for sports complexes: court availability and scheduling, deposits collected through MercadoPago, and client notifications by email and WhatsApp. Used by complex owners and staff to manage courts, bookings and clients, and by the public booking pages clients use to reserve a court.
+Backend API for Vibe, a booking platform for sports complexes: court availability and scheduling, deposits collected through MercadoPago, and client notifications by email. Used by complex owners and staff to manage courts, bookings and clients, and by the public booking pages clients use to reserve a court.
 
 ## Stack
 
@@ -8,7 +8,6 @@ Backend API for Vibe, a booking platform for sports complexes: court availabilit
 - PostgreSQL via [pgx/v5](https://github.com/jackc/pgx) and [sqlc](https://sqlc.dev)
 - Redis (required at runtime, see below)
 - [MercadoPago](https://www.mercadopago.com) for payments
-- [WhatsApp Cloud API](https://developers.facebook.com/docs/whatsapp/cloud-api) for optional client notifications
 - [Brevo](https://www.brevo.com) transactional email API, with SMTP as a fallback
 - [Cloudflare R2](https://developers.cloudflare.com/r2/) for optional object storage (images)
 - [Sentry](https://sentry.io) for optional error tracking
@@ -198,7 +197,7 @@ development and wrong for anything else.
 |---|---|---|---|
 | `ENV` | Runtime environment: `development`, `staging`, or `production`. Production enforces stricter checks on `JWT_SECRET` and `BACKEND_URL`. | Optional | `development` |
 | `PORT` | HTTP port the API listens on. | Optional | `8080` |
-| `REDIS_URL` | Redis connection URL. On Railway it must be the private-network host (`*.railway.internal`) — see the note under `DATABASE_URL`. | **Required**: the notification queue (email/WhatsApp) has no fallback; boot refuses to start without a reachable Redis. | none |
+| `REDIS_URL` | Redis connection URL. On Railway it must be the private-network host (`*.railway.internal`) — see the note under `DATABASE_URL`. | **Required**: the notification queue (email) has no fallback; boot refuses to start without a reachable Redis. | none |
 
 ### HTTP server
 
@@ -236,7 +235,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `MP_CREDENTIAL_KEYS` | AES-256 keyring encrypting stored MercadoPago credentials, format `kid:base64key[,kid:base64key...]` (each key decodes to 32 bytes). | **Required unconditionally**, even if MercadoPago is unused. | none |
 | `COOKIE_DOMAIN` | Domain scope for auth cookies (e.g. `.example.com`). | Optional | `""` (host-only cookie) |
 | `FRONTEND_URL` | Owner-panel origin, used for CORS, the panel links in emails (login, verify email, reset password), the MercadoPago connect return, and the OIDC `redirect_uri` `GET /api/v1/auth/google/start` advertises. Set to empty and that endpoint answers `501` — it has nowhere to send the browser; see [Sign in with Google](#sign-in-with-google). | Optional | `http://localhost:5173` |
-| `PUBLIC_URL` | Public storefront origin, e.g. `https://vibe.com.ar`. It is the base of every public player-facing link: the complex pages, city hubs, sitemap, and the booking cancel, success and book links in emails and MercadoPago back URLs. CORS accepts it next to `FRONTEND_URL`, so the public pages can call the API from the browser. Exact origin: no trailing slash, no wildcard. Empty means unset: every public link uses `FRONTEND_URL`. Owner-panel links (login, verify email, reset password, MercadoPago connect) keep using `FRONTEND_URL`. The WhatsApp button paths (`c/<slug>/book/cancel`, `c/<slug>/book`) are relative: their host is the base URL of the Meta template, not this setting. | Optional | `""` |
+| `PUBLIC_URL` | Public storefront origin, e.g. `https://vibe.com.ar`. It is the base of every public player-facing link: the complex pages, city hubs, sitemap, and the booking cancel, success and book links in emails and MercadoPago back URLs. CORS accepts it next to `FRONTEND_URL`, so the public pages can call the API from the browser. Exact origin: no trailing slash, no wildcard. Empty means unset: every public link uses `FRONTEND_URL`. Owner-panel links (login, verify email, reset password, MercadoPago connect) keep using `FRONTEND_URL`. | Optional | `""` |
 | `BACKEND_URL` | Public backend URL, used for MercadoPago OAuth callbacks and webhooks. | **Required when `MP_ACCESS_TOKEN` is set**, must be absolute (https in production). | `""` |
 | `TRUSTED_PROXIES` | Peers allowed to set `X-Forwarded-For`: `false`, `true` (private ranges), or a comma-separated CIDR list. | Optional | `false` |
 | `TURNSTILE_SECRET_KEY` | Cloudflare Turnstile secret key. Setting it enables Turnstile verification on register, login and forgot-password; pairs with the client's `VITE_TURNSTILE_SITE_KEY`. | Optional | `""` |
@@ -251,17 +250,6 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `MP_APP_ID` | MercadoPago application ID, for OAuth. | Required when `MP_ACCESS_TOKEN` is set | `""` |
 | `MP_CLIENT_SECRET` | MercadoPago OAuth client secret. | Required when `MP_ACCESS_TOKEN` is set | `""` |
 | `MP_WEBHOOK_SECRET` | Verifies MercadoPago webhook signatures. | Required when `MP_ACCESS_TOKEN` is set | `""` |
-
-### WhatsApp
-
-| Variable | Purpose | Required | Default |
-|---|---|---|---|
-| `WHATSAPP_TOKEN` | WhatsApp Cloud API token. | Optional: together with `WHATSAPP_PHONE_NUMBER_ID`, enables WhatsApp notifications. | `""` |
-| `WHATSAPP_PHONE_NUMBER_ID` | WhatsApp Cloud API phone number ID. | Optional, see above | `""` |
-| `WHATSAPP_VERIFY_TOKEN` | Token Meta uses to verify the webhook subscription. | Optional | `""` |
-| `WHATSAPP_APP_SECRET` | Verifies webhook payload signatures (HMAC). | Optional | `""` |
-
-Message templates and their exact parameter order are documented in [`docs/whatsapp-templates.md`](docs/whatsapp-templates.md).
 
 ### Mail
 
@@ -327,10 +315,10 @@ An environment variable that cannot be parsed — a number, a duration, a boolea
 cmd/api/           HTTP handlers, routes, middleware, boot and config
 internal/data/     Store interfaces and implementations, tenant scoping
 internal/db/       sqlc-generated code: do not edit manually
-internal/          Cross-cutting services: mailer, jobs, storage, whatsapp, mp, circuitbreaker...
+internal/          Cross-cutting services: mailer, jobs, storage, mp, circuitbreaker...
 db/migrations/     Goose migrations (PostgreSQL)
 db/queries/        SQL consumed by sqlc, one file per entity
-docs/              Reference docs (WhatsApp templates, backup, data-deletion and export runbooks, ADRs in docs/adr/)
+docs/              Reference docs (backup, data-deletion and export runbooks, ADRs in docs/adr/)
 scripts/           Operational scripts (backup, e2e runner)
 tests/load/        Artillery load test scenarios
 ```
@@ -422,8 +410,8 @@ Short, one-page ADRs for decisions that aren't obvious from reading the code: [`
 
 - **Request flow**: `HTTP → middleware chain → httprouter → handler (cmd/api/) → store (internal/data/) → sqlc queries (internal/db/) → PostgreSQL`.
 - **Tenant scoping**: every tenant-scoped table has row-level security (`FORCE`d, so it also applies to the schema owner). Two database roles exist: `vibe_migrator` (owns the schema, runs DDL) and `vibe_app` (`SELECT`/`INSERT`/`UPDATE`/`DELETE` only, no superuser, no RLS bypass). The tenant reaches SQL through the request context (`internal/data/tenant.go`); a route that never sets a tenant scope reads nothing under RLS, by design. Re-provisioning the Postgres service (new volume or cluster) recreates `vibe_app`/`vibe_migrator` NOLOGIN with no password: rerun the out-of-band `ALTER ROLE vibe_app LOGIN PASSWORD ...` before the API can boot.
-- **Durable notifications**: emails and WhatsApp messages go through the `jobs` table (`internal/jobs`), not synchronously in the request path. Workers claim rows with `SELECT ... FOR UPDATE SKIP LOCKED`, so every instance drains the same queue without contending. Delivery is at-least-once, and every enqueue carries a deduplication key so a redelivered webhook cannot send the same confirmation twice. Redis is still required at boot, but for the subsystems whose fallbacks are per-instance and therefore wrong on more than one instance: the token blacklist, the user cache, distributed rate limiting, slot locking and the SSE relay.
-- **Circuit breakers**: external services (MercadoPago, WhatsApp, mailer) are wrapped with a closed/open/half-open circuit breaker that is a no-op on a nil receiver, so it is safe when a service is not configured.
+- **Durable notifications**: emails go through the `jobs` table (`internal/jobs`), not synchronously in the request path. Workers claim rows with `SELECT ... FOR UPDATE SKIP LOCKED`, so every instance drains the same queue without contending. Delivery is at-least-once, and every enqueue carries a deduplication key so a redelivered webhook cannot send the same confirmation twice. Redis is still required at boot, but for the subsystems whose fallbacks are per-instance and therefore wrong on more than one instance: the token blacklist, the user cache, distributed rate limiting, slot locking and the SSE relay.
+- **Circuit breakers**: external services (MercadoPago, mailer) are wrapped with a closed/open/half-open circuit breaker that is a no-op on a nil receiver, so it is safe when a service is not configured.
 
 ## Conventions
 
@@ -433,7 +421,6 @@ Commits follow [Conventional Commits](https://www.conventionalcommits.org/).
 
 - **Port `8080` already in use**: another process (often a previous `make run`) is bound to it. Stop it, or run with `go run ./cmd/api -port 8081`.
 - **The client's E2E suite is hitting the dev API instead of an isolated one**: run `make e2e` from this repository rather than `pnpm test:e2e` directly from the client. The Playwright suite truncates its target database on setup, so it must point at the isolated stack (`:8081`/`:5433`/`:6380`), never at the dev API on `:8080`.
-- **WhatsApp notifications never send, with no error**: `WHATSAPP_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID` are both empty, so the feature is disabled at boot (logged once as `whatsapp notifications disabled`). Set both to enable it.
 - **The client shows the Turnstile challenge but register/login/forgot-password answer 422 `turnstile_token: unavailable`**: the server could not confirm the token with Cloudflare — `TURNSTILE_SECRET_KEY` is wrong for the client's `VITE_TURNSTILE_SITE_KEY`, or Cloudflare's siteverify endpoint is unreachable from this deployment. It is not the same as `turnstile_token: invalid`, which means Cloudflare reached a verdict and rejected the token itself.
 - **Address autocomplete answers 502, and the log shows `places upstream ... PERMISSION_DENIED`**: `GOOGLE_MAPS_API` is set to a key whose Cloud project does not have **Places API (New)** enabled (the legacy Places API being enabled instead is not enough). Enable Places API (New) for that project in the Google Cloud console.
 

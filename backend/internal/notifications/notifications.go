@@ -10,7 +10,6 @@ import (
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	"github.com/stodulski/vibe-server/internal/jobs"
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 // Queue is the durable task queue this package publishes to and consumes from.
@@ -20,9 +19,9 @@ import (
 // second task for one booking. It does not make the delivery idempotent. The
 // queue is at-least-once, so a claim whose acknowledgement was lost, or a crash
 // after the provider accepted the message, runs the task again, and for this
-// package "again" can mean a second confirmation email or WhatsApp message for
-// one booking. Neither the mail nor the WhatsApp client in this repository sends
-// an idempotency key. An empty key means this delivery is not deduplicated.
+// package "again" can mean a second confirmation email for one booking. The
+// mail client in this repository does not send an idempotency key. An empty key
+// means this delivery is not deduplicated.
 type Queue interface {
 	Enqueue(taskType string, payload any, dedupKey string)
 	// TryEnqueue is Enqueue for a task whose caller must know it was not
@@ -60,11 +59,6 @@ type Mailer interface {
 	SendBenefitsCampaign(ctx context.Context, to, firstName, segment, segmentURL, panelURL, unsubscribeURL, optOutURL string) error
 }
 
-// WhatsAppSender is the WhatsApp side of delivery.
-type WhatsAppSender interface {
-	SendTemplate(ctx context.Context, to string, msg whatsapp.TemplateMessage) error
-}
-
 // UserReader resolves the owner an owner-facing email is addressed to.
 type UserReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
@@ -82,40 +76,27 @@ type UserReader interface {
 // strictly worse than crashing. The guard belongs at boot (see
 // newApplication/validateDeps in cmd/api), not on every method here.
 type Service struct {
-	queue           Queue
-	mailer          Mailer
-	whatsapp        WhatsAppSender
-	users           UserReader
-	logger          *slog.Logger
-	whatsappEnabled bool
+	queue  Queue
+	mailer Mailer
+	users  UserReader
+	logger *slog.Logger
 }
 
-// NewService returns a Service. whatsappEnabled reflects whether WhatsApp
-// credentials are configured; when it is false, WhatsApp notifications are
-// skipped rather than enqueued and failed.
-func NewService(queue Queue, mailer Mailer, sender WhatsAppSender, users UserReader, logger *slog.Logger, whatsappEnabled bool) *Service {
+// NewService returns a Service.
+func NewService(queue Queue, mailer Mailer, users UserReader, logger *slog.Logger) *Service {
 	return &Service{
-		queue:           queue,
-		mailer:          mailer,
-		whatsapp:        sender,
-		users:           users,
-		logger:          logger,
-		whatsappEnabled: whatsappEnabled,
+		queue:  queue,
+		mailer: mailer,
+		users:  users,
+		logger: logger,
 	}
 }
 
-// wantsWhatsApp reports whether a WhatsApp message should be enqueued for this
-// recipient: the channel has to be configured and they have to have given a
-// number.
-func (s *Service) wantsWhatsApp(phone string) bool {
-	return s.whatsappEnabled && phone != ""
-}
-
-// BookingConfirmed notifies the client on every channel they gave us, and the
-// owner by email.
+// BookingConfirmed notifies the client by email, when they gave us an address,
+// and the owner by email.
 //
-// Each channel is independent: a client with no email still gets WhatsApp, and
-// the owner is told either way.
+// Each recipient is independent: a client with no email is skipped, and the
+// owner is told either way.
 func (s *Service) BookingConfirmed(c BookingConfirmation) {
 	if c.Email != "" {
 		s.queue.Enqueue(TaskEmailBookingConfirmation, bookingConfirmationEmail{
@@ -125,32 +106,6 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 			CancelURL:     c.CancelURL,
 			DepositAmount: c.DepositAmount, BalanceAmount: c.BalanceAmount, CancellationLine: c.CancellationLine,
 		}, dedup(TaskEmailBookingConfirmation, c.Email, c.BookingID))
-	}
-
-	if s.wantsWhatsApp(c.Phone) {
-		// The template binds both buttons, so a message missing either
-		// parameter is rejected by Meta and the task can only fail.
-		//
-		// This guard used to also cover a complex with no coordinates, which
-		// meant every venue that had never filled in its latitude lost the
-		// WhatsApp channel entirely — silently, with the email still going out
-		// to hide it. booklink.MapsQuery now falls back to the written
-		// address, so an empty maps query means a complex with no name and no
-		// address, which is not a thing this system can produce.
-		if c.CancelPath == "" || c.MapsQuery == "" {
-			s.logger.Warn("notifications: skipping WhatsApp confirmation, missing button parameters",
-				"source", c.Source,
-				"cancel_path_empty", c.CancelPath == "",
-				"maps_query_empty", c.MapsQuery == "",
-			)
-		} else {
-			s.queue.Enqueue(TaskWABookingConfirmation, waBookingConfirmation{
-				Phone: c.Phone, ComplexName: c.ComplexName, CourtName: c.CourtName,
-				Date: c.Date, StartTime: c.StartTime,
-				DepositAmount: c.DepositAmount, BalanceAmount: c.BalanceAmount, CancellationLine: c.CancellationLine,
-				CancelPath: c.CancelPath, MapsQuery: c.MapsQuery,
-			}, dedup(TaskWABookingConfirmation, c.Phone, c.BookingID))
-		}
 	}
 
 	// The owner is told about a sale, not about their own data entry. An owner
@@ -164,36 +119,15 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 	}
 }
 
-// ReminderDue queues the client's two-hour reminder: by email, and by WhatsApp
-// when it is configured and the reminder can carry its cancel button.
+// ReminderDue queues the client's two-hour reminder by email.
 //
-// It returns the first channel the queue refused, so the caller can leave the
-// booking unflagged and try again. A channel already in the queue is not a
-// refusal: the queue reports a dedup hit as success, and a retry queues the
-// email again under the same key, which does nothing.
+// It returns the queue's refusal, so the caller can leave the booking unflagged
+// and try again. A dedup hit is not a refusal: the queue reports it as success,
+// and a retry queues the email again under the same key, which does nothing.
 func (s *Service) ReminderDue(rem Reminder) error {
 	if rem.Email != "" {
 		if err := s.queue.TryEnqueue(TaskEmailReminder2h, rem, dedup(TaskEmailReminder2h, rem.Email, rem.BookingID)); err != nil {
 			return fmt.Errorf("queue 2h reminder email: %w", err)
-		}
-	}
-	if s.wantsWhatsApp(rem.Phone) {
-		// Same unbound-button rule as the confirmation. The cancel path is the
-		// one that can genuinely be missing here: the cron mints a fresh
-		// access token per reminder, and a mint that fails leaves nothing to
-		// bind the button to.
-		if rem.CancelPath == "" || rem.MapsQuery == "" {
-			s.logger.Warn("notifications: skipping WhatsApp reminder, missing button parameters",
-				"cancel_path_empty", rem.CancelPath == "",
-				"maps_query_empty", rem.MapsQuery == "",
-			)
-		} else if err := s.queue.TryEnqueue(TaskWAReminder2h, waReminder{
-			Phone: rem.Phone, ComplexName: rem.ComplexName, CourtName: rem.CourtName,
-			Date: rem.Date, StartTime: rem.StartTime,
-			Address: rem.Address, BalanceAmount: rem.BalanceAmount,
-			MapsQuery: rem.MapsQuery, CancelPath: rem.CancelPath,
-		}, dedup(TaskWAReminder2h, rem.Phone, rem.BookingID)); err != nil {
-			return fmt.Errorf("queue 2h reminder whatsapp: %w", err)
 		}
 	}
 	return nil
@@ -208,17 +142,6 @@ func (s *Service) BookingCancelled(c Cancellation) {
 			Date: c.Date, StartTime: c.StartTime,
 			RefundLine: c.RefundLine, RefundAmount: c.RefundAmount, BookURL: c.BookURL,
 		}, dedup(TaskEmailBookingCancelled, c.Email, c.BookingID))
-	}
-	if s.wantsWhatsApp(c.Phone) {
-		if c.BookPath == "" {
-			s.logger.Warn("notifications: skipping WhatsApp cancellation, missing button parameter")
-		} else {
-			s.queue.Enqueue(TaskWABookingCancelled, waBookingCancelled{
-				Phone: c.Phone, ComplexName: c.ComplexName, CourtName: c.CourtName,
-				Date: c.Date, StartTime: c.StartTime,
-				RefundLine: c.RefundLine, BookPath: c.BookPath,
-			}, dedup(TaskWABookingCancelled, c.Phone, c.BookingID))
-		}
 	}
 
 	// The owner is told only when the client cancelled: that is the one way a
@@ -251,16 +174,6 @@ func (s *Service) DepositRefunded(ref Refund) {
 			Email: ref.Email, ComplexName: ref.ComplexName,
 			Amount: ref.Amount, BookURL: ref.BookURL,
 		}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref)))
-	}
-	if s.wantsWhatsApp(ref.Phone) {
-		if ref.BookPath == "" {
-			s.logger.Warn("notifications: skipping WhatsApp refund notice, missing button parameter")
-		} else {
-			s.queue.Enqueue(TaskWADepositRefunded, waDepositRefunded{
-				Phone: ref.Phone, ComplexName: ref.ComplexName,
-				Amount: ref.Amount, BookPath: ref.BookPath,
-			}, dedup(TaskWADepositRefunded, ref.Phone, refundSubject(ref)))
-		}
 	}
 }
 

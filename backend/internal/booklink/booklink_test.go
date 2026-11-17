@@ -20,7 +20,6 @@ func TestEveryFunctionEmitsTheConfiguredQueryParam(t *testing.T) {
 	const credential = "cred-abc123"
 	urls := map[string]string{
 		"Cancel":         Cancel("https://vibe.test", "acme", credential),
-		"CancelPath":     CancelPath("acme", credential),
 		"Success":        Success("https://vibe.test", "acme", credential),
 		"SuccessPending": SuccessPending("https://vibe.test", "acme", credential),
 	}
@@ -58,21 +57,7 @@ func TestEveryFunctionEmitsTheConfiguredQueryParam(t *testing.T) {
 	}
 }
 
-// TestCancelPathIsRelative pins that CancelPath never carries a scheme/host,
-// the one shape difference from Cancel — it is meant for the WhatsApp
-// button's relative link.
-func TestCancelPathIsRelative(t *testing.T) {
-	got := CancelPath("acme", "cred-abc123")
-	if strings.HasPrefix(got, "http") {
-		t.Errorf("CancelPath must be relative; got %q", got)
-	}
-	want := "c/acme/book/cancel?" + QueryParam + "=cred-abc123"
-	if got != want {
-		t.Errorf("CancelPath = %q, want %q", got, want)
-	}
-}
-
-// TestCancelIsAbsolute pins the counterpart: Cancel always carries the
+// TestCancelIsAbsolute pins that Cancel always carries the
 // frontend origin.
 func TestCancelIsAbsolute(t *testing.T) {
 	got := Cancel("https://vibe.test", "acme", "cred-abc123")
@@ -82,11 +67,8 @@ func TestCancelIsAbsolute(t *testing.T) {
 	}
 }
 
-// A complex that never filled in its coordinates used to produce an empty maps
-// query, and internal/notifications refused to enqueue a WhatsApp confirmation
-// with an unbound button — so that venue lost the whole WhatsApp channel,
-// silently, with the email still going out to hide it. A venue always has a
-// name, so this always answers.
+// A complex that never filled in its coordinates must still get a maps query:
+// a venue always has a name, so this always answers.
 func TestMapsQuery(t *testing.T) {
 	lat, lng := -34.603722, -58.381592
 
@@ -174,9 +156,6 @@ func TestAddress(t *testing.T) {
 }
 
 func TestBookLinks(t *testing.T) {
-	if got := BookPath("vibe-norte"); got != "c/vibe-norte/book" {
-		t.Errorf("BookPath = %q", got)
-	}
 	if got := Book("https://app.vibe.com.ar", "vibe-norte"); got != "https://app.vibe.com.ar/c/vibe-norte/book" {
 		t.Errorf("Book = %q", got)
 	}
@@ -199,11 +178,9 @@ func TestEveryComplexLinkCarriesTheCPrefix(t *testing.T) {
 		name, got, want string
 	}{
 		{"Cancel", Cancel(origin, slug, credential), origin + "/c/acme/book/cancel?token=cred-abc123"},
-		{"CancelPath", CancelPath(slug, credential), "c/acme/book/cancel?token=cred-abc123"},
 		{"Success", Success(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123"},
 		{"SuccessPending", SuccessPending(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123&status=pending"},
 		{"Failure", Failure(origin, slug), origin + "/c/acme/book?error=payment_failed"},
-		{"BookPath", BookPath(slug), "c/acme/book"},
 		{"Book", Book(origin, slug), origin + "/c/acme/book"},
 	}
 	for _, tt := range tests {

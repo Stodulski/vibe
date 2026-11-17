@@ -810,7 +810,7 @@ func TestRefreshDoesNotTreatAStoreFailureAsTokenTheft(t *testing.T) {
 	}
 }
 
-// The phone number is what WhatsApp delivers booking notifications to.
+// The phone number is the account's contact number.
 // Registration has always demanded E.164; this path took anything non-empty, so
 // the number could be replaced with one that can never receive a message and
 // nothing would say so — the failure being a message that never arrives.

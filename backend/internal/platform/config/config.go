@@ -24,7 +24,6 @@ type Config struct {
 	JWT  JWT
 	MP   MP
 
-	WhatsApp  WhatsApp
 	Social    Social
 	Brevo     Brevo
 	Turnstile Turnstile
@@ -201,14 +200,6 @@ type MP struct {
 	// MercadoPago; empty means the real API, and production refuses to boot
 	// with it set.
 	APIBaseURL string
-}
-
-// WhatsApp is the Meta Cloud API configuration.
-type WhatsApp struct {
-	Token       string
-	PhoneID     string
-	VerifyToken string
-	AppSecret   string
 }
 
 // Social is the publishing configuration for Vibe's own posts on its Facebook

@@ -113,13 +113,9 @@ const backend = service("Backend", {
     MP_CLIENT_SECRET: preserve(),
     MP_CREDENTIAL_KEYS: preserve(),
     MP_WEBHOOK_SECRET: preserve(),
-    // Messaging (Brevo, WhatsApp)
+    // Messaging (Brevo)
     BREVO_API_KEY: preserve(),
     BREVO_SENDER: preserve(),
-    WHATSAPP_APP_SECRET: preserve(),
-    WHATSAPP_PHONE_NUMBER_ID: preserve(),
-    WHATSAPP_TOKENs: preserve(),
-    WHATSAPP_VERIFY_TOKEN: preserve(),
     // Object storage (Cloudflare R2)
     R2_ACCESS_KEY: preserve(),
     R2_ACCOUNT_ID: preserve(),

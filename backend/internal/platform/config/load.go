@@ -148,12 +148,6 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 		"MercadoPago API base URL override for a local fake; empty is the real API, refused in production "+
 			"(MP_API_BASE_URL)")
 
-	fs.StringVar(&cfg.WhatsApp.Token, "whatsapp-token", "", "WhatsApp API token (WHATSAPP_TOKEN)")
-	fs.StringVar(&cfg.WhatsApp.PhoneID, "whatsapp-phone-id", "", "WhatsApp phone number ID (WHATSAPP_PHONE_NUMBER_ID)")
-	fs.StringVar(&cfg.WhatsApp.VerifyToken, "whatsapp-verify-token", "", "WhatsApp verify token (WHATSAPP_VERIFY_TOKEN)")
-	fs.StringVar(&cfg.WhatsApp.AppSecret, "whatsapp-app-secret", "",
-		"WhatsApp app secret for webhook verification (WHATSAPP_APP_SECRET)")
-
 	fs.StringVar(&cfg.Brevo.APIKey, "brevo-api-key", "", "Brevo API key (BREVO_API_KEY)")
 	fs.StringVar(&cfg.Brevo.Sender, "brevo-sender", "Vibe <no-reply@vibe.com.ar>", "Email sender (BREVO_SENDER)")
 	fs.StringVar(&cfg.SMTP.Host, "smtp-host", "", "SMTP host (fallback if no Brevo API key) (SMTP_HOST)")
@@ -277,11 +271,6 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.strVal("MP_CLIENT_SECRET", &cfg.MP.ClientSecret)
 	env.strVal("MP_CREDENTIAL_KEYS", &cfg.MP.CredentialKeys)
 	env.strVal("MP_API_BASE_URL", &cfg.MP.APIBaseURL)
-
-	env.strVal("WHATSAPP_TOKEN", &cfg.WhatsApp.Token)
-	env.strVal("WHATSAPP_PHONE_NUMBER_ID", &cfg.WhatsApp.PhoneID)
-	env.strVal("WHATSAPP_VERIFY_TOKEN", &cfg.WhatsApp.VerifyToken)
-	env.strVal("WHATSAPP_APP_SECRET", &cfg.WhatsApp.AppSecret)
 
 	env.strVal("BREVO_API_KEY", &cfg.Brevo.APIKey)
 	env.strVal("BREVO_SENDER", &cfg.Brevo.Sender)

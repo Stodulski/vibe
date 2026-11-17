@@ -902,18 +902,6 @@ func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID s
 // for one call — the transient failure a retry exists to survive.
 var errPreferenceExpiryUnavailable = errors.New("mercadopago unavailable")
 
-type stubWhatsApp struct {
-	challenge    string
-	verifyErr    error
-	signatureErr error
-}
-
-func (s *stubWhatsApp) VerifyWebhook(*http.Request) (string, error) {
-	return s.challenge, s.verifyErr
-}
-
-func (s *stubWhatsApp) VerifySignature(*http.Request, []byte) error { return s.signatureErr }
-
 // stubRefunder can answer with any outcome the real refund path can produce. A
 // stub that only ever recorded the call is how an endpoint that reported "no
 // refund" after every successful one shipped green.
@@ -1058,7 +1046,6 @@ type fixture struct {
 	payments     *stubPayments
 	locks        *stubLocks
 	checkout     *stubCheckout
-	whatsapp     *stubWhatsApp
 	refunds      *stubRefunder
 	linkResolver *stubLinkResolver
 	linkTokens   *stubLinkTokens
@@ -1074,7 +1061,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		store: &stubStore{}, clients: &stubClients{}, complexes: &stubComplexes{},
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
-		checkout: &stubCheckout{}, whatsapp: &stubWhatsApp{}, refunds: &stubRefunder{},
+		checkout: &stubCheckout{}, refunds: &stubRefunder{},
 		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
 		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}
@@ -1092,9 +1079,9 @@ func newFixture(t *testing.T) *fixture {
 		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,
 		PaymentExpiry: 15 * time.Minute, SlotLockTTL: 15 * time.Minute,
-		WhatsAppEnabled: true, LinkTokenBuffer: 24 * time.Hour,
+		LinkTokenBuffer: 24 * time.Hour,
 	})
-	f.handler = NewHandler(f.service, f.whatsapp, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
+	f.handler = NewHandler(f.service, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 	f.store.payments = f.payments
 	return f
 }

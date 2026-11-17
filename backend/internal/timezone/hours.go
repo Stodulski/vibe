@@ -13,8 +13,8 @@ import "time"
 //
 // HoursLabel carries a Spanish word, which is the same trade-off
 // internal/reporting/copy.go documents: Spanish is the only locale the product
-// ships, an owner and a client read this string in an email, a WhatsApp
-// message and a spreadsheet, and gathering it in one place means moving it
+// ships, an owner and a client read this string in an email and a
+// spreadsheet, and gathering it in one place means moving it
 // behind a backend i18n layer is one edit.
 
 // nextDayMarker is what a booking whose hours land on the following day is
@@ -22,7 +22,7 @@ import "time"
 //
 // It is the vocabulary frontend already uses for exactly this fact — the
 // complex schedule row's "Día sig." — rather than a second wording invented
-// here. A customer who reads "23:00 a 01:00" in a WhatsApp message and
+// here. A customer who reads "23:00 a 01:00" in an email and
 // "23:00 – 01:00 Día sig." on the confirmation screen is being told two
 // different things by the same product.
 const nextDayMarker = "día sig."
@@ -59,11 +59,8 @@ func Day(t time.Time) time.Time {
 // own start, on a day nobody named. The column is gone; this is
 // what the six sites say instead.
 //
-// The separator is the word "a", not a dash: WhatsApp's template validator
-// rejects two variables sitting next to each other with nothing fixed between
-// them, and a dash inside this one value reads as exactly that kind of
-// ambiguous joint once it sits beside the other fixed words in the approved
-// body. "09:00 a 10:30" is unambiguous either way.
+// The separator is the word "a", not a dash, so the value reads as a span
+// between two times. "09:00 a 10:30" is unambiguous either way.
 //
 // A zero instant on either side yields the empty string rather than the year
 // one: a caller holding a booking with no span has nothing to render, and

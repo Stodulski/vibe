@@ -72,8 +72,6 @@ var publicRoutes = map[string]string{
 	"POST /api/v1/book/holds/{token}/release": "the visitor lets their slot hold go, authenticated by the hold's own token",
 
 	"POST /api/v1/webhooks/mercadopago": "authenticated by MercadoPago's signature, not a session",
-	"GET /api/v1/webhooks/whatsapp":     "Meta's webhook verification handshake",
-	"POST /api/v1/webhooks/whatsapp":    "authenticated by Meta's signature, not a session",
 
 	"GET /api/v1/openapi.json": "this API's own machine-readable contract, read by tooling before any session exists",
 	"GET /api/v1/openapi.yaml": "same document, raw bytes",

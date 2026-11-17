@@ -71,8 +71,8 @@ func TestEndingASeriesQueuesOneNoticeNotOnePerBooking(t *testing.T) {
 		t.Fatalf("want one series notice and no per-booking one; got %d / %d", len(f.notify.seriesCancelled), len(f.notify.cancelled))
 	}
 	c := f.notify.seriesCancelled[0]
-	if c.Email != "ana@example.com" || c.Phone != "+5411555" || c.From != f.day(7).Format("02/01") ||
-		c.Weekday.String() != "Monday" || c.Hours != "18:00 a 19:30" || c.KeptPaid || c.BookPath == "" {
+	if c.Email != "ana@example.com" || c.From != f.day(7).Format("02/01") ||
+		c.Weekday.String() != "Monday" || c.Hours != "18:00 a 19:30" || c.KeptPaid {
 		t.Errorf("notice = %+v", c)
 	}
 }

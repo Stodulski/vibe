@@ -264,7 +264,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		Result:         "confirmed",
 	})
 
-	// Send booking confirmation notification (email + optionally WhatsApp).
+	// Send booking confirmation notification (email).
 	if client != nil {
 		complex, cerr := s.complexes.GetByID(ctx, booking.ComplexID)
 		court, courterr := s.courts.GetByID(ctx, booking.CourtID)
@@ -284,24 +284,19 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			// When the mint still fails after its retry, the confirmation goes out
 			// without its cancel link rather than not at all: the client has paid
 			// and must learn the booking is confirmed. The email template leaves
-			// the cancel button out when the link is empty (see
+			// the cancel link out when the link is empty (see
 			// mailer.SendBookingConfirmation), as the reminder cron already does.
-			// The WhatsApp confirmation is skipped in that case, because its
-			// template binds the cancel button as a required URL parameter
-			// (notifications.BookingConfirmed). The gap is reported so it can be
-			// followed up. The event is settled rather than requeued: a retry
+			// The gap is reported so it can be followed up. The event is settled rather than requeued: a retry
 			// would hit the replay no-op at the top of this function, which
 			// returns without sending anything, so requeueing could only spend
 			// the event's retry budget.
-			var cancelURL, cancelPath string
+			var cancelURL string
 			confirmationToken, mintErr := s.mintConfirmationToken(ctx, booking)
 			if mintErr != nil {
 				s.reportConfirmationWithoutCancelLink(booking, mpPaymentID, mintErr)
 			} else {
 				cancelURL = booklink.Cancel(s.cfg.PublicURL, complex.Slug, confirmationToken)
-				cancelPath = booklink.CancelPath(complex.Slug, confirmationToken)
 			}
-			mapsQuery := booklink.MapsQuery(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			address := booklink.Address(complex.Address, complex.City)
 			clientEmail := ""
@@ -314,15 +309,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 				// the owner's "Nueva reserva" email goes out.
 				Source:        notifications.SourceOnlineCheckout,
 				Email:         clientEmail,
-				Phone:         client.Phone,
 				ComplexName:   complex.Name,
 				CourtName:     court.Name,
 				ClientName:    client.FirstName + " " + client.LastName,
 				Date:          booking.Date.Format("02/01"),
 				StartTime:     timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
 				CancelURL:     cancelURL,
-				CancelPath:    cancelPath,
-				MapsQuery:     mapsQuery,
 				Address:       address,
 				MapsURL:       mapsURL,
 				DepositAmount: confirmDepositAmount,

@@ -12,7 +12,7 @@ import (
 // lifecycle nudges use, so a second verification or a redelivered task is the
 // same job to the queue.
 func TestWelcomeIsQueuedUnderTheOwnersDedupKey(t *testing.T) {
-	s, q, _, _, _ := newTestService(t, true)
+	s, q, _, _ := newTestService(t)
 	const userID = "7d9a4f5e-2c1b-4e8a-9f3d-1a2b3c4d5e6f"
 	email := WelcomeEmail{To: "ana@example.com", FirstName: "Ana"}
 
@@ -31,7 +31,7 @@ func TestWelcomeIsQueuedUnderTheOwnersDedupKey(t *testing.T) {
 }
 
 func TestWelcomeWorkerDeliversTheWelcome(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, true)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	payload, _ := json.Marshal(WelcomeEmail{To: "ana@example.com", FirstName: "Ana"})

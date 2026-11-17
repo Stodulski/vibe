@@ -2,10 +2,9 @@ package notifications
 
 import "context"
 
-// Notices of an open-play event ("canchas abiertas"). They are email only: the
-// approved WhatsApp templates all carry a button bound to a booking, and a
-// sign-up has none, so a person who gave no email hears nothing here (email is
-// optional everywhere; phone is the required contact).
+// Notices of an open-play event ("canchas abiertas"). They are email only, and
+// a sign-up requires an email address, so every registered person gets their
+// confirmation.
 const (
 	// TaskEmailEventRegistered confirms a person's spot once their payment is
 	// approved.

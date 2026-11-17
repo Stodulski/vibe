@@ -100,9 +100,8 @@ func newIntegrationApp(t *testing.T, pool *platformdb.Pool, opts ...func(*config
 		// registers and signs in real users against a real database.
 		PasswordHashCost: bcrypt.MinCost,
 		// Placeholder credentials, matching what the previous hand-built
-		// application literal passed directly to mp.NewMPClient /
-		// whatsapp.NewWAClient. No test talks to the real MercadoPago or
-		// WhatsApp APIs; these only need to be non-empty so client
+		// application literal passed directly to mp.NewMPClient. No test talks
+		// to the real MercadoPago API; these only need to be non-empty so client
 		// construction mirrors production shape.
 		MP: config.MP{
 			AccessToken:   "test",
@@ -116,12 +115,6 @@ func newIntegrationApp(t *testing.T, pool *platformdb.Pool, opts ...func(*config
 			// where nothing in this suite ever seals or opens a real
 			// credential (see integration_test.go's "fake MP connection").
 			CredentialKeys: "test",
-		},
-		WhatsApp: config.WhatsApp{
-			Token:       "test",
-			PhoneID:     "test",
-			VerifyToken: "test",
-			AppSecret:   "test",
 		},
 		Limiter:     config.Limiter{Enabled: false},
 		FrontendURL: "http://localhost:5173",

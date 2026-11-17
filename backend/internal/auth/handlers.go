@@ -430,8 +430,8 @@ func (h *Handler) UpdateCurrentUser(w http.ResponseWriter, r *http.Request) {
 		v.Check(*input.LastName != "", "last_name", "must not be empty")
 		v.Check(len(*input.LastName) <= 100, "last_name", "must not be more than 100 characters")
 	}
-	// Registration has always demanded E.164 here, because this number is what
-	// WhatsApp delivers booking notifications to. This path accepted anything
+	// Registration has always demanded E.164 here, because this number is how a
+	// client is looked up and contacted. This path accepted anything
 	// non-empty, so the one number that matters could be replaced with something
 	// undeliverable and nothing would say so — the failure is a message that
 	// never arrives, which nobody sees, least of all the person expecting it.

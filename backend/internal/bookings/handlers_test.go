@@ -1497,55 +1497,6 @@ func TestPublicCancelOutsideTheWindowDoesNotRefund(t *testing.T) {
 	}
 }
 
-func TestWhatsAppVerifyEchoesTheChallenge(t *testing.T) {
-	f := newFixture(t)
-	f.whatsapp.challenge = "challenge-123"
-
-	w := httptest.NewRecorder()
-	f.handler.WhatsAppVerify(w, publicRequest(t, http.MethodGet, "/", ""))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d", w.Code)
-	}
-	if !strings.Contains(w.Body.String(), "challenge-123") {
-		t.Errorf("Meta's handshake needs the challenge echoed back; got %q", w.Body.String())
-	}
-}
-
-// An unsigned webhook must not be processed: anyone can POST to this endpoint.
-func TestWhatsAppWebhookRejectsABadSignature(t *testing.T) {
-	f := newFixture(t)
-	f.whatsapp.signatureErr = data.ErrRecordNotFound // any non-nil error
-
-	w := httptest.NewRecorder()
-	f.handler.WhatsAppWebhook(w, publicRequest(t, http.MethodPost, "/", `{"entry":[]}`))
-
-	if len(f.store.updated) != 0 {
-		t.Error("an unverified webhook must not change a booking")
-	}
-	// Unlike the MercadoPago webhook, which answers 200 to stop the provider
-	// retrying a forgery, this one rejects outright. Both are defensible; the
-	// difference is recorded here so it is a decision rather than a drift.
-	if w.Code != http.StatusUnauthorized {
-		t.Errorf("want 401; got %d", w.Code)
-	}
-}
-
-func TestMaskPhone(t *testing.T) {
-	tests := map[string]string{
-		"+541199887766": "***7766",
-		"1234":          "****",
-		"12":            "****",
-		"":              "****",
-	}
-
-	for in, want := range tests {
-		if got := maskPhone(in); got != want {
-			t.Errorf("maskPhone(%q) = %q; want %q", in, got, want)
-		}
-	}
-}
-
 // publicBookBodyOn is publicBookBody with the date named rather than assumed,
 // for the cases that are about the date itself.
 func publicBookBodyOn(complexID, courtID uuid.UUID, date string) string {

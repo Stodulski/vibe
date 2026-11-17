@@ -1,5 +1,5 @@
 // Package jobs is the one durable work queue behind every deferred task this
-// service runs: the emails and WhatsApp messages a booking triggers, and the
+// service runs: the emails a booking triggers, and the
 // payment-provider work the webhook endpoint defers.
 //
 // It replaces three queues that said the same thing three ways — a Redis list

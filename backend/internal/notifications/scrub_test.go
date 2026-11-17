@@ -19,10 +19,6 @@ func TestEveryNotificationTaskHasItsPayloadScrubbed(t *testing.T) {
 		TaskEmailPasswordReset,
 		TaskEmailDuplicateRegistration,
 		TaskEmailChangeRequested,
-		TaskWABookingConfirmation,
-		TaskWAReminder2h,
-		TaskWABookingCancelled,
-		TaskWADepositRefunded,
 		TaskEmailBenefitsCampaign,
 		TaskEmailLifecycleNudge,
 		TaskEmailWaitlistSlotFreed,
@@ -31,8 +27,9 @@ func TestEveryNotificationTaskHasItsPayloadScrubbed(t *testing.T) {
 		TaskEmailSeriesCancelled,
 		TaskEmailEventRegistered,
 		TaskEmailEventCancelled,
-		TaskWASeriesCancelled,
 	}
+	// The rows of the removed WhatsApp channel still in the queue are scrubbed too.
+	tasks = append(tasks, legacyWhatsAppTasks...)
 	for _, task := range tasks {
 		if !ScrubsPayload(task) {
 			t.Errorf("ScrubsPayload(%q) = false; its payload carries recipient data and links", task)

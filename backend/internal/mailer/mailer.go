@@ -694,15 +694,10 @@ func greeting(firstName string) string {
 // it to appear at all — see addressLine — because a link with nowhere to
 // point is worse than no line. depositAmount, balanceAmount and
 // cancellationLine arrive rendered, from internal/notifications'
-// PaymentAmounts and CancellationLine. All three are also the WhatsApp
-// message's parameters, which is the point: the two channels describe one
-// booking, and neither may be edited into disagreeing with the other. The
-// sentences below are assembled around them with the same fixed words the
-// approved WhatsApp template uses ("Seña abonada: ... Resta pagar en el
-// complejo: ...", "Cancelación ..."), so the two channels keep saying the
-// same thing even though the template now carries the amounts as two separate
-// variables. The grace period cancellationLine may quote is
-// operator-configured — this function's comment claimed a hardcoded fifteen
+// PaymentAmounts and CancellationLine, so the sentences below quote the figures
+// the caller recorded. They are assembled around those values with fixed words
+// ("Seña abonada: ... Resta pagar en el complejo: ...", "Cancelación ...").
+// The grace period cancellationLine may quote is operator-configured — this function's comment claimed a hardcoded fifteen
 // minutes long after the code had stopped believing it.
 func (m *Mailer) SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine string) error {
 	subject := fmt.Sprintf("Reserva confirmada · %s", complexName)
@@ -732,9 +727,8 @@ func (m *Mailer) SendBookingConfirmation(ctx context.Context, to, complexName, c
 //
 // address and mapsURL render the same "Cómo llegar" line the confirmation
 // does, two hours closer to when it matters; balanceAmount is the plain
-// formatted amount from internal/notifications' BalanceAmount, in the same
-// fixed words the approved WhatsApp template uses ("Resta pagar en el
-// complejo: ...").
+// formatted amount from internal/notifications' BalanceAmount, in the fixed
+// words ("Resta pagar en el complejo: ...").
 func (m *Mailer) SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL string) error {
 	subject := fmt.Sprintf("Su reserva comienza en 2 horas · %s", complexName)
 

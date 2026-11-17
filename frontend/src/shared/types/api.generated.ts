@@ -297,30 +297,6 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
-  '/api/v1/webhooks/whatsapp': {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    /**
-     * Meta's WhatsApp webhook subscription handshake
-     * @description Public, not rate limited. Authenticated by Meta's `hub.verify_token`, not a session.
-     */
-    get: operations['bookingsWhatsAppVerifyWebhook'];
-    put?: never;
-    /**
-     * Receive a WhatsApp Cloud API webhook delivery
-     * @description Public, not rate limited. HMAC-SHA256 signed (`X-Hub-Signature-256`), verified before the body is trusted. Always answers `200` except for a bad signature (`401`, empty body), so Meta never redelivers a message this service already saw. Inbound text is only logged, this endpoint changes no booking state.
-     */
-    post: operations['bookingsWhatsAppWebhook'];
-    delete?: never;
-    options?: never;
-    head?: never;
-    patch?: never;
-    trace?: never;
-  };
   '/api/v1/book': {
     parameters: {
       query?: never;
@@ -4898,70 +4874,6 @@ export interface operations {
       500: components['responses']['ServerError'];
     };
   };
-  bookingsWhatsAppVerifyWebhook: {
-    parameters: {
-      query: {
-        'hub.mode': 'subscribe';
-        'hub.verify_token': string;
-        'hub.challenge': string;
-      };
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody?: never;
-    responses: {
-      /** @description Echoes `hub.challenge` back verbatim. */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'text/plain': string;
-        };
-      };
-      /** @description Bad mode or wrong verify token. */
-      403: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content: {
-          'application/problem+json': components['schemas']['Problem'];
-        };
-      };
-    };
-  };
-  bookingsWhatsAppWebhook: {
-    parameters: {
-      query?: never;
-      header?: never;
-      path?: never;
-      cookie?: never;
-    };
-    requestBody: {
-      content: {
-        'application/json': {
-          [key: string]: unknown;
-        };
-      };
-    };
-    responses: {
-      /** @description Accepted (also returned for an unreadable or unparseable body, to stop redelivery). */
-      200: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-      /** @description Invalid signature. Empty body. */
-      401: {
-        headers: {
-          [name: string]: unknown;
-        };
-        content?: never;
-      };
-    };
-  };
   bookingsPublicCreate: {
     parameters: {
       query?: never;
@@ -4991,7 +4903,8 @@ export interface operations {
            * @example +5491112345678
            */
           client_phone: string;
-          client_email?: string;
+          /** @description Required: the confirmation and the reminders are sent here. */
+          client_email: string;
           client_notes?: string;
           /** @description Required only when Cloudflare Turnstile is configured and booking enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), and only when no `hold_token` is sent. A missing or rejected token answers 422 on this field with `required` or `invalid`; Cloudflare being unreachable lets the booking through. */
           turnstile_token?: string;
@@ -8100,8 +8013,8 @@ export interface operations {
            * @example +5491112345678
            */
           phone: string;
-          /** @description Optional. */
-          email?: string;
+          /** @description Required: the registration is confirmed by email. The partner's email is optional. */
+          email: string;
           /**
            * @description Required when the category has a modality. A men's category takes two men, a women's two women, a mixed one a man and a woman (modality_mismatch otherwise).
            * @enum {string}
@@ -8338,8 +8251,8 @@ export interface operations {
            * @example +5491112345678
            */
           phone: string;
-          /** @description Optional. */
-          email?: string;
+          /** @description Required: the sign-up is confirmed by email. */
+          email: string;
           /**
            * @description Required when the event has a modality; the gender must fit it (modality_mismatch).
            * @enum {string}
