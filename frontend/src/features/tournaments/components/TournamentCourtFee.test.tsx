@@ -265,7 +265,7 @@ describe('TournamentDetail: editing the court fee', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.setCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
     await user.click(await screen.findByRole('menuitem', { name: t.courtFee.edit }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.editTitle });
     const field = within(dialog).getByLabelText(t.courtFee.editLabel);
@@ -284,7 +284,7 @@ describe('TournamentDetail: editing the court fee', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.setCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
     await user.click(await screen.findByRole('menuitem', { name: t.courtFee.edit }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.editTitle });
     const field = within(dialog).getByLabelText(t.courtFee.editLabel);
@@ -300,8 +300,10 @@ describe('TournamentDetail: editing the court fee', () => {
   it('cannot be edited once the category is cancelled', async () => {
     const detail = detailWithFee();
     detail.categories = [makeCategory({ status: 'cancelled', court_fee: FEE })];
-    await renderOnMatches(detail);
+    const { user } = await renderOnMatches(detail);
 
-    expect(screen.queryByRole('button', { name: t.detail.categoryActionsLabel })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
+    expect(await screen.findByRole('menuitem', { name: t.cancel.action })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: t.courtFee.edit })).not.toBeInTheDocument();
   });
 });

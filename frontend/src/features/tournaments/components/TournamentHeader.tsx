@@ -5,15 +5,82 @@ import { Button } from '@/shared/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { categoryTitle } from '@/shared/lib/traitLabels';
 import { tournamentDays, tournamentDaysShort } from '../lib/tournamentView';
 import { CancelTournamentDialog } from './CancelDialogs';
-import type { Tournament } from '@/shared/types/api.types';
+import type { CategoryDialogs } from './useCategoryDialogs';
+import type { Tournament, TournamentOwnerCategory } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
+
+interface TournamentActionsMenuProps {
+  /** The category picked above the panel, only when it can still change. */
+  openCategory: TournamentOwnerCategory | undefined;
+  categoryLabel: string;
+  /** False once the tournament is over or cancelled: nothing left to cancel. */
+  canCancel: boolean;
+  dialogs: CategoryDialogs;
+  onCancelTournament: () => void;
+}
+
+/** The one overflow menu: the picked category's group, a separator, then the tournament's cancel. */
+function TournamentActionsMenu({
+  openCategory,
+  categoryLabel,
+  canCancel,
+  dialogs,
+  onCancelTournament,
+}: TournamentActionsMenuProps) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={ES_AR.common.rowActionsLabel}>
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {openCategory && (
+          <DropdownMenuGroup aria-label={categoryLabel}>
+            <DropdownMenuLabel>{categoryLabel}</DropdownMenuLabel>
+            <DropdownMenuItem
+              onClick={() => {
+                dialogs.setFeeOpen(true);
+              }}
+            >
+              {openCategory.court_fee > 0 ? t.courtFee.edit : t.courtFee.add}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              variant="destructive"
+              onClick={() => {
+                dialogs.setCancelOpen(true);
+              }}
+            >
+              {t.cancel.categoryAction}
+            </DropdownMenuItem>
+          </DropdownMenuGroup>
+        )}
+        {openCategory && canCancel && <DropdownMenuSeparator />}
+        {canCancel && (
+          <DropdownMenuItem
+            variant="destructive"
+            onClick={() => {
+              onCancelTournament();
+            }}
+          >
+            {t.cancel.action}
+          </DropdownMenuItem>
+        )}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
 
 interface TournamentHeaderProps {
   title: string;
@@ -23,18 +90,33 @@ interface TournamentHeaderProps {
   paidCount: number;
   /** False once the tournament is over or cancelled: nothing left to cancel. */
   canCancel: boolean;
+  /** The category picked above the panel, only when it can still change: its actions join the menu. */
+  openCategory: TournamentOwnerCategory | undefined;
+  /** The dialogs of the category, which the category's actions open. */
+  dialogs: CategoryDialogs;
 }
 
 /**
  * The tournament's name with its days under it, and the one overflow menu that
- * holds its cancel action. The desktop masthead carries the name, as on every
- * owner page, so the name shows here only on a phone.
+ * holds the actions of the picked category, then the tournament's cancel. The
+ * desktop masthead carries the name, as on every owner page, so the name shows
+ * here only on a phone.
  */
-export function TournamentHeader({ title, tournament, complexId, paidCount, canCancel }: TournamentHeaderProps) {
+export function TournamentHeader({
+  title,
+  tournament,
+  complexId,
+  paidCount,
+  canCancel,
+  openCategory,
+  dialogs,
+}: TournamentHeaderProps) {
   usePageHeading(title);
   const [cancelOpen, setCancelOpen] = useState(false);
   const days = tournamentDays(tournament.start_date, tournament.end_date);
   const daysShort = tournamentDaysShort(tournament.start_date, tournament.end_date);
+  const categoryLabel = openCategory ? categoryTitle({ ...openCategory, sport: tournament.sport }) : '';
+  const hasActions = openCategory !== undefined || canCancel;
 
   return (
     <>
@@ -48,24 +130,16 @@ export function TournamentHeader({ title, tournament, complexId, paidCount, canC
             <span className="hidden sm:inline">{days}</span>
           </p>
         </div>
-        {canCancel && (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon-sm" aria-label={ES_AR.common.rowActionsLabel}>
-                <MoreHorizontal className="size-4" aria-hidden="true" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
-              <DropdownMenuItem
-                variant="destructive"
-                onClick={() => {
-                  setCancelOpen(true);
-                }}
-              >
-                {t.cancel.action}
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+        {hasActions && (
+          <TournamentActionsMenu
+            openCategory={openCategory}
+            categoryLabel={categoryLabel}
+            canCancel={canCancel}
+            dialogs={dialogs}
+            onCancelTournament={() => {
+              setCancelOpen(true);
+            }}
+          />
         )}
       </div>
       {tournament.status === 'cancelled' && (

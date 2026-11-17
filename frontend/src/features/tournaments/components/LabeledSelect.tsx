@@ -1,6 +1,7 @@
 import { useId } from 'react';
 import { Label } from '@/shared/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
+import { TOURNAMENT_SWITCH_FIELD_CLASS } from '../lib/tournamentLayout';
 
 interface LabeledSelectProps<T extends string> {
   label: string;
@@ -13,7 +14,7 @@ interface LabeledSelectProps<T extends string> {
 export function LabeledSelect<T extends string>({ label, items, active, onChange }: LabeledSelectProps<T>) {
   const id = useId();
   return (
-    <div className="min-w-0 space-y-1.5 sm:max-w-xs">
+    <div className={TOURNAMENT_SWITCH_FIELD_CLASS}>
       <Label htmlFor={id}>{label}</Label>
       <Select
         value={active}

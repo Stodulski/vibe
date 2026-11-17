@@ -26,10 +26,7 @@ export const tournaments = {
   pairsTaken: (taken: number, capacity: number) => `${String(taken)} de ${String(capacity)} parejas`,
   days: (from: string, to: string) => (from === to ? from : `${from} al ${to}`),
   cancelledBadge: 'Cancelado',
-  pricePerPair: (price: string) => `${price} por pareja`,
   format: { elimination: 'Eliminación directa', groups: 'Zonas y cuadro' },
-  // The phone's summary line: "Zonas", "Elim.".
-  formatShort: { elimination: 'Elim.', groups: 'Zonas' },
   categoryStatus: { open: 'Inscripción abierta', closed: 'Sorteo hecho', cancelled: 'Cancelada' },
   traits: tournamentsTraits,
 
@@ -61,13 +58,10 @@ export const tournaments = {
 
   // Detail
   detail: {
-    categoriesLabel: 'Categorías',
+    categoriesLabel: 'Categoría',
     sections: { pairs: 'Parejas', groups: 'Zonas', bracket: 'Cuadro', matches: 'Partidos' },
     sectionLabel: 'Ver',
-    categoryActionsLabel: 'Acciones de la categoría',
     prizesLabel: 'Premios',
-    pairsRatio: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)} parejas`,
-    pairsRatioShort: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)}`,
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1
