@@ -1,5 +1,5 @@
 /** How high, in pixels, the ends of the ruler climb above its center. */
-const ARC_HEIGHT = 48;
+const ARC_HEIGHT = 96;
 
 /**
  * The ruler as a wheel: each tick is drawn by how far it is from the center. At the
@@ -10,8 +10,8 @@ const ARC_HEIGHT = 48;
  */
 export function applyRulerDepth(track: HTMLElement): void {
   const middle = track.scrollLeft + track.clientWidth / 2;
-  // The whole visible half of the ruler is the slope, so the ticks keep shrinking
-  // all the way to its edge instead of levelling off partway.
+  // The whole visible half of the ruler is the slope, so the ruler fills the width and
+  // its ticks keep shrinking and rising all the way to the edge.
   const radius = Math.max(1, track.clientWidth / 2);
   for (const child of Array.from(track.children)) {
     const tick = child as HTMLElement;
