@@ -43,7 +43,7 @@ describe('TournamentDetail: pairs', () => {
     vi.clearAllMocks();
   });
 
-  it('lists each pair with its players and state, and keeps the phones behind its contact menu', async () => {
+  it('lists each pair with its players and state, and keeps the phones behind its actions menu', async () => {
     const { user } = await renderDetail(openDetail());
 
     const list = screen.getByRole('list', { name: t.detail.sections.pairs });
@@ -54,10 +54,13 @@ describe('TournamentDetail: pairs', () => {
     expect(within(list).getByText(t.pairs.state.held)).toBeInTheDocument();
     expect(within(list).queryByText('1155550000')).not.toBeInTheDocument();
 
-    const contact = within(list).getAllByRole('button', { name: t.pairs.contact })[0];
-    if (!contact) throw new Error('the first pair has no contact button');
-    await user.click(contact);
-    expect(await screen.findByRole('menuitem', { name: /Llamar Ana Pérez/ })).toHaveAttribute('href', 'tel:1155550000');
+    const actions = within(list).getAllByRole('button', { name: t.pairs.actions })[0];
+    if (!actions) throw new Error('the first pair has no actions menu');
+    await user.click(actions);
+    expect(await screen.findByRole('menuitem', { name: t.pairs.call('Ana Pérez') })).toHaveAttribute(
+      'href',
+      'tel:1155550000',
+    );
   });
 });
 
@@ -66,29 +69,16 @@ describe('TournamentDetail: draw', () => {
     vi.clearAllMocks();
   });
 
-  it('draws after a confirmation, with no seed order when left at random', async () => {
+  it('draws after a confirmation, sending no seed order and offering no seed control', async () => {
     const { tournamentsApi, user } = await renderDetail(openDetail());
     vi.mocked(tournamentsApi.generateDraw).mockResolvedValue(makeDrawnDetail());
 
+    expect(screen.queryByRole('button', { name: /cabezas de serie/i })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: t.draw.generate }));
     await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: t.draw.confirmLabel }));
 
     await waitFor(() => {
       expect(tournamentsApi.generateDraw).toHaveBeenCalledWith('c1', 't1', 'cat1', {});
-    });
-  });
-
-  it('sends the seed order of the paid pairs once the owner orders them', async () => {
-    const { tournamentsApi, user } = await renderDetail(openDetail());
-    vi.mocked(tournamentsApi.generateDraw).mockResolvedValue(makeDrawnDetail());
-
-    await user.click(screen.getByRole('button', { name: t.draw.seedOrderOn }));
-    await user.click(screen.getByRole('button', { name: t.draw.moveUp('Díaz / Vega') }));
-    await user.click(screen.getByRole('button', { name: t.draw.generate }));
-    await user.click(within(await screen.findByRole('alertdialog')).getByRole('button', { name: t.draw.confirmLabel }));
-
-    await waitFor(() => {
-      expect(tournamentsApi.generateDraw).toHaveBeenCalledWith('c1', 't1', 'cat1', { seed_order: ['p3', 'p1'] });
     });
   });
 

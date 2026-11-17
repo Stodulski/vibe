@@ -2,7 +2,7 @@ import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatTime } from '@/shared/lib/utils';
-import { MatchActionsMenu, type MatchMenuItem } from './MatchActionsMenu';
+import { OverflowMenu, type OverflowMenuItem } from '@/shared/components/common/OverflowMenu';
 import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
 import { MatchNames } from './MatchNames';
 import { isCorrectionLocked } from '../lib/correctionLock';
@@ -43,12 +43,13 @@ function whenText(match: TournamentOwnerMatch): string {
 }
 
 /** Charge each pair that owes the court fee of the match, or undo the charge of each pair that paid it. */
-function courtFeeItems(match: TournamentOwnerMatch, lookups: Lookups, actions: CourtFeeActions): MatchMenuItem[] {
+function courtFeeItems(match: TournamentOwnerMatch, lookups: Lookups, actions: CourtFeeActions): OverflowMenuItem[] {
   return courtFeeSides(match).map((side) => {
     const name = slotLabel(match, side.side, lookups.pairs, lookups.groupNames);
     const target = { matchId: match.id, side: side.side };
     return side.charged
       ? {
+          kind: 'action',
           key: `undo-${String(side.side)}`,
           label: fee.undoAria(name),
           onClick: () => {
@@ -56,6 +57,7 @@ function courtFeeItems(match: TournamentOwnerMatch, lookups: Lookups, actions: C
           },
         }
       : {
+          kind: 'action',
           key: `charge-${String(side.side)}`,
           label: fee.chargeAria(name),
           onClick: () => {
@@ -76,12 +78,13 @@ function matchMenuItems(
   lookups: Lookups,
   actions: MatchActions,
   courtFeeActions: CourtFeeActions,
-): MatchMenuItem[] {
+): OverflowMenuItem[] {
   const done = match.status === 'completed';
   const ready = !!match.pair1_id && !!match.pair2_id;
-  const items: MatchMenuItem[] = [];
+  const items: OverflowMenuItem[] = [];
   if (!done) {
     items.push({
+      kind: 'action',
       key: 'schedule',
       label: match.schedule ? t.reschedule : t.schedule,
       onClick: () => {
@@ -91,6 +94,7 @@ function matchMenuItems(
   }
   if (!done && match.schedule) {
     items.push({
+      kind: 'action',
       key: 'unschedule',
       label: t.unschedule,
       onClick: () => {
@@ -100,6 +104,7 @@ function matchMenuItems(
   }
   if (ready && !locked) {
     items.push({
+      kind: 'action',
       key: 'result',
       label: done ? t.correctResult : t.loadResult,
       onClick: () => {
@@ -149,7 +154,7 @@ function MatchRow({
           )}
           <MatchCourtFee match={match} fee={courtFee.fee} pairs={lookups.pairs} groupNames={lookups.groupNames} />
         </div>
-        <MatchActionsMenu items={items} />
+        <OverflowMenu label={t.actionsLabel} items={items} />
       </div>
     </li>
   );

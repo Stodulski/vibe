@@ -10,13 +10,16 @@ import type { TournamentOwnerPair } from '@/shared/types/api.types';
 const t = ES_AR.tournaments.pairs;
 const PRICE = 2000000;
 
-function renderPairs(pairs: TournamentOwnerPair[], opts: { seeded?: boolean } = {}) {
+function renderPairs(
+  pairs: TournamentOwnerPair[],
+  opts: { seeded?: boolean; canSwap?: boolean; onSwap?: (pairId: string) => void } = {},
+) {
   render(
     <PairsSection
       pairs={pairs}
       groupNames={new Map([['g1', 'B']])}
-      canSwap={false}
-      onSwap={vi.fn()}
+      canSwap={opts.canSwap ?? false}
+      onSwap={opts.onSwap ?? vi.fn()}
       price={PRICE}
       seeded={opts.seeded ?? false}
     />,
@@ -80,21 +83,54 @@ describe('PairsSection row', () => {
     renderPairs([makePair({ id: 'p1', players: ['Ana Pérez', 'Bea Gómez'] })]);
     expect(screen.queryByText(/Caballero|Dama/)).not.toBeInTheDocument();
   });
+});
 
-  it('keeps the phones out of the row and in the contact menu', async () => {
+describe('PairsSection actions menu', () => {
+  it('keeps the phones out of the row and in its one actions menu', async () => {
     const user = userEvent.setup();
     renderPairs([makePair({ id: 'p1', players: ['Ana Pérez', 'Bea Gómez'] })]);
 
     expect(screen.queryByText('1155550000')).not.toBeInTheDocument();
-    await user.click(screen.getByRole('button', { name: t.contact }));
-    expect(await screen.findByRole('menuitem', { name: `${t.call} Ana Pérez` })).toHaveAttribute(
+    expect(screen.getAllByRole('button')).toHaveLength(1);
+    await user.click(screen.getByRole('button', { name: t.actions }));
+    expect(await screen.findByRole('menuitem', { name: t.call('Ana Pérez') })).toHaveAttribute(
       'href',
       'tel:1155550000',
     );
-    expect(screen.getByRole('menuitem', { name: t.whatsappAria('Bea Gómez') })).toHaveAttribute(
+    expect(screen.getByRole('menuitem', { name: t.whatsapp('Bea Gómez') })).toHaveAttribute(
       'href',
       'https://wa.me/1155550000',
     );
+  });
+
+  it('offers Intercambiar first in the actions menu, then a separator and the contacts, when swapping is allowed', async () => {
+    const user = userEvent.setup();
+    const onSwap = vi.fn();
+    renderPairs([makePair({ id: 'p1', seed: 1, players: ['Ana Pérez', 'Bea Gómez'] })], { canSwap: true, onSwap });
+
+    await user.click(screen.getByRole('button', { name: t.actions }));
+    const items = await screen.findAllByRole('menuitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      t.swap,
+      t.call('Ana Pérez'),
+      t.whatsapp('Ana Pérez'),
+      t.call('Bea Gómez'),
+      t.whatsapp('Bea Gómez'),
+    ]);
+    expect(screen.getByRole('separator')).toBeInTheDocument();
+
+    await user.click(screen.getByRole('menuitem', { name: t.swap }));
+    expect(onSwap).toHaveBeenCalledWith('p1');
+  });
+
+  it('leaves Intercambiar and its separator out of the actions menu when swapping is not allowed', async () => {
+    const user = userEvent.setup();
+    renderPairs([makePair({ id: 'p1', seed: 1, players: ['Ana Pérez', 'Bea Gómez'] })]);
+
+    await user.click(screen.getByRole('button', { name: t.actions }));
+    expect(await screen.findByRole('menuitem', { name: t.call('Ana Pérez') })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: t.swap })).not.toBeInTheDocument();
+    expect(screen.queryByRole('separator')).not.toBeInTheDocument();
   });
 });
 

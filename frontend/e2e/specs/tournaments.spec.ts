@@ -187,7 +187,8 @@ test('the paid pairs show with their payment, seed and contact', async () => {
   const row = page.getByRole('listitem').filter({ hasText: 'Ana Zeta1 / Beto Zetax1' });
   await expect(row).toContainText('Pagó');
   await expect(row).toContainText('Pagó $8.000');
-  await expect(row.getByRole('link', { name: 'Llamar Ana Zeta1' })).toBeVisible();
+  await row.getByRole('button', { name: 'Acciones de la pareja' }).click();
+  await expect(page.getByRole('menuitem', { name: 'Llamar a Ana Zeta1' })).toBeVisible();
   await expect(page.getByText('Inscripción abierta').first()).toBeVisible();
 });
 

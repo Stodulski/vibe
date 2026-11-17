@@ -19,13 +19,7 @@ function useStoreDetail(complexId: string) {
 export function useGenerateDraw(complexId: string, tournamentId: string, categoryId: string) {
   const store = useStoreDetail(complexId);
   return useMutation({
-    mutationFn: (seedOrder: string[]) =>
-      tournamentsApi.generateDraw(
-        complexId,
-        tournamentId,
-        categoryId,
-        seedOrder.length > 0 ? { seed_order: seedOrder } : {},
-      ),
+    mutationFn: () => tournamentsApi.generateDraw(complexId, tournamentId, categoryId, {}),
     onSuccess: store,
   });
 }

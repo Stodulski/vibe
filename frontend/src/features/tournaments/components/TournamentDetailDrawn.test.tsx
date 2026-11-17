@@ -107,6 +107,16 @@ describe('TournamentDetail: phone layout', () => {
   });
 });
 
+/** Opens the actions menu of the pair whose row holds `text`. */
+async function openPairMenu(user: ReturnType<typeof userEvent.setup>, text: string) {
+  const list = screen.getByRole('list', { name: t.detail.sections.pairs });
+  const row = within(list)
+    .getAllByRole('listitem')
+    .find((item) => item.textContent.includes(text));
+  if (!row) throw new Error(`no pair row holds ${text}`);
+  await user.click(within(row).getByRole('button', { name: t.pairs.actions }));
+}
+
 describe('TournamentDetail: swapping pairs', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,7 +126,8 @@ describe('TournamentDetail: swapping pairs', () => {
     const { tournamentsApi, user } = await renderDetail(makeDrawnDetail(), t.detail.sections.pairs);
     vi.mocked(tournamentsApi.moveDraw).mockResolvedValue(makeDrawnDetail());
 
-    await user.click(screen.getByRole('button', { name: `${t.pairs.swap} Pérez / Gómez` }));
+    await openPairMenu(user, 'Ana Pérez');
+    await user.click(await screen.findByRole('menuitem', { name: t.pairs.swap }));
     await user.click(await screen.findByRole('combobox', { name: t.pairs.swapWith }));
     await user.click(await screen.findByRole('option', { name: /Luna \/ Paz/ }));
     await user.click(screen.getByRole('button', { name: t.pairs.swapConfirm }));
@@ -131,9 +142,11 @@ describe('TournamentDetail: swapping pairs', () => {
     detail.matches = [
       makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
     ];
-    await renderDetail(detail, t.detail.sections.pairs);
+    const { user } = await renderDetail(detail, t.detail.sections.pairs);
 
-    expect(screen.queryByRole('button', { name: /^Intercambiar/ })).not.toBeInTheDocument();
+    await openPairMenu(user, 'Ana Pérez');
+    expect(await screen.findByRole('menuitem', { name: t.pairs.call('Ana Pérez') })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: t.pairs.swap })).not.toBeInTheDocument();
     expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();
   });
 

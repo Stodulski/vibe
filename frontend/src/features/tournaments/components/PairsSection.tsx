@@ -1,21 +1,12 @@
-import { Fragment } from 'react';
 import { Phone } from 'lucide-react';
+import { OverflowMenu, type OverflowMenuItem } from '@/shared/components/common/OverflowMenu';
 import { Tag } from '@/shared/components/common/Tag';
 import { WhatsappIcon } from '@/shared/components/common/WhatsappIcon';
-import { Button } from '@/shared/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useSport } from '@/shared/lib/sportContext';
 import { playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
-import { pairFullName, pairName, pairPaymentKey, type PairPaymentKey } from '../lib/tournamentView';
+import { pairFullName, pairPaymentKey, type PairPaymentKey } from '../lib/tournamentView';
 import type { TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.pairs;
@@ -31,46 +22,28 @@ const STATE_BADGES: Record<PairPaymentKey, { tone: 'success' | 'neutral'; classN
   partialRefund: { tone: 'neutral', className: 'bg-warning-bg text-warning-text' },
 };
 
-/** Both players' phones behind one icon: each number as a tel: link and as a WhatsApp link. */
-function ContactMenu({ pair }: { pair: TournamentOwnerPair }) {
-  const players = [pair.payer, pair.partner].map((player) => ({
-    name: `${player.first_name} ${player.last_name}`,
-    phone: player.phone,
-  }));
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label={t.contact}>
-          <Phone className="size-4" aria-hidden="true" />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        {players.map((player, index) => (
-          <Fragment key={player.name}>
-            {index > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel>{player.name}</DropdownMenuLabel>
-            <DropdownMenuItem asChild>
-              <a href={`tel:${player.phone}`} aria-label={`${t.call} ${player.name}`}>
-                <Phone className="size-3.5" aria-hidden="true" />
-                {player.phone}
-              </a>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild>
-              <a
-                href={`https://wa.me/${player.phone.replace(/\D/g, '')}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={t.whatsappAria(player.name)}
-              >
-                <WhatsappIcon className="size-3.5" />
-                {t.whatsapp}
-              </a>
-            </DropdownMenuItem>
-          </Fragment>
-        ))}
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+/** Each player's phone as a call link and a WhatsApp link, in the row's menu. */
+function contactItems(pair: TournamentOwnerPair): OverflowMenuItem[] {
+  return [pair.payer, pair.partner].flatMap((player) => {
+    const name = `${player.first_name} ${player.last_name}`;
+    return [
+      {
+        kind: 'link',
+        key: `call-${name}`,
+        label: t.call(name),
+        icon: <Phone className="size-3.5" aria-hidden="true" />,
+        href: `tel:${player.phone}`,
+      },
+      {
+        kind: 'link',
+        key: `whatsapp-${name}`,
+        label: t.whatsapp(name),
+        icon: <WhatsappIcon className="size-3.5" />,
+        href: `https://wa.me/${player.phone.replace(/\D/g, '')}`,
+        external: true,
+      },
+    ];
+  });
 }
 
 /**
@@ -129,8 +102,15 @@ function PairRow({
   ].filter((detail): detail is string => !!detail);
 
   const detailLine = details.join(' · ');
+  const swapItems: OverflowMenuItem[] = onSwap
+    ? [
+        { kind: 'action', key: 'swap', label: t.swap, onClick: onSwap },
+        { kind: 'separator', key: 'swap-separator' },
+      ]
+    : [];
+  const menuItems = [...swapItems, ...contactItems(pair)];
 
-  // Flat on every width: the names on the left, the contact and any badge on the right, on one row.
+  // Flat on every width: the names on the left, the badge and the "⋯" menu on the right, on one row.
   return (
     <li className="border-border-subtle flex items-center justify-between gap-3 border-b py-3 last:border-b-0">
       <div className="min-w-0 flex-1 space-y-0.5">
@@ -147,19 +127,7 @@ function PairRow({
             {badge.text}
           </Tag>
         )}
-        <ContactMenu pair={pair} />
-        {onSwap && (
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            className="rounded-lg whitespace-nowrap"
-            aria-label={`${t.swap} ${pairName(pair)}`}
-            onClick={onSwap}
-          >
-            {t.swap}
-          </Button>
-        )}
+        <OverflowMenu label={t.actions} items={menuItems} />
       </div>
     </li>
   );
@@ -182,7 +150,7 @@ interface PairsSectionProps {
   seeded: boolean;
 }
 
-/** Every pair that held a spot: its players, zone, seed and traits, the contact menu, and the payment only when it is an exception. */
+/** Every pair that held a spot: its players, zone, seed and traits, the row's menu (swap and contacts), and the payment only when it is an exception. */
 export function PairsSection({ pairs, groupNames, canSwap, onSwap, price, seeded }: PairsSectionProps) {
   if (pairs.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   const rows = seeded ? [...pairs].sort(bySeed) : pairs;
