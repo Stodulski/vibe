@@ -71,7 +71,7 @@ function AgendaMeta({
   onViewDetail: () => void;
 }) {
   return (
-    <p className="text-text-secondary flex flex-wrap items-baseline gap-x-3 gap-y-0.5 text-sm sm:gap-x-0">
+    <p className="text-text-secondary flex flex-wrap items-baseline gap-x-3 gap-y-2 text-sm sm:gap-x-0 sm:gap-y-0.5">
       {tokens.map((token, index) => (
         <Fragment key={token.key}>
           {index > 0 && (
@@ -130,7 +130,7 @@ export function AgendaRowShell({
     <article className="flex flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-6">
       <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:items-center sm:gap-5">
         <AgendaDateBlock date={date} time={time} />
-        <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex min-w-0 flex-col gap-2 sm:gap-1">
           <p className="text-text-tertiary text-xs font-semibold tracking-wider whitespace-nowrap uppercase">{label}</p>
           <h3 className="text-text-primary text-lg leading-tight font-bold">{title}</h3>
           <AgendaMeta tokens={tokens} viewDetailLabel={viewDetailLabel} onViewDetail={onViewDetail} />
