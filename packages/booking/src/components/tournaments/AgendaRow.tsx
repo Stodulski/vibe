@@ -21,7 +21,6 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
   const { category } = row;
   const spots = spotsNotice(category.spots_left);
   const meta: AgendaMetaToken[] = [
-    ...(row.time === null ? [] : [{ key: 'time', text: `${row.time} ${t.hoursSuffix}` }]),
     { key: 'spots', text: spots.text, emphasis: spots.last },
     { key: 'price', text: `${formatPrice(category.price)} ${t.perPair}` },
   ];
@@ -31,6 +30,7 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
       date={row.date}
       label={row.label}
       title={row.title}
+      time={row.time === null ? undefined : `${row.time} ${t.hoursSuffix}`}
       meta={meta}
       viewDetailLabel={t.viewDetail}
       onViewDetail={() => {

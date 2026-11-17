@@ -19,7 +19,6 @@ export function OpenPlayAgendaRow({ row, slug, onViewDetail }: OpenPlayAgendaRow
   const { event } = row;
   const spots = spotsNotice(event.spots_left, { lastSpots: t.lastSpots, spotsLeft: spotsLeftLabel });
   const meta: AgendaMetaToken[] = [
-    { key: 'time', text: eventTimeRange(event) },
     { key: 'spots', text: spots.text, emphasis: spots.last },
     { key: 'price', text: `${formatPrice(event.price)} ${t.perPerson}` },
   ];
@@ -29,6 +28,7 @@ export function OpenPlayAgendaRow({ row, slug, onViewDetail }: OpenPlayAgendaRow
       date={row.date}
       label={row.label}
       title={row.title}
+      time={eventTimeRange(event)}
       meta={meta}
       viewDetailLabel={t.viewDetail}
       onViewDetail={() => {
