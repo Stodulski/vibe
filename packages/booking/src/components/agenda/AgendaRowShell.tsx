@@ -40,11 +40,11 @@ function AgendaDateBlock({ date, time }: { date: string; time: string | undefine
         dateTime={date}
         className="flex flex-row items-baseline gap-2 sm:w-14 sm:flex-col sm:items-center sm:justify-center sm:gap-0 sm:text-center"
       >
-        <span className="text-text-secondary text-2xl leading-none font-bold whitespace-nowrap uppercase sm:text-xs sm:leading-normal sm:font-semibold sm:tracking-wider">
+        <span className="text-text-secondary text-xl leading-none font-bold whitespace-nowrap uppercase sm:text-xs sm:leading-normal sm:font-semibold sm:tracking-wider">
           {parts.weekday}
         </span>
-        <span className="text-primary-400 text-2xl leading-none font-bold tabular-nums sm:text-3xl">{parts.day}</span>
-        <span className="text-text-secondary text-2xl leading-none font-bold whitespace-nowrap uppercase sm:text-xs sm:leading-normal sm:font-semibold sm:tracking-wider">
+        <span className="text-primary-400 text-xl leading-none font-bold tabular-nums sm:text-3xl">{parts.day}</span>
+        <span className="text-text-secondary text-xl leading-none font-bold whitespace-nowrap uppercase sm:text-xs sm:leading-normal sm:font-semibold sm:tracking-wider">
           {parts.month}
         </span>
       </time>
