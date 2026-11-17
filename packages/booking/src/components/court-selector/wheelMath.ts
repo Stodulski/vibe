@@ -29,10 +29,10 @@ export function tickDepth(
 ): { rise: number; scale: number; opacity: number } {
   const distance = Math.min(1, Math.abs(offset) / Math.max(1, half));
   const arc = 1 - Math.sqrt(1 - (ARC_SPAN * distance) ** 2);
-  const edgeFade = Math.max(0, Math.min(1, (half - Math.abs(offset)) / width));
+  const edgeFade = Math.max(0, Math.min(1, (half - Math.abs(offset)) / (width * 0.5)));
   return {
     rise: (-ARC_HEIGHT * arc) / ARC_EDGE,
     scale: 1.15 - 0.6 * distance,
-    opacity: (1 - 0.55 * distance) * edgeFade,
+    opacity: (1 - 0.25 * distance) * edgeFade,
   };
 }
