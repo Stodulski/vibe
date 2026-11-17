@@ -1,21 +1,17 @@
 import { useId } from 'react';
 import { FormField, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@vibe/ui';
-import { type AgendaFilter, type DayChip, type ModalityOption } from './agendaModel';
+import { type AgendaFilter, type ModalityOption } from './agendaModel';
 
-/** The words of the two filters: their labels and the "all" option of each. */
+/** The words of the filter: its label and its "all" option. */
 export interface AgendaFilterCopy {
   modality: string;
-  day: string;
   allModalities: string;
-  allDays: string;
 }
 
 interface AgendaFiltersProps {
   copy: AgendaFilterCopy;
   /** The modalities the rows have; "all" is always offered first. */
   modalities: readonly ModalityOption[];
-  /** The days the rows fall on; every day is always offered first. */
-  days: readonly DayChip[];
   filter: AgendaFilter;
   onChange: (filter: AgendaFilter) => void;
 }
@@ -61,20 +57,16 @@ function FilterSelect({ id, label, value, options, onValueChange }: FilterSelect
 }
 
 /**
- * The modality and the day of an agenda, as two selects with their labels above
- * them: side by side at 50% each on a phone, and side by side at a compact width
- * on a desktop.
+ * The modality of an agenda, as a select with its label above it: the full width
+ * on a phone, a compact width on a desktop. The list is short and in date order,
+ * so there is no day filter.
  */
-export function AgendaFilters({ copy, modalities, days, filter, onChange }: AgendaFiltersProps) {
+export function AgendaFilters({ copy, modalities, filter, onChange }: AgendaFiltersProps) {
   const id = useId();
   const modalityOptions: FilterOption[] = [{ value: 'all', label: copy.allModalities }, ...modalities];
-  const dayOptions: FilterOption[] = [
-    { value: 'all', label: copy.allDays },
-    ...days.map((chip) => ({ value: chip.date, label: chip.label })),
-  ];
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-wrap">
+    <div className="grid grid-cols-1 gap-3 sm:flex sm:flex-wrap">
       <FilterSelect
         id={`${id}-modality`}
         label={copy.modality}
@@ -82,15 +74,6 @@ export function AgendaFilters({ copy, modalities, days, filter, onChange }: Agen
         options={modalityOptions}
         onValueChange={(value) => {
           onChange({ ...filter, modality: modalityOf(value, modalities) });
-        }}
-      />
-      <FilterSelect
-        id={`${id}-day`}
-        label={copy.day}
-        value={filter.day ?? 'all'}
-        options={dayOptions}
-        onValueChange={(value) => {
-          onChange({ ...filter, day: value === 'all' ? null : value });
         }}
       />
     </div>

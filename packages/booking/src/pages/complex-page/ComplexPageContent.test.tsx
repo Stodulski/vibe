@@ -2,6 +2,7 @@ import type { ComponentProps } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { server } from '../../test/msw/server';
 import { EVENT } from '../../test/eventFixtures';
@@ -148,12 +149,20 @@ describe('ComplexPageContent placement of the services', () => {
 /** Lets both queries settle, so an absence is not mistaken for a list still loading. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 const eventsHeading = () => screen.findByRole('heading', { level: 3, name: BOOKING_MESSAGES.events.pickerTitle });
+const pb = BOOKING_MESSAGES.publicBooking;
+/** Presses the "Eventos" button of the section switch, once the events have loaded. */
+async function openEvents() {
+  await userEvent.click(await screen.findByRole('button', { name: pb.sectionEvents }));
+}
 
 describe('ComplexPageContent events', () => {
   it('shows no heading and no list when there are no events or tournaments', async () => {
     renderBooking(<ComplexPageContent {...baseProps} />);
     await settle();
 
+    // Booking alone: a "Reservas" heading and no switch.
+    expect(screen.getByRole('heading', { name: pb.bookingsTitle })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: pb.sectionEvents })).not.toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: BOOKING_MESSAGES.events.pickerTitle })).not.toBeInTheDocument();
     expect(screen.queryByRole('article')).not.toBeInTheDocument();
   });
@@ -164,6 +173,7 @@ describe('ComplexPageContent events', () => {
       http.get('*/public/complexes/:slug/tournaments', () => HttpResponse.json({ tournaments: [SUMMARY] })),
     );
     renderBooking(<ComplexPageContent {...baseProps} />);
+    await openEvents();
 
     expect(await eventsHeading()).toBeInTheDocument();
     expect(await screen.findByRole('heading', { name: 'Abierta a todos' })).toBeInTheDocument();
@@ -176,6 +186,7 @@ describe('ComplexPageContent events', () => {
   it('hides a tournament category whose sign-up is closed from the list', async () => {
     server.use(http.get('*/public/complexes/:slug/tournaments', () => HttpResponse.json({ tournaments: [SUMMARY] })));
     renderBooking(<ComplexPageContent {...baseProps} />);
+    await openEvents();
 
     expect(await screen.findByText(CAT_OPEN.name)).toBeInTheDocument();
     expect(screen.queryByText(CAT_GROUPS.name)).not.toBeInTheDocument();
@@ -194,13 +205,23 @@ describe('ComplexPageContent events', () => {
     expect(screen.queryByRole('heading', { name: BOOKING_MESSAGES.events.pickerTitle })).not.toBeInTheDocument();
   });
 
-  it('lists the events after the booking flow, not before it', async () => {
+  it('starts on booking and switches between booking and the events with two buttons', async () => {
     server.use(http.get('*/public/complexes/:slug/events', () => HttpResponse.json({ events: [EVENT] })));
     renderBooking(<ComplexPageContent {...baseProps} />);
 
-    const events = await eventsHeading();
-    const dates = screen.getByRole('radiogroup', { name: BOOKING_MESSAGES.publicBooking.dateStripLabel });
-    expect(follows(dates, events)).toBe(true);
+    const book = await screen.findByRole('button', { name: pb.sectionBook });
+    expect(book).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('radiogroup', { name: pb.dateStripLabel })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: BOOKING_MESSAGES.events.pickerTitle })).not.toBeInTheDocument();
+
+    await openEvents();
+    expect(await eventsHeading()).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: pb.sectionEvents })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('radiogroup', { name: pb.dateStripLabel })).not.toBeInTheDocument();
+
+    await userEvent.click(book);
+    expect(screen.getByRole('radiogroup', { name: pb.dateStripLabel })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: BOOKING_MESSAGES.events.pickerTitle })).not.toBeInTheDocument();
   });
 });
 

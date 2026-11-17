@@ -1,4 +1,4 @@
-import { dayChips, matchesAgendaFilter, modalityOptions, type AgendaFilter } from '../agenda/agendaModel';
+import { matchesAgendaFilter, modalityOptions, type AgendaFilter } from '../agenda/agendaModel';
 import type { AgendaDetail } from '../agenda/AgendaDetailDialog';
 import type { AgendaRow as TournamentRow } from '../tournaments/agendaModel';
 import { tournamentDetail } from '../tournaments/agendaDetail';
@@ -62,11 +62,6 @@ export function filterEventRows(rows: readonly EventRow[], filter: AgendaFilter)
 /** The modality options of the rows, each named in the words of its sport. */
 export function eventModalityOptions(rows: readonly EventRow[]) {
   return modalityOptions(rows.map((item) => ({ modality: modalityOf(item), sport: sportOf(item) })));
-}
-
-/** One day option per day the rows fall on, of either kind. */
-export function eventDayChips(rows: readonly EventRow[]) {
-  return dayChips(rows.map((item) => ({ date: item.row.date })));
 }
 
 /** A key unique across the list, whichever kind a row is. */

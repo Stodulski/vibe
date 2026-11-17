@@ -7,7 +7,6 @@ import { useLoadMoreOnSentinel } from '../agenda/useLoadMoreOnSentinel';
 import { AgendaRow } from '../tournaments/AgendaRow';
 import { OpenPlayAgendaRow } from './OpenPlayAgendaRow';
 import {
-  eventDayChips,
   eventDetailOf,
   eventModalityOptions,
   eventRowKey,
@@ -85,9 +84,8 @@ export function EventsAgenda({ rows, slug }: EventsAgendaProps) {
   return (
     <div className="flex flex-col gap-4">
       <AgendaFilters
-        copy={{ modality: t.filterModality, day: t.filterDay, allModalities: t.filterAll, allDays: t.filterAllDays }}
+        copy={{ modality: t.filterModality, allModalities: t.filterAll }}
         modalities={eventModalityOptions(rows)}
-        days={eventDayChips(rows)}
         filter={filter}
         onChange={(next) => {
           setFilter(next);

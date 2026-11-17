@@ -202,7 +202,7 @@ describe('complex images on the server', () => {
 });
 
 describe('the complex page events during server render', () => {
-  it('puts the seeded events and tournaments in the server markup, under one "Eventos" heading', () => {
+  it('puts the Reservar / Eventos switch in the server markup when events are seeded', () => {
     const render = (seeded: boolean) =>
       renderToString(
         <ComplexPageEntry
@@ -219,10 +219,11 @@ describe('the complex page events during server render', () => {
       );
 
     const html = render(true);
-    expect(html).toContain('id="events-title"');
-    expect(html).toContain(`/events/${EVENT.id}`);
-    expect(html).toContain(`/tournaments/${SUMMARY.id}`);
-    // Without the seed the list waits for the browser, as before.
-    expect(render(false)).not.toContain('id="events-title"');
+    // The page starts on booking: the switch is there, pressed on "Reservar", and the list waits behind "Eventos".
+    expect(html).toMatch(/aria-pressed="true"[^>]*>Reservar<\/button>/);
+    expect(html).toMatch(/aria-pressed="false"[^>]*>Eventos<\/button>/);
+    expect(html).not.toContain('id="events-title"');
+    // Without the seed there is nothing to switch to until the browser reads the events.
+    expect(render(false)).not.toMatch(/>Eventos<\/button>/);
   });
 });

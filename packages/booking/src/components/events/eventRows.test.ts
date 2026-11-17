@@ -3,7 +3,7 @@ import type { PublicOpenPlayEvent, PublicTournamentCategory, PublicTournamentSum
 import { EVENT } from '../../test/eventFixtures';
 import { CAT_OPEN, TOURNAMENT } from '../../test/tournamentFixtures';
 import { agendaRows } from '../tournaments/agendaModel';
-import { eventDayChips, eventModalityOptions, eventRows, filterEventRows, type EventRow } from './eventRows';
+import { eventModalityOptions, eventRows, filterEventRows, type EventRow } from './eventRows';
 import { openPlayRows } from './openPlayAgendaModel';
 
 /** A pádel open play for anyone, on the day and the hour given, or for the modality given. */
@@ -96,7 +96,7 @@ describe('filterEventRows', () => {
   });
 });
 
-describe('eventModalityOptions and eventDayChips', () => {
+describe('eventModalityOptions', () => {
   const rows = eventRows(
     openPlayRows([openPlay('o-men', '2099-12-05', '19:00', 'men')]),
     tournamentRows(category('t-women', '2099-12-06', '10:00', 'women')),
@@ -106,13 +106,6 @@ describe('eventModalityOptions and eventDayChips', () => {
     expect(eventModalityOptions(rows)).toEqual([
       { value: 'men', label: 'Caballeros' },
       { value: 'women', label: 'Damas' },
-    ]);
-  });
-
-  it('offers each day of both kinds once, in order', () => {
-    expect(eventDayChips(rows)).toEqual([
-      { date: '2099-12-05', label: 'Sáb 5 dic' },
-      { date: '2099-12-06', label: 'Dom 6 dic' },
     ]);
   });
 });

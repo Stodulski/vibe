@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { ComplexHeader } from '../../components/ComplexHeader';
 import { ComplexLower } from '../../components/complex-header/ComplexLower';
 import { DateSelector } from '../../components/DateSelector';
@@ -24,6 +24,7 @@ import { PhoneBookingPanel } from './PhoneBookingPanel';
 import { AvailabilitySection } from './AvailabilitySection';
 import { BookingSteps } from './booking-steps/BookingSteps';
 import { HoldExpiredNotice } from './HoldExpiredNotice';
+import { SectionSwitch, type ComplexSection } from './SectionSwitch';
 import type { EmptyDay } from './emptyDay';
 
 interface ComplexPageContentProps {
@@ -126,24 +127,21 @@ export function ComplexPageContent({
     <div className={CONTENT_WIDTH}>
       <ComplexHeader complex={complex} schedules={schedules} courts={courts} selectedDate={selectedDate} />
 
-      {/* The date frames everything below it: every question in the flow
-          narrows the inventory inside one day, and this is the one that says
-          which day. It is also what gets swept across most, so it never hides
-          behind a step. */}
-      <div className="mt-6 flex flex-col gap-4 sm:mt-10">
-        {/* Names the booking section as "Eventos" names the one below it. */}
-        <h2 className="text-text-primary text-xl font-bold">{BOOKING_MESSAGES.publicBooking.bookingsTitle}</h2>
-        <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
-      </div>
+      <ComplexSections slug={complex.slug}>
+        {/* The date frames everything below it: every question in the flow
+            narrows the inventory inside one day, and this is the one that says
+            which day. It is also what gets swept across most, so it never hides
+            behind a step. */}
+        <div className="mt-6 sm:mt-10">
+          <DateSelector selectedDate={selectedDate} onDateSelect={onDateSelect} schedules={schedules} />
+        </div>
 
-      <div className="mt-6 space-y-4 sm:mt-10">
-        <HoldExpiredNotice slug={complex.slug} />
-        <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
-        {challenge}
-      </div>
-
-      {/* Events and tournaments come after the booking flow, the main task. */}
-      <ComplexOffers slug={complex.slug} />
+        <div className="mt-6 space-y-4 sm:mt-10">
+          <HoldExpiredNotice slug={complex.slug} />
+          <BookingFlow {...flow} complex={complex} onDateSelect={onDateSelect} />
+          {challenge}
+        </div>
+      </ComplexSections>
 
       {/* The services and the map come after the booking, where a phone shows
           them, so the markup order is the order a screen reader and the Tab
@@ -155,20 +153,40 @@ export function ComplexPageContent({
 }
 
 /**
- * The complex's events under one heading, "Eventos": its open play and its
- * tournaments in one list, soonest first. Renders nothing while loading, on a
- * failure, or when neither has anything to list.
+ * The booking flow (`children`) and the complex's events, one at a time. A complex with
+ * events gets two buttons, "Reservar" and "Eventos", and the page starts on booking; the
+ * events are its open play and tournaments in one list, soonest first. A complex with no
+ * events (none listed, still loading, or a failed read) shows the booking under a
+ * "Reservas" heading and no buttons.
  */
-function ComplexOffers({ slug }: { slug: string }) {
+function ComplexSections({ slug, children }: { slug: string; children: ReactNode }) {
   const { data: events } = useComplexEvents(slug);
   const { data: tournaments } = useComplexTournaments(slug);
+  const [section, setSection] = useState<ComplexSection>('book');
   const rows = eventRows(openPlayRows(events ?? []), agendaRows(tournaments ?? []));
-  if (rows.length === 0) return null;
+
+  if (rows.length === 0) {
+    return (
+      <>
+        <h2 className="text-text-primary mt-6 text-xl font-bold sm:mt-10">{BOOKING_MESSAGES.publicBooking.bookingsTitle}</h2>
+        {children}
+      </>
+    );
+  }
 
   return (
-    <div className="mt-8 sm:mt-12">
-      <EventsSection rows={rows} slug={slug} />
-    </div>
+    <>
+      <div className="mt-6 sm:mt-10">
+        <SectionSwitch section={section} onChange={setSection} />
+      </div>
+      {section === 'book' ? (
+        children
+      ) : (
+        <div className="mt-6 sm:mt-10">
+          <EventsSection rows={rows} slug={slug} />
+        </div>
+      )}
+    </>
   );
 }
 

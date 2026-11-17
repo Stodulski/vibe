@@ -131,10 +131,6 @@ function modalityFilter(): HTMLElement {
   return screen.getByRole('combobox', { name: t.filterModality });
 }
 
-function dayFilter(): HTMLElement {
-  return screen.getByRole('combobox', { name: t.filterDay });
-}
-
 describe('EventsAgenda list', () => {
   it('lists open play and tournaments in one list, soonest first, each under its own label', () => {
     renderAgenda(
@@ -151,7 +147,7 @@ describe('EventsAgenda list', () => {
     expect(within(rowOf('Caballeros 8va')).getByText('Torneo de pádel')).toBeInTheDocument();
   });
 
-  it('filters the merged list by modality and by day, across both kinds', async () => {
+  it('filters the merged list by modality, across both kinds', async () => {
     const user = userEvent.setup();
     renderAgenda(
       eventRows(
@@ -160,29 +156,21 @@ describe('EventsAgenda list', () => {
       ),
     );
 
-    await chooseOption(user, modalityFilter(),'Damas');
+    await chooseOption(user, modalityFilter(), 'Damas');
     expect(modalityFilter()).toHaveTextContent('Damas');
     expect(screen.getByRole('heading', { name: 'Damas 5ta' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Abierta a todos' })).not.toBeInTheDocument();
     expect(screen.getAllByRole('article')).toHaveLength(1);
 
-    await chooseOption(user, modalityFilter(),t.filterAll);
-    await chooseOption(user, dayFilter(),'Dom 6 dic');
-    expect(screen.getAllByRole('article')).toHaveLength(1);
-    expect(screen.getByRole('heading', { name: 'Damas 5ta' })).toBeInTheDocument();
-
-    await chooseOption(user, dayFilter(),t.filterAllDays);
+    await chooseOption(user, modalityFilter(), t.filterAll);
     expect(screen.getAllByRole('article')).toHaveLength(3);
   });
 
-  it('says so when no row matches the filters', async () => {
-    const user = userEvent.setup();
+  it('offers no day filter: the list is already in date order', () => {
     renderAgenda(eventRows(openPlayRows([EVENT]), tournamentRows(category('t-women5', '2099-12-06', '10:00', 'women', 5))));
 
-    await chooseOption(user, modalityFilter(),'Damas');
-    await chooseOption(user, dayFilter(),'Sáb 5 dic');
-
-    expect(screen.getByText(t.noAgendaRows)).toBeInTheDocument();
+    expect(screen.queryByRole('combobox', { name: t.filterDay })).not.toBeInTheDocument();
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
   });
 
   it('names the modality options of both kinds in the words of their sport', async () => {
