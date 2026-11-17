@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, cn, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
+import { applyRulerDepth } from './rulerDepth';
 import type { TimeOption } from './timeOptions';
 
 const t = BOOKING_MESSAGES.publicBooking;
@@ -57,7 +58,7 @@ function RulerTick({
       data-slot-time={option.startTime}
       aria-pressed={focused}
       onClick={onSelect}
-      className="flex w-14 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5"
+      className="flex w-14 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5 will-change-transform"
     >
       <span
         aria-hidden="true"
@@ -190,6 +191,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
     const track = trackRef.current;
     const tick = track?.children[initial] as HTMLElement | undefined;
     if (track && tick) track.scrollLeft = tick.offsetLeft + tick.offsetWidth / 2 - track.clientWidth / 2;
+    if (track) applyRulerDepth(track);
   }, [initial]);
 
   if (!current) return null;
@@ -204,8 +206,9 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         <div
           ref={trackRef}
           {...dragHandlers}
-          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_25%,black_75%,transparent)]"
+          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.75rem)] py-2 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
           onScroll={(event) => {
+            applyRulerDepth(event.currentTarget);
             setFocused(centeredIndex(event.currentTarget));
           }}
         >
