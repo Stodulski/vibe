@@ -96,7 +96,7 @@ function AgendaMeta({
       <button
         type="button"
         onClick={onViewDetail}
-        className="text-primary-400 hover:text-primary-300 -my-2 inline-flex cursor-pointer items-center font-medium whitespace-nowrap underline-offset-4 hover:underline sm:my-0"
+        className="text-primary-400 hover:text-primary-300 -my-3 inline-flex cursor-pointer items-center font-medium whitespace-nowrap underline-offset-4 hover:underline sm:my-0"
       >
         {viewDetailLabel}
       </button>
