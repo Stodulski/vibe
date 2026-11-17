@@ -1,7 +1,10 @@
+/** How high, in pixels, the ends of the ruler climb above its center. */
+const ARC_HEIGHT = 48;
+
 /**
  * The ruler as a wheel: each tick is drawn by how far it is from the center. At the
  * center it is full size and lowest; toward each end of the visible ruler it shrinks,
- * fades and rises on an open U, as if the ruler were turning. No rotation: it skewed the times into
+ * fades and rises along half an ellipse, as if the ruler were turning. No rotation: it skewed the times into
  * something hard to read. Written straight to the ticks' style on every scroll frame,
  * so React does not re-render while it moves.
  */
@@ -16,9 +19,9 @@ export function applyRulerDepth(track: HTMLElement): void {
     const scale = 1.15 - 0.6 * distance;
     // Scaled from the bottom, so every time stays on one line as the ticks grow and shrink.
     tick.style.transformOrigin = 'center bottom';
-    // An open U: the center sits lowest and the ends rise on a gentle curve, as if
-    // the ruler were a wheel turning toward the visitor.
-    const rise = -36 * distance * distance;
+    // Half an O: the ticks sit on the lower half of an ellipse, flat at the center and
+    // climbing steeply at the ends, as if the ruler were a wheel turning toward the visitor.
+    const rise = -ARC_HEIGHT * (1 - Math.sqrt(1 - distance * distance));
     tick.style.transform = `translateY(${rise.toFixed(1)}px) scale(${scale.toFixed(3)})`;
     tick.style.opacity = (1 - 0.55 * distance).toFixed(3);
   }
