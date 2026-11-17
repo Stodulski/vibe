@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, cn, formatPrice } from '@vibe/ui';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { TimeOption } from './timeOptions';
 
@@ -138,37 +137,6 @@ function useMouseDrag(trackRef: React.RefObject<HTMLDivElement | null>) {
   return { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd, onClickCapture };
 }
 
-/** The ‹ › buttons at the ruler's ends: one hour back or forward. */
-function RulerArrow({ side, disabled, onClick }: { side: 'prev' | 'next'; disabled: boolean; onClick: () => void }) {
-  const Icon = side === 'prev' ? ChevronLeft : ChevronRight;
-  return (
-    <button
-      type="button"
-      aria-label={side === 'prev' ? t.rulerPrev : t.rulerNext}
-      disabled={disabled}
-      onClick={onClick}
-      className={cn(
-        'border-border-subtle bg-bg-subtle text-text-primary hover:bg-bg-overlay absolute top-3 z-20 flex size-9 cursor-pointer items-center justify-center rounded-full border transition-opacity disabled:cursor-default disabled:opacity-0',
-        side === 'prev' ? 'left-0' : 'right-0',
-      )}
-    >
-      <Icon className="size-4" aria-hidden="true" />
-    </button>
-  );
-}
-
-/** The hour on the marker, large, with its end, price and free courts. */
-function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCourts: boolean }) {
-  return (
-    <div className="text-center" aria-live="polite">
-      <p className="text-text-primary text-3xl font-bold tabular-nums">
-        {option.startTime} <span className="text-text-tertiary">–</span> {option.endTime}
-      </p>
-      <p className="text-text-secondary mt-1 text-sm">{priceLine(option, severalCourts)}</p>
-    </div>
-  );
-}
-
 interface TimeRulerProps {
   options: TimeOption[];
   /** The hour already chosen, centered when the ruler opens. */
@@ -182,7 +150,7 @@ interface TimeRulerProps {
  * The hours of the day as a ruler that slides under a fixed marker. The hour on
  * the marker is shown large above it, with its end, price and free courts, and
  * "Continuar" takes it to the court question. Tapping a tick brings it under the marker. It slides with a
- * finger or a trackpad, with the mouse wheel, and with the ‹ › buttons at its ends.
+ * finger or a trackpad, by dragging it with the mouse, and with the mouse wheel.
  */
 export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
   const trackRef = useRef<HTMLDivElement>(null);
@@ -211,9 +179,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
       <div className="relative">
         {/* The fixed marker the ruler slides under. */}
         <span aria-hidden="true" className="bg-primary-500 pointer-events-none absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
-        <RulerArrow side="prev" disabled={focused === 0} onClick={() => { centerTick(trackRef.current, focused - 1); }} />
-        <RulerArrow side="next" disabled={focused >= options.length - 1} onClick={() => { centerTick(trackRef.current, focused + 1); }} />
-        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- the drag is a mouse shortcut; the ticks and ‹ › are the accessible controls */}
+        {/* eslint-disable-next-line jsx-a11y/no-static-element-interactions -- the drag is a mouse shortcut; the ticks and Continuar are the accessible controls */}
         <div
           ref={trackRef}
           {...dragHandlers}
