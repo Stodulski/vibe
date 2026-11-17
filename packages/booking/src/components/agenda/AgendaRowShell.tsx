@@ -93,7 +93,7 @@ export function AgendaRowShell({ date, label, title, meta, viewDetailLabel, onVi
         </div>
       </div>
 
-      <Button asChild size="lg" className="min-h-12 w-full sm:w-auto sm:shrink-0">
+      <Button asChild size="lg" className="my-2 min-h-12 w-full sm:my-0 sm:w-auto sm:shrink-0">
         <a href={signUp.href}>
           {signUp.label}
           <span className="sr-only">{`: ${title}`}</span>
