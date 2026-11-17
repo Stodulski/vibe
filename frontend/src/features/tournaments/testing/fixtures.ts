@@ -62,7 +62,7 @@ export function makePair(opts: {
     payment:
       opts.payment === undefined && registration !== 'confirmed'
         ? null
-        : { status: opts.payment ?? 'approved', amount: 2100000, service_fee: 100000, refund_amount: 0 },
+        : { status: opts.payment ?? 'approved', amount: 2000000, service_fee: 100000, refund_amount: 0 },
   };
 }
 

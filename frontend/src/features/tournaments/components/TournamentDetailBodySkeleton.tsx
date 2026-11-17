@@ -6,21 +6,22 @@ import { CategoryTabsSkeleton } from './CategoryTabsSkeleton';
 import { SegmentedTabsSkeleton } from './SegmentedTabsSkeleton';
 
 /**
- * Loading shape of the detail body, card for card: the header card, the category
- * tabs, the category card, the section switch, then the list card.
+ * Loading shape of the detail body, line for line: the header (name on a phone,
+ * days under it), the category tabs, the category's summary line, the section
+ * switch, then the list card.
  */
 export function TournamentDetailBodySkeleton() {
   return (
     <div role="status" aria-label={ES_AR.common.loading} className={TOURNAMENT_DETAIL_CLASS}>
-      <Panel size="md" mobile="card" className="space-y-3" aria-hidden="true">
-        <Skeleton className="h-5 w-48 rounded-lg" />
-        <Skeleton className="h-9 w-full rounded-xl sm:w-40" />
-      </Panel>
+      <div className="space-y-2" aria-hidden="true">
+        <Skeleton className="h-7 w-48 rounded-lg md:hidden" />
+        <Skeleton className="h-4 w-56 rounded-lg" />
+      </div>
       <CategoryTabsSkeleton count={3} />
-      <Panel size="md" mobile="card" className="space-y-3" aria-hidden="true">
-        <Skeleton className="h-5 w-56 rounded-lg" />
-        <Skeleton className="h-5 w-44 rounded-lg" />
-      </Panel>
+      <div className="space-y-2" aria-hidden="true">
+        <Skeleton className="h-4 w-72 max-w-full rounded-lg" />
+        <Skeleton className="h-4 w-24 rounded-lg" />
+      </div>
       <SegmentedTabsSkeleton count={4} />
       <Panel size="md" mobile="card" className="space-y-3" aria-hidden="true">
         {Array.from({ length: 4 }, (_, i) => (

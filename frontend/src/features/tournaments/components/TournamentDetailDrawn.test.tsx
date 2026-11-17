@@ -65,7 +65,7 @@ describe('TournamentDetail: swapping pairs', () => {
   });
 
   it('swaps two pairs of different groups', async () => {
-    const { tournamentsApi, user } = await renderDetail(makeDrawnDetail());
+    const { tournamentsApi, user } = await renderDetail(makeDrawnDetail(), t.detail.sections.pairs);
     vi.mocked(tournamentsApi.moveDraw).mockResolvedValue(makeDrawnDetail());
 
     await user.click(screen.getByRole('button', { name: `${t.pairs.swap} Pérez / Gómez` }));
@@ -83,27 +83,25 @@ describe('TournamentDetail: swapping pairs', () => {
     detail.matches = [
       makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
     ];
-    await renderDetail(detail);
+    await renderDetail(detail, t.detail.sections.pairs);
 
     expect(screen.queryByRole('button', { name: /^Intercambiar/ })).not.toBeInTheDocument();
-    expect(screen.getByText(t.pairs.swapLocked)).toBeInTheDocument();
+    expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();
   });
 
-  it('tells the draw can be repeated, and only that, while no result is loaded', async () => {
-    await renderDetail(makeDrawnDetail());
+  it('tells the draw can be repeated while no result is loaded', async () => {
+    await renderDetail(makeDrawnDetail(), t.detail.sections.pairs);
 
     expect(screen.getByText(t.draw.regenerateHint)).toBeInTheDocument();
-    expect(screen.queryByText(t.pairs.swapLocked)).not.toBeInTheDocument();
   });
 
-  it('shows one muted line and no draw button once a result is loaded', async () => {
+  it('shows no draw button and no note once a result is loaded', async () => {
     const detail = makeDrawnDetail();
     detail.matches = [
       makeMatch({ id: 'gm1', stage: 'group', groupId: 'g1', pair1Id: 'p1', pair2Id: 'p2', status: 'completed' }),
     ];
-    await renderDetail(detail);
+    await renderDetail(detail, t.detail.sections.pairs);
 
-    expect(screen.getByText(t.pairs.swapLocked)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.draw.regenerate })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.draw.generate })).not.toBeInTheDocument();
     expect(screen.queryByText(t.draw.regenerateHint)).not.toBeInTheDocument();

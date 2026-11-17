@@ -1,17 +1,18 @@
-import { InfoRow } from '@/shared/components/common/InfoRow';
+import { useId, useState } from 'react';
+import { ChevronDown } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { categoryStartLabel } from '@/shared/lib/traitLabels';
-import { formatPrice } from '@/shared/lib/utils';
+import { cn, formatPrice } from '@/shared/lib/utils';
 import type { CourtFeeSummary } from '../lib/courtFee';
 import type { TournamentOwnerCategory } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
 
 /**
- * What the category is, as label/value rows inside the category card: capacity
- * and status, price per pair, court fee and what is collected of it, format and
- * how its matches are played. One column on a phone, two from `sm`. Money is
- * proportional with tabular figures.
+ * The category in one line of key facts: pairs taken, price per pair, format and
+ * start. The rules (zones, sets and games, court fee) wait behind "Ver reglas",
+ * closed until the owner asks for them.
  */
 export function CategoryFacts({
   category,
@@ -20,54 +21,50 @@ export function CategoryFacts({
   category: TournamentOwnerCategory;
   courtFee: CourtFeeSummary;
 }) {
-  const startLabel = categoryStartLabel(category.starts_on, category.starts_at);
+  const [rulesOpen, setRulesOpen] = useState(false);
+  const rulesId = useId();
+  const facts = [
+    t.detail.pairsRatio(category.confirmed_count, category.capacity),
+    t.pricePerPair(formatPrice(category.price)),
+    t.format[category.format],
+    categoryStartLabel(category.starts_on, category.starts_at),
+  ].filter((fact): fact is string => !!fact);
+
   return (
-    <div className="grid grid-cols-1 gap-x-4 gap-y-3 sm:grid-cols-2">
-      <InfoRow label={t.detail.capacity}>
-        {t.pairsTaken(category.confirmed_count, category.capacity)} · {t.categoryStatus[category.status]}
-      </InfoRow>
-      <InfoRow label={t.detail.price}>
-        <span className="font-medium tabular-nums">{formatPrice(category.price)}</span>
-      </InfoRow>
-      {startLabel && <InfoRow label={t.detail.startsLabel}>{startLabel}</InfoRow>}
-      {category.prizes && (
-        <div className="sm:col-span-2">
-          <InfoRow label={t.detail.prizesLabel}>{category.prizes}</InfoRow>
+    <div className="min-w-0 flex-1 space-y-2">
+      <p className="text-text-secondary text-sm">{facts.join(' · ')}</p>
+      {category.prizes && <p className="text-text-tertiary text-xs">{category.prizes}</p>}
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="text-primary-400 hover:text-primary-300 h-auto gap-1.5 px-0 text-xs"
+        aria-expanded={rulesOpen}
+        aria-controls={rulesOpen ? rulesId : undefined}
+        onClick={() => {
+          setRulesOpen((open) => !open);
+        }}
+      >
+        {rulesOpen ? t.detail.hideRules : t.detail.rules}
+        <ChevronDown
+          className={cn('size-3.5 transition-transform duration-200', rulesOpen && 'rotate-180')}
+          aria-hidden="true"
+        />
+      </Button>
+      {rulesOpen && (
+        <div id={rulesId} className="text-text-secondary space-y-1 text-sm">
+          {category.format === 'groups' && (
+            <p>{t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}</p>
+          )}
+          <p>{t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider)}</p>
+          {category.court_fee > 0 && <p className="tabular-nums">{t.courtFee.line(formatPrice(category.court_fee))}</p>}
+          {(courtFee.collected > 0 || courtFee.pending > 0) && (
+            <p className="tabular-nums">
+              {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
+            </p>
+          )}
         </div>
       )}
-      <InfoRow label={t.courtFee.factLabel}>
-        {category.court_fee > 0 ? (
-          <>
-            <span className="font-medium tabular-nums">{formatPrice(category.court_fee)}</span>{' '}
-            {t.courtFee.perPairSuffix}
-          </>
-        ) : (
-          t.courtFee.none
-        )}
-      </InfoRow>
-      {(courtFee.collected > 0 || courtFee.pending > 0) && (
-        <InfoRow label={t.courtFee.summaryLabel}>
-          <span className="tabular-nums">
-            {t.courtFee.summary(formatPrice(courtFee.collected), formatPrice(courtFee.pending))}
-          </span>
-        </InfoRow>
-      )}
-      <div className="sm:col-span-2">
-        <InfoRow label={t.detail.formatLabel}>
-          {t.format[category.format]}
-          {category.format === 'groups' && (
-            <>
-              {' · '}
-              <span className="text-text-secondary">
-                {t.detail.groupsSetup(category.group_size, category.qualifiers_per_group)}
-              </span>
-            </>
-          )}
-          <span className="text-text-secondary block">
-            {t.detail.matchSetup(category.sets_to_win, category.games_per_set, category.super_tiebreak_decider)}
-          </span>
-        </InfoRow>
-      </div>
     </div>
   );
 }

@@ -82,6 +82,9 @@ function MatchButtons({
   primary: boolean;
 }) {
   const done = match.status === 'completed';
+  // A played match that can no longer be corrected has nothing to act on: no greyed
+  // button and no note repeated on every row.
+  if (done && locked) return null;
   return (
     <div className="flex flex-wrap gap-2">
       {!done && (

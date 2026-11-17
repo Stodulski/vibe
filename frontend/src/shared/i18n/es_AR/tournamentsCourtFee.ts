@@ -1,10 +1,7 @@
 /** Court fee: what each pair pays per match at the complex, collected through the cash. */
 export const courtFee = {
   line: (amount: string) => `Cancha: ${amount} por pareja`,
-  perPairSuffix: 'por pareja y partido',
   none: 'Sin costo de cancha',
-  factLabel: 'Cancha',
-  summaryLabel: 'Cancha cobrada',
   summary: (collected: string, pending: string) => `Cobrado ${collected} · Pendiente ${pending}`,
   edit: 'Editar monto de cancha',
   add: 'Agregar monto de cancha',

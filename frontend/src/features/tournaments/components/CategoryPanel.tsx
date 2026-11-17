@@ -1,6 +1,13 @@
 import { useState } from 'react';
+import { MoreHorizontal } from 'lucide-react';
 import { Panel } from '@/shared/components/common/Panel';
 import { Button } from '@/shared/components/ui/button';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/shared/components/ui/dropdown-menu';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useUnscheduleMatch } from '../hooks/useScheduleMatch';
 import { categoryView, type CategoryView } from '../lib/categoryView';
@@ -38,52 +45,56 @@ function sectionItems(category: TournamentOwnerCategory): { value: Section; labe
   ];
 }
 
-/** What the owner can do to the category itself: change its court fee, or cancel it. Sits at the foot of the category card. */
-function CategoryActions({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
+/** What the owner can do to the category itself: change its court fee, or cancel it. Sits beside the category's summary. */
+function CategoryMenu({ dialogs, courtFee }: { dialogs: CategoryDialogs; courtFee: number }) {
   return (
-    <div className="border-border-subtle flex flex-wrap gap-2 border-t pt-4">
-      <Button
-        type="button"
-        variant="outline"
-        className="rounded-xl"
-        onClick={() => {
-          dialogs.setFeeOpen(true);
-        }}
-      >
-        {courtFee > 0 ? t.courtFee.edit : t.courtFee.add}
-      </Button>
-      <Button
-        type="button"
-        variant="destructive-outline"
-        onClick={() => {
-          dialogs.setCancelOpen(true);
-        }}
-      >
-        {t.cancel.categoryAction}
-      </Button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label={t.detail.categoryActionsLabel}>
+          <MoreHorizontal className="size-4" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuItem
+          onClick={() => {
+            dialogs.setFeeOpen(true);
+          }}
+        >
+          {courtFee > 0 ? t.courtFee.edit : t.courtFee.add}
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          variant="destructive"
+          onClick={() => {
+            dialogs.setCancelOpen(true);
+          }}
+        >
+          {t.cancel.categoryAction}
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 /**
- * One category: its facts and actions in a card, then the section switch, the
- * draw while it can still be made, and the chosen section inside its own card.
+ * One category: its summary line with its menu, the section switch, the draw
+ * while it can still be made, and the chosen section inside its own card. A
+ * drawn category opens on its matches, one before the draw on its pairs.
  */
 export function CategoryPanel({ detail, category, complexId, live }: CategoryPanelProps) {
   const view = categoryView(detail, category.id);
   const dialogs = useCategoryDialogs();
   const unschedule = useUnscheduleMatch(complexId, detail.tournament.id);
-  const [section, setSection] = useState<Section>('pairs');
-  const open = live && category.status !== 'cancelled';
   const drawn = category.draw_generated;
+  const [section, setSection] = useState<Section>(drawn ? 'matches' : 'pairs');
+  const open = live && category.status !== 'cancelled';
 
   return (
     <div className="space-y-4">
-      <Panel size="md" mobile="card" className="space-y-4">
+      <div className="flex items-start gap-2">
         <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
-        {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
-        {open && <CategoryActions dialogs={dialogs} courtFee={category.court_fee} />}
-      </Panel>
+        {open && <CategoryMenu dialogs={dialogs} courtFee={category.court_fee} />}
+      </div>
+      {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
       <SegmentedTabs
         items={sectionItems(category)}
         active={section}
@@ -134,16 +145,14 @@ function CategorySection({ section, category, view, open, dialogs, onUnschedule 
   const drawn = category.draw_generated;
   if (section === 'pairs') {
     return (
-      <>
-        {/* The one line that says the draw and the swaps are closed: the draw card itself is gone once a result is loaded. */}
-        {drawn && view.locked && <p className="text-text-tertiary mb-2 text-xs">{t.pairs.swapLocked}</p>}
-        <PairsSection
-          pairs={view.pairs}
-          groupNames={view.groupNames}
-          canSwap={open && drawn && !view.locked}
-          onSwap={dialogs.setSwapPairId}
-        />
-      </>
+      <PairsSection
+        pairs={view.pairs}
+        groupNames={view.groupNames}
+        canSwap={open && drawn && !view.locked}
+        onSwap={dialogs.setSwapPairId}
+        price={category.price}
+        seeded={drawn}
+      />
     );
   }
   if (section === 'groups') {

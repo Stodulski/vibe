@@ -32,7 +32,8 @@ describe('TournamentDetail: cancelling', () => {
     const { tournamentsApi, user } = await renderCancel();
     vi.mocked(tournamentsApi.cancel).mockResolvedValue({ tournament: makeDetail().tournament, refunds: [] });
 
-    await user.click(screen.getByRole('button', { name: t.cancel.action }));
+    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
+    await user.click(await screen.findByRole('menuitem', { name: t.cancel.action }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(t.cancel.confirmDescriptionPaid(2));
     expect(within(dialog).getByRole('button', { name: t.cancel.back })).toBeInTheDocument();
@@ -47,7 +48,8 @@ describe('TournamentDetail: cancelling', () => {
     const { tournamentsApi, user } = await renderCancel();
     vi.mocked(tournamentsApi.cancelCategory).mockResolvedValue({ refunds: [] });
 
-    await user.click(screen.getByRole('button', { name: t.cancel.categoryAction }));
+    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    await user.click(await screen.findByRole('menuitem', { name: t.cancel.categoryAction }));
     const dialog = await screen.findByRole('alertdialog');
     expect(dialog).toHaveTextContent(t.cancel.categoryDescriptionPaid(2));
     await user.click(within(dialog).getByRole('button', { name: 'Sí, cancelar categoría' }));

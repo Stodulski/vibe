@@ -3,12 +3,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render } from '@testing-library/react';
 import { renderWithProviders, screen, userEvent, within } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
+import { formatPrice } from '@/shared/lib/utils';
 import { makeCategory, makeDetail, makeDrawnDetail, makeMatch, makePair } from '../testing/fixtures';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import { GroupsSection } from './GroupsSection';
 import { MatchesSection } from './MatchesSection';
 import { MatchCourtFee } from './MatchCourtFee';
-import { PairsSection } from './PairsSection';
 import type { TournamentDetailResponse } from '@/shared/types/api.types';
 
 vi.mock('../api/tournaments.api', () => ({
@@ -67,15 +67,36 @@ describe('owner tournament layout', () => {
     expect(words.className).not.toContain('score-text');
     expect(words.className).toContain('tabular-nums');
   });
+});
 
-  it('shows both cancellations as visible destructive outline buttons, with no options menus', async () => {
+describe('owner tournament menus and tabs', () => {
+  it('puts both cancellations in overflow menus, as destructive items, not as buttons', async () => {
+    const user = await renderDetail(makeDetail());
+    expect(screen.queryByRole('button', { name: t.cancel.action })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.cancel.categoryAction })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: ES_AR.common.rowActionsLabel }));
+    expect(await screen.findByRole('menuitem', { name: t.cancel.action })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+    await user.keyboard('{Escape}');
+
+    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    expect(await screen.findByRole('menuitem', { name: t.cancel.categoryAction })).toHaveAttribute(
+      'data-variant',
+      'destructive',
+    );
+  });
+
+  it('opens a category on its pairs before the draw, and on its matches after it', async () => {
     await renderDetail(makeDetail());
-    for (const name of [t.cancel.action, t.cancel.categoryAction]) {
-      expect(screen.getByRole('button', { name })).toHaveAttribute('data-variant', 'destructive-outline');
-    }
-    expect(t.cancel.action).not.toBe(t.cancel.categoryAction);
-    expect(screen.queryByRole('button', { name: /^Opciones/ })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.detail.sections.pairs })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('opens a drawn category on its matches', async () => {
+    await renderDetail(makeDrawnDetail());
+    expect(screen.getByRole('button', { name: t.detail.sections.matches })).toHaveAttribute('aria-pressed', 'true');
   });
 
   it('writes the tournament days with a capital letter on their own line', async () => {
@@ -110,23 +131,24 @@ describe('owner tournament cancelled and facts layout', () => {
     const detail = makeDetail({ categories: [makeCategory({ status: 'cancelled' })] });
     await renderDetail(detail);
     const note = screen.getByText(t.detail.categoryCancelledNote);
-    const capacity = screen.getByText(t.detail.capacity);
-    expect(capacity.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    const summary = screen.getByText(/6\/16 parejas/);
+    expect(summary.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows all money in the facts proportionally with tabular numbers', async () => {
-    await renderDetail(makeDetail({ categories: [makeCategory({ court_fee: 300000 })] }));
-    const price = screen.getByText('$20.000');
-    expect(price.className).not.toContain('score-text');
-    expect(price.className).toContain('tabular-nums');
-    const fee = screen.getByText('$3.000');
-    expect(fee.className).not.toContain('score-text');
+  it('gives the price in the summary line and the court fee only behind "Ver reglas"', async () => {
+    const user = await renderDetail(makeDetail({ categories: [makeCategory({ court_fee: 300000 })] }));
+    expect(screen.getByText(/\$20\.000 por pareja/)).toBeInTheDocument();
+    expect(screen.queryByText(t.courtFee.line(formatPrice(300000)))).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: t.detail.rules }));
+    expect(screen.getByText(t.courtFee.line(formatPrice(300000)))).toBeInTheDocument();
   });
 
   it('labels the fee action "Agregar" when the category has no court fee', async () => {
-    await renderDetail(makeDetail());
-    expect(screen.getByRole('button', { name: t.courtFee.add })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: t.courtFee.edit })).not.toBeInTheDocument();
+    const user = await renderDetail(makeDetail());
+    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    expect(await screen.findByRole('menuitem', { name: t.courtFee.add })).toBeInTheDocument();
+    expect(screen.queryByRole('menuitem', { name: t.courtFee.edit })).not.toBeInTheDocument();
   });
 
   it('describes the draw without zones for an elimination category', async () => {
@@ -170,15 +192,5 @@ describe('MatchCourtFee actions', () => {
     const row = charge.closest('li');
     expect(row?.className).toContain('grid');
     expect(within(row as HTMLElement).getByText(/Pérez/)).toBeInTheDocument();
-  });
-});
-
-describe('PairsSection phone links', () => {
-  it('exempts the phones from the touch height and aligns the payment state to the name baseline', () => {
-    render(<PairsSection pairs={[makePair({ id: 'p1' })]} groupNames={new Map()} canSwap={false} onSwap={vi.fn()} />);
-    const link = screen.getAllByRole('link')[0];
-    expect(link?.className).toContain('inline-link');
-    const state = screen.getByText(/^Pagó/);
-    expect(state.closest('li')?.className).toContain('items-baseline');
   });
 });

@@ -103,10 +103,11 @@ describe('TournamentDetail: correcting a result', () => {
     ];
     await renderMatches(detail);
 
+    // The locked match shows no correction control at all; the one still open does.
     const buttons = screen.getAllByRole('button', { name: t.matches.correctResult });
-    expect(buttons[0]).toBeDisabled();
-    expect(buttons[1]).toBeEnabled();
-    expect(screen.getAllByText(t.matches.correctLocked)).toHaveLength(1);
+    expect(buttons).toHaveLength(1);
+    expect(buttons[0]).toBeEnabled();
+    expect(screen.queryByText(t.matches.correctLocked)).not.toBeInTheDocument();
   });
 });
 

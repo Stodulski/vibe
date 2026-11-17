@@ -43,23 +43,30 @@ describe('TournamentDetail: pairs', () => {
     vi.clearAllMocks();
   });
 
-  it('lists each pair with its players, contact and payment state', async () => {
-    await renderDetail(openDetail());
+  it('lists each pair with its players and state, and keeps the phones behind its contact menu', async () => {
+    const { user } = await renderDetail(openDetail());
 
     const list = screen.getByRole('list', { name: t.detail.sections.pairs });
     expect(within(list).getAllByRole('listitem')).toHaveLength(3);
     expect(list).toHaveTextContent('Ana Pérez / Bea Gómez');
-    expect(within(list).getAllByText(/^Pagó/)).toHaveLength(2);
+    // Paid at the category price: no badge for the two confirmed pairs; the held one names its state.
+    expect(within(list).queryByText(/^Pagó/)).not.toBeInTheDocument();
     expect(within(list).getByText(t.pairs.state.held)).toBeInTheDocument();
-    expect(within(list).getAllByRole('link', { name: /Llamar Ana Pérez/ })[0]).toHaveAttribute(
-      'href',
-      'tel:1155550000',
-    );
+    expect(within(list).queryByText('1155550000')).not.toBeInTheDocument();
+
+    const contact = within(list).getAllByRole('button', { name: t.pairs.contact })[0];
+    if (!contact) throw new Error('the first pair has no contact button');
+    await user.click(contact);
+    expect(await screen.findByRole('menuitem', { name: /Llamar Ana Pérez/ })).toHaveAttribute('href', 'tel:1155550000');
   });
 
-  it('says how the category plays: format, groups and match format', async () => {
-    await renderDetail(openDetail());
+  it('keeps the category rules behind "Ver reglas", closed until asked for', async () => {
+    const { user } = await renderDetail(openDetail());
 
+    expect(screen.queryByText(t.detail.groupsSetup(3, 2))).not.toBeInTheDocument();
+    expect(screen.queryByText(t.detail.matchSetup(2, 6, true))).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: t.detail.rules }));
     expect(screen.getByText(t.detail.groupsSetup(3, 2))).toBeInTheDocument();
     expect(screen.getByText(t.detail.matchSetup(2, 6, true))).toBeInTheDocument();
   });

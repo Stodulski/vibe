@@ -4,7 +4,6 @@ import { AlertTriangle } from 'lucide-react';
 import { useSelectedComplex } from '@/features/complex';
 import { BackLink } from '@/shared/components/common/BackLink';
 import { EmptyState } from '@/shared/components/common/EmptyState';
-import { PageHeader } from '@/shared/components/common/PageHeader';
 import { StaleDataNotice } from '@/shared/components/common/StaleDataNotice';
 import { usePageTitle } from '@/shared/hooks/usePageTitle';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -14,7 +13,7 @@ import { categoryTitle, tournamentTitle } from '@/shared/lib/traitLabels';
 import { CategoryPanel } from '../components/CategoryPanel';
 import { CategoryTabs } from '../components/CategoryTabs';
 import { TournamentDetailBodySkeleton } from '../components/TournamentDetailBodySkeleton';
-import { TournamentFacts } from '../components/TournamentFacts';
+import { TournamentHeader } from '../components/TournamentHeader';
 import { useTournament } from '../hooks/useTournament';
 import { paidPairCount } from '../lib/tournamentView';
 import { TOURNAMENT_DETAIL_CLASS } from '../lib/tournamentLayout';
@@ -74,8 +73,8 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
 
   return (
     <SportContext.Provider value={tournament.sport}>
-      <PageHeader title={tournamentTitle(tournament.sport)} />
-      <TournamentFacts
+      <TournamentHeader
+        title={tournamentTitle(tournament.sport)}
         tournament={tournament}
         complexId={complexId}
         paidCount={paidPairCount(detail.pairs)}

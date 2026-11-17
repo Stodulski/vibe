@@ -69,9 +69,10 @@ describe('TournamentDetail: court fee', () => {
   });
 
   it('says the fee on the category and on every match, and what is collected and pending', async () => {
-    await renderOnMatches(detailWithFee());
+    const { user } = await renderOnMatches(detailWithFee());
 
     expect(screen.getAllByText(t.courtFee.line(formatPrice(FEE)))).toHaveLength(2);
+    await user.click(screen.getByRole('button', { name: t.detail.rules }));
     // Collected is the charge at the amount it was made; pending the three sides still owing at the current fee.
     expect(screen.getByText(t.courtFee.summary(formatPrice(1000000), formatPrice(FEE * 3)))).toBeInTheDocument();
   });
@@ -238,7 +239,7 @@ describe('TournamentDetail: who owes the court fee', () => {
 
     expect(screen.queryByText(/^Cancha:/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Cobrado /)).not.toBeInTheDocument();
-    expect(screen.getByText(t.courtFee.none)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.courtFee.edit })).not.toBeInTheDocument();
   });
 });
 
@@ -251,7 +252,8 @@ describe('TournamentDetail: editing the court fee', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.setCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.edit }));
+    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.edit }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.editTitle });
     const field = within(dialog).getByLabelText(t.courtFee.editLabel);
     expect(field).toHaveValue('15.000');
@@ -269,7 +271,8 @@ describe('TournamentDetail: editing the court fee', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.setCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.edit }));
+    await user.click(screen.getByRole('button', { name: t.detail.categoryActionsLabel }));
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.edit }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.editTitle });
     const field = within(dialog).getByLabelText(t.courtFee.editLabel);
     await user.clear(field);
@@ -286,6 +289,6 @@ describe('TournamentDetail: editing the court fee', () => {
     detail.categories = [makeCategory({ status: 'cancelled', court_fee: FEE })];
     await renderOnMatches(detail);
 
-    expect(screen.queryByRole('button', { name: t.courtFee.edit })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.detail.categoryActionsLabel })).not.toBeInTheDocument();
   });
 });

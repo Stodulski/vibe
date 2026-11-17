@@ -62,11 +62,11 @@ export const tournaments = {
     categoriesLabel: 'Categorías',
     sections: { pairs: 'Parejas', groups: 'Zonas', bracket: 'Cuadro', matches: 'Partidos' },
     sectionsLabel: 'Secciones de la categoría',
-    capacity: 'Cupo',
-    price: 'Precio',
-    formatLabel: 'Formato',
-    startsLabel: 'Fecha y hora',
+    categoryActionsLabel: 'Acciones de la categoría',
     prizesLabel: 'Premios',
+    pairsRatio: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)} parejas`,
+    rules: 'Ver reglas',
+    hideRules: 'Ocultar reglas',
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1
@@ -85,6 +85,9 @@ export const tournaments = {
     payer: 'Pagó la inscripción',
     partner: 'Compañero o compañera',
     call: 'Llamar',
+    contact: 'Contactar a la pareja',
+    whatsapp: 'WhatsApp',
+    whatsappAria: (name: string) => `WhatsApp a ${name}`,
     state: {
       held: 'Pagando',
       confirmed: 'Pagó',
@@ -101,7 +104,6 @@ export const tournaments = {
     swapWith: 'Intercambiar con',
     swapPlaceholder: 'Elegí una pareja',
     swapConfirm: 'Intercambiar',
-    swapLocked: 'Hay resultados cargados: ya no se puede sortear de nuevo ni mover las parejas.',
     swapError: 'No pudimos intercambiar las parejas',
     swapGroupHint: 'Tienen que estar en zonas distintas.',
   },
