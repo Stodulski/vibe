@@ -60,10 +60,15 @@ function RulerTick({
       onClick={onSelect}
       className="flex w-14 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5 will-change-transform"
     >
-      <span
-        aria-hidden="true"
-        className={cn('w-px rounded-full transition-colors', onHour ? 'h-8' : 'h-5', focused ? 'bg-primary-400' : 'bg-border-default')}
-      />
+      {/* The lines stand on one baseline, so every time sits at the same height. */}
+      <span aria-hidden="true" className="flex h-10 items-end">
+        <span
+          className={cn(
+            'rounded-full transition-colors',
+            focused ? 'bg-primary-500 h-10 w-1' : cn('bg-border-default w-px', onHour ? 'h-8' : 'h-5'),
+          )}
+        />
+      </span>
       <span className={cn('text-xs tabular-nums transition-colors', focused ? 'text-primary-400 font-semibold' : 'text-text-tertiary')}>
         {option.startTime}
       </span>
@@ -71,7 +76,7 @@ function RulerTick({
   );
 }
 
-/** Brings tick `index` under the marker, smoothly. */
+/** Brings tick `index` to the center, smoothly. */
 function centerTick(track: HTMLElement | null, index: number) {
   const tick = track?.children[index] as HTMLElement | undefined;
   if (!track || !tick) return;
@@ -201,8 +206,6 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
       <RulerReadout option={current} severalCourts={severalCourts} />
 
       <div className="relative">
-        {/* The fixed marker the ruler slides under. */}
-        <span aria-hidden="true" className="bg-primary-500 pointer-events-none absolute top-2 left-1/2 z-10 h-8 w-0.5 -translate-x-1/2 rounded-full" />
         <div
           ref={trackRef}
           {...dragHandlers}

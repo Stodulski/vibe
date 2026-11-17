@@ -1,7 +1,7 @@
 /**
- * The ruler as a wheel: each tick is drawn by how far it is from the marker. At the
- * center it is full size and turned to face the visitor; toward the ends it shrinks,
- * fades and turns away, as if the ruler were a cylinder. Written straight to the
+ * The ruler as a wheel: each tick is drawn by how far it is from the center. At the
+ * center it is full size; toward the ends it shrinks and fades a little, as if the
+ * ruler curved away. No rotation: it skewed the times into something hard to read. Written straight to the
  * ticks' style on every scroll frame, so React does not re-render while it moves.
  */
 export function applyRulerDepth(track: HTMLElement): void {
@@ -13,11 +13,12 @@ export function applyRulerDepth(track: HTMLElement): void {
     const tick = child as HTMLElement;
     const offset = (tick.offsetLeft + tick.offsetWidth / 2 - middle) / radius;
     const distance = Math.min(1, Math.abs(offset));
-    const scale = 1.2 - 0.5 * distance;
-    const turn = Math.sign(offset) * distance * 45;
+    const scale = 1.15 - 0.3 * distance;
     // Grown from the top, so a larger tick pushes its time down, away from the marker.
     tick.style.transformOrigin = 'center top';
-    tick.style.transform = `perspective(420px) rotateY(${turn.toFixed(1)}deg) scale(${scale.toFixed(3)})`;
+    // Scaled from the bottom, so every time stays on one line as the ticks grow and shrink.
+    tick.style.transformOrigin = 'center bottom';
+    tick.style.transform = `scale(${scale.toFixed(3)})`;
     tick.style.opacity = (1 - 0.35 * distance).toFixed(3);
   }
 }
