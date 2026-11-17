@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router-dom';
-import { BookOpen, EllipsisVertical, LogOut, Settings, User } from 'lucide-react';
+import { EllipsisVertical, LogOut, Settings, User } from 'lucide-react';
 import { useLogout } from '@/features/auth/hooks/useLogout';
 import {
   DropdownMenu,
@@ -15,7 +15,6 @@ import type { User as ApiUser } from '@/shared/types/api.types';
 const t = ES_AR;
 
 /** The step-by-step tutorials on the landing (owner request: "Manual de uso" in the menu). */
-const USER_MANUAL_URL = 'https://vibe.com.ar/tutoriales';
 
 interface UserMenuTriggerProps {
   isMobile: boolean;
@@ -80,16 +79,6 @@ export function SidebarUserMenu({ user, isMobile, onNavigate }: SidebarUserMenuP
         isMobile && 'pb-[calc(0.75rem+env(safe-area-inset-bottom,0px))]',
       )}
     >
-      <a
-        href={USER_MANUAL_URL}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={onNavigate}
-        className="hover:bg-bg-elevated/50 mb-0.5 flex w-full items-center gap-2 rounded-lg px-2 py-2 transition-colors"
-      >
-        <BookOpen className="text-text-tertiary size-4 shrink-0" aria-hidden="true" />
-        <span className="text-nav text-text-secondary min-w-0 flex-1 truncate">{t.navigation.userManual}</span>
-      </a>
       <DropdownMenu>
         <UserMenuTrigger isMobile={isMobile} fullName={fullName} />
         <UserMenuItems

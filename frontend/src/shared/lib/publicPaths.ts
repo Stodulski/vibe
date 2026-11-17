@@ -15,8 +15,13 @@ export function publicComplexUrl(slug: string): string {
   return new URL(publicComplexPath(slug), env.VITE_LANDING_URL).href;
 }
 
+/** Absolute URL of the landing's tutorials, the app's user manual. */
+export function landingTutorialsUrl(): string {
+  return new URL('/tutoriales', env.VITE_LANDING_URL).href;
+}
+
 /**
- * Absolute URL of a landing tutorial. The app explains no screen of Mercado Pago
+ * Absolute URL of one landing tutorial. The app explains no screen of Mercado Pago
  * itself: those walkthroughs live on the landing, with their captures.
  */
 export function landingTutorialUrl(slug: string): string {

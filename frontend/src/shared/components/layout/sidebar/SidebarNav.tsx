@@ -2,6 +2,8 @@ import { useLocation } from 'react-router-dom';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { mainNavItems, secondaryNavItems } from './navItems';
 import { SidebarNavLink } from './SidebarNavLink';
+import { sidebarEntryClass } from './sidebarEntryClass';
+import { landingTutorialsUrl } from '@/shared/lib/publicPaths';
 
 const t = ES_AR;
 
@@ -53,6 +55,16 @@ export function SidebarNav({ isMobile, onNavigate, onPrefetch }: SidebarNavProps
             onMouseEnter={onPrefetch(item.to)}
           />
         ))}
+        {/* The user manual lives on the landing (its tutorials), so it opens in a new tab. */}
+        <a
+          href={landingTutorialsUrl()}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={onNavigate}
+          className={sidebarEntryClass(false, isMobile)}
+        >
+          <span className="min-w-0 truncate">{t.navigation.userManual}</span>
+        </a>
       </div>
     </nav>
   );

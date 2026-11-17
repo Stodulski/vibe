@@ -161,7 +161,7 @@ describe('Sidebar — labels and icons per width', () => {
     expect(screen.getByLabelText('Navegación principal').querySelector('svg')).toBeNull();
   });
 
-  // Owner request: a "Manual de uso" entry opens the landing tutorials in a new tab.
+  // Owner request: "Manual de uso" sits in the main menu, with no icon, and opens the landing tutorials in a new tab.
   it.each([
     ['desktop', false],
     ['mobile', true],
@@ -171,7 +171,9 @@ describe('Sidebar — labels and icons per width', () => {
         <Sidebar isMobile={isMobile} />
       </MemoryRouter>,
     );
-    const link = screen.getByRole('link', { name: 'Manual de uso' });
+    const nav = screen.getByLabelText('Navegación principal');
+    const link = within(nav).getByRole('link', { name: 'Manual de uso' });
+    expect(link.querySelector('svg')).toBeNull();
     expect(link).toHaveAttribute('href', 'https://vibe.com.ar/tutoriales');
     expect(link).toHaveAttribute('target', '_blank');
     expect(link).toHaveAttribute('rel', 'noopener noreferrer');

@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { cn } from '@/shared/lib/utils';
+import { sidebarEntryClass } from './sidebarEntryClass';
 
 interface NavItem {
   to: string;
@@ -26,15 +26,7 @@ export function SidebarNavLink({ item, isActive, isMobile, onNavigate, onMouseEn
       onClick={onNavigate}
       onMouseEnter={onMouseEnter}
       aria-current={isActive ? 'page' : undefined}
-      className={cn(
-        'group press-scale flex items-center rounded-lg px-2.5 py-[7px] transition-colors duration-200',
-        // The mobile sheet runs a notch smaller than the desktop rail (owner
-        // request): 12px labels instead of the 13px `text-nav`.
-        isMobile ? 'text-xs' : 'text-nav',
-        // The selected part changes only its text colour (owner request): no
-        // fill, no side bar, no weight change.
-        isActive ? 'text-primary-500' : 'text-text-tertiary hover:text-text-secondary hover:bg-bg-elevated/40',
-      )}
+      className={sidebarEntryClass(isActive, isMobile)}
     >
       <span className="min-w-0 truncate">{item.label}</span>
     </Link>
