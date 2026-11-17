@@ -1,0 +1,23 @@
+/** The copy of the "Avisarme" waitlist. Part of `BOOKING_MESSAGES.waitlist`. */
+export const WAITLIST_MESSAGES = {
+  notifyMe: 'Avisarme',
+  full: 'Completo',
+  title: 'Te avisamos cuando se libere',
+  openPlayDescription: 'Dejanos tu email y te escribimos apenas se libere un lugar.',
+  tournamentDescription: 'Dejanos tu email y te escribimos apenas se libere el lugar de una pareja.',
+  slotTitle: '¿No está el horario que buscás?',
+  slotDescription: 'Elegí el horario ocupado que te interesa y te escribimos apenas se libere.',
+  slotLabel: 'Horario',
+  slotPlaceholder: 'Elegí un horario',
+  missingSlot: '¿No está el horario que buscás?',
+  emailLabel: 'Email',
+  emailInvalid: 'Revisá el email',
+  slotRequired: 'Elegí un horario',
+  send: 'Enviar',
+  sendSlot: 'Avisarme cuando se libere',
+  sending: 'Enviando...',
+  close: 'Cerrar',
+  cancel: 'Cancelar',
+  done: 'Listo, te avisamos por email apenas se libere. El primero que paga se queda con el lugar.',
+  error: 'No pudimos guardar tu email. Probá de nuevo.',
+} as const;

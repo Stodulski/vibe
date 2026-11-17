@@ -2,7 +2,7 @@ import type { PublicTournamentCategory, PublicTournamentSummary } from '../../ap
 import { BOOKING_MESSAGES } from '../../messages';
 import { categoryTitle, tournamentLabel } from '../../lib/traitLabels';
 import { longDayLabel, spotsNotice as sharedSpotsNotice, type SpotsNotice } from '../agenda/agendaModel';
-import { formatLabel, isOpenForSignUp, spotsLeftLabel } from './tournamentModel';
+import { formatLabel, spotsLeftLabel } from './tournamentModel';
 
 const t = BOOKING_MESSAGES.tournaments;
 
@@ -50,7 +50,8 @@ export function agendaRows(tournaments: readonly PublicTournamentSummary[]): Age
   for (const tournament of tournaments) {
     if (tournament.status !== 'active') continue;
     for (const category of tournament.categories) {
-      if (!isOpenForSignUp(category)) continue;
+      // A full category stays listed, for its waitlist; a closed or cancelled one does not.
+      if (category.status !== 'open') continue;
       rows.push({
         category,
         tournamentId: tournament.id,

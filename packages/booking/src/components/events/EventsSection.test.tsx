@@ -10,11 +10,11 @@ import { EventsSection } from './EventsSection';
 const t = BOOKING_MESSAGES.events;
 
 describe('EventsSection', () => {
-  it('titles the list "Eventos" and notes that it lists only the events with a place', () => {
+  it('titles the list "Eventos" and notes that a full event offers a notice by email', () => {
     renderBooking(<EventsSection rows={eventRows(openPlayRows([EVENT]), [])} slug="test-club" />);
 
     expect(screen.getByRole('heading', { level: 3, name: t.pickerTitle })).toBeInTheDocument();
-    expect(screen.getByText('Solo te mostramos eventos con lugar.')).toBeInTheDocument();
+    expect(screen.getByText('Si un evento está completo, te avisamos por email cuando se libere un lugar.')).toBeInTheDocument();
     expect(screen.getByRole('link', { name: /Inscribirme/ })).toHaveAttribute('href', '/c/test-club/events/ev1');
   });
 

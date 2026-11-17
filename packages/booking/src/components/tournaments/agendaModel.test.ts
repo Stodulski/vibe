@@ -44,14 +44,14 @@ const summary = (categories: PublicTournamentCategory[], tournament = TOURNAMENT
 });
 
 describe('agendaRows', () => {
-  it('lists only the categories open for sign-up with spots left', () => {
+  it('lists the categories open for sign-up, full ones included, for their waitlist', () => {
     const closed = { ...men8, id: 'c-closed', status: 'closed' as const };
     const full = { ...men8, id: 'c-full', spots_left: 0 };
     const cancelled = { ...men8, id: 'c-cancelled', status: 'cancelled' as const };
 
     const rows = agendaRows([summary([men8, closed, full, cancelled])]);
 
-    expect(rows.map((row) => row.category.id)).toEqual(['c-men8']);
+    expect(rows.map((row) => row.category.id).sort()).toEqual(['c-full', 'c-men8']);
   });
 
   it('lists nothing from a cancelled tournament', () => {

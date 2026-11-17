@@ -27,7 +27,8 @@ interface AgendaRowShellProps {
   meta: AgendaMetaToken[];
   viewDetailLabel: string;
   onViewDetail: () => void;
-  signUp: { href: string; label: string };
+  /** The sign-up link, or, when the row is full, the "Avisarme" button that opens the waitlist. */
+  signUp: { href: string; label: string } | { notifyLabel: string; onNotify: () => void };
 }
 
 /**
@@ -152,12 +153,24 @@ export function AgendaRowShell({
         </div>
       </div>
 
-      <Button asChild size="lg" className="my-2 min-h-12 w-full sm:my-0 sm:w-auto sm:shrink-0">
-        <a href={signUp.href}>
-          {signUp.label}
+      {'href' in signUp ? (
+        <Button asChild size="lg" className="my-2 min-h-12 w-full sm:my-0 sm:w-auto sm:shrink-0">
+          <a href={signUp.href}>
+            {signUp.label}
+            <span className="sr-only">{`: ${title}`}</span>
+          </a>
+        </Button>
+      ) : (
+        <Button
+          variant="outline"
+          size="lg"
+          className="my-2 min-h-12 w-full sm:my-0 sm:w-auto sm:shrink-0"
+          onClick={signUp.onNotify}
+        >
+          {signUp.notifyLabel}
           <span className="sr-only">{`: ${title}`}</span>
-        </a>
-      </Button>
+        </Button>
+      )}
     </article>
   );
 }

@@ -7,7 +7,7 @@ import { publicEventPath } from '../../lib/publicPaths';
 import { openPlayAudience, openPlayLabel } from '../../lib/traitLabels';
 import { longDayLabel } from '../agenda/agendaModel';
 import type { AgendaDetail } from '../agenda/AgendaDetailDialog';
-import { eventHasStarted, eventTimeRange, isOpenForSignUp } from './eventFormat';
+import { eventHasStarted, eventTimeRange } from './eventFormat';
 
 const t = BOOKING_MESSAGES.events;
 
@@ -23,12 +23,12 @@ export interface OpenPlayRow {
 }
 
 /**
- * The open-play rows: one per event open for sign-up with a place left and not
- * yet started, sorted by day and start time. A full or cancelled event is left out.
+ * The open-play rows: one per active event not yet started, sorted by day and start
+ * time. A full event stays listed, for its waitlist; a cancelled one is left out.
  */
 export function openPlayRows(events: readonly PublicOpenPlayEvent[]): OpenPlayRow[] {
   return events
-    .filter((event) => isOpenForSignUp(event) && !eventHasStarted(event))
+    .filter((event) => event.status === 'active' && !eventHasStarted(event))
     .sort(
       (a, b) => a.date.localeCompare(b.date) || a.start_time.localeCompare(b.start_time) || a.id.localeCompare(b.id),
     )
