@@ -83,3 +83,25 @@ export function useMouseDrag(trackRef: React.RefObject<HTMLDivElement | null>) {
   return { onPointerDown, onPointerMove, onPointerUp: onPointerEnd, onPointerCancel: onPointerEnd, onClickCapture };
 }
 
+/** A scroll handler that runs `update` once per frame, however many scroll events a fast swipe fires. */
+export function useFrameScroll(update: (track: HTMLDivElement) => void) {
+  const frame = useRef<number | null>(null);
+  const latest = useRef(update);
+  useEffect(() => {
+    latest.current = update;
+  });
+  useEffect(
+    () => () => {
+      if (frame.current !== null) cancelAnimationFrame(frame.current);
+    },
+    [],
+  );
+  return (event: React.UIEvent<HTMLDivElement>) => {
+    const track = event.currentTarget;
+    if (frame.current !== null) return;
+    frame.current = requestAnimationFrame(() => {
+      frame.current = null;
+      latest.current(track);
+    });
+  };
+}

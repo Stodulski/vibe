@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { memo, useCallback, useEffect, useRef, useState } from 'react';
 import { Button, cn, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import { applyRulerDepth } from './rulerDepth';
 import { LOOP_COPIES, useLoopWrap } from './rulerLoop';
-import { centeredIndex, centerTick, useMouseDrag, useWheelSlides } from './rulerTrack';
+import { centeredIndex, centerTick, useFrameScroll, useMouseDrag, useWheelSlides } from './rulerTrack';
 import type { TimeOption } from './timeOptions';
 
 const t = BOOKING_MESSAGES.publicBooking;
@@ -24,20 +24,25 @@ function priceLine(option: TimeOption, severalCourts: boolean): string {
   return `${option.priceVaries ? `${t.priceFrom} ` : ''}${price} · ${courts}`;
 }
 
-/** One hour on the ruler: a tick and its time under it. */
-function RulerTick({
+/**
+ * One hour on the ruler: a tick and its time under it. Memoized: while the ruler turns
+ * only the tick that gains or loses the center redraws, not every tick of the loop.
+ */
+const RulerTick = memo(function RulerTick({
   option,
+  index,
   focused,
   ghost,
   last,
-  onSelect,
+  onPick,
 }: {
   option: TimeOption;
+  index: number;
   focused: boolean;
   /** A tick of the loop's outer copies: drawn and tappable, but not announced twice. */
   ghost: boolean;
   last: boolean;
-  onSelect: () => void;
+  onPick: (index: number) => void;
 }) {
   return (
     <button
@@ -47,8 +52,10 @@ function RulerTick({
       aria-hidden={ghost || undefined}
       tabIndex={ghost ? -1 : undefined}
       aria-pressed={focused}
-      onClick={onSelect}
-      className="flex w-12 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5 will-change-transform sm:w-20 sm:gap-2"
+      onClick={() => {
+        onPick(index);
+      }}
+      className="ruler-tick flex w-12 shrink-0 origin-bottom cursor-pointer snap-center flex-col items-center gap-1.5 will-change-transform sm:w-20 sm:gap-2"
     >
       {/* The lines stand on one baseline, so every time sits at the same height. */}
       <span aria-hidden="true" className="flex h-12 items-end">
@@ -65,7 +72,7 @@ function RulerTick({
       </span>
     </button>
   );
-}
+});
 
 /** The hour on the marker, large, with its end, price and free courts. */
 function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCourts: boolean }) {
@@ -114,9 +121,8 @@ function RulerTicks({
         focused={index === focused}
         ghost={copies > 1 && Math.floor(index / count) !== 1}
         last={isLastCourt(option, severalCourts)}
-        onSelect={() => {
-          onPick(index);
-        }}
+        index={index}
+        onPick={onPick}
       />
     );
   });
@@ -148,7 +154,15 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
   const [focused, setFocused] = useState(initial);
   useWheelSlides(trackRef);
   const dragHandlers = useMouseDrag(trackRef);
-  const wrap = useLoopWrap(count);
+  useLoopWrap(trackRef, count);
+  const pick = useCallback((index: number) => {
+    setFocused(index);
+    centerTick(trackRef.current, index);
+  }, []);
+  const onScroll = useFrameScroll((track) => {
+    setFocused(centeredIndex(track));
+    applyRulerDepth(track);
+  });
   const current = options[focused % Math.max(1, count)];
 
   // Centers the starting hour once, without animation.
@@ -169,22 +183,15 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         <div
           ref={trackRef}
           {...dragHandlers}
-          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.5rem)] pt-24 sm:px-[calc(50%-2.5rem)] pb-2 [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]"
-          onScroll={(event) => {
-            applyRulerDepth(event.currentTarget);
-            setFocused(centeredIndex(event.currentTarget));
-            wrap(event.currentTarget);
-          }}
+          className="scrollbar-none flex cursor-grab snap-x snap-mandatory overflow-x-auto select-none active:cursor-grabbing px-[calc(50%-1.5rem)] pt-24 sm:px-[calc(50%-2.5rem)] pb-2"
+          onScroll={onScroll}
         >
           <RulerTicks
             options={options}
             copies={copies}
             focused={focused}
             severalCourts={severalCourts}
-            onPick={(index) => {
-              setFocused(index);
-              centerTick(trackRef.current, index);
-            }}
+            onPick={pick}
           />
         </div>
       </div>
