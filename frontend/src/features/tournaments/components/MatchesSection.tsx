@@ -132,6 +132,28 @@ function MatchButtons({
   );
 }
 
+/** Which side won, if the match has a winner. */
+function winnerSide(match: TournamentOwnerMatch): 1 | 2 | null {
+  if (!match.winner_pair_id) return null;
+  if (match.winner_pair_id === match.pair1_id) return 1;
+  return match.winner_pair_id === match.pair2_id ? 2 : null;
+}
+
+/** The two pairs: stacked on phones with a large green "vs" between them, one line from sm. */
+function MatchNames({ first, second, winnerSide }: { first: string; second: string; winnerSide: 1 | 2 | null }) {
+  const pairClass = (side: 1 | 2) =>
+    cn('min-w-0 truncate', winnerSide === side ? 'text-text-primary font-semibold' : 'text-text-secondary');
+  return (
+    <p className="flex w-fit max-w-full min-w-0 flex-col text-sm sm:flex-row" title={`${first} ${t.versus} ${second}`}>
+      <span className={pairClass(1)}>{first}</span>
+      <span className="text-primary-400 shrink-0 text-base font-bold sm:px-1.5 sm:text-sm sm:font-semibold">
+        {t.versus}
+      </span>
+      <span className={pairClass(2)}>{second}</span>
+    </p>
+  );
+}
+
 function MatchRow({
   match,
   lookups,
@@ -152,29 +174,10 @@ function MatchRow({
   const score = resultText(match, lookups.pairs);
   const ready = !!match.pair1_id && !!match.pair2_id;
   const name = (side: 1 | 2) => slotLabel(match, side, lookups.pairs, lookups.groupNames);
-  const winner = match.winner_pair_id;
   const when = whenText(match);
   return (
     <li className="border-border-subtle space-y-2 border-b py-3 last:border-b-0">
-      <p className="flex min-w-0 text-sm" title={`${name(1)} ${t.versus} ${name(2)}`}>
-        <span
-          className={cn(
-            'min-w-0 truncate',
-            winner && winner === match.pair1_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
-          )}
-        >
-          {name(1)}
-        </span>
-        <span className="text-text-tertiary shrink-0 px-1.5">{t.versus}</span>
-        <span
-          className={cn(
-            'min-w-0 truncate',
-            winner && winner === match.pair2_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
-          )}
-        >
-          {name(2)}
-        </span>
-      </p>
+      <MatchNames first={name(1)} second={name(2)} winnerSide={winnerSide(match)} />
       {score && <p className="text-text-primary truncate text-sm font-semibold tabular-nums">{score}</p>}
       <p className="text-text-tertiary truncate text-xs first-letter:uppercase" title={when}>
         {when}
