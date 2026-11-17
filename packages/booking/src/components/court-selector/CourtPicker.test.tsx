@@ -43,12 +43,10 @@ function mixedOption() {
 }
 
 describe('CourtPicker — a court description', () => {
-  it('shows the fallback text, italicised, when a court has no description', () => {
+  it('shows nothing in place of a missing description', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
 
-    const fallback = screen.getByText('Sin descripción');
-    expect(fallback).toBeInTheDocument();
-    expect(fallback).toHaveClass('italic');
+    expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
   });
 
   it('shows the real description, not the fallback, when the court has one', () => {

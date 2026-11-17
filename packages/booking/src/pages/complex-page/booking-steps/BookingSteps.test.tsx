@@ -64,7 +64,7 @@ describe('BookingSteps — answered questions collapse to crumbs', () => {
     await user.click(screen.getByRole('button', { name: /Duración/ }));
     await user.click(screen.getByRole('radio', { name: '1 h 30' }));
     expect(onDurationChange).not.toHaveBeenCalled();
-    await user.click(screen.getByRole('button', { name: 'Continuar' }));
+    await user.click(screen.getByRole('button', { name: 'Elegir 1 h 30' }));
 
     expect(onDurationChange).toHaveBeenCalledWith(90);
   });

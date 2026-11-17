@@ -47,6 +47,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
 
   return (
     <section aria-label={t.rulerLabel} className="flex flex-col gap-4">
+      <h2 className="text-text-primary text-xl font-bold">{t.timeQuestion}</h2>
       {/* The readout sits in the wheel's empty top: only the ends climb that high, at the sides. */}
       <div className="relative z-10">
         <RulerReadout option={current} severalCourts={severalCourts} />
@@ -83,7 +84,7 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
           onSelectTime(current);
         }}
       >
-        {t.rulerContinue}
+        {`${t.seeCourtsAt} ${current.startTime}`}
       </Button>
     </section>
   );

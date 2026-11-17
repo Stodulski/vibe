@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import type { CourtAvailability } from '../../api/types';
 import { TimeRuler } from './TimeRuler';
 import { buildTimeOptions } from './timeOptions';
@@ -46,5 +47,17 @@ describe('TimeRuler', () => {
       '11:00',
       '12:00',
     ]);
+  });
+
+  it('tapping an hour puts it at the center without choosing it', async () => {
+    const user = userEvent.setup();
+    const onSelectTime = vi.fn();
+    render(<TimeRuler options={options} initialStartTime="08:00" severalCourts={false} onSelectTime={onSelectTime} />);
+
+    await user.click(screen.getByRole('button', { name: '09:00' }));
+
+    expect(screen.getByRole('button', { name: '09:00' })).toHaveAttribute('aria-pressed', 'true');
+    expect(onSelectTime).not.toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: 'Ver canchas a las 09:00' })).toBeInTheDocument();
   });
 });

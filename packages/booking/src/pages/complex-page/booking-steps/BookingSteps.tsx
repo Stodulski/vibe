@@ -98,7 +98,7 @@ export function BookingSteps({
           art: <SportGlyph sport={sport} />,
         }))}
         selected={sportFilter}
-        continueLabel={t.publicBooking.rulerContinue}
+        continueLabel={(choice) => `${t.publicBooking.chooseAnswer} ${choice.label}`}
         onChoose={(value) => {
           onSportFilterChange(value);
           steps.answer('sport');

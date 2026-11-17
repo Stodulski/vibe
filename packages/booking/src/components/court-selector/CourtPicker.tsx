@@ -34,13 +34,12 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
         art: <SportGlyph sport={court.sport} />,
         detail: (
           <>
-            <span className="text-text-tertiary w-full truncate text-xs">
+            <span className="text-text-secondary w-full truncate text-xs">
               {(t.courts.sportTypes as Record<string, string | undefined>)[court.sport] ?? court.sport} · {courtFactsLine(court)}
             </span>
             <span className="text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>
-            <span className={court.description ? 'text-text-secondary w-full truncate text-xs' : 'text-text-tertiary w-full truncate text-xs italic'}>
-              {court.description ?? t.courts.noDescription}
-            </span>
+            {/* Only a real description: a "no description" placeholder is noise on every card. */}
+            {court.description && <span className="text-text-secondary w-full truncate text-xs">{court.description}</span>}
           </>
         ),
       }))}

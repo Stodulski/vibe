@@ -87,6 +87,7 @@ const oneCourt = [
 
 const firstSlot = slot('08:00', '09:30', 500000);
 
+const SEE_COURTS = new RegExp(`^${t.publicBooking.seeCourtsAt}`);
 const defaultProps = {
   courts: oneCourt,
   selectedDate: new Date(2024, 2, 15),
@@ -163,7 +164,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     render(<Harness {...defaultProps} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
     expect(defaultProps.onSelect).not.toHaveBeenCalled();
     expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
@@ -182,7 +183,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     render(<Harness {...defaultProps} courts={twins} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
 
     expect(screen.getByRole('button', { name: /^Cancha\s1\b/ })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Cancha\s2\b/ })).toBeInTheDocument();
@@ -198,7 +199,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     render(<Harness {...defaultProps} courts={mixed} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
     expect(defaultProps.onSelect).not.toHaveBeenCalled();
 
     // The card's accessible name carries type, sport and price after the
@@ -239,7 +240,7 @@ describe('CourtSelector — the question owns the screen', () => {
     render(<Harness {...defaultProps} courts={mixed} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
 
     // Hours and courts were both on screen once, and a visitor could tap a
     // second hour while a court from the first stayed highlighted.
@@ -258,7 +259,7 @@ describe('CourtSelector — the question owns the screen', () => {
     render(<Harness {...defaultProps} courts={mixed} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
     expect(screen.queryByRole('button', { name: /continuar/i })).not.toBeInTheDocument();
     expect(defaultProps.onContinue).not.toHaveBeenCalled();
 
@@ -276,7 +277,7 @@ describe('CourtSelector — the question owns the screen', () => {
     render(<Harness {...defaultProps} courts={mixed} />);
 
     await user.click(screen.getByRole('button', { name: /^08:00\b/ }));
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
     await user.click(screen.getByRole('button', { name: /^Cambiar horario/ }));
 
     expect(screen.getByRole('button', { name: /^08:00\b/ })).toBeInTheDocument();
@@ -362,19 +363,9 @@ describe('CourtSelector — the time ruler', () => {
     render(<Harness {...defaultProps} />);
 
     expect(screen.getByRole('button', { name: '08:00' })).toHaveAttribute('aria-pressed', 'true');
-    await user.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    await user.click(screen.getByRole('button', { name: SEE_COURTS }));
 
-    expect(screen.queryByRole('button', { name: t.publicBooking.rulerContinue })).not.toBeInTheDocument();
-  });
-
-  it('tapping an hour puts it on the marker without opening the court question', async () => {
-    const user = userEvent.setup();
-    render(<Harness {...defaultProps} courts={[court('court-1', 'Cancha 1', 'indoor', [slot('08:00', '09:30', 500000), slot('11:00', '12:30', 500000)])]} />);
-
-    await user.click(screen.getByRole('button', { name: /^11:00\b/ }));
-
-    expect(screen.getByRole('button', { name: /^11:00\b/ })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.getByRole('button', { name: t.publicBooking.rulerContinue })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: SEE_COURTS })).not.toBeInTheDocument();
   });
 
   it('puts the hour already chosen on the marker when the hours reopen', () => {

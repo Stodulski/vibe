@@ -93,7 +93,7 @@ export function DurationDial({ question, options, selected, onChoose }: Duration
         ))}
       </div>
       <Button size="lg" className="min-h-12 w-full" onClick={() => { onChoose(value); }}>
-        {t.rulerContinue}
+        {`${t.chooseAnswer} ${durationLabel(value)}`}
       </Button>
     </section>
   );

@@ -52,14 +52,14 @@ export function RulerTick({ option, offset, half, width, focused, last, onPick }
           className={cn(
             'rounded-full',
             // Every tick is one height; only the wheel's scale makes them differ.
-            focused ? 'bg-primary-500 h-12 w-1.5' : 'bg-border-default h-12 w-0.5',
+            focused ? 'bg-primary-500 h-12 w-1.5' : 'bg-text-tertiary h-12 w-0.5',
           )}
         />
       </span>
       <span
         className={cn(
           'text-xs tabular-nums sm:text-base',
-          focused ? 'text-primary-400 font-semibold' : 'text-text-tertiary',
+          focused ? 'text-primary-400 font-semibold' : 'text-text-secondary',
         )}
       >
         {option.startTime}

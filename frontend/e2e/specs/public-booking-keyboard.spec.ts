@@ -98,7 +98,7 @@ test.describe('Public booking flow, keyboard only', () => {
     // Keyboard input is only handled once the landing has hydrated; a Tab and
     // Enter sent before that are lost, so let the scripts settle first.
     await waitForStorefrontHydration(page);
-    const duration = page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: 'Continuar' });
+    const duration = page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: /^Elegir/ });
     await tabTo(page, duration);
     await page.keyboard.press('Enter');
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 15_000 });
@@ -124,7 +124,7 @@ test.describe('Public booking flow, keyboard only', () => {
     await tabTo(page, enabledSlot);
     await page.keyboard.press('Enter');
     // The hour goes under the ruler's marker; Continuar opens the court question.
-    const continueButton = page.getByRole('button', { name: 'Continuar' });
+    const continueButton = page.getByRole('button', { name: /^Ver canchas a las/ });
     await tabTo(page, continueButton);
     await page.keyboard.press('Enter');
 

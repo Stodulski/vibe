@@ -1,5 +1,6 @@
 import { DECLARATION_MESSAGES } from './declarationMessages';
 import { EVENT_MESSAGES } from './eventMessages';
+import { RULER_MESSAGES } from './rulerMessages';
 import { TOURNAMENT_MESSAGES } from './tournamentMessages';
 
 /**
@@ -14,6 +15,7 @@ import { TOURNAMENT_MESSAGES } from './tournamentMessages';
  */
 export const BOOKING_MESSAGES = {
   publicBooking: {
+    ...RULER_MESSAGES,
     stepProgress: 'Progreso de reserva',
     stepSelect: 'Turno',
     stepData: 'Datos',
@@ -128,13 +130,6 @@ export const BOOKING_MESSAGES = {
     shareTextPrefix: 'Reservá tu cancha en',
     shareCopied: 'Link copiado',
     lastCourtLeft: 'Última cancha',
-    rulerHint: 'Deslizá para elegir el horario',
-    rulerHintMouse: 'Arrastrá para elegir el horario',
-    rulerLabel: 'Horarios',
-    rulerContinue: 'Continuar',
-    reserveCourt: 'Reservar',
-    courtsFreeOne: '1 cancha',
-    courtsFreeMany: 'canchas',
     noAvailableSlots: 'Sin disponibilidad',
     checkingAvailability: 'Buscando horarios...',
     slotConflict: 'El horario ya no está disponible',

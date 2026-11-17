@@ -66,7 +66,7 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
       }}
       className={cn(
         'absolute bottom-3 flex origin-bottom cursor-pointer flex-col items-center gap-3 rounded-2xl border px-3 pt-4 pb-3',
-        focused ? 'border-primary-500 bg-primary-500/10 text-primary-400' : 'border-border-subtle bg-bg-subtle text-text-secondary',
+        focused ? 'border-primary-500 bg-primary-500/10 text-primary-400' : 'border-border-interactive bg-bg-subtle text-text-primary',
       )}
     >
       {choice.art}

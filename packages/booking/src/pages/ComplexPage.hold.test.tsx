@@ -151,7 +151,7 @@ function solveChallenge(token = 'solved-token') {
 
 async function pickCourt() {
   fireEvent.click(screen.getByRole('button', { name: /^10:00\b/ }));
-  fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+  fireEvent.click(screen.getByRole('button', { name: /^Ver canchas a las/ }));
   const courts = await screen.findByRole('group', { name: 'Elegí la cancha' });
   const [courtCard] = within(courts).getAllByRole('button');
   if (!courtCard) throw new Error('expected a court card');

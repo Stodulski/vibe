@@ -186,15 +186,15 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     // The hours are behind the duration question now: the flow asks what
     // changes the inventory before showing what is in it. This fixture has a
     // single sport, so that step is skipped and the duration is the only one.
-    // The duration dial opens on 1 h 30; Continuar answers it.
-    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    // The duration dial opens on 1 h 30; "Elegir 1 h 30" answers it.
+    fireEvent.click(screen.getByRole('button', { name: /^Elegir 1 h 30/ }));
 
     // The hour button's accessible name is the time alone now; the price
     // moved to the court cards.
     const slotButton = screen.getByRole('button', { name: /^10:00\b/ });
     expect(slotButton).not.toBeDisabled();
     fireEvent.click(slotButton);
-    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    fireEvent.click(screen.getByRole('button', { name: /^Ver canchas a las/ }));
 
     // The court comes next, even with one free, and tapping it continues.
     const courts = await screen.findByRole('group', { name: 'Elegí la cancha' });
@@ -227,8 +227,8 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     expect(screen.getByRole('heading', { name: /cuánto tiempo/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /^10:00\b/ })).not.toBeInTheDocument();
 
-    // The duration dial opens on 1 h 30; Continuar answers it.
-    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    // The duration dial opens on 1 h 30; "Elegir 1 h 30" answers it.
+    fireEvent.click(screen.getByRole('button', { name: /^Elegir 1 h 30/ }));
 
     expect(screen.queryByRole('heading', { name: /cuánto tiempo/i })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^10:00\b/ })).toBeInTheDocument();
@@ -272,8 +272,8 @@ describe('ComplexPage — changing the day', () => {
       error: null,
     });
     await renderComplexPage();
-    // The duration dial opens on 1 h 30; Continuar answers it.
-    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
+    // The duration dial opens on 1 h 30; "Elegir 1 h 30" answers it.
+    fireEvent.click(screen.getByRole('button', { name: /^Elegir 1 h 30/ }));
     expect(screen.getByRole('button', { name: /^10:00\b/ })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'another day' }));
