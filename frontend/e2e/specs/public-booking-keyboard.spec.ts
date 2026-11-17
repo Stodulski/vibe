@@ -123,8 +123,12 @@ test.describe('Public booking flow, keyboard only', () => {
     await expect(enabledSlot).toBeVisible({ timeout: 15_000 });
     await tabTo(page, enabledSlot);
     await page.keyboard.press('Enter');
+    // The hour goes under the ruler's marker; Continuar opens the court question.
+    const continueButton = page.getByRole('button', { name: 'Continuar' });
+    await tabTo(page, continueButton);
+    await page.keyboard.press('Enter');
 
-    // The hour opens the court question; choosing a court continues.
+    // Choosing a court continues.
     const court = page.getByRole('group', { name: 'Elegí la cancha' }).getByRole('button').first();
     await expect(court).toBeVisible({ timeout: 10_000 });
     await tabTo(page, court);

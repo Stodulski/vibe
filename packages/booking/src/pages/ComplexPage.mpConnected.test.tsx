@@ -193,6 +193,7 @@ describe('ComplexPage — mpConnected derived from payments_enabled', () => {
     const slotButton = screen.getByRole('button', { name: /^10:00\b/ });
     expect(slotButton).not.toBeDisabled();
     fireEvent.click(slotButton);
+    fireEvent.click(screen.getByRole('button', { name: t.publicBooking.rulerContinue }));
 
     // The court comes next, even with one free, and tapping it continues.
     const courts = await screen.findByRole('group', { name: 'Elegí la cancha' });

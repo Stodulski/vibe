@@ -55,6 +55,7 @@ function RulerTick({
     <button
       type="button"
       aria-label={last ? `${option.startTime}, ${t.lastCourtLeft}` : option.startTime}
+      data-slot-time={option.startTime}
       aria-pressed={focused}
       onClick={onSelect}
       className="flex w-14 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5"
@@ -137,7 +138,7 @@ interface TimeRulerProps {
 /**
  * The hours of the day as a ruler that slides under a fixed marker. The hour on
  * the marker is shown large above it, with its end, price and free courts, and
- * "Continuar" takes it. Tapping a tick takes that hour at once. It slides with a
+ * "Continuar" takes it to the court question. Tapping a tick brings it under the marker. It slides with a
  * finger or a trackpad, with the mouse wheel, and with the ‹ › buttons at its ends.
  */
 export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
@@ -182,7 +183,8 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
               focused={index === focused}
               last={isLastCourt(option, severalCourts)}
               onSelect={() => {
-                onSelectTime(option);
+                setFocused(index);
+                centerTick(trackRef.current, index);
               }}
             />
           ))}
