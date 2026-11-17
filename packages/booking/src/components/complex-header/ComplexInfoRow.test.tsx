@@ -31,13 +31,14 @@ describe('ComplexInfoRow', () => {
     expect(screen.getByText('Av. Libertador 1234, Buenos Aires')).toBeInTheDocument();
   });
 
-  it('shows the province after the city', () => {
+  it('shows the street and the city, without the province', () => {
     render(
       <ComplexInfoRow
         complex={makeComplex({ address: 'Piquiyin', city: 'Caleta Olivia', province: 'Santa Cruz' })}
       />,
     );
-    expect(screen.getByText('Piquiyin, Caleta Olivia, Santa Cruz')).toBeInTheDocument();
+    expect(screen.getByText('Piquiyin, Caleta Olivia')).toBeInTheDocument();
+    expect(screen.queryByText(/Santa Cruz/)).not.toBeInTheDocument();
   });
 
   it('makes the phone callable', () => {

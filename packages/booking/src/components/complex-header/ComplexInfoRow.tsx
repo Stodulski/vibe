@@ -2,7 +2,7 @@ import { MapPin, Phone, Mail } from "lucide-react";
 import { InstagramIcon } from "@vibe/ui";
 import { BOOKING_MESSAGES } from "../../messages";
 import type { PublicComplex } from "../../api/types";
-import { fullAddress } from "../../lib/complexAddress";
+import { shortAddress } from "../../lib/complexAddress";
 import { instagramProfileUrl } from "../../lib/instagram";
 
 const t = BOOKING_MESSAGES;
@@ -59,7 +59,7 @@ export function ComplexInfoRow({ complex }: { complex: PublicComplex }) {
           className="text-primary-400 size-3 shrink-0 sm:size-3.5"
           aria-hidden="true"
         />
-        <span>{fullAddress(complex)}</span>
+        <span>{shortAddress(complex)}</span>
       </div>
 
       {complex.phone && (

@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { fullAddress } from './complexAddress';
+import { shortAddress } from './complexAddress';
 
-describe('fullAddress', () => {
-  it('joins street, city and province', () => {
-    expect(fullAddress({ address: 'Piquiyin', city: 'Caleta Olivia', province: 'Santa Cruz' })).toBe(
-      'Piquiyin, Caleta Olivia, Santa Cruz',
+describe('shortAddress', () => {
+  it('joins street and city, without the province', () => {
+    expect(shortAddress({ address: 'Av. Constitución 5840', city: 'Mar del Plata' })).toBe(
+      'Av. Constitución 5840, Mar del Plata',
     );
   });
 
-  it('shows a repeated part once, such as a city that is also its province', () => {
-    expect(fullAddress({ address: 'Av. Libertador 1234', city: 'CABA', province: 'CABA' })).toBe(
-      'Av. Libertador 1234, CABA',
-    );
+  it('shows a repeated part once', () => {
+    expect(shortAddress({ address: 'CABA', city: 'CABA' })).toBe('CABA');
   });
 
   it('skips a blank part', () => {
-    expect(fullAddress({ address: 'Piquiyin', city: 'Caleta Olivia', province: '  ' })).toBe('Piquiyin, Caleta Olivia');
+    expect(shortAddress({ address: 'Piquiyin', city: '  ' })).toBe('Piquiyin');
   });
 });
