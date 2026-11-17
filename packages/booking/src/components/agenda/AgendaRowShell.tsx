@@ -8,6 +8,8 @@ export interface AgendaMetaToken {
   text: string;
   /** Highlights the token, as the last places are. */
   emphasis?: boolean;
+  /** On a phone the token sits at the right end of its line, as the price does. */
+  endOnPhone?: boolean;
 }
 
 interface AgendaRowShellProps {
@@ -84,6 +86,7 @@ function AgendaMeta({
               'whitespace-nowrap',
               token.emphasis && 'text-warning-text font-medium',
               token.wideOnly && 'hidden sm:inline',
+              token.endOnPhone && 'ml-auto sm:ml-0',
             )}
           >
             {token.text}
@@ -93,6 +96,8 @@ function AgendaMeta({
       <span aria-hidden="true" className="mx-1.5 hidden sm:inline">
         ·
       </span>
+      {/* On a phone the detail action always takes a line of its own. */}
+      <span aria-hidden="true" className="basis-full sm:hidden" />
       <button
         type="button"
         onClick={onViewDetail}
