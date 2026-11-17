@@ -68,8 +68,6 @@ export const tournaments = {
     prizesLabel: 'Premios',
     pairsRatio: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)} parejas`,
     pairsRatioShort: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)}`,
-    rules: 'Ver reglas',
-    hideRules: 'Ocultar reglas',
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
     matchSetup: (setsToWin: number, games: number, superTiebreak: boolean) =>
       setsToWin === 1
@@ -181,6 +179,7 @@ export const tournaments = {
   // Matches
   matches: {
     none: 'Todavía no hay partidos. Se arman con el sorteo.',
+    actionsLabel: 'Acciones del partido',
     notReady: 'Esperando a las parejas',
     pending: 'Pendiente',
     completed: 'Jugado',

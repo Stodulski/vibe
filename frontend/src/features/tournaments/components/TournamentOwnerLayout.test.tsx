@@ -98,6 +98,7 @@ describe('owner tournament match rows', () => {
     );
     expect(screen.getByText(/Dom 22\/11/)).toHaveClass('truncate');
     expect(screen.getByText(t.matches.versus)).toHaveClass('shrink-0');
+    expect(screen.queryByRole('button', { name: t.matches.actionsLabel })).not.toBeInTheDocument();
   });
 });
 
@@ -194,13 +195,10 @@ describe('owner tournament cancelled and facts layout', () => {
     expect(summary.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('gives the price in the summary line and the court fee only behind "Ver reglas"', async () => {
-    const user = await renderDetail(makeDetail({ categories: [makeCategory({ court_fee: 300000 })] }));
+  it('gives the price in the summary line, with no disclosure to open', async () => {
+    await renderDetail(makeDetail({ categories: [makeCategory({ court_fee: 300000 })] }));
     expect(screen.getByText(/\$20\.000 por pareja/)).toBeInTheDocument();
-    expect(screen.queryByText(t.courtFee.line(formatPrice(300000)))).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: t.detail.rules }));
-    expect(screen.getByText(t.courtFee.line(formatPrice(300000)))).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reglas/ })).not.toBeInTheDocument();
   });
 
   it('labels the fee action "Agregar" when the category has no court fee', async () => {
@@ -222,8 +220,8 @@ describe('owner tournament cancelled and facts layout', () => {
   });
 });
 
-describe('MatchCourtFee actions', () => {
-  it('styles charge and undo the same, in a two-column row', () => {
+describe('MatchCourtFee', () => {
+  it('shows what each pair paid or still owes as a status line, with no button in it', () => {
     const pairs = new Map([
       ['p1', makePair({ id: 'p1' })],
       ['p2', makePair({ id: 'p2', players: ['Carla Ruiz', 'Dana Soto'] })],
@@ -234,22 +232,11 @@ describe('MatchCourtFee actions', () => {
       pair2Id: 'p2',
       courtFee: { due: 200000, charged: { 2: { amount: 200000, method: 'cash' } } },
     });
-    render(
-      <MatchCourtFee
-        match={match}
-        fee={200000}
-        pairs={pairs}
-        groupNames={new Map()}
-        actions={{ onCharge: vi.fn(), onUndo: vi.fn() }}
-        editable
-      />,
-    );
-    const charge = screen.getByRole('button', { name: /^Cobrar la cancha/ });
-    const undo = screen.getByRole('button', { name: /^Deshacer el cobro/ });
-    expect(charge.className).toBe(undo.className);
-    expect(charge.className).not.toContain('underline');
-    const row = charge.closest('li');
-    expect(row?.className).toContain('grid');
+    render(<MatchCourtFee match={match} fee={200000} pairs={pairs} groupNames={new Map()} />);
+
+    expect(screen.queryByRole('button')).not.toBeInTheDocument();
+    const row = screen.getByText(t.matches.pending).closest('li');
     expect(within(row as HTMLElement).getByText(/Pérez/)).toBeInTheDocument();
+    expect(screen.getByText(t.courtFee.paid(formatPrice(200000)))).toBeInTheDocument();
   });
 });

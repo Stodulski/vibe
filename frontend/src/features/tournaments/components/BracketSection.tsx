@@ -2,7 +2,8 @@ import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn, formatTime } from '@/shared/lib/utils';
-import { bracketGrid, bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
+import { bracketGrid, bracketRounds, matchSide, resultText, roundName, winnerSide } from '../lib/tournamentView';
+import { MatchNames } from './MatchNames';
 import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.bracket;
@@ -10,25 +11,6 @@ const t = ES_AR.tournaments.bracket;
 interface Lookups {
   pairs: Map<string, TournamentOwnerPair>;
   groupNames: Map<string, string>;
-}
-
-function BracketSlot({ match, side, lookups }: { match: TournamentMatch; side: 1 | 2; lookups: Lookups }) {
-  const winnerId = match.winner_pair_id;
-  const pairId = side === 1 ? match.pair1_id : match.pair2_id;
-  const won = !!winnerId && winnerId === pairId;
-  const known = !!pairId;
-  const label = slotLabel(match, side, lookups.pairs, lookups.groupNames);
-  return (
-    <p
-      className={cn(
-        'min-w-0 truncate py-0.5 text-sm lg:px-2.5 lg:py-1.5',
-        won ? 'text-text-primary font-semibold' : known ? 'text-text-secondary' : 'text-text-tertiary italic',
-      )}
-      title={label}
-    >
-      {label}
-    </p>
-  );
 }
 
 /** Which connector a match draws: one to the next round, one from the previous, both only when the rounds halve. */
@@ -40,6 +22,19 @@ interface Connectors {
 
 /** Connectors only exist side by side, from `lg`: stacked rounds have no columns to join. */
 const CONNECTOR = 'border-border-default pointer-events-none absolute hidden lg:block';
+
+/** The result and the schedule of a bracket match, joined on one line. */
+function bracketMeta(match: TournamentMatch, pairs: Map<string, TournamentOwnerPair>): string {
+  const score = resultText(match, pairs);
+  const when = match.schedule
+    ? ES_AR.tournaments.matches.scheduledAt(
+        keepTogether(match.schedule.court_name),
+        formatEventDayShort(match.schedule.date),
+        formatTime(match.schedule.start_time),
+      )
+    : null;
+  return [score, when].filter((part): part is string => !!part).join(' · ');
+}
 
 function BracketMatchCard({
   match,
@@ -55,15 +50,7 @@ function BracketMatchCard({
   rowStart: number;
   rowSpan: number;
 }) {
-  const score = resultText(match, lookups.pairs);
-  const when = match.schedule
-    ? ES_AR.tournaments.matches.scheduledAt(
-        keepTogether(match.schedule.court_name),
-        formatEventDayShort(match.schedule.date),
-        formatTime(match.schedule.start_time),
-      )
-    : null;
-  const meta = [score, when].filter((part): part is string => !!part).join(' · ');
+  const meta = bracketMeta(match, lookups.pairs);
   return (
     <li
       className="border-border-subtle relative flex min-w-0 flex-col justify-center border-b py-2.5 last:border-b-0 lg:border-0 lg:py-1.5"
@@ -77,8 +64,13 @@ function BracketMatchCard({
         />
       )}
       <div className="divide-border-subtle lg:bg-bg-subtle lg:border-border-subtle w-full min-w-0 lg:divide-y lg:rounded-xl lg:border">
-        <BracketSlot match={match} side={1} lookups={lookups} />
-        <BracketSlot match={match} side={2} lookups={lookups} />
+        <div className="min-w-0 py-0.5 lg:px-2.5 lg:py-1.5">
+          <MatchNames
+            first={matchSide(match, 1, lookups.pairs, lookups.groupNames)}
+            second={matchSide(match, 2, lookups.pairs, lookups.groupNames)}
+            winnerSide={winnerSide(match)}
+          />
+        </div>
         {meta && (
           <p className="text-text-tertiary truncate py-0.5 text-xs lg:px-2.5 lg:py-1" title={meta}>
             {meta}

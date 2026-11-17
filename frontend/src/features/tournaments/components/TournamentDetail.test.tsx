@@ -59,17 +59,6 @@ describe('TournamentDetail: pairs', () => {
     await user.click(contact);
     expect(await screen.findByRole('menuitem', { name: /Llamar Ana Pérez/ })).toHaveAttribute('href', 'tel:1155550000');
   });
-
-  it('keeps the category rules behind "Ver reglas", closed until asked for', async () => {
-    const { user } = await renderDetail(openDetail());
-
-    expect(screen.queryByText(t.detail.groupsSetup(3, 2))).not.toBeInTheDocument();
-    expect(screen.queryByText(t.detail.matchSetup(2, 6, true))).not.toBeInTheDocument();
-
-    await user.click(screen.getByRole('button', { name: t.detail.rules }));
-    expect(screen.getByText(t.detail.groupsSetup(3, 2))).toBeInTheDocument();
-    expect(screen.getByText(t.detail.matchSetup(2, 6, true))).toBeInTheDocument();
-  });
 });
 
 describe('TournamentDetail: draw', () => {

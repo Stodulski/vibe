@@ -3,6 +3,7 @@ import { useSetResult } from '../../hooks/useTournamentChanges';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { resultErrorMessage } from '../../lib/tournamentErrors';
 import { parseScore, scoreFormatOf, scoreRowCount, type ScoreRow } from '../../lib/score';
+import { winnerSide } from '../../lib/tournamentView';
 import type { TournamentCategory, TournamentMatch } from '@/shared/types/api.types';
 
 export type ResultMode = 'winner' | 'sets' | 'walkover';
@@ -11,13 +12,6 @@ export type ResultMode = 'winner' | 'sets' | 'walkover';
 function initialMode(match: TournamentMatch): ResultMode {
   if (match.walkover_loser !== 0) return 'walkover';
   return match.sets.length > 0 ? 'sets' : 'winner';
-}
-
-/** The side of a loaded result's winner, if any. */
-function winnerSide(match: TournamentMatch): 1 | 2 | null {
-  if (!match.winner_pair_id) return null;
-  if (match.winner_pair_id === match.pair1_id) return 1;
-  return match.winner_pair_id === match.pair2_id ? 2 : null;
 }
 
 /** The rows to start from: a loaded result's sets (to correct it), then blank rows up to the most sets a match takes. */

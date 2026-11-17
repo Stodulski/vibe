@@ -7,6 +7,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { COUNTER_PAYMENT_METHODS } from '@/shared/lib/paymentMethods';
 import { formatPrice } from '@/shared/lib/utils';
 import { makeCategory, makeDrawnDetail, makeMatch } from '../testing/fixtures';
+import { menuLabels, openMatchMenu } from '../testing/matchMenu';
 import { pickSection } from '../testing/sectionSelect';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import type { TournamentDetailResponse } from '@/shared/types/api.types';
@@ -69,13 +70,12 @@ describe('TournamentDetail: court fee', () => {
     vi.clearAllMocks();
   });
 
-  it('says the fee on the category and on every match, and what is collected and pending', async () => {
-    const { user } = await renderOnMatches(detailWithFee());
+  it('shows the fee on every match, and each pair as paid or still pending', async () => {
+    await renderOnMatches(detailWithFee());
 
     expect(screen.getAllByText(t.courtFee.line(formatPrice(FEE)))).toHaveLength(2);
-    await user.click(screen.getByRole('button', { name: t.detail.rules }));
-    // Collected is the charge at the amount it was made; pending the three sides still owing at the current fee.
-    expect(screen.getByText(t.courtFee.summary(formatPrice(1000000), formatPrice(FEE * 3)))).toBeInTheDocument();
+    // Side 1 of the first match paid; the three sides still owing at the current fee are pending.
+    expect(screen.getAllByText(t.matches.pending)).toHaveLength(3);
   });
 
   it('keeps a charge at the amount it was made when the fee has changed since', async () => {
@@ -108,8 +108,9 @@ describe('TournamentDetail: charging the court fee', () => {
     ];
     vi.mocked(tournamentsApi.chargeCourtFee).mockResolvedValue(after);
 
-    // Side 2 of the second match: Díaz / Vega.
-    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Díaz / Vega') }));
+    // The second match's menu charges side 2: Díaz / Vega.
+    await openMatchMenu(user, 1);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.chargeAria('Díaz / Vega') }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.chargeTitle });
     expect(within(dialog).getByText(t.courtFee.chargeDescription('Díaz / Vega', formatPrice(FEE)))).toBeInTheDocument();
     await user.click(within(dialog).getByRole('combobox', { name: t.courtFee.method }));
@@ -127,7 +128,8 @@ describe('TournamentDetail: charging the court fee', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.chargeCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    await openMatchMenu(user, 0);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
     await user.click(await screen.findByRole('button', { name: t.courtFee.chargeSubmit(formatPrice(FEE)) }));
 
     await waitFor(() => {
@@ -144,7 +146,8 @@ describe('TournamentDetail: court fee payment methods', () => {
   it('offers every method the counter takes, with its own label', async () => {
     const { user } = await renderOnMatches(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    await openMatchMenu(user, 0);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.chargeTitle });
     await user.click(within(dialog).getByRole('combobox', { name: t.courtFee.method }));
 
@@ -158,7 +161,8 @@ describe('TournamentDetail: court fee payment methods', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.chargeCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    await openMatchMenu(user, 0);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
     const dialog = await screen.findByRole('dialog', { name: t.courtFee.chargeTitle });
     await user.click(within(dialog).getByRole('combobox', { name: t.courtFee.method }));
     await user.click(await screen.findByRole('option', { name: ES_AR.bookings.paymentMethods.debit_card }));
@@ -181,7 +185,8 @@ describe('TournamentDetail: refused court fee charges and undoing', () => {
       await makeConsumedHttpError(409, { title: 'x', detail: 'no cash session is open' }),
     );
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
+    await openMatchMenu(user, 0);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.chargeAria('Ruiz / Soto') }));
     await user.click(await screen.findByRole('button', { name: t.courtFee.chargeSubmit(formatPrice(FEE)) }));
 
     await waitFor(() => {
@@ -196,7 +201,8 @@ describe('TournamentDetail: refused court fee charges and undoing', () => {
     const { tournamentsApi, user } = await renderOnMatches(detailWithFee());
     vi.mocked(tournamentsApi.undoCourtFee).mockResolvedValue(detailWithFee());
 
-    await user.click(screen.getByRole('button', { name: t.courtFee.undoAria('Pérez / Gómez') }));
+    await openMatchMenu(user, 0);
+    await user.click(await screen.findByRole('menuitem', { name: t.courtFee.undoAria('Pérez / Gómez') }));
     expect(tournamentsApi.undoCourtFee).not.toHaveBeenCalled();
     await user.click(await screen.findByRole('button', { name: t.courtFee.undoConfirm }));
 
@@ -227,9 +233,15 @@ describe('TournamentDetail: who owes the court fee', () => {
       }),
       makeMatch({ id: 'b1', round: 1, position: 1, source1: { group_id: 'g1', rank: 1 }, courtFee: { due: FEE } }),
     ];
-    await renderOnMatches(detail);
-    expect(screen.queryByRole('button', { name: t.courtFee.charge })).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^Cobrar la cancha/ })).not.toBeInTheDocument();
+    const { user } = await renderOnMatches(detail);
+
+    // Neither match owes a court fee, so no pair is listed as pending; the walkover only offers its correction.
+    expect(screen.queryByText(t.matches.pending)).not.toBeInTheDocument();
+    await openMatchMenu(user, 0);
+    expect(menuLabels()).toEqual([t.matches.correctResult]);
+    await user.keyboard('{Escape}');
+    await openMatchMenu(user, 1);
+    expect(menuLabels()).toEqual([t.matches.schedule]);
   });
 
   it('shows no court fee at all in a category without one', async () => {
@@ -239,7 +251,7 @@ describe('TournamentDetail: who owes the court fee', () => {
     await renderOnMatches(detail);
 
     expect(screen.queryByText(/^Cancha:/)).not.toBeInTheDocument();
-    expect(screen.queryByText(/^Cobrado /)).not.toBeInTheDocument();
+    expect(screen.queryByText(t.matches.pending)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.courtFee.edit })).not.toBeInTheDocument();
   });
 });

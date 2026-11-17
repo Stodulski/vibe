@@ -115,3 +115,41 @@ describe('BracketSection geometry', () => {
     expect(connectors(container, 'in')).toHaveLength(3);
   });
 });
+
+describe('BracketSection match names', () => {
+  const named = new Map([
+    ['p1', makePair({ id: 'p1', players: ['Ana Pérez', 'Bea Gómez'] })],
+    ['p2', makePair({ id: 'p2', players: ['Carla Ruiz', 'Dana Soto'] })],
+  ]);
+
+  it('sets the two pairs on either side of a green vs, with the winner in bold', () => {
+    const matches = [
+      makeMatch({
+        id: 'a',
+        round: 1,
+        position: 1,
+        pair1Id: 'p1',
+        pair2Id: 'p2',
+        status: 'completed',
+        winnerPairId: 'p2',
+      }),
+    ];
+    render(<BracketSection matches={matches} pairs={named} groupNames={new Map()} />);
+
+    const first = screen.getByText('Pérez / Gómez');
+    const second = screen.getByText('Ruiz / Soto');
+    const versus = screen.getByText(ES_AR.tournaments.matches.versus);
+    expect(first.compareDocumentPosition(versus) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(versus.compareDocumentPosition(second) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(versus).toHaveClass('text-primary-400', 'text-base', 'font-bold');
+    expect(second).toHaveClass('font-semibold');
+    expect(first).not.toHaveClass('font-semibold');
+  });
+
+  it('keeps the placeholder of a side no pair holds yet', () => {
+    const matches = [makeMatch({ id: 'a', round: 1, position: 1, pair1Id: 'p1' })];
+    render(<BracketSection matches={matches} pairs={named} groupNames={new Map()} />);
+
+    expect(screen.getByText(ES_AR.tournaments.bracket.toBeDefined)).toHaveClass('italic', 'text-text-tertiary');
+  });
+});

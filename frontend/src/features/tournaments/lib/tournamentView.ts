@@ -1,6 +1,11 @@
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatEventDay, formatEventDayShort } from '@/shared/lib/eventDates';
-import type { TournamentMatch, TournamentOwnerPair } from '@/shared/types/api.types';
+import type {
+  TournamentCourtFee,
+  TournamentMatch,
+  TournamentOwnerMatch,
+  TournamentOwnerPair,
+} from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments;
 
@@ -105,6 +110,34 @@ export function slotLabel(
   const source = side === 1 ? match.source1 : match.source2;
   const group = source ? groupNames.get(source.group_id) : undefined;
   return source && group ? t.bracket.sourceOf(source.rank, group) : t.bracket.toBeDefined;
+}
+
+/** One side of a match as the views name it: the label from `slotLabel`, and whether a pair holds the slot yet. */
+export interface MatchSide {
+  label: string;
+  known: boolean;
+}
+
+export function matchSide(
+  match: TournamentMatch,
+  side: 1 | 2,
+  pairs: Map<string, TournamentOwnerPair>,
+  groupNames: Map<string, string>,
+): MatchSide {
+  const pairId = side === 1 ? match.pair1_id : match.pair2_id;
+  return { label: slotLabel(match, side, pairs, groupNames), known: !!pairId };
+}
+
+/** The side (1 or 2) that won a match, if it has a winner. */
+export function winnerSide(match: Pick<TournamentMatch, 'winner_pair_id' | 'pair1_id' | 'pair2_id'>): 1 | 2 | null {
+  if (!match.winner_pair_id) return null;
+  if (match.winner_pair_id === match.pair1_id) return 1;
+  return match.winner_pair_id === match.pair2_id ? 2 : null;
+}
+
+/** The sides that owe or paid the court fee of a match: a pair the match does not charge is not listed. */
+export function courtFeeSides(match: Pick<TournamentOwnerMatch, 'court_fee'>): TournamentCourtFee[] {
+  return match.court_fee.filter((side) => side.charged || side.chargeable);
 }
 
 /** "6-4 3-6 10-7", "W.O." or nothing for a match with no result. */

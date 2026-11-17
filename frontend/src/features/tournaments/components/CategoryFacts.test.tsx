@@ -40,6 +40,6 @@ describe('CategoryFacts', () => {
 
   it('shows no rules disclosure: the summary line is all the category shows', () => {
     renderWithProviders(<CategoryFacts category={makeCategory()} />);
-    expect(screen.queryByRole('button', { name: t.detail.rules })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /reglas/ })).not.toBeInTheDocument();
   });
 });

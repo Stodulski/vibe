@@ -1,17 +1,24 @@
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { formatEventDayShort } from '@/shared/lib/eventDates';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { Button } from '@/shared/components/ui/button';
-import { cn, formatTime } from '@/shared/lib/utils';
+import { formatTime } from '@/shared/lib/utils';
+import { MatchActionsMenu, type MatchMenuItem } from './MatchActionsMenu';
 import { MatchCourtFee, type CourtFeeActions } from './MatchCourtFee';
+import { MatchNames } from './MatchNames';
 import { isCorrectionLocked } from '../lib/correctionLock';
-import { bracketRounds, resultText, roundName, slotLabel } from '../lib/tournamentView';
+import {
+  bracketRounds,
+  courtFeeSides,
+  matchSide,
+  resultText,
+  roundName,
+  slotLabel,
+  winnerSide,
+} from '../lib/tournamentView';
 import type { TournamentOwnerMatch, TournamentOwnerPair } from '@/shared/types/api.types';
 
 const t = ES_AR.tournaments.matches;
-
-/** Every action button of a match row: one line of label, smaller below `sm` so two of them sit side by side at 320 px. */
-const ACTION_BUTTON = 'rounded-lg whitespace-nowrap px-2.5 text-xs sm:px-3 sm:text-sm';
+const fee = ES_AR.tournaments.courtFee;
 
 interface Lookups {
   pairs: Map<string, TournamentOwnerPair>;
@@ -35,123 +42,72 @@ function whenText(match: TournamentOwnerMatch): string {
   );
 }
 
-function ResultButton({
-  match,
-  actions,
-  locked,
-  primary,
-}: {
-  match: TournamentOwnerMatch;
-  actions: MatchActions;
-  locked: boolean;
-  /** The one match whose next action is the primary of the view. */
-  primary: boolean;
-}) {
-  return (
-    <>
-      <Button
-        type="button"
-        size="sm"
-        variant={primary ? 'default' : 'outline'}
-        className={ACTION_BUTTON}
-        disabled={locked}
-        aria-describedby={locked ? `locked-${match.id}` : undefined}
-        onClick={() => {
-          actions.onResult(match.id);
-        }}
-      >
-        {match.status === 'completed' ? t.correctResult : t.loadResult}
-      </Button>
-      {locked && (
-        <span
-          id={`locked-${match.id}`}
-          className="text-text-tertiary max-w-full min-w-0 self-center truncate text-xs"
-          title={t.correctLocked}
-        >
-          {t.correctLocked}
-        </span>
-      )}
-    </>
-  );
+/** Charge each pair that owes the court fee of the match, or undo the charge of each pair that paid it. */
+function courtFeeItems(match: TournamentOwnerMatch, lookups: Lookups, actions: CourtFeeActions): MatchMenuItem[] {
+  return courtFeeSides(match).map((side) => {
+    const name = slotLabel(match, side.side, lookups.pairs, lookups.groupNames);
+    const target = { matchId: match.id, side: side.side };
+    return side.charged
+      ? {
+          key: `undo-${String(side.side)}`,
+          label: fee.undoAria(name),
+          onClick: () => {
+            actions.onUndo(target);
+          },
+        }
+      : {
+          key: `charge-${String(side.side)}`,
+          label: fee.chargeAria(name),
+          onClick: () => {
+            actions.onCharge(target);
+          },
+        };
+  });
 }
 
-function MatchButtons({
-  match,
-  actions,
-  ready,
-  locked,
-  primary,
-}: {
-  match: TournamentOwnerMatch;
-  actions: MatchActions;
-  ready: boolean;
-  /** The played match cannot be corrected: what comes next already has a result. */
-  locked: boolean;
-  primary: boolean;
-}) {
+/**
+ * The actions a match's menu offers, in order: scheduling and the result while the
+ * match can still change, then the court fee of each pair. A played match that can
+ * no longer be corrected offers no scheduling or result, but its court fee stays.
+ */
+function matchMenuItems(
+  match: TournamentOwnerMatch,
+  locked: boolean,
+  lookups: Lookups,
+  actions: MatchActions,
+  courtFeeActions: CourtFeeActions,
+): MatchMenuItem[] {
   const done = match.status === 'completed';
-  // A played match that can no longer be corrected has nothing to act on: no greyed
-  // button and no note repeated on every row.
-  if (done && locked) return null;
-  return (
-    <div className="flex flex-wrap gap-2">
-      {!done && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className={ACTION_BUTTON}
-          onClick={() => {
-            actions.onSchedule(match.id);
-          }}
-        >
-          {match.schedule ? t.reschedule : t.schedule}
-        </Button>
-      )}
-      {!done && match.schedule && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className={ACTION_BUTTON}
-          onClick={() => {
-            actions.onUnschedule(match.id);
-          }}
-        >
-          {t.unschedule}
-        </Button>
-      )}
-      {ready ? (
-        <ResultButton match={match} actions={actions} locked={locked} primary={primary} />
-      ) : (
-        <span className="text-text-tertiary max-w-full min-w-0 self-center truncate text-xs" title={t.notReady}>
-          {t.notReady}
-        </span>
-      )}
-    </div>
-  );
-}
-
-/** Which side won, if the match has a winner. */
-function winnerSide(match: TournamentOwnerMatch): 1 | 2 | null {
-  if (!match.winner_pair_id) return null;
-  if (match.winner_pair_id === match.pair1_id) return 1;
-  return match.winner_pair_id === match.pair2_id ? 2 : null;
-}
-
-/** The two pairs: stacked on phones with a large green "vs" between them, one line from sm. */
-function MatchNames({ first, second, winnerSide }: { first: string; second: string; winnerSide: 1 | 2 | null }) {
-  const pairClass = (side: 1 | 2) =>
-    cn('min-w-0 truncate', winnerSide === side ? 'text-text-primary font-semibold' : 'text-text-secondary');
-  return (
-    <p className="flex w-fit max-w-full min-w-0 flex-col text-sm sm:flex-row" title={`${first} ${t.versus} ${second}`}>
-      <span className={pairClass(1)}>{first}</span>
-      <span className="text-primary-400 shrink-0 text-base font-bold sm:px-1.5 sm:text-sm sm:font-semibold">
-        {t.versus}
-      </span>
-      <span className={pairClass(2)}>{second}</span>
-    </p>
-  );
+  const ready = !!match.pair1_id && !!match.pair2_id;
+  const items: MatchMenuItem[] = [];
+  if (!done) {
+    items.push({
+      key: 'schedule',
+      label: match.schedule ? t.reschedule : t.schedule,
+      onClick: () => {
+        actions.onSchedule(match.id);
+      },
+    });
+  }
+  if (!done && match.schedule) {
+    items.push({
+      key: 'unschedule',
+      label: t.unschedule,
+      onClick: () => {
+        actions.onUnschedule(match.id);
+      },
+    });
+  }
+  if (ready && !locked) {
+    items.push({
+      key: 'result',
+      label: done ? t.correctResult : t.loadResult,
+      onClick: () => {
+        actions.onResult(match.id);
+      },
+    });
+  }
+  return [...items, ...courtFeeItems(match, lookups, courtFeeActions)];
 }
 
 function MatchRow({
@@ -161,7 +117,6 @@ function MatchRow({
   courtFee,
   editable,
   locked,
-  primary,
 }: {
   match: TournamentOwnerMatch;
   lookups: Lookups;
@@ -169,28 +124,33 @@ function MatchRow({
   courtFee: { fee: number; actions: CourtFeeActions };
   editable: boolean;
   locked: boolean;
-  primary: boolean;
 }) {
   const score = resultText(match, lookups.pairs);
   const ready = !!match.pair1_id && !!match.pair2_id;
-  const name = (side: 1 | 2) => slotLabel(match, side, lookups.pairs, lookups.groupNames);
   const when = whenText(match);
+  const items = editable ? matchMenuItems(match, locked, lookups, actions, courtFee.actions) : [];
   return (
-    <li className="border-border-subtle space-y-2 border-b py-3 last:border-b-0">
-      <MatchNames first={name(1)} second={name(2)} winnerSide={winnerSide(match)} />
-      {score && <p className="text-text-primary truncate text-sm font-semibold tabular-nums">{score}</p>}
-      <p className="text-text-tertiary truncate text-xs first-letter:uppercase" title={when}>
-        {when}
-      </p>
-      <MatchCourtFee
-        match={match}
-        fee={courtFee.fee}
-        pairs={lookups.pairs}
-        groupNames={lookups.groupNames}
-        actions={courtFee.actions}
-        editable={editable}
-      />
-      {editable && <MatchButtons match={match} actions={actions} ready={ready} locked={locked} primary={primary} />}
+    <li className="border-border-subtle border-b py-3 last:border-b-0">
+      <div className="flex min-w-0 items-start gap-2">
+        <div className="min-w-0 flex-1 space-y-2">
+          <MatchNames
+            first={matchSide(match, 1, lookups.pairs, lookups.groupNames)}
+            second={matchSide(match, 2, lookups.pairs, lookups.groupNames)}
+            winnerSide={winnerSide(match)}
+          />
+          {score && <p className="text-text-primary truncate text-sm font-semibold tabular-nums">{score}</p>}
+          <p className="text-text-tertiary truncate text-xs first-letter:uppercase" title={when}>
+            {when}
+          </p>
+          {editable && !ready && (
+            <p className="text-text-tertiary truncate text-xs" title={t.notReady}>
+              {t.notReady}
+            </p>
+          )}
+          <MatchCourtFee match={match} fee={courtFee.fee} pairs={lookups.pairs} groupNames={lookups.groupNames} />
+        </div>
+        <MatchActionsMenu items={items} />
+      </div>
     </li>
   );
 }
@@ -229,13 +189,9 @@ interface MatchesSectionProps extends Lookups {
   editable: boolean;
 }
 
-/** Every match with its court and time, and the actions to schedule it and load its result. */
+/** Every match with its court and time, and one menu per match with the actions it still offers. */
 export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, editable }: MatchesSectionProps) {
   const blocks = blocksOf(matches, groupNames);
-  // The next match waiting for a result, in playing order: the only primary button of the view.
-  const nextId = blocks
-    .flatMap((block) => block.matches)
-    .find((match) => match.status !== 'completed' && !!match.pair1_id && !!match.pair2_id)?.id;
   if (blocks.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   return (
     <div className="space-y-5">
@@ -254,7 +210,6 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
                 courtFee={courtFee}
                 editable={editable}
                 locked={match.status === 'completed' && isCorrectionLocked(match, matches)}
-                primary={match.id === nextId}
               />
             ))}
           </ul>

@@ -2,7 +2,6 @@
 export const courtFee = {
   line: (amount: string) => `Cancha: ${amount} por pareja`,
   none: 'Sin costo de cancha',
-  summary: (collected: string, pending: string) => `Cobrado ${collected} · Pendiente ${pending}`,
   edit: 'Editar monto de cancha',
   add: 'Agregar monto de cancha',
   editTitle: 'Monto de cancha',
@@ -13,7 +12,6 @@ export const courtFee = {
   editSubmit: 'Guardar monto',
   editSuccess: 'Monto de cancha actualizado',
   editError: 'No pudimos cambiar el monto de la cancha',
-  charge: 'Cobrar',
   chargeAria: (name: string) => `Cobrar la cancha a ${name}`,
   chargeTitle: 'Cobrar la cancha',
   chargeDescription: (name: string, amount: string) => `${name} paga ${amount} en el complejo.`,
@@ -21,7 +19,6 @@ export const courtFee = {
   chargeSubmit: (amount: string) => `Cobrar ${amount}`,
   chargeSuccess: 'Cobro registrado en la caja',
   paid: (amount: string) => `Pagó ${amount}`,
-  undo: 'Deshacer',
   undoAria: (name: string) => `Deshacer el cobro de la cancha a ${name}`,
   undoTitle: 'Deshacer el cobro',
   undoDescription: (name: string, amount: string) =>
