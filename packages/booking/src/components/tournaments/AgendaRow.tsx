@@ -22,7 +22,7 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
   const spots = spotsNotice(category.spots_left);
   const meta: AgendaMetaToken[] = [
     { key: 'spots', text: spots.text, emphasis: spots.last },
-    { key: 'price', text: `${formatPrice(category.price)}${t.perPairShort}`, endOnPhone: true },
+    { key: 'price', text: formatPrice(category.price), unit: t.perPairShort },
   ];
 
   return (

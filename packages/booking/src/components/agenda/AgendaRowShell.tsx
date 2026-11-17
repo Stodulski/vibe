@@ -8,8 +8,11 @@ export interface AgendaMetaToken {
   text: string;
   /** Highlights the token, as the last places are. */
   emphasis?: boolean;
-  /** On a phone the token sits at the right end of its line, as the price does. */
-  endOnPhone?: boolean;
+  /**
+   * Marks the token as the price: `text` is the amount, in green, and `unit` follows it in the
+   * line's color ("$8.000" + "/persona"). On a phone it sits at the right end of its line.
+   */
+  unit?: string;
 }
 
 interface AgendaRowShellProps {
@@ -86,10 +89,17 @@ function AgendaMeta({
               'whitespace-nowrap',
               token.emphasis && 'text-warning-text font-medium',
               token.wideOnly && 'hidden sm:inline',
-              token.endOnPhone && 'ml-auto sm:ml-0',
+              token.unit !== undefined && 'ml-auto sm:ml-0',
             )}
           >
-            {token.text}
+            {token.unit === undefined ? (
+              token.text
+            ) : (
+              <>
+                <span className="text-primary-400 font-semibold">{token.text}</span>
+                {token.unit}
+              </>
+            )}
           </span>
         </Fragment>
       ))}
