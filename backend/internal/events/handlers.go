@@ -322,8 +322,11 @@ func signUpInputFrom(body gen.EventsPublicSignUpJSONBody) (SignUpInput, map[stri
 			in.Phone = normalized
 		}
 	}
-	if body.Email != nil && *body.Email != "" {
-		in.Email = *body.Email
+	// Required: the registration is confirmed by email, the only channel a
+	// public sign-up is reached on.
+	v.Check(body.Email != "", "email", "must be provided")
+	if body.Email != "" {
+		in.Email = body.Email
 		v.Check(validator.Matches(in.Email, validator.EmailRX), "email", "must be a valid email address")
 	}
 	return in, v.Errors

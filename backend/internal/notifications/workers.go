@@ -6,8 +6,6 @@ import (
 	"fmt"
 
 	"github.com/google/uuid"
-
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 // ownerAddress resolves an owner's current email from the id a task carries,
@@ -42,11 +40,11 @@ func handle[T any](taskType string, deliver func(ctx context.Context, p T) error
 // RegisterWorkers wires each task type to the delivery that performs it. It
 // must be called before the queue is started, on every instance that consumes.
 //
-// one flat registration table: twelve task types, one line of dispatch each.
-// Splitting it into client workers and account workers would hide the property
-// it exists to make readable — that every task type the service can enqueue
-// has exactly one handler here, which TestWorkersDeliverEachTaskType checks by
-// name, and a task with no handler sits in Redis forever.
+// one flat registration table: one line of dispatch per task type. Splitting it
+// into client workers and account workers would hide the property it exists to
+// make readable — that every task type the service can enqueue has exactly one
+// handler here, which TestWorkersDeliverEachTaskType checks by name, and a task
+// with no handler sits in Redis forever.
 //
 //nolint:funlen // see the registration-table note above
 func (s *Service) RegisterWorkers() {
@@ -125,26 +123,5 @@ func (s *Service) RegisterWorkers() {
 		return s.mailer.SendEmailChangeRequested(ctx, p.To, p.FirstName, p.NewEmail, p.ConfirmURL, p.ExpiresIn)
 	}))
 
-	s.queue.RegisterHandler(handle(TaskWABookingConfirmation, func(ctx context.Context, p waBookingConfirmation) error {
-		tmpl := whatsapp.BookingConfirmationTemplate(p.CourtName, p.ComplexName, p.Date, p.StartTime,
-			p.DepositAmount, p.BalanceAmount, p.CancellationLine, p.MapsQuery, p.CancelPath)
-		return s.whatsapp.SendTemplate(ctx, p.Phone, tmpl)
-	}))
-
-	s.queue.RegisterHandler(handle(TaskWAReminder2h, func(ctx context.Context, p waReminder) error {
-		tmpl := whatsapp.Reminder2hTemplate(p.CourtName, p.ComplexName, p.Date, p.StartTime,
-			p.Address, p.BalanceAmount, p.MapsQuery, p.CancelPath)
-		return s.whatsapp.SendTemplate(ctx, p.Phone, tmpl)
-	}))
-
-	s.queue.RegisterHandler(handle(TaskWABookingCancelled, func(ctx context.Context, p waBookingCancelled) error {
-		tmpl := whatsapp.BookingCancelledTemplate(p.CourtName, p.ComplexName, p.Date, p.StartTime,
-			p.RefundLine, p.BookPath)
-		return s.whatsapp.SendTemplate(ctx, p.Phone, tmpl)
-	}))
-
-	s.queue.RegisterHandler(handle(TaskWADepositRefunded, func(ctx context.Context, p waDepositRefunded) error {
-		tmpl := whatsapp.DepositRefundedTemplate(p.Amount, p.ComplexName, p.BookPath)
-		return s.whatsapp.SendTemplate(ctx, p.Phone, tmpl)
-	}))
+	s.registerLegacyWhatsAppDrain()
 }

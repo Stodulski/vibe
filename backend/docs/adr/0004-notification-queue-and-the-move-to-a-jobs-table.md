@@ -8,6 +8,8 @@ table — it was `004_jobs.sql` until the second squash of 2026-09-14, see ADR 0
 NOT moved; see "What did not move" below for why, which is the part of this decision that
 changed on contact with the code.
 
+> Historical note (2026-11): the WhatsApp channel this ADR describes was removed; notifications are email only. The queue and its deduplication key are unchanged.
+
 ## Context
 
 Emails and WhatsApp messages are sent asynchronously through `internal/notifier`, a durable,

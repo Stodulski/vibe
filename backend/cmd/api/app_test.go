@@ -149,7 +149,6 @@ var optionalApplicationFields = map[string]string{
 	"rdb":       "nil when Redis is not configured; every consumer degrades",
 	"jobs":      "built from models.Jobs; the unit harness supplies no jobs store, and the queue falls back to memoryQueue",
 	"blacklist": "token revocation is Redis-backed; nil without it",
-	"wa":        "nil unless WHATSAPP_TOKEN and WHATSAPP_PHONE_NUMBER_ID are both set",
 	"storage":   "nil unless object storage is configured; uploads answer 503",
 	"specValidator": "nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off; " +
 		"the conformance suite is the same check without the runtime cost",
@@ -192,7 +191,7 @@ func TestNewApplicationWiresEveryField(t *testing.T) {
 		name := typ.Field(i).Name
 		field := v.Field(i)
 
-		// Value types (config, models, wg, whatsappEnabled) have no nil to be
+		// Value types (config, models, wg) have no nil to be
 		// caught in, so they are outside what this test can say anything about.
 		if !nillable(field.Kind()) {
 			continue

@@ -298,19 +298,11 @@ func TestAutoRefundIssuesTheRefundAndTellsTheClient(t *testing.T) {
 		t.Fatalf("the client must be told their deposit came back; got %d notifications", len(f.notify.refunds))
 	}
 
-	// The refund notice reaches WhatsApp too. A client who gave a number and
-	// got their confirmation there used to hear about their money only by
-	// email — the payload had no phone field at all, so the channel was not
-	// disabled, it was unrepresentable.
+	// The refund notice is the client's word about their money, so it must
+	// name the amount and offer a way back.
 	sent := f.notify.refunds[0]
-	if sent.Phone != "+5491155551234" {
-		t.Errorf("the refund notice cannot reach WhatsApp; got phone %q", sent.Phone)
-	}
 	if sent.Amount == "" {
 		t.Errorf("the refund notice must name the amount; got %q", sent.Amount)
-	}
-	if sent.BookPath != "c/"+slug+"/book" {
-		t.Errorf("the refund notice offers no way back; got book path %q", sent.BookPath)
 	}
 	if sent.BookURL != "https://vibe.test/c/"+slug+"/book" {
 		t.Errorf("the refund email offers no way back; got %q", sent.BookURL)
@@ -909,8 +901,7 @@ func TestACancelledBookingIsRefundedEvenWhenItsDepositMoved(t *testing.T) {
 // The online confirmation is the one the owner does get an email about, and
 // the one whose client actually paid a deposit. Both facts used to be missing:
 // the confirmation carried no money at all, and a complex with no coordinates
-// lost the WhatsApp channel outright because its map button had nothing to
-// bind to.
+// had no map link at all.
 func TestTheOnlineConfirmationSaysWhatWasPaidAndWhatIsOwed(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
@@ -950,8 +941,8 @@ func TestTheOnlineConfirmationSaysWhatWasPaidAndWhatIsOwed(t *testing.T) {
 	if !strings.Contains(sent.CancellationLine, "24 horas") {
 		t.Errorf("the confirmation must quote the complex's own window; got %q", sent.CancellationLine)
 	}
-	if sent.MapsQuery == "" {
-		t.Error("a complex with only a written address must still get a map button")
+	if sent.MapsURL == "" {
+		t.Error("a complex with only a written address must still get a map link")
 	}
 	if sent.Address != "Av. Santa Fe 1200, Buenos Aires" {
 		t.Errorf("the confirmation email must say where the venue is; got %q", sent.Address)

@@ -126,8 +126,6 @@ func TestARateLimitExemptionCoversOneExactRouteAndNothingUnderIt(t *testing.T) {
 		why    string
 	}{
 		{http.MethodPost, "/api/v1/webhooks/mercadopago", true, "payment notifications"},
-		{http.MethodPost, "/api/v1/webhooks/whatsapp", true, "message delivery from Meta"},
-		{http.MethodGet, "/api/v1/webhooks/whatsapp", true, "Meta's verification handshake"},
 		{http.MethodPost, "/api/v1/webhooks/stripe", false, "the next provider must be added deliberately"},
 		{http.MethodPut, "/api/v1/webhooks/mercadopago", false, "the exemption is for the method that is registered"},
 		{http.MethodPost, "/api/v1/webhooksomething", false, "not a webhook route at all"},

@@ -26,7 +26,7 @@ func (s *stubTurnstile) Verify(_ context.Context, token, _ string) error {
 	return s.err
 }
 
-const pairBody = `"first_name":"Ana","last_name":"Diaz","phone":"+5491100000001",` +
+const pairBody = `"first_name":"Ana","last_name":"Diaz","phone":"+5491100000001","email":"ana@example.com",` +
 	`"partner":{"first_name":"Beto","last_name":"Socio","phone":"+5491100000002"}`
 
 func (f *fixture) gatedHandler(verifier *stubTurnstile) *Handler {
@@ -85,4 +85,27 @@ func TestPairSignUpAsksTheTurnstileGateLikeTheBookingHold(t *testing.T) {
 			t.Fatalf("want 201 with the token verified; got %d (%s) calls=%v", w.Code, w.Body.String(), verifier.calls)
 		}
 	})
+}
+
+// The payer is the one the registration is confirmed to, so their email is
+// refused before anything is held. The partner's email stays optional.
+func TestPairSignUpRequiresThePayersEmailBeforeAnyHold(t *testing.T) {
+	const partner = `"partner":{"first_name":"Beto","last_name":"Socio","phone":"+5491100000002"}`
+
+	f := newFixture(t)
+	w := f.pairSignUp(t, f.gatedHandler(&stubTurnstile{}),
+		`{"first_name":"Ana","last_name":"Diaz","phone":"+5491100000001",`+partner+`,"turnstile_token":"ok"}`)
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "email") {
+		t.Fatalf("a payer without an email must be refused; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.events.signUps) != 0 {
+		t.Error("a sign-up without the payer's email must hold no spot")
+	}
+
+	f = newFixture(t)
+	w = f.pairSignUp(t, f.gatedHandler(&stubTurnstile{}),
+		`{`+pairBody+`,"turnstile_token":"ok"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("a partner without an email must still sign up; got %d (%s)", w.Code, w.Body.String())
+	}
 }

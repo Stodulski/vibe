@@ -50,7 +50,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/stores"
 	"github.com/stodulski/vibe-server/internal/tournaments"
 	"github.com/stodulski/vibe-server/internal/waitlist"
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 type application struct {
@@ -139,7 +138,6 @@ type application struct {
 	// mpOAuth is the same provider on its own circuit breaker, used only by the
 	// bulk token-refresh cron. See newApplication for why it is separate.
 	mpOAuth *mp.MPClient
-	wa      *whatsapp.WAClient
 	mailer  *mailer.Mailer
 	jobs    *jobs.Pool
 	// jobRetention is what clean_jobs needs; see jobRetentionStore in cron.go.
@@ -149,14 +147,13 @@ type application struct {
 	// otherwise. It is a field, distinct from jobs, so a test can read back
 	// what was enqueued regardless of which implementation newApplication
 	// chose.
-	queue           notifications.Queue
-	blacklist       *auth.TokenBlacklist
-	tokens          *auth.TokenService
-	events          *realtime.Hub
-	storage         storage.ObjectStorage
-	whatsappEnabled bool
-	wg              sync.WaitGroup
-	shutdown        chan struct{}
+	queue     notifications.Queue
+	blacklist *auth.TokenBlacklist
+	tokens    *auth.TokenService
+	events    *realtime.Hub
+	storage   storage.ObjectStorage
+	wg        sync.WaitGroup
+	shutdown  chan struct{}
 }
 
 // sentryRelease is what Sentry groups this build's errors under: SENTRY_RELEASE
@@ -496,12 +493,6 @@ func main() {
 	app.jobs.Start()
 
 	logger.Info("email configured", "mode", app.mailer.Mode(), "sender", cfg.Brevo.Sender)
-
-	if app.whatsappEnabled {
-		logger.Info("whatsapp notifications enabled")
-	} else {
-		logger.Info("whatsapp notifications disabled (no WHATSAPP_TOKEN/WHATSAPP_PHONE_NUMBER_ID)")
-	}
 
 	switch {
 	case !cfg.Turnstile.BookingEnforce:

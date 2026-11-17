@@ -55,8 +55,6 @@ type SpecValidator struct {
 // check seeing something other than what was signed.
 var exemptRoutes = []string{
 	"POST /api/v1/webhooks/mercadopago",
-	"POST /api/v1/webhooks/whatsapp",
-	"GET /api/v1/webhooks/whatsapp",
 }
 
 // NewSpecValidator builds a validator over the parsed document.

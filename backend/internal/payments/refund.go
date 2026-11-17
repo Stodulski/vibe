@@ -381,10 +381,8 @@ func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Bookin
 
 	return notifications.Refund{
 		Email:       client.Email,
-		Phone:       client.Phone,
 		ComplexName: complex.Name,
 		Amount:      formatARS(refundCentavos),
-		BookPath:    booklink.BookPath(complex.Slug),
 		BookURL:     booklink.Book(s.cfg.PublicURL, complex.Slug),
 		BookingID:   booking.ID.String(),
 		RefundID:    refundID,

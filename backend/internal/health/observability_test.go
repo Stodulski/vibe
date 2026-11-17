@@ -25,9 +25,9 @@ func payments(state string) stubBreaker {
 	return stubBreaker{state: state, revenue: true}
 }
 
-// whatsapp returns a breaker for a dependency whose loss costs notifications
+// notifier returns a breaker for a dependency whose loss costs notifications
 // rather than money.
-func whatsapp(state string) stubBreaker {
+func notifier(state string) stubBreaker {
 	return stubBreaker{state: state, revenue: false}
 }
 
@@ -79,7 +79,7 @@ func impairedList(t *testing.T, body map[string]any) []string {
 // endpoint answered 200 available. Railway and the Docker healthcheck stayed
 // green while revenue was zero.
 func TestAnOpenPaymentBreakerIsReportedAsDegraded(t *testing.T) {
-	h := newObservedHandler(t, Dependencies{Breakers: []Breaker{payments("open"), whatsapp("closed")}})
+	h := newObservedHandler(t, Dependencies{Breakers: []Breaker{payments("open"), notifier("closed")}})
 
 	_, body := get(t, h.Check)
 
@@ -117,15 +117,15 @@ func TestAHalfOpenPaymentBreakerIsStillDegraded(t *testing.T) {
 	}
 }
 
-// Losing WhatsApp costs notifications, not money. Reporting it as degraded
+// Losing the mail provider costs notifications, not money. Reporting it as degraded
 // would train whoever reads this endpoint to ignore it.
 func TestABreakerThatDoesNotBlockRevenueDoesNotDegradeTheService(t *testing.T) {
-	h := newObservedHandler(t, Dependencies{Breakers: []Breaker{payments("closed"), whatsapp("open")}})
+	h := newObservedHandler(t, Dependencies{Breakers: []Breaker{payments("closed"), notifier("open")}})
 
 	w, body := get(t, h.Check)
 
 	if w.Code != http.StatusOK || body["status"] != statusAvailable {
-		t.Errorf("want an available 200 with only the WhatsApp breaker open; got %d / %v",
+		t.Errorf("want an available 200 with only the mailer breaker open; got %d / %v",
 			w.Code, body["status"])
 	}
 	if got := impairedList(t, body); len(got) != 0 {

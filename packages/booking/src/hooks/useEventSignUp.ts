@@ -33,7 +33,7 @@ export function useEventSignUp(
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone,
-        ...(data.email ? { email: data.email } : {}),
+        email: data.email,
         ...(declares ? toDeclared(data.gender, data.level) : {}),
         ...(token ? { turnstile_token: token } : {}),
       }),

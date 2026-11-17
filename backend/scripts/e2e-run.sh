@@ -149,7 +149,7 @@ echo "[e2e] starting API on :${E2E_API_PORT} against E2E db (:${E2E_DB_PORT}) an
 # .env this script's parent (make) environment may already carry their real
 # secrets. Every var that matters for isolation or that could reach a real
 # external service is set here explicitly (overriding anything inherited),
-# so this instance never touches the dev DB/Redis and never emails, WhatsApps
+# so this instance never touches the dev DB/Redis and never emails
 # or charges anyone for real — construct-a-minimal-env, not copy-the-real-one.
 # MercadoPago is configured end to end, but every call goes to the fake
 # (MP_API_BASE_URL); the platform token, app id and client secret are
@@ -166,7 +166,6 @@ MP_ACCESS_TOKEN="$E2E_MP_PLATFORM_TOKEN" MP_WEBHOOK_SECRET="$E2E_MP_WEBHOOK_SECR
 MP_APP_ID="$E2E_MP_APP_ID" MP_CLIENT_SECRET="$E2E_MP_CLIENT_SECRET" \
 MP_API_BASE_URL="$MP_FAKE_URL" \
 MP_CREDENTIAL_KEYS="$E2E_MP_CREDENTIAL_KEYS" \
-WHATSAPP_TOKEN="" WHATSAPP_PHONE_NUMBER_ID="" WHATSAPP_VERIFY_TOKEN="" WHATSAPP_APP_SECRET="" \
 BREVO_API_KEY="" SMTP_HOST="" SMTP_USERNAME="" SMTP_PASSWORD="" \
 TURNSTILE_SECRET_KEY="1x0000000000000000000000000000000AA" \
 SENTRY_DSN="" \

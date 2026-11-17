@@ -1,23 +1,23 @@
 import '../lib/zodConfig';
 import { z } from 'zod';
 import { BOOKING_MESSAGES } from '../messages';
-import { optionalEmailField, phoneField, firstNameField, lastNameField } from '../lib/validations';
+import { emailField, phoneField, firstNameField, lastNameField } from '../lib/validations';
 import { openPlayDeclaresLevel, openPlayIssues, toDeclared, type EventTraits } from '../lib/declaredPlayers';
 import { declarationWords, isModality } from '../lib/traitLabels';
 
 const d = BOOKING_MESSAGES.declaration;
 
 /**
- * The sign-up form: name and phone required, email optional (without it no
- * confirmation email is sent). The person's gender and level are strings until
- * they are chosen; they are asked only when the event has a modality (gender)
- * or a range of levels (level).
+ * The sign-up form: name, phone and email required (the confirmation goes to the
+ * email). The person's gender and level are strings until they are chosen; they
+ * are asked only when the event has a modality (gender) or a range of levels
+ * (level).
  */
 const eventFields = z.object({
   first_name: firstNameField,
   last_name: lastNameField,
   phone: phoneField,
-  email: optionalEmailField,
+  email: emailField,
   gender: z.string(),
   level: z.string(),
 });

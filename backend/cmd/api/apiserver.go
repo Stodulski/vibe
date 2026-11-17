@@ -732,18 +732,6 @@ func (s *apiServer) PaymentsMercadoPagoWebhook(w http.ResponseWriter, r *http.Re
 	s.app.payments.MercadoPagoWebhook(w, r)
 }
 
-// BookingsWhatsAppVerifyWebhook implements gen.ServerInterface for bookingsWhatsAppVerifyWebhook
-// (GET /api/v1/webhooks/whatsapp). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) BookingsWhatsAppVerifyWebhook(w http.ResponseWriter, r *http.Request, params gen.BookingsWhatsAppVerifyWebhookParams) {
-	s.app.bookings.WhatsAppVerify(w, r)
-}
-
-// BookingsWhatsAppWebhook implements gen.ServerInterface for bookingsWhatsAppWebhook
-// (POST /api/v1/webhooks/whatsapp). Guarded by routeGuards; see the type comment above.
-func (s *apiServer) BookingsWhatsAppWebhook(w http.ResponseWriter, r *http.Request) {
-	s.app.bookings.WhatsAppWebhook(w, r)
-}
-
 // SocialPutPost implements gen.ServerInterface for socialPutPost
 // (PUT /api/v1/social/posts/{id}). It is public: the handler checks the GitHub
 // OIDC token itself, because the caller has no session.

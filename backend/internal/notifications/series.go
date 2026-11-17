@@ -3,8 +3,6 @@ package notifications
 import (
 	"context"
 	"time"
-
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 // Notices of a fixed weekly booking ("turno fijo"). They are one message per
@@ -12,26 +10,14 @@ import (
 // scheduler with no confirmation of its own (see internal/bookings/series.go).
 const (
 	// TaskEmailSeriesCreated tells the client a fixed booking was set up for
-	// them. It is email only: the approved WhatsApp templates all carry a button
-	// bound to a booking, and a series has none to point at when it is created.
+	// them.
 	TaskEmailSeriesCreated = "email:series_created"
 	// TaskEmailSeriesCancelled is the email half of the series cancellation.
 	TaskEmailSeriesCancelled = "email:series_cancelled"
-	// TaskWASeriesCancelled is the WhatsApp half. It reuses the approved
-	// booking_cancelled template, so it needs no new Meta approval: the date
-	// parameter carries the sentence about the series (see SeriesCancelled).
-	TaskWASeriesCancelled = "wa:series_cancelled"
-)
-
-// The two outcomes of a cancelled series for the client's money, in the
-// lowercase the template's fixed word "Devolución:" requires.
-const (
-	SeriesNoRefundLine = "no hay pagos a devolver."
-	SeriesKeptPaidLine = "los turnos ya pagos se mantienen."
 )
 
 // SeriesCreation is the notice that a fixed weekly booking was set up. An empty
-// Email skips the notice: there is no other channel for it.
+// Email skips the notice.
 type SeriesCreation struct {
 	Email       string
 	ComplexName string
@@ -58,7 +44,6 @@ type SeriesCreation struct {
 // booking from a date on.
 type SeriesCancellation struct {
 	Email       string
-	Phone       string
 	ComplexName string
 	CourtName   string
 	Weekday     time.Weekday
@@ -68,10 +53,8 @@ type SeriesCancellation struct {
 	// KeptPaid is true when some already-created occurrences carry a payment and
 	// so stand.
 	KeptPaid bool
-	// BookPath binds the WhatsApp "Nueva reserva" button; BookURL is the same
-	// page, absolute, for the email.
-	BookPath string
-	BookURL  string
+	// BookURL is the booking page, absolute, for the email.
+	BookURL string
 
 	// SeriesID is the deduplication subject, with From: ending the same series
 	// from two dates is two events.
@@ -128,37 +111,20 @@ func (s *Service) SeriesCreated(c SeriesCreation) {
 	}, dedup(TaskEmailSeriesCreated, c.Email, c.SeriesID))
 }
 
-// SeriesCancelled tells the client their fixed booking was cancelled: by
-// WhatsApp, through the booking_cancelled template, and by email.
+// SeriesCancelled tells the client their fixed booking was cancelled, by email.
 func (s *Service) SeriesCancelled(c SeriesCancellation) {
+	if c.Email == "" {
+		return
+	}
 	subject := ""
 	if c.SeriesID != "" {
 		subject = c.SeriesID + ":" + c.From
 	}
-	if c.Email != "" {
-		s.queue.Enqueue(TaskEmailSeriesCancelled, seriesCancelledEmail{
-			Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
-			Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, From: c.From,
-			KeptPaid: c.KeptPaid, BookURL: c.BookURL,
-		}, dedup(TaskEmailSeriesCancelled, c.Email, subject))
-	}
-	if !s.wantsWhatsApp(c.Phone) {
-		return
-	}
-	if c.BookPath == "" {
-		s.logger.Warn("notifications: skipping WhatsApp series cancellation, missing button parameter")
-		return
-	}
-	refund := SeriesNoRefundLine
-	if c.KeptPaid {
-		refund = SeriesKeptPaidLine
-	}
-	s.queue.Enqueue(TaskWASeriesCancelled, waBookingCancelled{
-		Phone: c.Phone, ComplexName: c.ComplexName, CourtName: c.CourtName,
-		Date:       SpanishWeekday(c.Weekday) + " " + c.From + " y los " + SpanishWeekdays(c.Weekday) + " siguientes",
-		StartTime:  c.Hours,
-		RefundLine: refund, BookPath: c.BookPath,
-	}, dedup(TaskWASeriesCancelled, c.Phone, subject))
+	s.queue.Enqueue(TaskEmailSeriesCancelled, seriesCancelledEmail{
+		Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
+		Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, From: c.From,
+		KeptPaid: c.KeptPaid, BookURL: c.BookURL,
+	}, dedup(TaskEmailSeriesCancelled, c.Email, subject))
 }
 
 // registerSeriesWorkers wires the delivery of the series notices.
@@ -171,11 +137,5 @@ func (s *Service) registerSeriesWorkers() {
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCancelled, func(ctx context.Context, p seriesCancelledEmail) error {
 		return s.mailer.SendSeriesCancelled(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,
 			p.From, p.KeptPaid, p.BookURL)
-	}))
-	// The same builder as TaskWABookingCancelled: one approved template, two
-	// events. Only the values differ.
-	s.queue.RegisterHandler(handle(TaskWASeriesCancelled, func(ctx context.Context, p waBookingCancelled) error {
-		return s.whatsapp.SendTemplate(ctx, p.Phone, whatsapp.BookingCancelledTemplate(p.CourtName, p.ComplexName,
-			p.Date, p.StartTime, p.RefundLine, p.BookPath))
 	}))
 }

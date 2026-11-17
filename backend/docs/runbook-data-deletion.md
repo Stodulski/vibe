@@ -38,7 +38,7 @@ The phone is a derived placeholder rather than a blank or a shared constant,
 and both halves of that matter. `clients.phone` is `NOT NULL` and unique per
 complex, so a blank or a constant would refuse the second anonymization in the
 same venue. And it deliberately does not look like a phone number: a value that
-does can be dialled, messaged on WhatsApp, or matched by a later booking's
+does can be dialled, or matched by a later booking's
 lookup against a real person who happens to be given that number.
 
 **Kept, deliberately**

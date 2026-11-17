@@ -206,21 +206,15 @@ func TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay(t *testing.T) {
 	if rem.BalanceAmount != "$15.000" {
 		t.Errorf("the reminder does not say what is left to pay; got %q", rem.BalanceAmount)
 	}
-	if rem.MapsQuery != "-34.603722,-58.381592" {
-		t.Errorf("the reminder cannot open a map; got maps query %q", rem.MapsQuery)
-	}
 	if rem.MapsURL != "https://www.google.com/maps/search/?api=1&query=-34.603722,-58.381592" {
 		t.Errorf("the reminder email cannot open a map; got maps URL %q", rem.MapsURL)
-	}
-	if rem.CancelPath != "c/vibe-palermo/book/cancel?token=fresh-token" {
-		t.Errorf("the reminder cannot be cancelled from WhatsApp; got cancel path %q", rem.CancelPath)
 	}
 	if rem.CancelURL != "http://localhost:5173/c/vibe-palermo/book/cancel?token=fresh-token" {
 		t.Errorf("the reminder email has no cancel link; got %q", rem.CancelURL)
 	}
 }
 
-// A mint that fails costs the WhatsApp cancel button and nothing else: the
+// A mint that fails costs the cancel link and nothing else: the
 // reminder still goes out, which is the point of the notification.
 func TestCronReminder2h_StillRemindsWhenTheCancelLinkCannotBeMinted(t *testing.T) {
 	candidate := &bookingstore.CronBooking{ClientEmail: "ana@example.com", ComplexName: "Vibe", ComplexSlug: "vibe"}
@@ -305,8 +299,7 @@ func TestCronReleaseExpiredPayments_SaysWhyTheBookingWentAway(t *testing.T) {
 }
 
 // With PUBLIC_URL set, the reminder's cancel link is built on the public site,
-// the origin a booking's own links use. The WhatsApp path stays relative: its
-// host comes from the template's base URL configured in Meta, not from here.
+// the origin a booking's own links use.
 func TestCronReminder2h_CancelLinkUsesPublicURLWhenSet(t *testing.T) {
 	candidate := &bookingstore.CronBooking{ClientEmail: "ana@example.com", ComplexName: "Vibe", ComplexSlug: "vibe"}
 	candidate.ID = uuid.New()
@@ -339,9 +332,6 @@ func TestCronReminder2h_CancelLinkUsesPublicURLWhenSet(t *testing.T) {
 	}
 	if rem.CancelURL != "https://vibe.com.ar/c/vibe/book/cancel?token=fresh-token" {
 		t.Errorf("the reminder email cancel link is not on the public site; got %q", rem.CancelURL)
-	}
-	if rem.CancelPath != "c/vibe/book/cancel?token=fresh-token" {
-		t.Errorf("the WhatsApp cancel path changed shape; got %q", rem.CancelPath)
 	}
 }
 

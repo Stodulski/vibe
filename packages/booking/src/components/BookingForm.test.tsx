@@ -189,6 +189,7 @@ describe('BookingForm validation', () => {
     await user.type(screen.getByLabelText(/nombre/i), 'Juan');
     await user.type(screen.getByLabelText(/apellido/i), 'Pérez');
     await user.type(screen.getByLabelText(/tel.fono/i), '1123456789');
+    await user.type(screen.getByLabelText(/email/i), 'juan@example.com');
     await user.click(screen.getByRole('button', { name: /pagar/i }));
 
     expect(defaultProps.onSubmit).toHaveBeenCalledTimes(1);

@@ -208,7 +208,7 @@ func TestPublicListAndSignUpAnswerWhatThePageNeeds(t *testing.T) {
 
 	w = httptest.NewRecorder()
 	h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/",
-		`{"first_name":"Ana","last_name":"Diaz","phone":"+54 9 11 1234-5678"}`,
+		`{"first_name":"Ana","last_name":"Diaz","phone":"+54 9 11 1234-5678","email":"ana@example.com"}`,
 		map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}))
 	if w.Code != http.StatusCreated {
 		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
@@ -226,7 +226,7 @@ func TestPublicListAndSignUpAnswerWhatThePageNeeds(t *testing.T) {
 	}
 }
 
-func TestPublicSignUpValidatesTheRequiredFieldsAndAnOptionalEmail(t *testing.T) {
+func TestPublicSignUpValidatesTheRequiredFieldsAndAnEmailThatLooksLikeOne(t *testing.T) {
 	f := newFixture(t)
 	h := newHandler(f)
 	params := map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}
@@ -243,8 +243,11 @@ func TestPublicSignUpValidatesTheRequiredFieldsAndAnOptionalEmail(t *testing.T) 
 	}
 	w = httptest.NewRecorder()
 	h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"}`, params))
-	if w.Code != http.StatusCreated {
-		t.Fatalf("an absent email is fine; got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "email") {
+		t.Fatalf("an absent email must be refused before anything is held; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.store.signedUp) != 0 {
+		t.Error("a sign-up without an email must hold no spot")
 	}
 }
 
@@ -252,7 +255,7 @@ func TestPublicSignUpAnswers409WhenFullAnd400WithoutMercadoPago(t *testing.T) {
 	f := newFixture(t)
 	h := newHandler(f)
 	params := map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}
-	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"}`
+	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678","email":"ana@example.com"}`
 
 	f.store.signUpErr = eventstore.ErrEventFull
 	w := httptest.NewRecorder()
@@ -273,7 +276,7 @@ func TestPublicSignUpAnswers409WhenFullAnd400WithoutMercadoPago(t *testing.T) {
 // Each refusal of a sign-up answers its own problem kind, so the page can say
 // which one it was without reading the English detail.
 func TestPublicSignUpRefusalsEachAnswerTheirOwnKind(t *testing.T) {
-	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"}`
+	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678","email":"ana@example.com"}`
 	for _, tc := range []struct {
 		err    error
 		status int
@@ -345,7 +348,7 @@ func TestPublicStatusAndCancelFollowTheRegistrationToken(t *testing.T) {
 // The sign-up takes a spot, so it asks the same bot check as the booking hold:
 // a missing or rejected token is a 422 on turnstile_token and holds nothing.
 func TestPublicSignUpAsksTheTurnstileGateLikeTheBookingHold(t *testing.T) {
-	const person = `"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678"`
+	const person = `"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678","email":"ana@example.com"`
 	for _, tc := range []struct {
 		name  string
 		body  string

@@ -1,6 +1,6 @@
 // Package booklink builds every client-facing URL a booking's public routes
-// are reached through: the absolute cancel link and its relative WhatsApp-button
-// counterpart, and MercadoPago's success/pending/failure checkout redirects.
+// are reached through: the absolute cancel link and MercadoPago's
+// success/pending/failure checkout redirects.
 //
 // Before this package existed, three sites built the same four URL shapes with
 // duplicated fmt.Sprintf pairs — internal/bookings/create.go,
@@ -30,16 +30,9 @@ import (
 const QueryParam = "token"
 
 // Cancel builds the absolute cancel link sent in booking confirmation
-// notifications (email, WhatsApp).
+// notifications.
 func Cancel(publicURL, complexSlug, credential string) string {
 	return fmt.Sprintf("%s/c/%s/book/cancel?%s=%s", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
-}
-
-// CancelPath builds the same link as Cancel, relative to the public origin
-// rather than absolute, for the WhatsApp confirmation message's button. The
-// WhatsApp template's base URL, configured in Meta, supplies the host.
-func CancelPath(complexSlug, credential string) string {
-	return fmt.Sprintf("c/%s/book/cancel?%s=%s", complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // Success builds the MercadoPago checkout preference's success back_url.
@@ -85,27 +78,12 @@ func Failure(publicURL, complexSlug string) string {
 	return fmt.Sprintf("%s/c/%s/book?error=payment_failed", publicURL, complexSlug)
 }
 
-// BookPath builds the complex's public booking page, relative to the public
-// origin, for the "Nueva reserva" button on the cancellation and refund
-// WhatsApp templates.
-//
-// It is the one client-facing link that carries no credential: the booking
-// page is public, and a client whose booking was just cancelled has nothing
-// left to authorize against.
-func BookPath(complexSlug string) string {
-	return fmt.Sprintf("c/%s/book", complexSlug)
-}
-
 // MapsQuery builds the dynamic suffix for a Google Maps search button — the
 // part appended to https://www.google.com/maps/search/?api=1&query=.
 //
 // Coordinates when the complex has them, the written address when it does not.
-// The fallback is the whole point: this used to return "" for a complex with
-// no latitude, and internal/notifications refused to enqueue a WhatsApp
-// confirmation whose button parameter was empty, so every venue that had never
-// filled in its coordinates lost the entire WhatsApp channel — silently, and
-// with the email still going out to hide it. A venue always has a name, so
-// this always returns something.
+// The fallback is the whole point: a complex with no latitude still gets a
+// link. A venue always has a name, so this always returns something.
 func MapsQuery(name, address, city string, latitude, longitude *float64) string {
 	if latitude != nil && longitude != nil {
 		return fmt.Sprintf("%f,%f", *latitude, *longitude)
@@ -126,7 +104,7 @@ func MapsQuery(name, address, city string, latitude, longitude *float64) string 
 	return url.QueryEscape(strings.Join(parts, ", "))
 }
 
-// Book builds the same public booking page as BookPath, absolute, for the
+// Book builds the complex's public booking page, absolute, for the
 // cancellation and refund emails' "Nueva reserva" button.
 func Book(publicURL, complexSlug string) string {
 	return fmt.Sprintf("%s/c/%s/book", publicURL, complexSlug)
@@ -147,11 +125,10 @@ const mapsURLPrefix = "https://www.google.com/maps/search/?api=1&query="
 // emails' "Cómo llegar" link uses, from the same coordinate/address fallback
 // as MapsQuery.
 //
-// It wraps MapsQuery rather than re-deriving the fallback so the two
-// call sites — the WhatsApp templates' button suffix and the emails' full
-// link — can never disagree about which venues have coordinates and which
-// fall back to the written address. Empty in, empty out: a venue with
-// nothing to show gets no link rather than a bare prefix.
+// It wraps MapsQuery rather than re-deriving the fallback, so the rule for
+// which venues have coordinates and which fall back to the written address
+// lives in one place. Empty in, empty out: a venue with nothing to show gets no
+// link rather than a bare prefix.
 func MapsURL(name, address, city string, latitude, longitude *float64) string {
 	q := MapsQuery(name, address, city, latitude, longitude)
 	if q == "" {

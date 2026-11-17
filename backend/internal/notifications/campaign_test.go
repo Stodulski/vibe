@@ -9,7 +9,7 @@ import (
 // handler would fail silently for every owner, so the registration is pinned here.
 // One-off campaign (2026-10). Remove with the campaign.
 func TestBenefitsCampaignWorkerDeliversTheEmail(t *testing.T) {
-	s, q, mailer, _, _ := newTestService(t, true)
+	s, q, mailer, _ := newTestService(t)
 	s.RegisterWorkers()
 
 	payload, _ := json.Marshal(BenefitsCampaignEmail{

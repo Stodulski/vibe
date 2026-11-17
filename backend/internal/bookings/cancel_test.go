@@ -173,19 +173,14 @@ func TestPublicCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	if sent.RefundAmount != "$5.000" {
 		t.Errorf("want the refund amount carried; got %q", sent.RefundAmount)
 	}
-	// The client gave a number, so WhatsApp has to be reachable: without a
-	// phone on the payload the channel is not disabled, it is unrepresentable.
-	if sent.Phone != "+5491155551234" {
-		t.Errorf("the cancellation cannot reach WhatsApp; got phone %q", sent.Phone)
-	}
-	if sent.BookPath != "c/vibe/book" || sent.BookURL != "https://vibe.test/c/vibe/book" {
-		t.Errorf("the cancellation offers no way back; got %q / %q", sent.BookPath, sent.BookURL)
+	if sent.BookURL != "https://vibe.test/c/vibe/book" {
+		t.Errorf("the cancellation offers no way back; got %q", sent.BookURL)
 	}
 }
 
-// refundNotice is what the cancellation email and the cancellation WhatsApp
-// message quote, and it is the whole of what the client is told about their
-// money — there is no envelope field beside it in either channel. Every
+// refundNotice is what the cancellation email quotes, and it is the whole of
+// what the client is told about their money — there is no envelope field beside
+// it in the email. Every
 // outcome must therefore produce a sentence, and every sentence that is about
 // an amount must name it.
 func TestRefundNoticeNamesTheMoneyForEveryOutcome(t *testing.T) {
@@ -767,11 +762,8 @@ func TestStaffCancelTellsTheClientAboutTheirMoney(t *testing.T) {
 	if sent.RefundAmount != "$5.000" {
 		t.Errorf("want the refund amount carried; got %q", sent.RefundAmount)
 	}
-	if sent.Phone != "+5491155551234" {
-		t.Errorf("the cancellation cannot reach WhatsApp; got phone %q", sent.Phone)
-	}
-	if sent.BookPath != "c/vibe/book" || sent.BookURL != "https://vibe.test/c/vibe/book" {
-		t.Errorf("the cancellation offers no way back; got %q / %q", sent.BookPath, sent.BookURL)
+	if sent.BookURL != "https://vibe.test/c/vibe/book" {
+		t.Errorf("the cancellation offers no way back; got %q", sent.BookURL)
 	}
 }
 
@@ -1120,8 +1112,7 @@ func TestStaffConfirmationSaysWhatIsOwedAndDoesNotEmailTheOwnerAboutTheirOwnEntr
 	f, complexID, courtID := staffFixture(t)
 
 	// RequireComplexOwner puts the complex on the request, so that is the one
-	// Create reads. This one has a written address and no coordinates: the
-	// case that used to lose the WhatsApp channel outright.
+	// Create reads. This one has a written address and no coordinates.
 	r := ownerRequest(t, http.MethodPost, "/", complexID,
 		map[string]string{"id": complexID.String()},
 		staffBookBodyWithPrice(courtID, "18:00", 90, 2_000_000))
@@ -1155,9 +1146,9 @@ func TestStaffConfirmationSaysWhatIsOwedAndDoesNotEmailTheOwnerAboutTheirOwnEntr
 	if sent.CancellationLine == "" {
 		t.Error("the confirmation must state the cancellation rule")
 	}
-	// A complex with no coordinates used to lose the WhatsApp channel entirely.
-	if sent.MapsQuery == "" {
-		t.Error("a complex with only a written address must still get a map button")
+	// A complex with no coordinates still gets a map link, from its address.
+	if sent.MapsURL == "" {
+		t.Error("a complex with only a written address must still get a map link")
 	}
 }
 

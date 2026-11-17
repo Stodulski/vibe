@@ -24,8 +24,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
-// Reminder2h sends the two-hour reminder (email, and WhatsApp when it is
-// configured). Reminders are informational only — bookings are never
+// Reminder2h sends the two-hour reminder by email. Reminders are informational only — bookings are never
 // auto-cancelled for lack of confirmation.
 //
 // A booking is queued first and flagged second. The flag is what stops later
@@ -58,22 +57,20 @@ func (s *Service) Reminder2h(ctx context.Context) {
 		// was confirmed with: booking_link_tokens stores only a hash, so the
 		// plaintext minted at confirmation is unreadable from here — see
 		// booklinkstore.Store.Mint on why every process that emits a link
-		// mints its own row. A mint that fails costs the WhatsApp cancel
-		// button and nothing else: the reminder still goes out, by email and
-		// without the button, rather than not at all.
-		cancelPath, cancelURL := "", ""
+		// mints its own row. A mint that fails costs the cancel link and
+		// nothing else: the reminder still goes out, without the link, rather
+		// than not at all.
+		cancelURL := ""
 		token, mintErr := s.linkTokens.Mint(ctx, b.ID, b.EndsAt.Add(s.cfg.LinkTokenBuffer))
 		if mintErr != nil {
 			s.logger.Error("cron_reminder_2h: failed to mint a cancel link, sending the reminder without one",
 				"error", mintErr, "booking_id", b.ID)
 		} else {
-			cancelPath = booklink.CancelPath(b.ComplexSlug, token)
 			cancelURL = booklink.Cancel(s.cfg.PublicURL, b.ComplexSlug, token)
 		}
 
 		if err := s.notify.ReminderDue(notifications.Reminder{
 			Email:       b.ClientEmail,
-			Phone:       b.ClientPhone,
 			ComplexName: b.ComplexName,
 			CourtName:   b.CourtName,
 			Date:        b.Date.Format("02/01"),
@@ -83,9 +80,7 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			// a client acts on, and the confirmation that carried it went out
 			// days ago.
 			BalanceAmount: notifications.BalanceAmount(b.Price, b.DepositAmount, b.CollectionStatus.String()),
-			MapsQuery:     booklink.MapsQuery(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
 			MapsURL:       booklink.MapsURL(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
-			CancelPath:    cancelPath,
 			CancelURL:     cancelURL,
 			BookingID:     b.ID.String(),
 		}); err != nil {
@@ -253,17 +248,15 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
 	})
 
-	// A booking that never named anybody has nobody to tell. The sweeps read
-	// no untouched slot hold, so this is a guard rather than a path: such a
-	// booking is still released, quietly, instead of queueing a notice with no
-	// address.
-	if b.ClientEmail == "" && b.ClientPhone == "" {
+	// A booking with no email has nobody to tell. The sweeps read no untouched
+	// slot hold, so this is a guard rather than a path: such a booking is still
+	// released, quietly, instead of queueing a notice with no address.
+	if b.ClientEmail == "" {
 		return nil
 	}
 
 	s.notify.BookingCancelled(notifications.Cancellation{
 		Email:       b.ClientEmail,
-		Phone:       b.ClientPhone,
 		ComplexName: b.ComplexName,
 		CourtName:   b.CourtName,
 		Date:        b.Date.Format("02/01"),
@@ -273,7 +266,6 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		// why their booking vanished, which the generic cancellation copy
 		// never answered.
 		RefundLine: notifications.ExpiredUnpaidRefundLine,
-		BookPath:   booklink.BookPath(b.ComplexSlug),
 		BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
 		// Never owner-facing: the owner was not told about this booking
 		// (see SourceExpiredUnpaid), so there is nothing to take back.

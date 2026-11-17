@@ -36,7 +36,7 @@ import { privacidadJsonLd } from '../data/jsonld';
  />
  <main class="legal-page">
   <h1>Política de Privacidad</h1>
-  <p class="legal-date">Última actualización: <time datetime="2026-10-12">12 de octubre de 2026</time></p>
+  <p class="legal-date">Última actualización: <time datetime="2026-11-17">17 de noviembre de 2026</time></p>
   <p><strong>Vibe</strong> ("nosotros", "la plataforma") opera el sitio web <a href="https://vibe.com.ar">vibe.com.ar</a> y desarrolla la aplicación web <a href="https://app.vibe.com.ar">app.vibe.com.ar</a>. Esta política describe cómo recopilamos, usamos y protegemos la información personal de los usuarios.</p>
   <h2>1. Correos de la lista de espera</h2>
   <p>Antes del lanzamiento, quienes querían anotarse dejaban su correo en un formulario de este sitio. Guardábamos la dirección de correo, la fecha y hora del alta, y la página desde la que se envió, en una planilla de Google Sheets alojada en Google Workspace.</p>
@@ -56,15 +56,15 @@ import { privacidadJsonLd } from '../data/jsonld';
   </ul>
   <p><strong>Clientes que reservan:</strong></p>
   <ul>
-   <li>Nombre, teléfono y opcionalmente email al realizar una reserva</li>
+   <li>Nombre, teléfono y email al realizar una reserva o al anotarte en un torneo u open play</li>
    <li>Historial de reservas, cancelaciones y asistencia</li>
    <li>Datos de pago procesados por MercadoPago (no almacenamos datos de tarjetas)</li>
   </ul>
   <h2>4. Cómo usamos la información</h2>
   <ul>
    <li>Gestionar reservas de canchas y procesar pagos de señas</li>
-   <li>Enviar confirmaciones de reserva por email y WhatsApp</li>
-   <li>Enviar recordatorios automáticos antes del turno por email y WhatsApp</li>
+   <li>Enviar confirmaciones de reserva por email</li>
+   <li>Enviar recordatorios automáticos antes del turno por email</li>
    <li>Permitir a los dueños gestionar su complejo, clientes y estadísticas</li>
    <li>Generar reportes financieros y permitir la exportación de datos de pagos al dueño del complejo</li>
    <li>Mejorar el funcionamiento y la seguridad de la plataforma</li>
@@ -77,27 +77,19 @@ import { privacidadJsonLd } from '../data/jsonld';
   <p>Cada uno de estos correos de recordatorio y novedades tiene un link para darte de baja, o podés escribir a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>. Podés darte de baja cuando quieras. Los mails transaccionales sobre tus reservas y tu cuenta se siguen enviando.</p>
   <h2>5. Acceso del equipo de Vibe</h2>
   <p>El personal autorizado de Vibe puede ver la información cargada en la plataforma, incluidos los datos de los clientes de cada complejo y los montos registrados. Solo accede cuando hace falta para dar soporte o prevenir fraudes, y mantiene esa información en confidencialidad.</p>
-  <h2>6. Comunicaciones por WhatsApp</h2>
-  <p>Utilizamos la <strong>API de WhatsApp Business</strong> (Meta Platforms) para enviar mensajes transaccionales relacionados con las reservas. Estos mensajes incluyen:</p>
-  <ul>
-   <li>Confirmación de reserva con datos de la cancha, fecha y horario</li>
-   <li>Recordatorio 2 horas antes del turno</li>
-  </ul>
-  <p>Estos mensajes son exclusivamente transaccionales. <strong>No enviamos mensajes publicitarios ni de marketing por WhatsApp.</strong> El número de teléfono del cliente se utiliza únicamente para notificaciones relacionadas con sus reservas.</p>
-  <h2>7. Pagos y MercadoPago</h2>
+  <h2>6. Pagos y MercadoPago</h2>
   <p>Los pagos de señas se procesan a través de <strong>MercadoPago</strong>. No almacenamos datos de tarjetas de crédito ni información financiera sensible. Toda la información de pago es gestionada directamente por MercadoPago bajo sus propios términos de servicio y política de privacidad. Los reembolsos se procesan automáticamente a través de MercadoPago cuando corresponde.</p>
-  <h2>8. Almacenamiento y seguridad</h2>
+  <h2>7. Almacenamiento y seguridad</h2>
   <ul>
    <li>Los datos se almacenan en servidores seguros con conexión encriptada (HTTPS/TLS)</li>
    <li>Las contraseñas se almacenan con hash criptográfico (nunca en texto plano)</li>
    <li>Implementamos protección CSRF, rate limiting y validación de entradas</li>
    <li>El acceso a la plataforma esta protegido mediante tokens JWT con expiración</li>
   </ul>
-  <h2>9. Compartir información con terceros</h2>
+  <h2>8. Compartir información con terceros</h2>
   <p>No vendemos ni compartimos datos personales con terceros con fines comerciales. Compartimos información únicamente con:</p>
   <ul>
    <li><strong>MercadoPago:</strong> para procesar pagos y reembolsos</li>
-   <li><strong>Meta (WhatsApp Business API):</strong> para enviar notificaciones transaccionales</li>
    <li><strong>Brevo (email):</strong> para enviar notificaciones por correo electrónico</li>
    <li><strong>Cloudflare R2:</strong> para almacenar el logo y la portada de cada complejo y los reportes financieros que se exportan</li>
    <li><strong>Google Analytics:</strong> para medir las visitas a la página de inicio de vibe.com.ar</li>
@@ -110,7 +102,7 @@ import { privacidadJsonLd } from '../data/jsonld';
    <li><strong>Vercel:</strong> aloja la aplicación web y este sitio</li>
   </ul>
   <p>Algunos de estos proveedores procesan datos en servidores fuera de la Argentina, principalmente en Estados Unidos y en la Unión Europea.</p>
-  <h2>10. Derechos del usuario</h2>
+  <h2>9. Derechos del usuario</h2>
   <p>Conforme a la legislación vigente en Argentina (Ley 25.326 de Protección de Datos Personales), tenés derecho a:</p>
   <ul>
    <li>Acceder a tus datos personales almacenados</li>
@@ -120,17 +112,17 @@ import { privacidadJsonLd } from '../data/jsonld';
   <p>Para ejercer cualquiera de estos derechos, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
   <p>Los pedidos sobre los datos de los clientes de un complejo se atienden junto con ese complejo, que es el responsable de esos datos.</p>
   <p>LA AGENCIA DE ACCESO A LA INFORMACIÓN PÚBLICA, en su carácter de Órgano de Control de la Ley N° 25.326, tiene la atribución de atender las denuncias y reclamos que interpongan quienes resulten afectados en sus derechos por incumplimiento de las normas vigentes en materia de protección de datos personales.</p>
-  <h2>11. Cookies y analytics</h2>
+  <h2>10. Cookies y analytics</h2>
   <p><strong>Google Analytics</strong> se usa solo en la página de inicio de vibe.com.ar. Se carga cuando el visitante se desplaza, hace clic, toca la pantalla o presiona una tecla. Usa cookies para distinguir visitantes y registra páginas vistas, tiempo de permanencia y origen del tráfico.</p>
   <p><strong>Cloudflare Web Analytics</strong> mide las visitas a las páginas públicas de cada complejo y de cada ciudad en vibe.com.ar. Esta herramienta no usa cookies ni almacenamiento local del navegador, no usa la dirección IP para identificar a las personas y muestra totales de visitas por página, país y origen. Los pasos de reserva no cargan esta herramienta.</p>
   <p>La aplicación web (app.vibe.com.ar) no utiliza Google Analytics ni Cloudflare Web Analytics.</p>
-  <h2>12. Retención de datos</h2>
+  <h2>11. Retención de datos</h2>
   <p>Los datos de un registro sin terminar se borran a los 30 días.</p>
   <p>Los correos de la lista de espera se conservan según lo indicado en la sección 1: hasta que se envía el aviso de lanzamiento, o hasta que pidas la baja.</p>
   <p>Los datos de reservas y clientes se conservan mientras el complejo mantenga su cuenta activa. Si un dueño de complejo elimina su cuenta, todos los datos asociados (incluyendo reservas y clientes) se eliminan de forma permanente. Los datos de pago se conservan según los plazos legales y fiscales aplicables.</p>
-  <h2>13. Cambios en esta política</h2>
+  <h2>12. Cambios en esta política</h2>
   <p>Podemos actualizar esta política periódicamente. Publicaremos cualquier cambio en esta página con la fecha de actualización. El uso continuado de la plataforma después de los cambios constituye la aceptación de la política actualizada.</p>
-  <h2>14. Contacto</h2>
+  <h2>13. Contacto</h2>
   <p>Si tenés preguntas sobre esta política de privacidad o sobre el tratamiento de tus datos, contactanos por email a <a href="mailto:hola@vibe.com.ar">hola@vibe.com.ar</a>.</p>
  </main>
  <Footer

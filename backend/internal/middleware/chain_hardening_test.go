@@ -254,7 +254,6 @@ func TestACSRFExemptionCoversOneExactRouteAndNothingUnderIt(t *testing.T) {
 		{http.MethodPost, "/api/v1/bookings/reassign", false, "a different route that happens to share five characters"},
 
 		{http.MethodPost, "/api/v1/webhooks/mercadopago", true, "signature-authenticated, no cookie"},
-		{http.MethodPost, "/api/v1/webhooks/whatsapp", true, "signature-authenticated, no cookie"},
 		{http.MethodPost, "/api/v1/webhooks/stripe", false, "the next webhook must be added deliberately, not inherit"},
 		{http.MethodPost, "/api/v1/webhooksomething", false, "not a webhook route at all"},
 

@@ -187,8 +187,7 @@ func (rs *Responder) WithRefusals(table Refusals) *Refuser {
 
 // Refuse writes a refusal. A refusal with no message writes the status alone
 // with no body at all — not even a Problem — which is what a provider
-// reading a bare status code (a webhook ack, WhatsApp's callback) needs and
-// all it reads.
+// reading a bare status code (a webhook ack) needs and all it reads.
 func (rs *Responder) Refuse(w http.ResponseWriter, r *http.Request, ref Refusal) {
 	if ref.Message == nil {
 		w.Header().Set("Cache-Control", "no-store")

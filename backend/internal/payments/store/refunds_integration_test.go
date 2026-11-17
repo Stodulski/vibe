@@ -198,7 +198,7 @@ func TestAnAbandonedClaimIsPickedUpByTheRetryQueue(t *testing.T) {
 }
 
 // Two cancellation paths can reach the same booking at the same time — the owner
-// cancelling in the dashboard, the client replying NO on WhatsApp, the cron
+// cancelling in the dashboard, the client replying NO by message, the cron
 // releasing an expired booking. Only one of them may send money back.
 //
 // The two claims run as real goroutines against real connections, because that is

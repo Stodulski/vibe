@@ -57,7 +57,7 @@ export interface PublicEventResponse {
 }
 
 /**
- * Sign-up is per person. The phone is required, the email optional. An event
+ * Sign-up is per person. The phone and the email are required. An event
  * with a modality also takes the person's gender and level, and refuses one
  * that does not fit (`modality_mismatch`, `level_out_of_range`).
  */
@@ -65,7 +65,7 @@ export interface PublicEventSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string | undefined;
+  email: string;
   gender?: DeclaredGender | undefined;
   /** 1ra (1) to 9na (9). */
   level?: number | undefined;

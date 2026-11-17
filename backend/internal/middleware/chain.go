@@ -423,7 +423,6 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/public/tournament-registrations/cancel":                                           "same flow, authenticated by the registration's own token",
 
 	"POST /api/v1/webhooks/mercadopago": "authenticated by MercadoPago's signature; no cookie auth in this flow",
-	"POST /api/v1/webhooks/whatsapp":    "authenticated by Meta's signature; no cookie auth in this flow",
 }
 
 // CSRFExemptRoutes returns the routes that carry no CSRF token, keyed by

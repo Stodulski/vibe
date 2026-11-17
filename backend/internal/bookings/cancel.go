@@ -50,24 +50,20 @@ const (
 // outcome, with the amount written into it when there is one.
 //
 // It is lowercase and starts mid-sentence: every consumer substitutes it after
-// its own fixed lead-in ("Devolución: " in the WhatsApp template and the
-// cancellation email, `"message"` in the API response beside the
-// machine-readable status a frontend that wants its own wording reads
-// instead). Meta's template validator is why the lead-in and the value split
-// this way at all — a template body cannot end on a variable with nothing
-// fixed after it, so "Devolución: {{5}}" is the shape and this function
-// renders only what goes after the colon.
+// its own fixed lead-in ("Devolución: " in the cancellation email, `"message"`
+// in the API response beside the machine-readable status a frontend that wants
+// its own wording reads instead). This function renders only what goes after
+// the colon.
 //
 // There is one line here for every outcome a cancellation can produce. Six of
 // them used to produce nothing: the client was told `{"refunded": false}` and
 // left to work the rest out.
 //
 // It is a function rather than the map it was because the same six sentences
-// now also go out as the cancellation email and the cancellation WhatsApp
-// message, where there is no envelope field beside them to carry the amount —
-// a client reading "en proceso" in WhatsApp has no way to ask how much. One
-// renderer, three consumers, so the API response and the two messages cannot
-// drift into three different accounts of the same money.
+// also go out as the cancellation email, where there is no envelope field
+// beside them to carry the amount — a client reading "en proceso" in an email
+// has no way to ask how much. One renderer, two consumers, so the API response
+// and the email cannot give two accounts of the same money.
 //
 // The vocabulary is the product's: "devolución", never "reembolso", which is
 // what the not-eligible line used to say.
@@ -107,7 +103,7 @@ func refundMessage(result paymentstore.RefundResult, amountCentavos int) string 
 }
 
 // refundNotice is the whole of what a cancelled client is told about their
-// money, in one sentence, for the email and the WhatsApp message.
+// money, in one sentence, for the email.
 //
 // A split outcome — an MercadoPago deposit returned automatically while a cash
 // balance is still owed by hand — is two facts, and dropping the second is how
@@ -435,14 +431,12 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 		refundLine, refundAmount := refundNotice(outcome)
 		s.notify.BookingCancelled(notifications.Cancellation{
 			Email:        client.Email,
-			Phone:        client.Phone,
 			ComplexName:  complex.Name,
 			CourtName:    court.Name,
 			Date:         booking.Date.Format("02/01"),
 			StartTime:    timezone.HoursLabel(booking.StartsAt, booking.EndsAt),
 			RefundLine:   refundLine,
 			RefundAmount: refundAmount,
-			BookPath:     booklink.BookPath(complex.Slug),
 			BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
 			ClientName:   client.FullName(),
 			OwnerID:      complex.OwnerID.String(),

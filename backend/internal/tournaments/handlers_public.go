@@ -128,6 +128,9 @@ func (h *Handler) PublicSignUp(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	v := validator.New()
+	// The payer is the one the registration is confirmed to, so their email is
+	// required. The partner's stays optional.
+	v.Check(input.Email != nil && *input.Email != "", "email", "must be provided")
 	in := PairSignUpInput{Payer: playerInput(v, "", input.signUpPlayer), Partner: playerInput(v, "partner.", input.Partner)}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)

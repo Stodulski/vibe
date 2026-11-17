@@ -34,7 +34,7 @@ export function useTournamentSignUp(
         first_name: data.first_name,
         last_name: data.last_name,
         phone: data.phone,
-        ...(data.email ? { email: data.email } : {}),
+        email: data.email,
         ...payer,
         partner: {
           first_name: data.partner.first_name,

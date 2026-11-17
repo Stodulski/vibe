@@ -151,16 +151,6 @@ type Checkout interface {
 	UpdatePreferenceExpired(ctx context.Context, preferenceID string, caller mp.Caller) error
 }
 
-// WhatsAppVerifier authenticates Meta's inbound webhook.
-//
-// The webhook lives in this module because the messages it carries are replies
-// to booking confirmations. Today those replies are only logged — cancelling
-// still happens through the web app — so nothing here writes to a store.
-type WhatsAppVerifier interface {
-	VerifyWebhook(r *http.Request) (string, error)
-	VerifySignature(r *http.Request, body []byte) error
-}
-
 // TurnstileVerifier checks the Cloudflare Turnstile token the storefront
 // sends with a public booking. Declared here, by the consumer, with the same
 // two methods auth.TurnstileVerifier names; internal/turnstile's Client
@@ -256,8 +246,6 @@ type Config struct {
 	PaymentExpiry time.Duration
 	// SlotLockTTL is how long a slot is held during checkout.
 	SlotLockTTL time.Duration
-	// WhatsAppEnabled reflects whether the channel is configured.
-	WhatsAppEnabled bool
 	// LinkTokenBuffer is added to a booking's end time to compute the
 	// expires_at of the token the two-hour reminder mints. Same value
 	// bookingstore.Store.InsertSafe uses for its own mint — both come from
@@ -309,10 +297,6 @@ type Actor struct {
 // Service.
 type Handler struct {
 	svc *Service
-	// whatsapp is held for the two verification calls alone: both are computed
-	// over the request, so they are an HTTP concern and are checked here,
-	// before anything reaches the service.
-	whatsapp WhatsAppVerifier
 	// gate guards POST /book and POST /book/holds against bots. Both halves
 	// are needed: the flag is the operator's opt-in (TURNSTILE_BOOKING_ENFORCE),
 	// and a verifier that is nil or not Enabled (no TURNSTILE_SECRET_KEY) means
@@ -353,12 +337,11 @@ var refusals = httpx.Refusals{
 //
 // verifier may be nil: that, like enforceTurnstile false, leaves PublicBook
 // exactly as it was before the storefront bot check existed.
-func NewHandler(svc *Service, whatsapp WhatsAppVerifier, verifier TurnstileVerifier, enforceTurnstile bool,
+func NewHandler(svc *Service, verifier TurnstileVerifier, enforceTurnstile bool,
 	respond *httpx.Responder, logger *slog.Logger, trustedProxies httpx.TrustedProxies,
 ) *Handler {
 	return &Handler{
 		svc:            svc,
-		whatsapp:       whatsapp,
 		gate:           turnstile.NewGate(verifier, enforceTurnstile, respond, logger, trustedProxies),
 		respond:        respond.WithRefusals(refusals),
 		logger:         logger,

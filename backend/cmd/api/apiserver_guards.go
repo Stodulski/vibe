@@ -195,8 +195,6 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/sitemap.xml":                            {kind: guardPublic},
 	"GET /api/v1/slug-available":                         {kind: guardAuth},
 	"POST /api/v1/webhooks/mercadopago":                  {kind: guardPublic},
-	"GET /api/v1/webhooks/whatsapp":                      {kind: guardPublic},
-	"POST /api/v1/webhooks/whatsapp":                     {kind: guardPublic},
 }
 
 // guard applies g to next using the application's real guard implementations

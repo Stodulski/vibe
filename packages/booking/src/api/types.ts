@@ -205,7 +205,7 @@ export interface PublicBookingRequest {
   client_first_name: string;
   client_last_name: string;
   client_phone: string;
-  client_email?: string;
+  client_email: string;
   client_notes?: string;
   /**
    * The hold taken when the court was picked (`POST /book/holds`). The booking

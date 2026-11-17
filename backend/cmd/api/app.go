@@ -52,7 +52,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/tournaments"
 	"github.com/stodulski/vibe-server/internal/turnstile"
 	"github.com/stodulski/vibe-server/internal/waitlist"
-	"github.com/stodulski/vibe-server/internal/whatsapp"
 )
 
 // deps holds the values newApplication cannot derive from cfg: the
@@ -241,13 +240,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		HalfOpenMaxReqs: 2,
 		OnStateChange:   cbStateChange,
 	})
-	waCB := circuitbreaker.New(circuitbreaker.Config{
-		Name:            "whatsapp",
-		MaxFailures:     3,
-		ResetTimeout:    60 * time.Second,
-		HalfOpenMaxReqs: 1,
-		OnStateChange:   cbStateChange,
-	})
 	mailerCB := circuitbreaker.New(circuitbreaker.Config{
 		Name:            "mailer",
 		MaxFailures:     3,
@@ -295,7 +287,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	mpBaseURL := mp.WithBaseURL(cfg.MP.APIBaseURL)
 	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB, mpBaseURL)
 	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB, mpBaseURL)
-	waClient := whatsapp.NewWAClient(cfg.WhatsApp.Token, cfg.WhatsApp.PhoneID, cfg.WhatsApp.VerifyToken, cfg.WhatsApp.AppSecret, waCB)
 	mailerClient := mailer.New(mailer.Config{
 		BrevoAPIKey:  cfg.Brevo.APIKey,
 		SMTPHost:     cfg.SMTP.Host,
@@ -308,7 +299,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		PublicURL:    cfg.PublicBaseURL(),
 		CB:           mailerCB,
 	})
-	whatsappEnabled := cfg.WhatsApp.Token != "" && cfg.WhatsApp.PhoneID != ""
 	turnstileClient := turnstile.New(turnstile.Config{
 		SecretKey: cfg.Turnstile.SecretKey,
 		CB:        turnstileCB,
@@ -442,7 +432,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		// still answered "available".
 		Breakers: []health.Breaker{
 			breakerProbe{cb: mpCB, blocksRevenue: true},
-			breakerProbe{cb: waCB},
 			breakerProbe{cb: mailerCB},
 		},
 		Respond: respond,
@@ -656,7 +645,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
-	notify := notifications.NewService(queue, mailerClient, waClient, d.models.Users, d.logger, whatsappEnabled)
+	notify := notifications.NewService(queue, mailerClient, d.models.Users, d.logger)
 
 	// The waitlist is handed to the bookings service below, so it is built here.
 	waitlistService := waitlist.NewService(d.models.Waitlist, d.models.Complexes, notify, cfg.PublicBaseURL(), d.logger)
@@ -835,19 +824,17 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		GracePeriod:     cfg.Booking.GracePeriod,
 		PaymentExpiry:   cfg.Booking.PaymentExpiry,
 		SlotLockTTL:     cfg.Booking.SlotLockTTL,
-		WhatsAppEnabled: whatsappEnabled,
 		LinkTokenBuffer: cfg.Booking.LinkTokenBuffer,
 	})
 	// Disconnecting MercadoPago releases the venue's unpaid storefront bookings
 	// first, and that lives in the bookings domain, built only here — after the
 	// complexes service. Closed the same way as SetCourts, before any request.
 	complexesService.SetHoldReleaser(bookingsService)
-	// The WhatsApp webhook verifies Meta's own handshake and signature, so the
-	// handler takes the client alongside the service: both are computed over
-	// the request, which never reaches the service. The Turnstile client rides
-	// along for the same reason; it only gates POST /book when the operator
-	// set TURNSTILE_BOOKING_ENFORCE and the client is enabled.
-	bookingsHandler := bookings.NewHandler(bookingsService, waClient, turnstileClient, cfg.Turnstile.BookingEnforce,
+	// The Turnstile client is passed to the handler, not the service: the check
+	// is computed over the request, which never reaches the service. It only
+	// gates POST /book when the operator set TURNSTILE_BOOKING_ENFORCE and the
+	// client is enabled.
+	bookingsHandler := bookings.NewHandler(bookingsService, turnstileClient, cfg.Turnstile.BookingEnforce,
 		respond, d.logger, d.trustedProxies)
 
 	// The open-play and tournament sign-ups take a spot like a booking hold does,
@@ -937,7 +924,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.scheduler = sched
 	app.mp = mpClient
 	app.mpOAuth = mpOAuthClient
-	app.wa = waClient
 	app.mailer = mailerClient
 	app.jobs = pool
 	app.jobRetention = jobRetention
@@ -950,7 +936,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.socialPublisher = socialPublisher
 	app.blacklist = blacklist
 	app.events = events
-	app.whatsappEnabled = whatsappEnabled
 
 	return app, nil
 }

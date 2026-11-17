@@ -218,8 +218,6 @@ func isEventSignUp(r *http.Request) bool {
 // the next one to be a decision.
 var rateLimitExemptRoutes = map[string]string{
 	"POST /api/v1/webhooks/mercadopago": "payment notifications; MercadoPago gives up after enough refusals",
-	"GET /api/v1/webhooks/whatsapp":     "Meta's verification handshake",
-	"POST /api/v1/webhooks/whatsapp":    "message delivery from Meta, at Meta's pace",
 }
 
 // RateLimitExemptRoutes returns the routes outside rate limiting, keyed by

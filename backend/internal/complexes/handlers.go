@@ -282,7 +282,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The public URL can be changed. It is the address already living in shared
-	// links, WhatsApp messages and printed QR codes, so the client warns before
+	// links, emails and printed QR codes, so the client warns before
 	// letting anyone touch it — but the decision is the owner's, and refusing it
 	// outright left a badly chosen name permanent.
 	if input.Slug != nil {

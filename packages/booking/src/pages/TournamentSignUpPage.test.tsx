@@ -31,6 +31,7 @@ async function fillForm(user: ReturnType<typeof userEvent.setup>, partnerPhone =
   await user.type(you.getByLabelText(/^Nombre/), 'Ana');
   await user.type(you.getByLabelText(/^Apellido/), 'Pérez');
   await user.type(you.getByLabelText(/^Teléfono/), '1123456789');
+  await user.type(you.getByLabelText(/^Email/), 'ana@example.com');
   const partner = within(screen.getByRole('group', { name: t.tournaments.partnerTitle }));
   await user.type(partner.getByLabelText(/^Nombre/), 'Luis');
   await user.type(partner.getByLabelText(/^Apellido/), 'Gómez');
@@ -169,6 +170,7 @@ describe('TournamentSignUpPage sign-up', () => {
       first_name: 'Ana',
       last_name: 'Pérez',
       phone: '+541123456789',
+      email: 'ana@example.com',
       partner: { first_name: 'Luis', last_name: 'Gómez', phone: '+541198765432' },
     });
     expect(sessionStorage.getItem('vibe_tournament_registration:t1')).toBe('"tok-1"');

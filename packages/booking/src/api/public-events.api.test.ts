@@ -56,8 +56,13 @@ describe('public events api writes', () => {
         );
       }),
     );
-    const result = await api.signUpForEvent('club', 'ev1', { first_name: 'Ana', last_name: 'Pérez', phone: '+5411' });
-    expect(body).toEqual({ first_name: 'Ana', last_name: 'Pérez', phone: '+5411' });
+    const result = await api.signUpForEvent('club', 'ev1', {
+      first_name: 'Ana',
+      last_name: 'Pérez',
+      phone: '+5411',
+      email: 'ana@example.com',
+    });
+    expect(body).toEqual({ first_name: 'Ana', last_name: 'Pérez', phone: '+5411', email: 'ana@example.com' });
     expect(result.token).toBe('tok');
     expect(result.mp_init_point).toBe('https://mp.test/x');
   });

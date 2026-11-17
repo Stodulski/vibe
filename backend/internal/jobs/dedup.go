@@ -15,8 +15,8 @@ import (
 //
 // That closes one way a second copy of a notification gets queued (JOB-04): a
 // webhook MercadoPago delivered twice, or a caller that enqueued the same
-// delivery again, used to add a second job and so a second confirmation email
-// and a second WhatsApp message. It does not close the other way. A job already
+// delivery again, used to add a second job and so a second confirmation email.
+// It does not close the other way. A job already
 // queued whose claim is reclaimed after a lost acknowledgement runs again, and
 // the provider is called again. Idempotency at the provider would not help even
 // if it existed: each call is an honest, distinct send.

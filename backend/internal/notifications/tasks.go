@@ -2,7 +2,7 @@
 // the delivery to a durable queue.
 //
 // Nothing here sends anything synchronously. Every call enqueues a task that an
-// independent worker pool picks up, so a slow mail provider or a WhatsApp
+// independent worker pool picks up, so a slow mail provider or a provider
 // outage cannot delay — or fail — the booking that triggered it.
 package notifications
 
@@ -22,18 +22,17 @@ const (
 	TaskEmailPasswordReset         = "email:password_reset"
 	TaskEmailDuplicateRegistration = "email:duplicate_registration"
 	TaskEmailChangeRequested       = "email:change_requested"
-	TaskWABookingConfirmation      = "wa:booking_confirmation"
-	TaskWAReminder2h               = "wa:reminder_2h"
-	TaskWABookingCancelled         = "wa:booking_cancelled"
-	TaskWADepositRefunded          = "wa:deposit_refunded"
 )
 
 // ScrubsPayload reports whether a notification task's payload is emptied once
 // its job finishes (see jobs.Config.ScrubPayload). Every notification payload
 // is a recipient, often with a single-use link (cancel, reset, verification),
 // and nothing reads it after the attempt. Every task type above is named
-// "email:..." or "wa:...", which is the prefix this policy keys on. Other queues
-// keep their payloads: the payments export reads its own back after it is done.
+// "email:...", which is the prefix this policy keys on. The "wa:" prefix stays
+// for the rows of the removed WhatsApp channel that were still queued when it
+// went: they hold phone numbers, and the drain handler that completes them
+// (legacy_whatsapp.go) must not leave those behind. Other queues keep their
+// payloads: the payments export reads its own back after it is done.
 func ScrubsPayload(taskType string) bool {
 	return strings.HasPrefix(taskType, "email:") || strings.HasPrefix(taskType, "wa:")
 }
@@ -73,17 +72,16 @@ const (
 // storage format: changing one breaks tasks already in the queue.
 
 // BookingConfirmation is everything known about a confirmed booking, from
-// which each channel's payload is derived.
+// which each recipient's payload is derived.
 //
 // It is a struct rather than a parameter list because the call it replaced took
 // fifteen positional arguments, eleven of them strings — a shape where
 // transposing two is invisible to the compiler and to the reader. It is an
 // argument, never an enqueued payload: see bookingConfirmationEmail.
 type BookingConfirmation struct {
-	// Email and Phone are the channels to use. An empty value skips that
-	// channel rather than failing.
+	// Email is the address to write to. An empty value skips the client
+	// rather than failing.
 	Email string `json:"email"`
-	Phone string `json:"phone"`
 
 	ComplexName string `json:"complex_name"`
 	CourtName   string `json:"court_name"`
@@ -91,29 +89,23 @@ type BookingConfirmation struct {
 	Date        string `json:"date"`
 	StartTime   string `json:"start_time"`
 
-	// CancelURL is the full link for email; CancelPath and MapsQuery are the
-	// button parameters WhatsApp templates take instead.
-	CancelURL  string `json:"cancel_url"`
-	CancelPath string `json:"cancel_path"`
-	MapsQuery  string `json:"maps_query"`
+	// CancelURL is the full link to cancel the booking.
+	CancelURL string `json:"cancel_url"`
 
 	// Address and MapsURL are the confirmation email's "Cómo llegar" line —
 	// the address as a person reads it, and the absolute Google Maps link
-	// built from the same coordinate/address fallback as MapsQuery. WhatsApp
-	// has no equivalent: its button binds to a base URL configured once in
-	// WhatsApp Manager, so it only ever needs the query suffix.
+	// built from the coordinate/address fallback.
 	Address string `json:"address"`
 	MapsURL string `json:"maps_url"`
 
-	// DepositAmount, BalanceAmount and CancellationLine are the three values
-	// both channels quote verbatim, rendered by PaymentAmounts/CancellationLine
-	// in copy.go.
+	// DepositAmount, BalanceAmount and CancellationLine are the values the
+	// email quotes verbatim, rendered by PaymentAmounts/CancellationLine in
+	// copy.go.
 	//
 	// They are rendered once, at the enqueue site, rather than carried as the
-	// raw numbers each channel would format for itself. That is the point: the
-	// email used to describe a cancellation window the WhatsApp message never
-	// mentioned, and neither said what had been paid. One set of values cannot
-	// disagree with itself.
+	// raw numbers the mailer would format for itself, so the queued email
+	// cannot describe a cancellation window or a payment that differs from
+	// what the caller recorded.
 	DepositAmount    string `json:"deposit_amount"`
 	BalanceAmount    string `json:"balance_amount"`
 	CancellationLine string `json:"cancellation_line"`
@@ -138,7 +130,6 @@ type BookingConfirmation struct {
 // confirmation that held them went out days ago.
 type Reminder struct {
 	Email       string `json:"email"`
-	Phone       string `json:"phone"`
 	ComplexName string `json:"complex_name"`
 	CourtName   string `json:"court_name"`
 	Date        string `json:"date"`
@@ -149,13 +140,10 @@ type Reminder struct {
 	// BalanceAmount is what is left to pay at the complex, from BalanceAmount
 	// in copy.go.
 	BalanceAmount string `json:"balance_amount"`
-	// MapsQuery and CancelPath bind the reminder template's two buttons;
-	// CancelURL is the same cancel link, absolute, for the email.
-	MapsQuery  string `json:"maps_query"`
-	CancelPath string `json:"cancel_path"`
-	CancelURL  string `json:"cancel_url"`
+	// CancelURL is the cancel link, absolute.
+	CancelURL string `json:"cancel_url"`
 	// MapsURL is the absolute Google Maps link the email's "Cómo llegar"
-	// line uses instead of WhatsApp's button-suffix MapsQuery.
+	// line uses.
 	MapsURL string `json:"maps_url"`
 
 	// BookingID identifies the booking this is about. It is the business half
@@ -173,7 +161,6 @@ type Reminder struct {
 // enqueue call, in the same function, and never travelled with it.
 type Cancellation struct {
 	Email       string `json:"email"`
-	Phone       string `json:"phone"`
 	ComplexName string `json:"complex_name"`
 	CourtName   string `json:"court_name"`
 	Date        string `json:"date"`
@@ -185,10 +172,8 @@ type Cancellation struct {
 	// back. It is what the email's preview line quotes; the body quotes
 	// RefundLine.
 	RefundAmount string `json:"refund_amount"`
-	// BookPath binds the "Nueva reserva" button; BookURL is the same page,
-	// absolute, for the email.
-	BookPath string `json:"book_path"`
-	BookURL  string `json:"book_url"`
+	// BookURL is the booking page, absolute.
+	BookURL string `json:"book_url"`
 
 	// ClientName and OwnerID are for the owner's email, sent only when Source is
 	// SourceClientCancel. OwnerID is the complex owner, resolved at delivery time.
@@ -222,13 +207,10 @@ type OwnerBookingRefund struct {
 // Refund is the notice sent when a deposit is returned.
 type Refund struct {
 	Email       string `json:"email"`
-	Phone       string `json:"phone"`
 	ComplexName string `json:"complex_name"`
 	Amount      string `json:"amount"`
-	// BookPath binds the "Nueva reserva" button; BookURL is the same page,
-	// absolute, for the email.
-	BookPath string `json:"book_path"`
-	BookURL  string `json:"book_url"`
+	// BookURL is the booking page, absolute.
+	BookURL string `json:"book_url"`
 
 	// BookingID identifies the booking this is about. It is the business half
 	// of the queue's deduplication key (JOB-04) and never travels into the
@@ -295,9 +277,9 @@ type EmailChangeRequestedEmail struct {
 // bookingConfirmationEmail is what the email worker needs, and nothing else.
 //
 // The queue is durable storage, so every field enqueued is a field persisted:
-// sending the whole BookingConfirmation put the client's phone number, the
-// owner id and two WhatsApp-only template parameters into Redis on every
-// booking, for a worker that reads none of them.
+// sending the whole BookingConfirmation would put the owner id and the
+// client's details into the queue on every booking, for a worker that reads
+// none of them.
 type bookingConfirmationEmail struct {
 	Email            string `json:"email"`
 	ComplexName      string `json:"complex_name"`
@@ -315,8 +297,7 @@ type bookingConfirmationEmail struct {
 // bookingCancelledEmail and depositRefundedEmail are what their email workers
 // need, and nothing else — same rule as bookingConfirmationEmail above. The
 // queue is durable storage, so enqueueing the whole Cancellation would write
-// the client's phone number and two WhatsApp button suffixes into Redis on
-// every cancellation, for a worker that reads none of them.
+// fields no worker reads into it on every cancellation.
 type bookingCancelledEmail struct {
 	Email        string `json:"email"`
 	ComplexName  string `json:"complex_name"`
@@ -370,48 +351,4 @@ type ownerBookingRefunded struct {
 	ClientName  string `json:"client_name"`
 	Date        string `json:"date"`
 	StartTime   string `json:"start_time"`
-}
-
-// The wa* types are the WhatsApp variants, which carry only the fields their
-// templates bind.
-type waBookingConfirmation struct {
-	Phone            string `json:"phone"`
-	ComplexName      string `json:"complex_name"`
-	CourtName        string `json:"court_name"`
-	Date             string `json:"date"`
-	StartTime        string `json:"start_time"`
-	DepositAmount    string `json:"deposit_amount"`
-	BalanceAmount    string `json:"balance_amount"`
-	CancellationLine string `json:"cancellation_line"`
-	CancelPath       string `json:"cancel_path"`
-	MapsQuery        string `json:"maps_query"`
-}
-
-type waReminder struct {
-	Phone         string `json:"phone"`
-	ComplexName   string `json:"complex_name"`
-	CourtName     string `json:"court_name"`
-	Date          string `json:"date"`
-	StartTime     string `json:"start_time"`
-	Address       string `json:"address"`
-	BalanceAmount string `json:"balance_amount"`
-	MapsQuery     string `json:"maps_query"`
-	CancelPath    string `json:"cancel_path"`
-}
-
-type waBookingCancelled struct {
-	Phone       string `json:"phone"`
-	ComplexName string `json:"complex_name"`
-	CourtName   string `json:"court_name"`
-	Date        string `json:"date"`
-	StartTime   string `json:"start_time"`
-	RefundLine  string `json:"refund_line"`
-	BookPath    string `json:"book_path"`
-}
-
-type waDepositRefunded struct {
-	Phone       string `json:"phone"`
-	ComplexName string `json:"complex_name"`
-	Amount      string `json:"amount"`
-	BookPath    string `json:"book_path"`
 }

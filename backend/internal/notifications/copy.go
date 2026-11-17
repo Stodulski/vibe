@@ -12,14 +12,10 @@ import (
 // This file holds the sentences a client is told about their money and their
 // cancellation rights, in one place, in Spanish.
 //
-// They live here rather than in internal/mailer or internal/whatsapp because
-// the same event now goes out on both channels and the two must not be able to
-// disagree. They used to: the confirmation email described a cancellation
-// window the WhatsApp message never mentioned, and neither said a word about
-// what had been paid or what was still owed at the venue. A sentence rendered
-// once, at the enqueue site, and carried in the payload is the only shape
-// where "the email says the same as the WhatsApp" is true by construction
-// rather than by two people editing two templates in step.
+// They live here rather than in internal/mailer so each sentence is written once,
+// at the enqueue site, and carried in the payload. The queued email then quotes
+// exactly the figures and the cancellation window the caller recorded, and no
+// second copy of the sentence can drift from the first.
 //
 // Vocabulary is fixed and not negotiable per template: "seña" for the deposit,
 // "devolución" for money coming back (never "reembolso"), "complejo" for the
@@ -53,13 +49,10 @@ func FormatARS(centavos int) string {
 // what is still owed at the complex, each as a plain formatted amount rather
 // than a sentence.
 //
-// The WhatsApp template's words around these two values are fixed ("Seña
-// abonada: {{5}}. Resta pagar en el complejo: {{6}}."), because Meta rejects a
-// template where two variables sit next to each other with nothing fixed
-// between them — so "nothing owed" and "nothing collected" now have to be
-// $0, not a sentence saying so. A booking a staff member entered with nothing
-// collected still reports a deposit of $0 rather than dropping the fact:
-// telling nobody anything is what the confirmation used to do.
+// The mailer writes the sentence around these two values, so "nothing owed" and
+// "nothing collected" are $0 here, not a sentence saying so. A booking a staff
+// member entered with nothing collected still reports a deposit of $0 rather
+// than dropping the fact.
 func PaymentAmounts(priceCentavos, depositCentavos int, collectionStatus string) (depositAmount, balanceAmount string) {
 	switch collectionStatus {
 	case bookingstore.CollectionStatusFullyPaid:

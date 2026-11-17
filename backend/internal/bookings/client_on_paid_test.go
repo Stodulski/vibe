@@ -146,8 +146,8 @@ func TestPublicCancelOfABookingWithNoClientNotifiesFromTheSnapshot(t *testing.T)
 		t.Fatalf("want the cancellation notice sent; got %d", len(f.notify.cancelled))
 	}
 	n := f.notify.cancelled[0]
-	if n.Email != "ana@example.com" || n.Phone != "+541100000000" || n.ClientName != "Ana Perez" {
-		t.Errorf("want the notice addressed from the snapshot; got %q %q %q", n.Email, n.Phone, n.ClientName)
+	if n.Email != "ana@example.com" || n.ClientName != "Ana Perez" {
+		t.Errorf("want the notice addressed from the snapshot; got %q %q", n.Email, n.ClientName)
 	}
 	value := auditValue(t, auditEntry(t, f, "public_cancel"))
 	if v, ok := value["client_id"]; ok {
@@ -164,5 +164,23 @@ func TestTheWireCarriesNoClientIDForABookingWithNoClient(t *testing.T) {
 	b.ClientID = uuid.New()
 	if got := toGenBooking(b).ClientId; got == nil || *got != b.ClientID {
 		t.Errorf("want the client id on the wire; got %v", got)
+	}
+}
+
+// Email is the only channel a self-service client is reached on, so a public
+// booking without one is refused before any hold or payment is made.
+func TestPublicBookRequiresAnEmailBeforeAnyHoldOrPayment(t *testing.T) {
+	f := newFixture(t)
+	complexID, courtID := preparePublicBooking(f)
+	body := strings.Replace(publicBookBody(complexID, courtID, 90), `,"client_email":"ana@example.com"`, "", 1)
+
+	w := httptest.NewRecorder()
+	f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", body))
+
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "client_email") {
+		t.Fatalf("want 422 on client_email; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.store.inserted) != 0 {
+		t.Error("a booking without an email must not be inserted")
 	}
 }

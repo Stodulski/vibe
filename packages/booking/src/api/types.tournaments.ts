@@ -192,7 +192,7 @@ export interface PublicPairSignUpRequest {
   first_name: string;
   last_name: string;
   phone: string;
-  email?: string | undefined;
+  email: string;
   /** The payer's own declaration, the same as the partner's. */
   gender?: DeclaredGender | undefined;
   level?: number | undefined;

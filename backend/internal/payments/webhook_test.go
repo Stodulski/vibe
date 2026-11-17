@@ -108,8 +108,8 @@ func TestWebhookSettlesWhenTheLinkTokenMintFails(t *testing.T) {
 		t.Fatalf("the confirmation must still be enqueued without its cancel link; got %d", len(f.notify.confirmations))
 	}
 	c := f.notify.confirmations[0]
-	if c.CancelURL != "" || c.CancelPath != "" {
-		t.Errorf("a confirmation after a failed mint must carry no cancel link; got url=%q path=%q", c.CancelURL, c.CancelPath)
+	if c.CancelURL != "" {
+		t.Errorf("a confirmation after a failed mint must carry no cancel link; got url=%q", c.CancelURL)
 	}
 	// The owner's "Nueva reserva" notice travels in the same BookingConfirmed call, so
 	// it is enqueued too: the sale is online and the owner did not enter it.
