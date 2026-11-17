@@ -8,7 +8,7 @@ import { createPublicBookingApi } from './api/public-booking.api';
 import { getBookingQueryClient } from './lib/bookingQueryClient';
 import { InitialSearchContext } from './lib/initialSearch';
 import { queryKeys } from './lib/queryKeys';
-import type { PublicComplexResponse } from './api/types';
+import type { PublicComplexResponse, PublicEventListResponse, PublicTournamentListResponse } from './api/types';
 
 export interface BookingRootProps {
   config: BookingConfig;
@@ -17,8 +17,20 @@ export interface BookingRootProps {
    * or every toast is rendered twice.
    */
   toaster?: boolean | undefined;
-  /** Seeds the complex query, so a page with the complex already known renders without a fetch. */
-  initialComplex?: { slug: string; data: PublicComplexResponse } | undefined;
+  /**
+   * Seeds the complex query, so a page with the complex already known renders without a fetch.
+   * `events` and `tournaments` seed the complex's open play and tournaments the same way, so
+   * its "Eventos" list is in the server markup instead of waiting for the scripts; a list the
+   * server could not read is left out and fetched in the browser as before.
+   */
+  initialComplex?:
+    | {
+        slug: string;
+        data: PublicComplexResponse;
+        events?: PublicEventListResponse | undefined;
+        tournaments?: PublicTournamentListResponse | undefined;
+      }
+    | undefined;
   /**
    * The page's query string as the server saw it (`?date=...`, with the `?`, or
    * empty). The server render and the first client render read it, so the
@@ -58,7 +70,13 @@ export function BookingRoot({
   // Seeded once per mount, before any child reads the cache.
   useState(() => {
     if (initialComplex) {
-      client.setQueryData(queryKeys.publicComplex.bySlug(initialComplex.slug), initialComplex.data);
+      const { slug, data, events, tournaments } = initialComplex;
+      client.setQueryData(queryKeys.publicComplex.bySlug(slug), data);
+      // The page is served from a cache for up to minutes, so these lists are shown at once but
+      // marked stale (updatedAt 0): the browser still refetches them, and an event created since
+      // the page was cached appears without waiting for the cache.
+      if (events) client.setQueryData(queryKeys.events.bySlug(slug), events, { updatedAt: 0 });
+      if (tournaments) client.setQueryData(queryKeys.tournaments.bySlug(slug), tournaments, { updatedAt: 0 });
     }
     return true;
   });

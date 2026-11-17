@@ -14,6 +14,8 @@ import { BookCancelEntry } from './book-cancel';
 import { BookConfirmEntry } from './book-confirm';
 import { BookSuccessEntry } from './book-success';
 import { PaymentFailedEntry } from './payment-failed';
+import { EVENT } from '../test/eventFixtures';
+import { SUMMARY } from '../test/tournamentFixtures';
 
 // Leaflet touches `window` when it is imported. The map must never be imported
 // while the page renders on the server, so importing it here fails the test.
@@ -196,5 +198,31 @@ describe('complex images on the server', () => {
       /<img[^>]*src="https:\/\/img\.example\.test\/cover\.jpg"[^>]*alt="Club Ejemplo, canchas de pádel en Banfield"[^>]*fetchpriority="high"/i,
     );
     expect(html).toMatch(/<img[^>]*src="https:\/\/img\.example\.test\/logo\.png"[^>]*alt="Logo de Club Ejemplo"/);
+  });
+});
+
+describe('the complex page events during server render', () => {
+  it('puts the seeded events and tournaments in the server markup, under one "Eventos" heading', () => {
+    const render = (seeded: boolean) =>
+      renderToString(
+        <ComplexPageEntry
+          slug="club-ejemplo"
+          config={config}
+          initialComplex={{
+            slug: 'club-ejemplo',
+            data: complexResponse,
+            ...(seeded && { events: { events: [EVENT] }, tournaments: { tournaments: [SUMMARY] } }),
+          }}
+          initialSearch="?date=2026-10-20"
+          toaster={false}
+        />,
+      );
+
+    const html = render(true);
+    expect(html).toContain('id="events-title"');
+    expect(html).toContain(`/events/${EVENT.id}`);
+    expect(html).toContain(`/tournaments/${SUMMARY.id}`);
+    // Without the seed the list waits for the browser, as before.
+    expect(render(false)).not.toContain('id="events-title"');
   });
 });
