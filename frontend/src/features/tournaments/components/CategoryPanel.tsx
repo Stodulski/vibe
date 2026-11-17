@@ -9,7 +9,6 @@ import {
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { useUnscheduleMatch } from '../hooks/useScheduleMatch';
 import { categoryView, type CategoryView } from '../lib/categoryView';
-import { courtFeeSummary } from '../lib/courtFee';
 import { BracketSection } from './BracketSection';
 import { CategoryDialogsHost } from './CategoryDialogs';
 import { CategoryFacts } from './CategoryFacts';
@@ -78,7 +77,7 @@ export function CategoryPanel({ detail, category, complexId, live, section }: Ca
   return (
     <div className="space-y-4">
       <div className="flex items-start gap-2">
-        <CategoryFacts category={category} courtFee={courtFeeSummary(view.matches)} />
+        <CategoryFacts category={category} />
         {open && <CategoryMenu dialogs={dialogs} courtFee={category.court_fee} />}
       </div>
       {category.status === 'cancelled' && <p className="text-error-text text-sm">{t.detail.categoryCancelledNote}</p>}
