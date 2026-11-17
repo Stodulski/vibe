@@ -38,7 +38,7 @@ function centeredIndex(track: HTMLElement): number {
   return best;
 }
 
-/** One hour on the ruler: a tick, taller on the hour, and its time under it. */
+/** One hour on the ruler: a tick and its time under it. */
 function RulerTick({
   option,
   focused,
@@ -50,7 +50,6 @@ function RulerTick({
   last: boolean;
   onSelect: () => void;
 }) {
-  const onHour = option.startTime.endsWith(':00');
   return (
     <button
       type="button"
@@ -61,11 +60,12 @@ function RulerTick({
       className="flex w-14 shrink-0 cursor-pointer snap-center flex-col items-center gap-1.5 will-change-transform"
     >
       {/* The lines stand on one baseline, so every time sits at the same height. */}
-      <span aria-hidden="true" className="flex h-10 items-end">
+      <span aria-hidden="true" className="flex h-8 items-end">
         <span
           className={cn(
             'rounded-full transition-colors',
-            focused ? 'bg-primary-500 h-10 w-1' : cn('bg-border-default w-px', onHour ? 'h-8' : 'h-5'),
+            // Every tick is one height; only the wheel's scale makes them differ.
+            focused ? 'bg-primary-500 h-8 w-1' : 'bg-border-default h-8 w-px',
           )}
         />
       </span>

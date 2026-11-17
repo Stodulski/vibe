@@ -3,7 +3,7 @@ import { BOOKING_MESSAGES } from '../messages';
 
 const t = BOOKING_MESSAGES;
 
-/** Ticks drawn in the loading ruler: enough to fill a desktop row, every other one taller like an hour. */
+/** Ticks drawn in the loading ruler: enough to fill a desktop row, all one height like the ruler's. */
 const TICKS = 11;
 
 /**
@@ -20,7 +20,7 @@ export function SkeletonSlotGrid() {
       </div>
       <div data-testid="ruler-skeleton" className="flex justify-center gap-[3.25rem] overflow-hidden py-2">
         {Array.from({ length: TICKS }, (_, index) => (
-          <Skeleton key={index} className={index % 2 === 0 ? 'h-8 w-0.5 shrink-0' : 'h-5 w-0.5 shrink-0'} />
+          <Skeleton key={index} className="h-8 w-0.5 shrink-0" />
         ))}
       </div>
       <Skeleton className="mx-auto h-3 w-40 rounded-full" />
