@@ -82,14 +82,11 @@ describe('TournamentDetail: draw', () => {
     });
   });
 
-  it('says in Spanish that fewer than two paid pairs cannot be drawn, without calling the API', async () => {
-    const { tournamentsApi, user } = await renderDetail(makeDetail({ pairs: [makePair({ id: 'p1' })] }));
+  it.each([0, 1])('offers no draw while only %i pairs paid', async (count) => {
+    const pairs = [makePair({ id: 'p1' })].slice(0, count);
+    await renderDetail(makeDetail({ pairs }));
 
-    expect(screen.getByRole('button', { name: t.draw.generate })).toBeEnabled();
-    await user.click(screen.getByRole('button', { name: t.draw.generate }));
-
-    expect(await screen.findByText(t.draw.errors.notEnough)).toBeInTheDocument();
-    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-    expect(tournamentsApi.generateDraw).not.toHaveBeenCalled();
+    expect(screen.queryByRole('heading', { name: t.draw.title })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: t.draw.generate })).not.toBeInTheDocument();
   });
 });

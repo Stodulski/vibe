@@ -24,16 +24,16 @@ function drawHint(category: TournamentOwnerCategory, drawn: boolean): string {
 }
 
 /**
- * The draw: how many pairs paid and the button that generates (or regenerates, until a
- * result is loaded) the groups and bracket. Once a result is loaded there is no draw to
- * offer, so nothing renders here.
+ * The draw: the button that generates (or regenerates, until a result is loaded) the
+ * groups and bracket. A first draw needs two paid pairs, so until then, and once a
+ * result is loaded, there is no draw to offer and nothing renders here.
  */
 export function DrawControls({ complexId, tournamentId, category, drawn, view }: DrawControlsProps) {
   const generate = useGenerateDraw(complexId, tournamentId, category.id);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [refusal, setRefusal] = useState<string | null>(null);
   const enough = view.paidPairs.length >= 2;
-  if (view.locked) return null;
+  if (view.locked || (!drawn && !enough)) return null;
 
   return (
     <>

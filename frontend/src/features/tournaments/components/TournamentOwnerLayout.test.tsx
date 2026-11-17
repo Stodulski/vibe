@@ -251,7 +251,8 @@ describe('owner tournament page details', () => {
   });
 
   it('describes the draw without zones for an elimination category', async () => {
-    await renderDetail(makeDetail({ categories: [makeCategory({ format: 'elimination' })] }));
+    const pairs = [makePair({ id: 'p1' }), makePair({ id: 'p2' })];
+    await renderDetail(makeDetail({ categories: [makeCategory({ format: 'elimination' })], pairs }));
     expect(screen.getByText(t.draw.generateHintElimination)).toBeInTheDocument();
     expect(t.draw.generateHintElimination).not.toMatch(/zona/i);
   });
