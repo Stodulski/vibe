@@ -128,7 +128,7 @@ interface BracketSectionProps extends Lookups {
  */
 export function BracketSection({ matches, pairs, groupNames }: BracketSectionProps) {
   const rounds = bracketRounds(matches);
-  if (rounds.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
+  if (rounds.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   const lookups = { pairs, groupNames };
   const grid = bracketGrid(rounds.map((round) => round.length));
 

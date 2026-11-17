@@ -27,10 +27,10 @@ function categoryRules(category: TournamentOwnerCategory, courtFee: CourtFeeSumm
 }
 
 /**
- * The category in one line of key facts: pairs taken, price per pair, format and
- * start. A phone drops "por pareja" from the price to keep the line on one row.
- * The rules (zones, sets and games, court fee) wait behind "Ver reglas", closed
- * until the owner asks for them.
+ * The category in one line of key facts. From `sm` up it reads in full: pairs taken,
+ * price per pair, format and start. A phone reads it short, "8/8 · $30.000 · Zonas",
+ * without the start, so the line fits on one row at 256px. The rules (zones, sets and
+ * games, court fee) wait behind "Ver reglas", closed until the owner asks for them.
  */
 export function CategoryFacts({
   category,
@@ -42,11 +42,12 @@ export function CategoryFacts({
   const [rulesOpen, setRulesOpen] = useState(false);
   const rulesId = useId();
   const pairs = t.detail.pairsRatio(category.confirmed_count, category.capacity);
+  const pairsShort = t.detail.pairsRatioShort(category.confirmed_count, category.capacity);
   const price = formatPrice(category.price);
   const format = t.format[category.format];
   const start = categoryStartLabel(category.starts_on, category.starts_at);
   const summaryFull = factsLine([pairs, t.pricePerPair(price), format, start]);
-  const summaryShort = factsLine([pairs, price, format, start]);
+  const summaryShort = factsLine([pairsShort, price, t.formatShort[category.format]]);
   const rules = categoryRules(category, courtFee);
 
   return (
@@ -78,11 +79,9 @@ export function CategoryFacts({
         />
       </Button>
       {rulesOpen && (
-        <div id={rulesId} className="text-text-secondary min-w-0 space-y-1 text-sm">
+        <div id={rulesId} className="text-text-tertiary min-w-0 space-y-1 text-xs">
           {rules.map((rule) => (
-            <p key={rule} className="truncate" title={rule}>
-              {rule}
-            </p>
+            <p key={rule}>{rule}</p>
           ))}
         </div>
       )}

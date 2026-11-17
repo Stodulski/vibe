@@ -173,7 +173,7 @@ interface PairsSectionProps {
 
 /** Every pair that held a spot: its players, zone, seed and traits, the contact menu, and the payment only when it is an exception. */
 export function PairsSection({ pairs, groupNames, canSwap, onSwap, price, seeded }: PairsSectionProps) {
-  if (pairs.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
+  if (pairs.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   const rows = seeded ? [...pairs].sort(bySeed) : pairs;
   return (
     <ul aria-label={ES_AR.tournaments.detail.sections.pairs}>

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent, waitFor, within } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { makeDrawnDetail, makeMatch } from '../testing/fixtures';
+import { pickSection } from '../testing/sectionSelect';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import type { TournamentDetailResponse } from '@/shared/types/api.types';
 
@@ -20,7 +21,7 @@ async function renderDetail(detail: TournamentDetailResponse, section?: string) 
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
   await screen.findByRole('heading', { name: tournamentTitle(detail.tournament.sport) });
   const user = userEvent.setup();
-  if (section) await user.click(screen.getByRole('button', { name: section }));
+  if (section) await pickSection(user, section);
   return { tournamentsApi, user };
 }
 
@@ -81,7 +82,7 @@ describe('TournamentDetail: phone layout', () => {
       t.detail.sections.bracket,
       t.detail.sections.matches,
     ]) {
-      await user.click(screen.getByRole('button', { name: section }));
+      await pickSection(user, section);
       expect(document.querySelectorAll('[class*="overflow-x-auto"], [class*="overflow-x-scroll"]')).toHaveLength(0);
     }
   });

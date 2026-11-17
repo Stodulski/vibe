@@ -159,7 +159,7 @@ function MatchRow({
       <p className="flex min-w-0 text-sm" title={`${name(1)} ${t.versus} ${name(2)}`}>
         <span
           className={cn(
-            'min-w-0 flex-1 truncate',
+            'min-w-0 truncate',
             winner && winner === match.pair1_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
           )}
         >
@@ -168,7 +168,7 @@ function MatchRow({
         <span className="text-text-tertiary shrink-0 px-1.5">{t.versus}</span>
         <span
           className={cn(
-            'min-w-0 flex-1 truncate',
+            'min-w-0 truncate',
             winner && winner === match.pair2_id ? 'text-text-primary font-semibold' : 'text-text-secondary',
           )}
         >
@@ -233,7 +233,7 @@ export function MatchesSection({ matches, pairs, groupNames, actions, courtFee, 
   const nextId = blocks
     .flatMap((block) => block.matches)
     .find((match) => match.status !== 'completed' && !!match.pair1_id && !!match.pair2_id)?.id;
-  if (blocks.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
+  if (blocks.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   return (
     <div className="space-y-5">
       {blocks.map((block) => (

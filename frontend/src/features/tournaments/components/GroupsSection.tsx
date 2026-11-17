@@ -123,7 +123,7 @@ interface GroupsSectionProps {
 
 /** One standings table per group, best first, marking the pairs that go on to the bracket. */
 export function GroupsSection({ groups, pairs, qualifiers }: GroupsSectionProps) {
-  if (groups.length === 0) return <p className="text-text-tertiary text-sm">{t.none}</p>;
+  if (groups.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   return (
     <div className="space-y-5">
       {groups.map((group) => (

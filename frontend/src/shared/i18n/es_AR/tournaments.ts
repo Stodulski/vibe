@@ -28,6 +28,8 @@ export const tournaments = {
   cancelledBadge: 'Cancelado',
   pricePerPair: (price: string) => `${price} por pareja`,
   format: { elimination: 'Eliminación directa', groups: 'Zonas y cuadro' },
+  // The phone's summary line: "Zonas", "Elim.".
+  formatShort: { elimination: 'Elim.', groups: 'Zonas' },
   categoryStatus: { open: 'Inscripción abierta', closed: 'Sorteo hecho', cancelled: 'Cancelada' },
   traits: tournamentsTraits,
 
@@ -61,10 +63,11 @@ export const tournaments = {
   detail: {
     categoriesLabel: 'Categorías',
     sections: { pairs: 'Parejas', groups: 'Zonas', bracket: 'Cuadro', matches: 'Partidos' },
-    sectionsLabel: 'Secciones de la categoría',
+    sectionLabel: 'Ver',
     categoryActionsLabel: 'Acciones de la categoría',
     prizesLabel: 'Premios',
     pairsRatio: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)} parejas`,
+    pairsRatioShort: (taken: number, capacity: number) => `${String(taken)}/${String(capacity)}`,
     rules: 'Ver reglas',
     hideRules: 'Ocultar reglas',
     groupsSetup: (size: number, qualifiers: number) => `Zonas de ${String(size)} parejas, pasan ${String(qualifiers)}`,
@@ -141,7 +144,7 @@ export const tournaments = {
 
   // Groups
   groups: {
-    none: 'Todavía no hay sorteo. Cuando lo hagas, acá vas a ver las zonas y sus posiciones.',
+    none: 'Todavía no hay sorteo: acá vas a ver las zonas y sus posiciones.',
     zone: (name: string) => `Zona ${name}`,
     table: (name: string) => `Posiciones de la zona ${name}`,
     columns: {
@@ -160,7 +163,7 @@ export const tournaments = {
 
   // Bracket
   bracket: {
-    none: 'Todavía no hay sorteo. Cuando lo hagas, acá vas a ver el cuadro.',
+    none: 'Todavía no hay sorteo: acá vas a ver el cuadro.',
     label: 'Cuadro del torneo',
     round: (round: number) => `Ronda ${String(round)}`,
     final: 'Final',

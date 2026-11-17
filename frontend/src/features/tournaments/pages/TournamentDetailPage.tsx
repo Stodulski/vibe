@@ -12,12 +12,14 @@ import { todayInArgentina } from '@/shared/lib/today';
 import { categoryTitle, tournamentTitle } from '@/shared/lib/traitLabels';
 import { CategoryPanel } from '../components/CategoryPanel';
 import { CategoryTabs } from '../components/CategoryTabs';
+import { LabeledSelect } from '../components/LabeledSelect';
 import { TournamentDetailBodySkeleton } from '../components/TournamentDetailBodySkeleton';
 import { TournamentHeader } from '../components/TournamentHeader';
+import { openingSection, sectionItems, type Section } from '../components/categorySections';
 import { useTournament } from '../hooks/useTournament';
 import { paidPairCount } from '../lib/tournamentView';
 import { TOURNAMENT_DETAIL_CLASS } from '../lib/tournamentLayout';
-import type { TournamentDetailResponse } from '@/shared/types/api.types';
+import type { TournamentDetailResponse, TournamentOwnerCategory } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -64,12 +66,41 @@ export function TournamentDetailContent({ complexId, tournamentId }: { complexId
   );
 }
 
+/** The section picked for one category. Moving to another category opens that one on its own section. */
+interface SectionPick {
+  categoryId: string;
+  section: Section;
+}
+
+function pickOf(category: TournamentOwnerCategory): SectionPick {
+  return { categoryId: category.id, section: openingSection(category) };
+}
+
 function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailResponse; complexId: string }) {
-  const [chosen, setChosen] = useState<string | null>(null);
   const { tournament, categories } = detail;
-  const category =
-    categories.find((c) => c.id === chosen) ?? categories.find((c) => c.status !== 'cancelled') ?? categories[0];
+  const first = categories.find((c) => c.status !== 'cancelled') ?? categories[0];
+  const [pick, setPick] = useState<SectionPick | null>(() => (first ? pickOf(first) : null));
+  const category = categories.find((c) => c.id === pick?.categoryId) ?? first;
+  // The pick holds for the category it was made on, so a draw made here does not move the view.
+  const section = category && (pick?.categoryId === category.id ? pick.section : openingSection(category));
   const live = tournament.status === 'active' && tournament.end_date >= todayInArgentina();
+
+  const chooseCategory = (categoryId: string) => {
+    const next = categories.find((c) => c.id === categoryId);
+    if (next) setPick(pickOf(next));
+  };
+  const chooseSection = (next: Section) => {
+    if (category) setPick({ categoryId: category.id, section: next });
+  };
+  const sectionSwitch =
+    category && section ? (
+      <LabeledSelect
+        label={t.tournaments.detail.sectionLabel}
+        items={sectionItems(category)}
+        active={section}
+        onChange={chooseSection}
+      />
+    ) : null;
 
   return (
     <SportContext.Provider value={tournament.sport}>
@@ -90,11 +121,19 @@ function TournamentDetailBody({ detail, complexId }: { detail: TournamentDetailR
           muted: c.status === 'cancelled',
         }))}
         active={category?.id ?? ''}
-        onChange={setChosen}
+        onChange={chooseCategory}
         ariaLabel={t.tournaments.detail.categoriesLabel}
+        beside={sectionSwitch}
       />
-      {category && (
-        <CategoryPanel key={category.id} detail={detail} category={category} complexId={complexId} live={live} />
+      {category && section && (
+        <CategoryPanel
+          key={category.id}
+          detail={detail}
+          category={category}
+          complexId={complexId}
+          live={live}
+          section={section}
+        />
       )}
     </SportContext.Provider>
   );

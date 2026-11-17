@@ -79,10 +79,8 @@ async function chooseCategory(name: string): Promise<void> {
 }
 
 async function chooseSection(name: string): Promise<void> {
-  await page
-    .getByRole('group', { name: 'Secciones de la categoría' })
-    .getByRole('button', { name, exact: true })
-    .click();
+  await page.getByRole('combobox', { name: 'Ver', exact: true }).click();
+  await page.getByRole('option', { name, exact: true }).click();
 }
 
 /** Draws the open category through the confirm dialog. */

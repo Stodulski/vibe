@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { makeCategory, makeDrawnDetail, makeMatch } from '../testing/fixtures';
+import { pickSection } from '../testing/sectionSelect';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import type { TournamentDetailResponse } from '@/shared/types/api.types';
 
@@ -28,7 +29,7 @@ async function renderMatches(detail: TournamentDetailResponse) {
   renderWithProviders(<TournamentDetailContent complexId="c1" tournamentId="t1" />);
   await screen.findByRole('heading', { name: tournamentTitle(detail.tournament.sport) });
   const user = userEvent.setup();
-  await user.click(screen.getByRole('button', { name: t.detail.sections.matches }));
+  await pickSection(user, t.detail.sections.matches);
   return { tournamentsApi, user };
 }
 

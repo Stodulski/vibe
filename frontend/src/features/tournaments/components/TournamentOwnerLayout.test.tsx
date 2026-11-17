@@ -5,6 +5,7 @@ import { renderWithProviders, screen, userEvent, within } from '@/test/test-util
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { formatPrice } from '@/shared/lib/utils';
 import { makeCategory, makeDetail, makeDrawnDetail, makeMatch, makePair } from '../testing/fixtures';
+import { pickSection } from '../testing/sectionSelect';
 import { TournamentDetailContent } from '../pages/TournamentDetailPage';
 import { GroupsSection } from './GroupsSection';
 import { MatchesSection } from './MatchesSection';
@@ -120,14 +121,39 @@ describe('owner tournament menus and tabs', () => {
     );
   });
 
-  it('opens a category on its pairs before the draw, and on its matches after it', async () => {
+  it('opens a category on its pairs before the draw', async () => {
     await renderDetail(makeDetail());
-    expect(screen.getByRole('button', { name: t.detail.sections.pairs })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.pairs);
   });
 
   it('opens a drawn category on its matches', async () => {
     await renderDetail(makeDrawnDetail());
-    expect(screen.getByRole('button', { name: t.detail.sections.matches })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.matches);
+  });
+
+  it('switches the section from the select, and opens each category on its own section', async () => {
+    const categories = [
+      makeCategory({ id: 'a', modality: 'men', level: 6 }),
+      makeCategory({ id: 'b', modality: 'women', level: 5, draw_generated: true }),
+    ];
+    const user = await renderDetail(makeDetail({ categories }));
+    await pickSection(user, t.detail.sections.bracket);
+    expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.bracket);
+    expect(screen.getByText(t.bracket.none)).toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Damas 5ta' }));
+    expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.matches);
+
+    await user.click(screen.getByRole('button', { name: 'Caballeros 6ta' }));
+    expect(screen.getByRole('combobox', { name: t.detail.sectionLabel })).toHaveTextContent(t.detail.sections.pairs);
+  });
+
+  it('sets the category select and the section select side by side from four categories', async () => {
+    const categories = [1, 2, 3, 4].map((level) => makeCategory({ id: `c${String(level)}`, level }));
+    await renderDetail(makeDetail({ categories }));
+    const row = screen.getByRole('combobox', { name: t.detail.categoriesLabel }).closest('.grid');
+    expect(row).toHaveClass('grid-cols-2');
+    expect(row).toContainElement(screen.getByRole('combobox', { name: t.detail.sectionLabel }));
   });
 
   it('writes the tournament days with a capital letter on their own line', async () => {
