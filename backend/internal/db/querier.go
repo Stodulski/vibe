@@ -480,6 +480,13 @@ type Querier interface {
 	// creation when they have never made one. A booking from any source (the
 	// public site, the owner's panel, the WhatsApp flow) keeps the complex alive.
 	ListInactiveNudgeCandidates(ctx context.Context, maxRows int32) ([]ListInactiveNudgeCandidatesRow, error)
+	// One-off campaign (2026-11). Remove after it has been sent.
+	// The owners the social kit email has not reached yet, oldest account first, at
+	// most max_rows. Only owners whose complex is live and switched on: the email shows
+	// that complex's own kit image, which the landing renders only for a public page.
+	// complexes_owner_id_key allows one live complex per owner, so the join yields at
+	// most one row per owner.
+	ListKitCampaignRecipients(ctx context.Context, arg ListKitCampaignRecipientsParams) ([]ListKitCampaignRecipientsRow, error)
 	ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UUID) ([]ListOpenPlayEventCourtsRow, error)
 	// The events of one complex whose date is in the window, soonest first, with
 	// how many spots are taken: confirmed registrations plus the holds still

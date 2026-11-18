@@ -156,6 +156,8 @@ var optionalApplicationFields = map[string]string{
 	"jobRetention": "built from models.Jobs alongside jobs; nil under the same condition",
 	"campaignBenefits": "needs the durable queue's enqueuer and the campaign store, which the unit harness does not supply; " +
 		"the one-off campaign (2026-10) sends nothing outside production. Remove with the campaign",
+	"campaignKit": "needs the durable queue's enqueuer and the kit campaign store, which the unit harness does not supply; " +
+		"the one-off campaign (2026-11) sends nothing outside production. Remove with the campaign",
 }
 
 // TestNewApplicationWiresEveryField is the check unwiredDependencies() was

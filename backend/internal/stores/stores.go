@@ -889,7 +889,10 @@ type Stores struct {
 	Lifecycle         LifecycleStore
 	// Campaign is the one-off benefits email's recipients and claims. Remove with the campaign.
 	Campaign campaign.Store
-	Locks    data.LockStore
+	// KitCampaign is the one-off social kit email's recipients and claims (2026-11).
+	// Remove with the campaign.
+	KitCampaign campaign.Store
+	Locks       data.LockStore
 	// Jobs is the durable work queue (internal/jobs). It is the one member
 	// cmd/api's validateDeps does not require, because a nil one is a valid
 	// configuration there: the unit suite builds a Stores by hand with no
@@ -935,6 +938,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Leads:             &leadsstore.Store{Q: q},
 		Lifecycle:         &lifecyclestore.Store{Q: q},
 		Campaign:          &campaignstore.Store{Q: q},
+		KitCampaign:       &campaignstore.KitStore{Q: q},
 		Tokens:            &authstore.Tokens{DB: pooled, Q: q},
 		Clients:           &clientstore.Store{DB: pooled, Q: q},
 		Payments:          payments,

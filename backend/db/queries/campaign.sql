@@ -36,3 +36,31 @@ WHERE u.role = 'owner'
   )
 ORDER BY u.created_at, u.id
 LIMIT sqlc.arg(max_rows)::int;
+
+-- One-off campaign (2026-11). Remove after it has been sent.
+
+-- name: ListKitCampaignRecipients :many
+-- The owners the social kit email has not reached yet, oldest account first, at
+-- most max_rows. Only owners whose complex is live and switched on: the email shows
+-- that complex's own kit image, which the landing renders only for a public page.
+-- complexes_owner_id_key allows one live complex per owner, so the join yields at
+-- most one row per owner.
+SELECT u.id,
+       u.email::text AS email,
+       u.first_name,
+       c.slug::text AS slug
+FROM users u
+JOIN complexes c
+  ON c.owner_id = u.id
+ AND c.deleted_at IS NULL
+ AND c.is_active
+WHERE u.role = 'owner'
+  AND u.is_active
+  AND u.email_verified
+  AND NOT EXISTS (SELECT 1 FROM email_suppressions s WHERE s.email = lower(u.email::text))
+  AND NOT EXISTS (
+      SELECT 1 FROM campaign_claims k
+      WHERE k.campaign = sqlc.arg(campaign)::text AND k.user_id = u.id
+  )
+ORDER BY u.created_at, u.id
+LIMIT sqlc.arg(max_rows)::int;

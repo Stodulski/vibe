@@ -97,25 +97,31 @@ func (c *Campaign) Run(ctx context.Context) int {
 	if !Enabled(c.cfg.Env) {
 		return 0
 	}
+	return pass(ctx, CampaignName, c.store, c.schedule, c.logger)
+}
+
+// pass claims and schedules every recipient a store still lists, for the campaign
+// called name, and reports how many emails it scheduled. Both campaigns run it.
+func pass(ctx context.Context, name string, store Store, schedule func(Recipient, time.Time), logger *slog.Logger) int {
 	now := time.Now()
 	sent := 0
 	for {
-		batch, err := c.store.ListRecipients(ctx, batchSize)
+		batch, err := store.ListRecipients(ctx, batchSize)
 		if err != nil {
-			c.logger.Error("campaign: listing recipients failed", "campaign", CampaignName, "error", err)
+			logger.Error("campaign: listing recipients failed", "campaign", name, "error", err)
 			return sent
 		}
 		claimed := 0
 		for _, r := range batch {
-			ok, err := c.store.Claim(ctx, r.UserID)
+			ok, err := store.Claim(ctx, r.UserID)
 			if err != nil {
-				c.logger.Error("campaign: claiming an owner failed", "campaign", CampaignName, "error", err)
+				logger.Error("campaign: claiming an owner failed", "campaign", name, "error", err)
 				return sent
 			}
 			if !ok {
 				continue
 			}
-			c.schedule(r, now.Add(time.Duration(sent)*time.Second))
+			schedule(r, now.Add(time.Duration(sent)*time.Second))
 			sent++
 			claimed++
 		}

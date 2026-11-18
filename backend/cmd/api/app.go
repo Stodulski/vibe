@@ -721,6 +721,18 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		}, d.logger)
 	}
 
+	// The one-off social kit email (2026-11), wired like the benefits email above.
+	// Remove with the campaign.
+	var campaignKit *campaign.KitCampaign
+	if enqueuer != nil && d.models.KitCampaign != nil {
+		campaignKit = campaign.NewKit(d.models.KitCampaign, enqueuer, lifecycleSigner, campaign.Config{
+			Env:           cfg.Env,
+			FrontendURL:   cfg.FrontendURL,
+			PublicBaseURL: cfg.PublicBaseURL(),
+			BackendURL:    cfg.BackendURL,
+		}, d.logger)
+	}
+
 	// The export dependencies are assigned only when they exist, because a
 	// typed nil in an interface is not a nil interface: handing over a nil
 	// *jobs.Store would make ExportsConfigured say yes and the first call
@@ -905,6 +917,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.emailUnsubscribe = unsubscribeHandler
 	app.lifecycleNudger = lifecycleNudger
 	app.campaignBenefits = campaignBenefits
+	app.campaignKit = campaignKit
 	app.reporting = reportingHandler
 	app.queues = queues
 	app.health = healthHandler
