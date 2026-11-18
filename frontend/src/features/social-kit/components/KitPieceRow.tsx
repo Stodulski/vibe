@@ -11,7 +11,7 @@ interface KitPieceRowProps {
   slug: string;
 }
 
-/** One piece of the kit: the post as a thumbnail, its title, and a download button per format. */
+/** One piece of the kit as a card: the post as a preview, its title, and a download button per format. */
 export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
   const title = t.navigation.socialKitPieces[piece];
   const headingId = `kit-${piece}`;
@@ -26,8 +26,8 @@ export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
           className="bg-bg-base size-full object-cover"
         />
       </div>
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-        <h2 id={headingId} className="font-display text-text-primary text-base leading-6 font-semibold sm:text-lg">
+      <div className="flex flex-col gap-3 px-1 pb-1">
+        <h2 id={headingId} className="font-display text-text-primary text-lg leading-7 font-semibold">
           {title}
         </h2>
         <div className={KIT_ACTIONS_CLASS}>
@@ -36,7 +36,7 @@ export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
               key={format}
               asChild
               variant={format === 'historia' ? 'default' : 'outline'}
-              className="rounded-full"
+              className="w-full rounded-full"
             >
               <a
                 href={socialKitImageUrl(slug, piece, format, { download: true })}

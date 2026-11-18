@@ -7,7 +7,7 @@ import { KIT_LIST_CLASS } from '../components/kitLayout';
 
 const t = ES_AR;
 
-/** What `SocialKitPage` draws while its route chunk loads: the title, the intro and one row per piece. */
+/** What `SocialKitPage` draws while its route chunk loads: the title, the intro and one card per piece. */
 export function SocialKitPageSkeleton() {
   return (
     <div className="space-y-6" role="status" aria-label={t.common.loading}>

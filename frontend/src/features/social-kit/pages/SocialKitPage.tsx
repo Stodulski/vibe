@@ -8,7 +8,7 @@ import { KIT_LIST_CLASS } from '../components/kitLayout';
 
 const t = ES_AR;
 
-/** Owner page with the complex's social kit: one row per piece, each downloadable as a story or a post. */
+/** Owner page with the complex's social kit: one card per piece, each downloadable as a story or a post. */
 export default function SocialKitPage() {
   usePageTitle(t.navigation.socialKit);
   const { complex } = useSelectedComplex();
