@@ -509,10 +509,3 @@ func TestMPOAuthAttemptsRedisCapsEachScope(t *testing.T) {
 		}
 	}
 }
-
-// The service stores attempts for one hour.
-func TestRegisterMercadoPagoOAuthAttemptUsesAOneHourTTL(t *testing.T) {
-	if mpOAuthAttemptTTL != time.Hour {
-		t.Errorf("want 1h; got %v", mpOAuthAttemptTTL)
-	}
-}

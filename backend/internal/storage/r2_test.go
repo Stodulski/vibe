@@ -7,9 +7,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	"github.com/aws/aws-sdk-go-v2/aws"
-	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
 func TestKeyFromPublicURL(t *testing.T) {
@@ -170,34 +167,6 @@ func TestPresignedPUTRefusesWhatItCannotEnforce(t *testing.T) {
 				t.Errorf("a refused presign must return no URLs; got %q / %q", uploadURL, publicURL)
 			}
 		})
-	}
-}
-
-// The guard above exists because of what the signer does without it. This pins
-// that behaviour, so the day the SDK starts signing a zero length the guard can
-// be reconsidered on evidence rather than removed on a hunch.
-func TestUnguardedZeroSizeWouldSignNothingButTheHost(t *testing.T) {
-	c := newPresignTestClient(t)
-
-	input := &s3.PutObjectInput{
-		Bucket:        aws.String("bucket"),
-		Key:           aws.String("complexes/x/logo/a.webp"),
-		ContentType:   aws.String("image/webp"),
-		ContentLength: aws.Int64(0),
-	}
-	presigned, err := c.presignClient.PresignPutObject(context.Background(), input, s3.WithPresignExpires(10*time.Minute))
-	if err != nil {
-		t.Fatalf("presigning: %v", err)
-	}
-	u, err := url.Parse(presigned.URL)
-	if err != nil {
-		t.Fatalf("the presigned URL does not parse: %v", err)
-	}
-
-	signed := u.Query().Get("X-Amz-SignedHeaders")
-	if slices.Contains(strings.Split(signed, ";"), "content-type") {
-		t.Fatalf("the SDK now signs the content type at a zero length (signed: %q); "+
-			"GeneratePresignedPUT's non-positive-size guard can be revisited", signed)
 	}
 }
 

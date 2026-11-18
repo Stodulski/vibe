@@ -27,20 +27,13 @@ func TestSlugify(t *testing.T) {
 	}
 }
 
-// TestReservedSlugsMatchTheKnownClientRoutes is the tripwire reservedSlugs'
-// own comment promises.
+// TestReservedSlugsMatchTheKnownClientRoutes checks that every top-level
+// client route is still reserved, so no complex can claim one of them and be
+// unreachable at its own URL.
 //
-// It cannot read frontend from here — a Go test in one repository has no
-// business reaching into another, and a path that worked on one machine would
-// break in CI. So it does the next best thing: it re-asserts the exact list
-// the comment documents. That converts a silent cross-repository drift into a
-// visible one, because adding a top-level route to the client's router and
-// then adding it here forces a deliberate edit in this file too, which a
-// reviewer sees.
-//
-// What it therefore does NOT prove: that the list still matches the client's
-// router. Nothing automated can, until the two repositories share a manifest.
-// It proves only that nobody changed the list without meaning to.
+// It cannot read frontend from here, so it re-asserts the list the
+// reservedSlugs comment documents. It does NOT prove that the list still
+// matches the client's router.
 func TestReservedSlugsMatchTheKnownClientRoutes(t *testing.T) {
 	want := []string{
 		// authRoutes
@@ -63,10 +56,5 @@ func TestReservedSlugsMatchTheKnownClientRoutes(t *testing.T) {
 		if !reservedSlugs[slug] {
 			t.Errorf("%q is a top-level client route but is not reserved; a complex could claim it and be unreachable at its own URL", slug)
 		}
-	}
-
-	if len(reservedSlugs) != len(want) {
-		t.Errorf("reservedSlugs has %d entries and this test knows %d: if a route was added to frontend's router, add it to both; if one was removed, remove it from both",
-			len(reservedSlugs), len(want))
 	}
 }

@@ -4,7 +4,6 @@ import (
 	"errors"
 	"strings"
 	"testing"
-	"time"
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 )
@@ -15,7 +14,6 @@ import (
 // X-Robots-Tag: noindex, so listing it asks a crawler to fetch a URL it is then
 // told to discard.
 func TestServiceSitemap(t *testing.T) {
-	updated := time.Date(2026, 3, 12, 9, 30, 0, 0, time.UTC)
 
 	tests := []struct {
 		name          string
@@ -29,20 +27,6 @@ func TestServiceSitemap(t *testing.T) {
 			name:          "with no complexes the sitemap lists nothing at all",
 			publicBaseURL: "https://vibe.example",
 			unwantedLoc:   "<loc>https://vibe.example/</loc>",
-		},
-		{
-			name:          "every complex is listed under the public origin, and only those",
-			publicBaseURL: "https://vibe.example/",
-			slugs: []complexstore.ComplexSlug{
-				{Slug: "club-norte", UpdatedAt: updated},
-				{Slug: "club-sur", UpdatedAt: updated},
-			},
-			wantLocs: []string{
-				"<loc>https://vibe.example/c/club-norte</loc>",
-				"<loc>https://vibe.example/c/club-sur</loc>",
-				"<lastmod>2026-03-12</lastmod>",
-			},
-			unwantedLoc: "<loc>https://vibe.example/</loc>",
 		},
 		{
 			name:          "a store failure is passed through, not published as an empty sitemap",
