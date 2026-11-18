@@ -3,7 +3,7 @@ import { EVENT, MEN_6_TO_8 } from '../../test/eventFixtures';
 import { openPlayRows } from './openPlayAgendaModel';
 
 describe('openPlayRows', () => {
-  it('lists only the events open for sign-up with a place left', () => {
+  it('lists the active events not yet started, full ones included, for their waitlist', () => {
     const rows = openPlayRows([
       EVENT,
       { ...EVENT, id: 'full', spots_left: 0 },
@@ -11,7 +11,7 @@ describe('openPlayRows', () => {
       { ...EVENT, id: 'started', date: '2000-01-01' },
     ]);
 
-    expect(rows.map((row) => row.event.id)).toEqual(['ev1']);
+    expect(rows.map((row) => row.event.id)).toEqual(['ev1', 'full']);
   });
 
   it('sorts by day, then by start time', () => {

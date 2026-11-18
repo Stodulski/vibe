@@ -10,16 +10,19 @@ interface AgendaRowProps {
   row: AgendaRowData;
   slug: string;
   onViewDetail: (row: AgendaRowData) => void;
+  /** Opens the waitlist of a full category. */
+  onNotify: (row: AgendaRowData) => void;
 }
 
 /**
  * One category on the agenda: its day and time, its title under the sport's
  * label, one line of what it costs and how many places are left, and its
- * sign-up.
+ * sign-up, or "Avisarme" when it is full.
  */
-export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
+export function AgendaRow({ row, slug, onViewDetail, onNotify }: AgendaRowProps) {
   const { category } = row;
-  const spots = spotsNotice(category.spots_left);
+  const full = category.spots_left <= 0;
+  const spots = full ? { text: BOOKING_MESSAGES.waitlist.full, last: true } : spotsNotice(category.spots_left);
   const meta: AgendaMetaToken[] = [
     { key: 'spots', text: spots.text, emphasis: spots.last },
     { key: 'price', text: formatPrice(category.price), unit: t.perPairShort },
@@ -36,7 +39,16 @@ export function AgendaRow({ row, slug, onViewDetail }: AgendaRowProps) {
       onViewDetail={() => {
         onViewDetail(row);
       }}
-      signUp={{ href: publicTournamentSignUpPath(slug, row.tournamentId, category.id), label: t.signUpCategory }}
+      signUp={
+        full
+          ? {
+              notifyLabel: BOOKING_MESSAGES.waitlist.notifyMe,
+              onNotify: () => {
+                onNotify(row);
+              },
+            }
+          : { href: publicTournamentSignUpPath(slug, row.tournamentId, category.id), label: t.signUpCategory }
+      }
     />
   );
 }

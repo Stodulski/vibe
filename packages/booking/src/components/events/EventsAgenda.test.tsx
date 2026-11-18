@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { server } from '../../test/msw/server';
 import type { PublicOpenPlayEvent, PublicTournamentCategory, PublicTournamentSummary } from '../../api/types';
 import { renderBooking } from '../../test/booking';
 import { chooseOption } from '../../test/chooseOption';
@@ -271,5 +273,65 @@ describe('EventsAgenda infinite scroll', () => {
     sentinelEnters();
     expect(screen.getAllByRole('article')).toHaveLength(15);
     expect(isWatchingSentinel()).toBe(false);
+  });
+});
+
+describe('EventsAgenda waitlist', () => {
+  const w = BOOKING_MESSAGES.waitlist;
+
+  it('offers "Avisarme" instead of the sign-up on a full event, and saves the email for that event', async () => {
+    const user = userEvent.setup();
+    let body: unknown = null;
+    server.use(
+      http.post('*/public/complexes/:slug/waitlist/places', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    renderAgenda(eventRows(openPlayRows([{ ...EVENT, spots_left: 0 }]), []));
+
+    expect(screen.queryByRole('link', { name: /Inscribirme/ })).not.toBeInTheDocument();
+    expect(screen.getByText(w.full)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: new RegExp(w.notifyMe) }));
+
+    const dialog = await screen.findByRole('alertdialog');
+    await user.type(within(dialog).getByLabelText(w.emailLabel), ' Ana@Example.com ');
+    await user.click(within(dialog).getByRole('button', { name: w.send }));
+
+    expect(await within(dialog).findByText(w.done)).toBeInTheDocument();
+    expect(body).toEqual({ kind: 'open_play', event_id: EVENT.id, email: 'Ana@Example.com' });
+  });
+
+  it('asks for a valid email before sending', async () => {
+    const user = userEvent.setup();
+    renderAgenda(eventRows(openPlayRows([{ ...EVENT, spots_left: 0 }]), []));
+
+    await user.click(screen.getByRole('button', { name: new RegExp(w.notifyMe) }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.type(within(dialog).getByLabelText(w.emailLabel), 'nope');
+    await user.click(within(dialog).getByRole('button', { name: w.send }));
+
+    expect(within(dialog).getByText(w.emailInvalid)).toBeInTheDocument();
+  });
+
+  it('sends the category of a full tournament row', async () => {
+    const user = userEvent.setup();
+    let body: unknown = null;
+    server.use(
+      http.post('*/public/complexes/:slug/waitlist/places', async ({ request }) => {
+        body = await request.json();
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    const full = { ...CAT_OPEN, spots_left: 0 };
+    renderAgenda(eventRows([], agendaRows([{ ...TOURNAMENT, categories: [full] }])));
+
+    await user.click(screen.getByRole('button', { name: new RegExp(w.notifyMe) }));
+    const dialog = await screen.findByRole('alertdialog');
+    await user.type(within(dialog).getByLabelText(w.emailLabel), 'ana@example.com');
+    await user.click(within(dialog).getByRole('button', { name: w.send }));
+
+    await within(dialog).findByText(w.done);
+    expect(body).toEqual({ kind: 'tournament_category', category_id: CAT_OPEN.id, email: 'ana@example.com' });
   });
 });

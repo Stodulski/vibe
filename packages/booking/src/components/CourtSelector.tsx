@@ -19,6 +19,8 @@ interface CourtSelectorProps {
   courts: CourtAvailability[];
   /** The day shown (YYYY-MM-DD), so a taken hour that already began reads as past and is left off the ruler. */
   date?: string;
+  /** The complex, so a taken hour can ask to be told when it frees. */
+  slug?: string;
   selected: SelectedSlot | null;
   onSelect: (selection: SelectedSlot) => void;
   /**
@@ -57,6 +59,7 @@ interface CourtSelectorProps {
 export function CourtSelector({
   courts,
   date,
+  slug,
   selected,
   onSelect,
   onContinue,
@@ -126,6 +129,7 @@ export function CourtSelector({
     <div ref={questionRef} data-testid="time-options" className="scroll-mt-6 space-y-6">
       <TimeRuler
         hours={hours}
+        waitlist={slug && date ? { slug, date } : null}
         initialStartTime={selected?.slot.start_time ?? null}
         severalCourts={courts.length > 1}
         onSelectTime={handleSelectTime}

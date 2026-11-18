@@ -2932,6 +2932,27 @@ func (e TournamentsPublicSignUpJSONBodyPartnerGender) Valid() bool {
 	}
 }
 
+// Defines values for WaitlistJoinPlaceJSONBodyKind.
+const (
+	WaitlistJoinPlaceJSONBodyKindOpenPlay           WaitlistJoinPlaceJSONBodyKind = "open_play"
+	WaitlistJoinPlaceJSONBodyKindSlot               WaitlistJoinPlaceJSONBodyKind = "slot"
+	WaitlistJoinPlaceJSONBodyKindTournamentCategory WaitlistJoinPlaceJSONBodyKind = "tournament_category"
+)
+
+// Valid indicates whether the value is a known member of the WaitlistJoinPlaceJSONBodyKind enum.
+func (e WaitlistJoinPlaceJSONBodyKind) Valid() bool {
+	switch e {
+	case WaitlistJoinPlaceJSONBodyKindOpenPlay:
+		return true
+	case WaitlistJoinPlaceJSONBodyKindSlot:
+		return true
+	case WaitlistJoinPlaceJSONBodyKindTournamentCategory:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EmailUnsubscribeFormdataBodyListUnsubscribe.
 const (
 	OneClick EmailUnsubscribeFormdataBodyListUnsubscribe = "One-Click"
@@ -6178,6 +6199,37 @@ type WaitlistJoinJSONBody struct {
 	Email string `json:"email"`
 }
 
+// WaitlistJoinPlaceJSONBody defines parameters for WaitlistJoinPlace.
+type WaitlistJoinPlaceJSONBody struct {
+	// CategoryId Required for `tournament_category`. A category of the complex whose sign-up is open.
+	CategoryId *openapi_types.UUID `json:"category_id,omitempty"`
+
+	// CourtId Required for `slot`. An active court of the complex.
+	CourtId *openapi_types.UUID `json:"court_id,omitempty"`
+
+	// Date Required for `slot`. The storefront day, `YYYY-MM-DD`, from today up to 365 days ahead.
+	Date *openapi_types.Date `json:"date,omitempty"`
+
+	// DurationMinutes Required for `slot`. The slot's length in minutes.
+	DurationMinutes *int `json:"duration_minutes,omitempty"`
+
+	// Email Trimmed and lowercased before it is stored.
+	Email string `json:"email"`
+
+	// EventId Required for `open_play`. A live open-play event of the complex that has not started.
+	EventId *openapi_types.UUID           `json:"event_id,omitempty"`
+	Kind    WaitlistJoinPlaceJSONBodyKind `json:"kind"`
+
+	// StartTime Required for `slot`. The slot's start on the storefront grid, `HH:MM`.
+	StartTime *string `json:"start_time,omitempty"`
+
+	// TurnstileToken Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`).
+	TurnstileToken *string `json:"turnstile_token,omitempty"`
+}
+
+// WaitlistJoinPlaceJSONBodyKind defines parameters for WaitlistJoinPlace.
+type WaitlistJoinPlaceJSONBodyKind string
+
 // EmailUnsubscribeJSONBody defines parameters for EmailUnsubscribe.
 type EmailUnsubscribeJSONBody struct {
 	// Token The signed token, when it is not in the query string.
@@ -6497,6 +6549,9 @@ type TournamentsPublicSignUpJSONRequestBody TournamentsPublicSignUpJSONBody
 
 // WaitlistJoinJSONRequestBody defines body for WaitlistJoin for application/json ContentType.
 type WaitlistJoinJSONRequestBody WaitlistJoinJSONBody
+
+// WaitlistJoinPlaceJSONRequestBody defines body for WaitlistJoinPlace for application/json ContentType.
+type WaitlistJoinPlaceJSONRequestBody WaitlistJoinPlaceJSONBody
 
 // EmailUnsubscribeJSONRequestBody defines body for EmailUnsubscribe for application/json ContentType.
 type EmailUnsubscribeJSONRequestBody EmailUnsubscribeJSONBody
@@ -6957,6 +7012,9 @@ type ServerInterface interface {
 	// WaitlistJoin Ask to be emailed when a slot on a fully booked day frees up again
 	// (POST /api/v1/public/complexes/{slug}/waitlist)
 	WaitlistJoin(w http.ResponseWriter, r *http.Request, slug PathSlug)
+	// WaitlistJoinPlace Ask to be emailed when one place frees up in a full event, tournament category or court slot
+	// (POST /api/v1/public/complexes/{slug}/waitlist/places)
+	WaitlistJoinPlace(w http.ResponseWriter, r *http.Request, slug PathSlug)
 	// EmailUnsubscribe Stop owner lifecycle email to an address
 	// (POST /api/v1/public/email/unsubscribe)
 	EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params EmailUnsubscribeParams)
@@ -11377,6 +11435,32 @@ func (siw *ServerInterfaceWrapper) WaitlistJoin(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// WaitlistJoinPlace operation middleware
+func (siw *ServerInterfaceWrapper) WaitlistJoinPlace(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "slug" -------------
+	var slug PathSlug
+
+	err = runtime.BindStyledParameterWithOptions("simple", "slug", r.PathValue("slug"), &slug, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "slug", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WaitlistJoinPlace(w, r, slug)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // EmailUnsubscribe operation middleware
 func (siw *ServerInterfaceWrapper) EmailUnsubscribe(w http.ResponseWriter, r *http.Request) {
 
@@ -12045,6 +12129,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/oauth-attempts", wrapper.ComplexesRegisterMercadoPagoOAuthAttempt)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist/places", wrapper.WaitlistJoinPlace)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments", wrapper.TournamentsList)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments", wrapper.TournamentsCreate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}", wrapper.TournamentsGet)

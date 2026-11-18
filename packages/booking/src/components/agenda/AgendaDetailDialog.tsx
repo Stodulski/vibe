@@ -25,6 +25,8 @@ interface AgendaDetailDialogProps {
   detail: AgendaDetail | null;
   closeLabel: string;
   onClose: () => void;
+  /** Set when the row is full: the sign-up becomes this "Avisarme" button. */
+  notify?: { label: string; onNotify: () => void } | undefined;
 }
 
 function Fact({ term, value }: AgendaDetailFact) {
@@ -50,7 +52,7 @@ function Fact({ term, value }: AgendaDetailFact) {
  * The detail of an agenda row, in a dialog. Closing it, with the button or with
  * Escape, returns the focus to the row.
  */
-export function AgendaDetailDialog({ detail, closeLabel, onClose }: AgendaDetailDialogProps) {
+export function AgendaDetailDialog({ detail, closeLabel, onClose, notify }: AgendaDetailDialogProps) {
   return (
     <AlertDialog
       open={detail !== null}
@@ -73,9 +75,15 @@ export function AgendaDetailDialog({ detail, closeLabel, onClose }: AgendaDetail
             </dl>
 
             <div className="flex flex-col gap-2 pt-2 sm:flex-row">
-              <Button asChild size="lg" className="min-h-12 w-full sm:w-auto">
-                <a href={detail.signUp.href}>{detail.signUp.label}</a>
-              </Button>
+              {notify ? (
+                <Button size="lg" className="min-h-12 w-full sm:w-auto" onClick={notify.onNotify}>
+                  {notify.label}
+                </Button>
+              ) : (
+                <Button asChild size="lg" className="min-h-12 w-full sm:w-auto">
+                  <a href={detail.signUp.href}>{detail.signUp.label}</a>
+                </Button>
+              )}
               <Button variant="outline" size="lg" className="min-h-12 w-full sm:w-auto" onClick={onClose}>
                 {closeLabel}
               </Button>

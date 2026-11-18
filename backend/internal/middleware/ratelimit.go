@@ -176,7 +176,7 @@ func ceilingsFor(r *http.Request) []int {
 		return generalAndBook
 	case r.Method == http.MethodPost && r.URL.Path == "/api/v1/book/holds":
 		return generalAndHold
-	case isEventSignUp(r), isPairSignUp(r):
+	case isEventSignUp(r), isPairSignUp(r), isPlaceWaitlistJoin(r):
 		return generalAndHold
 	default:
 		return generalOnly
@@ -612,6 +612,20 @@ func (m *Middleware) RateLimitUser(next http.Handler) http.Handler {
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// isPlaceWaitlistJoin reports whether the request is a place-waitlist join,
+// POST /api/v1/public/complexes/{slug}/waitlist/places. It stores an address the
+// platform will email, so it is throttled as strictly as the sign-ups it stands
+// in for while a place is full: the `hold` ceiling.
+func isPlaceWaitlistJoin(r *http.Request) bool {
+	const prefix, suffix = "/api/v1/public/complexes/", "/waitlist/places"
+	path := r.URL.Path
+	if r.Method != http.MethodPost || !strings.HasPrefix(path, prefix) || !strings.HasSuffix(path, suffix) {
+		return false
+	}
+	// {slug}: exactly one segment between the prefix and the suffix.
+	return !strings.Contains(strings.TrimSuffix(strings.TrimPrefix(path, prefix), suffix), "/")
 }
 
 // isPairSignUp reports whether the request is a tournament pair sign-up,

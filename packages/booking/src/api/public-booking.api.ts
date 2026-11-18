@@ -18,6 +18,7 @@ import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/avai
 import { withSignal } from './client';
 import { createPublicEventsApi } from './public-events.api';
 import { createPublicTournamentsApi } from './public-tournaments.api';
+import { createPublicWaitlistApi } from './public-waitlist.api';
 
 /**
  * The endpoints of the public booking flow, bound to the client that
@@ -95,6 +96,7 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
 
     ...createPublicEventsApi(client, report),
     ...createPublicTournamentsApi(client, report),
+    ...createPublicWaitlistApi(client),
   };
 }
 

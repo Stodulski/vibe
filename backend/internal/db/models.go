@@ -759,6 +759,20 @@ type Payment struct {
 	RegistrationID     pgtype.UUID        `json:"registration_id"`
 }
 
+type PlaceWaitlistEntry struct {
+	ID              pgtype.UUID        `json:"id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	Email           string             `json:"email"`
+	Kind            string             `json:"kind"`
+	EventID         pgtype.UUID        `json:"event_id"`
+	CourtID         pgtype.UUID        `json:"court_id"`
+	Date            pgtype.Date        `json:"date"`
+	StartTime       pgtype.Time        `json:"start_time"`
+	DurationMinutes pgtype.Int4        `json:"duration_minutes"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	NotifiedAt      pgtype.Timestamptz `json:"notified_at"`
+}
+
 type Product struct {
 	ID                pgtype.UUID        `json:"id"`
 	ComplexID         pgtype.UUID        `json:"complex_id"`

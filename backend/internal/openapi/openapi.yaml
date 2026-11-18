@@ -2892,6 +2892,91 @@ paths:
               schema: {$ref: "#/components/schemas/Problem"}
         "422": {$ref: "#/components/responses/ValidationError"}
         "429": {$ref: "#/components/responses/RateLimited"}
+  /api/v1/public/complexes/{slug}/waitlist/places:
+    post:
+      tags: [courts]
+      operationId: waitlistJoinPlace
+      summary: Ask to be emailed when one place frees up in a full event, tournament category or court slot
+      description: >-
+        Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one place
+        of the complex: a spot of an open-play event (`open_play`, `event_id`), a pair's spot of a
+        tournament category whose sign-up is still open (`tournament_category`, `category_id`), or
+        one court slot (`slot`, `court_id`, `date`, `start_time`, `duration_minutes`). Joining again
+        for the same address and place while still waiting answers the same `204`; after the notice
+        was sent, joining again waits again and is told again. Only a full place can be waited for:
+        `422` names `event_id` / `category_id` / `start_time` when the place has a spot free now (book
+        it instead), `start_time` when the slot is not on the court's grid for that date and duration
+        or has already begun, and `email` when the address is already waiting for 20 places at the
+        complex. Throttled under the same `hold` ceiling as the sign-ups. Every address waiting for a place is
+        emailed once, all at the same time, within about a minute of a spot freeing (a cancellation,
+        a refund or an unpaid hold that ran out); nothing is held for them, the first to pay keeps
+        it. Nothing is sent once the event or slot has started. When Cloudflare Turnstile is
+        configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the request must also carry
+        a valid `turnstile_token`, as the open-play and tournament sign-ups do.
+      security: []
+      parameters:
+        - {$ref: "#/components/parameters/PathSlug"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [email, kind]
+              properties:
+                email:
+                  type: string
+                  description: Trimmed and lowercased before it is stored.
+                turnstile_token:
+                  type: string
+                  description: >-
+                    Required only when Cloudflare Turnstile is configured and enforcement is on
+                    (`TURNSTILE_BOOKING_ENFORCE`).
+                kind:
+                  type: string
+                  enum: [open_play, tournament_category, slot]
+                event_id:
+                  type: string
+                  format: uuid
+                  description: Required for `open_play`. A live open-play event of the complex that has not started.
+                category_id:
+                  type: string
+                  format: uuid
+                  description: Required for `tournament_category`. A category of the complex whose sign-up is open.
+                court_id:
+                  type: string
+                  format: uuid
+                  description: Required for `slot`. An active court of the complex.
+                date:
+                  type: string
+                  format: date
+                  description: Required for `slot`. The storefront day, `YYYY-MM-DD`, from today up to 365 days ahead.
+                start_time:
+                  type: string
+                  pattern: "^([01][0-9]|2[0-3]):[0-5][0-9]$"
+                  description: Required for `slot`. The slot's start on the storefront grid, `HH:MM`.
+                duration_minutes:
+                  type: integer
+                  minimum: 1
+                  maximum: 720
+                  description: Required for `slot`. The slot's length in minutes.
+      responses:
+        "204":
+          description: On the waitlist for that place. Empty body.
+        "400":
+          description: Malformed JSON body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404":
+          description: >-
+            Unknown slug or inactive complex, or the event, category or court is not the complex's
+            or can no longer be waited for (cancelled, started, draw generated).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
   /api/v1/complexes/{id}/tournaments:
     get:
       tags: [tournaments]

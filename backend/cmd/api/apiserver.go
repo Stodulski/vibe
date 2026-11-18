@@ -690,6 +690,12 @@ func (s *apiServer) WaitlistJoin(w http.ResponseWriter, r *http.Request, slug ge
 	s.app.waitlist.Join(w, r)
 }
 
+// WaitlistJoinPlace implements gen.ServerInterface for waitlistJoinPlace
+// (POST /api/v1/public/complexes/{slug}/waitlist/places). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) WaitlistJoinPlace(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
+	s.app.placeWaitlist.Join(w, r)
+}
+
 // EmailUnsubscribe implements gen.ServerInterface for emailUnsubscribe
 // (POST /api/v1/public/email/unsubscribe). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) EmailUnsubscribe(w http.ResponseWriter, r *http.Request, params gen.EmailUnsubscribeParams) {

@@ -94,6 +94,12 @@ type application struct {
 	// handler above serves the public join.
 	waitlistService *waitlist.Service
 
+	// placeWaitlist serves the public join of the place waitlist (an event
+	// spot, a tournament category spot, a court slot); placeWaitlistService is
+	// the cron's handle on its notify sweep and cleanup.
+	placeWaitlist        *waitlist.PlaceHandler
+	placeWaitlistService *waitlist.PlaceService
+
 	// complexesService is held separately from the handler because the
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the
 	// venue domain's own credential lifecycle, not an HTTP route.

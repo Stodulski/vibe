@@ -43,6 +43,18 @@ type Querier interface {
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.
 	ClaimCampaign(ctx context.Context, arg ClaimCampaignParams) (int64, error)
+	// Marks notified, and returns with what the email needs, every entry still
+	// waiting on one grid whose position is among the free ones given, each written
+	// "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
+	ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEntriesParams) ([]ClaimFreeSlotEntriesRow, error)
+	// Claims, in one statement, every entry still waiting for an event that has a
+	// free spot now and has not started, and returns what the email needs. A spot
+	// is free when capacity exceeds the confirmed registrations plus the holds still
+	// inside their window (the CountOpenPlaySpotsTaken rule). A tournament's
+	// category is only waited for while its sign-up is open (no draw yet). SKIP
+	// LOCKED and the notified_at IS NULL guard make the claim one-shot even with two
+	// sweeps running at once.
+	ClaimFreedOpenPlayWaitlist(ctx context.Context, arg ClaimFreedOpenPlayWaitlistParams) ([]ClaimFreedOpenPlayWaitlistRow, error)
 	// Records that a nudge is going out. The primary key makes each kind once-only
 	// per owner: a second claim inserts nothing.
 	ClaimOwnerNudge(ctx context.Context, arg ClaimOwnerNudgeParams) (int64, error)
@@ -76,12 +88,19 @@ type Querier interface {
 	CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlaySpotsTakenParams) (int32, error)
 	// The balance lines a sale's checkout collected. A void refuses while any exist.
 	CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error)
+	// How many places one address is still waiting for at one complex; the join
+	// caps it.
+	CountWaitingPlaceEntriesOfEmail(ctx context.Context, arg CountWaitingPlaceEntriesOfEmailParams) (int32, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
 	DeleteEmailVerificationTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
 	DeleteExpiredRefreshTokens(ctx context.Context) error
+	// The daily cleanup: slot entries whose day is gone (kept one extra day for the
+	// hours past midnight), and event entries whose event was cancelled or whose day
+	// has passed.
+	DeletePastPlaceWaitlistEntries(ctx context.Context, arg DeletePastPlaceWaitlistEntriesParams) (int64, error)
 	DeleteRefreshToken(ctx context.Context, id pgtype.UUID) error
 	DeleteRegistrationLeadsOlderThan30Days(ctx context.Context) (int64, error)
 	DeleteTournamentGroups(ctx context.Context, categoryID pgtype.UUID) error
@@ -325,6 +344,17 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id pgtype.UUID) (User, error)
 	GetUserIdentitiesByUser(ctx context.Context, userID pgtype.UUID) ([]UserIdentity, error)
 	GetUserIdentityByProviderSubject(ctx context.Context, arg GetUserIdentityByProviderSubjectParams) (UserIdentity, error)
+	// The sign-up container of a tournament category a person can wait for: live,
+	// of this complex, sign-up still open (no draw), and its day not yet begun, with
+	// its pair spots left (the same rule as GetWaitlistableOpenPlayEvent).
+	GetWaitlistableCategoryEvent(ctx context.Context, arg GetWaitlistableCategoryEventParams) (GetWaitlistableCategoryEventRow, error)
+	// An active court of this complex.
+	GetWaitlistableCourt(ctx context.Context, arg GetWaitlistableCourtParams) (pgtype.UUID, error)
+	// An open-play event a person can wait for: live, of this complex, not a
+	// tournament's sign-up container, and not started yet (now_* is the product's
+	// wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
+	// the confirmed registrations and the holds still inside their window.
+	GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (GetWaitlistableOpenPlayEventRow, error)
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
@@ -355,6 +385,10 @@ type Querier interface {
 	// capacity count compares held_until against.
 	InsertOpenPlayRegistration(ctx context.Context, arg InsertOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	InsertPayment(ctx context.Context, arg InsertPaymentParams) (Payment, error)
+	// A second join of the same address for the same event is a no-op.
+	InsertPlaceWaitlistOpenPlay(ctx context.Context, arg InsertPlaceWaitlistOpenPlayParams) error
+	// A second join of the same address for the same court slot is a no-op.
+	InsertPlaceWaitlistSlot(ctx context.Context, arg InsertPlaceWaitlistSlotParams) error
 	InsertProduct(ctx context.Context, arg InsertProductParams) (Product, error)
 	InsertRefreshToken(ctx context.Context, arg InsertRefreshTokenParams) (RefreshToken, error)
 	InsertSale(ctx context.Context, arg InsertSaleParams) (Sale, error)
@@ -527,6 +561,12 @@ type Querier interface {
 	// include_cancelled is what the owner's list sets and the public one does not.
 	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
+	// The distinct grids (complex, day, duration) that slot entries still wait on,
+	// from from_date, in key order after the cursor (NULL: from the start). The
+	// sweep reads each grid once and walks the keys in pages, wrapping round, so
+	// every waiting entry is inspected however many are still taken: an entry is
+	// never starved behind older ones.
+	ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error)
 	// Every write that changes how many spots are taken (a sign-up, a payment
 	// confirmed late, the owner cancelling) takes this lock first, so two of them
 	// can never both read the same count and both fit into the last spot.

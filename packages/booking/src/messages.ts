@@ -2,6 +2,7 @@ import { DECLARATION_MESSAGES } from './declarationMessages';
 import { EVENT_MESSAGES } from './eventMessages';
 import { RULER_MESSAGES } from './rulerMessages';
 import { TOURNAMENT_MESSAGES } from './tournamentMessages';
+import { WAITLIST_MESSAGES } from './waitlistMessages';
 
 /**
  * The strings the booking package renders. This file is the single source of
@@ -206,6 +207,7 @@ export const BOOKING_MESSAGES = {
   events: EVENT_MESSAGES,
   tournaments: TOURNAMENT_MESSAGES,
   declaration: DECLARATION_MESSAGES,
+  waitlist: WAITLIST_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
     amenities: {

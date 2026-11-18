@@ -24,6 +24,8 @@ interface TimeRulerProps {
   /** Whether the venue has more than one court, so "Última cancha" means something. */
   severalCourts: boolean;
   onSelectTime: (option: TimeOption) => void;
+  /** The complex and day a taken hour's "Avisarme cuando se libere" waits on. */
+  waitlist?: { slug: string; date: string } | null;
 }
 
 /**
@@ -34,7 +36,7 @@ interface TimeRulerProps {
  * hour. Every tick is drawn from the wheel's position in the same frame, so the curve
  * never lags behind a fast swipe.
  */
-export function TimeRuler({ hours, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
+export function TimeRuler({ hours, initialStartTime, severalCourts, onSelectTime, waitlist = null }: TimeRulerProps) {
   const [width, element, measureRef] = useWidth();
   const tick = tickWidthFor(width);
   const half = width / 2;
@@ -84,6 +86,7 @@ export function TimeRuler({ hours, initialStartTime, severalCourts, onSelectTime
         hour={current}
         onSelectTime={onSelectTime}
         onGoToFree={toFree === null ? null : () => { wheel.goTo(toFree); }}
+        waitlist={waitlist}
       />
     </section>
   );

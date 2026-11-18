@@ -77,6 +77,7 @@ export function AvailabilitySection({
       >
         <CourtSelector
           courts={courts}
+          slug={fullDay.slug}
           date={dateStr}
           selected={selectedSlot}
           onSelect={onSelect}

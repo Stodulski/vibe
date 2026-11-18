@@ -63,7 +63,7 @@ export const EVENT_MESSAGES = {
   cancelledResultTitle: 'Lugar cancelado',
   refreshStatus: 'Actualizar',
   // The Eventos list: one row per event open for sign-up with a place left, of either kind.
-  onlyWithSpots: 'Solo te mostramos eventos con lugar.',
+  onlyWithSpots: 'Si un evento está completo, te avisamos por email cuando se libere un lugar.',
   filterModality: 'Modalidad',
   filterDay: 'Día',
   filterAll: 'Todas',
