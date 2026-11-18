@@ -88,7 +88,7 @@ interface Drag {
 }
 
 /** Dragging the wheel with a finger or a mouse; letting go flings it. A drag's closing click is not a tap. */
-function usePointerDrag(motion: Motion, tickWidth: number) {
+function usePointerDrag(motion: Motion, tickWidth: number, stepped: boolean) {
   const drag = useRef<Drag | null>(null);
   const swallowClick = useRef(false);
   return {
@@ -125,7 +125,15 @@ function usePointerDrag(motion: Motion, tickWidth: number) {
       drag.current = null;
       if (!state?.moved) return;
       swallowClick.current = true;
-      motion.fling(state.velocity);
+      if (!stepped) {
+        motion.fling(state.velocity);
+        return;
+      }
+      // A few large cards: one swipe moves at most one card, toward the swipe.
+      const from = Math.round(state.pos);
+      const drift = motion.posRef.current - state.pos + state.velocity * 120;
+      const step = Math.abs(drift) < 0.25 ? 0 : Math.sign(drift);
+      motion.goTo(motion.nearest(from + step));
     },
     onPointerCancel: () => {
       drag.current = null;
@@ -168,14 +176,16 @@ function useWheelInput(motion: Motion, tickWidth: number) {
 }
 
 /**
- * The position of the wheel, in ticks from its first hour to its last, moved by dragging with a fling that settles
+ * The position of the wheel, in ticks from its first item to its last; `stepped`
+ * makes each swipe move at most one item (a few large cards) instead of flinging.
+ * The position is moved by dragging with a fling that settles
  * on the nearest tick, by the mouse wheel, and by `goTo`. Position and drawing come from
  * the same state in the same frame, so the wheel never lags behind the finger. `center`
  * is the tick at the center, or the one a settle or a tap is heading to.
  */
-export function useWheelPicker(initial: number, count: number, tickWidth: number) {
+export function useWheelPicker(initial: number, count: number, tickWidth: number, options: { stepped?: boolean } = {}) {
   const motion = useWheelMotion(initial, Math.max(0, count - 1));
-  const handlers = usePointerDrag(motion, tickWidth);
+  const handlers = usePointerDrag(motion, tickWidth, options.stepped ?? false);
   const onWheel = useWheelInput(motion, tickWidth);
   return { pos: motion.pos, center: motion.target ?? Math.round(motion.pos), handlers, onWheel, goTo: motion.goTo };
 }

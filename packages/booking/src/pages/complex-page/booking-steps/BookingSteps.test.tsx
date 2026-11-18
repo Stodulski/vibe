@@ -104,16 +104,16 @@ describe('BookingSteps — nothing answered yet', () => {
     expect(screen.queryByRole('button', { name: /Duración/ })).not.toBeInTheDocument();
   });
 
-  // U-01: nothing counts as answered before the visitor answers. The dial has to
-  // rest somewhere, so it opens on the middle duration, but only Continuar answers.
-  it('opens the dial on the middle duration without answering for the visitor', () => {
+  // U-01: nothing counts as answered before the visitor answers. The bar has to
+  // rest somewhere, so it opens on 1 h, but only its button answers.
+  it('opens on 1 h without answering for the visitor', () => {
     const { onDurationChange } = renderSteps({
       answeredFromUrl: { sport: false, duration: false },
       selectedDuration: null,
       timeAnswer: null,
     });
 
-    expect(screen.getByRole('radio', { name: '1 h 30' })).toHaveAttribute('aria-checked', 'true');
+    expect(screen.getByRole('radio', { name: '1 h' })).toHaveAttribute('aria-checked', 'true');
     expect(onDurationChange).not.toHaveBeenCalled();
   });
 });

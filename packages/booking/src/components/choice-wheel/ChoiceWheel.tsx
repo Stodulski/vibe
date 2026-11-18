@@ -1,6 +1,6 @@
-import { useRef, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { Button, cn } from '@vibe/ui';
-import { useNativeWheel, useWidth } from '../court-selector/useRulerBox';
+import { useWidth } from '../court-selector/useRulerBox';
 import { useWheelPicker } from '../court-selector/useWheelPicker';
 import { tickDepth } from '../court-selector/wheelMath';
 
@@ -80,8 +80,9 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
 
 /**
  * A question answered on a wheel, in the language of the time ruler: the choices are
- * cards on a curve that turns by dragging, the mouse wheel or a tap, the one at the
- * center large and green. Tapping the centered card, or "Continuar", answers.
+ * cards on a curve, the one at the center large and green. A swipe or drag moves it
+ * one card at most; tapping a card brings it to the center. The mouse wheel is left
+ * to the page. Tapping the centered card, or the button under it, answers.
  */
 export function ChoiceWheel<T extends string>({
   question,
@@ -92,15 +93,12 @@ export function ChoiceWheel<T extends string>({
   startAt = 'middle',
   size = 'regular',
 }: ChoiceWheelProps<T>) {
-  const [width, element, measureRef] = useWidth();
+  const [width, , measureRef] = useWidth();
   const card = cardWidth(size, width);
   const half = width / 2;
   const chosen = choices.findIndex((choice) => choice.value === selected);
-  // The card a tap is bringing to the center: a second quick tap on it chooses it, even mid-turn.
-  const heading = useRef<number | null>(null);
   const opening = startAt === 'first' ? 0 : Math.floor((choices.length - 1) / 2);
-  const wheel = useWheelPicker(chosen >= 0 ? chosen : opening, choices.length, card);
-  useNativeWheel(element, wheel.onWheel);
+  const wheel = useWheelPicker(chosen >= 0 ? chosen : opening, choices.length, card, { stepped: true });
   const current = choices[Math.min(choices.length - 1, Math.max(0, wheel.center))];
   if (!current) return null;
 
@@ -122,12 +120,8 @@ export function ChoiceWheel<T extends string>({
             width={card - 16}
             focused={index === wheel.center}
             onTap={() => {
-              if (index === wheel.center || index === heading.current) {
-                onChoose(choice.value);
-                return;
-              }
-              heading.current = index;
-              wheel.goTo(index);
+              if (index === wheel.center) onChoose(choice.value);
+              else wheel.goTo(index);
             }}
           />
         ))}

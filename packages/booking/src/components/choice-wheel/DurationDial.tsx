@@ -82,7 +82,8 @@ interface DurationDialProps {
  */
 export function DurationDial({ question, options, selected, onChoose }: DurationDialProps) {
   const initial = selected === null ? -1 : options.indexOf(selected);
-  const [index, setIndex] = useState(initial >= 0 ? initial : Math.floor((options.length - 1) / 2));
+  // It opens on the shortest duration, 1 h, unless one was already chosen.
+  const [index, setIndex] = useState(Math.max(0, initial));
   const value = options[index] ?? options[0];
   if (value === undefined) return null;
 
