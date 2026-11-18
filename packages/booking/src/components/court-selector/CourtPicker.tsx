@@ -1,7 +1,6 @@
 import { formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import { courtFactsLine } from '../../lib/courtFacts';
-import { keepTogether } from '../../lib/keepTogether';
+import { courtFactParts } from '../../lib/courtFacts';
 import { ChoiceWheel } from '../choice-wheel/ChoiceWheel';
 import { SportGlyph } from '../choice-wheel/SportGlyph';
 import type { CourtAtTime, TimeOption } from './timeOptions';
@@ -29,15 +28,18 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
       selected={selectedCourtId}
       choices={option.courts.map(({ court, slot }) => ({
         value: court.court_id,
-        label: keepTogether(court.court_name),
+        label: court.court_name,
         title: court.court_name,
         art: <SportGlyph sport={court.sport} />,
         detail: (
           <>
-            <span className="text-text-secondary w-full text-xs leading-snug text-balance">
-              {(t.courts.sportTypes as Record<string, string | undefined>)[court.sport] ?? court.sport} · {courtFactsLine(court)}
-            </span>
-            <span className="text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>
+            {/* One fact a line: roof, surface, lighting. The sport is the drawing above. */}
+            <ul className="text-text-secondary w-full space-y-0.5 text-xs">
+              {courtFactParts(court).map((fact) => (
+                <li key={fact}>{fact}</li>
+              ))}
+            </ul>
+            <span className="mt-auto text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>
           </>
         ),
       }))}
