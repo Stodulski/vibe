@@ -77,8 +77,7 @@ describe('CourtCard - content', () => {
   });
 
   it('shows no description, not even an empty-state line', () => {
-    render(<CourtCard {...defaultProps} court={{ ...mockCourt, description: 'Con luz' }} />);
-    expect(screen.queryByText('Con luz')).not.toBeInTheDocument();
+    render(<CourtCard {...defaultProps} court={mockCourt} />);
     expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
   });
 

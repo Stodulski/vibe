@@ -19,7 +19,7 @@ vi.mock('../hooks/useDeleteCourt', () => ({
 }));
 
 const courtWithRange: CourtWithPrices = {
-  ...makeCourt({ id: 'ct1', name: 'Cancha 1', sport: 'padel', court_type: 'outdoor', description: 'Con luz' }),
+  ...makeCourt({ id: 'ct1', name: 'Cancha 1', sport: 'padel', court_type: 'outdoor' }),
   prices: [
     makePrice({ id: 'p1', court_id: 'ct1', price: 1350000, day_type: 'monday' }),
     makePrice({ id: 'p2', court_id: 'ct1', price: 2850000, day_type: 'saturday' }),

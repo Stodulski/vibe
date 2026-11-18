@@ -47,7 +47,10 @@ test.describe('Public Booking Form Submission', () => {
     // The hours only appear once the duration question is answered; the
     // landing hydrates after it server-renders, so let the scripts settle first.
     await waitForStorefrontHydration(page);
-    await page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: /^Elegir/ }).click();
+    await page
+      .getByRole('region', { name: '¿Cuánto tiempo?' })
+      .getByRole('button', { name: /^Elegir/ })
+      .click();
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 
     // Date buttons are the enabled radios in the "Fecha" radiogroup.
@@ -79,7 +82,10 @@ test.describe('Public Booking Form Submission', () => {
     const publicPage = new PublicBookingPage(page);
     await publicPage.goto(SLUG);
     await waitForStorefrontHydration(page);
-    await page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: /^Elegir/ }).click();
+    await page
+      .getByRole('region', { name: '¿Cuánto tiempo?' })
+      .getByRole('button', { name: /^Elegir/ })
+      .click();
 
     const dateBtns = page.getByRole('radiogroup', { name: 'Fecha' }).getByRole('radio').and(page.locator(':enabled'));
     const slotFound = await findAndClickAvailableSlot(dateBtns);

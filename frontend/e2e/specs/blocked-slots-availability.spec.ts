@@ -108,7 +108,10 @@ test.describe('Blocked Slots — Public Availability', () => {
     // this test's own 18:00-19:30 blocked range. The landing hydrates after it
     // server-renders, so let the scripts settle before the click.
     await waitForStorefrontHydration(page);
-    await page.getByRole('region', { name: '¿Cuánto tiempo?' }).getByRole('button', { name: /^Elegir/ }).click();
+    await page
+      .getByRole('region', { name: '¿Cuánto tiempo?' })
+      .getByRole('button', { name: /^Elegir/ })
+      .click();
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 
     // Wait for the hour grid to load. Not a court name: on this complex's
