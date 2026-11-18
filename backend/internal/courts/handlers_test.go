@@ -1045,3 +1045,30 @@ func courtWire(t *testing.T, w *httptest.ResponseRecorder) map[string]any {
 	return out.Court
 }
 
+// The deprecated description key is gone: a request that still sends it is
+// refused like any unknown field and stores nothing, and a court response
+// never carries one.
+func TestDescriptionIsNoLongerAccepted(t *testing.T) {
+	complexID := uuid.New()
+	create := func(body string) (*stubStore, *httptest.ResponseRecorder) {
+		store := &stubStore{}
+		h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+		w := httptest.NewRecorder()
+		h.Create(w, ownerRequest(t, http.MethodPost, "/", complexID, nil, body))
+		return store, w
+	}
+
+	_, plain := create(`{"name":"C1","sport":"tennis","court_type":"outdoor","surface":"clay"}`)
+	if plain.Code != http.StatusCreated {
+		t.Fatalf("want 201 for a create without description; got %d (%s)", plain.Code, plain.Body.String())
+	}
+	courtWire(t, plain)
+
+	store, w := create(`{"name":"C1","sport":"tennis","court_type":"outdoor","surface":"clay","description":"x"}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("want 400 for a create with description; got %d (%s)", w.Code, w.Body.String())
+	}
+	if store.inserted != nil {
+		t.Errorf("a refused create stored a court: %+v", *store.inserted)
+	}
+}
