@@ -122,7 +122,7 @@ export async function seedTestCourt(
 
 /**
  * Try each non-disabled date button (skipping today = index 0) until one
- * reveals an available slot, then click it. Returns whether a slot was
+ * offers a free hour, then open that hour's courts. Returns whether a slot was
  * found and clicked. Extracted from 2 near-identical call sites in
  * `public-booking.spec.ts` (slice 10, max-lines decomposition — also
  * removes a DRY violation per this repo's own principles).
@@ -140,9 +140,12 @@ export async function findAndClickAvailableSlot(dateBtns: Locator): Promise<bool
       /* no response yet, try next */
     }
 
-    const availableSlot = dateBtns.page().locator('[data-slot-time]:not([disabled])').first();
-    if (await availableSlot.isVisible({ timeout: 2_000 }).catch(() => false)) {
-      await availableSlot.click();
+    // The ruler opens on a free hour, so its "Ver canchas a las HH:MM" button is
+    // the day's first bookable hour. Its ticks only move the wheel, and the ones
+    // at the edges sit under the page, so the test never clicks a tick.
+    const seeCourts = dateBtns.page().getByRole('button', { name: /^Ver canchas a las/ });
+    if (await seeCourts.isVisible({ timeout: 2_000 }).catch(() => false)) {
+      await seeCourts.click();
       return true;
     }
   }

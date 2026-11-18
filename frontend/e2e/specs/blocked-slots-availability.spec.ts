@@ -114,21 +114,24 @@ test.describe('Blocked Slots — Public Availability', () => {
       .click();
     await expect(page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
 
-    // Wait for the hour grid to load. Not a court name: on this complex's
-    // single-court aggregated grid, the court is never named on the grid
-    // itself (only once a time slot is picked, in the court-selection step).
-    await expect(page.getByText('Mañana').or(page.getByText('Tarde')).or(page.getByText('Noche')).first()).toBeVisible({
-      timeout: 15_000,
-    });
+    // Wait for the time ruler to load.
+    await expect(page.getByRole('region', { name: 'Horarios' })).toBeVisible({ timeout: 15_000 });
 
-    // The 18:00 slot should be marked as unavailable (disabled button or no button)
-    // Slots that are available have an interactive button; blocked ones don't
-    const slot18 = page.locator('button:has-text("18:00")');
-    const count = await slot18.count();
-    // If the slot button exists it should be disabled, or it shouldn't exist at all
-    if (count > 0) {
-      await expect(slot18.first()).toBeDisabled();
+    // The ruler draws only the hours near its center, so turn it past 18:00 by
+    // tapping the latest hour drawn. A tap only moves the wheel; the event is
+    // dispatched because the ticks at the edges sit under the page.
+    const ticks = page.locator('[data-slot-time]');
+    for (let step = 0; step < 24; step++) {
+      const latest = (await ticks.last().getAttribute('data-slot-time')) ?? '';
+      if (latest > '18:00') break;
+      await ticks.last().dispatchEvent('click');
+      await page.waitForTimeout(300);
     }
+    expect(((await ticks.last().getAttribute('data-slot-time')) ?? '') > '18:00').toBe(true);
+
+    // A blocked hour is never offered as bookable: the server leaves it out, or
+    // the ruler marks it taken (amber, "Ocupado").
+    await expect(page.locator('[data-slot-time="18:00"]:not([data-taken])')).toHaveCount(0);
 
     // Cleanup
     await apiHelper.deleteBlockedSlot(complexId, blocked.id);
