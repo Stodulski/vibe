@@ -11,7 +11,7 @@ interface KitPieceRowProps {
   slug: string;
 }
 
-/** One piece of the kit: the post as a thumbnail, what it is, and a download button per format. */
+/** One piece of the kit: the post as a thumbnail, its title, and a download button per format. */
 export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
   const title = t.navigation.socialKitPieces[piece];
   const headingId = `kit-${piece}`;
@@ -27,12 +27,9 @@ export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
         />
       </div>
       <div className="flex min-w-0 flex-1 flex-col justify-center gap-3">
-        <div className="space-y-1">
-          <h2 id={headingId} className="font-display text-text-primary text-base leading-6 font-semibold sm:text-lg">
-            {title}
-          </h2>
-          <p className="text-text-secondary text-sm leading-5">{t.navigation.socialKitPieceDescriptions[piece]}</p>
-        </div>
+        <h2 id={headingId} className="font-display text-text-primary text-base leading-6 font-semibold sm:text-lg">
+          {title}
+        </h2>
         <div className={KIT_ACTIONS_CLASS}>
           {SOCIAL_KIT_FORMATS.map((format) => (
             <Button

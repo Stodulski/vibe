@@ -31,22 +31,19 @@ describe('SocialKitPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('shows one row per piece with its title, what it is and its post as the thumbnail', () => {
+  it('shows one row per piece with its title and its post as the thumbnail, and no explanation', () => {
     renderKit();
     const reservar = screen.getByRole('article', { name: 'Link de reservas' });
-    expect(
-      within(reservar).getByText('El QR y el link para que tus clientes reserven desde el celular.'),
-    ).toBeInTheDocument();
     expect(within(reservar).getByRole('img', { name: 'Post: Link de reservas' })).toHaveAttribute(
       'src',
       `${KIT_URL}/reservar-post.png`,
     );
     const como = screen.getByRole('article', { name: 'Cómo reservar' });
-    expect(within(como).getByText('Los tres pasos para reservar en tu complejo, con el QR.')).toBeInTheDocument();
     expect(within(como).getByRole('img', { name: 'Post: Cómo reservar' })).toHaveAttribute(
       'src',
       `${KIT_URL}/como-reservar-post.png`,
     );
+    expect(within(reservar).queryByRole('paragraph')).not.toBeInTheDocument();
   });
 });
 
