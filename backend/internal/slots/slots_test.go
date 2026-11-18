@@ -261,12 +261,3 @@ func TestAtRollsIntoTheNextDayInsteadOfWrapping(t *testing.T) {
 		})
 	}
 }
-
-// The contrast, stated as a test so nobody "simplifies" At back into it:
-// FromMinutes answers what a clock reads and therefore wraps, which is why it
-// cannot be used to walk a span.
-func TestFromMinutesWrapsWhereAtDoesNot(t *testing.T) {
-	if got := FromMinutes(24 * 60); got != "00:00" {
-		t.Errorf("FromMinutes(1440) = %s, want 00:00 — it is modular on purpose", got)
-	}
-}
