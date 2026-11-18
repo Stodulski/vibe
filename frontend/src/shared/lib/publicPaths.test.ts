@@ -1,9 +1,27 @@
 import { describe, expect, it } from 'vitest';
-import { landingTutorialUrl, publicComplexUrl } from './publicPaths';
+import { landingTutorialUrl, publicComplexUrl, socialKitImageUrl } from './publicPaths';
 
 describe('publicComplexUrl', () => {
   it('points a complex storefront at the landing, under the /c/ prefix', () => {
     expect(publicComplexUrl('los-alamos')).toBe('https://vibe.com.ar/c/los-alamos');
+  });
+});
+
+describe('socialKitImageUrl', () => {
+  it.each([
+    ['reservar', 'historia', 'https://vibe.com.ar/kit/c/los-alamos/reservar-historia.png'],
+    ['reservar', 'post', 'https://vibe.com.ar/kit/c/los-alamos/reservar-post.png'],
+    ['como-reservar', 'historia', 'https://vibe.com.ar/kit/c/los-alamos/como-reservar-historia.png'],
+    ['como-reservar', 'post', 'https://vibe.com.ar/kit/c/los-alamos/como-reservar-post.png'],
+  ] as const)('points the %s %s image at the landing kit endpoint', (piece, format, url) => {
+    expect(socialKitImageUrl('los-alamos', piece, format)).toBe(url);
+    expect(socialKitImageUrl('los-alamos', piece, format, { download: false })).toBe(url);
+  });
+
+  it('adds the descargar flag only when asked for a download', () => {
+    expect(socialKitImageUrl('los-alamos', 'reservar', 'post', { download: true })).toBe(
+      'https://vibe.com.ar/kit/c/los-alamos/reservar-post.png?descargar=1',
+    );
   });
 });
 

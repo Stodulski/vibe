@@ -21,6 +21,7 @@ const CASES = [
   ['/clients', '/clients'],
   ['/reports', '/reports'],
   ['/settings', '/settings'],
+  ['/kit', '/kit'],
   ['/profile', '/profile'],
 ] as const;
 

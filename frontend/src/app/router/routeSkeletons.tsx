@@ -10,6 +10,7 @@ import { SettingsPageSkeleton } from '@/features/complex/pages/SettingsPageSkele
 import { CourtsPageSkeleton } from '@/features/courts/pages/CourtsPageSkeleton';
 import { DashboardPageSkeleton } from '@/features/dashboard/pages/DashboardPageSkeleton';
 import { ReportsPageSkeleton } from '@/features/dashboard/pages/ReportsPageSkeleton';
+import { SocialKitPageSkeleton } from '@/features/social-kit/pages/SocialKitPageSkeleton';
 import { EventsHubPageSkeleton } from './EventsHubPageSkeleton';
 import { TournamentDetailPageSkeleton } from '@/features/tournaments/pages/TournamentDetailPageSkeleton';
 import { ProductDetailPageSkeleton } from '@/features/products/pages/ProductDetailPageSkeleton';
@@ -37,6 +38,7 @@ const OWNER_ROUTE_SKELETONS = {
   '/courts': () => <CourtsPageSkeleton />,
   '/clients': () => <ClientsPageSkeleton />,
   '/reports': () => <ReportsPageSkeleton />,
+  '/kit': () => <SocialKitPageSkeleton />,
   '/settings': () => <SettingsPageSkeleton />,
   '/profile': () => <ProfilePageSkeleton />,
 } satisfies Record<string, () => ReactNode>;

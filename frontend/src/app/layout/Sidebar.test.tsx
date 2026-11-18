@@ -87,6 +87,11 @@ describe('Sidebar', () => {
     expect(screen.getByText('Configuración')).toBeInTheDocument();
   });
 
+  it('renders the social kit nav item', () => {
+    renderSidebar();
+    expect(screen.getByText('Kit para redes')).toBeInTheDocument();
+  });
+
   // Owner request: each account has one complex, so its name label was dropped.
   it('does not render the complex name', () => {
     renderSidebar();
@@ -145,6 +150,7 @@ describe('Sidebar — labels and icons per width', () => {
       'Canchas',
       'Clientes',
       'Reportes',
+      'Kit para redes',
       'Configuración',
     ]) {
       expect(within(nav).getByRole('link', { name: label })).toHaveTextContent(label);
