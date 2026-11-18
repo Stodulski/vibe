@@ -34,7 +34,7 @@ export function CourtPicker({ option, selectedCourtId, onSelect }: CourtPickerPr
         art: <SportGlyph sport={court.sport} />,
         detail: (
           <>
-            <span className="text-text-secondary w-full truncate text-xs">
+            <span className="text-text-secondary w-full text-xs leading-snug text-balance">
               {(t.courts.sportTypes as Record<string, string | undefined>)[court.sport] ?? court.sport} · {courtFactsLine(court)}
             </span>
             <span className="text-base font-semibold tabular-nums">{formatPrice(slot.price)}</span>

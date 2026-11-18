@@ -115,7 +115,7 @@ describe('CourtPicker — the facts line', () => {
     render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
 
     expect(screen.getByText('Pádel · Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
-    const plain = screen.getByText('Pádel · Descubierta');
-    expect(plain).toHaveClass('truncate');
+    // The facts are a court's only description now: they wrap, never cut.
+    expect(screen.getByText('Pádel · Descubierta')).not.toHaveClass('truncate');
   });
 });
