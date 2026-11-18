@@ -5603,10 +5603,6 @@ type ClientsUpdateJSONBody struct {
 type CourtsCreateJSONBody struct {
 	CourtType CourtsCreateJSONBodyCourtType `json:"court_type"`
 
-	// Description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-	Description *string `json:"description,omitempty"`
-
 	// HasLighting Defaults to false when omitted.
 	HasLighting *bool                     `json:"has_lighting,omitempty"`
 	Name        string                    `json:"name"`
@@ -5627,15 +5623,11 @@ type CourtsCreateJSONBodySurface string
 
 // CourtsUpdateJSONBody defines parameters for CourtsUpdate.
 type CourtsUpdateJSONBody struct {
-	CourtType *CourtsUpdateJSONBodyCourtType `json:"court_type,omitempty"`
-
-	// Description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
-	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
-	Description *string                    `json:"description,omitempty"`
-	HasLighting *bool                      `json:"has_lighting,omitempty"`
-	IsActive    *bool                      `json:"is_active,omitempty"`
-	Name        *string                    `json:"name,omitempty"`
-	Sport       *CourtsUpdateJSONBodySport `json:"sport,omitempty"`
+	CourtType   *CourtsUpdateJSONBodyCourtType `json:"court_type,omitempty"`
+	HasLighting *bool                          `json:"has_lighting,omitempty"`
+	IsActive    *bool                          `json:"is_active,omitempty"`
+	Name        *string                        `json:"name,omitempty"`
+	Sport       *CourtsUpdateJSONBodySport     `json:"sport,omitempty"`
 
 	// Surface Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
 	Surface *CourtsUpdateJSONBodySurface `json:"surface,omitempty"`

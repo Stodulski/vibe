@@ -264,7 +264,7 @@ type Querier interface {
 	// deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
 	// Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
 	// predicate is optional.
-	GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (GetCourtByIDRow, error)
+	GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (ActiveCourt, error)
 	GetCourtPrices(ctx context.Context, courtID pgtype.UUID) ([]CourtPrice, error)
 	// Ordered naturally rather than lexically: courts are almost always named
 	// "Cancha 1", "Cancha 2", ... "Cancha 10", and a plain ORDER BY name sorts
@@ -272,7 +272,7 @@ type Querier interface {
 	// so the numeric part of the name (if any) is extracted and sorted as an
 	// integer first, with non-numeric names falling back to plain name order
 	// after every numbered court.
-	GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]GetCourtsByComplexRow, error)
+	GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]ActiveCourt, error)
 	GetEmailVerificationToken(ctx context.Context, tokenHash []byte) (EmailVerificationToken, error)
 	// The public page of a complex that was deleted, for the 410 answer. It names
 	// the most recently deleted complex that held the slug, and answers nothing
@@ -371,10 +371,9 @@ type Querier interface {
 	InsertClient(ctx context.Context, arg InsertClientParams) (Client, error)
 	InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error)
 	// Every court query names its columns instead of using *: sqlc expands * into
-	// the column list at generation time, so a * here would keep selecting
-	// courts.description (unused since the API dropped it) and break the moment
-	// the column is dropped.
-	InsertCourt(ctx context.Context, arg InsertCourtParams) (InsertCourtRow, error)
+	// the column list at generation time, so a * silently binds the code to
+	// whatever columns existed then (034 dropped courts.description this way).
+	InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error)
 	InsertCourtPrice(ctx context.Context, arg InsertCourtPriceParams) (CourtPrice, error)
 	// Idempotent: a second unsubscribe of the same address is a no-op.
 	InsertEmailSuppression(ctx context.Context, arg InsertEmailSuppressionParams) error
@@ -689,7 +688,7 @@ type Querier interface {
 	// optional (API-08): NULL is the last-write-wins this endpoint had before
 	// versions existed. Zero rows means either the court is gone or somebody else
 	// wrote it first; courtstore.Store.Update tells those apart by re-reading.
-	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (UpdateCourtRow, error)
+	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error)
 	UpdateCourtPrice(ctx context.Context, arg UpdateCourtPriceParams) (CourtPrice, error)
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (Payment, error)
 	// UpdatePayment for the webhook's record of a refund MercadoPago reports. The

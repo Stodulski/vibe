@@ -90,9 +90,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// body.Description is deprecated and never read: it is in the document only
-	// so panels still on the previous bundle, which send it, are not refused
-	// by ReadJSON's unknown-key check. Removed in the next release.
 	var body gen.CourtsCreateJSONBody
 
 	err := httpx.ReadJSON(w, r, &body)
@@ -164,7 +161,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// body.Description is deprecated and never read; see Create.
 	var body gen.CourtsUpdateJSONBody
 
 	err = httpx.ReadJSON(w, r, &body)

@@ -206,7 +206,7 @@ func (m *Store) GetByComplex(ctx context.Context, complexID uuid.UUID) ([]*Court
 
 	result := make([]*Court, len(dbCourts))
 	for i, c := range dbCourts {
-		result[i] = courtFromDB(db.GetCourtByIDRow(c))
+		result[i] = courtFromDB(c)
 	}
 	return result, nil
 }
@@ -920,12 +920,10 @@ func (m *Store) DeleteBlockedSlot(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// courtFromDB maps a court row onto the store type. GetCourtByID and
-// GetCourtsByComplex select the same columns, so sqlc gives them two structs
-// with identical fields; GetCourtsByComplex's rows are converted to this one
-// rather than keeping two mappers that can drift, and the conversion compiles
-// only while the two column lists stay the same.
-func courtFromDB(c db.GetCourtByIDRow) *Court {
+// courtFromDB maps an active_courts row onto the store type. GetCourtByID and
+// GetCourtsByComplex both read every column of the view, so sqlc gives both
+// the view's own struct and one mapper serves them.
+func courtFromDB(c db.ActiveCourt) *Court {
 	return &Court{
 		ID:          data.PgToUUID(c.ID),
 		ComplexID:   data.PgToUUID(c.ComplexID),

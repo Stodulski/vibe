@@ -57,29 +57,14 @@ type GetCourtByIDParams struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
 }
 
-type GetCourtByIDRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	ComplexID   pgtype.UUID        `json:"complex_id"`
-	Name        string             `json:"name"`
-	Sport       SportType          `json:"sport"`
-	CourtType   CourtType          `json:"court_type"`
-	IsActive    bool               `json:"is_active"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Version     int32              `json:"version"`
-	HasLighting bool               `json:"has_lighting"`
-	Surface     pgtype.Text        `json:"surface"`
-}
-
 // Reads active_courts: a court whose complex was soft-deleted is not a court
 // anyone may book, edit or price, and filtering only on the court's own
 // deleted_at missed exactly that case. See the soft-delete cascade in db/migrations/001_init.sql.
 // Tenant-scoped: see the note on GetBookingByID in bookings.sql for why the
 // predicate is optional.
-func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (GetCourtByIDRow, error) {
+func (q *Queries) GetCourtByID(ctx context.Context, arg GetCourtByIDParams) (ActiveCourt, error) {
 	row := q.db.QueryRow(ctx, getCourtByID, arg.ID, arg.ComplexID)
-	var i GetCourtByIDRow
+	var i ActiveCourt
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
@@ -104,36 +89,21 @@ WHERE complex_id = $1
 ORDER BY NULLIF(regexp_replace(name, '\D', '', 'g'), '')::int NULLS LAST, name
 `
 
-type GetCourtsByComplexRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	ComplexID   pgtype.UUID        `json:"complex_id"`
-	Name        string             `json:"name"`
-	Sport       SportType          `json:"sport"`
-	CourtType   CourtType          `json:"court_type"`
-	IsActive    bool               `json:"is_active"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Version     int32              `json:"version"`
-	HasLighting bool               `json:"has_lighting"`
-	Surface     pgtype.Text        `json:"surface"`
-}
-
 // Ordered naturally rather than lexically: courts are almost always named
 // "Cancha 1", "Cancha 2", ... "Cancha 10", and a plain ORDER BY name sorts
 // "Cancha 10" before "Cancha 2". There is no explicit display-order column,
 // so the numeric part of the name (if any) is extracted and sorted as an
 // integer first, with non-numeric names falling back to plain name order
 // after every numbered court.
-func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]GetCourtsByComplexRow, error) {
+func (q *Queries) GetCourtsByComplex(ctx context.Context, complexID pgtype.UUID) ([]ActiveCourt, error) {
 	rows, err := q.db.Query(ctx, getCourtsByComplex, complexID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []GetCourtsByComplexRow
+	var items []ActiveCourt
 	for rows.Next() {
-		var i GetCourtsByComplexRow
+		var i ActiveCourt
 		if err := rows.Scan(
 			&i.ID,
 			&i.ComplexID,
@@ -173,26 +143,10 @@ type InsertCourtParams struct {
 	Surface     pgtype.Text `json:"surface"`
 }
 
-type InsertCourtRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	ComplexID   pgtype.UUID        `json:"complex_id"`
-	Name        string             `json:"name"`
-	Sport       SportType          `json:"sport"`
-	CourtType   CourtType          `json:"court_type"`
-	IsActive    bool               `json:"is_active"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Version     int32              `json:"version"`
-	HasLighting bool               `json:"has_lighting"`
-	Surface     pgtype.Text        `json:"surface"`
-}
-
 // Every court query names its columns instead of using *: sqlc expands * into
-// the column list at generation time, so a * here would keep selecting
-// courts.description (unused since the API dropped it) and break the moment
-// the column is dropped.
-func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (InsertCourtRow, error) {
+// the column list at generation time, so a * silently binds the code to
+// whatever columns existed then (034 dropped courts.description this way).
+func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error) {
 	row := q.db.QueryRow(ctx, insertCourt,
 		arg.ComplexID,
 		arg.Name,
@@ -201,7 +155,7 @@ func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Inser
 		arg.HasLighting,
 		arg.Surface,
 	)
-	var i InsertCourtRow
+	var i Court
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,
@@ -258,26 +212,11 @@ type UpdateCourtParams struct {
 	ExpectedVersion pgtype.Int4 `json:"expected_version"`
 }
 
-type UpdateCourtRow struct {
-	ID          pgtype.UUID        `json:"id"`
-	ComplexID   pgtype.UUID        `json:"complex_id"`
-	Name        string             `json:"name"`
-	Sport       SportType          `json:"sport"`
-	CourtType   CourtType          `json:"court_type"`
-	IsActive    bool               `json:"is_active"`
-	DeletedAt   pgtype.Timestamptz `json:"deleted_at"`
-	CreatedAt   pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
-	Version     int32              `json:"version"`
-	HasLighting bool               `json:"has_lighting"`
-	Surface     pgtype.Text        `json:"surface"`
-}
-
 // expected_version is the caller's optimistic-concurrency precondition and is
 // optional (API-08): NULL is the last-write-wins this endpoint had before
 // versions existed. Zero rows means either the court is gone or somebody else
 // wrote it first; courtstore.Store.Update tells those apart by re-reading.
-func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (UpdateCourtRow, error) {
+func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error) {
 	row := q.db.QueryRow(ctx, updateCourt,
 		arg.Name,
 		arg.Sport,
@@ -288,7 +227,7 @@ func (q *Queries) UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Updat
 		arg.ID,
 		arg.ExpectedVersion,
 	)
-	var i UpdateCourtRow
+	var i Court
 	err := row.Scan(
 		&i.ID,
 		&i.ComplexID,

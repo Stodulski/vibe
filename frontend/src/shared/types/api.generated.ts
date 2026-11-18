@@ -8546,11 +8546,6 @@ export interface operations {
           sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
           /** @enum {string} */
           court_type: 'indoor' | 'outdoor' | 'semi_covered';
-          /**
-           * @deprecated
-           * @description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
-           */
-          description?: string;
           /** @description Defaults to false when omitted. */
           has_lighting?: boolean;
           /**
@@ -8612,11 +8607,6 @@ export interface operations {
           sport?: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
           /** @enum {string} */
           court_type?: 'indoor' | 'outdoor' | 'semi_covered';
-          /**
-           * @deprecated
-           * @description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
-           */
-          description?: string;
           is_active?: boolean;
           has_lighting?: boolean;
           /**
