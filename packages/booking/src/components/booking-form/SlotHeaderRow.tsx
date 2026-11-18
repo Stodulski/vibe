@@ -21,7 +21,7 @@ interface SlotHeaderRowProps {
  * Everything that was chosen, before the money, in the same order and shape
  * as the confirmed booking's ticket so the two screens read as one: the
  * venue, the day, the hours in large type, then the court with its sport and
- * type as chips and its description below. The tear line follows, and the
+ * type as chips. The tear line follows, and the
  * turn's price opens the money rows.
  */
 export function SlotHeaderRow({ slotInfo, bare = false }: SlotHeaderRowProps) {
@@ -43,12 +43,7 @@ export function SlotHeaderRow({ slotInfo, bare = false }: SlotHeaderRowProps) {
             {`${slotInfo.startTime}\u00A0${t.publicBooking.timeRangeTo}\u00A0${slotInfo.endTime}`}
           </p>
         </div>
-        <TicketCourt
-          name={keepTogether(slotInfo.courtName)}
-          tags={courtTags}
-          description={slotInfo.courtDescription}
-          bare={bare}
-        />
+        <TicketCourt name={keepTogether(slotInfo.courtName)} tags={courtTags} bare={bare} />
       </div>
       <TicketStub bare={bare} />
       <TicketPriceRow label={t.publicBooking.courtPrice} amount={slotInfo.price} />

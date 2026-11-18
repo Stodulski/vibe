@@ -41,13 +41,6 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"courts": courts})
 }
 
-// A description is free text a player reads on a storefront card, so it is
-// capped where the column is capped (courts_description_length). Two lines is the whole
-// point: past that it stops describing the court and starts being a page.
-const descriptionMaxLen = 200
-
-const descriptionMessage = "must not be more than 200 characters"
-
 // maxPriceValue is a price band's real ceiling, not an invented one:
 // court_prices.price is INTEGER (db/migrations/001_init.sql), a signed
 // 32-bit column, and math.MaxInt32 is exactly what it can hold. See H-17's
@@ -76,10 +69,10 @@ const blockedSlotHeldByEventMessage = "this time range belongs to an open-play e
 // match holds the hours: the way out is unscheduling the match.
 const blockedSlotHeldByMatchMessage = "this time range belongs to a tournament match, unschedule it to free it"
 
-// emptyToNil folds a description of "" into no description at all.
+// emptyToNil folds an optional string of "" into no value at all.
 //
-// A client that clears the field sends an empty string, and a court that was
-// never described sends nothing; both mean the same thing to a reader, so they
+// A client that clears the surface sends an empty string, and a court whose
+// owner never said sends nothing; both mean the same thing to a reader, so they
 // are stored the same way instead of leaving the storefront to decide whether
 // "" counts.
 func emptyToNil(s *string) *string {
@@ -97,6 +90,9 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// body.Description is deprecated and never read: it is in the document only
+	// so panels still on the previous bundle, which send it, are not refused
+	// by ReadJSON's unknown-key check. Removed in the next release.
 	var body gen.CourtsCreateJSONBody
 
 	err := httpx.ReadJSON(w, r, &body)
@@ -110,7 +106,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	v.Check(len(body.Name) <= 100, "name", "must not be more than 100 characters")
 	v.Check(validator.PermittedValue(body.Sport, "padel", "tennis", "soccer", "basketball", "volleyball", "hockey", "pickleball"), "sport", "must be one of: padel, tennis, soccer, basketball, volleyball, hockey, pickleball")
 	v.Check(validator.PermittedValue(body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
-	v.Check(body.Description == nil || len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	var surface string
 	if body.Surface != nil {
 		surface = string(*body.Surface)
@@ -127,7 +122,6 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		Name:        body.Name,
 		Sport:       string(body.Sport),
 		CourtType:   string(body.CourtType),
-		Description: body.Description,
 		HasLighting: body.HasLighting != nil && *body.HasLighting,
 		Surface:     &surface,
 	})
@@ -170,6 +164,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// body.Description is deprecated and never read; see Create.
 	var body gen.CourtsUpdateJSONBody
 
 	err = httpx.ReadJSON(w, r, &body)
@@ -188,9 +183,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	}
 	if body.CourtType != nil {
 		v.Check(validator.PermittedValue(*body.CourtType, "indoor", "outdoor", "semi_covered"), "court_type", "must be one of: indoor, outdoor, semi_covered")
-	}
-	if body.Description != nil {
-		v.Check(len(*body.Description) <= descriptionMaxLen, "description", descriptionMessage)
 	}
 	var surface *string
 	if body.Surface != nil {
@@ -228,7 +220,6 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		Sport:           sport,
 		CourtType:       courtType,
 		IsActive:        body.IsActive,
-		Description:     body.Description,
 		HasLighting:     body.HasLighting,
 		Surface:         surface,
 		ExpectedVersion: expectedVersion,

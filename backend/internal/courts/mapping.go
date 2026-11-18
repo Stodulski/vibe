@@ -20,7 +20,6 @@ func toGenCourt(c *courtstore.Court) gen.Court {
 		ComplexId:   c.ComplexID,
 		CourtType:   gen.CourtCourtType(c.CourtType),
 		CreatedAt:   c.CreatedAt,
-		Description: c.Description,
 		HasLighting: c.HasLighting,
 		Id:          c.ID,
 		IsActive:    c.IsActive,
@@ -37,7 +36,7 @@ func toGenCourt(c *courtstore.Court) gen.Court {
 }
 
 // toGenSurface maps an optional stored surface onto a generated surface enum.
-// nil stays nil, which the wire omits (the same way a missing description is).
+// nil stays nil, which the wire omits.
 func toGenSurface[T ~string](s *string) *T {
 	if s == nil {
 		return nil
@@ -74,7 +73,6 @@ func toGenCourtWithPrices(c CourtWithPrices) gen.CourtWithPrices {
 		ComplexId:   c.ComplexID,
 		CourtType:   gen.CourtWithPricesCourtType(c.CourtType),
 		CreatedAt:   c.CreatedAt,
-		Description: c.Description,
 		HasLighting: c.HasLighting,
 		Id:          c.ID,
 		IsActive:    c.IsActive,
@@ -120,7 +118,6 @@ func toGenAvailabilityCourt(c CourtAvailability) gen.AvailabilityCourt {
 		CourtId:     courtID,
 		CourtName:   c.CourtName,
 		CourtType:   gen.AvailabilityCourtCourtType(c.CourtType),
-		Description: c.Description,
 		HasLighting: c.HasLighting,
 		Slots:       slotsOut,
 		Sport:       gen.AvailabilityCourtSport(c.Sport),

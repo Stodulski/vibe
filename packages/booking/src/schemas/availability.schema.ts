@@ -33,7 +33,6 @@ const courtAvailabilitySchema = exact<CourtAvailability>(
       court_name: z.string(),
       sport: z.string(),
       court_type: z.string(),
-      description: z.string().optional(),
       has_lighting: z.boolean(),
       surface: z.string().optional(),
       slots: z.array(availabilitySlotSchema),

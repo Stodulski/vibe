@@ -26,11 +26,6 @@ describe('availabilityDataSchema', () => {
   it('validates a realistic AvailabilityData fixture', () => {
     expect(availabilityDataSchema.safeParse(validAvailability).success).toBe(true);
   });
-
-  it('accepts a court with no description', () => {
-    const result = availabilityDataSchema.safeParse(validAvailability);
-    expect(result.success).toBe(true);
-  });
 });
 
 describe('availabilityDataSchema — unknown vocabulary', () => {

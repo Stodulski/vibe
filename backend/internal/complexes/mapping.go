@@ -173,17 +173,16 @@ func toGenCourtWithPrices(c CourtWithPrices) gen.CourtWithPrices {
 
 	version := c.Version
 	return gen.CourtWithPrices{
-		Id:          c.ID,
-		ComplexId:   c.ComplexID,
-		Name:        c.Name,
-		Sport:       gen.CourtWithPricesSport(c.Sport),
-		CourtType:   gen.CourtWithPricesCourtType(c.CourtType),
-		IsActive:    c.IsActive,
-		Description: c.Description,
-		CreatedAt:   c.CreatedAt,
-		UpdatedAt:   c.UpdatedAt,
-		Version:     &version,
-		Prices:      prices,
+		Id:        c.ID,
+		ComplexId: c.ComplexID,
+		Name:      c.Name,
+		Sport:     gen.CourtWithPricesSport(c.Sport),
+		CourtType: gen.CourtWithPricesCourtType(c.CourtType),
+		IsActive:  c.IsActive,
+		CreatedAt: c.CreatedAt,
+		UpdatedAt: c.UpdatedAt,
+		Version:   &version,
+		Prices:    prices,
 	}
 }
 

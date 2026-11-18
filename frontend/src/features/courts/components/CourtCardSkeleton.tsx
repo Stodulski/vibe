@@ -3,8 +3,7 @@ import { cn } from '@/shared/lib/utils';
 import { COURT_CARD_ACTIONS_CLASS, COURT_CARD_BODY_CLASS, COURT_CARD_CLASS } from './courtLayout';
 
 /**
- * Loading shape of `CourtCard`: header (name + switch, sport line, description
- * line), two price rows, then an action row divided by a top border.
+ * Loading shape of `CourtCard`: header (name + switch, sport line), two price rows, then an action row divided by a top border.
  */
 export function CourtCardSkeleton() {
   return (
@@ -15,7 +14,6 @@ export function CourtCardSkeleton() {
           <Skeleton className="h-5 w-9 shrink-0 rounded-full" />
         </div>
         <Skeleton className="mt-1.5 h-3.5 w-1/3 rounded-lg" />
-        <Skeleton className="mt-2 h-3.5 w-3/5 rounded-lg" />
         <div className="mt-4 space-y-1">
           {[0, 1].map((i) => (
             <div key={i} className="flex h-5 items-center gap-3">

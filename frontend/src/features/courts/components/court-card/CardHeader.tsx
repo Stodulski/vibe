@@ -57,21 +57,6 @@ export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeade
         {/* Surface and lighting, only when known. Truncated like the lines
             around it so a long pair never wraps at 320px. */}
         {details && <p className="text-text-tertiary mt-1 truncate text-xs">{details}</p>}
-        {/* One line, always — including for a court that has none, which says
-            so instead of collapsing. A card that grows or shrinks with the
-            length of its description makes a grid of them ragged, and the row
-            heights are what let the eye run down a column of names.
-
-            The full text is on `title`, so the truncation costs nothing: the
-            owner wrote it for a player, and here it is only a reminder of what
-            is on the storefront. */}
-        {!court.description ? (
-          <p className="text-text-tertiary mt-1.5 truncate text-xs">{t.courts.noDescription}</p>
-        ) : (
-          <p className="text-text-secondary mt-1.5 truncate text-xs" title={court.description}>
-            {court.description}
-          </p>
-        )}
       </div>
     </div>
   );

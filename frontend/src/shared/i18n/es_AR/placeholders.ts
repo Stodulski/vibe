@@ -16,5 +16,4 @@ export const placeholders = {
   depositAmount: 'Ej: 5000',
   blockReason: 'Mantenimiento, evento privado, etc.',
   complexAddressFull: 'Ej: Av. Libertador 1234, Palermo, CABA',
-  courtDescription: 'Ej: piso de césped sintético, paredes de vidrio, iluminación LED',
 } as const;

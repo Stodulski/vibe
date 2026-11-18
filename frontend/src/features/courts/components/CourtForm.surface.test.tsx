@@ -86,6 +86,7 @@ describe('CourtForm surface and lighting submit', () => {
     const sent = mockCreateMutate.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(sent).toMatchObject({ name: 'Cancha 9', sport: 'padel', has_lighting: true });
     expect('surface' in sent).toBe(false);
+    expect('description' in sent).toBe(false);
   });
 
   it('sends the chosen surface when creating', async () => {

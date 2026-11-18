@@ -3069,7 +3069,6 @@ type AvailabilityCourt struct {
 	CourtId     openapi_types.UUID         `json:"court_id"`
 	CourtName   string                     `json:"court_name"`
 	CourtType   AvailabilityCourtCourtType `json:"court_type"`
-	Description *string                    `json:"description,omitempty"`
 	HasLighting bool                       `json:"has_lighting"`
 	Slots       []AvailabilitySlot         `json:"slots"`
 	Sport       AvailabilityCourtSport     `json:"sport"`
@@ -3460,7 +3459,6 @@ type Court struct {
 	ComplexId   openapi_types.UUID `json:"complex_id"`
 	CourtType   CourtCourtType     `json:"court_type"`
 	CreatedAt   time.Time          `json:"created_at"`
-	Description *string            `json:"description,omitempty"`
 	HasLighting bool               `json:"has_lighting"`
 	Id          openapi_types.UUID `json:"id"`
 	IsActive    bool               `json:"is_active"`
@@ -3512,7 +3510,6 @@ type CourtWithPrices struct {
 	ComplexId   openapi_types.UUID       `json:"complex_id"`
 	CourtType   CourtWithPricesCourtType `json:"court_type"`
 	CreatedAt   time.Time                `json:"created_at"`
-	Description *string                  `json:"description,omitempty"`
 	HasLighting bool                     `json:"has_lighting"`
 	Id          openapi_types.UUID       `json:"id"`
 	IsActive    bool                     `json:"is_active"`
@@ -5583,8 +5580,11 @@ type ClientsUpdateJSONBody struct {
 
 // CourtsCreateJSONBody defines parameters for CourtsCreate.
 type CourtsCreateJSONBody struct {
-	CourtType   CourtsCreateJSONBodyCourtType `json:"court_type"`
-	Description *string                       `json:"description,omitempty"`
+	CourtType CourtsCreateJSONBodyCourtType `json:"court_type"`
+
+	// Description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Description *string `json:"description,omitempty"`
 
 	// HasLighting Defaults to false when omitted.
 	HasLighting *bool                     `json:"has_lighting,omitempty"`
@@ -5606,12 +5606,15 @@ type CourtsCreateJSONBodySurface string
 
 // CourtsUpdateJSONBody defines parameters for CourtsUpdate.
 type CourtsUpdateJSONBody struct {
-	CourtType   *CourtsUpdateJSONBodyCourtType `json:"court_type,omitempty"`
-	Description *string                        `json:"description,omitempty"`
-	HasLighting *bool                          `json:"has_lighting,omitempty"`
-	IsActive    *bool                          `json:"is_active,omitempty"`
-	Name        *string                        `json:"name,omitempty"`
-	Sport       *CourtsUpdateJSONBodySport     `json:"sport,omitempty"`
+	CourtType *CourtsUpdateJSONBodyCourtType `json:"court_type,omitempty"`
+
+	// Description Ignored. Courts no longer have a description; accepted only so older clients keep working, removed in the next release.
+	// Deprecated: this property has been marked as deprecated upstream, but no `x-deprecated-reason` was set
+	Description *string                    `json:"description,omitempty"`
+	HasLighting *bool                      `json:"has_lighting,omitempty"`
+	IsActive    *bool                      `json:"is_active,omitempty"`
+	Name        *string                    `json:"name,omitempty"`
+	Sport       *CourtsUpdateJSONBodySport `json:"sport,omitempty"`
 
 	// Surface Omitted keeps the stored value; an empty string clears it. Checked against the court's resulting sport (the one sent, else the stored one).
 	Surface *CourtsUpdateJSONBodySurface `json:"surface,omitempty"`

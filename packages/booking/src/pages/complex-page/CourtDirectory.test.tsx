@@ -5,19 +5,8 @@ import { CourtDirectory } from './CourtDirectory';
 const base = { id: 'c1', name: 'cancha principal', sport: 'soccer', court_type: 'outdoor', has_lighting: false } as const;
 
 describe('CourtDirectory', () => {
-  it('says "Sin descripción" when the court has no description', () => {
+  it('shows no description and no "Sin descripción" placeholder', () => {
     render(<CourtDirectory courts={[{ ...base }]} />);
-    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
-  });
-
-  it('says "Sin descripción" when the description is only whitespace', () => {
-    render(<CourtDirectory courts={[{ ...base, description: '   ' }]} />);
-    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
-  });
-
-  it('shows the owner description when there is one', () => {
-    render(<CourtDirectory courts={[{ ...base, description: 'Césped nuevo' }]} />);
-    expect(screen.getByText('Césped nuevo')).toBeInTheDocument();
     expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
   });
 

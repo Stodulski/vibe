@@ -19,7 +19,7 @@ vi.mock('../hooks/useDeleteCourt', () => ({
 }));
 
 const courtWithRange: CourtWithPrices = {
-  ...makeCourt({ id: 'ct1', name: 'Cancha 1', sport: 'padel', court_type: 'outdoor', description: 'Con luz' }),
+  ...makeCourt({ id: 'ct1', name: 'Cancha 1', sport: 'padel', court_type: 'outdoor' }),
   prices: [
     makePrice({ id: 'p1', court_id: 'ct1', price: 1350000, day_type: 'monday' }),
     makePrice({ id: 'p2', court_id: 'ct1', price: 2850000, day_type: 'saturday' }),
@@ -70,10 +70,11 @@ describe('CourtTable', () => {
     expect(screen.getByText('Sin precios configurados')).toBeInTheDocument();
   });
 
-  it('shows the description with the empty-state string when there is none', () => {
+  it('has no description column: the court facts say it all', () => {
     renderTable([courtWithRange, courtNoPrices]);
-    expect(screen.getByText('Con luz')).toBeInTheDocument();
-    expect(screen.getByText('Sin descripción')).toBeInTheDocument();
+    expect(screen.queryByRole('columnheader', { name: /descripci/i })).not.toBeInTheDocument();
+    expect(screen.queryByText('Con luz')).not.toBeInTheDocument();
+    expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
   });
 
   it('renders the active toggle', () => {

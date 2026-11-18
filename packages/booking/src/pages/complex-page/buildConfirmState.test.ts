@@ -48,7 +48,6 @@ describe('buildConfirmState', () => {
       courtName: 'Cancha 1',
       sport: 'padel',
       courtType: 'indoor',
-      courtDescription: undefined,
       date: '2026-03-20',
       startTime: '10:00',
       endTime: '12:00',

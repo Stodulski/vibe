@@ -5,8 +5,6 @@ export interface SelectedSlot {
   courtName: string;
   sport: string;
   courtType: string;
-  /** The owner's description of the court, when there is one. */
-  courtDescription?: string | undefined;
   slot: AvailabilitySlot;
   durationMinutes: number;
   totalPrice: number;

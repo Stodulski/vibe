@@ -149,23 +149,21 @@ type CreateInput struct {
 	Name        string
 	Sport       string
 	CourtType   string
-	Description *string
 	HasLighting bool
 	// Surface is validated against the court's sport by the handler; "" is no
 	// surface.
 	Surface *string
 }
 
-// Create adds a court to the complex and records it. A description of "" is
-// stored as no description at all, so a cleared field and a never-described
-// court read the same way.
+// Create adds a court to the complex and records it. A surface of "" is stored
+// as no surface at all, so a cleared field and an unstated one read the same
+// way.
 func (s *Service) Create(ctx context.Context, complexID uuid.UUID, actor Actor, in CreateInput) (*courtstore.Court, error) {
 	court := &courtstore.Court{
 		ComplexID:   complexID,
 		Name:        in.Name,
 		Sport:       in.Sport,
 		CourtType:   in.CourtType,
-		Description: emptyToNil(in.Description),
 		HasLighting: in.HasLighting,
 		Surface:     emptyToNil(in.Surface),
 	}
@@ -192,7 +190,6 @@ type UpdateInput struct {
 	Sport       *string
 	CourtType   *string
 	IsActive    *bool
-	Description *string
 	HasLighting *bool
 	// Surface: nil keeps the stored value, "" clears it, anything else sets it.
 	Surface *string
@@ -223,11 +220,6 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	}
 	if in.IsActive != nil {
 		court.IsActive = *in.IsActive
-	}
-	if in.Description != nil {
-		// An empty string is how a client clears a description, so it lands as
-		// NULL rather than as a row holding "". Same fact, one representation.
-		court.Description = emptyToNil(in.Description)
 	}
 	if in.HasLighting != nil {
 		court.HasLighting = *in.HasLighting
@@ -542,10 +534,6 @@ type CourtAvailability struct {
 	CourtName string `json:"court_name"`
 	Sport     string `json:"sport"`
 	CourtType string `json:"court_type"`
-	// What the court is like, when the owner has said. Omitted rather than
-	// sent empty so the storefront renders nothing at all for a court that
-	// has never been described, instead of an empty line where text goes.
-	Description *string `json:"description,omitempty"`
 	// HasLighting and Surface are what a player weighs between two courts of
 	// the same sport; Surface is omitted when the owner has not said.
 	HasLighting bool               `json:"has_lighting"`
@@ -781,7 +769,6 @@ func buildGrid(
 			CourtName:   court.Name,
 			Sport:       court.Sport,
 			CourtType:   court.CourtType,
-			Description: court.Description,
 			HasLighting: court.HasLighting,
 			Surface:     court.Surface,
 			Slots:       courtSlots,

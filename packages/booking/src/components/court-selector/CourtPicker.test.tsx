@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CourtPicker } from './CourtPicker';
 import { buildTimeOptions } from './timeOptions';
@@ -42,26 +42,21 @@ function mixedOption() {
   return option;
 }
 
-describe('CourtPicker — a court description', () => {
-  it('shows nothing in place of a missing description', () => {
+describe('CourtPicker — no court description', () => {
+  it('shows neither the description the API sends nor a placeholder for a missing one', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
 
+    expect(screen.queryByText('Césped sintético')).not.toBeInTheDocument();
     expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
-  });
-
-  it('shows the real description, not the fallback, when the court has one', () => {
-    render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
-
-    expect(screen.getByText('Césped sintético')).toBeInTheDocument();
   });
 });
 
 describe('CourtPicker — the court name', () => {
-  it('truncates visually and keeps the full name in a title attribute', () => {
+  it('wraps a long name to two lines at most and keeps the full name in a title attribute', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
 
     const name = screen.getByText('Cancha 1');
-    expect(name).toHaveClass('truncate');
+    expect(name).toHaveClass('line-clamp-2');
     expect(name).toHaveAttribute('title', 'Cancha 1');
   });
 });
@@ -110,8 +105,8 @@ describe('CourtPicker — a single free court', () => {
   });
 });
 
-describe('CourtPicker — the facts line', () => {
-  it('shows the roof type always, the surface when set, and the lighting when true', () => {
+describe('CourtPicker — the facts list', () => {
+  it('lists one fact a line: the roof always, the surface when set, the lighting when true', () => {
     const [option] = buildTimeOptions([
       { ...court('1', 'indoor', 5000), surface: 'synthetic_grass', has_lighting: true },
       court('2', 'outdoor', 5000),
@@ -119,8 +114,14 @@ describe('CourtPicker — the facts line', () => {
     if (!option) throw new Error('fixture must produce one time option');
     render(<CourtPicker option={option} selectedCourtId={null} onSelect={vi.fn()} />);
 
-    expect(screen.getByText('Pádel · Techada · Césped sintético · Con iluminación')).toBeInTheDocument();
-    const plain = screen.getByText('Pádel · Descubierta');
-    expect(plain).toHaveClass('truncate');
+    const [lit, plain] = screen.getAllByRole('list');
+    if (!lit || !plain) throw new Error('each court card must list its facts');
+    expect(within(lit).getAllByRole('listitem').map((item) => item.textContent)).toEqual([
+      'Techada',
+      'Césped sintético',
+      'Con iluminación',
+    ]);
+    expect(within(plain).getAllByRole('listitem').map((item) => item.textContent)).toEqual(['Descubierta']);
   });
 });
+

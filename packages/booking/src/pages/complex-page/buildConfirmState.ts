@@ -15,7 +15,6 @@ export function buildConfirmState(
     courtName: selectedSlot.courtName,
     sport: selectedSlot.sport,
     courtType: selectedSlot.courtType,
-    courtDescription: selectedSlot.courtDescription,
     date: dateStr,
     startTime: selectedSlot.slot.start_time,
     endTime: selectedSlot.endTime,

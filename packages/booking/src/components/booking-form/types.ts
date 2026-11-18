@@ -17,7 +17,6 @@ export const bookingSlotInfoSchema = z.object({
   /** What was chosen, so the summary can say it and the back link can restore it. */
   sport: z.string().optional(),
   courtType: z.string().optional(),
-  courtDescription: z.string().optional(),
   date: z.string().min(1),
   startTime: z.string().min(1),
   endTime: z.string().min(1),

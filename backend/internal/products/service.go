@@ -108,7 +108,7 @@ func (s *Service) List(ctx context.Context, complexID uuid.UUID, activeFilter *b
 // value — the same convention courts.UpdateInput follows.
 type UpdateInput struct {
 	Name *string
-	// Category follows courts.UpdateInput.Description's own convention: an
+	// Category follows courts.UpdateInput.Surface's own convention: an
 	// empty string is how a client clears it, so it lands as NULL rather than
 	// a row holding "". Nil keeps the current value.
 	Category          *string

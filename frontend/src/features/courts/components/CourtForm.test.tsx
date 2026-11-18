@@ -57,6 +57,11 @@ describe('CourtForm', () => {
     expect(screen.getByText(/tipo de cancha/i)).toBeInTheDocument();
   });
 
+  it('does not ask for a description', () => {
+    renderWithProviders(<CourtForm {...defaultProps} />);
+    expect(screen.queryByLabelText(/descripci/i)).not.toBeInTheDocument();
+  });
+
   it('renders cancel button', () => {
     renderWithProviders(<CourtForm {...defaultProps} />);
     expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();

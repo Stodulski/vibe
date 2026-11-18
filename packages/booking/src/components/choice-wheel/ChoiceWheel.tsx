@@ -35,6 +35,20 @@ function cardWidth(size: 'regular' | 'large', width: number): number {
   return width >= 640 ? 168 : 128;
 }
 
+/**
+ * Where a card `raw` pixels from the center (at full spacing) is drawn. The cards
+ * shrink toward the edges, so the spacing shrinks with them: each step is as wide as
+ * the cards around it, and the gaps stay even instead of opening up at the sides.
+ * It is the running sum of the card's scale (1.15 at the center, 0.55 at `half`).
+ */
+function packedOffset(raw: number, half: number): number {
+  const reach = Math.max(1, half);
+  const u = Math.min(Math.abs(raw), reach);
+  const inside = 1.15 * u - (0.3 * u * u) / reach;
+  const outside = Math.max(0, Math.abs(raw) - reach) * 0.55;
+  return Math.sign(raw) * (inside + outside);
+}
+
 const TRACK = 'relative cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing';
 
 /** How high the outer cards climb: lower than the time ruler's, cards are larger. */
@@ -53,6 +67,7 @@ interface WheelCardProps<T extends string> {
 /** One choice on the wheel, placed and sized by its offset from the center. */
 function WheelCard<T extends string>({ choice, offset, half, width, focused, onTap }: WheelCardProps<T>) {
   const depth = tickDepth(offset, half, width, CARD_ARC);
+  const x = packedOffset(offset, half);
   return (
     <button
       type="button"
@@ -60,7 +75,7 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
       onClick={onTap}
       style={{
         width,
-        left: `calc(50% + ${(offset - width / 2).toFixed(1)}px)`,
+        left: `calc(50% + ${(x - width / 2).toFixed(1)}px)`,
         opacity: depth.opacity,
         transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
       }}
@@ -70,7 +85,7 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
       )}
     >
       {choice.art}
-      <span className="w-full truncate text-base font-semibold" title={choice.title ?? choice.label}>
+      <span className="line-clamp-2 w-full text-base leading-tight font-semibold" title={choice.title ?? choice.label}>
         {choice.label}
       </span>
       {choice.detail}
@@ -110,7 +125,7 @@ export function ChoiceWheel<T extends string>({
         {...wheel.handlers}
         role="group"
         aria-label={question}
-        className={cn(TRACK, size === 'large' ? 'h-72' : 'h-48')}>
+        className={cn(TRACK, size === 'large' ? 'h-80' : 'h-48')}>
         {choices.map((choice, index) => (
           <WheelCard
             key={choice.value}
@@ -128,7 +143,7 @@ export function ChoiceWheel<T extends string>({
       </div>
       <Button
         size="lg"
-        className="min-h-12 w-full"
+        className="h-auto min-h-12 w-full py-3 leading-tight whitespace-normal"
         onClick={() => {
           onChoose(current.value);
         }}

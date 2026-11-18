@@ -14,15 +14,6 @@ export const createCourtSchema = z.object({
   court_type: z.enum(['indoor', 'outdoor', 'semi_covered'], {
     message: t.validation.courtTypeInvalid,
   }),
-  // Capped at 200 where the column is capped (courts_description_length): about two
-  // lines on a storefront card, which is what a player skims while comparing
-  // two courts.
-  //
-  // Optional in the schema and not merely empty-able: a court with no
-  // description is a valid court, and a caller that has none to give should
-  // not have to send "" to say so. The form does send a string, and an empty
-  // one is folded back to null by the server.
-  description: z.string().trim().max(200, t.validation.maxChars200).optional(),
   has_lighting: z.boolean().optional(),
   // '' is "no surface": on edit it is sent as-is and clears the stored one, on
   // create it is dropped before the request. Whether a surface suits the sport
