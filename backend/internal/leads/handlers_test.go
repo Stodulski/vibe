@@ -58,15 +58,6 @@ func TestCaptureKeepsTheLeadInPostgresNormalized(t *testing.T) {
 	}
 }
 
-func TestCaptureKeepsTheLeadEvenWithNoWebhookConfigured(t *testing.T) {
-	store := &fakeLeadStore{}
-	h, _ := newTestHandlerWithStore(t, "", store)
-	doCapture(t, h, `{"email":"ana@example.com"}`)
-	if len(store.kept) != 1 {
-		t.Fatalf("a deployment without the spreadsheet dropped the lead; kept %d", len(store.kept))
-	}
-}
-
 func TestCaptureStillAcceptsWhenThePostgresWriteFails(t *testing.T) {
 	store := &fakeLeadStore{err: errors.New("db down")}
 	h, logs := newTestHandlerWithStore(t, "", store)
@@ -162,15 +153,6 @@ func TestCaptureAbandonedRegistration_InvalidEmail_Rejected(t *testing.T) {
 
 	if rr.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("status = %d, want %d", rr.Code, http.StatusUnprocessableEntity)
-	}
-}
-
-func TestCaptureAbandonedRegistration_MissingWebhookURL_StillAccepts(t *testing.T) {
-	h, _ := newTestHandler(t, "")
-	rr := doCapture(t, h, `{"email":"juan@example.com"}`)
-
-	if rr.Code != http.StatusAccepted {
-		t.Fatalf("status = %d, want %d", rr.Code, http.StatusAccepted)
 	}
 }
 

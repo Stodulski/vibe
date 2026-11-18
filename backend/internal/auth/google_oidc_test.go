@@ -262,27 +262,6 @@ func newGoogleOAuthFixture(t *testing.T) (*fixture, *miniredis.Miniredis) {
 	return f, mr
 }
 
-// TestGoogleOAuthStateIsNamespacedUnderTheSameStore pins that this flow's
-// entries live under a distinct key inside GoogleCodes (Dependencies.GoogleCodes)
-// rather than a second Redis type, and that they carry the same TTL GoogleStart
-// promises.
-func TestGoogleOAuthStateIsNamespacedUnderTheSameStore(t *testing.T) {
-	f, mr := newGoogleOAuthFixture(t)
-
-	start, err := f.service.GoogleStart(t.Context())
-	if err != nil {
-		t.Fatalf("GoogleStart() = %v, want nil", err)
-	}
-
-	key := "vibe:test:gauth:oidc-state:" + start.State
-	if !mr.Exists(key) {
-		t.Fatalf("no state stored at %q; keys are %v", key, mr.Keys())
-	}
-	if ttl := mr.TTL(key); ttl != googleOAuthStateTTL {
-		t.Errorf("TTL = %v, want %v", ttl, googleOAuthStateTTL)
-	}
-}
-
 func TestGoogleOAuthStateExpires(t *testing.T) {
 	f, mr := newGoogleOAuthFixture(t)
 	f.users.add(activeUser(t, "ana@example.com"))

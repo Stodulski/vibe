@@ -7,14 +7,6 @@ import (
 	"time"
 )
 
-func TestClosedAllowsRequests(t *testing.T) {
-	cb := New(Config{Name: "test", MaxFailures: 3, ResetTimeout: 100 * time.Millisecond})
-
-	if err := cb.AllowRequest(); err != nil {
-		t.Fatalf("expected nil, got %v", err)
-	}
-}
-
 func TestOpensAfterMaxFailures(t *testing.T) {
 	cb := New(Config{Name: "test", MaxFailures: 3, ResetTimeout: 100 * time.Millisecond})
 

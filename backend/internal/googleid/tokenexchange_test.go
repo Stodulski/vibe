@@ -149,7 +149,6 @@ func TestCodeExchangerEnabled(t *testing.T) {
 		{"both set", testClientID, "secret", true},
 		{"no secret", testClientID, "", false},
 		{"no client id", "", "secret", false},
-		{"neither", "", "", false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

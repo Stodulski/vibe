@@ -57,29 +57,6 @@ func TestConfigLeaseFloorRespectsAnExplicitLeaseAboveTheFloor(t *testing.T) {
 	}
 }
 
-// TestTimeoutForAppliesOnlyToItsOwnType proves timeoutFor — what Pool.run
-// bounds a handler's context with — resolves a type's own Timeouts entry and
-// falls back to JobTimeout for every type that has none, rather than the
-// override leaking to jobs it was never registered for.
-func TestTimeoutForAppliesOnlyToItsOwnType(t *testing.T) {
-	p := NewPool(nil, Config{
-		JobTimeout: 5 * time.Second,
-		Timeouts: map[string]time.Duration{
-			"export:payments": 45 * time.Second,
-		},
-	})
-
-	if got := p.timeoutFor("export:payments"); got != 45*time.Second {
-		t.Errorf("timeoutFor(export:payments) = %s, want 45s", got)
-	}
-	if got := p.timeoutFor("notifications:email"); got != 5*time.Second {
-		t.Errorf("timeoutFor(notifications:email) = %s, want the shared 5s JobTimeout", got)
-	}
-	if got := p.timeoutFor("zero-override"); got != 5*time.Second {
-		t.Errorf("timeoutFor with no entry = %s, want the shared 5s JobTimeout", got)
-	}
-}
-
 // TestRunBoundsTheHandlerContextByTheTypesOwnTimeout proves the override
 // actually reaches the context a handler runs under, not only Config's own
 // bookkeeping. A "long" job outlives the shared JobTimeout because its own

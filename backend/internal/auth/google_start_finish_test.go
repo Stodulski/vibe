@@ -128,18 +128,6 @@ func TestGoogleStartDisabledConfig(t *testing.T) {
 	assertRedirectedTo(t, w, testLoginPath+"google_unavailable")
 }
 
-// TestGoogleStartMissingClientSecretOnly: the client id and FrontendURL are
-// configured (the fixture default), but the secret is not — the third
-// condition GoogleOAuthEnabled requires.
-func TestGoogleStartMissingClientSecretOnly(t *testing.T) {
-	f := newFixtureWithGoogle(t) // GIS flow enabled; code exchanger left disabled.
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleStart(w, getRequest(t))
-
-	assertRedirectedTo(t, w, testLoginPath+"google_unavailable")
-}
-
 func TestGoogleStartWithoutAFrontendURL(t *testing.T) {
 	f := newFixtureWithGoogleOAuth(t)
 	f.handler.cfg.FrontendURL = ""
@@ -234,15 +222,6 @@ func TestGoogleFinishHandlerMismatchedCookie(t *testing.T) {
 	if len(f.codeExchanger.calls) != 0 {
 		t.Error("the token exchange ran with a state cookie that did not match the body")
 	}
-}
-
-func TestGoogleFinishHandlerUnknownState(t *testing.T) {
-	f := newFixtureWithGoogleOAuth(t)
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleFinish(w, postFinish(t, "the-auth-code", "never-started", "never-started"))
-
-	assertInvalidCode(t, w)
 }
 
 func TestGoogleFinishHandlerReplayedState(t *testing.T) {

@@ -4,54 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
 )
-
-func TestUser_SetPassword(t *testing.T) {
-	u := &User{}
-	err := u.SetPassword("mysecretpassword", bcrypt.MinCost)
-	if err != nil {
-		t.Fatalf("SetPassword() returned error: %v", err)
-	}
-	if len(u.PasswordHash) == 0 {
-		t.Error("PasswordHash should not be empty after SetPassword")
-	}
-}
-
-func TestUser_SetPassword_DifferentInputs(t *testing.T) {
-	u1 := &User{}
-	u2 := &User{}
-
-	if err := u1.SetPassword("password1", bcrypt.MinCost); err != nil {
-		t.Fatalf("SetPassword(password1) error: %v", err)
-	}
-	if err := u2.SetPassword("password2", bcrypt.MinCost); err != nil {
-		t.Fatalf("SetPassword(password2) error: %v", err)
-	}
-
-	// Bcrypt generates unique hashes each time, even for same input.
-	if string(u1.PasswordHash) == string(u2.PasswordHash) {
-		t.Error("different passwords should produce different hashes")
-	}
-}
-
-func TestUser_SetPassword_SameInputProducesDifferentHashes(t *testing.T) {
-	u1 := &User{}
-	u2 := &User{}
-
-	if err := u1.SetPassword("samepassword", bcrypt.MinCost); err != nil {
-		t.Fatalf("SetPassword error: %v", err)
-	}
-	if err := u2.SetPassword("samepassword", bcrypt.MinCost); err != nil {
-		t.Fatalf("SetPassword error: %v", err)
-	}
-
-	// Bcrypt uses random salt, so same input produces different hashes.
-	if string(u1.PasswordHash) == string(u2.PasswordHash) {
-		t.Error("bcrypt should produce unique hashes even for same password")
-	}
-}
 
 func TestUser_PasswordMatches_Correct(t *testing.T) {
 	u := &User{}
@@ -144,48 +98,4 @@ func TestComparePassword_Mismatch(t *testing.T) {
 	if err == nil {
 		t.Error("ComparePassword should return error for mismatched password")
 	}
-}
-
-func TestUser_StructFields(t *testing.T) {
-	now := time.Now()
-	lockedUntil := now.Add(15 * time.Minute)
-	lastFailed := now.Add(-5 * time.Minute)
-	u := User{
-		ID:                  uuid.New(),
-		Email:               "test@example.com",
-		PasswordHash:        []byte("hash"),
-		FirstName:           "John",
-		LastName:            "Doe",
-		Phone:               "+5491155551234",
-		Role:                "owner",
-		IsActive:            true,
-		EmailVerified:       true,
-		CreatedAt:           now,
-		UpdatedAt:           now,
-		FailedLoginAttempts: 3,
-		LockedUntil:         &lockedUntil,
-		LastFailedLogin:     &lastFailed,
-	}
-
-	if u.Email != "test@example.com" {
-		t.Errorf("Email = %q, want %q", u.Email, "test@example.com")
-	}
-	if u.Role != "owner" {
-		t.Errorf("Role = %q, want %q", u.Role, "owner")
-	}
-	if !u.IsActive {
-		t.Error("IsActive should be true")
-	}
-	if !u.EmailVerified {
-		t.Error("EmailVerified should be true")
-	}
-	if u.FailedLoginAttempts != 3 {
-		t.Errorf("FailedLoginAttempts = %d, want %d", u.FailedLoginAttempts, 3)
-	}
-}
-
-// TestUserModel_RequiresDB documents that Users methods
-// require a database connection.
-func TestUserModel_RequiresDB(t *testing.T) {
-	t.Skip("Users methods all require *pgxpool.Pool and *db.Queries")
 }

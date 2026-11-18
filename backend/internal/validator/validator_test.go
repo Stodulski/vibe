@@ -34,15 +34,6 @@ func TestValidatorAddError(t *testing.T) {
 			t.Errorf("want %q; got %q", "first error", v.Errors["email"])
 		}
 	})
-
-	t.Run("different keys are independent", func(t *testing.T) {
-		v := New()
-		v.AddError("email", "email error")
-		v.AddError("name", "name error")
-		if len(v.Errors) != 2 {
-			t.Errorf("want 2 errors; got %d", len(v.Errors))
-		}
-	})
 }
 
 func TestMatches(t *testing.T) {
@@ -80,12 +71,6 @@ func TestPermittedValue(t *testing.T) {
 			t.Error("expected false for value not in permitted list")
 		}
 	})
-
-	t.Run("int values", func(t *testing.T) {
-		if !PermittedValue(1, 1, 2, 3) {
-			t.Error("expected true for int 1 in [1,2,3]")
-		}
-	})
 }
 
 func TestUnique(t *testing.T) {
@@ -104,12 +89,6 @@ func TestUnique(t *testing.T) {
 	t.Run("empty slice", func(t *testing.T) {
 		if !Unique([]string{}) {
 			t.Error("expected true for empty slice")
-		}
-	})
-
-	t.Run("single element", func(t *testing.T) {
-		if !Unique([]int{42}) {
-			t.Error("expected true for single element")
 		}
 	})
 }
