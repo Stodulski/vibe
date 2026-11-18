@@ -3,6 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { AppShellLoader } from './AppShellLoader';
 import { routeSkeleton } from '@/app/router/routeSkeletons';
+import { mainNavItems, secondaryNavItems } from '@/shared/components/layout/sidebar/navItems';
 
 function renderAt(pathname: string) {
   return render(
@@ -22,10 +23,10 @@ describe('AppShellLoader', () => {
     expect(screen.getAllByRole('status')).toHaveLength(1);
     const rail = container.querySelector('.bg-bg-sidebar');
     expect(rail).not.toBeNull();
-    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(8);
+    expect(rail?.querySelectorAll('.space-y-0\\.5 > div')).toHaveLength(mainNavItems.length + secondaryNavItems.length);
   });
 
-  it.each(['/cash', '/dashboard', '/courts', '/clients', '/reports', '/events'] as const)(
+  it.each(['/cash', '/dashboard', '/courts', '/clients', '/reports', '/events', '/kit'] as const)(
     'draws the %s route fallback inside <main>',
     (pathname) => {
       const { container } = renderAt(pathname);

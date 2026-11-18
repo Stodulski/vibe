@@ -33,6 +33,21 @@ describe('SidebarNav — Eventos', () => {
   });
 });
 
+describe('SidebarNav — Kit para redes', () => {
+  it('shows Kit para redes right before Configuración in the secondary section', () => {
+    renderAt('/dashboard');
+    const names = screen.getAllByRole('link').map((link) => link.textContent);
+    expect(names.indexOf('Kit para redes')).toBe(names.indexOf('Configuración') - 1);
+    expect(screen.getByRole('link', { name: 'Kit para redes' })).toHaveAttribute('href', '/kit');
+  });
+
+  it('marks Kit para redes active on /kit only', () => {
+    renderAt('/kit');
+    expect(screen.getByRole('link', { name: 'Kit para redes' })).toHaveAttribute('aria-current', 'page');
+    expect(screen.getByRole('link', { name: 'Configuración' })).not.toHaveAttribute('aria-current', 'page');
+  });
+});
+
 describe('SidebarNav — active path resolution', () => {
   it('marks Caja active on the exact /cash route', () => {
     renderAt('/cash');

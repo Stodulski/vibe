@@ -33,6 +33,7 @@ export const PROTECTED_PATH_PREFIXES = [
   '/courts',
   '/clients',
   '/reports',
+  '/kit',
   '/profile',
   '/admin',
 ];

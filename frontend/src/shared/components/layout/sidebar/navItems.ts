@@ -12,4 +12,7 @@ export const mainNavItems = [
   { to: '/reports', label: t.navigation.reports },
 ] as const;
 
-export const secondaryNavItems = [{ to: '/settings', label: t.navigation.settings }] as const;
+export const secondaryNavItems = [
+  { to: '/kit', label: t.navigation.socialKit },
+  { to: '/settings', label: t.navigation.settings },
+] as const;

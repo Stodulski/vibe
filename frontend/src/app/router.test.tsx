@@ -80,6 +80,7 @@ describe('platform routes', () => {
     '/courts',
     '/clients',
     '/reports',
+    '/kit',
     '/settings',
     '/profile',
     '/admin',

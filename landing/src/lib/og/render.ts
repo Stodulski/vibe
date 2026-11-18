@@ -10,13 +10,16 @@ import { complexCardText, type ComplexCardText } from './complex-card.ts';
 import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH, type ShareFacts } from '../complex-share.ts';
 
 /** The landing's dark tokens (packages/ui tokens.css and the booking palette). */
-const BG = '#0b0b0b';
-const GREEN = '#1db954';
-const TEXT = '#ffffff';
-const MUTED = '#b0b0b0';
-const TERTIARY = '#8a8a8a';
+export const BG = '#0b0b0b';
+export const GREEN = '#1db954';
+export const TEXT = '#ffffff';
+export const MUTED = '#b0b0b0';
+export const TERTIARY = '#8a8a8a';
 
-const FONT_FAMILY = 'DM Sans';
+/** The green light behind every card: a radial glow that fades out before the edge of its box. */
+const GLOW = 'radial-gradient(circle, rgba(29,185,84,0.22) 0%, rgba(29,185,84,0) 62%)';
+
+export const FONT_FAMILY = 'DM Sans';
 
 export interface CardAssets {
   /** DM Sans 400 and 700 in WOFF or TTF: satori reads neither WOFF2 nor variable axes. */
@@ -26,9 +29,21 @@ export interface CardAssets {
   wasm: InitInput;
 }
 
-/** A flex box, the only element the card uses. satori reads React elements, so this is createElement. */
-function box(style: CSSProperties, ...children: ReactNode[]): ReactElement {
+/** A flex box, the only element the cards use. satori reads React elements, so this is createElement. */
+export function box(style: CSSProperties, ...children: ReactNode[]): ReactElement {
   return createElement('div', { style: { display: 'flex', ...style } }, ...children);
+}
+
+/** The green glow of a card, a circle of the given size placed by its position styles. */
+export function glow(placement: CSSProperties, size: number): ReactElement {
+  return box({
+    position: 'absolute',
+    ...placement,
+    width: size,
+    height: size,
+    borderRadius: size / 2,
+    backgroundImage: GLOW,
+  });
 }
 
 /** The card's tree. Text lines that are empty are left out, so no empty box is drawn. */
@@ -47,15 +62,7 @@ function cardTree(text: ComplexCardText): ReactElement {
       fontFamily: FONT_FAMILY,
     },
     [
-      box({
-        position: 'absolute',
-        top: -260,
-        right: -240,
-        width: 820,
-        height: 820,
-        borderRadius: 410,
-        backgroundImage: `radial-gradient(circle, rgba(29,185,84,0.22) 0%, rgba(29,185,84,0) 62%)`,
-      }),
+      glow({ top: -260, right: -240 }, 820),
       box({ fontSize: 40, fontWeight: 700, color: GREEN, letterSpacing: -1 }, 'Vibe'),
       box({ flexDirection: 'column', gap: 16 }, [
         box(
@@ -92,21 +99,31 @@ function ensureResvg(wasm: InitInput): Promise<void> {
   return wasmReady;
 }
 
-export async function renderComplexCard(facts: ShareFacts, assets: CardAssets): Promise<ArrayBuffer> {
+/** Lays a tree out as SVG with satori, then rasterizes it at its own width with resvg. */
+export async function rasterize(
+  tree: ReactElement,
+  width: number,
+  height: number,
+  assets: CardAssets,
+): Promise<ArrayBuffer> {
   await ensureResvg(assets.wasm);
-  const svg = await satori(cardTree(complexCardText(facts)), {
-    width: SHARE_IMAGE_WIDTH,
-    height: SHARE_IMAGE_HEIGHT,
+  const svg = await satori(tree, {
+    width,
+    height,
     fonts: [
       { name: FONT_FAMILY, data: assets.regular, weight: 400, style: 'normal' },
       { name: FONT_FAMILY, data: assets.bold, weight: 700, style: 'normal' },
     ],
   });
-  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: SHARE_IMAGE_WIDTH } });
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: width } });
   try {
     const png = resvg.render().asPng();
     return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
   } finally {
     resvg.free();
   }
+}
+
+export function renderComplexCard(facts: ShareFacts, assets: CardAssets): Promise<ArrayBuffer> {
+  return rasterize(cardTree(complexCardText(facts)), SHARE_IMAGE_WIDTH, SHARE_IMAGE_HEIGHT, assets);
 }

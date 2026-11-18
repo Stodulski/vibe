@@ -15,6 +15,30 @@ export function publicComplexUrl(slug: string): string {
   return new URL(publicComplexPath(slug), env.VITE_LANDING_URL).href;
 }
 
+/** Pieces of the social kit the landing renders: the booking link with its QR, and the three-step guide. */
+export const SOCIAL_KIT_PIECES = ['reservar', 'como-reservar'] as const;
+export type SocialKitPiece = (typeof SOCIAL_KIT_PIECES)[number];
+
+/** Formats of the social kit: a story (9:16) and a post (3:4). */
+export const SOCIAL_KIT_FORMATS = ['historia', 'post'] as const;
+export type SocialKitFormat = (typeof SOCIAL_KIT_FORMATS)[number];
+
+/**
+ * Absolute URL of one social kit image, on `VITE_LANDING_URL`. `download` adds
+ * `?descargar=1`, which the landing answers with an attachment: a plain link
+ * downloads the file, since a cross-origin `download` attribute is ignored.
+ */
+export function socialKitImageUrl(
+  slug: string,
+  piece: SocialKitPiece,
+  format: SocialKitFormat,
+  { download = false }: { download?: boolean } = {},
+): string {
+  const url = new URL(`/kit/c/${slug}/${piece}-${format}.png`, env.VITE_LANDING_URL);
+  if (download) url.searchParams.set('descargar', '1');
+  return url.href;
+}
+
 /** Absolute URL of the landing's tutorials, the app's user manual. */
 export function landingTutorialsUrl(): string {
   return new URL('/tutoriales', env.VITE_LANDING_URL).href;

@@ -15,14 +15,24 @@ export interface ComplexImageDeps {
   render(facts: ShareFacts): Promise<ArrayBuffer>;
 }
 
+/** Extra headers for the PNG answer, such as the kit's download name. Not applied to a failure. */
+export interface ComplexImageOptions {
+  headers?: Record<string, string>;
+}
+
 const IMAGE_CACHE_CONTROL = 'public, s-maxage=86400, stale-while-revalidate=604800';
 const FAILURE_HEADERS = { 'Cache-Control': 'no-store', 'Content-Type': 'text/plain; charset=utf-8' };
 
-function failure(status: number, message: string, extra: Record<string, string> = {}): Response {
+/** A plain-text answer no crawler or CDN may keep. Shared by every image endpoint of the landing. */
+export function failure(status: number, message: string, extra: Record<string, string> = {}): Response {
   return new Response(message, { status, headers: { ...FAILURE_HEADERS, ...extra } });
 }
 
-export async function complexImageResponse(slug: string, deps: ComplexImageDeps): Promise<Response> {
+export async function complexImageResponse(
+  slug: string,
+  deps: ComplexImageDeps,
+  options: ComplexImageOptions = {},
+): Promise<Response> {
   let facts: ShareFacts;
   try {
     facts = await deps.readFacts(slug);
@@ -41,7 +51,7 @@ export async function complexImageResponse(slug: string, deps: ComplexImageDeps)
     const png = await deps.render(facts);
     return new Response(png, {
       status: 200,
-      headers: { 'Content-Type': 'image/png', 'Cache-Control': IMAGE_CACHE_CONTROL },
+      headers: { 'Content-Type': 'image/png', 'Cache-Control': IMAGE_CACHE_CONTROL, ...options.headers },
     });
   } catch (error) {
     console.error('share image: render failed', error);

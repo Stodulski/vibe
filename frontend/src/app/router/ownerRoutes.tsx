@@ -99,6 +99,10 @@ export const ownerDashboardRoutes: RouteObject[] = [
         element: ownerPage(() => import('@/features/dashboard/pages/ReportsPage'), routeSkeleton('/reports')),
       },
       {
+        path: '/kit',
+        element: ownerPage(() => import('@/features/social-kit/pages/SocialKitPage'), routeSkeleton('/kit')),
+      },
+      {
         path: '/settings',
         element: ownerPage(() => import('@/features/complex/pages/SettingsPage'), routeSkeleton('/settings')),
       },
