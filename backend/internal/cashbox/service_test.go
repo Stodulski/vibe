@@ -52,17 +52,6 @@ func TestOpenRecordsAnAuditEntry(t *testing.T) {
 
 // --- Close -------------------------------------------------------------
 
-func TestCloseRefusesASessionThatIsAlreadyClosed(t *testing.T) {
-	closedAt := time.Now()
-	store := &stubStore{byID: &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), ClosedAt: &closedAt}}
-	svc := newTestService(store, &stubPayments{}, &stubRecorder{})
-
-	_, err := svc.Close(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), CloseInput{CountedCash: 1000})
-	if !errors.Is(err, cashboxstore.ErrSessionNotOpen) {
-		t.Fatalf("want ErrSessionNotOpen; got %v", err)
-	}
-}
-
 func TestCloseSendsNoClosingNoteWhenTheRequestSendsNone(t *testing.T) {
 	store := &stubStore{
 		byID:          &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()},

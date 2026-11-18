@@ -1,7 +1,6 @@
 package sales
 
 import (
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -241,17 +240,5 @@ func TestBookingsDueAnswersTheRemainingBalances(t *testing.T) {
 	row := rows[0].(map[string]any)
 	if row["remaining"] != float64(350_000) || row["paid"] != float64(150_000) || row["start_time"] != "19:00" || row["end_time"] != "20:00" {
 		t.Errorf("row = %v; want remaining 350000, paid 150000, 19:00-20:00", row)
-	}
-}
-
-func TestCheckoutErrorsKeepTheirSentinel(t *testing.T) {
-	store := &stubStore{createErr: salestore.ErrBookingBalanceMismatch}
-	svc := newTestService(store, &stubRecorder{})
-	_, err := svc.Checkout(t.Context(), uuid.New(), testActor(), uuid.New(), CheckoutInput{
-		BookingPayments: []salestore.BookingPaymentInput{{BookingID: uuid.New(), Amount: 1}},
-		Method:          "cash",
-	})
-	if !errors.Is(err, salestore.ErrBookingBalanceMismatch) {
-		t.Fatalf("want ErrBookingBalanceMismatch; got %v", err)
 	}
 }

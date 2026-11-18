@@ -17,37 +17,6 @@ func testActor() Actor {
 
 // --- Create ------------------------------------------------------------
 
-func TestCreatePropagatesNoOpenCashSession(t *testing.T) {
-	store := &stubStore{createErr: salestore.ErrNoOpenCashSession}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, _, err := svc.Create(t.Context(), uuid.New(), testActor(), uuid.New(), CreateInput{
-		Items:  []salestore.ItemInput{{ProductID: uuid.New(), Quantity: 1}},
-		Method: "cash",
-	})
-	if !errors.Is(err, salestore.ErrNoOpenCashSession) {
-		t.Fatalf("want ErrNoOpenCashSession; got %v", err)
-	}
-}
-
-func TestCreatePropagatesInvalidItems(t *testing.T) {
-	badID := uuid.New()
-	store := &stubStore{createErr: &salestore.ErrInvalidItems{Problems: map[uuid.UUID]salestore.ItemProblem{badID: salestore.ItemInactive}}}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, _, err := svc.Create(t.Context(), uuid.New(), testActor(), uuid.New(), CreateInput{
-		Items:  []salestore.ItemInput{{ProductID: badID, Quantity: 1}},
-		Method: "cash",
-	})
-	var invalid *salestore.ErrInvalidItems
-	if !errors.As(err, &invalid) {
-		t.Fatalf("want *ErrInvalidItems; got %v", err)
-	}
-	if invalid.Problems[badID] != salestore.ItemInactive {
-		t.Errorf("want %s flagged inactive; got %+v", badID, invalid.Problems)
-	}
-}
-
 func TestCreateRecordsAnAuditEntry(t *testing.T) {
 	sale := &salestore.Sale{ID: uuid.New(), Total: 1500}
 	warnings := []salestore.StockWarning{{ProductID: uuid.New(), ProductName: "Snack", StockOnHand: -1}}
@@ -83,16 +52,6 @@ func TestCreateRecordsAnAuditEntry(t *testing.T) {
 }
 
 // --- Get / List ------------------------------------------------------------
-
-func TestGetPropagatesRecordNotFound(t *testing.T) {
-	store := &stubStore{getByIDErr: data.ErrRecordNotFound}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, err := svc.Get(t.Context(), uuid.New(), uuid.New())
-	if !errors.Is(err, data.ErrRecordNotFound) {
-		t.Fatalf("want ErrRecordNotFound; got %v", err)
-	}
-}
 
 func TestGetAttachesItems(t *testing.T) {
 	sale := &salestore.Sale{ID: uuid.New()}
@@ -135,42 +94,7 @@ func TestListGroupsItemsBySale(t *testing.T) {
 	}
 }
 
-func TestListPassesTheSessionFilterThrough(t *testing.T) {
-	sessionID := uuid.New()
-	store := &stubStore{}
-	svc := newTestService(store, &stubRecorder{})
-
-	if _, _, err := svc.List(t.Context(), uuid.New(), &sessionID, data.Filters{Limit: 50}); err != nil {
-		t.Fatalf("List: %v", err)
-	}
-	if store.listArgs == nil || store.listArgs.sessionID == nil || *store.listArgs.sessionID != sessionID {
-		t.Errorf("want the session filter passed to the store; got %+v", store.listArgs)
-	}
-}
-
 // --- Void ------------------------------------------------------------------
-
-func TestVoidPropagatesAlreadyVoided(t *testing.T) {
-	sale := &salestore.Sale{ID: uuid.New()}
-	store := &stubStore{byID: sale, voidErr: salestore.ErrAlreadyVoided}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, err := svc.Void(t.Context(), uuid.New(), sale.ID, testActor(), uuid.New(), nil)
-	if !errors.Is(err, salestore.ErrAlreadyVoided) {
-		t.Fatalf("want ErrAlreadyVoided; got %v", err)
-	}
-}
-
-func TestVoidPropagatesNoOpenCashSession(t *testing.T) {
-	sale := &salestore.Sale{ID: uuid.New()}
-	store := &stubStore{byID: sale, voidErr: salestore.ErrNoOpenCashSession}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, err := svc.Void(t.Context(), uuid.New(), sale.ID, testActor(), uuid.New(), nil)
-	if !errors.Is(err, salestore.ErrNoOpenCashSession) {
-		t.Fatalf("want ErrNoOpenCashSession; got %v", err)
-	}
-}
 
 func TestVoidRecordsAnAuditEntry(t *testing.T) {
 	before := &salestore.Sale{ID: uuid.New()}

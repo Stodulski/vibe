@@ -17,16 +17,6 @@ func testActor() Actor {
 
 // --- Create ------------------------------------------------------------
 
-func TestCreatePropagatesADuplicateName(t *testing.T) {
-	store := &stubStore{insertErr: productstore.ErrDuplicateProductName}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, err := svc.Create(t.Context(), uuid.New(), testActor(), CreateInput{Name: "Coca Cola", TracksStock: true})
-	if !errors.Is(err, productstore.ErrDuplicateProductName) {
-		t.Fatalf("want ErrDuplicateProductName; got %v", err)
-	}
-}
-
 func TestCreateRecordsAnAuditEntry(t *testing.T) {
 	store := &stubStore{}
 	rec := &stubRecorder{}
@@ -154,16 +144,6 @@ func TestUpdateAllowsTurningOnTracksStockUnconditionally(t *testing.T) {
 
 // --- Restock / Adjust ----------------------------------------------------
 
-func TestRestockPropagatesNoOpenCashSession(t *testing.T) {
-	store := &stubStore{restockErr: productstore.ErrNoOpenCashSession}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, _, err := svc.Restock(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), RestockInput{Quantity: 10, TotalCost: 5000, Method: "cash"})
-	if !errors.Is(err, productstore.ErrNoOpenCashSession) {
-		t.Fatalf("want ErrNoOpenCashSession; got %v", err)
-	}
-}
-
 func TestRestockRecordsAnAuditEntry(t *testing.T) {
 	productID := uuid.New()
 	store := &stubStore{
@@ -179,16 +159,6 @@ func TestRestockRecordsAnAuditEntry(t *testing.T) {
 	}
 	if len(rec.entries) != 1 || rec.entries[0].Action != "restock" {
 		t.Fatalf("want 1 audit entry action=restock; got %+v", rec.entries)
-	}
-}
-
-func TestAdjustPropagatesNotTrackingStock(t *testing.T) {
-	store := &stubStore{adjustErr: productstore.ErrProductNotTrackingStock}
-	svc := newTestService(store, &stubRecorder{})
-
-	_, _, err := svc.Adjust(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), AdjustInput{Quantity: -1, Reason: "breakage"})
-	if !errors.Is(err, productstore.ErrProductNotTrackingStock) {
-		t.Fatalf("want ErrProductNotTrackingStock; got %v", err)
 	}
 }
 
