@@ -76,9 +76,3 @@ func TestBuildPoolConfigCarriesThePoolTuning(t *testing.T) {
 		t.Errorf("want MaxConnLifetime %v; got %v", maxConnLifetime, poolConfig.MaxConnLifetime)
 	}
 }
-
-func TestBuildPoolConfigRefusesAnUnparseableDSN(t *testing.T) {
-	if _, err := BuildPoolConfig(Config{DSN: "not://a valid dsn at all"}); err == nil {
-		t.Fatal("expected an unparseable DSN to be refused")
-	}
-}

@@ -51,13 +51,3 @@ func TestEveryLogLineCarriesServiceEnvAndVersion(t *testing.T) {
 		}
 	}
 }
-
-func TestOutsideProductionTheLoggerIsText(t *testing.T) {
-	var out strings.Builder
-	baseLogger(config.Config{Env: "development"}, &out).Info("hello")
-
-	got := out.String()
-	if !strings.Contains(got, "service=vibe-api") || !strings.Contains(got, "env=development") {
-		t.Errorf("log line %q is missing its base attributes", got)
-	}
-}

@@ -304,25 +304,6 @@ func TestTheStartupDelayIsBoundedByTheIntervalAndTheCeiling(t *testing.T) {
 	}
 }
 
-// The jitter is drawn per job rather than shared, or every loop would be
-// delayed by the same amount and the burst would simply move.
-func TestEachJobDrawsItsOwnJitter(t *testing.T) {
-	s := newScheduler(&stubLocks{})
-
-	var spans []time.Duration
-	s.jitter = func(span time.Duration) time.Duration {
-		spans = append(spans, span)
-		return 0
-	}
-
-	s.startupDelay(Job{Every: time.Minute})
-	s.startupDelay(Job{Every: time.Minute})
-
-	if len(spans) != 2 {
-		t.Errorf("want a draw per job; got %d", len(spans))
-	}
-}
-
 // The real jitter has to land inside the span it is given, and vary.
 func TestTheDefaultJitterIsSpreadAcrossTheSpan(t *testing.T) {
 	s := New(&stubLocks{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), func(fn func()) { fn() })

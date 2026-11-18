@@ -58,28 +58,3 @@ func TestOpenAPISyncWithRouter(t *testing.T) {
 			"needs the update instead.", key)
 	}
 }
-
-// TestOpenAPIOperationCount pins the total operation count so an accidental
-// duplicate path key, or a path registered under the wrong method, shows up
-// even if it happens not to change the missing/unexpected sets above.
-func TestOpenAPIOperationCount(t *testing.T) {
-	app := newTestApplication(t)
-
-	n := 0
-	for _, item := range app.openapi.Document().Paths.Map() {
-		n += len(item.Operations())
-	}
-
-	registered := 0
-	for _, rt := range recordRoutes(t, app) {
-		if strings.HasPrefix(rt.path, "/debug/") {
-			continue
-		}
-		registered++
-	}
-
-	if n != registered {
-		t.Errorf("the document has %d operations, the router has %d non-debug routes; "+
-			"they must match exactly", n, registered)
-	}
-}

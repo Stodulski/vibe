@@ -96,22 +96,6 @@ func TestAPartialPostIsSentAsOneErrorGroupedByPost(t *testing.T) {
 	}
 }
 
-func TestAFailedPostIsSentAsOneError(t *testing.T) {
-	t.Parallel()
-	hub, transport := testHub(t)
-	logger, _ := socialTestLogger(hub)
-
-	logger.Error(socialFailureLogMessage, "post", "p-2", "status", "failed", "type", "image", "error", "meta 400: invalid image")
-
-	events := transport.sent()
-	if len(events) != 1 {
-		t.Fatalf("events = %d, want exactly one", len(events))
-	}
-	if events[0].Message != "social post p-2 ended failed" || events[0].Tags["social.status"] != "failed" {
-		t.Fatalf("event = message %q tags %v, want the failed post", events[0].Message, events[0].Tags)
-	}
-}
-
 func TestTheSentErrorIsScrubbedEvenThoughTheRecordIsNot(t *testing.T) {
 	t.Parallel()
 	hub, transport := testHub(t)

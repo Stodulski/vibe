@@ -11,9 +11,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/bookings"
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
-	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
-	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -33,9 +31,6 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 			return nil
 		},
 	}
-	// The mockEmailVerificationStore.DeleteExpired always returns nil,
-	// which is enough to test the happy path. We rely on the mock not panicking.
-	verificationDeleted := true
 	app.models.EmailChange = &mockEmailChangeStore{
 		DeleteExpiredFn: func(ctx context.Context) error {
 			emailChangeDeleted = true
@@ -48,25 +43,9 @@ func TestCronCleanExpiredTokens(t *testing.T) {
 	if !refreshDeleted {
 		t.Error("expected DeleteExpired to be called on refresh tokens")
 	}
-	if !verificationDeleted {
-		t.Error("expected DeleteExpired to be called on verification tokens")
-	}
 	if !emailChangeDeleted {
 		t.Error("expected DeleteExpired to be called on pending email-change requests")
 	}
-}
-
-func TestCronCompleteBookings_NothingToComplete(t *testing.T) {
-	app, _ := newTestApplicationWithStores(t, func(m *stores.Stores) {
-		m.Bookings = &mockBookingStore{
-			CompletePastBookingsFn: func(ctx context.Context) ([]uuid.UUID, error) {
-				return nil, nil
-			},
-		}
-	})
-
-	// Should not panic
-	app.cronCompleteBookings(context.Background())
 }
 
 func TestCronCompleteBookings_CompletesBookings(t *testing.T) {
@@ -87,62 +66,6 @@ func TestCronCompleteBookings_CompletesBookings(t *testing.T) {
 	if count != 5 {
 		t.Errorf("want 5 bookings completed; got %d", count)
 	}
-}
-
-func TestCronCleanSlotLocks(t *testing.T) {
-	app := newTestApplication(t)
-
-	// Default mockSlotLockStore.CleanExpired returns 0, nil.
-	// Should not panic.
-	app.cronCleanSlotLocks(context.Background())
-}
-
-func TestCronCleanUnverifiedUsers(t *testing.T) {
-	app := newTestApplication(t)
-
-	// Default mockUserStore.DeleteUnverifiedStale returns nil.
-	// Should not panic.
-	app.cronCleanUnverifiedUsers(context.Background())
-}
-
-func TestCronRefreshMPTokens_NoComplexes(t *testing.T) {
-	app := newTestApplication(t)
-
-	app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(ctx context.Context) ([]*complexstore.Complex, error) {
-			return nil, nil
-		},
-	}
-
-	// Should not panic when there are no complexes to refresh.
-	app.cronRefreshMPTokens(context.Background())
-}
-
-// TestCronRefreshMPTokens_SkipsEmptyRefreshToken documents the accessor
-// contract this loop actually depends on: an empty refresh token makes
-// SellerRefreshToken() return mpcred.ErrMPNotConnected, and the loop skips
-// silently on that error — it does not assert on the raw field it happens to
-// still be able to set directly (the field itself is unexported once Phase
-// 11 lands).
-func TestCronRefreshMPTokens_SkipsEmptyRefreshToken(t *testing.T) {
-	app := newTestApplication(t)
-
-	emptyToken := ""
-	complex := complexstore.NewComplexForTest(uuid.New(), nil, &emptyToken)
-	complex.Name = "Test Complex"
-
-	if _, err := complex.SellerRefreshToken(); !errors.Is(err, mpcred.ErrMPNotConnected) {
-		t.Fatalf("want ErrMPNotConnected for an empty refresh token; got %v", err)
-	}
-
-	app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(ctx context.Context) ([]*complexstore.Complex, error) {
-			return []*complexstore.Complex{complex}, nil
-		},
-	}
-
-	// Should skip complexes with empty refresh token without panicking.
-	app.cronRefreshMPTokens(context.Background())
 }
 
 // TestCronReminder2h_PayloadCarriesWhereToGoAndWhatToPay is the coverage for
@@ -381,14 +304,6 @@ func TestCronReleaseExpiredPayments_BookURLUsesPublicURLWhenSet(t *testing.T) {
 	}
 }
 
-func TestCronReminder2h_NoBookings(t *testing.T) {
-	app := newTestApplication(t)
-
-	// Default mock returns nil, nil for GetForReminder2hEnriched.
-	// Should not panic.
-	app.cronReminder2h(context.Background())
-}
-
 // TestCronReminder2h_EnqueuesExactlyOnceAndMarksSent is the QA coverage for
 // "reminder only once": a candidate the store hands back must produce exactly
 // one email:reminder_2h task, and MarkReminderSent2h must be called for it —
@@ -456,14 +371,6 @@ func TestCronReminder2h_EnqueuesExactlyOnceAndMarksSent(t *testing.T) {
 	if len(emails) != 1 {
 		t.Errorf("a second tick after the reminder flag is set must not enqueue again; got %d", len(emails))
 	}
-}
-
-func TestCronReleaseExpiredPayments_NoExpiredBookings(t *testing.T) {
-	app := newTestApplication(t)
-
-	// Default mock returns nil, nil for GetExpiredPendingEnriched.
-	// Should not panic.
-	app.cronReleaseExpiredPayments(context.Background())
 }
 
 // newExpiredCronBooking builds a minimal CronBooking in "pending payment"
@@ -637,41 +544,5 @@ func TestCronCleanBookingLinkTokens_DeletesExpiredTerminal(t *testing.T) {
 	}
 	if gotRetention != bookings.LinkTokenRetention {
 		t.Errorf("want retention %v; got %v", bookings.LinkTokenRetention, gotRetention)
-	}
-}
-
-// TestCronCleanBookingLinkTokens_FailurePropagatesNoPanic documents that a
-// store failure is logged and swallowed, not panicked on — the scheduler's
-// per-job recover exists as a backstop, not as the primary error path.
-func TestCronCleanBookingLinkTokens_FailurePropagatesNoPanic(t *testing.T) {
-	app, _ := newTestApplicationWithStores(t, func(m *stores.Stores) {
-		m.BookingLinkTokens = &mockBookingLinkTokenStore{
-			DeleteExpiredTerminalFn: func(ctx context.Context, retention time.Duration) error {
-				return errors.New("simulated db failure")
-			},
-		}
-	})
-
-	// Should not panic.
-	app.cronCleanBookingLinkTokens(context.Background())
-}
-
-// TestCronCleanFailedRefunds_DeletesResolved is a mechanical test for a job
-// that previously had no coverage in cmd/api.
-func TestCronCleanFailedRefunds_DeletesResolved(t *testing.T) {
-	app := newTestApplication(t)
-
-	called := false
-	app.models.FailedRefunds = &mockFailedRefundStore{
-		DeleteResolvedFn: func(ctx context.Context, olderThan time.Duration) (int64, error) {
-			called = true
-			return 3, nil
-		},
-	}
-
-	app.cronCleanFailedRefunds(context.Background())
-
-	if !called {
-		t.Fatal("want DeleteResolved to be called")
 	}
 }

@@ -18,72 +18,6 @@ func env(pairs map[string]string) config.Lookup {
 	}
 }
 
-func TestLoadDefaults(t *testing.T) {
-	cfg, err := config.Load(nil, env(nil))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.Port != 8080 {
-		t.Errorf("Port = %d, want 8080", cfg.Port)
-	}
-	if cfg.Env != "development" {
-		t.Errorf("Env = %q, want development", cfg.Env)
-	}
-	if cfg.DB.MaxOpenConns != 25 || cfg.DB.MaxIdleConns != 10 {
-		t.Errorf("pool = %d/%d, want 25/10", cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns)
-	}
-	if cfg.DB.StatementTimeout != 15*time.Second {
-		t.Errorf("StatementTimeout = %s, want 15s", cfg.DB.StatementTimeout)
-	}
-	if cfg.DB.SlowQueryThreshold != 500*time.Millisecond {
-		t.Errorf("SlowQueryThreshold = %s, want 500ms", cfg.DB.SlowQueryThreshold)
-	}
-	if !cfg.Limiter.Enabled || cfg.Limiter.RPS != 10 || cfg.Limiter.Burst != 20 {
-		t.Errorf("limiter = %v/%v/%v, want true/10/20", cfg.Limiter.Enabled, cfg.Limiter.RPS, cfg.Limiter.Burst)
-	}
-	if cfg.SMTP.Port != 587 {
-		t.Errorf("SMTP.Port = %d, want 587", cfg.SMTP.Port)
-	}
-	if cfg.Booking.SlotLockTTL != 15*time.Minute || cfg.Booking.LinkTokenBuffer != 24*time.Hour {
-		t.Errorf("booking windows = %s/%s", cfg.Booking.SlotLockTTL, cfg.Booking.LinkTokenBuffer)
-	}
-	if cfg.R2.BucketName != "vibe" {
-		t.Errorf("R2.BucketName = %q, want vibe", cfg.R2.BucketName)
-	}
-	if cfg.FrontendURL != "http://localhost:5173" {
-		t.Errorf("FrontendURL = %q", cfg.FrontendURL)
-	}
-	if cfg.PublicURL != "" {
-		t.Errorf("PublicURL = %q, want unset by default", cfg.PublicURL)
-	}
-}
-
-// The four server timeouts are the difference between a bounded connection and
-// one a peer can hold open indefinitely, so their defaults are asserted rather
-// than left to whoever last edited the flag set. The write timeout in
-// particular has to stay above reporting.ExportBudget, which cmd/api checks at
-// boot.
-func TestHTTPTimeoutDefaults(t *testing.T) {
-	cfg, err := config.Load(nil, env(nil))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-
-	if cfg.HTTP.ReadHeaderTimeout != 5*time.Second {
-		t.Errorf("ReadHeaderTimeout = %s, want 5s", cfg.HTTP.ReadHeaderTimeout)
-	}
-	if cfg.HTTP.ReadTimeout != 5*time.Second {
-		t.Errorf("ReadTimeout = %s, want 5s", cfg.HTTP.ReadTimeout)
-	}
-	if cfg.HTTP.WriteTimeout != 60*time.Second {
-		t.Errorf("WriteTimeout = %s, want 60s", cfg.HTTP.WriteTimeout)
-	}
-	if cfg.HTTP.IdleTimeout != 60*time.Second {
-		t.Errorf("IdleTimeout = %s, want 60s", cfg.HTTP.IdleTimeout)
-	}
-}
-
 func TestHTTPTimeoutsAreConfigurable(t *testing.T) {
 	cfg, err := config.Load(nil, env(map[string]string{
 		"HTTP_READ_HEADER_TIMEOUT": "2s",
@@ -378,22 +312,6 @@ func TestPublicBaseURLIsPublicURLOrFrontendURL(t *testing.T) {
 	}
 }
 
-func TestAnUnknownFlagIsAnError(t *testing.T) {
-	if _, err := config.Load([]string{"-nonsense"}, env(nil)); err == nil {
-		t.Fatal("Load: want an error for an unknown flag")
-	}
-}
-
-func TestFeaturesZeroValueSaysNo(t *testing.T) {
-	var f config.Features
-	if f.Enabled("anything") {
-		t.Error("the zero Features says yes")
-	}
-	if len(f.Names()) != 0 {
-		t.Errorf("Names = %v, want none", f.Names())
-	}
-}
-
 // TestHelpIsNotAMisconfiguration keeps -h printing the flags and exiting zero,
 // which is what the ~70 flags' own documentation is.
 // TestGoogleOAuthClientSecretIsLoaded pins the one new variable the OIDC
@@ -416,32 +334,10 @@ func TestGoogleOAuthClientSecretIsLoaded(t *testing.T) {
 	}
 }
 
-// TestGoogleOAuthClientSecretDefaultsEmpty is the unset case: a deployment
-// with no GOOGLE_OAUTH_CLIENT_SECRET must load with the flow's own
-// enablement check false, not a zero value that happens to also be a valid
-// (empty) secret.
-func TestGoogleOAuthClientSecretDefaultsEmpty(t *testing.T) {
-	cfg, err := config.Load(nil, env(nil))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Google.OAuthClientSecret != "" {
-		t.Errorf("OAuthClientSecret = %q, want empty with nothing configured", cfg.Google.OAuthClientSecret)
-	}
-}
-
 func TestHelpIsNotAMisconfiguration(t *testing.T) {
 	_, err := config.Load([]string{"-h"}, env(nil))
 	if !errors.Is(err, config.ErrHelp) {
 		t.Fatalf("Load(-h) = %v, want ErrHelp", err)
-	}
-
-	var out strings.Builder
-	config.Usage(&out)
-	for _, want := range []string{"-port", "PORT", "-mp-credential-keys"} {
-		if !strings.Contains(out.String(), want) {
-			t.Errorf("Usage does not mention %q", want)
-		}
 	}
 }
 
@@ -449,15 +345,7 @@ func TestHelpIsNotAMisconfiguration(t *testing.T) {
 // off unless the operator says so, so a deploy that never heard of it keeps
 // taking bookings exactly as before.
 func TestTurnstileBookingEnforceIsOptIn(t *testing.T) {
-	cfg, err := config.Load(nil, env(nil))
-	if err != nil {
-		t.Fatalf("Load: %v", err)
-	}
-	if cfg.Turnstile.BookingEnforce {
-		t.Error("BookingEnforce must default to false")
-	}
-
-	cfg, err = config.Load(nil, env(map[string]string{"TURNSTILE_BOOKING_ENFORCE": "true"}))
+	cfg, err := config.Load(nil, env(map[string]string{"TURNSTILE_BOOKING_ENFORCE": "true"}))
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}

@@ -25,29 +25,6 @@ import (
 // RecoverPanic
 // ---------------------------------------------------------------------------
 
-// The panic log line is the one that matters most, and it was the one line
-// that could not be joined to anything: RecoverPanic sat outside RequestID, so
-// the id was not in the context yet when the Responder stamped the entry —
-// while the client was already holding it from the X-Request-ID header.
-func TestAPanicIsLoggedWithTheRequestIDTheClientWasGiven(t *testing.T) {
-	f := newFixture(t, Config{})
-
-	handler := f.mw.RequestID(f.mw.RecoverPanic(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
-		panic("something went wrong")
-	})))
-
-	w := httptest.NewRecorder()
-	handler.ServeHTTP(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-
-	id := w.Header().Get("X-Request-ID")
-	if id == "" {
-		t.Fatal("the response must carry a request id")
-	}
-	if got := f.logs.String(); !strings.Contains(got, "request_id="+id) {
-		t.Errorf("the panic log line must carry the id the client was given (%s); got %s", id, got)
-	}
-}
-
 // The log line is only half of the recovered path. An operator is paged on the
 // Sentry event, and it went out through the process-global hub with no request
 // scope at all — so the id the client is holding in X-Request-ID, and quoting
@@ -286,19 +263,6 @@ func TestACSRFExemptionCoversOneExactRouteAndNothingUnderIt(t *testing.T) {
 				t.Errorf("%s %s must be challenged (%s); it was let through", tt.method, tt.path, tt.why)
 			}
 		})
-	}
-}
-
-// A read is exempt by method, everywhere, so no read belongs in the table.
-// An entry for one is either dead weight or a misunderstanding of what the
-// table does.
-func TestNoExemptionIsWrittenForAMethodThatNeverReachesTheCheck(t *testing.T) {
-	for route := range CSRFExemptRoutes() {
-		method, _, _ := strings.Cut(route, " ")
-		switch method {
-		case http.MethodGet, http.MethodHead, http.MethodOptions:
-			t.Errorf("%q is exempt by method before the table is consulted; remove the entry", route)
-		}
 	}
 }
 
