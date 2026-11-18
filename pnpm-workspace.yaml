@@ -49,3 +49,13 @@ overrides:
   'zod@>=4 <4.6.6': '>=4.6.6 <5'
   # GHSA-4528-x5fx-h6hg (high): joi email split DoS, reached through @hookform/resolvers.
   'joi@17': '>=17.13.9 <18'
+
+# Advisories with no fixed release, waived so `pnpm audit --audit-level high`
+# (frontend.yml) keeps blocking on everything else. Drop an entry once a fixed
+# version exists and the override lands.
+auditConfig:
+  ignoreGhsas:
+    # picomatch <=4.0.7, ReDoS through crafted extglob patterns; 4.0.7 is the
+    # latest release. Every pattern it compiles here comes from code and build
+    # config (vite, tinyglobby, astro, unstorage), never from a request.
+    - GHSA-fc5q-39xc-vjpf

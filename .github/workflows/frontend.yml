@@ -294,7 +294,7 @@ jobs:
       # of only ever surfacing through Dependabot after merge. The verdict
       # comes from the registry advisory feed, so the call is retried to ride
       # out a transient registry outage; an advisory with no fixed version is
-      # waived by adding `auditConfig.ignoreCves` to frontend/pnpm-workspace.yaml
+      # waived by adding `auditConfig.ignoreGhsas` to the root pnpm-workspace.yaml
       # (with the reason in the PR that adds it), never by disabling this job.
       - name: Audit
         run: |
