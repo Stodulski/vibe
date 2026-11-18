@@ -71,7 +71,6 @@ function qrTile(src: string, size: number): ReactElement {
       borderRadius: 40,
       backgroundColor: TILE,
       border: `8px solid ${GREEN}`,
-      boxShadow: '0 0 80px rgba(29,185,84,0.45)',
       alignItems: 'center',
       justifyContent: 'center',
     },
