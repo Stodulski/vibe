@@ -65,7 +65,7 @@ func TestKitEveryRecipientGetsTheirOwnPostAndTheKitLink(t *testing.T) {
 		if p.Email != r.Email || p.FirstName != "Ana" {
 			t.Errorf("payload = %+v; want the recipient's address and name", p)
 		}
-		if want := "https://vibe.test/kit/c/" + r.Slug + "/reservar-post.png"; p.ImageURL != want {
+		if want := "https://vibe.test/kit/c/" + r.Slug + "/reservar-post.png?email=1"; p.ImageURL != want {
 			t.Errorf("image = %q; want %q", p.ImageURL, want)
 		}
 		if p.KitURL != "https://app.vibe.test/kit" {

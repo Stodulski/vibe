@@ -48,14 +48,14 @@ func (c *KitCampaign) schedule(r Recipient, runAt time.Time) {
 	c.sched.EnqueueAt(notifications.TaskEmailSocialKitCampaign, c.email(r), runAt, key)
 }
 
-// email assembles one owner's email: the image is their own "Link de reservas" post,
+// email assembles one owner's email: the image is their own "Link de reservas" post at the email size,
 // the button opens the kit in the panel, and both opt-out links are signed for them.
 func (c *KitCampaign) email(r Recipient) notifications.SocialKitCampaignEmail {
 	token := c.signer.Sign(r.Email)
 	return notifications.SocialKitCampaignEmail{
 		Email:          r.Email,
 		FirstName:      r.FirstName,
-		ImageURL:       c.cfg.PublicBaseURL + "/kit/c/" + url.PathEscape(r.Slug) + "/reservar-post.png",
+		ImageURL:       c.cfg.PublicBaseURL + "/kit/c/" + url.PathEscape(r.Slug) + "/reservar-post.png?email=1",
 		KitURL:         c.cfg.FrontendURL + "/kit",
 		UnsubscribeURL: c.cfg.BackendURL + "/api/v1/public/email/unsubscribe?token=" + url.QueryEscape(token),
 		OptOutURL:      c.cfg.PublicBaseURL + "/baja?token=" + url.QueryEscape(token),

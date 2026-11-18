@@ -18,9 +18,10 @@ export function renderKitImage(
   assets: CardAssets,
   photos: Readonly<Record<KitBackdrop, string>>,
   logo: string,
+  width?: number,
 ): Promise<ArrayBuffer> {
   const text = kitText(facts, slug, image.piece);
   const layout = kitLayout(image.format);
   const tree = kitTree(text, qrSvgDataUrl(text.url), image, layout, { photo: photos[kitBackdrop(facts.sports)], logo });
-  return rasterize(tree, layout.width, layout.height, assets);
+  return rasterize(tree, layout.width, layout.height, assets, width);
 }

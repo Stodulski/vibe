@@ -3,7 +3,7 @@
  * the owner to post on their own networks. The piece is reservar or como-reservar, the format
  * historia (1080x1920) or post (1080x1440). ?descargar=1 makes it a download. The answers and
  * their cache headers live in lib/kit/kit-response.ts, and the same public API read as the
- * complex's share card feeds the words.
+ * complex's share card feeds the words. ?email=1 draws it 560px wide for the kit email.
  */
 import { PUBLIC_API_URL } from 'astro:env/server';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
@@ -53,6 +53,6 @@ const readFacts = sharedRead(async (slug: string) => {
 export async function GET({ params, url }: { params: { slug?: string; image?: string }; url: URL }): Promise<Response> {
   return kitImageResponse(params.slug ?? '', params.image ?? '', url.searchParams, {
     readFacts,
-    render: (facts, slug, image) => renderKitImage(facts, slug, image, cardAssets(), PHOTOS, vibeLogo),
+    render: (facts, slug, image, width) => renderKitImage(facts, slug, image, cardAssets(), PHOTOS, vibeLogo, width),
   });
 }
