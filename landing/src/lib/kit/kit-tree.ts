@@ -64,46 +64,18 @@ function qrTile(src: string, size: number): ReactElement {
   const padding = 8;
   const picture = size - padding * 2;
   return box(
-    { position: 'relative', width: size, height: size },
-    qrGlow(size),
-    box(
-      {
-        // Positioned, so the tile paints above the absolute glow drawn before it.
-        position: 'relative',
-        width: size,
-        height: size,
-        padding,
-        borderRadius: 40,
-        backgroundColor: TILE,
-        border: `8px solid ${GREEN}`,
-        alignItems: 'center',
-        justifyContent: 'center',
-      },
-      createElement('img', { src, width: picture, height: picture, style: { width: picture, height: picture } }),
-    ),
+    {
+      width: size,
+      height: size,
+      padding,
+      borderRadius: 40,
+      backgroundColor: TILE,
+      border: `8px solid ${GREEN}`,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    createElement('img', { src, width: picture, height: picture, style: { width: picture, height: picture } }),
   );
-}
-
-/** How far the green light reaches past the QR tile. */
-const QR_GLOW_REACH = 100;
-
-/**
- * The green light around the QR tile, drawn as a gradient rather than a box-shadow: resvg blurs a
- * shadow this wide in about seven seconds, and the picture has to render well inside the time an
- * email client waits for an image.
- */
-function qrGlow(size: number): ReactElement {
-  const span = size + QR_GLOW_REACH * 2;
-  const edge = Math.round((size / 2 / (span / 2)) * 100);
-  return box({
-    position: 'absolute',
-    top: -QR_GLOW_REACH,
-    left: -QR_GLOW_REACH,
-    width: span,
-    height: span,
-    borderRadius: span / 2,
-    backgroundImage: `radial-gradient(circle closest-side, rgba(29,185,84,0.45) ${edge}%, rgba(29,185,84,0) 100%)`,
-  });
 }
 
 /** Under the QR of reservar: the scan line, the link in bold, and the sports line when there is one. */
