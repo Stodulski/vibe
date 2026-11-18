@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { useSelectedComplex } from '@/features/complex';
 import { makeComplex } from '@/test/factories';
 
@@ -15,10 +16,14 @@ function withComplex(complex: ReturnType<typeof makeComplex> | null) {
   vi.mocked(useSelectedComplex).mockReturnValue({ complex } as unknown as ReturnType<typeof useSelectedComplex>);
 }
 
+function renderKit() {
+  withComplex(makeComplex({ slug: 'los-alamos' }));
+  render(<SocialKitPage />);
+}
+
 describe('SocialKitPage', () => {
   it('shows the title and the intro', () => {
-    withComplex(makeComplex({ slug: 'los-alamos' }));
-    render(<SocialKitPage />);
+    renderKit();
     expect(screen.getByRole('heading', { level: 1, name: 'Kit para redes' })).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -27,54 +32,62 @@ describe('SocialKitPage', () => {
     ).toBeInTheDocument();
   });
 
-  it('titles each piece and labels each card with its format', () => {
-    withComplex(makeComplex({ slug: 'los-alamos' }));
-    render(<SocialKitPage />);
+  it('opens on Historia and shows both pieces as stories, titled', () => {
+    renderKit();
+    expect(screen.getByRole('button', { name: 'Historia' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByRole('button', { name: 'Post' })).toHaveAttribute('aria-pressed', 'false');
+    expect(screen.getByText('Para historias de Instagram y estados de WhatsApp. 1080 × 1920.')).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Link de reservas' })).toBeInTheDocument();
     expect(screen.getByRole('heading', { level: 2, name: 'Cómo reservar' })).toBeInTheDocument();
-    expect(screen.getAllByRole('heading', { level: 3, name: 'Historia' })).toHaveLength(2);
-    expect(screen.getAllByRole('heading', { level: 3, name: 'Post' })).toHaveLength(2);
-  });
-
-  it('previews each piece in both formats with the landing image as source', () => {
-    withComplex(makeComplex({ slug: 'los-alamos' }));
-    render(<SocialKitPage />);
     expect(screen.getByRole('img', { name: 'Historia: Link de reservas' })).toHaveAttribute(
       'src',
       `${KIT_URL}/reservar-historia.png`,
-    );
-    expect(screen.getByRole('img', { name: 'Post: Link de reservas' })).toHaveAttribute(
-      'src',
-      `${KIT_URL}/reservar-post.png`,
     );
     expect(screen.getByRole('img', { name: 'Historia: Cómo reservar' })).toHaveAttribute(
       'src',
       `${KIT_URL}/como-reservar-historia.png`,
     );
+    expect(screen.getAllByRole('img')).toHaveLength(2);
+  });
+
+  it('switches both pieces to posts when Post is chosen', async () => {
+    const user = userEvent.setup();
+    renderKit();
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+
+    expect(screen.getByRole('button', { name: 'Post' })).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.getByText('Para el feed de Instagram y Facebook. 1080 × 1440.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Post: Link de reservas' })).toHaveAttribute(
+      'src',
+      `${KIT_URL}/reservar-post.png`,
+    );
     expect(screen.getByRole('img', { name: 'Post: Cómo reservar' })).toHaveAttribute(
       'src',
       `${KIT_URL}/como-reservar-post.png`,
     );
+    expect(screen.getAllByRole('img')).toHaveLength(2);
   });
 });
 
 describe('SocialKitPage loading and downloads', () => {
   it('lazy-loads the previews', () => {
-    withComplex(makeComplex({ slug: 'los-alamos' }));
-    render(<SocialKitPage />);
+    renderKit();
     for (const img of screen.getAllByRole('img')) {
       expect(img).toHaveAttribute('loading', 'lazy');
     }
   });
 
-  it('gives each image a Descargar link to the attachment variant', () => {
-    withComplex(makeComplex({ slug: 'los-alamos' }));
-    render(<SocialKitPage />);
-    const links = screen.getAllByRole('link', { name: /Descargar/ });
-    expect(links.map((link) => link.getAttribute('href'))).toEqual([
+  it('gives each piece a Descargar link to the attachment variant of the chosen format', async () => {
+    const user = userEvent.setup();
+    renderKit();
+    const hrefs = () => screen.getAllByRole('link', { name: /Descargar/ }).map((link) => link.getAttribute('href'));
+    expect(hrefs()).toEqual([
       `${KIT_URL}/reservar-historia.png?descargar=1`,
-      `${KIT_URL}/reservar-post.png?descargar=1`,
       `${KIT_URL}/como-reservar-historia.png?descargar=1`,
+    ]);
+    await user.click(screen.getByRole('button', { name: 'Post' }));
+    expect(hrefs()).toEqual([
+      `${KIT_URL}/reservar-post.png?descargar=1`,
       `${KIT_URL}/como-reservar-post.png?descargar=1`,
     ]);
   });

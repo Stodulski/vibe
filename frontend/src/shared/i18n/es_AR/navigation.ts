@@ -23,4 +23,9 @@ export const navigation = {
     post: 'Post',
   },
   socialKitDownload: 'Descargar',
+  socialKitFormatGroup: 'Formato',
+  socialKitFormatHints: {
+    historia: 'Para historias de Instagram y estados de WhatsApp. 1080 × 1920.',
+    post: 'Para el feed de Instagram y Facebook. 1080 × 1440.',
+  },
 } as const;
