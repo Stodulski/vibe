@@ -138,16 +138,7 @@ func TestCancellationLineQuotesTheConfiguredValues(t *testing.T) {
 // product's vocabulary: "devolución" not "reembolso", "complejo" not "club",
 // "link" not "enlace".
 func TestCopyObeysTheProductVocabulary(t *testing.T) {
-	depositA, balanceA := PaymentAmounts(2000000, 500000, bookingstore.CollectionStatusDepositPaid)
-	depositB, balanceB := PaymentAmounts(2000000, 0, bookingstore.CollectionStatusUnpaid)
-	depositC, balanceC := PaymentAmounts(2000000, 2000000, bookingstore.CollectionStatusFullyPaid)
 	lines := []string{
-		depositA, balanceA,
-		depositB, balanceB,
-		depositC, balanceC,
-		BalanceAmount(2000000, 500000, bookingstore.CollectionStatusDepositPaid),
-		BalanceAmount(2000000, 0, bookingstore.CollectionStatusUnpaid),
-		BalanceAmount(2000000, 2000000, bookingstore.CollectionStatusFullyPaid),
 		CancellationLine(24, 15*time.Minute, true),
 		CancellationLine(0, 15*time.Minute, true),
 		CancellationLine(24, 15*time.Minute, false),

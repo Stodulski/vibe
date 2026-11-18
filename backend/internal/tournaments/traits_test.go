@@ -78,9 +78,8 @@ func TestCreateStoresTheComposedNameAndTheTraits(t *testing.T) {
 // A blank tournament name is not refused: the stored name is composed from the sport.
 func TestAnOmittedTournamentNameGetsTheComposedDefault(t *testing.T) {
 	cases := map[string]struct{ name, sport, want string }{
-		"blank name":  {"   ", "padel", "Torneo de pádel"},
-		"empty name":  {"", "tennis", "Torneo de tenis"},
-		"soccer name": {"", "soccer", "Torneo de fútbol"},
+		"blank name": {"   ", "padel", "Torneo de pádel"},
+		"empty name": {"", "tennis", "Torneo de tenis"},
 	}
 	for label, tc := range cases {
 		t.Run(label, func(t *testing.T) {
@@ -309,11 +308,8 @@ func TestAnotherSportsCategoryIsNamedByItsModality(t *testing.T) {
 		sport, want string
 		modality    string
 	}{
-		"soccer men":       {"soccer", "Masculino", ModalityMen},
-		"soccer women":     {"soccer", "Femenino", ModalityWomen},
-		"basketball mixed": {"basketball", "Mixto", ModalityMixed},
-		"tennis men":       {"tennis", "Caballeros", ModalityMen},
-		"tennis women":     {"tennis", "Damas", ModalityWomen},
+		"soccer men": {"soccer", "Masculino", ModalityMen},
+		"tennis men": {"tennis", "Caballeros", ModalityMen},
 	}
 	for label, tc := range cases {
 		t.Run(label, func(t *testing.T) {

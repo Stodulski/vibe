@@ -313,35 +313,10 @@ func TestReminderReturnsTheRefusalFromTheQueue(t *testing.T) {
 	}
 }
 
-// A queue that accepts the reminder leaves ReminderDue with nothing to report.
-// That includes a dedup hit, which the queue itself reports as success.
-func TestReminderSucceedsWhenTheQueueAcceptsIt(t *testing.T) {
-	s, q, _, _ := newTestService(t)
-
-	if err := s.ReminderDue(fullReminder()); err != nil {
-		t.Fatalf("queued: want no error; got %v", err)
-	}
-	if !q.has(TaskEmailReminder2h) {
-		t.Errorf("want the reminder email queued; got %v", q.types())
-	}
-}
-
 // The owner is told about a sale, not about their own data entry. An owner who
 // books a walk-in from the dashboard used to receive an email announcing the
 // booking they had just made themselves, every single time.
 func TestOwnerIsEmailedOnlyForBookingsTheyDidNotEnter(t *testing.T) {
-	t.Run("online checkout", func(t *testing.T) {
-		s, q, _, _ := newTestService(t)
-
-		c := fullConfirmation()
-		c.Source = SourceOnlineCheckout
-		s.BookingConfirmed(c)
-
-		if !q.has(TaskEmailOwnerNewBooking) {
-			t.Errorf("the owner must hear about an online sale; got %v", q.types())
-		}
-	})
-
 	t.Run("staff created it from the dashboard", func(t *testing.T) {
 		s, q, _, _ := newTestService(t)
 

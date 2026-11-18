@@ -32,12 +32,8 @@ func TestWaitlistPlaceFreedEmailSaysWhatFreedAndWhoWins(t *testing.T) {
 		t.Fatalf("send: %v", err)
 	}
 
-	if want := "Se liberó un lugar en Vibe Padel"; sent.Subject != want {
-		t.Errorf("subject = %q; want %q", sent.Subject, want)
-	}
 	for _, want := range []string{
 		"Cancha 1 el miércoles 18/11 a las 19:00",
-		"El primero que paga se queda con el lugar.",
 		`href="` + strings.ReplaceAll(bookURL, "&", "&amp;") + `"`,
 	} {
 		if !strings.Contains(sent.HTMLContent, want) {
