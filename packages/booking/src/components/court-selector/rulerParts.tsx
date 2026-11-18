@@ -1,5 +1,6 @@
-import { cn, formatPrice } from '@vibe/ui';
+import { Button, cn, formatPrice } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
+import type { RulerHour } from './rulerHours';
 import type { TimeOption } from './timeOptions';
 import { tickDepth } from './wheelMath';
 
@@ -18,7 +19,7 @@ function priceLine(option: TimeOption, severalCourts: boolean): string {
 }
 
 interface RulerTickProps {
-  option: TimeOption;
+  hour: RulerHour;
   /** Pixels from the wheel's center to this tick's center. */
   offset: number;
   half: number;
@@ -28,14 +29,17 @@ interface RulerTickProps {
   onPick: () => void;
 }
 
-/** One hour on the wheel: a tick and its time under it, placed and sized by its offset. */
-export function RulerTick({ option, offset, half, width, focused, last, onPick }: RulerTickProps) {
+/** One hour on the wheel: a tick and its time under it, placed and sized by its offset. A taken hour is amber. */
+export function RulerTick({ hour, offset, half, width, focused, last, onPick }: RulerTickProps) {
   const depth = tickDepth(offset, half, width);
+  const taken = hour.free === null;
+  const label = taken ? `${hour.startTime}, ${t.rulerTaken}` : last ? `${hour.startTime}, ${t.lastCourtLeft}` : hour.startTime;
   return (
     <button
       type="button"
-      aria-label={last ? `${option.startTime}, ${t.lastCourtLeft}` : option.startTime}
-      data-slot-time={option.startTime}
+      aria-label={label}
+      data-slot-time={hour.startTime}
+      data-taken={taken || undefined}
       aria-pressed={focused}
       onClick={onPick}
       style={{
@@ -52,30 +56,34 @@ export function RulerTick({ option, offset, half, width, focused, last, onPick }
           className={cn(
             'rounded-full',
             // Every tick is one height; only the wheel's scale makes them differ.
-            focused ? 'bg-primary-500 h-12 w-1.5' : 'bg-text-tertiary h-12 w-0.5',
+            focused ? 'h-12 w-1.5' : 'h-12 w-0.5',
+            taken ? 'bg-warning-text' : focused ? 'bg-primary-500' : 'bg-text-tertiary',
           )}
         />
       </span>
       <span
         className={cn(
           'text-xs tabular-nums sm:text-base',
-          focused ? 'text-primary-400 font-semibold' : 'text-text-secondary',
+          taken ? 'text-warning-text' : focused ? 'text-primary-400' : 'text-text-secondary',
+          focused && 'font-semibold',
         )}
       >
-        {option.startTime}
+        {hour.startTime}
       </span>
     </button>
   );
 }
 
-/** The hour at the center, large, with its end, price and free courts. */
-export function RulerReadout({ option, severalCourts }: { option: TimeOption; severalCourts: boolean }) {
+/** The hour at the center, large, with its end and its price and free courts, or "Ocupado" in amber. */
+export function RulerReadout({ hour, severalCourts }: { hour: RulerHour; severalCourts: boolean }) {
   return (
     <div className="text-center" aria-live="polite">
-      <p className="text-text-primary text-3xl font-bold tabular-nums">
-        {option.startTime} <span className="text-text-tertiary">–</span> {option.endTime}
+      <p className={cn('text-3xl font-bold tabular-nums', hour.free ? 'text-text-primary' : 'text-warning-text')}>
+        {hour.startTime} <span className="text-text-tertiary">–</span> {hour.endTime}
       </p>
-      <p className="text-text-secondary mt-1 text-sm">{priceLine(option, severalCourts)}</p>
+      <p className={cn('mt-1 text-sm', hour.free ? 'text-text-secondary' : 'text-warning-text')}>
+        {hour.free ? priceLine(hour.free, severalCourts) : t.rulerTaken}
+      </p>
     </div>
   );
 }
@@ -87,5 +95,36 @@ export function RulerHint() {
       <span className="pointer-fine:hidden">{t.rulerHint}</span>
       <span className="hidden pointer-fine:inline">{t.rulerHintMouse}</span>
     </p>
+  );
+}
+
+interface RulerActionProps {
+  hour: RulerHour;
+  onSelectTime: (option: TimeOption) => void;
+  /** Turns the wheel to the nearest free hour; `null` when the day has none. */
+  onGoToFree: (() => void) | null;
+}
+
+/** A free hour opens its courts; a taken one offers the nearest free hour instead. */
+export function RulerAction({ hour, onSelectTime, onGoToFree }: RulerActionProps) {
+  const free = hour.free;
+  if (free) {
+    return (
+      <Button
+        size="lg"
+        className="min-h-12 w-full"
+        onClick={() => {
+          onSelectTime(free);
+        }}
+      >
+        {`${t.seeCourtsAt} ${hour.startTime}`}
+      </Button>
+    );
+  }
+  if (!onGoToFree) return null;
+  return (
+    <Button variant="outline" size="lg" className="min-h-12 w-full" onClick={onGoToFree}>
+      {t.goToNearestFree}
+    </Button>
   );
 }

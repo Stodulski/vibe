@@ -133,12 +133,11 @@ describe('CourtSelector — the hour is the question', () => {
     expect(screen.getByRole('button', { name: /^11:00\b/ })).toBeInTheDocument();
   });
 
-  it('leaves a taken hour out entirely rather than showing it disabled', () => {
+  it('shows a taken hour in its place on the ruler, marked as taken', () => {
     render(<Harness {...defaultProps} />);
-    // The grid used to draw 09:30 greyed out. An hour nobody can book is not
-    // an option, and a button that cannot be pressed is the page arguing with
-    // itself — so it is absent, not disabled.
-    expect(screen.queryByRole('button', { name: /^09:30,/ })).not.toBeInTheDocument();
+    // The player sees the whole day: 09:30 stays between 08:00 and 11:00,
+    // labelled as taken, instead of leaving a gap that reads as closed.
+    expect(screen.getByRole('button', { name: '09:30, Ocupado' })).toBeInTheDocument();
   });
 
   it('leaves the duration control to the page, not to itself', () => {
@@ -362,7 +361,8 @@ describe('CourtSelector — the time ruler', () => {
     const user = userEvent.setup();
     render(<Harness {...defaultProps} />);
 
-    expect(screen.getByRole('button', { name: '08:00' })).toHaveAttribute('aria-pressed', 'true');
+    // The middle hour, 09:30, is taken, so it opens on the nearest free one.
+    expect(screen.getByRole('button', { name: '11:00' })).toHaveAttribute('aria-pressed', 'true');
     await user.click(screen.getByRole('button', { name: SEE_COURTS }));
 
     expect(screen.queryByRole('button', { name: SEE_COURTS })).not.toBeInTheDocument();

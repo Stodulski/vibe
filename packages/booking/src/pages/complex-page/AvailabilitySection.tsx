@@ -77,6 +77,7 @@ export function AvailabilitySection({
       >
         <CourtSelector
           courts={courts}
+          date={dateStr}
           selected={selectedSlot}
           onSelect={onSelect}
           onContinue={onContinue}

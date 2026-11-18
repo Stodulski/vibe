@@ -1,6 +1,6 @@
-import { Button } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
-import { RulerHint, RulerReadout, RulerTick } from './rulerParts';
+import { nearestFree, type RulerHour } from './rulerHours';
+import { RulerAction, RulerHint, RulerReadout, RulerTick } from './rulerParts';
 import type { TimeOption } from './timeOptions';
 import { useNativeWheel, useWidth } from './useRulerBox';
 import { useWheelPicker } from './useWheelPicker';
@@ -17,7 +17,8 @@ function visibleRange(pos: number, half: number, tick: number, count: number): n
 }
 
 interface TimeRulerProps {
-  options: TimeOption[];
+  /** Every hour of the day, free or taken (see `buildRulerHours`). */
+  hours: RulerHour[];
   /** The hour already chosen, centered when the ruler opens. */
   initialStartTime: string | null;
   /** Whether the venue has more than one court, so "Última cancha" means something. */
@@ -33,24 +34,26 @@ interface TimeRulerProps {
  * hour. Every tick is drawn from the wheel's position in the same frame, so the curve
  * never lags behind a fast swipe.
  */
-export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
+export function TimeRuler({ hours, initialStartTime, severalCourts, onSelectTime }: TimeRulerProps) {
   const [width, element, measureRef] = useWidth();
   const tick = tickWidthFor(width);
   const half = width / 2;
-  const count = options.length;
-  // It opens on the hour already chosen, or else on the middle of the day, with hours on both sides.
-  const chosen = options.findIndex((option) => option.startTime === initialStartTime);
-  const wheel = useWheelPicker(chosen >= 0 ? chosen : Math.floor((count - 1) / 2), count, tick);
+  const count = hours.length;
+  // It opens on the hour already chosen, or else on the free hour nearest the middle of the day.
+  const chosen = hours.findIndex((hour) => hour.startTime === initialStartTime);
+  const middle = Math.floor((count - 1) / 2);
+  const wheel = useWheelPicker(chosen >= 0 ? chosen : (nearestFree(hours, middle) ?? middle), count, tick);
   useNativeWheel(element, wheel.onWheel);
-  const current = options[Math.min(count - 1, Math.max(0, wheel.center))];
+  const current = hours[Math.min(count - 1, Math.max(0, wheel.center))];
   if (!current) return null;
+  const toFree = current.free ? null : nearestFree(hours, wheel.center);
 
   return (
     <section aria-label={t.rulerLabel} className="flex flex-col gap-4">
       <h2 className="text-text-primary text-xl font-bold">{t.timeQuestion}</h2>
       {/* The readout sits in the wheel's empty top: only the ends climb that high, at the sides. */}
       <div className="relative z-10">
-        <RulerReadout option={current} severalCourts={severalCourts} />
+        <RulerReadout hour={current} severalCourts={severalCourts} />
       </div>
       <div
         ref={measureRef}
@@ -58,17 +61,17 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         className="relative -mt-20 h-44 cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing"
       >
         {visibleRange(wheel.pos, half, tick, count).map((index) => {
-          const option = options[index];
-          if (!option) return null;
+          const hour = hours[index];
+          if (!hour) return null;
           return (
             <RulerTick
               key={index}
-              option={option}
+              hour={hour}
               offset={(index - wheel.pos) * tick}
               half={half}
               width={tick}
               focused={index === wheel.center}
-              last={severalCourts && option.courts.length === 1}
+              last={severalCourts && hour.free?.courts.length === 1}
               onPick={() => {
                 wheel.goTo(index);
               }}
@@ -77,15 +80,11 @@ export function TimeRuler({ options, initialStartTime, severalCourts, onSelectTi
         })}
       </div>
       <RulerHint />
-      <Button
-        size="lg"
-        className="min-h-12 w-full"
-        onClick={() => {
-          onSelectTime(current);
-        }}
-      >
-        {`${t.seeCourtsAt} ${current.startTime}`}
-      </Button>
+      <RulerAction
+        hour={current}
+        onSelectTime={onSelectTime}
+        onGoToFree={toFree === null ? null : () => { wheel.goTo(toFree); }}
+      />
     </section>
   );
 }

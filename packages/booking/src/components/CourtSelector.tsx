@@ -4,6 +4,7 @@ import type { CourtAvailability } from '../api/types';
 import { TimeRuler } from './court-selector/TimeRuler';
 import { CourtQuestion } from './court-selector/CourtQuestion';
 import { useCourtSelectorState } from './court-selector/useCourtSelectorState';
+import { buildRulerHours } from './court-selector/rulerHours';
 import { buildTimeOptions, type CourtAtTime, type TimeOption } from './court-selector/timeOptions';
 import type { SelectedSlot } from './court-selector/types';
 
@@ -16,6 +17,8 @@ export const HOURS_ANCHOR = '#horarios';
 
 interface CourtSelectorProps {
   courts: CourtAvailability[];
+  /** The day shown (YYYY-MM-DD), so a taken hour that already began reads as past and is left off the ruler. */
+  date?: string;
   selected: SelectedSlot | null;
   onSelect: (selection: SelectedSlot) => void;
   /**
@@ -53,6 +56,7 @@ interface CourtSelectorProps {
  */
 export function CourtSelector({
   courts,
+  date,
   selected,
   onSelect,
   onContinue,
@@ -62,6 +66,7 @@ export function CourtSelector({
   const { handleSlotClick } = useCourtSelectorState({ onSelect });
 
   const options = useMemo(() => buildTimeOptions(courts), [courts]);
+  const hours = useMemo(() => buildRulerHours(courts, date), [courts, date]);
   // `pendingStartTime` already answers itself away once its hour stops being
   // on offer — the page derives it from the same availability this grid is
   // built from (see `ComplexPage`'s `isStartTimeStillOffered`) rather than
@@ -120,7 +125,7 @@ export function CourtSelector({
   return (
     <div ref={questionRef} data-testid="time-options" className="scroll-mt-6 space-y-6">
       <TimeRuler
-        options={options}
+        hours={hours}
         initialStartTime={selected?.slot.start_time ?? null}
         severalCourts={courts.length > 1}
         onSelectTime={handleSelectTime}

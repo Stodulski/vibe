@@ -7,6 +7,8 @@ export const RULER_MESSAGES = {
   chooseAnswer: 'Elegir',
   seeCourtsAt: 'Ver canchas a las',
   timeQuestion: '¿A qué hora?',
+  rulerTaken: 'Ocupado',
+  goToNearestFree: 'Ir al horario libre más cercano',
   courtsFreeOne: '1 cancha',
   courtsFreeMany: 'canchas',
 } as const;
