@@ -1,4 +1,4 @@
-import { type Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import { landingComplexUrl } from '../helpers/landing';
 
 export class PublicBookingPage {
@@ -14,6 +14,18 @@ export class PublicBookingPage {
    * slot (`POST /book/holds`, with the invisible Turnstile token when the
    * storefront has a site key), so this waits for that answer.
    */
+  /**
+   * Answers "¿Cuánto tiempo?" with the duration the bar opens on (1 h). The
+   * hours only appear once it is answered.
+   */
+  async answerDuration() {
+    await this.page
+      .getByRole('region', { name: '¿Cuánto tiempo?' })
+      .getByRole('button', { name: /^Elegir/ })
+      .click();
+    await expect(this.page.getByText('¿Cuánto tiempo?')).not.toBeVisible({ timeout: 10_000 });
+  }
+
   async chooseFirstCourt() {
     const hold = this.page.waitForResponse(
       (res) => res.request().method() === 'POST' && new URL(res.url()).pathname.endsWith('/book/holds'),
