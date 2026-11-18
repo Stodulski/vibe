@@ -103,3 +103,69 @@ func (q *Queries) ListCampaignRecipients(ctx context.Context, arg ListCampaignRe
 	}
 	return items, nil
 }
+
+const listKitCampaignRecipients = `-- name: ListKitCampaignRecipients :many
+
+SELECT u.id,
+       u.email::text AS email,
+       u.first_name,
+       c.slug::text AS slug
+FROM users u
+JOIN complexes c
+  ON c.owner_id = u.id
+ AND c.deleted_at IS NULL
+ AND c.is_active
+WHERE u.role = 'owner'
+  AND u.is_active
+  AND u.email_verified
+  AND NOT EXISTS (SELECT 1 FROM email_suppressions s WHERE s.email = lower(u.email::text))
+  AND NOT EXISTS (
+      SELECT 1 FROM campaign_claims k
+      WHERE k.campaign = $1::text AND k.user_id = u.id
+  )
+ORDER BY u.created_at, u.id
+LIMIT $2::int
+`
+
+type ListKitCampaignRecipientsParams struct {
+	Campaign string `json:"campaign"`
+	MaxRows  int32  `json:"max_rows"`
+}
+
+type ListKitCampaignRecipientsRow struct {
+	ID        pgtype.UUID `json:"id"`
+	Email     string      `json:"email"`
+	FirstName string      `json:"first_name"`
+	Slug      string      `json:"slug"`
+}
+
+// One-off campaign (2026-11). Remove after it has been sent.
+// The owners the social kit email has not reached yet, oldest account first, at
+// most max_rows. Only owners whose complex is live and switched on: the email shows
+// that complex's own kit image, which the landing renders only for a public page.
+// complexes_owner_id_key allows one live complex per owner, so the join yields at
+// most one row per owner.
+func (q *Queries) ListKitCampaignRecipients(ctx context.Context, arg ListKitCampaignRecipientsParams) ([]ListKitCampaignRecipientsRow, error) {
+	rows, err := q.db.Query(ctx, listKitCampaignRecipients, arg.Campaign, arg.MaxRows)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListKitCampaignRecipientsRow
+	for rows.Next() {
+		var i ListKitCampaignRecipientsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.FirstName,
+			&i.Slug,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

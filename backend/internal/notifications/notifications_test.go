@@ -161,6 +161,10 @@ func (m *stubMailer) SendBenefitsCampaign(_ context.Context, to, firstName, segm
 	return m.record("benefits_campaign", to, firstName+"|"+segment)
 }
 
+func (m *stubMailer) SendSocialKitCampaign(_ context.Context, to, firstName, imageURL, _, _, _ string) error {
+	return m.record("social_kit_campaign", to, firstName+"|"+imageURL)
+}
+
 type stubUsers struct {
 	user *authstore.User
 	err  error

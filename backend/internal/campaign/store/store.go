@@ -55,3 +55,48 @@ func (s *Store) Claim(ctx context.Context, userID uuid.UUID) (bool, error) {
 	})
 	return n == 1, err
 }
+
+// KitStore is the sqlc-backed store of the one-off social kit email (2026-11). Like
+// Store, it reads complexes, so the cron wrapper runs it on the cross-tenant bypass.
+// Remove after it has been sent.
+type KitStore struct {
+	Q *db.Queries
+}
+
+// ListRecipients returns the owners with a live complex the kit email has not
+// reached yet, at most limit.
+func (s *KitStore) ListRecipients(ctx context.Context, limit int32) ([]campaign.Recipient, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := s.Q.ListKitCampaignRecipients(ctx, db.ListKitCampaignRecipientsParams{
+		Campaign: campaign.KitCampaignName,
+		MaxRows:  limit,
+	})
+	if err != nil {
+		return nil, err
+	}
+	out := make([]campaign.Recipient, 0, len(rows))
+	for _, r := range rows {
+		out = append(out, campaign.Recipient{
+			UserID:    data.PgToUUID(r.ID),
+			Email:     r.Email,
+			FirstName: r.FirstName,
+			Slug:      r.Slug,
+		})
+	}
+	return out, nil
+}
+
+// Claim records that owner userID is being sent the kit email. It reports false
+// when the owner already has it.
+func (s *KitStore) Claim(ctx context.Context, userID uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	n, err := s.Q.ClaimCampaign(ctx, db.ClaimCampaignParams{
+		Campaign: campaign.KitCampaignName,
+		UserID:   data.UUIDToPg(userID),
+	})
+	return n == 1, err
+}

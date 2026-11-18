@@ -71,9 +71,12 @@ type application struct {
 	// campaignBenefits is the cron's handle on the one-off benefits email (2026-10).
 	// Nil without a durable queue. Remove with the campaign.
 	campaignBenefits *campaign.Campaign
-	reporting        *reporting.Handler
-	health           *health.Handler
-	openapi          *openapi.Handler
+	// campaignKit is the cron's handle on the one-off social kit email (2026-11).
+	// Nil without a durable queue. Remove with the campaign.
+	campaignKit *campaign.KitCampaign
+	reporting   *reporting.Handler
+	health      *health.Handler
+	openapi     *openapi.Handler
 	// specValidator refuses requests the OpenAPI document does not allow. It
 	// is nil in production and wherever OPENAPI_VALIDATE_REQUESTS is off,
 	// which is the only thing routes() checks.

@@ -58,6 +58,8 @@ type Mailer interface {
 	SendWelcome(ctx context.Context, to, firstName string) error
 	// SendBenefitsCampaign is the one-off benefits email. See campaign.go.
 	SendBenefitsCampaign(ctx context.Context, to, firstName, segment, segmentURL, panelURL, unsubscribeURL, optOutURL string) error
+	// SendSocialKitCampaign is the one-off social kit email. See campaign.go.
+	SendSocialKitCampaign(ctx context.Context, to, firstName, imageURL, kitURL, unsubscribeURL, optOutURL string) error
 }
 
 // UserReader resolves the owner an owner-facing email is addressed to.
