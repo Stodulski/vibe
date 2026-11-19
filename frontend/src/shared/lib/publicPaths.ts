@@ -56,10 +56,12 @@ export function landingTutorialUrl(slug: string): string {
 }
 
 /**
- * Absolute URL of today's "turnos libres" story image, the one the daily
- * automatic story publishes, on `VITE_LANDING_URL`. The landing answers 404
- * when nothing is free today.
+ * Absolute URL of the owner's preview of today's "turnos libres" story image
+ * on `VITE_LANDING_URL`. `vista=1` makes the landing draw an image even on a
+ * day with nothing free (the publisher never sends it).
  */
 export function instagramDailyStoryUrl(slug: string): string {
-  return new URL(`/historias/c/${slug}/libres.jpg`, env.VITE_LANDING_URL).href;
+  const url = new URL(`/historias/c/${slug}/libres.jpg`, env.VITE_LANDING_URL);
+  url.searchParams.set('vista', '1');
+  return url.href;
 }

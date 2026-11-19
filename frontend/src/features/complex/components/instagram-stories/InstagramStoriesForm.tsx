@@ -144,6 +144,7 @@ export function InstagramStoriesForm({
     <form onSubmit={submitHandler(form.handleSubmit, onSubmit)} className="space-y-5" noValidate>
       <StoryToggle id="ig-daily" name="daily_enabled" label={t.daily} help={t.dailyHelp} control={control}>
         <DailyTimeField control={control} error={formState.errors.daily_time?.message} />
+        <p className="text-text-tertiary text-xs">{t.dailyStartsNote}</p>
         {preview}
       </StoryToggle>
       <StoryToggle id="ig-freed" name="freed_enabled" label={t.freed} help={t.freedHelp} control={control}>

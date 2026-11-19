@@ -40,7 +40,7 @@ describe('landingTutorialUrl', () => {
 });
 
 describe('instagramDailyStoryUrl', () => {
-  it("points at the landing's daily story image for the complex", () => {
-    expect(instagramDailyStoryUrl('los-alamos')).toBe('https://vibe.com.ar/historias/c/los-alamos/libres.jpg');
+  it("points at the landing's daily story preview for the complex, drawn even with nothing free", () => {
+    expect(instagramDailyStoryUrl('los-alamos')).toBe('https://vibe.com.ar/historias/c/los-alamos/libres.jpg?vista=1');
   });
 });
