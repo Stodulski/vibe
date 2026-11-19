@@ -2901,7 +2901,11 @@ paths:
         Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one place
         of the complex: a spot of an open-play event (`open_play`, `event_id`), a pair's spot of a
         tournament category whose sign-up is still open (`tournament_category`, `category_id`), or
-        one court slot (`slot`, `court_id`, `date`, `start_time`, `duration_minutes`). Joining again
+        one court slot (`slot`, `court_id`, `date`, `start_time`, `duration_minutes`). A slot wait can
+        name `court_ids` instead of `court_id`: the address then waits for that hour on every court
+        listed (the storefront sends every court taken at that hour), each emailed on its own as it
+        frees; `422` names `start_time` if any of them is free now, and the per-address cap counts
+        every court. Joining again
         for the same address and place while still waiting answers the same `204`; after the notice
         was sent, joining again waits again and is told again. Only a full place can be waited for:
         `422` names `event_id` / `category_id` / `start_time` when the place has a spot free now (book
@@ -2946,7 +2950,14 @@ paths:
                 court_id:
                   type: string
                   format: uuid
-                  description: Required for `slot`. An active court of the complex.
+                  description: Required for `slot` unless `court_ids` is sent. An active court of the complex.
+                court_ids:
+                  type: array
+                  maxItems: 30
+                  items: {type: string, format: uuid}
+                  description: >-
+                    For `slot`, in place of `court_id`: every court to wait on at that hour. Each must be an
+                    active court of the complex, taken at that hour.
                 date:
                   type: string
                   format: date

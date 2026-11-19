@@ -6196,8 +6196,11 @@ type WaitlistJoinPlaceJSONBody struct {
 	// CategoryId Required for `tournament_category`. A category of the complex whose sign-up is open.
 	CategoryId *openapi_types.UUID `json:"category_id,omitempty"`
 
-	// CourtId Required for `slot`. An active court of the complex.
+	// CourtId Required for `slot` unless `court_ids` is sent. An active court of the complex.
 	CourtId *openapi_types.UUID `json:"court_id,omitempty"`
+
+	// CourtIds For `slot`, in place of `court_id`: every court to wait on at that hour. Each must be an active court of the complex, taken at that hour.
+	CourtIds *[]openapi_types.UUID `json:"court_ids,omitempty"`
 
 	// Date Required for `slot`. The storefront day, `YYYY-MM-DD`, from today up to 365 days ahead.
 	Date *openapi_types.Date `json:"date,omitempty"`

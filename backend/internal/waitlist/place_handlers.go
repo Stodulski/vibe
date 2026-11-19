@@ -38,6 +38,10 @@ func NewPlaceHandler(svc *PlaceService, respond *httpx.Responder, gate *turnstil
 	return &PlaceHandler{svc: svc, respond: respond, gate: gate}
 }
 
+// maxCourtsPerJoin bounds the courts one "any court at that hour" join names; a
+// complex sells far fewer courts of one sport.
+const maxCourtsPerJoin = 30
+
 // Join handles POST /api/v1/public/complexes/{slug}/waitlist/places. It answers
 // 204 whether or not the entry was new, so a repeated join looks the same as
 // the first.
@@ -51,15 +55,16 @@ func (h *PlaceHandler) Join(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		Email           string  `json:"email"`
-		TurnstileToken  *string `json:"turnstile_token"`
-		Kind            string  `json:"kind"`
-		EventID         string  `json:"event_id"`
-		CategoryID      string  `json:"category_id"`
-		CourtID         string  `json:"court_id"`
-		Date            string  `json:"date"`
-		StartTime       string  `json:"start_time"`
-		DurationMinutes int     `json:"duration_minutes"`
+		Email           string   `json:"email"`
+		TurnstileToken  *string  `json:"turnstile_token"`
+		Kind            string   `json:"kind"`
+		EventID         string   `json:"event_id"`
+		CategoryID      string   `json:"category_id"`
+		CourtID         string   `json:"court_id"`
+		CourtIDs        []string `json:"court_ids"`
+		Date            string   `json:"date"`
+		StartTime       string   `json:"start_time"`
+		DurationMinutes int      `json:"duration_minutes"`
 	}
 	if err := httpx.ReadJSON(w, r, &input); err != nil {
 		h.respond.BadRequest(w, r, err)
@@ -84,7 +89,16 @@ func (h *PlaceHandler) Join(w http.ResponseWriter, r *http.Request) {
 	case KindTournamentCategory:
 		target.CategoryID = uuidField("category_id", input.CategoryID)
 	case KindSlot:
-		target.CourtID = uuidField("court_id", input.CourtID)
+		// One court, or every court taken at that hour: whichever frees first.
+		if len(input.CourtIDs) > 0 {
+			v.Check(len(input.CourtIDs) <= maxCourtsPerJoin, "court_ids",
+				fmt.Sprintf("must not name more than %d courts", maxCourtsPerJoin))
+			for _, raw := range input.CourtIDs {
+				target.CourtIDs = append(target.CourtIDs, uuidField("court_ids", raw))
+			}
+		} else {
+			target.CourtIDs = []uuid.UUID{uuidField("court_id", input.CourtID)}
+		}
 		day, err := timezone.ParseDay(strings.TrimSpace(input.Date))
 		v.Check(err == nil, "date", "must be a date in YYYY-MM-DD format")
 		if err == nil {

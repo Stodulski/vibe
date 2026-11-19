@@ -4,22 +4,23 @@ import type { RulerHour } from './rulerHours';
 
 const w = BOOKING_MESSAGES.waitlist;
 
-/** The waitlist a taken hour opens: one option per court taken at that hour. */
+/**
+ * The waitlist a taken hour opens. The visitor already chose the hour on the
+ * ruler, so nothing is asked again: the wait is for every court taken then, and
+ * whichever frees first sends the notice.
+ */
 export function waitlistOf(hour: RulerHour, date: string): WaitlistRequest {
+  const [first] = hour.taken;
   return {
     title: w.title,
-    description: w.slotDescription,
+    description: `${w.slotAnyCourtPrefix} ${hour.startTime}.`,
     submitLabel: w.sendSlot,
-    slots: hour.taken.map(({ court, slot }) => ({
-      value: court.court_id,
-      label: `${slot.start_time} · ${court.court_name}`,
-      target: {
-        kind: 'slot',
-        court_id: court.court_id,
-        date,
-        start_time: slot.start_time,
-        duration_minutes: slot.duration_minutes,
-      },
-    })),
+    target: {
+      kind: 'slot',
+      court_ids: hour.taken.map(({ court }) => court.court_id),
+      date,
+      start_time: hour.startTime,
+      duration_minutes: first?.slot.duration_minutes ?? 0,
+    },
   };
 }

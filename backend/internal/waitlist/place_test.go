@@ -173,7 +173,9 @@ type fakeGrid struct {
 	free    []string
 	taken   []string
 	freeOn  map[string][]string
-	reads   int
+	// more are further courts on every grid, each with its own taken starts.
+	more  map[string][]string
+	reads int
 }
 
 func (g *fakeGrid) Availability(_ context.Context, _, dateStr string, _ time.Time, duration int) (*courts.AvailabilityResponse, error) {
@@ -189,7 +191,15 @@ func (g *fakeGrid) Availability(_ context.Context, _, dateStr string, _ time.Tim
 	for _, s := range taken {
 		c.Slots = append(c.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: false})
 	}
-	return &courts.AvailabilityResponse{IsOpen: true, Courts: []courts.CourtAvailability{c}}, nil
+	out := []courts.CourtAvailability{c}
+	for id, takenThere := range g.more {
+		other := courts.CourtAvailability{CourtID: id}
+		for _, s := range takenThere {
+			other.Slots = append(other.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: false})
+		}
+		out = append(out, other)
+	}
+	return &courts.AvailabilityResponse{IsOpen: true, Courts: out}, nil
 }
 
 type fakePlaceNotifier struct {
@@ -600,5 +610,77 @@ func TestSweepTellsEveryoneAgainWhenATakenSlotFreesOnceMore(t *testing.T) {
 	}
 	if st.eventRearms != 3 {
 		t.Errorf("every run must also put the told event entries back; got %d", st.eventRearms)
+	}
+}
+
+func anyCourtBody(date, start string, courtIDs ...uuid.UUID) string {
+	ids := make([]string, len(courtIDs))
+	for i, id := range courtIDs {
+		ids[i] = `"` + id.String() + `"`
+	}
+	return `{"email":"ana@example.com","kind":"slot","court_ids":[` + strings.Join(ids, ",") + `],"date":"` + date +
+		`","start_time":"` + start + `","duration_minutes":90}`
+}
+
+// Waiting for an hour on any court: one join puts the address on the list of
+// every court taken at that hour, so whichever frees first reaches them.
+func TestJoinPlaceWaitsForEveryCourtTakenAtThatHour(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	st := &fakePlaceStore{}
+	g := &fakeGrid{courtID: first.String(), taken: []string{"19:00"}, more: map[string][]string{second.String(): {"19:00"}}}
+	h := newPlaceHandlerOn(st, activeComplex(uuid.New()), g, nil)
+
+	if w := postPlace(t, h, anyCourtBody(inDays(1), "19:00", first, second)); w.Code != http.StatusNoContent {
+		t.Fatalf("want 204; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(st.slots) != 2 || st.slots[0].CourtID != first || st.slots[1].CourtID != second {
+		t.Fatalf("want one waiting entry per court; got %+v", st.slots)
+	}
+	for _, e := range st.slots {
+		if e.StartTime != "19:00" || e.DurationMinutes != 90 || e.Email != "ana@example.com" {
+			t.Errorf("entry = %+v", e)
+		}
+	}
+}
+
+// When one of the courts is free at that hour there is nothing to wait for: the
+// hour can be booked, and nothing is stored.
+func TestJoinPlaceForAnyCourtRefusesWhenOneIsFree(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	st := &fakePlaceStore{}
+	g := &fakeGrid{courtID: first.String(), free: []string{"19:00"}, more: map[string][]string{second.String(): {"19:00"}}}
+	h := newPlaceHandlerOn(st, activeComplex(uuid.New()), g, nil)
+
+	w := postPlace(t, h, anyCourtBody(inDays(1), "19:00", first, second))
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "start_time") {
+		t.Fatalf("want 422 on start_time; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(st.slots) != 0 {
+		t.Errorf("nothing must be stored; got %+v", st.slots)
+	}
+}
+
+// The per-address cap counts every court the join would add.
+func TestJoinPlaceForAnyCourtRespectsTheCap(t *testing.T) {
+	first, second := uuid.New(), uuid.New()
+	st := &fakePlaceStore{waiting: MaxWaitingPerEmail - 1}
+	g := &fakeGrid{courtID: first.String(), taken: []string{"19:00"}, more: map[string][]string{second.String(): {"19:00"}}}
+	h := newPlaceHandlerOn(st, activeComplex(uuid.New()), g, nil)
+
+	w := postPlace(t, h, anyCourtBody(inDays(1), "19:00", first, second))
+	if w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "email") {
+		t.Fatalf("want 422 on email; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(st.slots) != 0 {
+		t.Errorf("nothing must be stored; got %+v", st.slots)
+	}
+}
+
+// A join names one court or a list, never neither.
+func TestJoinPlaceForASlotNeedsACourt(t *testing.T) {
+	h := newPlaceHandler(&fakePlaceStore{}, activeComplex(uuid.New()), nil)
+	body := `{"email":"ana@example.com","kind":"slot","date":"` + inDays(1) + `","start_time":"19:00","duration_minutes":90}`
+	if w := postPlace(t, h, body); w.Code != http.StatusUnprocessableEntity || !strings.Contains(w.Body.String(), "court_id") {
+		t.Fatalf("want 422 on court_id; got %d (%s)", w.Code, w.Body.String())
 	}
 }
