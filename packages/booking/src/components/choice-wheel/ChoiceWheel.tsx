@@ -156,7 +156,7 @@ export function ChoiceWheel<T extends string>({
             choice={choice}
             offset={(index - wheel.pos) * card}
             half={wheelReach(size, half, card)}
-            width={card - 16}
+            width={size === 'large' ? card + 36 : card - 16}
             focused={index === wheel.center}
             cardRef={index === wheel.center ? focusedRef : undefined}
             onTap={() => {
