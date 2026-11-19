@@ -2871,8 +2871,9 @@ paths:
                   enabled:
                     type: boolean
                     description: >-
-                      False when INSTAGRAM_CONNECT_ENABLED is off or the Instagram app id or secret
-                      is unset: connect is then refused.
+                      False when INSTAGRAM_CONNECT_ENABLED is off, the Instagram app id or secret
+                      is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the signed-in owner's
+                      email is not on it: connect is then refused.
                   connected: {type: boolean}
                   needs_reconnect:
                     type: boolean

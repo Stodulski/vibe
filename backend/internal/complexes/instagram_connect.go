@@ -97,6 +97,9 @@ type InstagramConfig struct {
 	// and secret are set. Off, status says enabled:false and connect and the
 	// callback refuse; status and disconnect still work.
 	Available bool
+	// AllowedEmails, when not empty, limits Available to the owners with these
+	// addresses: everyone else sees enabled:false and a refused connect.
+	AllowedEmails []string
 	// Secure marks the state cookie Secure; it is off only in development.
 	Secure bool
 	// FrontendURL is the panel origin the callback redirects to.
@@ -159,7 +162,7 @@ func (ig *Instagram) Status(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	body := httpx.Envelope{
-		"enabled":         ig.cfg.Available,
+		"enabled":         ig.offeredTo(r),
 		"connected":       false,
 		"needs_reconnect": false,
 		"username":        nil,
@@ -183,10 +186,33 @@ func (ig *Instagram) Status(w http.ResponseWriter, r *http.Request) {
 	ig.respond.JSON(w, r, http.StatusOK, body)
 }
 
+// offeredTo reports whether the signed-in owner may use the feature: it is
+// available and, when there is an allow list, their address is on it. The
+// callback needs no check of its own: an attempt only exists once connect let
+// its owner through.
+func (ig *Instagram) offeredTo(r *http.Request) bool {
+	if !ig.cfg.Available {
+		return false
+	}
+	if len(ig.cfg.AllowedEmails) == 0 {
+		return true
+	}
+	user, ok := httpx.ContextGetAuthenticatedUser(r)
+	if !ok {
+		return false
+	}
+	for _, email := range ig.cfg.AllowedEmails {
+		if strings.EqualFold(strings.TrimSpace(email), strings.TrimSpace(user.Email)) {
+			return true
+		}
+	}
+	return false
+}
+
 // Connect handles POST /api/v1/complexes/{id}/instagram/connect: it registers
 // the attempt, binds it to this browser, and answers the consent page URL.
 func (ig *Instagram) Connect(w http.ResponseWriter, r *http.Request) {
-	if !ig.cfg.Available {
+	if !ig.offeredTo(r) {
 		ig.respond.Refuse(w, r, httpx.NotImplemented("instagram connection is not available"))
 		return
 	}

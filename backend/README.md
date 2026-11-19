@@ -257,6 +257,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 |---|---|---|---|
 | `INSTAGRAM_CONNECT_ENABLED` | Lets complexes connect their Instagram account (`/complexes/{id}/instagram`). Off until Meta approves `instagram_business_content_publish`. | Optional | `false` |
 | `INSTAGRAM_APP_ID` | Instagram App ID from the Meta App Dashboard (Instagram > API setup with Instagram login). The OAuth redirect to register is `SOCIAL_API_BASE_URL` + `/api/v1/instagram/callback`. | Required when `INSTAGRAM_CONNECT_ENABLED` is true | `""` |
+| `INSTAGRAM_CONNECT_ALLOWED_EMAILS` | Comma-separated owner emails the Instagram connection is limited to, for trying it in production before Meta's approval. Empty offers it to every owner. | Optional | `""` |
 | `INSTAGRAM_APP_SECRET` | Instagram app secret for the code and token exchanges. Secret. | Required when `INSTAGRAM_CONNECT_ENABLED` is true | `""` |
 | `BREVO_API_KEY` | Brevo transactional email API key. | Optional: SMTP is used as a fallback when empty. | `""` |
 | `BREVO_SENDER` | From address. | Optional | `Vibe <no-reply@vibe.com.ar>` |

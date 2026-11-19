@@ -243,6 +243,10 @@ type Instagram struct {
 	// feature unavailable even with the flag on.
 	AppID     string
 	AppSecret string
+	// AllowedEmails, when not empty, limits the feature to the owners with
+	// these addresses (INSTAGRAM_CONNECT_ALLOWED_EMAILS, comma-separated), so
+	// it can be tried in production before Meta approves it for everyone.
+	AllowedEmails []string
 }
 
 // Available reports whether complexes can connect Instagram at all.
