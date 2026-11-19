@@ -13,6 +13,13 @@ export const STORY_WIDTH = 1080;
 export const STORY_HEIGHT = 1920;
 
 const LAYOUT = kitLayout('historia');
+
+/**
+ * Darkens the top of the photo behind the name and the headline: a story's photo can put a
+ * floodlight right there (the football one does), and the green headline vanishes on it.
+ */
+const TITLE_SHADE =
+  'linear-gradient(180deg, rgba(11,11,11,0.75) 0%, rgba(11,11,11,0.6) 22%, rgba(11,11,11,0) 38%)';
 const CENTERED: CSSProperties = { flexDirection: 'column', alignItems: 'center' };
 
 function capitalize(text: string): string {
@@ -128,6 +135,7 @@ export function storyTree(text: StoryText, art: KitArt): ReactElement {
       fontFamily: FONT_FAMILY,
     },
     ...backdrop(art.photo, LAYOUT),
+    box({ position: 'absolute', top: 0, left: 0, width: STORY_WIDTH, height: STORY_HEIGHT, backgroundImage: TITLE_SHADE }),
     glow({ top: -200, right: -260 }, 900),
     box(
       {

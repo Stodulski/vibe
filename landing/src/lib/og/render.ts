@@ -91,9 +91,15 @@ function cardTree(text: ComplexCardText): ReactElement {
 
 let wasmReady: Promise<void> | null = null;
 
-/** Initializes resvg once per isolate. A failed start is forgotten, so the next request tries again. */
+/**
+ * Initializes resvg once per isolate. A failed start is forgotten, so the next request tries again.
+ * resvg itself is initialized once per process, and refuses a second start: a reloaded copy of
+ * this module (astro dev's reload, or two bundles sharing the wasm) finds it already running, and
+ * that is a ready resvg, not a failure.
+ */
 function ensureResvg(wasm: InitInput): Promise<void> {
   wasmReady ??= initWasm(wasm).catch((error: unknown) => {
+    if (error instanceof Error && error.message.startsWith('Already initialized')) return;
     wasmReady = null;
     throw error;
   });
