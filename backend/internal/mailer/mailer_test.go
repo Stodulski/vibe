@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"html"
 	"io"
 	"net"
 	"net/http"
@@ -1009,6 +1010,22 @@ func TestPlainTextFallbackHasNoMarkupArtifacts(t *testing.T) {
 	for _, artifact := range []string{"<", "mso", "&#847;", "&zwnj;", "&#8203;"} {
 		if strings.Contains(lower, strings.ToLower(artifact)) {
 			t.Errorf("plain text leaked a markup artifact %q; got:\n%s", artifact, plain)
+		}
+	}
+}
+
+// Every link a reader can follow in an email must also reach the plain-text
+// part. Some clients, and many phone previews, show only that part, and a
+// button whose address is dropped there leaves the reader with nothing to tap.
+func TestEveryLinkInAnEmailReachesItsPlainTextPart(t *testing.T) {
+	hrefRE := regexp.MustCompile(`href="(https?://[^"]+)"`)
+	for i, raw := range captureSent(t) {
+		htmlBody, plain := brevoPayload(t, raw)
+		for _, m := range hrefRE.FindAllStringSubmatch(htmlBody, -1) {
+			link := html.UnescapeString(m[1])
+			if !strings.Contains(plain, link) {
+				t.Errorf("email %d: the link %s is in the HTML but not in the plain text:\n%s", i, link, plain)
+			}
 		}
 	}
 }

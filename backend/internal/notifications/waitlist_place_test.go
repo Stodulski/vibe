@@ -54,3 +54,25 @@ func TestWaitlistPlaceFreedWorkerSendsTheEmail(t *testing.T) {
 		t.Errorf("args = %v", got)
 	}
 }
+
+// An entry put back on the list after someone else took the place is told again
+// when it frees once more: that second notice is a new email, while a redelivery
+// of either notice is still the same one.
+func TestWaitlistPlaceFreedTellsTheSameEntryAgainForANewNotice(t *testing.T) {
+	s, q, _, _ := newTestService(t)
+
+	first := WaitlistPlaceFreedEmail{EntryID: "entry-1", NoticeAt: "2026-11-19T02:00:00Z", Email: "ana@example.com",
+		ComplexName: "Vibe Padel", PlaceLabel: "Cancha 1 el jueves 19/11 a las 19:00", BookURL: "https://vibe.test/c/vibe-padel"}
+	again := first
+	again.NoticeAt = "2026-11-19T02:20:00Z"
+	s.WaitlistPlaceFreed(first)
+	s.WaitlistPlaceFreed(first)
+	s.WaitlistPlaceFreed(again)
+
+	if q.tasks[0].dedupKey != q.tasks[1].dedupKey {
+		t.Errorf("a redelivered notice must keep its key; got %q and %q", q.tasks[0].dedupKey, q.tasks[1].dedupKey)
+	}
+	if q.tasks[0].dedupKey == q.tasks[2].dedupKey {
+		t.Errorf("a new notice for the same entry needs its own key; both are %q", q.tasks[0].dedupKey)
+	}
+}

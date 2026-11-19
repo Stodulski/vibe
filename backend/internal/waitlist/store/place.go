@@ -34,7 +34,9 @@ type NewSlotEntry struct {
 // a free spot, with what its email says. TournamentID and CategoryName are set
 // when the event is a tournament category's sign-up container.
 type FreedEventEntry struct {
-	ID           uuid.UUID
+	ID uuid.UUID
+	// NotifiedAt is when this claim told the entry; with ID it keys the email.
+	NotifiedAt   time.Time
 	Email        string
 	EventID      uuid.UUID
 	EventName    string
@@ -58,10 +60,15 @@ type SlotGrid struct {
 // FreedSlotEntry is a slot entry claimed because its slot is on sale again,
 // with what its email says.
 type FreedSlotEntry struct {
-	ID          uuid.UUID
-	Email       string
-	CourtID     uuid.UUID
-	CourtName   string
+	ID uuid.UUID
+	// NotifiedAt is when this claim told the entry; with ID it keys the email.
+	NotifiedAt time.Time
+	Email      string
+	CourtID    uuid.UUID
+	CourtName  string
+	// CourtSport is the court's sport, which the email's link opens the
+	// storefront on.
+	CourtSport  string
 	Day         time.Time
 	StartTime   string // "HH:MM"
 	ComplexName string
@@ -184,7 +191,7 @@ func (s *PlaceStore) ClaimFreedEvents(ctx context.Context, now time.Time, limit 
 	out := make([]FreedEventEntry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, FreedEventEntry{
-			ID: data.PgToUUID(r.ID), Email: r.Email, EventID: data.PgToUUID(r.EventID), EventName: r.EventName,
+			ID: data.PgToUUID(r.ID), NotifiedAt: data.PgToTime(r.NotifiedAt), Email: r.Email, EventID: data.PgToUUID(r.EventID), EventName: r.EventName,
 			EventDay: data.PgToDate(r.EventDate), EventStart: data.PgToTimeStr(r.EventStartTime),
 			TournamentID: data.PgToUUIDPtr(r.TournamentID), CategoryName: r.CategoryName,
 			ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
@@ -245,12 +252,39 @@ func (s *PlaceStore) ClaimFreeSlots(ctx context.Context, grid SlotGrid, position
 	out := make([]FreedSlotEntry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, FreedSlotEntry{
-			ID: data.PgToUUID(r.ID), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName,
+			ID: data.PgToUUID(r.ID), NotifiedAt: data.PgToTime(r.NotifiedAt), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName, CourtSport: r.CourtSport,
 			Day: data.PgToDate(r.Date), StartTime: data.PgToTimeStr(r.StartTime),
 			ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
 		})
 	}
 	return out, nil
+}
+
+// RearmTakenSlots puts back on the list the addresses told about a slot of grid
+// that is taken again (positions are "<court id> HH:MM") and reports how many.
+func (s *PlaceStore) RearmTakenSlots(ctx context.Context, grid SlotGrid, positions []string) (int64, error) {
+	if len(positions) == 0 {
+		return 0, nil
+	}
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	return s.Q.RearmTakenSlotEntries(ctx, db.RearmTakenSlotEntriesParams{
+		ComplexID: data.UUIDToPg(grid.ComplexID), Date: data.DateToPg(grid.Day),
+		//nolint:gosec // G115: validated by the handler (1..720).
+		DurationMinutes: int32(grid.DurationMinutes), Positions: positions,
+	})
+}
+
+// RearmFullEvents puts back on the list the addresses told about an event spot
+// once the event is full again and has not begun at now, and reports how many.
+func (s *PlaceStore) RearmFullEvents(ctx context.Context, now time.Time) (int64, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	return s.Q.RearmFullOpenPlayEntries(ctx, db.RearmFullOpenPlayEntriesParams{
+		NowDate: data.DateToPg(now), NowTime: data.TimeStrToPg(now.Format("15:04")),
+	})
 }
 
 // DeletePast removes the entries whose place has gone: slot entries of a grid

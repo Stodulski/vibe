@@ -51,6 +51,9 @@ type Service struct {
 	// realtime is set by WithRealtime. Nil means a committed block change
 	// announces nothing, the same as a nil pages indexer.
 	realtime Broadcaster
+	// now is the clock the availability grid reads to leave out slots that
+	// have begun. time.Now outside tests.
+	now func() time.Time
 }
 
 // ServiceOption configures the optional collaborators of a Service.
@@ -73,6 +76,7 @@ func NewService(store Store, bookings BookingReader, complexes ComplexReader, re
 		complexes: complexes,
 		audit:     recorder,
 		pages:     pages,
+		now:       time.Now,
 	}
 	for _, opt := range opts {
 		opt(s)
@@ -662,12 +666,13 @@ func (s *Service) Availability(ctx context.Context, slug, dateStr string, date t
 		Date:   dateStr,
 		Day:    dayName,
 		IsOpen: true,
-		Courts: buildGrid(activeCourts, schedule, dayName, date, duration, allPrices, allBookedSlots, allBlockedSlots),
+		Courts: buildGrid(activeCourts, schedule, dayName, date, duration, allPrices, allBookedSlots, allBlockedSlots,
+			s.now().In(timezone.Argentina)),
 	}, nil
 }
 
 // buildGrid turns one day's courts, prices and obstacles into the published
-// grid. Split out of Availability so the fetch and the arithmetic can each be
+// grid, leaving out the slots that have begun at now. Split out of Availability so the fetch and the arithmetic can each be
 // read on their own.
 //
 //nolint:funlen // one cohesive computation over the batch-fetched day
@@ -680,6 +685,7 @@ func buildGrid(
 	allPrices []*courtstore.CourtPrice,
 	allBookedSlots []bookingstore.BookedSpan,
 	allBlockedSlots []*courtstore.BlockedSlot,
+	now time.Time,
 ) []CourtAvailability {
 	// Index data by court ID for O(1) lookups.
 	pricesByCourtID := make(map[uuid.UUID][]*courtstore.CourtPrice, len(activeCourts))
@@ -694,8 +700,6 @@ func buildGrid(
 	for _, b := range allBlockedSlots {
 		blockedByCourtID[b.CourtID] = append(blockedByCourtID[b.CourtID], b)
 	}
-
-	now := time.Now().In(timezone.Argentina)
 
 	courtResults := make([]CourtAvailability, 0, len(activeCourts))
 

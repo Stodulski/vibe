@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { SkeletonSlotGrid } from '../../components/SkeletonSlotGrid';
 import { CourtSelector, type SelectedSlot } from '../../components/CourtSelector';
 import { BOOKING_MESSAGES } from '../../messages';
@@ -5,6 +6,7 @@ import type { CourtAvailability } from '../../api/types';
 import { AvailabilityErrorState } from './AvailabilityErrorState';
 import { EmptyDayState, type FullDayContext } from './EmptyDayState';
 import type { EmptyDay } from './emptyDay';
+import { WaitlistTakenNotice } from './WaitlistTakenNotice';
 
 const t = BOOKING_MESSAGES;
 
@@ -28,6 +30,22 @@ interface AvailabilitySectionProps {
   emptyDay: EmptyDay | null;
   /** The complex, the duration and the day selection, for the full-day panel. */
   fullDay: FullDayContext;
+  /**
+   * The visitor arrived from a waitlist email and someone took that place
+   * first. See `waitlistNoticeApplies`.
+   */
+  waitlistTakenFirst?: boolean | undefined;
+}
+
+/** Puts the waitlist notice above what is still on offer, when it applies. */
+function withTakenNotice(show: boolean, node: ReactNode): ReactNode {
+  if (!show) return node;
+  return (
+    <>
+      <WaitlistTakenNotice />
+      {node}
+    </>
+  );
 }
 
 export function AvailabilitySection({
@@ -45,6 +63,7 @@ export function AvailabilitySection({
   onPendingStartTimeChange,
   emptyDay,
   fullDay,
+  waitlistTakenFirst = false,
 }: AvailabilitySectionProps) {
   // A change of date or duration refetches. The previous hours stay in the
   // query as placeholder data, but showing them (even dimmed) read as a page
@@ -65,8 +84,9 @@ export function AvailabilitySection({
     return <AvailabilityErrorState onRetry={onRetry} />;
   }
 
+
   if (isOpen && emptyDay) {
-    return <EmptyDayState emptyDay={emptyDay} dateStr={dateStr} {...fullDay} />;
+    return withTakenNotice(waitlistTakenFirst, <EmptyDayState emptyDay={emptyDay} dateStr={dateStr} {...fullDay} />);
   }
 
   if (isOpen) {
@@ -75,6 +95,7 @@ export function AvailabilitySection({
         key={`courts-${dateStr}`}
         className="animate-fade-in"
       >
+        {waitlistTakenFirst && <WaitlistTakenNotice />}
         <CourtSelector
           courts={courts}
           slug={fullDay.slug}

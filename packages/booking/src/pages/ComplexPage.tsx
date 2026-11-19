@@ -13,6 +13,7 @@ import { NotFoundState } from './complex-page/NotFoundState';
 import { ComplexErrorState } from './complex-page/ComplexErrorState';
 import { ComplexPageLoadingSkeleton } from './complex-page/ComplexPageLoadingSkeleton';
 import { ComplexPageContent } from './complex-page/ComplexPageContent';
+import { waitlistNoticeApplies } from './complex-page/waitlistNotice';
 
 // 404 means the slug never resolved to a complex; anything else (500, a
 // dropped connection) is recoverable, so it gets a retry instead of the same
@@ -45,6 +46,14 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
   // The open "which court?" question answers itself away when its hour is no
   // longer on offer — derived here (not written back up from `CourtSelector`,
   // which owns none of this state).
+  // The raw hour from the link, not the one still offered: when every court is
+  // taken at that hour it is no longer offered, and that is exactly when the
+  // visitor needs to hear why.
+  const waitlistTakenFirst = waitlistNoticeApplies(
+    state.waitlistNotice,
+    { date: state.dateStr, time: state.pendingStartTime, duration: state.duration },
+    filteredCourts,
+  );
   const activePendingStartTime = isStartTimeStillOffered(state.pendingStartTime, filteredCourts)
     ? state.pendingStartTime
     : null;
@@ -62,11 +71,14 @@ function useComplexAvailability(slug: string | undefined, state: ReturnType<type
     availLoading,
     availStale,
     availError,
-    refetchAvailability,
+    onAvailRetry: () => {
+      void refetchAvailability();
+    },
     activeSlot,
     filteredCourts,
     activePendingStartTime,
     emptyDay,
+    waitlistTakenFirst,
   };
 }
 
@@ -133,7 +145,6 @@ function ComplexPageBody({
     availLoading,
     availStale,
     availError,
-    refetchAvailability,
     activeSlot,
     filteredCourts,
     activePendingStartTime,
@@ -153,9 +164,7 @@ function ComplexPageBody({
       onSportFilterChange={state.handleSportFilter}
       availLoading={availLoading}
       availError={availError}
-      onAvailRetry={() => {
-        void refetchAvailability();
-      }}
+      onAvailRetry={availabilityBag.onAvailRetry}
       availStale={availStale}
       availability={availability}
       dateStr={state.dateStr}
@@ -170,6 +179,7 @@ function ComplexPageBody({
       onPendingStartTimeChange={state.setPendingStartTime}
       answeredFromUrl={state.answeredFromUrl}
       emptyDay={emptyDay}
+      waitlistTakenFirst={availabilityBag.waitlistTakenFirst}
       challenge={<TurnstileField key={hold.generation} onTokenChange={hold.onTokenChange} />}
     />
   );

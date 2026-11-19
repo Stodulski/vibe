@@ -48,6 +48,7 @@ type fakePlaceStore struct {
 	freedEvents   []store.FreedEventEntry
 	waitingSlots  []*fakeSlot
 	gridPages     int
+	eventRearms   int
 }
 
 func (f *fakePlaceStore) lookup() error {
@@ -96,15 +97,15 @@ func gridLess(a, b store.SlotGrid) bool {
 	return a.DurationMinutes < b.DurationMinutes
 }
 
-// ListWaitingGrids answers like the query: distinct grids of the waiting
-// entries, in key order after the cursor, at most limit.
+// ListWaitingGrids answers like the query: distinct grids of the entries, told
+// ones included, in key order after the cursor, at most limit.
 func (f *fakePlaceStore) ListWaitingGrids(_ context.Context, _ time.Time, after *store.SlotGrid, limit int) ([]store.SlotGrid, error) {
 	f.gridPages++
 	seen := map[store.SlotGrid]bool{}
 	var grids []store.SlotGrid
 	for _, e := range f.waitingSlots {
 		g := store.SlotGrid{ComplexSlug: e.ComplexSlug, Day: e.Day, DurationMinutes: e.duration}
-		if e.notified || seen[g] || (after != nil && !gridLess(*after, g)) {
+		if seen[g] || (after != nil && !gridLess(*after, g)) {
 			continue
 		}
 		seen[g] = true
@@ -137,6 +138,30 @@ func (f *fakePlaceStore) ClaimFreeSlots(_ context.Context, g store.SlotGrid, pos
 		}
 	}
 	return out, nil
+}
+
+// RearmTakenSlots answers like the query: the told entries of g at a taken
+// position wait again.
+func (f *fakePlaceStore) RearmTakenSlots(_ context.Context, g store.SlotGrid, positions []string) (int64, error) {
+	var n int64
+	for _, e := range f.waitingSlots {
+		if !e.notified || !e.Day.Equal(g.Day) || e.duration != g.DurationMinutes {
+			continue
+		}
+		for _, pos := range positions {
+			if pos == e.CourtID.String()+" "+e.StartTime {
+				e.notified = false
+				n++
+				break
+			}
+		}
+	}
+	return n, nil
+}
+
+func (f *fakePlaceStore) RearmFullEvents(context.Context, time.Time) (int64, error) {
+	f.eventRearms++
+	return 0, nil
 }
 
 func (f *fakePlaceStore) DeletePast(context.Context, time.Time) (int64, error) { return 0, nil }
@@ -351,7 +376,7 @@ func TestSweepEmailsEveryClaimedEventEntry(t *testing.T) {
 
 func slotEntry(courtID uuid.UUID, day time.Time, start string, duration int) *fakeSlot {
 	return &fakeSlot{FreedSlotEntry: store.FreedSlotEntry{ID: uuid.New(), Email: "ana@example.com", CourtID: courtID,
-		CourtName: "1", Day: day, StartTime: start, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}, duration: duration}
+		CourtName: "1", CourtSport: "padel", Day: day, StartTime: start, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}, duration: duration}
 }
 
 // S4: a slot entry is claimed and emailed only when the courts grid says its
@@ -376,7 +401,7 @@ func TestSweepEmailsOnlyTheSlotsTheGridSaysAreFree(t *testing.T) {
 	}
 	got := n.sent[0]
 	if got.EntryID != free.ID.String() || got.PlaceLabel != "Cancha 1 el miércoles 18/11 a las 19:00" ||
-		got.BookURL != "https://vibe.test/c/vibe-padel?date=2026-11-18" {
+		got.BookURL != "https://vibe.test/c/vibe-padel?court="+courtID.String()+"&date=2026-11-18&duration=90&sport=padel&time=19%3A00" {
 		t.Errorf("slot email = %+v", got)
 	}
 }
@@ -476,5 +501,104 @@ func TestCourtLabelDoesNotDoubleTheWord(t *testing.T) {
 	}
 	if got := courtLabel("Central"); got != "Cancha Central" {
 		t.Errorf("courtLabel(Central) = %q", got)
+	}
+}
+
+// When a taken slot frees, everyone waiting for it is emailed in the same run,
+// each under their own entry, and each link opens that exact day, sport,
+// duration and hour. Nobody waits for a later run, and nobody gets it twice.
+func TestSweepEmailsEveryoneWaitingForAFreedSlotAtOnceWithTheReadyLink(t *testing.T) {
+	courtID := uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	waiting := make([]*fakeSlot, 5)
+	for i := range waiting {
+		waiting[i] = slotEntry(courtID, wednesday, "19:00", 90)
+		waiting[i].Email = fmt.Sprintf("persona%d@example.com", i+1)
+	}
+	st := &fakePlaceStore{waitingSlots: waiting}
+	n := &fakePlaceNotifier{}
+	svc := newPlaceService(st, activeComplex(uuid.New()), &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}, n)
+	svc.Sweep(t.Context())
+
+	if len(n.sent) != 5 {
+		t.Fatalf("want the five people emailed in one run; got %d", len(n.sent))
+	}
+	link := "https://vibe.test/c/vibe-padel?court=" + courtID.String() + "&date=2026-11-18&duration=90&sport=padel&time=19%3A00"
+	for i, got := range n.sent {
+		if got.Email != waiting[i].Email || got.EntryID != waiting[i].ID.String() || got.BookURL != link {
+			t.Errorf("email %d = %+v; want %s, its own entry, and the ready link", i, got, waiting[i].Email)
+		}
+	}
+
+	svc.Sweep(t.Context())
+	if len(n.sent) != 5 {
+		t.Errorf("a second run must email nobody again; got %d emails in total", len(n.sent))
+	}
+}
+
+// When a full event or tournament category frees a spot, everyone waiting for
+// it is emailed in the same run, each with the link to that event's page.
+func TestSweepEmailsEveryoneWaitingForAFreedEventAtOnceWithItsPage(t *testing.T) {
+	eventID := uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	freed := make([]store.FreedEventEntry, 5)
+	for i := range freed {
+		freed[i] = store.FreedEventEntry{ID: uuid.New(), Email: fmt.Sprintf("persona%d@example.com", i+1),
+			EventID: eventID, EventName: "Cancha abierta de pádel", EventDay: wednesday, EventStart: "20:00",
+			ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}
+	}
+	n := &fakePlaceNotifier{}
+	newPlaceService(&fakePlaceStore{freedEvents: freed}, activeComplex(uuid.New()), &fakeGrid{}, n).Sweep(t.Context())
+
+	if len(n.sent) != 5 {
+		t.Fatalf("want the five people emailed in one run; got %d", len(n.sent))
+	}
+	for i, got := range n.sent {
+		if got.Email != freed[i].Email || got.EntryID != freed[i].ID.String() ||
+			got.BookURL != "https://vibe.test/c/vibe-padel/events/"+eventID.String() {
+			t.Errorf("email %d = %+v", i, got)
+		}
+	}
+}
+
+// The four who were told and did not get the slot are not forgotten: once it is
+// taken again they wait again, and when it frees again all five are told again.
+func TestSweepTellsEveryoneAgainWhenATakenSlotFreesOnceMore(t *testing.T) {
+	courtID := uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	waiting := make([]*fakeSlot, 5)
+	for i := range waiting {
+		waiting[i] = slotEntry(courtID, wednesday, "19:00", 90)
+	}
+	st := &fakePlaceStore{waitingSlots: waiting}
+	g := &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}
+	n := &fakePlaceNotifier{}
+	svc := newPlaceService(st, activeComplex(uuid.New()), g, n)
+
+	svc.Sweep(t.Context())
+	if len(n.sent) != 5 {
+		t.Fatalf("want five told when it frees; got %d", len(n.sent))
+	}
+
+	// The first of them holds it: everyone told waits again, nobody is emailed.
+	g.free, g.taken = nil, []string{"19:00"}
+	svc.Sweep(t.Context())
+	if len(n.sent) != 5 {
+		t.Fatalf("a taken slot emails nobody; got %d emails in total", len(n.sent))
+	}
+	for i, e := range waiting {
+		if e.notified {
+			t.Errorf("entry %d must wait again once the slot is taken", i)
+		}
+	}
+
+	// The hold runs out: the five are told again.
+	g.free, g.taken = []string{"19:00"}, nil
+	svc.Sweep(t.Context())
+	if len(n.sent) != 10 {
+		t.Fatalf("want the five told again when it frees once more; got %d emails in total", len(n.sent))
+	}
+	if st.eventRearms != 3 {
+		t.Errorf("every run must also put the told event entries back; got %d", st.eventRearms)
 	}
 }

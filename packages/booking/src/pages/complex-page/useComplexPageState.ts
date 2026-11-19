@@ -6,6 +6,7 @@ import { useUnsavedWork } from '@vibe/ui';
 import type { DurationMinutes, Sport } from '../../api/types';
 import { parseDateParam } from './schema';
 import { useVenueNow } from '../../hooks/useVenueNow';
+import { readWaitlistNotice } from './waitlistNotice';
 
 // Matches the availability endpoint's own default, so the initial fetch (made
 // before the visitor has answered anything) asks for the same duration the
@@ -121,6 +122,9 @@ export function useComplexPageState() {
   const [searchParams] = useQueryParams();
   const patchParams = useQueryPatch();
   const flow = readFlow(searchParams);
+  // Read once, from the link the visitor arrived with: the notice is about the
+  // place that email named, not about wherever they move to afterwards.
+  const [waitlistNotice] = useState(() => readWaitlistNotice(searchParams));
 
   // `parseDateParam` returns a fresh `Date` on every call; memoizing on the
   // raw `?date=` string keeps `selectedDate`'s identity stable across
@@ -180,5 +184,6 @@ export function useComplexPageState() {
     handleDateSelect,
     handleSportFilter,
     handleDurationChange,
+    waitlistNotice,
   };
 }

@@ -65,6 +65,8 @@ type PlaceStore interface {
 	ClaimFreedEvents(ctx context.Context, now time.Time, limit int) ([]store.FreedEventEntry, error)
 	ListWaitingGrids(ctx context.Context, fromDay time.Time, after *store.SlotGrid, limit int) ([]store.SlotGrid, error)
 	ClaimFreeSlots(ctx context.Context, grid store.SlotGrid, positions []string) ([]store.FreedSlotEntry, error)
+	RearmTakenSlots(ctx context.Context, grid store.SlotGrid, positions []string) (int64, error)
+	RearmFullEvents(ctx context.Context, now time.Time) (int64, error)
 	DeletePast(ctx context.Context, today time.Time) (int64, error)
 }
 
@@ -226,6 +228,11 @@ func (s *PlaceService) Sweep(ctx context.Context) {
 }
 
 func (s *PlaceService) sweepEvents(ctx context.Context, now time.Time) {
+	// Whoever was told about a spot and did not get it waits again once the
+	// event is full again, so the next free spot reaches them too.
+	if _, err := s.store.RearmFullEvents(ctx, now); err != nil {
+		s.logger.Error("waitlist: could not put the told event entries back on the list", "error", err)
+	}
 	claimed, err := s.store.ClaimFreedEvents(ctx, now, sweepBatch)
 	if err != nil {
 		s.logger.Error("waitlist: could not claim the event entries with a freed spot", "error", err)
@@ -243,7 +250,7 @@ func (s *PlaceService) sweepEvents(ctx context.Context, now time.Time) {
 				notifications.SpanishWeekday(day.Weekday()), day.Format("02/01"), e.EventStart)
 		}
 		s.notify.WaitlistPlaceFreed(notifications.WaitlistPlaceFreedEmail{
-			EntryID: e.ID.String(), Email: e.Email, ComplexName: e.ComplexName, PlaceLabel: label, BookURL: bookURL,
+			EntryID: e.ID.String(), NoticeAt: e.NotifiedAt.UTC().Format(time.RFC3339Nano), Email: e.Email, ComplexName: e.ComplexName, PlaceLabel: label, BookURL: bookURL,
 		})
 	}
 }
@@ -273,7 +280,16 @@ func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
 	}
 
 	for _, g := range grids {
-		positions := s.freePositions(ctx, g)
+		positions, taken, ok := s.gridPositions(ctx, g)
+		if !ok {
+			continue
+		}
+		// Whoever was told about a slot and did not get it waits again once it
+		// is taken again, so a later free spot reaches them with a new notice.
+		if _, err := s.store.RearmTakenSlots(ctx, g, taken); err != nil {
+			s.logger.Error("waitlist: could not put the told slot entries back on the list", "error", err,
+				"complex_id", g.ComplexID, "date", g.Day.Format(time.DateOnly))
+		}
 		if len(positions) == 0 {
 			continue
 		}
@@ -286,10 +302,11 @@ func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
 		for _, e := range claimed {
 			day := timezone.Day(e.Day)
 			s.notify.WaitlistPlaceFreed(notifications.WaitlistPlaceFreedEmail{
-				EntryID: e.ID.String(), Email: e.Email, ComplexName: e.ComplexName,
+				EntryID: e.ID.String(), NoticeAt: e.NotifiedAt.UTC().Format(time.RFC3339Nano), Email: e.Email, ComplexName: e.ComplexName,
 				PlaceLabel: fmt.Sprintf("%s el %s %s a las %s", courtLabel(e.CourtName),
 					notifications.SpanishWeekday(day.Weekday()), day.Format("02/01"), e.StartTime),
-				BookURL: booklink.StorefrontOnDate(s.publicURL, e.ComplexSlug, day),
+				BookURL: booklink.StorefrontSlot(s.publicURL, e.ComplexSlug, day, e.CourtSport,
+					g.DurationMinutes, e.StartTime, e.CourtID),
 			})
 		}
 	}
@@ -304,30 +321,32 @@ func courtLabel(name string) string {
 	return "Cancha " + name
 }
 
-// freePositions reads one grid and returns the court positions on sale now,
-// each "<court id> HH:MM". The grid already leaves out what is booked, held,
-// blocked or begun. A grid that cannot be read frees nothing this run.
-func (s *PlaceService) freePositions(ctx context.Context, g store.SlotGrid) []string {
+// gridPositions reads one grid and returns the court positions on sale now and
+// the ones that are not, each "<court id> HH:MM". The grid already counts what
+// is booked, held, blocked or begun as not on sale. A grid that cannot be read
+// answers ok=false and changes nothing this run.
+func (s *PlaceService) gridPositions(ctx context.Context, g store.SlotGrid) (free, taken []string, ok bool) {
 	dateStr := g.Day.Format(time.DateOnly)
 	day, err := timezone.ParseDay(dateStr)
 	if err != nil {
-		return nil
+		return nil, nil, false
 	}
 	grid, err := s.grid.Availability(ctx, g.ComplexSlug, dateStr, day, g.DurationMinutes)
 	if err != nil {
 		s.logger.Warn("waitlist: could not read the grid for waiting slot entries",
 			"error", err, "slug", g.ComplexSlug, "date", dateStr, "duration", g.DurationMinutes)
-		return nil
+		return nil, nil, false
 	}
-	var out []string
 	for _, c := range grid.Courts {
 		for _, sl := range c.Slots {
 			if sl.Available {
-				out = append(out, c.CourtID+" "+sl.StartTime)
+				free = append(free, c.CourtID+" "+sl.StartTime)
+			} else {
+				taken = append(taken, c.CourtID+" "+sl.StartTime)
 			}
 		}
 	}
-	return out
+	return free, taken, true
 }
 
 // Purge deletes the entries whose place has gone (a passed day, a cancelled

@@ -67,6 +67,8 @@ interface ComplexPageContentProps {
   answeredFromUrl: { sport: boolean; duration: boolean };
   /** Why the grid of the selected day is empty, or `null` when it has courts to show. See `useEmptyDay`. */
   emptyDay: EmptyDay | null;
+  /** Someone took the place a waitlist email sent the visitor to. See `waitlistNoticeApplies`. */
+  waitlistTakenFirst?: boolean | undefined;
   /**
    * The invisible Turnstile widget whose token takes the hold on court pick.
    * Rendered under the hours, where an interactive challenge, when Cloudflare
@@ -217,6 +219,7 @@ function BookingFlow({
   onPendingStartTimeChange,
   answeredFromUrl,
   emptyDay,
+  waitlistTakenFirst,
   complex,
   onDateSelect,
 }: BookingFlowProps) {
@@ -248,6 +251,7 @@ function BookingFlow({
         pendingStartTime={pendingStartTime}
         onPendingStartTimeChange={onPendingStartTimeChange}
         emptyDay={emptyDay}
+        waitlistTakenFirst={waitlistTakenFirst}
         fullDay={{ slug: complex.slug, phone: complex.phone, duration: selectedDuration, onSelectDate: onDateSelect }}
       />
     </BookingSteps>
