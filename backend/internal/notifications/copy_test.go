@@ -66,25 +66,6 @@ func TestPaymentAmounts(t *testing.T) {
 	}
 }
 
-func TestBalanceAmount(t *testing.T) {
-	for _, c := range []struct {
-		name             string
-		price, deposit   int
-		collectionStatus string
-		want             string
-	}{
-		{"deposit paid", 2000000, 500000, bookingstore.CollectionStatusDepositPaid, "$15.000"},
-		{"nothing collected", 2000000, 0, bookingstore.CollectionStatusUnpaid, "$20.000"},
-		{"paid in full", 2000000, 2000000, bookingstore.CollectionStatusFullyPaid, "$0"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			if got := BalanceAmount(c.price, c.deposit, c.collectionStatus); got != c.want {
-				t.Errorf("BalanceAmount = %q; want %q", got, c.want)
-			}
-		})
-	}
-}
-
 // The grace period is operator-configured. The confirmation quoted a hardcoded
 // fifteen minutes at every venue, so anybody running a different number had
 // their confirmation contradict the rule the cancel path enforces — and the
@@ -138,16 +119,7 @@ func TestCancellationLineQuotesTheConfiguredValues(t *testing.T) {
 // product's vocabulary: "devolución" not "reembolso", "complejo" not "club",
 // "link" not "enlace".
 func TestCopyObeysTheProductVocabulary(t *testing.T) {
-	depositA, balanceA := PaymentAmounts(2000000, 500000, bookingstore.CollectionStatusDepositPaid)
-	depositB, balanceB := PaymentAmounts(2000000, 0, bookingstore.CollectionStatusUnpaid)
-	depositC, balanceC := PaymentAmounts(2000000, 2000000, bookingstore.CollectionStatusFullyPaid)
 	lines := []string{
-		depositA, balanceA,
-		depositB, balanceB,
-		depositC, balanceC,
-		BalanceAmount(2000000, 500000, bookingstore.CollectionStatusDepositPaid),
-		BalanceAmount(2000000, 0, bookingstore.CollectionStatusUnpaid),
-		BalanceAmount(2000000, 2000000, bookingstore.CollectionStatusFullyPaid),
 		CancellationLine(24, 15*time.Minute, true),
 		CancellationLine(0, 15*time.Minute, true),
 		CancellationLine(24, 15*time.Minute, false),

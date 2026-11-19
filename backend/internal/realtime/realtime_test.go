@@ -139,12 +139,6 @@ func TestASlowSubscriberDoesNotBlockPublish(t *testing.T) {
 	}
 }
 
-func TestShutdownIsIdempotent(t *testing.T) {
-	hub := NewHub(nil, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), "test")
-	hub.Shutdown()
-	hub.Shutdown() // must not panic on a already-closed channel
-}
-
 func testHandler(t *testing.T, hub *Hub, shutdown <-chan struct{}) *Handler {
 	t.Helper()
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))

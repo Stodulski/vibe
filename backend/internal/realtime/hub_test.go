@@ -142,16 +142,6 @@ loop:
 	}
 }
 
-// TestHubStartIsNoopWithoutRedis covers the local-only path: Start must not
-// panic when rdb is nil.
-func TestHubStartIsNoopWithoutRedis(t *testing.T) {
-	h := NewHub(nil, testLogger(), "test")
-	t.Cleanup(h.Shutdown)
-
-	h.Start()
-	h.Start()
-}
-
 // TestTheEventChannelCarriesTheEnvironment is RED-01 for the relay. Two
 // deployments sharing one Redis would otherwise deliver each other's booking
 // events to each other's dashboards, which reads as a dashboard refreshing for

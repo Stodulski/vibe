@@ -274,7 +274,7 @@ func TestAnOrdinaryEventSurvivesIntact(t *testing.T) {
 // The booking link credential (specs/booking-link-credential)
 // ---------------------------------------------------------------------------
 
-// TestBookingLinkURLIsScrubbed is task 10.3, the load-bearing regression
+// TestBookingLinkURLIsScrubbed is the load-bearing regression
 // design.md's Decision 4(a) names: the URL is built through booklink.Cancel,
 // not a hardcoded string, so renaming internal/booklink's QueryParam changes
 // the URL this test actually exercises — a literal "?token=..." in the test
@@ -306,23 +306,5 @@ func TestBookingLinkURLIsScrubbed(t *testing.T) {
 	}
 	if strings.Contains(event.Request.QueryString, knownToken) {
 		t.Errorf("the plaintext token survived scrubbing in Request.QueryString: %s", event.Request.QueryString)
-	}
-}
-
-// TestDifferentlyNamedTokenParameterIsNotScrubbed is task 10.4, the
-// companion negative test: it proves *why* 10.3's mutation must fail. The
-// value is a string literal standing in for what booklink.Cancel would build
-// if QueryParam were ever renamed to "booking_token" — the underscore makes
-// the named-secret rule's `\btoken\b` alternative not match inside it, so
-// nothing in scrubText's rule list catches this parameter name.
-func TestDifferentlyNamedTokenParameterIsNotScrubbed(t *testing.T) {
-	const value = "3xzP9vLg7hK2mQ8wR5tY1nB4cD6fH0jS-AbCdEfGhIjKlMnOpQrStUvWxYz012345"
-	in := "https://vibe.test/my-complex/book/status?booking_token=" + value
-
-	got := scrubText(in)
-
-	if !strings.Contains(got, value) {
-		t.Errorf("want booking_token's value left untouched — this proves the parameter must be named "+
-			"exactly %q, not a longer variant; got %q", booklink.QueryParam, got)
 	}
 }

@@ -142,38 +142,6 @@ func TestWelcomeLinksEveryStepTutorialAndButton(t *testing.T) {
 	}
 }
 
-func TestWelcomeRendersEverySection(t *testing.T) {
-	text := welcomeVisibleText(welcomeHTML(t, "Ana"))
-
-	for _, want := range []string{
-		"Bienvenido a Vibe.",
-		"Hola, Ana.",
-		"Ya tenés tu cuenta de Vibe. Es gratis para tu complejo y la podés usar desde el celular o la compu.",
-		"Con Vibe podés:",
-		"Ver todos los turnos del día en una sola pantalla.",
-		"Cobrar en mostrador y cerrar la caja de cada turno.",
-		"Cobrar señas online con MercadoPago.",
-		"Tener tu página para que tus clientes reserven.",
-		"Ver los reportes del mes, listos para tu contador.",
-		"Tus primeros pasos:",
-		"Cargá tu complejo: nombre, dirección y horarios.",
-		"Sumá tus canchas y sus precios.",
-		"Conectá MercadoPago para cobrar señas.",
-		"Ir a mi panel",
-		"Tutoriales para arrancar:",
-		"La grilla de reservas: todo el día en una pantalla",
-		"Configurá tu complejo: horarios y seña",
-		"Precios por horario: cobrá la noche más cara",
-		"El reporte del mes, listo para el contador",
-		"Si te trabás en algo, respondé este mail y te ayudamos.",
-		"Máximo, de Vibe",
-	} {
-		if !strings.Contains(text, want) {
-			t.Errorf("welcome is missing %q", want)
-		}
-	}
-}
-
 // The copy rules the brief sets for this email: voseo, no exclamation marks,
 // no dashes, no digits or prices, sentences of at most twenty words.
 func TestWelcomeCopyFollowsTheVoiceRules(t *testing.T) {

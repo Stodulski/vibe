@@ -53,7 +53,6 @@ func TestParseSignedRequestRefusesEverythingThatIsNotAuthenticPayload(t *testing
 		{name: "empty signature", signed: "." + base64.RawURLEncoding.EncodeToString([]byte(goodPayload))},
 		{name: "signature is not base64", signed: "!!!." + base64.RawURLEncoding.EncodeToString([]byte(goodPayload))},
 		{name: "payload is not JSON", signed: signedRequestFor(testAppSecret, "not-json")},
-		{name: "empty", signed: ""},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

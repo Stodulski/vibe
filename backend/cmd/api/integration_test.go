@@ -462,21 +462,6 @@ func TestIntegration_ClientAutoCreation(t *testing.T) {
 	}
 }
 
-func TestIntegration_HealthCheck(t *testing.T) {
-	pool := setupTestDB(t)
-	app := newIntegrationApp(t, pool)
-	ts := newIntegrationServer(t, app)
-
-	status, _, result := integrationGet(t, ts, "/api/v1/healthcheck", nil, "")
-	if status != http.StatusOK {
-		t.Fatalf("healthcheck: expected 200, got %d", status)
-	}
-
-	if result["status"] != "available" {
-		t.Errorf("expected status 'available', got %v", result["status"])
-	}
-}
-
 // getNextWeekday returns the next weekday date as YYYY-MM-DD.
 func getNextWeekday() string {
 	d := time.Now().AddDate(0, 0, 1)

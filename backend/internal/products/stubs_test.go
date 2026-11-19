@@ -33,8 +33,7 @@ type stubStore struct {
 	byID       *productstore.Product
 	getByIDErr error
 
-	listProducts []*productstore.Product
-	listErr      error
+	listErr error
 
 	updateErr error
 	// updateArgs captures the exact product the service asked to persist, so
@@ -94,7 +93,7 @@ func (s *stubStore) ListByComplex(_ context.Context, _ uuid.UUID, active *bool) 
 	if s.listErr != nil {
 		return nil, s.listErr
 	}
-	return s.listProducts, nil
+	return nil, nil
 }
 
 func (s *stubStore) Update(_ context.Context, p *productstore.Product, _ *int) error {

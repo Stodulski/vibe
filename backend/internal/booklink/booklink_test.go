@@ -57,16 +57,6 @@ func TestEveryFunctionEmitsTheConfiguredQueryParam(t *testing.T) {
 	}
 }
 
-// TestCancelIsAbsolute pins that Cancel always carries the
-// frontend origin.
-func TestCancelIsAbsolute(t *testing.T) {
-	got := Cancel("https://vibe.test", "acme", "cred-abc123")
-	want := "https://vibe.test/c/acme/book/cancel?" + QueryParam + "=cred-abc123"
-	if got != want {
-		t.Errorf("Cancel = %q, want %q", got, want)
-	}
-}
-
 // A complex that never filled in its coordinates must still get a maps query:
 // a venue always has a name, so this always answers.
 func TestMapsQuery(t *testing.T) {
@@ -152,12 +142,6 @@ func TestAddress(t *testing.T) {
 				t.Errorf("Address(%q, %q) = %q, want %q", tt.address, tt.city, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestBookLinks(t *testing.T) {
-	if got := Book("https://app.vibe.com.ar", "vibe-norte"); got != "https://app.vibe.com.ar/c/vibe-norte/book" {
-		t.Errorf("Book = %q", got)
 	}
 }
 

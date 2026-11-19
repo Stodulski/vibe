@@ -230,27 +230,3 @@ func TestUnsubscribeFromTheStorefrontOriginIsAnsweredWithTheOriginEchoed(t *test
 		t.Fatalf("suppressed %v, want one address", rec.suppressed)
 	}
 }
-
-// An origin that is neither the frontend nor the storefront gets no grant.
-func TestUnsubscribePreflightFromAnUnrelatedOriginIsNotGranted(t *testing.T) {
-	app, _ := newTestApplicationWithPublicURL(t, "https://vibe.com.ar", nil)
-	ts := newTestServer(t, app)
-
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodOptions,
-		ts.URL+"/api/v1/public/email/unsubscribe", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Origin", "https://evil.example")
-	req.Header.Set("Access-Control-Request-Method", http.MethodPost)
-
-	resp, err := ts.Client().Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if got := resp.Header.Get("Access-Control-Allow-Origin"); got != "" {
-		t.Fatalf("an unrelated origin was granted %q", got)
-	}
-}

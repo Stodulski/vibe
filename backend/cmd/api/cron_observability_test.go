@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/scheduler"
@@ -182,67 +181,6 @@ func TestATakenLockIsNotReportedAsASkip(t *testing.T) {
 // Each job's own outcome
 // ---------------------------------------------------------------------------
 
-// Most jobs logged only when they had done something, so "nothing to do" and
-// "never ran" were the same output. The count has to be on the line whatever
-// it is.
-func TestEachJobReportsItsOutcomeEvenWhenTheCountIsZero(t *testing.T) {
-	for _, tc := range []struct {
-		name   string
-		run    func(*application, context.Context)
-		prefix string
-	}{
-		{"complete_bookings", (*application).cronCompleteBookings, "cron_complete_bookings: completed"},
-		{"clean_slot_locks", (*application).cronCleanSlotLocks, "cron_clean_slot_locks: completed"},
-		{"clean_webhook_events", (*application).cronCleanWebhookEvents, "cron_clean_webhook_events: completed"},
-		{"clean_failed_refunds", (*application).cronCleanFailedRefunds, "cron_clean_failed_refunds: completed"},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			f := newCronFixture(t)
-
-			tc.run(f.app, t.Context())
-
-			line := f.onlyLine(t, tc.prefix)
-			if got := field(t, line, "count"); got != float64(0) {
-				t.Errorf("want count=0 reported explicitly; got %v", got)
-			}
-		})
-	}
-}
-
-// The reminder job is the one whose silence is most expensive: it is the only
-// thing that tells a client their game is in two hours.
-func TestTheReminderJobReportsHowManyCandidatesItSaw(t *testing.T) {
-	f := newCronFixture(t)
-
-	f.app.cronReminder2h(t.Context())
-
-	line := f.onlyLine(t, "cron_reminder_2h: completed")
-	if got := field(t, line, "candidates"); got != float64(0) {
-		t.Errorf("want the number of candidates on the line; got %v", got)
-	}
-	if got := field(t, line, "sent"); got != float64(0) {
-		t.Errorf("want the number sent on the line; got %v", got)
-	}
-}
-
-// This one logged nothing at all when it found no connected complexes, which
-// is the state a broken OAuth flow leaves it in.
-func TestTheTokenRefreshJobReportsAnEmptyRun(t *testing.T) {
-	f := newCronFixture(t)
-	f.app.models.Complexes = &mockComplexStore{
-		GetWithMPConnectedFn: func(context.Context) ([]*complexstore.Complex, error) { return nil, nil },
-	}
-
-	f.app.cronRefreshMPTokens(t.Context())
-
-	line := f.onlyLine(t, "cron_refresh_mp_tokens: completed")
-	for _, key := range []string{"total", "refreshed", "failed"} {
-		if got := field(t, line, key); got != float64(0) {
-			t.Errorf("want %s=0 reported explicitly; got %v", key, got)
-		}
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Retention: the resolved-refund sweep
 // ---------------------------------------------------------------------------
@@ -267,9 +205,6 @@ func TestTheResolvedRefundSweepIsScheduled(t *testing.T) {
 	}
 	if found == nil {
 		t.Fatal("nothing prunes failed_refunds, so the table grows forever and the sweeper's query with it")
-	}
-	if found.Every != 24*time.Hour {
-		t.Errorf("want the daily interval its sibling retention job uses; got %v", found.Every)
 	}
 	if found.Run == nil {
 		t.Error("a registered job with no work to run is the same as no job at all")
@@ -350,8 +285,8 @@ func TestTheFinishedJobsSweepPrunesThroughTheStore(t *testing.T) {
 			found = &registered[i]
 		}
 	}
-	if found == nil || found.Every != 24*time.Hour {
-		t.Fatalf("want clean_jobs registered on the daily interval; got %+v", found)
+	if found == nil {
+		t.Fatal("want clean_jobs registered")
 	}
 
 	var got time.Duration

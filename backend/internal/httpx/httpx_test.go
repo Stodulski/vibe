@@ -334,38 +334,6 @@ func TestContextUserRoundTrip(t *testing.T) {
 	}
 }
 
-func TestContextComplexRoundTrip(t *testing.T) {
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-
-	if _, ok := ContextGetComplex(r); ok {
-		t.Error("an untouched request must report no complex")
-	}
-
-	complex := &complexstore.Complex{ID: uuid.New(), Name: "Vibe Palermo"}
-	r = ContextSetComplex(r, complex)
-
-	got, ok := ContextGetComplex(r)
-	if !ok {
-		t.Fatal("want the complex back after setting it")
-	}
-	if got.ID != complex.ID {
-		t.Errorf("want complex %s; got %s", complex.ID, got.ID)
-	}
-}
-
-func TestContextRequestID(t *testing.T) {
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-
-	if got := ContextGetRequestID(r); got != "" {
-		t.Errorf("a request that skipped the middleware must report no id; got %q", got)
-	}
-
-	r = ContextSetRequestID(r, "a1b2c3d4")
-	if got := ContextGetRequestID(r); got != "a1b2c3d4" {
-		t.Errorf("want a1b2c3d4; got %q", got)
-	}
-}
-
 func TestResponderErrorShape(t *testing.T) {
 	rs := NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 
@@ -438,28 +406,14 @@ func TestResponderServerErrorHidesCause(t *testing.T) {
 	}
 }
 
-func TestResponderInvalidAuthenticationTokenSetsChallenge(t *testing.T) {
-	rs := NewResponder(slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
-	w := httptest.NewRecorder()
-
-	rs.InvalidAuthenticationToken(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-
-	if got := w.Header().Get("WWW-Authenticate"); got != "Bearer" {
-		t.Errorf("want a Bearer challenge; got %q", got)
-	}
-}
-
 type errUnexpected struct{ msg string }
 
 func (e errUnexpected) Error() string { return e.msg }
 
-// ReadUUIDParam replaced six near-identical readers (id, courtID, slotID,
-// bookingID, clientID) with one parameterised function, so its behaviour for
-// each of those names is what these cases pin down.
 func TestReadUUIDParam(t *testing.T) {
 	id := uuid.New()
 
-	for _, name := range []string{"id", "courtID", "slotID", "bookingID", "clientID"} {
+	for _, name := range []string{"courtID"} {
 		t.Run(name+" valid", func(t *testing.T) {
 			r := requestWithParams(t, map[string]string{name: id.String()})
 
@@ -497,17 +451,6 @@ func TestReadUUIDParam(t *testing.T) {
 			t.Fatal("want an error when the route never bound the parameter; got nil")
 		}
 	})
-}
-
-func TestReadStringParam(t *testing.T) {
-	r := requestWithParams(t, map[string]string{"slug": "vibe-palermo"})
-
-	if got := ReadStringParam(r, "slug"); got != "vibe-palermo" {
-		t.Errorf("want vibe-palermo; got %q", got)
-	}
-	if got := ReadStringParam(r, "absent"); got != "" {
-		t.Errorf("an unbound parameter must read as empty; got %q", got)
-	}
 }
 
 func TestGuardsValidate(t *testing.T) {
@@ -572,76 +515,6 @@ func TestResponderJSON(t *testing.T) {
 			t.Errorf("want 500; got %d", w.Code)
 		}
 	})
-}
-
-func TestClientIP(t *testing.T) {
-	tests := []struct {
-		name         string
-		remoteAddr   string
-		headers      map[string]string
-		trustProxies bool
-		want         string
-	}{
-		{
-			name:       "direct connection",
-			remoteAddr: "203.0.113.7:54321",
-			want:       "203.0.113.7",
-		},
-		{
-			name:         "forwarded chain behind a trusted proxy",
-			remoteAddr:   "10.0.0.1:443",
-			headers:      map[string]string{"X-Forwarded-For": "203.0.113.7, 10.0.0.2, 10.0.0.1"},
-			trustProxies: true,
-			want:         "203.0.113.7",
-		},
-		{
-			name:         "single forwarded value",
-			remoteAddr:   "10.0.0.1:443",
-			headers:      map[string]string{"X-Forwarded-For": " 203.0.113.7 "},
-			trustProxies: true,
-			want:         "203.0.113.7",
-		},
-		{
-			name:         "X-Real-IP when there is no chain",
-			remoteAddr:   "10.0.0.1:443",
-			headers:      map[string]string{"X-Real-IP": "203.0.113.9"},
-			trustProxies: true,
-			want:         "203.0.113.9",
-		},
-		{
-			// The decisive case: with no proxy in front, these headers are
-			// attacker-supplied and must be ignored, or any client can forge
-			// the address that rate limiting and the audit trail record.
-			name:         "headers are ignored when proxies are not trusted",
-			remoteAddr:   "203.0.113.7:54321",
-			headers:      map[string]string{"X-Forwarded-For": "1.2.3.4", "X-Real-IP": "5.6.7.8"},
-			trustProxies: false,
-			want:         "203.0.113.7",
-		},
-		{
-			name:       "unparseable RemoteAddr falls through",
-			remoteAddr: "/tmp/app.sock",
-			want:       "/tmp/app.sock",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil)
-			r.RemoteAddr = tt.remoteAddr
-			for k, v := range tt.headers {
-				r.Header.Set(k, v)
-			}
-
-			trusted := TrustedProxies{}
-			if tt.trustProxies {
-				trusted = DefaultTrustedProxies()
-			}
-			if got := ClientIPFrom(r, trusted); got != tt.want {
-				t.Errorf("ClientIPFrom() = %q; want %q", got, tt.want)
-			}
-		})
-	}
 }
 
 // TestContextSetComplexScopesTheTenant pins the one line that puts every

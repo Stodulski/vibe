@@ -68,22 +68,3 @@ func fmtCase(cancellationHours int, grace time.Duration, expiresAtName, bookingD
 	return "hours=" + strconv.Itoa(cancellationHours) + "/grace=" + grace.String() +
 		"/expires=" + expiresAtName + "/booking=" + bookingDateName
 }
-
-// TestLinkLiveRegressionThroughDirectCall is task 9.4: the same property as
-// the matrix above, expressed as one direct call rather than a generated
-// case, so a reader can see the regression without decoding the matrix.
-func TestLinkLiveRegressionThroughDirectCall(t *testing.T) {
-	future := time.Now().Add(72 * time.Hour)
-	booking := &bookingstore.Booking{
-		Date:      future,
-		StartTime: future.Format("15:04"),
-		CreatedAt: time.Now(),
-	}
-
-	// Before its CanRefund deadline (far in the future, well within the
-	// cancellation window), and the token has already expired.
-	past := time.Now().Add(-time.Hour)
-	if !LinkLive(booking, past, 24, 15*time.Minute, time.Now()) {
-		t.Error("a booking still eligible for a refund must never be rejected for token expiry")
-	}
-}

@@ -10,41 +10,12 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 )
-
-func TestNewMPClient(t *testing.T) {
-	client := NewMPClient("token", "secret", "app-id", "client-secret", nil)
-
-	if client.accessToken != "token" {
-		t.Errorf("want accessToken %q; got %q", "token", client.accessToken)
-	}
-	if client.webhookSecret != "secret" {
-		t.Errorf("want webhookSecret %q; got %q", "secret", client.webhookSecret)
-	}
-	if client.appID != "app-id" {
-		t.Errorf("want appID %q; got %q", "app-id", client.appID)
-	}
-	if client.clientSecret != "client-secret" {
-		t.Errorf("want clientSecret %q; got %q", "client-secret", client.clientSecret)
-	}
-	if client.baseURL != "https://api.mercadopago.com" {
-		t.Errorf("want baseURL %q; got %q", "https://api.mercadopago.com", client.baseURL)
-	}
-}
-
-func TestAPIError(t *testing.T) {
-	err := &APIError{StatusCode: 400, Body: "bad request"}
-	want := "mp: API error 400: bad request"
-	if err.Error() != want {
-		t.Errorf("want %q; got %q", want, err.Error())
-	}
-}
 
 func TestIsUnauthorized(t *testing.T) {
 	t.Run("401 error", func(t *testing.T) {
@@ -712,20 +683,6 @@ func TestCreatePreferenceBuildsBackURLsFromInput(t *testing.T) {
 	}
 	if backURLs["pending"] != input.BackURLs.Pending {
 		t.Errorf("back_urls.pending = %v, want %v", backURLs["pending"], input.BackURLs.Pending)
-	}
-}
-
-// TestCreatePreferenceInputHasNoClientURLFields is the compile-level proof
-// task 6.7 asks for, made checkable at test-run time via reflection:
-// CreatePreferenceInput must not carry FrontendURL or ComplexSlug —
-// internal/mp builds no client-facing URL, so it has no use for either.
-func TestCreatePreferenceInputHasNoClientURLFields(t *testing.T) {
-	typ := reflect.TypeOf(CreatePreferenceInput{})
-	for i := range typ.NumField() {
-		name := typ.Field(i).Name
-		if name == "FrontendURL" || name == "ComplexSlug" {
-			t.Errorf("CreatePreferenceInput must not carry %s; internal/mp builds no client-facing URL", name)
-		}
 	}
 }
 

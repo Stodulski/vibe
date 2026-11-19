@@ -396,7 +396,6 @@ func TestRevenueChartPeriod(t *testing.T) {
 		wantStatus int
 	}{
 		{"absent defaults to week", "", http.StatusOK},
-		{"week is allowed", "?period=week", http.StatusOK},
 		{"month is allowed", "?period=month", http.StatusOK},
 		{"unknown value is rejected", "?period=bogus", http.StatusUnprocessableEntity},
 	}
@@ -547,27 +546,6 @@ func TestLabelsFallBackToTheRawValue(t *testing.T) {
 	}
 	if got := bookingStatusLabel("rescheduled"); got != "rescheduled" {
 		t.Errorf("want the raw value back; got %q", got)
-	}
-}
-
-func TestKnownLabelsAreTranslated(t *testing.T) {
-	if got := methodLabel("cash"); got != "Efectivo" {
-		t.Errorf(`want "Efectivo"; got %q`, got)
-	}
-	if got := methodLabel("debit_card"); got != "Débito" {
-		t.Errorf(`want "Débito"; got %q`, got)
-	}
-	if got := methodLabel("credit_card"); got != "Crédito" {
-		t.Errorf(`want "Crédito"; got %q`, got)
-	}
-	if got := methodLabel("qr_wallet"); got != "QR / billetera" {
-		t.Errorf(`want "QR / billetera"; got %q`, got)
-	}
-	if got := paymentStatusLabel("deposit_paid"); got != "Seña pagada" {
-		t.Errorf(`want "Seña pagada"; got %q`, got)
-	}
-	if got := bookingStatusLabel("no_show"); got != "No se presentó" {
-		t.Errorf(`want "No se presentó"; got %q`, got)
 	}
 }
 

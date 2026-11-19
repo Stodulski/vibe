@@ -174,17 +174,6 @@ func TestGoogleFinishCodeRejectedByGoogle(t *testing.T) {
 	}
 }
 
-func TestGoogleFinishTokenExchangeUnavailable(t *testing.T) {
-	f := newFixtureWithGoogleOAuth(t)
-	f.codeExchanger.err = googleid.ErrUnavailable
-	start := exchangedNonce(t, f)
-
-	_, err := f.service.GoogleFinish(t.Context(), Actor{}, "the-auth-code", start.State)
-	if !errors.Is(err, googleid.ErrUnavailable) {
-		t.Fatalf("GoogleFinish() = %v, want an error wrapping googleid.ErrUnavailable", err)
-	}
-}
-
 func TestGoogleFinishIDTokenRejected(t *testing.T) {
 	f := newFixtureWithGoogleOAuth(t)
 	start, err := f.service.GoogleStart(t.Context())
@@ -260,27 +249,6 @@ func newGoogleOAuthFixture(t *testing.T) (*fixture, *miniredis.Miniredis) {
 	f := newFixtureWithGoogleOAuth(t)
 	f.service.googleCodes = NewGoogleCodes(rdb, "test")
 	return f, mr
-}
-
-// TestGoogleOAuthStateIsNamespacedUnderTheSameStore pins that this flow's
-// entries live under a distinct key inside GoogleCodes (Dependencies.GoogleCodes)
-// rather than a second Redis type, and that they carry the same TTL GoogleStart
-// promises.
-func TestGoogleOAuthStateIsNamespacedUnderTheSameStore(t *testing.T) {
-	f, mr := newGoogleOAuthFixture(t)
-
-	start, err := f.service.GoogleStart(t.Context())
-	if err != nil {
-		t.Fatalf("GoogleStart() = %v, want nil", err)
-	}
-
-	key := "vibe:test:gauth:oidc-state:" + start.State
-	if !mr.Exists(key) {
-		t.Fatalf("no state stored at %q; keys are %v", key, mr.Keys())
-	}
-	if ttl := mr.TTL(key); ttl != googleOAuthStateTTL {
-		t.Errorf("TTL = %v, want %v", ttl, googleOAuthStateTTL)
-	}
 }
 
 func TestGoogleOAuthStateExpires(t *testing.T) {

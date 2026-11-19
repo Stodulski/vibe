@@ -14,7 +14,6 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
-	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
@@ -51,25 +50,6 @@ func gapPricedCourt(f *fixture, courtID uuid.UUID) (basePrice, peakPrice int) {
 		courtstore.NewCourtPriceForTest(courtID, dayType, "20:00", "23:00", peakPrice),
 	}
 	return basePrice, peakPrice
-}
-
-// The gap the fixture leaves is a gap for pricing.SlotPrice too. If this ever
-// stops holding, every assertion below is testing nothing, so it is asserted
-// rather than assumed.
-func TestTheGapFixtureIsActuallyUnpricedForSlotPrice(t *testing.T) {
-	f := newFixture(t)
-	courtID := uuid.New()
-	gapPricedCourt(f, courtID)
-	_, dayType := bookableDate()
-
-	if _, err := pricing.SlotPrice(f.courts.prices, dayType, at("18:00")); err == nil {
-		t.Fatal("the fixture must leave 18:00 unpriced, or these tests assert nothing")
-	}
-	// And the band that does cover 20:00 is the peak one, so the ladder's
-	// "first band for this weekday" really is the cheaper answer.
-	if got, err := pricing.SlotPrice(f.courts.prices, dayType, at("20:00")); err != nil || got != 900_000 {
-		t.Fatalf("SlotPrice(20:00) = (%d, %v), want (900000, nil)", got, err)
-	}
 }
 
 // A client is quoted one number by the availability grid and charged another by
@@ -269,15 +249,4 @@ func scheduleOnly(f *fixture, opensAt, closesAt string) {
 	for _, d := range []string{"monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"} {
 		f.complexes.schedules = append(f.complexes.schedules, &complexstore.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
 	}
-}
-
-// at turns a clock reading into minutes from its own day's midnight, which is
-// what pricing takes now. A window running past midnight is laid out beyond
-// 1440, so an hour on the far side is `at("00:30") + 24*60`.
-func at(hhmm string) int {
-	var h, m int
-	if _, err := fmt.Sscanf(hhmm, "%d:%d", &h, &m); err != nil {
-		panic("test fixture: " + hhmm + " is not HH:MM")
-	}
-	return h*60 + m
 }

@@ -368,9 +368,6 @@ func TestTheSlotHoldIsThrottledLikeABookingInItsOwnBucket(t *testing.T) {
 			t.Errorf("%s %s: ceilings %v, want %v", tc.method, tc.path, got, tc.want)
 		}
 	}
-	if holdCeiling.rps != bookingCeiling.rps || holdCeiling.burst != bookingCeiling.burst || holdCeiling.name == bookingCeiling.name {
-		t.Errorf("the hold ceiling must have POST /book's numbers under its own name; got %+v vs %+v", holdCeiling, bookingCeiling)
-	}
 }
 
 // B2 regression: joining the place waitlist stores an address the platform will

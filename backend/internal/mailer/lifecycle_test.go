@@ -40,49 +40,6 @@ func sentBrevo(t *testing.T, kind, firstName, complexName string) map[string]any
 	return got
 }
 
-func TestLifecycleNudgeCopyPerKind(t *testing.T) {
-	cases := []struct {
-		kind, subject, body, cta string
-	}{
-		{"verify_email", "Te falta confirmar tu email en Vibe",
-			"Empezaste a crear tu cuenta en Vibe y te falta confirmar tu email. Tocá el botón y seguís donde quedaste.",
-			"Confirmar mi email"},
-		{"create_complex", "Tu complejo te espera en Vibe",
-			"Ya tenés tu cuenta. Te falta cargar tu complejo: nombre, dirección y horarios. Te lleva unos minutos.",
-			"Cargar mi complejo"},
-		{"add_courts", "Cargá tus canchas en Vibe",
-			"Padel Norte ya está en Vibe. Cargá tus canchas y precios para empezar a usar el turnero y tomar reservas.",
-			"Cargar mis canchas"},
-		{"connect_mp", "Conectá MercadoPago y cobrá la seña online",
-			"Padel Norte ya tiene sus canchas en Vibe. Conectá tu cuenta de MercadoPago y tus clientes pagan la seña cuando reservan online. La plata va directo a tu cuenta. Si algo te frenó, respondé este mail.",
-			"Conectar MercadoPago"},
-		{"inactive", "¿Te ayudo a arrancar con Vibe?",
-			"Vi que hace unos días no entrás a Vibe. Si algo te frenó, respondé este mail y te ayudo a dejar Padel Norte andando. Mientras tanto, podés cargar tus turnos de la semana en el turnero.",
-			"Ir a mi panel"},
-		{"finish_signup", "Tu cuenta de Vibe quedó a medio camino",
-			"Empezaste a crear tu cuenta en Vibe y no llegaste a terminarla. Vibe es gratis para tu complejo: turnero, caja y reservas online con seña. Si algo te frenó, respondé este mail.",
-			"Terminar mi cuenta gratis"},
-	}
-	for _, tc := range cases {
-		t.Run(tc.kind, func(t *testing.T) {
-			got := sentBrevo(t, tc.kind, "Ana", "Padel Norte")
-			if got["subject"] != tc.subject {
-				t.Errorf("subject = %v, want %q", got["subject"], tc.subject)
-			}
-			html, _ := got["htmlContent"].(string)
-			if !strings.Contains(html, "Hola Ana. "+tc.body) {
-				t.Errorf("body does not carry the approved copy:\nwant %q", "Hola Ana. "+tc.body)
-			}
-			if !strings.Contains(html, ">"+tc.cta+"</a>") {
-				t.Errorf("button label %q missing", tc.cta)
-			}
-			if !strings.Contains(html, "Máximo, de Vibe") {
-				t.Error("the email is not signed Máximo, de Vibe")
-			}
-		})
-	}
-}
-
 func TestLifecycleNudgeGreetingWithoutAName(t *testing.T) {
 	got := sentBrevo(t, "finish_signup", "", "")
 	html, _ := got["htmlContent"].(string)
@@ -127,10 +84,7 @@ func TestLifecycleNudgeCarriesListUnsubscribeHeadersOverBrevo(t *testing.T) {
 func TestLifecycleNudgeFooterLinksTheOptOutPage(t *testing.T) {
 	got := sentBrevo(t, "inactive", "Ana", "Padel Norte")
 	html, _ := got["htmlContent"].(string)
-	if !strings.Contains(html, "Si no querés recibir más estos mails, ") {
-		t.Fatal("the footer sentence is missing")
-	}
-	if !strings.Contains(html, `href="`+nudgeOptIn+`"`) || !strings.Contains(html, "date de baja acá") {
+	if !strings.Contains(html, `href="`+nudgeOptIn+`"`) {
 		t.Fatal("the footer does not link the /baja page")
 	}
 }

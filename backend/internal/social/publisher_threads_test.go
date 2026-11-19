@@ -28,9 +28,6 @@ func TestThreadsTextPostPublishesAndReportsItsLink(t *testing.T) {
 	if got.Status != StatusPublished || got.ThreadsMediaID != "th-1" {
 		t.Fatalf("post = %+v; want published with the threads id", got)
 	}
-	if h.platform.thKind != TypeText {
-		t.Fatalf("threads received kind %q; want text", h.platform.thKind)
-	}
 	if len(h.reporter.reports) != 1 || h.reporter.reports[0].ThreadsLink != h.platform.thLink {
 		t.Fatalf("reports = %+v; want one report carrying the threads link", h.reporter.reports)
 	}

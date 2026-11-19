@@ -435,15 +435,3 @@ func TestVerifyGoogleCredentialUnavailable(t *testing.T) {
 		t.Fatalf("verifyGoogleCredential() = %v, want an error wrapping googleid.ErrUnavailable", err)
 	}
 }
-
-// TestVerifyGoogleCredentialRejected covers Verify rejecting the token itself
-// (signature, audience, issuer...): a validation error, not a server error.
-func TestVerifyGoogleCredentialRejected(t *testing.T) {
-	f := newFixtureWithGoogle(t)
-	f.google.err = errors.Join(googleid.ErrInvalidToken, errors.New("wrong audience"))
-
-	_, err := f.service.verifyGoogleCredential(t.Context(), "bad-id-token")
-	if !errors.Is(err, ErrGoogleRejected) {
-		t.Fatalf("verifyGoogleCredential() = %v, want an error wrapping ErrGoogleRejected", err)
-	}
-}

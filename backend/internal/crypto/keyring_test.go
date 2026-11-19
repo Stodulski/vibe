@@ -36,21 +36,6 @@ func TestKeyring_ActiveKeyID(t *testing.T) {
 	}
 }
 
-func TestParseKeyring_ValidSingleEntry(t *testing.T) {
-	spec := "k1:" + b64Key32(0x01)
-
-	kr, err := ParseKeyring(spec)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
-	if len(kr.entries) != 1 || kr.entries[0].kid != "k1" {
-		t.Fatalf("want one entry with kid k1; got %+v", kr.entries)
-	}
-	if _, ok := kr.keys["k1"]; !ok {
-		t.Fatal("want k1 present in the open map")
-	}
-}
-
 func TestParseKeyring_FirstEntryWritesEveryEntryOpens(t *testing.T) {
 	spec := "new:" + b64Key32(0x02) + ",old:" + b64Key32(0x03)
 

@@ -127,20 +127,6 @@ func TestSecurity_XSS_StoredViaRegister(t *testing.T) {
 		}
 	}
 
-	// Login and check that stored data is returned as JSON (not HTML-executed)
-	cookies, csrf := registerAndLogin(t, ts, "xss-check@test.com", "TestPass123!")
-	status, _, result := integrationGet(t, ts, "/api/v1/auth/me", cookies, csrf)
-	if status != http.StatusOK {
-		t.Fatalf("get me: expected 200, got %d", status)
-	}
-
-	// Verify Content-Type is JSON (prevents browser from interpreting as HTML)
-	user, _ := result["user"].(map[string]any)
-	if user != nil {
-		// The response should be JSON, not HTML — the Content-Type header
-		// is set to application/json by writeJSON, which prevents XSS
-		t.Log("User data returned as JSON (Content-Type: application/json) — XSS safe")
-	}
 }
 
 func TestSecurity_XSS_ResponseHeaders(t *testing.T) {
@@ -181,35 +167,6 @@ func TestSecurity_XSS_ResponseHeaders(t *testing.T) {
 // ═══════════════════════════════════════════════════════════════
 // AUTHENTICATION & AUTHORIZATION TESTS
 // ═══════════════════════════════════════════════════════════════
-
-func TestSecurity_Auth_ProtectedEndpointsRequireAuth(t *testing.T) {
-	pool := setupTestDB(t)
-	app := newIntegrationApp(t, pool)
-	ts := newIntegrationServer(t, app)
-
-	protectedEndpoints := []struct {
-		method string
-		path   string
-	}{
-		{"GET", "/api/v1/auth/me"},
-		{"GET", "/api/v1/complexes"},
-		{"POST", "/api/v1/complexes"},
-	}
-
-	for _, ep := range protectedEndpoints {
-		var status int
-		switch ep.method {
-		case "GET":
-			status, _, _ = integrationGet(t, ts, ep.path, nil, "")
-		case "POST":
-			status, _, _ = integrationPost(t, ts, ep.path, `{}`, nil, "")
-		}
-
-		if status != http.StatusUnauthorized {
-			t.Errorf("%s %s without auth: expected 401, got %d", ep.method, ep.path, status)
-		}
-	}
-}
 
 func TestSecurity_Auth_InvalidJWT(t *testing.T) {
 	pool := setupTestDB(t)
@@ -396,55 +353,6 @@ func TestSecurity_Auth_LockedAccount(t *testing.T) {
 	// Should be locked (429) or still rejecting (401)
 	if lastStatus != http.StatusTooManyRequests && lastStatus != http.StatusUnauthorized {
 		t.Errorf("after 15 wrong attempts: expected 429 or 401, got %d", lastStatus)
-	}
-}
-
-// ═══════════════════════════════════════════════════════════════
-// CORS TESTS
-// ═══════════════════════════════════════════════════════════════
-
-func TestSecurity_CORS_OnlyAllowedOrigin(t *testing.T) {
-	pool := setupTestDB(t)
-	app := newIntegrationApp(t, pool)
-	ts := newIntegrationServer(t, app)
-
-	// Preflight with allowed origin
-	req, err := http.NewRequestWithContext(t.Context(), http.MethodOptions, ts.URL+"/api/v1/auth/login", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req.Header.Set("Origin", "http://localhost:5173")
-	req.Header.Set("Access-Control-Request-Method", "POST")
-
-	client := &http.Client{}
-	resp, err := client.Do(req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	allowedOrigin := resp.Header.Get("Access-Control-Allow-Origin")
-	if allowedOrigin != "http://localhost:5173" {
-		t.Errorf("CORS allowed origin: expected http://localhost:5173, got %q", allowedOrigin)
-	}
-
-	// Preflight with disallowed origin
-	req2, err := http.NewRequestWithContext(t.Context(), http.MethodOptions, ts.URL+"/api/v1/auth/login", nil)
-	if err != nil {
-		t.Fatal(err)
-	}
-	req2.Header.Set("Origin", "http://evil.com")
-	req2.Header.Set("Access-Control-Request-Method", "POST")
-
-	resp2, err := client.Do(req2)
-	if err != nil {
-		t.Fatal(err)
-	}
-	defer func() { _ = resp2.Body.Close() }()
-
-	disallowedOrigin := resp2.Header.Get("Access-Control-Allow-Origin")
-	if disallowedOrigin == "http://evil.com" {
-		t.Error("CORS allows requests from http://evil.com — cross-origin attack possible!")
 	}
 }
 

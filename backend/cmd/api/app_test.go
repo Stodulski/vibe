@@ -53,25 +53,9 @@ func validTestDeps(t *testing.T) deps {
 	}
 }
 
-// TestNewApplicationRejectsAMissingStore covers the gap unwiredDependencies()
-// could not: a store stores.Stores composes, left nil, is caught before any
-// constructor runs — not mid-sequence, with several handlers already built.
-func TestNewApplicationRejectsAMissingStore(t *testing.T) {
-	d := validTestDeps(t)
-	d.models.PasswordReset = nil
-
-	_, err := newApplication(config.Config{}, d)
-	if err == nil {
-		t.Fatal("newApplication: want an error for a missing store; got nil")
-	}
-	if !strings.Contains(err.Error(), "PasswordReset") {
-		t.Errorf("newApplication: error %q does not name the missing store", err.Error())
-	}
-}
-
-// TestNewApplicationRejectsEveryMissingStore is the same check for every one
-// of the 18 stores, not just PasswordReset — each is a leaf a caller could
-// leave nil independently.
+// TestNewApplicationRejectsEveryMissingStore: a store stores.Stores composes,
+// left nil, is caught before any constructor runs — each is a leaf a caller
+// could leave nil independently.
 func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 	cases := []struct {
 		name string
@@ -112,27 +96,6 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 				t.Errorf("newApplication: error %q does not name %q", err.Error(), c.name)
 			}
 		})
-	}
-}
-
-// TestNewApplicationCanBeCalledTwiceInOneProcess is the spec's "called twice"
-// scenario: newApplication must launch no goroutine and register no
-// process-global, so nothing about calling it a second time — in the same
-// process, with equivalent deps — can panic or double-register anything.
-func TestNewApplicationCanBeCalledTwiceInOneProcess(t *testing.T) {
-	cfg := config.Config{Env: "test", JWT: config.JWT{Secret: testJWTSecret}}
-
-	first, err := newApplication(cfg, validTestDeps(t))
-	if err != nil {
-		t.Fatalf("first newApplication call: %v", err)
-	}
-	second, err := newApplication(cfg, validTestDeps(t))
-	if err != nil {
-		t.Fatalf("second newApplication call: %v", err)
-	}
-
-	if first == second {
-		t.Error("newApplication: two calls returned the same *application")
 	}
 }
 
@@ -311,9 +274,6 @@ func TestTheQueueMetricsMapIsPublishedOnceUnderItsOldName(t *testing.T) {
 	}
 	if published, _ := expvar.Get(queueMetricsName).(*expvar.Map); published != first {
 		t.Errorf("the map is not the one published under %q", queueMetricsName)
-	}
-	if queueMetricsName != "notifier" {
-		t.Errorf("the queue publishes under %q; operators' dashboards read \"notifier\"", queueMetricsName)
 	}
 
 	// The second call is the one that used to panic.

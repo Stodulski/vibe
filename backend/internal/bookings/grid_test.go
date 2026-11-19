@@ -536,15 +536,6 @@ func verb(b bool, yes, no string) string {
 	return no
 }
 
-// staffBookBody's date is a week out, so nothing here is affected by the
-// "already passed" guard; this pins that down rather than leaving it implied.
-func TestTheFixtureBooksAFutureDate(t *testing.T) {
-	date, _ := bookableDate()
-	if !date.After(time.Now()) {
-		t.Fatalf("bookableDate returned %s, which is not in the future", date)
-	}
-}
-
 // A booking that runs past midnight has to see the next day's blocks too, and
 // slotIsBlocked read only the date the booking was filed under.
 //

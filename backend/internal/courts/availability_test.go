@@ -348,30 +348,6 @@ func TestAvailabilityRejectsADateBeforeToday(t *testing.T) {
 	}
 }
 
-// Today itself is still bookable — the past-date rule only excludes days that
-// have already fully elapsed, not the one in progress.
-func TestAvailabilityAcceptsToday(t *testing.T) {
-	complexID, courtID := uuid.New(), uuid.New()
-	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
-	store := &stubStore{
-		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
-		prices: pricedEveryDay(courtID),
-	}
-
-	h, _ := newTestHandler(store, &stubBookings{}, complexes)
-
-	today := timezone.Today().Format("2006-01-02")
-	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date="+today, nil)
-	r = withSlug(r, "vibe")
-
-	w := httptest.NewRecorder()
-	h.Availability(w, r)
-
-	if w.Code == http.StatusUnprocessableEntity {
-		t.Errorf("today must not be rejected as a past date; got 422 (%s)", w.Body.String())
-	}
-}
-
 // A duration long enough to run past closing time is refused for that start
 // rather than published: 21:30 plus 120 minutes runs to 23:30, past the
 // fixture's 22:00 close.

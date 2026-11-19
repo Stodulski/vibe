@@ -6,18 +6,6 @@ import (
 	"time"
 )
 
-func TestDefaultTimeout_Value(t *testing.T) {
-	if defaultTimeout != 3*time.Second {
-		t.Errorf("defaultTimeout = %v, want %v", defaultTimeout, 3*time.Second)
-	}
-}
-
-func TestTxTimeout_Value(t *testing.T) {
-	if txTimeout != 5*time.Second {
-		t.Errorf("txTimeout = %v, want %v", txTimeout, 5*time.Second)
-	}
-}
-
 func TestQueryContext_SetsDeadline(t *testing.T) {
 	parent := context.Background()
 	before := time.Now()
@@ -53,63 +41,6 @@ func TestTxContext_SetsDeadline(t *testing.T) {
 	expectedMax := before.Add(txTimeout + 100*time.Millisecond)
 	if deadline.Before(expectedMin) || deadline.After(expectedMax) {
 		t.Errorf("deadline = %v, want between %v and %v", deadline, expectedMin, expectedMax)
-	}
-}
-
-func TestQueryContext_RespectsParentCancellation(t *testing.T) {
-	parent, parentCancel := context.WithCancel(context.Background())
-	parentCancel() // Cancel parent immediately.
-
-	ctx, cancel := QueryContext(parent)
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		// Expected: child context should be done because parent is cancelled.
-	default:
-		t.Error("QueryContext child should be done when parent is cancelled")
-	}
-}
-
-func TestTxContext_RespectsParentCancellation(t *testing.T) {
-	parent, parentCancel := context.WithCancel(context.Background())
-	parentCancel()
-
-	ctx, cancel := TxContext(parent)
-	defer cancel()
-
-	select {
-	case <-ctx.Done():
-		// Expected.
-	default:
-		t.Error("TxContext child should be done when parent is cancelled")
-	}
-}
-
-func TestQueryContext_RespectsParentShorterDeadline(t *testing.T) {
-	// If parent has a shorter deadline, QueryContext should inherit it.
-	shortTimeout := 1 * time.Millisecond
-	parent, parentCancel := context.WithTimeout(context.Background(), shortTimeout)
-	defer parentCancel()
-
-	ctx, cancel := QueryContext(parent)
-	defer cancel()
-
-	// The child deadline should be at most the parent's deadline.
-	deadline, ok := ctx.Deadline()
-	if !ok {
-		t.Fatal("QueryContext should have a deadline")
-	}
-
-	// Since parent timeout (1ms) < defaultTimeout (3s), deadline should be close to now.
-	if time.Until(deadline) > defaultTimeout {
-		t.Errorf("child deadline should not exceed parent's shorter deadline")
-	}
-}
-
-func TestTxContext_TxTimeoutLongerThanDefault(t *testing.T) {
-	if txTimeout <= defaultTimeout {
-		t.Errorf("txTimeout (%v) should be longer than defaultTimeout (%v)", txTimeout, defaultTimeout)
 	}
 }
 

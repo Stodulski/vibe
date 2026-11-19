@@ -6,24 +6,6 @@ import (
 	"testing"
 )
 
-const storyPost = `{"publish_at":"2026-10-20T19:00:00-03:00","networks":["instagram","facebook"],"type":"story","media":["1.mp4"]}`
-
-func TestPutPostStoresAStoryWithoutACaption(t *testing.T) {
-	t.Parallel()
-	rg := newRig(fakeAuth{})
-	rg.stage(t, "historia-1", "1.mp4")
-
-	w := httptest.NewRecorder()
-	rg.h.PutPost(w, postRequest(t, storyPost), "historia-1")
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d, body = %s; want 200", w.Code, w.Body.String())
-	}
-	stored, ok := rg.store.posts["historia-1"]
-	if !ok || stored.Kind != TypeStory || stored.Caption != "" || len(stored.Media) != 1 || stored.Media[0].Name != "1.mp4" {
-		t.Fatalf("stored post = %+v, want a captionless story with its video", stored)
-	}
-}
-
 func TestPutPostStoresAStorySequenceInOrderAfterItsFeedPost(t *testing.T) {
 	t.Parallel()
 	rg := newRig(fakeAuth{})

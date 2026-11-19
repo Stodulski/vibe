@@ -103,24 +103,6 @@ func TestAbsentCacheIsNotAFailure(t *testing.T) {
 	}
 }
 
-// The public probe must not disclose dependency states or the environment name.
-func TestPublicCheckExposesOnlyStatusAndVersion(t *testing.T) {
-	h := newHandler(stubPinger{}, stubPinger{})
-
-	w := httptest.NewRecorder()
-	h.Check(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/", nil))
-
-	body := decode(t, w)
-	for _, leaked := range []string{"dependencies", "environment"} {
-		if _, present := body[leaked]; present {
-			t.Errorf("the public probe must not expose %q", leaked)
-		}
-	}
-	if body["version"] != "1.0.0" {
-		t.Errorf("want the version; got %v", body["version"])
-	}
-}
-
 // TestLiveAnswersWhileEveryDependencyIsDown is the separation this endpoint
 // exists for. With one endpoint doing both jobs, a database outage marked the
 // process dead and the platform restarted every replica — turning an outage

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -357,5 +356,3 @@ func TestReconcileRequiresAnIDList(t *testing.T) {
 		t.Fatal("a body without ids must cancel nothing")
 	}
 }
-
-var _ = errors.New

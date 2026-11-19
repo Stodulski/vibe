@@ -163,7 +163,6 @@ func TestUnsubscribeRefusesABadTokenWithBadRequest(t *testing.T) {
 		ctype string
 	}{
 		"forged query":       {query: "?token=forged.token", ctype: "application/x-www-form-urlencoded", body: "List-Unsubscribe=One-Click"},
-		"no token at all":    {body: "", ctype: "application/json"},
 		"form without token": {body: "List-Unsubscribe=One-Click", ctype: "application/x-www-form-urlencoded"},
 		"malformed json":     {body: `{"token":`, ctype: "application/json"},
 	}

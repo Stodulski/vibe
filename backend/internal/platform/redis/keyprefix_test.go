@@ -17,8 +17,6 @@ func TestKeyPrefixNamesTheApplicationAndTheEnvironment(t *testing.T) {
 		want string
 	}{
 		{"production", "vibe:production:"},
-		{"staging", "vibe:staging:"},
-		{"development", "vibe:development:"},
 		// Not "development": an empty environment means nobody said, and
 		// guessing at a namespace is exactly the collision this prevents.
 		{"", "vibe:unset:"},

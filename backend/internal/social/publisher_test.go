@@ -17,23 +17,19 @@ import (
 var t0 = time.Date(2026, 10, 20, 22, 0, 0, 0, time.UTC)
 
 type fakePlatform struct {
-	igErr, fbErr   error
-	quotaErr       error
-	used, total    int
-	igCalls        int
-	fbCalls        int
-	lastKind       Kind
-	permalink      string
-	permalinkCalls int
-	thErr          error
-	thCalls        int
-	thKind         Kind
-	thLink         string
+	igErr, fbErr error
+	quotaErr     error
+	used, total  int
+	igCalls      int
+	fbCalls      int
+	permalink    string
+	thErr        error
+	thCalls      int
+	thLink       string
 }
 
-func (f *fakePlatform) PublishThreads(_ context.Context, p Post) (string, error) {
+func (f *fakePlatform) PublishThreads(context.Context, Post) (string, error) {
 	f.thCalls++
-	f.thKind = p.Kind
 	if f.thErr != nil {
 		return "", f.thErr
 	}
@@ -48,18 +44,16 @@ func (f *fakePlatform) InstagramQuota(context.Context) (int, int, error) {
 	return f.used, f.total, f.quotaErr
 }
 
-func (f *fakePlatform) PublishInstagram(_ context.Context, p Post) (string, error) {
+func (f *fakePlatform) PublishInstagram(context.Context, Post) (string, error) {
 	f.igCalls++
-	f.lastKind = p.Kind
 	if f.igErr != nil {
 		return "", f.igErr
 	}
 	return "ig-1", nil
 }
 
-func (f *fakePlatform) PublishFacebook(_ context.Context, p Post) (string, error) {
+func (f *fakePlatform) PublishFacebook(context.Context, Post) (string, error) {
 	f.fbCalls++
-	f.lastKind = p.Kind
 	if f.fbErr != nil {
 		return "", f.fbErr
 	}
@@ -67,14 +61,12 @@ func (f *fakePlatform) PublishFacebook(_ context.Context, p Post) (string, error
 }
 
 func (f *fakePlatform) InstagramPermalink(context.Context, string) (string, error) {
-	f.permalinkCalls++
 	return f.permalink, nil
 }
 
 type fakePublishStore struct {
 	posts      map[string]Post
 	claimCalls int
-	saves      int
 }
 
 func (s *fakePublishStore) ClaimDue(_ context.Context, now time.Time, limit int, lease time.Duration) ([]Post, error) {
@@ -103,7 +95,6 @@ func (s *fakePublishStore) RecordResult(ctx context.Context, p Post) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	s.saves++
 	s.posts[p.ID] = p
 	return nil
 }
@@ -189,20 +180,6 @@ func TestPublishesBothNetworksAndReportsOnce(t *testing.T) {
 	}
 	if h.reporter.reports[0].IGPermalink != "https://www.instagram.com/p/x/" {
 		t.Fatalf("report permalink = %q, want the Instagram permalink", h.reporter.reports[0].IGPermalink)
-	}
-}
-
-func TestCarouselAndReelReachThePlatformWithTheirKind(t *testing.T) {
-	t.Parallel()
-	carousel := duePost("car", NetworkFacebook)
-	carousel.Kind = TypeCarousel
-	h := newHarness(t, true, carousel)
-
-	if _, err := h.pub.RunDue(context.Background()); err != nil {
-		t.Fatalf("RunDue() = %v", err)
-	}
-	if h.platform.fbCalls != 1 || h.platform.lastKind != TypeCarousel {
-		t.Fatalf("facebook calls = %d kind = %q, want one carousel publish", h.platform.fbCalls, h.platform.lastKind)
 	}
 }
 

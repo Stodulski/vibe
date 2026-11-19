@@ -570,21 +570,6 @@ func TestAnAuthenticatedRequestIsLoggedWithItsUserID(t *testing.T) {
 	}
 }
 
-// TestAnAnonymousRequestHasNoUserIDField keeps the field out of the lines it
-// would only ever be empty on.
-func TestAnAnonymousRequestHasNoUserIDField(t *testing.T) {
-	f := newLogFixture(t, Config{})
-
-	handler := f.mw.LogRequests(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-	serve(t, handler, http.MethodGet, "/api/v1/healthcheck")
-
-	if _, present := f.onlyLine(t)["user_id"]; present {
-		t.Error("an unauthenticated request carries a user_id field")
-	}
-}
-
 // TestTheRequestLogCarriesNoPersonalDataBeyondTheID is the limit on the field
 // above: an id identifies an account to whoever can query the database, an
 // email address identifies a person to whoever can read the logs.

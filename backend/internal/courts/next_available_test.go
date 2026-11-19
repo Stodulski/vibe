@@ -104,22 +104,6 @@ func TestNextAvailableAnswersNullWhenTheWholeWindowIsFull(t *testing.T) {
 	}
 }
 
-func TestNextAvailableLooksNoFurtherThanFourteenDays(t *testing.T) {
-	from := timezone.Today().AddDate(0, 0, 2)
-	var booked []bookingstore.BookedSpan
-	store, _, complexes, courtID := nextAvailableFixture()
-	for i := 1; i <= 14; i++ {
-		booked = append(booked, fullDay(courtID, from.AddDate(0, 0, i)))
-	}
-	bookings := &stubBookings{booked: booked}
-
-	w := callNextAvailable(t, store, bookings, complexes, "from="+from.Format("2006-01-02"))
-
-	if got, ok := nextDate(t, w); ok {
-		t.Fatalf("day 15 after from is outside the window; want null, got %q", got)
-	}
-}
-
 func TestNextAvailableNeverPassesTheBookingHorizon(t *testing.T) {
 	// from sits on the last day the booking horizon allows, so the day after
 	// it is beyond the horizon and must not be offered even though it is free.

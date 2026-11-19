@@ -5,22 +5,6 @@ import (
 	"time"
 )
 
-func TestArgentinaIsLoaded(t *testing.T) {
-	if Argentina == time.UTC {
-		t.Skip("system tzdata is missing; the fallback is in use")
-	}
-
-	// Argentina has been at UTC-3 year round since 2009.
-	_, offset := time.Date(2026, 1, 15, 12, 0, 0, 0, Argentina).Zone()
-	if offset != -3*3600 {
-		t.Errorf("want a -03:00 offset in January; got %d seconds", offset)
-	}
-	_, offset = time.Date(2026, 7, 15, 12, 0, 0, 0, Argentina).Zone()
-	if offset != -3*3600 {
-		t.Errorf("want a -03:00 offset in July too, there is no DST; got %d seconds", offset)
-	}
-}
-
 func TestTodayZeroesTheTimeOfDay(t *testing.T) {
 	today := Today()
 

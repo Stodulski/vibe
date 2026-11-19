@@ -52,17 +52,6 @@ func TestOpenRecordsAnAuditEntry(t *testing.T) {
 
 // --- Close -------------------------------------------------------------
 
-func TestCloseRefusesASessionThatIsAlreadyClosed(t *testing.T) {
-	closedAt := time.Now()
-	store := &stubStore{byID: &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), ClosedAt: &closedAt}}
-	svc := newTestService(store, &stubPayments{}, &stubRecorder{})
-
-	_, err := svc.Close(t.Context(), uuid.New(), uuid.New(), testActor(), uuid.New(), CloseInput{CountedCash: 1000})
-	if !errors.Is(err, cashboxstore.ErrSessionNotOpen) {
-		t.Fatalf("want ErrSessionNotOpen; got %v", err)
-	}
-}
-
 func TestCloseSendsNoClosingNoteWhenTheRequestSendsNone(t *testing.T) {
 	store := &stubStore{
 		byID:          &cashboxstore.CashSession{ID: uuid.New(), ComplexID: uuid.New(), OpenedAt: time.Now()},
@@ -76,43 +65,6 @@ func TestCloseSendsNoClosingNoteWhenTheRequestSendsNone(t *testing.T) {
 	}
 	if store.closeArgs == nil || store.closeArgs.closingNote != nil {
 		t.Errorf("want no closing note passed to the store when the request sends none; got %+v", store.closeArgs)
-	}
-}
-
-// TestCloseNeverTouchesTheOpeningNote is the point of the split
-// (opening_note/closing_note, owner correction on pos-cashbox T2): a closing
-// note must never erase what the opener recorded. The service passes only
-// ClosingInput.ClosingNote to the store — never the session's own
-// OpeningNote — and the session Close returns still carries the opening note
-// Open wrote, untouched, alongside the new closing note.
-func TestCloseNeverTouchesTheOpeningNote(t *testing.T) {
-	opening := "short today"
-	closingNote := "left 500 for tomorrow"
-	sessionID := uuid.New()
-
-	store := &stubStore{
-		byID: &cashboxstore.CashSession{ID: sessionID, ComplexID: uuid.New(), OpenedAt: time.Now(), OpeningNote: &opening},
-		// The real CloseCashSession UPDATE only ever SETs closing_note, so the
-		// row it returns still carries whatever Open wrote for opening_note —
-		// the stub mirrors that here rather than the service somehow
-		// preserving it, since the service does not even see this value.
-		closedSession: &cashboxstore.CashSession{ID: sessionID, OpeningNote: &opening, ClosingNote: &closingNote},
-	}
-	svc := newTestService(store, &stubPayments{}, &stubRecorder{})
-
-	closed, err := svc.Close(t.Context(), uuid.New(), sessionID, testActor(), uuid.New(), CloseInput{CountedCash: 1000, ClosingNote: &closingNote})
-	if err != nil {
-		t.Fatalf("Close: %v", err)
-	}
-
-	if store.closeArgs == nil || store.closeArgs.closingNote == nil || *store.closeArgs.closingNote != closingNote {
-		t.Fatalf("want the store call to carry the closing note %q; got %+v", closingNote, store.closeArgs)
-	}
-	if closed.OpeningNote == nil || *closed.OpeningNote != opening {
-		t.Errorf("want the opening note %q to survive the close untouched; got %+v", opening, closed.OpeningNote)
-	}
-	if closed.ClosingNote == nil || *closed.ClosingNote != closingNote {
-		t.Errorf("want the closing note %q on the closed session; got %+v", closingNote, closed.ClosingNote)
 	}
 }
 

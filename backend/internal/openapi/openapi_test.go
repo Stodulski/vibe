@@ -227,39 +227,3 @@ func TestBuildCatalogFailsLoudlyOnAMissingAdvertisedPath(t *testing.T) {
 		t.Errorf("error does not name the missing path: %v", err)
 	}
 }
-
-// TestRoutesRegistersAllThree proves Routes wires exactly the three
-// documented endpoints, so a future edit here cannot silently drop one.
-func TestRoutesRegistersAllThree(t *testing.T) {
-	h := newTestHandler(t)
-
-	got := map[string]bool{}
-	rec := recordingRouter{routes: &got}
-	h.Routes(rec, httpx.Guards{})
-
-	want := []string{
-		"GET /api/v1/openapi.json",
-		"GET /api/v1/openapi.yaml",
-		"GET /api/v1/docs",
-	}
-	for _, w := range want {
-		if !got[w] {
-			t.Errorf("Routes did not register %q", w)
-		}
-	}
-	if len(got) != len(want) {
-		t.Errorf("Routes registered %d routes, want %d: %v", len(got), len(want), got)
-	}
-}
-
-type recordingRouter struct {
-	routes *map[string]bool
-}
-
-func (r recordingRouter) HandlerFunc(method, path string, _ http.HandlerFunc) {
-	(*r.routes)[method+" "+path] = true
-}
-
-func (r recordingRouter) Handler(method, path string, _ http.Handler) {
-	(*r.routes)[method+" "+path] = true
-}

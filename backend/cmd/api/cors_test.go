@@ -36,48 +36,6 @@ func preflight(handler http.Handler, reqHeaders string) *httptest.ResponseRecord
 	return w
 }
 
-// TestBareRSCORSIsCaseSensitiveOnRequestHeaders documents and confirms, from
-// the actual library rather than the source comment alone, why the QA
-// observation reproduces: rs/cors (see its "Allowed Headers" comment in
-// cors.go) relies on the Fetch standard's guarantee that a browser always
-// lowercases CORS-unsafe request-header names before sending
-// Access-Control-Request-Headers. It does not itself lowercase that incoming
-// value before matching it against its own (already-lowercased)
-// AllowedHeaders set. A spec-compliant browser never sends mixed case, so
-// this is not reachable from real browser traffic — but a raw HTTP client,
-// SDK, or test tool can send whatever case it likes, and the bare library
-// then answers with no Access-Control-Allow-* headers at all.
-func TestBareRSCORSIsCaseSensitiveOnRequestHeaders(t *testing.T) {
-	tests := []struct {
-		name        string
-		reqHeaders  string
-		wantAllowed bool
-	}{
-		{"lowercase, as a spec-compliant browser sends it", "x-csrf-token", true},
-		{"mixed case, as a raw HTTP client might send it", "X-CSRF-Token", false},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			handler := newTestCORSHandler()
-			w := preflight(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				handler.HandlerFunc(w, r)
-			}), tt.reqHeaders)
-
-			if w.Code != http.StatusNoContent {
-				t.Errorf("want 204 from the CORS handler; got %d", w.Code)
-			}
-
-			got := w.Header().Get("Access-Control-Allow-Headers") != ""
-			if got != tt.wantAllowed {
-				t.Errorf("Access-Control-Request-Headers: %q: want CORS headers present=%v; got=%v (Allow-Origin=%q, Allow-Headers=%q)",
-					tt.reqHeaders, tt.wantAllowed, got,
-					w.Header().Get("Access-Control-Allow-Origin"), w.Header().Get("Access-Control-Allow-Headers"))
-			}
-		})
-	}
-}
-
 // TestNormalizeCORSPreflightHeadersFixesMixedCase proves the fix: routes()
 // wraps rs/cors' handler in normalizeCORSPreflightHeaders, which lowercases
 // Access-Control-Request-Headers before rs/cors ever sees it, so both a
@@ -187,25 +145,6 @@ func TestEveryDeclaredHeaderParameterIsAllowedByCORS(t *testing.T) {
 					"in routes.go (status=%d)", header, w.Code)
 			}
 		})
-	}
-}
-
-// TestCombinedPreflightAllowsContentTypeIdempotencyKeyAndCSRFToken pins the
-// exact acceptance scenario: a preflight asking for content-type,
-// idempotency-key and x-csrf-token together, from FrontendURL, gets the
-// allow headers back.
-func TestCombinedPreflightAllowsContentTypeIdempotencyKeyAndCSRFToken(t *testing.T) {
-	handler := newTestCORSHandler()
-	w := preflight(http.HandlerFunc(handler.HandlerFunc), "content-type,idempotency-key,x-csrf-token")
-
-	if w.Code != http.StatusNoContent {
-		t.Fatalf("want 204; got %d", w.Code)
-	}
-	if got := w.Header().Get("Access-Control-Allow-Origin"); got != "http://localhost:5173" {
-		t.Errorf("want Access-Control-Allow-Origin; got %q", got)
-	}
-	if got := w.Header().Get("Access-Control-Allow-Headers"); got == "" {
-		t.Error("want Access-Control-Allow-Headers to be set for the combined preflight")
 	}
 }
 

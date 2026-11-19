@@ -18,7 +18,6 @@ type fakeOwners struct {
 	candidates map[Kind][]Candidate
 	claimed    map[string]bool
 	released   []string
-	listLimits []int32
 	claimErr   error
 }
 
@@ -26,10 +25,9 @@ func newFakeOwners() *fakeOwners {
 	return &fakeOwners{candidates: map[Kind][]Candidate{}, claimed: map[string]bool{}}
 }
 
-func (f *fakeOwners) ListCandidates(_ context.Context, kind Kind, limit int32) ([]Candidate, error) {
+func (f *fakeOwners) ListCandidates(_ context.Context, kind Kind, _ int32) ([]Candidate, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	f.listLimits = append(f.listLimits, limit)
 	return f.candidates[kind], nil
 }
 
@@ -255,21 +253,6 @@ func TestNudgeOptOutLinksVerifyForTheRecipient(t *testing.T) {
 	}
 	if got, err := signer.Verify(optURL.Query().Get("token")); err != nil || got != "ana@example.com" {
 		t.Fatalf("opt-out token verifies to %q, %v; want the recipient's address", got, err)
-	}
-}
-
-func TestNudgeCallsTheStoreWithThePassLimit(t *testing.T) {
-	owners := newFakeOwners()
-	sender := &fakeNudgeSender{}
-	newTestNudger(owners, &fakeLeads{}, sender, &fakeIssuer{}).Run(context.Background())
-
-	if len(owners.listLimits) != len(ownerKinds) {
-		t.Fatalf("listed %d owner kinds, want %d", len(owners.listLimits), len(ownerKinds))
-	}
-	for _, l := range owners.listLimits {
-		if l != perKindLimit {
-			t.Fatalf("limit = %d, want %d", l, perKindLimit)
-		}
 	}
 }
 

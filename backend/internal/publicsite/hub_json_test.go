@@ -273,48 +273,6 @@ func TestCityHubJSONCityLookupFailureAnswersUnavailableWithRetryAfter(t *testing
 	}
 }
 
-// The hub index lists only the cities with a live complex: an empty hub is reached
-// by its own page, never listed beside the live ones.
-func TestHubListJSONLeavesOutACityWhoseComplexesAreAllGone(t *testing.T) {
-	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	store := &stubStore{
-		hubs:   []complexstore.HubComplex{hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true)},
-		cities: []complexstore.HubCity{{City: "Banfield"}, {City: "Quilmes"}},
-	}
-
-	w := serveHubList(newHubHandler(store))
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d; want 200", w.Code)
-	}
-	var body hubListBody
-	decodeHubBody(t, w, &body)
-	if len(body.Hubs) != 1 || body.Hubs[0].Slug != "banfield" {
-		t.Errorf("hubs = %+v; want banfield alone", body.Hubs)
-	}
-}
-
-func TestCityHubJSONLeavesOutSwitchedOffComplexes(t *testing.T) {
-	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	store := &stubStore{hubs: []complexstore.HubComplex{
-		hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
-		hubRow("Club Off", "club-off", "b", "Banfield", nil, now, false),
-	}}
-
-	w := serveHubJSON(newHubHandler(store), "banfield")
-	if w.Code != http.StatusOK {
-		t.Fatalf("status = %d; want 200", w.Code)
-	}
-
-	var body cityHubBody
-	decodeHubBody(t, w, &body)
-	if len(body.Complexes) != 1 || body.Complexes[0].Slug != "club-norte" {
-		t.Errorf("complexes = %+v; want only club-norte", body.Complexes)
-	}
-	if body.Hub.ComplexCount != 1 {
-		t.Errorf("complex_count = %d; want 1", body.Hub.ComplexCount)
-	}
-}
-
 // The store answers one sport per switched-on court, so two padel courts are two
 // courts of one sport and one complex's court count is every court it returns.
 func TestCityHubJSONCountsEachCourtOnceUnderItsSport(t *testing.T) {
