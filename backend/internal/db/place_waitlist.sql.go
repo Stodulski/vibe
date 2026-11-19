@@ -23,7 +23,7 @@ WHERE ct.id = w.court_id
   AND w.date = $2::date
   AND w.duration_minutes = $3::int
   AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY($4::text[])
-RETURNING w.id, w.email, w.court_id, ct.name AS court_name, w.date, w.start_time,
+RETURNING w.id, w.email, w.court_id, ct.name AS court_name, ct.sport::text AS court_sport, w.date, w.start_time,
           cx.name AS complex_name, cx.slug AS complex_slug
 `
 
@@ -39,6 +39,7 @@ type ClaimFreeSlotEntriesRow struct {
 	Email       string      `json:"email"`
 	CourtID     pgtype.UUID `json:"court_id"`
 	CourtName   string      `json:"court_name"`
+	CourtSport  string      `json:"court_sport"`
 	Date        pgtype.Date `json:"date"`
 	StartTime   pgtype.Time `json:"start_time"`
 	ComplexName string      `json:"complex_name"`
@@ -67,6 +68,7 @@ func (q *Queries) ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEnt
 			&i.Email,
 			&i.CourtID,
 			&i.CourtName,
+			&i.CourtSport,
 			&i.Date,
 			&i.StartTime,
 			&i.ComplexName,

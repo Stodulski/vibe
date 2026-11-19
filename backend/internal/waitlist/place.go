@@ -289,7 +289,8 @@ func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
 				EntryID: e.ID.String(), Email: e.Email, ComplexName: e.ComplexName,
 				PlaceLabel: fmt.Sprintf("%s el %s %s a las %s", courtLabel(e.CourtName),
 					notifications.SpanishWeekday(day.Weekday()), day.Format("02/01"), e.StartTime),
-				BookURL: booklink.StorefrontOnDate(s.publicURL, e.ComplexSlug, day),
+				BookURL: booklink.StorefrontSlot(s.publicURL, e.ComplexSlug, day, e.CourtSport,
+					g.DurationMinutes, e.StartTime),
 			})
 		}
 	}

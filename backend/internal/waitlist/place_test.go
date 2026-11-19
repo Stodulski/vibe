@@ -351,7 +351,7 @@ func TestSweepEmailsEveryClaimedEventEntry(t *testing.T) {
 
 func slotEntry(courtID uuid.UUID, day time.Time, start string, duration int) *fakeSlot {
 	return &fakeSlot{FreedSlotEntry: store.FreedSlotEntry{ID: uuid.New(), Email: "ana@example.com", CourtID: courtID,
-		CourtName: "1", Day: day, StartTime: start, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}, duration: duration}
+		CourtName: "1", CourtSport: "padel", Day: day, StartTime: start, ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}, duration: duration}
 }
 
 // S4: a slot entry is claimed and emailed only when the courts grid says its
@@ -376,7 +376,7 @@ func TestSweepEmailsOnlyTheSlotsTheGridSaysAreFree(t *testing.T) {
 	}
 	got := n.sent[0]
 	if got.EntryID != free.ID.String() || got.PlaceLabel != "Cancha 1 el miércoles 18/11 a las 19:00" ||
-		got.BookURL != "https://vibe.test/c/vibe-padel?date=2026-11-18" {
+		got.BookURL != "https://vibe.test/c/vibe-padel?date=2026-11-18&duration=90&sport=padel&time=19%3A00" {
 		t.Errorf("slot email = %+v", got)
 	}
 }
@@ -476,5 +476,62 @@ func TestCourtLabelDoesNotDoubleTheWord(t *testing.T) {
 	}
 	if got := courtLabel("Central"); got != "Cancha Central" {
 		t.Errorf("courtLabel(Central) = %q", got)
+	}
+}
+
+// When a taken slot frees, everyone waiting for it is emailed in the same run,
+// each under their own entry, and each link opens that exact day, sport,
+// duration and hour. Nobody waits for a later run, and nobody gets it twice.
+func TestSweepEmailsEveryoneWaitingForAFreedSlotAtOnceWithTheReadyLink(t *testing.T) {
+	courtID := uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	waiting := make([]*fakeSlot, 5)
+	for i := range waiting {
+		waiting[i] = slotEntry(courtID, wednesday, "19:00", 90)
+		waiting[i].Email = fmt.Sprintf("persona%d@example.com", i+1)
+	}
+	st := &fakePlaceStore{waitingSlots: waiting}
+	n := &fakePlaceNotifier{}
+	svc := newPlaceService(st, activeComplex(uuid.New()), &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}, n)
+	svc.Sweep(t.Context())
+
+	if len(n.sent) != 5 {
+		t.Fatalf("want the five people emailed in one run; got %d", len(n.sent))
+	}
+	const link = "https://vibe.test/c/vibe-padel?date=2026-11-18&duration=90&sport=padel&time=19%3A00"
+	for i, got := range n.sent {
+		if got.Email != waiting[i].Email || got.EntryID != waiting[i].ID.String() || got.BookURL != link {
+			t.Errorf("email %d = %+v; want %s, its own entry, and the ready link", i, got, waiting[i].Email)
+		}
+	}
+
+	svc.Sweep(t.Context())
+	if len(n.sent) != 5 {
+		t.Errorf("a second run must email nobody again; got %d emails in total", len(n.sent))
+	}
+}
+
+// When a full event or tournament category frees a spot, everyone waiting for
+// it is emailed in the same run, each with the link to that event's page.
+func TestSweepEmailsEveryoneWaitingForAFreedEventAtOnceWithItsPage(t *testing.T) {
+	eventID := uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	freed := make([]store.FreedEventEntry, 5)
+	for i := range freed {
+		freed[i] = store.FreedEventEntry{ID: uuid.New(), Email: fmt.Sprintf("persona%d@example.com", i+1),
+			EventID: eventID, EventName: "Cancha abierta de pádel", EventDay: wednesday, EventStart: "20:00",
+			ComplexName: "Vibe Padel", ComplexSlug: "vibe-padel"}
+	}
+	n := &fakePlaceNotifier{}
+	newPlaceService(&fakePlaceStore{freedEvents: freed}, activeComplex(uuid.New()), &fakeGrid{}, n).Sweep(t.Context())
+
+	if len(n.sent) != 5 {
+		t.Fatalf("want the five people emailed in one run; got %d", len(n.sent))
+	}
+	for i, got := range n.sent {
+		if got.Email != freed[i].Email || got.EntryID != freed[i].ID.String() ||
+			got.BookURL != "https://vibe.test/c/vibe-padel/events/"+eventID.String() {
+			t.Errorf("email %d = %+v", i, got)
+		}
 	}
 }

@@ -191,3 +191,14 @@ func TestEveryComplexLinkCarriesTheCPrefix(t *testing.T) {
 		})
 	}
 }
+
+// The waitlist email for a court slot opens the storefront already on that day,
+// sport, duration and hour, so the person lands on the courts free at that time.
+func TestStorefrontSlotOpensTheExactHour(t *testing.T) {
+	day := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	got := StorefrontSlot("https://vibe.test", "vibe-padel", day, "padel", 90, "19:30")
+	want := "https://vibe.test/c/vibe-padel?date=2026-11-20&duration=90&sport=padel&time=19%3A30"
+	if got != want {
+		t.Errorf("StorefrontSlot = %q; want %q", got, want)
+	}
+}

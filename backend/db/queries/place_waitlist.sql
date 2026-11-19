@@ -134,7 +134,7 @@ WHERE ct.id = w.court_id
   AND w.date = sqlc.arg(date)::date
   AND w.duration_minutes = sqlc.arg(duration_minutes)::int
   AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY(sqlc.arg(positions)::text[])
-RETURNING w.id, w.email, w.court_id, ct.name AS court_name, w.date, w.start_time,
+RETURNING w.id, w.email, w.court_id, ct.name AS court_name, ct.sport::text AS court_sport, w.date, w.start_time,
           cx.name AS complex_name, cx.slug AS complex_slug;
 
 -- name: DeletePastPlaceWaitlistEntries :execrows

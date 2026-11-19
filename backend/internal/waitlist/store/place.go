@@ -58,10 +58,13 @@ type SlotGrid struct {
 // FreedSlotEntry is a slot entry claimed because its slot is on sale again,
 // with what its email says.
 type FreedSlotEntry struct {
-	ID          uuid.UUID
-	Email       string
-	CourtID     uuid.UUID
-	CourtName   string
+	ID        uuid.UUID
+	Email     string
+	CourtID   uuid.UUID
+	CourtName string
+	// CourtSport is the court's sport, which the email's link opens the
+	// storefront on.
+	CourtSport  string
 	Day         time.Time
 	StartTime   string // "HH:MM"
 	ComplexName string
@@ -245,7 +248,7 @@ func (s *PlaceStore) ClaimFreeSlots(ctx context.Context, grid SlotGrid, position
 	out := make([]FreedSlotEntry, 0, len(rows))
 	for _, r := range rows {
 		out = append(out, FreedSlotEntry{
-			ID: data.PgToUUID(r.ID), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName,
+			ID: data.PgToUUID(r.ID), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName, CourtSport: r.CourtSport,
 			Day: data.PgToDate(r.Date), StartTime: data.PgToTimeStr(r.StartTime),
 			ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
 		})

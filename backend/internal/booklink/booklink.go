@@ -13,6 +13,7 @@ package booklink
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -108,6 +109,19 @@ func MapsQuery(name, address, city string, latitude, longitude *float64) string 
 // cancellation and refund emails' "Nueva reserva" button.
 func Book(publicURL, complexSlug string) string {
 	return fmt.Sprintf("%s/c/%s/book", publicURL, complexSlug)
+}
+
+// StorefrontSlot is the complex's public page opened on one slot: the day, the
+// sport, the duration and the hour, the four things the storefront reads from
+// its query (useComplexPageState). It lands on the courts free at that hour, so
+// a waitlist email takes the person straight to the place that freed.
+func StorefrontSlot(publicURL, complexSlug string, day time.Time, sport string, durationMinutes int, startTime string) string {
+	q := url.Values{}
+	q.Set("date", day.Format("2006-01-02"))
+	q.Set("sport", sport)
+	q.Set("duration", strconv.Itoa(durationMinutes))
+	q.Set("time", startTime)
+	return fmt.Sprintf("%s/c/%s?%s", publicURL, complexSlug, q.Encode())
 }
 
 // StorefrontOnDate is the complex's public page opened on one day. The

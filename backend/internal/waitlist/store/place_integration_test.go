@@ -371,3 +371,118 @@ func TestDeletePastDropsOnlyPlacesThatHaveGone(t *testing.T) {
 		t.Errorf("want the future slot and the future event kept; got %d", got)
 	}
 }
+
+// fiveWaiting is the five addresses the "everyone at once" tests put on a place.
+var fiveWaiting = []string{"ana@example.com", "bruno@example.com", "carla@example.com", "dario@example.com", "eva@example.com"}
+
+// claimedEmails is the set of addresses a claim returned.
+func claimedEmails[T any](rows []T, email func(T) string) map[string]bool {
+	out := map[string]bool{}
+	for _, r := range rows {
+		out[email(r)] = true
+	}
+	return out
+}
+
+// Five people wait for one taken court slot. When it frees, a single claim
+// returns all five, with the court's sport the email link opens, and none of
+// them is claimed again.
+func TestFiveWaitingForASlotAreAllClaimedInOneSweep(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	day := timezone.Today().AddDate(0, 0, 2)
+	for _, email := range fiveWaiting {
+		if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: email,
+			CourtID: f.CourtID, Day: day, StartTime: "19:00", DurationMinutes: 90}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grids, err := st.ListWaitingGrids(sweepCtx(), timezone.Today().AddDate(0, 0, -1), nil, 100)
+	if err != nil || len(grids) != 1 {
+		t.Fatalf("want one grid; got %+v (%v)", grids, err)
+	}
+
+	claimed, err := st.ClaimFreeSlots(sweepCtx(), grids[0], []string{f.CourtID.String() + " 19:00"})
+	if err != nil || len(claimed) != 5 {
+		t.Fatalf("want the five entries claimed in one sweep; got %d (%v)", len(claimed), err)
+	}
+	got := claimedEmails(claimed, func(e store.FreedSlotEntry) string { return e.Email })
+	for _, email := range fiveWaiting {
+		if !got[email] {
+			t.Errorf("%s was not claimed", email)
+		}
+	}
+	for _, e := range claimed {
+		if e.CourtSport != "padel" || e.StartTime != "19:00" || e.ComplexSlug == "" {
+			t.Errorf("claimed entry = %+v; want the court's sport, the hour and the slug for the link", e)
+		}
+	}
+	if again, err := st.ClaimFreeSlots(sweepCtx(), grids[0], []string{f.CourtID.String() + " 19:00"}); err != nil || len(again) != 0 {
+		t.Fatalf("nobody is claimed twice; got %d (%v)", len(again), err)
+	}
+}
+
+// Five people wait for a full open-play event. When one registration is
+// cancelled, a single claim returns all five, not only as many as spots freed.
+func TestFiveWaitingForAFullEventAreAllClaimedWhenOneSpotFrees(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	eventID := newEvent(t, f, timezone.Today().AddDate(0, 0, 5), "20:00", 1)
+	paid := register(t, f, eventID, "confirmed", time.Hour)
+	for _, email := range fiveWaiting {
+		if err := st.InsertEvent(ctx, f.ComplexID, eventID, email); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if got, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100); err != nil || len(got) != 0 {
+		t.Fatalf("a full event frees nothing; got %d (%v)", len(got), err)
+	}
+
+	exec(t, f, `UPDATE open_play_registrations SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, paid)
+	claimed, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100)
+	if err != nil || len(claimed) != 5 {
+		t.Fatalf("want the five entries claimed in one sweep; got %d (%v)", len(claimed), err)
+	}
+	got := claimedEmails(claimed, func(e store.FreedEventEntry) string { return e.Email })
+	for _, email := range fiveWaiting {
+		if !got[email] {
+			t.Errorf("%s was not claimed", email)
+		}
+	}
+	for _, e := range claimed {
+		if e.EventID != eventID || e.ComplexSlug == "" {
+			t.Errorf("claimed entry = %+v; want the event and the slug for the link", e)
+		}
+	}
+	if again, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100); err != nil || len(again) != 0 {
+		t.Fatalf("nobody is claimed twice; got %d (%v)", len(again), err)
+	}
+}
+
+// Five people wait for a full tournament category. When a pair drops out, a
+// single claim returns all five, each with the tournament the link opens.
+func TestFiveWaitingForAFullCategoryAreAllClaimedWhenAPairDropsOut(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	_, eventID, tournamentID := newCategory(t, f, timezone.Today().AddDate(0, 0, 5), 1)
+	pair := register(t, f, eventID, "confirmed", time.Hour)
+	for _, email := range fiveWaiting {
+		if err := st.InsertEvent(ctx, f.ComplexID, eventID, email); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	exec(t, f, `UPDATE open_play_registrations SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, pair)
+	claimed, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100)
+	if err != nil || len(claimed) != 5 {
+		t.Fatalf("want the five entries claimed in one sweep; got %d (%v)", len(claimed), err)
+	}
+	for _, e := range claimed {
+		if e.TournamentID == nil || *e.TournamentID != tournamentID {
+			t.Errorf("claimed entry = %+v; want the tournament for the link", e)
+		}
+	}
+}
