@@ -14,10 +14,10 @@ const TILE = '#ffffff';
 const CENTERED: CSSProperties = { flexDirection: 'column', alignItems: 'center' };
 
 /** Lifts the words off the photo. */
-const SHADOW = '0 4px 24px rgba(0,0,0,0.6)';
+export const SHADOW = '0 4px 24px rgba(0,0,0,0.6)';
 
 /** The glass the steps sit on: light enough to read the photo through, dark enough for the words. */
-const GLASS: CSSProperties = {
+export const GLASS: CSSProperties = {
   backgroundColor: 'rgba(11,11,11,0.55)',
   border: '2px solid rgba(255,255,255,0.12)',
   borderRadius: 32,
@@ -121,8 +121,8 @@ const LOGO_WIDTH = 220;
 /** logo.svg's viewBox is 975.07 x 683.53. */
 const LOGO_HEIGHT = Math.round((LOGO_WIDTH * 683.53) / 975.07);
 
-/** The Vibe logo, the same mark the landing shows. */
-function brandMark(logo: string): ReactElement {
+/** The Vibe logo, the same mark the landing shows. Also drawn by the stories. */
+export function brandMark(logo: string): ReactElement {
   return createElement('img', {
     src: logo,
     width: LOGO_WIDTH,
@@ -147,8 +147,8 @@ function comoReservarBlocks(text: KitText, qrSrc: string, layout: KitLayout, art
   ];
 }
 
-/** The photo filling the picture, cropped from its center, under the black and green tint. */
-function backdrop(photo: string, layout: KitLayout): ReactNode[] {
+/** The photo filling the picture, cropped from its center, under the black and green tint. Also under the stories. */
+export function backdrop(photo: string, layout: KitLayout): ReactNode[] {
   const fill: CSSProperties = { position: 'absolute', top: 0, left: 0, width: layout.width, height: layout.height };
   return [
     createElement('img', {

@@ -240,6 +240,9 @@ importers:
       astro:
         specifier: ^7.3.2
         version: 7.3.2(@emnapi/core@1.11.1)(@emnapi/runtime@1.11.3)(@types/node@26.5.1)(@vercel/functions@3.9.7(ws@8.21.3))(jiti@2.7.0)(terser@5.46.0)(tsx@4.23.15)(yaml@2.9.1)
+      jpeg-js:
+        specifier: 0.4.4
+        version: 0.4.4
       qrcode-generator:
         specifier: 2.0.4
         version: 2.0.4
