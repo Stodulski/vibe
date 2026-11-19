@@ -3,7 +3,8 @@ import { useSearchParams } from 'react-router-dom';
 import { noop, useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/lib/queryKeys';
 import { complexApi } from '@/features/complex';
-import { TABS, type TabValue } from './tabs';
+import { useInstagramStatus } from '../../hooks/useInstagram';
+import { INSTAGRAM_TAB, TABS, type TabValue } from './tabs';
 import type { Complex } from '@/shared/types/api.types';
 
 /**
@@ -19,8 +20,15 @@ const MERGED_INTO: Record<string, TabValue> = {
   mercadopago: 'billing',
 };
 
-function resolveTab(param: string | null): TabValue {
+/**
+ * `instagramEnabled` is undefined while the status loads: `?tab=instagram` (the
+ * OAuth callback's landing) then stays put and the tab shows its skeleton,
+ * instead of flashing General first. Only an answer of `enabled: false` sends
+ * it to General.
+ */
+function resolveTab(param: string | null, instagramEnabled: boolean | undefined): TabValue {
   if (!param) return 'general';
+  if (param === INSTAGRAM_TAB.value) return instagramEnabled === false ? 'general' : INSTAGRAM_TAB.value;
   if (TABS.some((tab) => tab.value === param)) return param as TabValue;
   return MERGED_INTO[param] ?? 'general';
 }
@@ -32,7 +40,9 @@ function resolveTab(param: string | null): TabValue {
 // whatever it was when the component first mounted.
 export function useSettingsTabs(complex: Complex | null | undefined) {
   const [searchParams, setSearchParams] = useSearchParams();
-  const activeTab = resolveTab(searchParams.get('tab'));
+  const { data: instagram } = useInstagramStatus(complex?.id);
+  const activeTab = resolveTab(searchParams.get('tab'), instagram?.enabled);
+  const tabs = instagram?.enabled ? [...TABS, INSTAGRAM_TAB] : TABS;
 
   // Prefetch schedules so the tab loads instantly
   const queryClient = useQueryClient();
@@ -52,5 +62,5 @@ export function useSettingsTabs(complex: Complex | null | undefined) {
     setSearchParams(tab === 'general' ? {} : { tab }, { replace: true });
   };
 
-  return { activeTab, handleTabChange };
+  return { tabs, activeTab, handleTabChange };
 }

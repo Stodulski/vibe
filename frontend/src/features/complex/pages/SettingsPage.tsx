@@ -12,9 +12,9 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { SectionNav } from '@/shared/components/common/section-nav/SectionNav';
 import { SectionTabs } from '@/shared/components/common/section-nav/SectionTabs';
 import { SECTION_LAYOUT_CLASS, SECTION_PANEL_CLASS } from '@/shared/components/common/section-nav/sectionNavLayout';
-import { TABS } from './settings/tabs';
 import { SettingsTabContent } from './settings/SettingsTabContent';
 import { useSettingsTabs } from './settings/useSettingsTabs';
+import { useInstagramCallback } from './settings/useInstagramCallback';
 
 const t = ES_AR;
 
@@ -22,7 +22,8 @@ export default function SettingsPage() {
   usePageTitle(t.complex.settings);
   const { complex } = useSelectedComplex();
   const { isError, refetch } = useComplexes();
-  const { activeTab, handleTabChange } = useSettingsTabs(complex);
+  const { tabs, activeTab, handleTabChange } = useSettingsTabs(complex);
+  useInstagramCallback(complex?.id);
 
   if (isError) {
     return (
@@ -49,8 +50,8 @@ export default function SettingsPage() {
       <PageHeader title={t.complex.settings} />
 
       <div className={SECTION_LAYOUT_CLASS}>
-        <SectionNav items={TABS} active={activeTab} onChange={handleTabChange} />
-        <SectionTabs items={TABS} active={activeTab} onChange={handleTabChange} />
+        <SectionNav items={tabs} active={activeTab} onChange={handleTabChange} />
+        <SectionTabs items={tabs} active={activeTab} onChange={handleTabChange} />
 
         {/* 39rem = the 36rem content column plus the panel's own 1.5rem of
             padding on each side. Sized to the content exactly, so the gap is

@@ -10,4 +10,10 @@ export const SECTION_NAV_CLASS = 'hidden w-52 shrink-0 lg:block';
 export const SECTION_NAV_ITEM_CLASS = 'flex h-12 w-full items-center gap-3 rounded-xl px-3';
 /** Full-bleed to the page edge: matches `main`'s `px-3 sm:px-6`. */
 export const SECTION_TABS_CLASS = '-mx-3 px-3 sm:-mx-6 sm:px-6 lg:hidden';
-export const SECTION_TAB_CLASS = 'flex h-12 flex-1 items-center justify-center border-b-2 px-2';
+/**
+ * One tab of the strip. Below `sm` the icon sits above the label so four tabs
+ * fit a 320px phone whole; `min-w-0` lets a tab shrink below its label's width
+ * instead of pushing the page sideways.
+ */
+export const SECTION_TAB_CLASS =
+  'flex h-12 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 border-b-2 px-1 sm:flex-row sm:gap-2 sm:px-2';

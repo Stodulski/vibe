@@ -5,6 +5,7 @@
 export { ComplexForm } from './components/ComplexForm';
 export { IdentityGroup, LocationGroup, AmenitiesGroup } from './components/complex-form/ComplexFormFields';
 export { MPConnectCard } from './components/MPConnectCard';
+export { InstagramConnectCard } from './components/InstagramConnectCard';
 export { ScheduleConfig } from './components/ScheduleConfig';
 export { ImageUpload } from './components/ImageUpload';
 

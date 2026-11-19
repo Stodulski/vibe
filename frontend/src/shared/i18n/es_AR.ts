@@ -7,6 +7,7 @@ import { complex } from './es_AR/complex';
 import { dashboard } from './es_AR/dashboard';
 import { serviceFee } from './es_AR/serviceFee';
 import { mp } from './es_AR/mp';
+import { instagram } from './es_AR/instagram';
 import { publicBooking } from './es_AR/publicBooking';
 import { placeholders } from './es_AR/placeholders';
 import { validation } from './es_AR/validation';
@@ -29,6 +30,7 @@ export const ES_AR = {
   dashboard,
   serviceFee,
   mp,
+  instagram,
   publicBooking,
   placeholders,
   validation,

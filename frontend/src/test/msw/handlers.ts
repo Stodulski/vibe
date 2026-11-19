@@ -133,6 +133,17 @@ export const handlers = [
   // ─── MercadoPago connect ───
   http.get('*/complexes/:complexId/mp/status', () => HttpResponse.json({ connected: false, app_id: 'app-1' })),
   http.delete('*/complexes/:complexId/mp/connect', () => HttpResponse.json({})),
+  // Off, as in production until Meta approves the app: settings shows no Instagram tab.
+  http.get('*/complexes/:complexId/instagram', () =>
+    HttpResponse.json({
+      enabled: false,
+      connected: false,
+      needs_reconnect: false,
+      username: null,
+      account_type: null,
+      expires_at: null,
+    }),
+  ),
 
   // ─── uploads ───
   http.post('*/complexes/:complexId/uploads/presign', () =>

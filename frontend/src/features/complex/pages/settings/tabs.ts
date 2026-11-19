@@ -1,4 +1,4 @@
-import { Building2, Clock, CreditCard } from 'lucide-react';
+import { Building2, Camera, Clock, CreditCard } from 'lucide-react';
 import { ES_AR } from '@/shared/i18n/es_AR';
 
 const t = ES_AR;
@@ -39,4 +39,15 @@ export const TABS = [
   },
 ] as const;
 
-export type TabValue = (typeof TABS)[number]['value'];
+/**
+ * Offered only while `GET complexes/{id}/instagram` answers `enabled: true`:
+ * the feature stays off in production until Meta approves the app, and a tab
+ * whose only button answers "not available" is worse than no tab.
+ */
+export const INSTAGRAM_TAB = {
+  value: 'instagram',
+  label: t.instagram.tab,
+  icon: Camera,
+} as const;
+
+export type TabValue = (typeof TABS)[number]['value'] | typeof INSTAGRAM_TAB.value;
