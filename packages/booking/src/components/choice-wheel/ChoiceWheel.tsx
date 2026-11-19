@@ -31,17 +31,18 @@ interface ChoiceWheelProps<T extends string> {
 
 /** The gap a card takes on the wheel: larger cards and larger screens get more. */
 function cardWidth(size: 'regular' | 'large', width: number): number {
-  if (size === 'large') return width >= 640 ? 208 : 156;
+  if (size === 'large') return width >= 640 ? 240 : 190;
   return width >= 640 ? 168 : 128;
 }
 
 /**
- * How wide a card is drawn. A large card is wider than its gap, so a court's
- * name and facts get room while its neighbours stay close enough to the center
- * to show; they sit behind it, the way a carousel stacks its covers.
+ * How far from the center the cards shrink and fade out. Large cards are wide
+ * enough that a phone's half width would hide the neighbours, so their curve
+ * reaches further: the next court still shows beside the chosen one, never
+ * under it.
  */
-function cardFace(size: 'regular' | 'large', step: number): number {
-  return size === 'large' ? step + 28 : step - 16;
+function wheelReach(size: 'regular' | 'large', half: number, step: number): number {
+  return size === 'large' ? Math.max(half, step * 1.6) : half;
 }
 
 /**
@@ -69,15 +70,13 @@ interface WheelCardProps<T extends string> {
   offset: number;
   half: number;
   width: number;
-  /** The gap the card takes, which sets how it fades toward the edges whatever its drawn width. */
-  step: number;
   focused: boolean;
   onTap: () => void;
 }
 
 /** One choice on the wheel, placed and sized by its offset from the center. */
-function WheelCard<T extends string>({ choice, offset, half, width, step, focused, onTap }: WheelCardProps<T>) {
-  const depth = tickDepth(offset, half, step - 16, CARD_ARC);
+function WheelCard<T extends string>({ choice, offset, half, width, focused, onTap }: WheelCardProps<T>) {
+  const depth = tickDepth(offset, half, width, CARD_ARC);
   const x = packedOffset(offset, half);
   return (
     <button
@@ -87,7 +86,6 @@ function WheelCard<T extends string>({ choice, offset, half, width, step, focuse
       style={{
         width,
         left: `calc(50% + ${(x - width / 2).toFixed(1)}px)`,
-        zIndex: 1000 - Math.round(Math.abs(offset)),
         opacity: depth.opacity,
         transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
       }}
@@ -143,9 +141,8 @@ export function ChoiceWheel<T extends string>({
             key={choice.value}
             choice={choice}
             offset={(index - wheel.pos) * card}
-            half={half}
-            width={cardFace(size, card)}
-            step={card}
+            half={wheelReach(size, half, card)}
+            width={card - 16}
             focused={index === wheel.center}
             onTap={() => {
               if (index === wheel.center) onChoose(choice.value);
