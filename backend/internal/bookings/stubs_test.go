@@ -925,6 +925,22 @@ func (s *stubRefunder) AutoRefundIfPaid(_ context.Context, b *bookingstore.Booki
 	return s.outcome
 }
 
+// freedSlot is one slot a cancellation handed to the freed-slot listener.
+type freedSlot struct {
+	ComplexID, CourtID uuid.UUID
+	Slug               string
+	StartsAt, EndsAt   time.Time
+}
+
+// stubFreedSlots records every slot a cancellation hands to the listener.
+type stubFreedSlots struct {
+	slots []freedSlot
+}
+
+func (s *stubFreedSlots) SlotCancelled(_ context.Context, complexID, courtID uuid.UUID, slug string, startsAt, endsAt time.Time) {
+	s.slots = append(s.slots, freedSlot{complexID, courtID, slug, startsAt, endsAt})
+}
+
 // stubWaitlist records every slot the booking paths hand to the waitlist.
 type stubWaitlist struct {
 	freed []waitlist.Freed
@@ -1051,6 +1067,7 @@ type fixture struct {
 	linkTokens   *stubLinkTokens
 	notify       *stubNotifier
 	waitlist     *stubWaitlist
+	freedSlots   *stubFreedSlots
 	realtime     *stubBroadcaster
 	audit        *stubRecorder
 }
@@ -1063,7 +1080,7 @@ func newFixture(t *testing.T) *fixture {
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
 		checkout: &stubCheckout{}, refunds: &stubRefunder{},
 		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
-		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
+		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, freedSlots: &stubFreedSlots{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}
 	logger := slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil))
 	f.service = NewService(Dependencies{
@@ -1072,9 +1089,10 @@ func newFixture(t *testing.T) *fixture {
 		Payments: f.payments, Locks: f.locks, Checkout: f.checkout,
 		Refunds: f.refunds, LinkResolver: f.linkResolver, LinkTokens: f.linkTokens,
 		Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
-		Logger:   logger,
-		Run:      func(fn func()) { fn() },
-		Waitlist: f.waitlist,
+		Logger:     logger,
+		Run:        func(fn func()) { fn() },
+		Waitlist:   f.waitlist,
+		FreedSlots: f.freedSlots,
 	}, Config{
 		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,

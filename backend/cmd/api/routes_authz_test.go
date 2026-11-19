@@ -207,6 +207,8 @@ var routePolicies = map[string]policy{
 	"GET /api/v1/complexes/{id}/instagram":                                                        complexOwner,
 	"DELETE /api/v1/complexes/{id}/instagram":                                                     complexOwner,
 	"POST /api/v1/complexes/{id}/instagram/connect":                                               complexOwner,
+	"GET /api/v1/complexes/{id}/instagram/stories":                                                complexOwner,
+	"PUT /api/v1/complexes/{id}/instagram/stories":                                                complexOwner,
 	"GET /api/v1/complexes/{id}/cash-session":                                                     complexOwner,
 	"GET /api/v1/complexes/{id}/cash-sessions":                                                    complexOwner,
 	"POST /api/v1/complexes/{id}/cash-sessions":                                                   complexOwner,

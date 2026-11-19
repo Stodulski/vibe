@@ -43,6 +43,9 @@ type Querier interface {
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.
 	ClaimCampaign(ctx context.Context, arg ClaimCampaignParams) (int64, error)
+	// Leases the due pending stories to this run. A run that dies leaves the lease
+	// to expire, and the next run picks the story up again.
+	ClaimDueInstagramStories(ctx context.Context, arg ClaimDueInstagramStoriesParams) ([]ClaimDueInstagramStoriesRow, error)
 	// Marks notified, and returns with what the email needs, every entry still
 	// waiting on one grid whose position is among the free ones given, each written
 	// "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
@@ -82,6 +85,7 @@ type Querier interface {
 	CountCategoryLiveFees(ctx context.Context, categoryID pgtype.UUID) (int32, error)
 	// Matches of a category that were played (a bye is not a result).
 	CountCategoryResults(ctx context.Context, categoryID pgtype.UUID) (int32, error)
+	CountInstagramStoriesQueuedOnDay(ctx context.Context, arg CountInstagramStoriesQueuedOnDayParams) (int32, error)
 	// The spots of an event that are not free: registrations paid for, and holds
 	// still inside their window. except is the registration being decided about,
 	// which never counts against itself (NULL excludes nothing).
@@ -290,6 +294,10 @@ type Querier interface {
 	GetInstagramComplexOwner(ctx context.Context, complexID pgtype.UUID) (pgtype.UUID, error)
 	// The status read: everything but the token.
 	GetInstagramConnection(ctx context.Context, complexID pgtype.UUID) (GetInstagramConnectionRow, error)
+	// The connection the publisher publishes with, token included (sealed).
+	GetInstagramStoryAccount(ctx context.Context, complexID pgtype.UUID) (GetInstagramStoryAccountRow, error)
+	// No row means the defaults (everything off), which the store answers itself.
+	GetInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (GetInstagramStorySettingsRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
 	// The row of a (match, side) with whether its charge was voided. Locked: the
 	// caller holds the category lock, this keeps the row put while it is rewritten.
@@ -384,6 +392,9 @@ type Querier interface {
 	// Idempotent: a second unsubscribe of the same address is a no-op.
 	InsertEmailSuppression(ctx context.Context, arg InsertEmailSuppressionParams) error
 	InsertEmailVerificationToken(ctx context.Context, arg InsertEmailVerificationTokenParams) (EmailVerificationToken, error)
+	// A story already queued under the same dedup key is left alone: it happens
+	// once ever.
+	InsertInstagramStory(ctx context.Context, arg InsertInstagramStoryParams) (int64, error)
 	InsertOpenPlayEvent(ctx context.Context, arg InsertOpenPlayEventParams) (OpenPlayEvent, error)
 	InsertOpenPlayEventCourt(ctx context.Context, arg InsertOpenPlayEventCourtParams) error
 	// The hold ends hold_seconds from now on the database's clock, the one every
@@ -468,6 +479,10 @@ type Querier interface {
 	// ListActiveComplexesForHubs. Ordered so that a city's spelling and province are
 	// stable when several rows share one slug.
 	ListComplexCitiesForHubs(ctx context.Context) ([]ListComplexCitiesForHubsRow, error)
+	// The live complexes whose daily story is on, whose time has come (daily_time
+	// is HH:MM, so text order is time order), whose Instagram connection is
+	// usable, and that have no daily story for this venue day yet.
+	ListComplexesDueForDailyStory(ctx context.Context, arg ListComplexesDueForDailyStoryParams) ([]ListComplexesDueForDailyStoryRow, error)
 	// Connected complexes whose OAuth token has no known expiry (never recorded
 	// one, e.g. rows connected before this column existed) or expires within 30
 	// days. cronRefreshMPTokens used to refresh every connected complex on every
@@ -531,6 +546,7 @@ type Querier interface {
 	// left side short-circuits instead of comparing against a meaningless
 	// active_filter value.
 	ListProductsByComplex(ctx context.Context, arg ListProductsByComplexParams) ([]Product, error)
+	ListRecentInstagramStories(ctx context.Context, arg ListRecentInstagramStoriesParams) ([]ListRecentInstagramStoriesRow, error)
 	// The booking lines of a page of sales-list entries, keyed by the entry id: a
 	// product sale's id, or a balance-only checkout's id (it has no sale to name).
 	// Joined to the booking, court and client so the response can name them
@@ -584,6 +600,9 @@ type Querier interface {
 	// wrapping round, so every entry is inspected however many are still taken: an
 	// entry is never starved behind older ones.
 	ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error)
+	// Taken inside the freed-story transaction: two cancellations of the same
+	// complex queue one after the other, so the daily cap is never overshot.
+	LockInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (LockInstagramStorySettingsRow, error)
 	// Every write that changes how many spots are taken (a sign-up, a payment
 	// confirmed late, the owner cancelling) takes this lock first, so two of them
 	// can never both read the same count and both fit into the last spot.
@@ -605,6 +624,8 @@ type Querier interface {
 	// Meta refused a refresh: the owner revoked access. The old expiry is part of
 	// the match so a reconnect that raced it is not marked.
 	MarkInstagramNeedsReconnect(ctx context.Context, arg MarkInstagramNeedsReconnectParams) (int64, error)
+	// Meta refused the token while publishing (code 190).
+	MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, complexID pgtype.UUID) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -647,6 +668,8 @@ type Querier interface {
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error
+	// Writes back what a run did to a story and releases its lease.
+	SaveInstagramStoryState(ctx context.Context, arg SaveInstagramStoryStateParams) error
 	ScheduleMatch(ctx context.Context, arg ScheduleMatchParams) error
 	// The fee a pair pays per match, in centavos (0 is none). A charge already
 	// recorded keeps its own amount.
@@ -751,6 +774,7 @@ type Querier interface {
 	// Connecting again (another account, or the same one after a reconnect)
 	// replaces the row and clears needs_reconnect.
 	UpsertInstagramConnection(ctx context.Context, arg UpsertInstagramConnectionParams) error
+	UpsertInstagramStorySettings(ctx context.Context, arg UpsertInstagramStorySettingsParams) (UpsertInstagramStorySettingsRow, error)
 	// Records a charge; after a void it rewrites the row of the voided one.
 	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)
 	// A repeat capture refreshes the names it has and keeps the ones it does not:

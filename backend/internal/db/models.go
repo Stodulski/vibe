@@ -661,6 +661,38 @@ type InstagramConnection struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 }
 
+type InstagramStory struct {
+	ID                 pgtype.UUID        `json:"id"`
+	ComplexID          pgtype.UUID        `json:"complex_id"`
+	Kind               string             `json:"kind"`
+	DedupKey           string             `json:"dedup_key"`
+	Status             string             `json:"status"`
+	ImageUrl           string             `json:"image_url"`
+	QueuedDay          pgtype.Date        `json:"queued_day"`
+	SlotStartsAt       pgtype.Timestamptz `json:"slot_starts_at"`
+	ScheduledFor       pgtype.Timestamptz `json:"scheduled_for"`
+	Attempts           int32              `json:"attempts"`
+	NextAttemptAt      pgtype.Timestamptz `json:"next_attempt_at"`
+	LockedUntil        pgtype.Timestamptz `json:"locked_until"`
+	ContainerID        pgtype.Text        `json:"container_id"`
+	ContainerCreatedAt pgtype.Timestamptz `json:"container_created_at"`
+	MediaID            pgtype.Text        `json:"media_id"`
+	PublishedAt        pgtype.Timestamptz `json:"published_at"`
+	Reason             pgtype.Text        `json:"reason"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InstagramStorySetting struct {
+	ComplexID     pgtype.UUID        `json:"complex_id"`
+	DailyEnabled  bool               `json:"daily_enabled"`
+	DailyTime     string             `json:"daily_time"`
+	FreedEnabled  bool               `json:"freed_enabled"`
+	FreedDailyCap int32              `json:"freed_daily_cap"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+}
+
 // The durable work queue. Claimed with SELECT ... FOR UPDATE SKIP LOCKED; see internal/jobs.
 type Job struct {
 	ID      pgtype.UUID        `json:"id"`

@@ -265,11 +265,11 @@ func (c *Client) send(req *http.Request, out any) error {
 	transient := resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests
 	if transient {
 		c.cb.RecordFailure()
-		return fmt.Errorf("%w: status %d", ErrUnavailable, resp.StatusCode)
+		return newAPIError(ErrUnavailable, resp.StatusCode, raw)
 	}
 	c.cb.RecordSuccess()
 	if resp.StatusCode >= http.StatusBadRequest {
-		return fmt.Errorf("%w: status %d: %s", ErrRejected, resp.StatusCode, errorMessage(raw))
+		return newAPIError(ErrRejected, resp.StatusCode, raw)
 	}
 	if err := json.Unmarshal(raw, out); err != nil {
 		return fmt.Errorf("%w: decode response: %w", ErrUnavailable, err)
@@ -277,27 +277,73 @@ func (c *Client) send(req *http.Request, out any) error {
 	return nil
 }
 
-// errorMessage pulls Meta's message out of either error shape it uses: Graph's
-// {"error":{"message"}} and the OAuth host's {"error_message"}. Neither ever
-// echoes the token.
-func errorMessage(raw []byte) string {
+// APIError is an error answer from Meta: the HTTP status and, when the body is
+// a Graph error object, its code and message. It wraps ErrRejected (a 4xx other
+// than 429) or ErrUnavailable (5xx and 429), so errors.Is keeps working; the
+// code tells the answers that need their own handling apart (GraphCode).
+type APIError struct {
+	kind    error
+	Status  int
+	Code    int
+	Subcode int
+	Message string
+}
+
+func (e *APIError) Error() string {
+	return fmt.Sprintf("%v: status %d: %s", e.kind, e.Status, e.Message)
+}
+
+func (e *APIError) Unwrap() error { return e.kind }
+
+// The Graph error codes publishing distinguishes.
+const (
+	// CodeResourceMissing is "The requested resource does not exist", which
+	// Meta now and then answers for a container it has just created. Retryable.
+	CodeResourceMissing = 24
+	// CodeInvalidToken is an expired, revoked or otherwise invalid token: the
+	// owner has to connect again.
+	CodeInvalidToken = 190
+	// CodeMediaNotReady is media_publish while the container is still being
+	// processed (subcode 2207027). Meta documents it as wait and retry.
+	CodeMediaNotReady = 9007
+)
+
+// GraphCode is the Graph error code err carries, 0 when it carries none.
+func GraphCode(err error) int {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.Code
+	}
+	return 0
+}
+
+// newAPIError reads Meta's error out of either shape it uses: Graph's
+// {"error":{"message","code"}} and the OAuth host's {"error_message"}. Neither
+// ever echoes the token.
+func newAPIError(kind error, status int, raw []byte) *APIError {
+	e := &APIError{kind: kind, Status: status, Message: "no error message"}
 	var body struct {
 		ErrorMessage string `json:"error_message"`
 		Error        struct {
 			Message string `json:"message"`
 			Code    int    `json:"code"`
+			Subcode int    `json:"error_subcode"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
-		return "unreadable error body"
+		if len(raw) > 0 {
+			e.Message = "unreadable error body"
+		}
+		return e
 	}
-	if body.Error.Message != "" {
-		return fmt.Sprintf("%s (code %d)", body.Error.Message, body.Error.Code)
+	e.Code, e.Subcode = body.Error.Code, body.Error.Subcode
+	switch {
+	case body.Error.Message != "":
+		e.Message = fmt.Sprintf("%s (code %d)", body.Error.Message, body.Error.Code)
+	case body.ErrorMessage != "":
+		e.Message = body.ErrorMessage
 	}
-	if body.ErrorMessage != "" {
-		return body.ErrorMessage
-	}
-	return "no error message"
+	return e
 }
 
 // redact drops the URL from a transport error: a GET to graph.instagram.com

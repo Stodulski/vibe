@@ -278,6 +278,33 @@ type InstagramConnectionStore interface {
 	InstagramComplexOwner(ctx context.Context, complexID uuid.UUID) (uuid.UUID, error)
 }
 
+// InstagramStorySettingsStore keeps what each owner chose for the stories
+// Vibe publishes on the complex's Instagram account, and lists the latest.
+type InstagramStorySettingsStore interface {
+	GetStorySettings(ctx context.Context, complexID uuid.UUID) (complexstore.StorySettings, error)
+	SaveStorySettings(ctx context.Context, complexID uuid.UUID, in complexstore.StorySettings) (complexstore.StorySettings, error)
+	ListRecentStories(ctx context.Context, complexID uuid.UUID, limit int) ([]complexstore.RecentStory, error)
+}
+
+// InstagramStoryQueue is the queue of stories to publish and the account each
+// is published with (token opened inside the store).
+type InstagramStoryQueue interface {
+	QueueFreedStory(ctx context.Context, story complexstore.NewStory) (bool, error)
+	QueueStory(ctx context.Context, story complexstore.NewStory) (bool, error)
+	ListDailyStoriesDue(ctx context.Context, now time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
+	ClaimDueStories(ctx context.Context, now, lockedUntil time.Time, limit int) ([]complexstore.QueuedStory, error)
+	SaveStoryState(ctx context.Context, id uuid.UUID, st complexstore.StoryState) error
+	StoryAccount(ctx context.Context, complexID uuid.UUID) (*complexstore.StoryAccount, error)
+	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID) error
+}
+
+// InstagramStoryStore composes the story settings and the story queue.
+// complexes.InstagramStoryStore is the consumer's declaration of the same set.
+type InstagramStoryStore interface {
+	InstagramStorySettingsStore
+	InstagramStoryQueue
+}
+
 // ComplexStore composes every complex-related store capability.
 type ComplexStore interface {
 	ComplexCRUD
@@ -880,6 +907,7 @@ type Stores struct {
 	UserIdentities    UserIdentityStore
 	Complexes         ComplexStore
 	Instagram         InstagramConnectionStore
+	InstagramStories  InstagramStoryStore
 	Courts            CourtStore
 	Cashbox           CashboxStore
 	Products          ProductStore
@@ -945,6 +973,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
 		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
 		Instagram:         &complexstore.InstagramStore{Q: q, Keys: cfg.Keys},
+		InstagramStories:  &complexstore.InstagramStoryStore{DB: pooled, Q: q, Keys: cfg.Keys},
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		Bookings:          bookings,
 		BookingSeries:     bookings,

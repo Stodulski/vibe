@@ -861,6 +861,7 @@ func (s *Service) cancelQuietly(ctx context.Context, complex *complexstore.Compl
 	}
 	s.record(actor, complex.ID, "cancel", &b.ID, b)
 	s.freeWaitlistSlot(ctx, waitlist.Freed{ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: b.Date})
+	s.announceFreedSlot(ctx, complex, b)
 	return nil
 }
 
