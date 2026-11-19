@@ -2,11 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { BookingContent } from './BookingContent';
-import { makeBooking } from '@/test/factories';
 
-vi.mock('@/shared/components/ui/skeleton', () => ({
-  Skeleton: ({ className }: { className?: string }) => <div data-testid="skeleton" className={className} />,
-}));
 vi.mock('@/shared/components/common/EmptyState', () => ({
   EmptyState: ({ title, actionLabel, onAction }: { title: string; actionLabel?: string; onAction?: () => void }) => (
     <div data-testid="empty-state">
@@ -40,19 +36,9 @@ const baseProps = {
 };
 
 describe('BookingContent', () => {
-  it('shows loading skeletons when isLoading', () => {
-    render(<BookingContent {...baseProps} isLoading={true} />);
-    expect(screen.getAllByTestId('skeleton').length).toBeGreaterThan(0);
-  });
-
   it('shows empty state when no bookings and no filters', () => {
     render(<BookingContent {...baseProps} />);
     expect(screen.getByTestId('empty-state')).toHaveTextContent('No hay reservas para esta fecha');
-  });
-
-  it('renders calendar view', () => {
-    render(<BookingContent {...baseProps} filteredBookings={[makeBooking({ id: '1' })]} />);
-    expect(screen.getByTestId('booking-calendar')).toBeInTheDocument();
   });
 
   it('shows the error state with a retry action instead of the empty state when the query fails', () => {

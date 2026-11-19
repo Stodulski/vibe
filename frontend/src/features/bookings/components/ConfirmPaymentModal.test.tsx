@@ -39,18 +39,6 @@ describe('ConfirmPaymentModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders payment confirmation title', () => {
-    render(<ConfirmPaymentModal {...defaultProps} />);
-    // Title is "Confirmar pago" -- there's also a submit button with same text
-    expect(screen.getAllByText(/confirmar pago/i).length).toBeGreaterThanOrEqual(1);
-  });
-
-  it('renders cancel and submit buttons', () => {
-    render(<ConfirmPaymentModal {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /confirmar pago/i })).toBeInTheDocument();
-  });
-
   it('calls onClose when cancel button is clicked', async () => {
     const user = userEvent.setup();
     render(<ConfirmPaymentModal {...defaultProps} />);

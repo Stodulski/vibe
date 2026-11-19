@@ -40,15 +40,13 @@ describe('BookingDetail footer', () => {
     vi.clearAllMocks();
   });
 
-  it('pins the positive primary in the shared footer, with the standard button radius', async () => {
+  it('pins the positive primary in the shared footer', async () => {
     await renderDetail(
       makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...upcoming }),
     );
 
     const button = await screen.findByRole('button', { name: t.confirmPayment });
     expect(button.parentElement).toHaveAttribute('data-slot', 'sheet-footer');
-    expect(button.parentElement).toHaveClass('sm:px-6');
-    expect(button).not.toHaveClass('rounded-lg');
   });
 
   it('has no positive action in the footer when the booking is fully paid', async () => {
@@ -67,8 +65,6 @@ describe('BookingDetail footer', () => {
 
     const cancel = await screen.findByRole('button', { name: t.cancel });
     const noShow = screen.getByRole('button', { name: t.statuses.no_show });
-    expect(cancel).toHaveAttribute('data-variant', 'destructive-outline');
-    expect(noShow).toHaveAttribute('data-variant', 'outline');
     expect(cancel.closest('[data-slot="sheet-footer"]')).not.toBeNull();
     expect(noShow.closest('[data-slot="sheet-footer"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();

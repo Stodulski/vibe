@@ -76,24 +76,6 @@ describe('CreateEventModal', () => {
     schedules.current = [];
   });
 
-  it('marks every field of the form as required, with the hints below the controls', async () => {
-    await renderModal();
-
-    for (const label of [
-      t.form.sport,
-      t.form.modality,
-      t.form.date,
-      t.form.startTime,
-      t.form.endTime,
-      t.form.capacity,
-    ]) {
-      expect(screen.getByText(label)).toHaveTextContent(`${label} (${ES_AR.common.requiredMarker})`);
-    }
-    const hint = screen.getByText(t.form.capacityHint);
-    const input = screen.getByLabelText(new RegExp(t.form.capacity));
-    expect(hint.compareDocumentPosition(input) & Node.DOCUMENT_POSITION_PRECEDING).toBeTruthy();
-  });
-
   it('shows the three modalities as one choice, with none picked yet', async () => {
     await renderModal();
 

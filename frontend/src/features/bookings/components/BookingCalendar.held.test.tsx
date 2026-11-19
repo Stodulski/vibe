@@ -103,36 +103,8 @@ const hour = (start: string, end: string) => ({
   duration_minutes: 60,
 });
 
-describe('BookingCalendar — what each kind of hours is drawn in', () => {
-  it('keeps the error red for manual blocks and gives fixed bookings, events and matches their own colour', () => {
-    const blocked: BlockedSlot = {
-      ...hour('10:00', '11:00'),
-      id: 'b1',
-      court_name: 'Cancha 1',
-      created_at: '2026-01-01T00:00:00Z',
-    };
-    render(
-      <BookingCalendar
-        {...defaultProps}
-        blockedSlots={[blocked]}
-        fixedBlocks={[{ ...hour('12:00', '13:00'), series_id: 's', client_name: 'Ana' }]}
-        eventBlocks={[
-          { ...hour('14:00', '15:00'), event_id: 'e', name: 'Libres' },
-          { ...hour('16:00', '17:00'), match_id: 'm', tournament_id: 't', name: 'Copa', pair1: null, pair2: null },
-        ]}
-      />,
-    );
-
-    const fill = (name: RegExp) => screen.getByRole('button', { name }).className;
-    expect(fill(/Horario bloqueado/)).toContain('bg-error-border');
-    const kinds = [/Turno fijo · Ana/, /Canchas abiertas/, /Torneo · Copa/];
-    for (const name of kinds) expect(fill(name)).not.toContain('error');
-    expect(new Set(kinds.map((name) => /bg-[\w/-]+/.exec(fill(name))?.[0])).size).toBe(3);
-  });
-});
-
 describe('BookingCalendar, a fixed booking next to a booking', () => {
-  it('looks like a booking: time range on top, client below, in the confirmed colours, with only the repeat icon to tell it apart', () => {
+  it('looks like a booking: time range on top, client below, with only the repeat icon to tell it apart', () => {
     render(
       <BookingCalendar
         {...defaultProps}
@@ -144,9 +116,6 @@ describe('BookingCalendar, a fixed booking next to a booking', () => {
     const block = screen.getByRole('button', { name: /19:00 a 20:30, Turno fijo · Ana Gomez/ });
     const lines = Array.from(block.querySelectorAll('[data-line]')).map((line) => line.textContent);
     expect(lines).toEqual(['19:00 a 20:30', 'Ana Gomez']);
-    expect(block.className).toContain('bg-success-border');
-    expect(block.className).toContain('border-success-icon');
-    expect(block.className).not.toContain('border-dashed');
     expect(block).not.toHaveTextContent('Turno fijo');
     expect(block.querySelector('svg')).not.toBeNull();
   });

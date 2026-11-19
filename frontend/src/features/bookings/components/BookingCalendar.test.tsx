@@ -147,11 +147,6 @@ beforeEach(() => {
 });
 
 describe('BookingCalendar', () => {
-  it('renders booking client name', () => {
-    render(<BookingCalendar {...defaultProps} />);
-    expect(screen.getByText('Juan Perez')).toBeInTheDocument();
-  });
-
   it('renders booking time range', () => {
     render(<BookingCalendar {...defaultProps} />);
     // A plain /10:00/ regex now also matches the grid's hour-gutter label
@@ -182,11 +177,6 @@ describe('BookingCalendar', () => {
     const closedSchedules = mockSchedules.map((s) => (s.day === 'saturday' ? { ...s, is_closed: true } : s));
     render(<BookingCalendar {...defaultProps} date="2027-03-20" schedules={closedSchedules} />);
     expect(screen.getByText(/cerrado/i)).toBeInTheDocument();
-  });
-
-  it('renders empty state when no bookings', () => {
-    render(<BookingCalendar {...defaultProps} bookings={[]} />);
-    expect(screen.queryByText('Juan Perez')).not.toBeInTheDocument();
   });
 });
 

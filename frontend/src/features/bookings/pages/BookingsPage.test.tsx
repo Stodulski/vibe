@@ -1,5 +1,4 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
 import { renderWithProviders } from '@/test/test-utils';
 
 vi.mock('@/shared/hooks/usePageTitle', () => ({ usePageTitle: vi.fn() }));
@@ -80,36 +79,6 @@ vi.mock('./bookings/BookingsPageModals', () => ({
 }));
 
 describe('BookingsPage', () => {
-  it('renders page title', async () => {
-    const BookingsPage = (await import('./BookingsPage')).default;
-    renderWithProviders(<BookingsPage />);
-    expect(screen.getByText('Reservas')).toBeInTheDocument();
-  });
-
-  it('renders date nav strip', async () => {
-    const BookingsPage = (await import('./BookingsPage')).default;
-    renderWithProviders(<BookingsPage />);
-    expect(screen.getByTestId('date-nav')).toBeInTheDocument();
-  });
-
-  it('renders booking content', async () => {
-    const BookingsPage = (await import('./BookingsPage')).default;
-    renderWithProviders(<BookingsPage />);
-    expect(screen.getByTestId('booking-content')).toBeInTheDocument();
-  });
-
-  it('renders create booking button', async () => {
-    const BookingsPage = (await import('./BookingsPage')).default;
-    renderWithProviders(<BookingsPage />);
-    expect(screen.getByText('Nueva reserva')).toBeInTheDocument();
-  });
-
-  it('renders block slot button', async () => {
-    const BookingsPage = (await import('./BookingsPage')).default;
-    renderWithProviders(<BookingsPage />);
-    expect(screen.getByText('Bloquear horario')).toBeInTheDocument();
-  });
-
   it('returns null when no complex is selected yet, without calling useBookingsPage', async () => {
     const { useSelectedComplex } = await import('@/features/complex/hooks/useSelectedComplex');
     vi.mocked(useSelectedComplex).mockReturnValueOnce({

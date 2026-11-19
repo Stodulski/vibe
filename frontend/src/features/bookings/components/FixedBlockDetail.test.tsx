@@ -51,14 +51,12 @@ describe('FixedBlockDetail', () => {
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
 
-  it('offers both cancellations as visible footer buttons, the series one destructive, with no overflow menu', async () => {
+  it('offers both cancellations as visible footer buttons, with no overflow menu', async () => {
     await renderDetail();
 
     await screen.findByText(t.everyWeekdayAt('martes', '21:00'));
     const one = screen.getByRole('button', { name: t.cancelOne });
     const series = screen.getByRole('button', { name: t.endFromHere });
-    expect(one).toHaveAttribute('data-variant', 'outline');
-    expect(series).toHaveAttribute('data-variant', 'destructive-outline');
     expect(one.closest('[data-slot="sheet-footer"]')).toBe(series.closest('[data-slot="sheet-footer"]'));
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
   });

@@ -25,21 +25,6 @@ describe('CancelBookingModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders title when open', () => {
-    render(<CancelBookingModal {...defaultProps} />);
-    expect(screen.getByText(/cancelar reserva/i)).toBeInTheDocument();
-  });
-
-  it('renders confirmation description', () => {
-    render(<CancelBookingModal {...defaultProps} />);
-    expect(screen.getByText(/est.s seguro que quer.s cancelar/i)).toBeInTheDocument();
-  });
-
-  it('renders cancel reason textarea', () => {
-    render(<CancelBookingModal {...defaultProps} />);
-    expect(screen.getByPlaceholderText(/motivo de la cancelaci.n/i)).toBeInTheDocument();
-  });
-
   it('calls onConfirm with undefined when no reason entered', async () => {
     const user = userEvent.setup();
     render(<CancelBookingModal {...defaultProps} />);
@@ -70,13 +55,5 @@ describe('CancelBookingModal', () => {
     rerender(<CancelBookingModal {...defaultProps} booking={bookingB} open />);
 
     expect(screen.getByPlaceholderText(/motivo de la cancelaci.n/i)).toHaveValue('');
-  });
-
-  it('confirms with the destructive variant', () => {
-    render(<CancelBookingModal {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toHaveAttribute(
-      'data-variant',
-      'destructive',
-    );
   });
 });

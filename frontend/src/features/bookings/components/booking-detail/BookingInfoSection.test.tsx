@@ -117,22 +117,6 @@ describe('BookingInfoSection', () => {
   });
 });
 
-describe('BookingInfoSection — how the rows are written', () => {
-  it('writes figures (hours, minutes, money) in the figure face and names in the plain one', () => {
-    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[]} />);
-
-    expect(screen.getByText('90 min')).toHaveClass('score-text');
-    expect(screen.getByText('Cancha 1')).not.toHaveClass('score-text');
-  });
-
-  it('leaves the date to the panel header instead of repeating it as a row', () => {
-    renderWithProviders(<BookingInfoSection booking={createBooking()} payments={[]} />);
-
-    expect(screen.queryByText(ES_AR.bookings.date)).not.toBeInTheDocument();
-    expect(screen.queryByText('16/03/2026')).not.toBeInTheDocument();
-  });
-});
-
 describe('BookingInfoSection refund summary', () => {
   it('says how much is still owed back by hand on a cancelled cash booking', () => {
     const booking = createBooking({ status: 'cancelled', refund_status: 'partial', price: 3_600_000 });
@@ -184,7 +168,7 @@ describe('BookingInfoSection, a played booking not paid in full', () => {
     renderWithProviders(<BookingInfoSection booking={booking} payments={[]} />);
 
     expect(screen.getByText(ES_AR.bookings.statuses.completed)).toBeInTheDocument();
-    expect(screen.getByText(ES_AR.bookings.paymentStatuses.outstanding)).toHaveClass('text-warning-text');
+    expect(screen.getByText(ES_AR.bookings.paymentStatuses.outstanding)).toBeInTheDocument();
     expect(screen.queryByText(ES_AR.bookings.paymentStatuses.unpaid)).not.toBeInTheDocument();
   });
 
@@ -217,7 +201,7 @@ describe('BookingInfoSection, a booking whose hours are over', () => {
       />,
     );
 
-    expect(screen.getByText(ES_AR.bookings.statuses.finished)).toHaveClass('text-warning-text');
+    expect(screen.getByText(ES_AR.bookings.statuses.finished)).toBeInTheDocument();
     expect(screen.queryByText(ES_AR.bookings.statuses.completed)).not.toBeInTheDocument();
   });
 

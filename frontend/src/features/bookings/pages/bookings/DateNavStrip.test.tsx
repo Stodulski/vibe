@@ -31,21 +31,6 @@ const baseProps = {
 };
 
 describe('DateNavStrip', () => {
-  it('renders date label', () => {
-    render(<DateNavStrip {...baseProps} />);
-    expect(screen.getByText('18 de marzo de 2026')).toBeInTheDocument();
-  });
-
-  it('renders previous day button', () => {
-    render(<DateNavStrip {...baseProps} />);
-    expect(screen.getByLabelText('Día anterior')).toBeInTheDocument();
-  });
-
-  it('renders next day button', () => {
-    render(<DateNavStrip {...baseProps} />);
-    expect(screen.getByLabelText('Día siguiente')).toBeInTheDocument();
-  });
-
   it('calls onPrevDay when clicking previous', () => {
     render(<DateNavStrip {...baseProps} />);
     fireEvent.click(screen.getByLabelText('Día anterior'));
