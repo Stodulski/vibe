@@ -24,7 +24,7 @@ function court(id: string, slots: AvailabilitySlot[]): CourtAvailability {
 const now = new Date('2099-12-05T09:00:00-03:00');
 
 describe('TimeRuler — Avisarme cuando se libere', () => {
-  it('asks to be told when a taken hour frees, for the court chosen', async () => {
+  it('asks to be told when any court frees at the taken hour, already chosen on the ruler', async () => {
     const user = userEvent.setup();
     let body: unknown = null;
     server.use(
@@ -33,29 +33,39 @@ describe('TimeRuler — Avisarme cuando se libere', () => {
         return new HttpResponse(null, { status: 204 });
       }),
     );
-    const hours = buildRulerHours([court('1', [slot('10:00', false), slot('11:00', true)])], '2099-12-05', now);
+    const hours = buildRulerHours(
+      [court('1', [slot('10:00', false), slot('11:00', true)]), court('2', [slot('10:00', false), slot('11:00', true)])],
+      '2099-12-05',
+      now,
+    );
     renderBooking(
       <TimeRuler
         hours={hours}
         initialStartTime="10:00"
-        severalCourts={false}
+        severalCourts
         onSelectTime={vi.fn()}
         waitlist={{ slug: 'club', date: '2099-12-05' }}
       />,
     );
 
     expect(screen.getByRole('button', { name: `10:00, ${t.rulerTaken}` })).toHaveAttribute('aria-pressed', 'true');
-    expect(screen.queryByRole('button', { name: t.goToNearestFree })).not.toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: w.sendSlot }));
 
     const dialog = await screen.findByRole('alertdialog');
-    await user.click(within(dialog).getByRole('combobox', { name: w.slotLabel }));
-    await user.click(await screen.findByRole('option', { name: '10:00 · Pádel 1' }));
+    expect(within(dialog).getByText(`${w.slotAnyCourtPrefix} 10:00.`)).toBeInTheDocument();
+    expect(within(dialog).queryByRole('combobox')).not.toBeInTheDocument();
     await user.type(within(dialog).getByLabelText(w.emailLabel), 'ana@example.com');
     await user.click(within(dialog).getByRole('button', { name: w.sendSlot }));
 
     expect(await within(dialog).findByText(w.done)).toBeInTheDocument();
-    expect(body).toEqual({ kind: 'slot', court_id: '1', date: '2099-12-05', start_time: '10:00', duration_minutes: 90, email: 'ana@example.com' });
+    expect(body).toEqual({
+      kind: 'slot',
+      court_ids: ['1', '2'],
+      date: '2099-12-05',
+      start_time: '10:00',
+      duration_minutes: 90,
+      email: 'ana@example.com',
+    });
   });
 
   it('without a waitlist to join, a taken hour still points to the nearest free one', () => {
