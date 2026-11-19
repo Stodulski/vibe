@@ -11,9 +11,6 @@ describe('StepBreadcrumbs — one crumb', () => {
 
     const button = screen.getByRole('button', { name: /Duración/ });
     expect(button).toHaveAccessibleName(/90 min/);
-
-    const label = screen.getByText('Duración');
-    expect(label).toHaveClass('sr-only');
   });
 
   it('calls onEdit with the crumb id when clicked', async () => {

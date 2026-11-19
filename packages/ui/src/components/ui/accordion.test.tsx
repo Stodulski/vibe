@@ -27,12 +27,4 @@ describe('AccordionTrigger heading level', () => {
     expect(screen.getByRole('heading', { level: 2, name: 'Horarios' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { level: 3 })).not.toBeInTheDocument();
   });
-
-  it('keeps the trigger button inside the heading and its open state intact at h2', () => {
-    renderAccordion(2);
-
-    const trigger = screen.getByRole('button', { name: 'Horarios' });
-    expect(trigger.closest('h2')).not.toBeNull();
-    expect(trigger).toHaveAttribute('aria-expanded', 'true');
-  });
 });

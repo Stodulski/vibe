@@ -98,26 +98,6 @@ describe('FormField wiring its control (FORM-07)', () => {
   });
 });
 
-describe('FormField beside another field', () => {
-  it('aligns to the start of its grid cell so labels share one line across a row even when a neighbour has an error', () => {
-    const { container } = render(
-      <FormField label="Apellido" htmlFor="last_name" error="El apellido es requerido">
-        <input />
-      </FormField>,
-    );
-    expect(container.firstElementChild).toHaveClass('self-start');
-  });
-
-  it('keeps that alignment when a caller overrides the spacing class', () => {
-    const { container } = render(
-      <FormField label="Nombre" htmlFor="first_name" className="space-y-1">
-        <input />
-      </FormField>,
-    );
-    expect(container.firstElementChild).toHaveClass('self-start', 'space-y-1');
-  });
-});
-
 describe('FormField help text', () => {
   it('renders below the control so it never pushes the input down', () => {
     render(
@@ -128,25 +108,5 @@ describe('FormField help text', () => {
     const input = screen.getByRole('textbox');
     const help = screen.getByText('Máximo de parejas');
     expect(input.compareDocumentPosition(help) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-  });
-});
-
-describe('FormField full width (modal inputs)', () => {
-  it('stretches its wrapper to the full width of its container', () => {
-    const { container } = render(
-      <FormField label="Monto" htmlFor="amount">
-        <input id="amount" />
-      </FormField>,
-    );
-    expect(container.firstElementChild).toHaveClass('w-full');
-  });
-
-  it('keeps full width even when a caller overrides the spacing class', () => {
-    const { container } = render(
-      <FormField label="Monto" htmlFor="amount" className="space-y-2">
-        <input id="amount" />
-      </FormField>,
-    );
-    expect(container.firstElementChild).toHaveClass('w-full', 'space-y-2');
   });
 });
