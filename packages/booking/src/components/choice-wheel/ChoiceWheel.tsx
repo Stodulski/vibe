@@ -36,6 +36,15 @@ function cardWidth(size: 'regular' | 'large', width: number): number {
 }
 
 /**
+ * How wide a card is drawn. A large card is wider than its gap, so a court's
+ * name and facts get room while its neighbours stay close enough to the center
+ * to show; they sit behind it, the way a carousel stacks its covers.
+ */
+function cardFace(size: 'regular' | 'large', step: number): number {
+  return size === 'large' ? step + 28 : step - 16;
+}
+
+/**
  * Where a card `raw` pixels from the center (at full spacing) is drawn. The cards
  * shrink toward the edges, so the spacing shrinks with them: each step is as wide as
  * the cards around it, and the gaps stay even instead of opening up at the sides.
@@ -60,13 +69,15 @@ interface WheelCardProps<T extends string> {
   offset: number;
   half: number;
   width: number;
+  /** The gap the card takes, which sets how it fades toward the edges whatever its drawn width. */
+  step: number;
   focused: boolean;
   onTap: () => void;
 }
 
 /** One choice on the wheel, placed and sized by its offset from the center. */
-function WheelCard<T extends string>({ choice, offset, half, width, focused, onTap }: WheelCardProps<T>) {
-  const depth = tickDepth(offset, half, width, CARD_ARC);
+function WheelCard<T extends string>({ choice, offset, half, width, step, focused, onTap }: WheelCardProps<T>) {
+  const depth = tickDepth(offset, half, step - 16, CARD_ARC);
   const x = packedOffset(offset, half);
   return (
     <button
@@ -76,12 +87,13 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
       style={{
         width,
         left: `calc(50% + ${(x - width / 2).toFixed(1)}px)`,
+        zIndex: 1000 - Math.round(Math.abs(offset)),
         opacity: depth.opacity,
         transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
       }}
       className={cn(
         'absolute bottom-3 flex origin-bottom cursor-pointer flex-col items-center gap-3 rounded-2xl border px-3 pt-4 pb-3',
-        focused ? 'border-primary-500 bg-primary-500/10 text-primary-400' : 'border-border-interactive bg-bg-subtle text-text-primary',
+        focused ? 'border-primary-500 bg-bg-base bg-linear-to-b from-primary-500/10 to-primary-500/10 text-primary-400' : 'border-border-interactive bg-bg-subtle text-text-primary',
       )}
     >
       {choice.art}
@@ -132,7 +144,8 @@ export function ChoiceWheel<T extends string>({
             choice={choice}
             offset={(index - wheel.pos) * card}
             half={half}
-            width={card - 16}
+            width={cardFace(size, card)}
+            step={card}
             focused={index === wheel.center}
             onTap={() => {
               if (index === wheel.center) onChoose(choice.value);
