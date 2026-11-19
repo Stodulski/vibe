@@ -32,7 +32,7 @@ interface ChoiceWheelProps<T extends string> {
 
 /** The gap a card takes on the wheel: larger cards and larger screens get more. */
 function cardWidth(size: 'regular' | 'large', width: number): number {
-  if (size === 'large') return width >= 640 ? 220 : 150;
+  if (size === 'large') return width >= 640 ? 184 : 136;
   return width >= 640 ? 168 : 128;
 }
 
@@ -105,7 +105,7 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, car
       )}
     >
       {choice.art}
-      <span className="line-clamp-2 w-full text-base leading-tight font-semibold" title={choice.title ?? choice.label}>
+      <span className="w-full text-base leading-tight font-semibold text-balance" title={choice.title ?? choice.label}>
         {choice.label}
       </span>
       {choice.detail}
