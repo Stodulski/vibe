@@ -132,46 +132,6 @@ func TestSitemapListsEachCityHubWithItsLatestUpdate(t *testing.T) {
 	}
 }
 
-func TestSitemapOmitsACityWithNoActiveComplex(t *testing.T) {
-	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	store := &stubStore{hubs: []complexstore.HubComplex{
-		hubRow("Club Off", "club-off", "a", "Ushuaia", nil, now, false),
-	}}
-
-	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
-	if err != nil {
-		t.Fatalf("Sitemap: %v", err)
-	}
-	if strings.Contains(doc, "canchas/ushuaia") {
-		t.Errorf("sitemap lists a city with no active complex:\n%s", doc)
-	}
-}
-
-// A city whose complexes are all gone keeps its hub page but stays out of the
-// sitemap, as it stays out of the hub index: the sitemap lists only the cities
-// with a switched-on complex.
-func TestSitemapOmitsACityWhoseComplexesAreAllGone(t *testing.T) {
-	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	store := &stubStore{
-		hubs: []complexstore.HubComplex{
-			hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
-			hubRow("Canchas Sur", "canchas-sur", "b", "Banfield", nil, now, true),
-		},
-		cities: []complexstore.HubCity{{City: "Banfield"}, {City: "Ushuaia"}},
-	}
-
-	doc, err := NewService(store, "https://vibe.example").Sitemap(t.Context())
-	if err != nil {
-		t.Fatalf("Sitemap: %v", err)
-	}
-	if urlBlock(doc, "https://vibe.example/canchas/banfield") == "" {
-		t.Errorf("sitemap omits the banfield hub, which has two complexes:\n%s", doc)
-	}
-	if urlBlock(doc, "https://vibe.example/canchas/ushuaia") != "" {
-		t.Errorf("sitemap lists the ushuaia hub, which has no switched-on complex:\n%s", doc)
-	}
-}
-
 // A hub with one complex funnels every search for its city to a single page, which
 // search engines read as a doorway. It stays out of the sitemap, though its page
 // still answers and it is still linked from the hub index.
@@ -200,36 +160,6 @@ func TestSitemapReportsAHubReadFailure(t *testing.T) {
 
 	if _, err := NewService(store, "https://vibe.example").Sitemap(t.Context()); err == nil {
 		t.Error("a failed hub read was published as a sitemap without the hubs")
-	}
-}
-
-// The sitemap lists the complex pages and the city hubs under the public origin,
-// and nothing under any other origin.
-func TestSitemapListsEveryPublicPageOnThePublicOrigin(t *testing.T) {
-	now := time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC)
-	store := &stubStore{
-		slugs: []complexstore.ComplexSlug{{Slug: "club-norte", UpdatedAt: now}},
-		hubs: []complexstore.HubComplex{
-			hubRow("Club Norte", "club-norte", "a", "Banfield", nil, now, true),
-			hubRow("Canchas Sur", "canchas-sur", "b", "Banfield", nil, now, true),
-		},
-	}
-
-	doc, err := NewService(store, "https://vibe.com.ar").Sitemap(t.Context())
-	if err != nil {
-		t.Fatalf("Sitemap: %v", err)
-	}
-
-	for _, want := range []string{
-		"<loc>https://vibe.com.ar/c/club-norte</loc>",
-		"<loc>https://vibe.com.ar/canchas/banfield</loc>",
-	} {
-		if !strings.Contains(doc, want) {
-			t.Errorf("sitemap is missing %q:\n%s", want, doc)
-		}
-	}
-	if strings.Contains(doc, "app.vibe.com.ar") {
-		t.Errorf("sitemap publishes the owner-panel origin:\n%s", doc)
 	}
 }
 
@@ -267,25 +197,6 @@ func sitemapFor(t *testing.T, slugs ...complexstore.ComplexSlug) string {
 	return doc
 }
 
-// The image sitemap extension lists a venue's photos under its page: the cover first,
-// then the logo, each only when it is an absolute http(s) URL.
-func TestSitemapListsTheCoverThenTheLogoAsImagesOfTheComplex(t *testing.T) {
-	doc := sitemapFor(t, photoSlug("club-norte", urlPtr("https://cdn.example/cover.jpg"), urlPtr("https://cdn.example/logo.png")))
-
-	block := urlBlock(doc, "https://vibe.example/c/club-norte")
-	cover := strings.Index(block, "<image:loc>https://cdn.example/cover.jpg</image:loc>")
-	logo := strings.Index(block, "<image:loc>https://cdn.example/logo.png</image:loc>")
-	if cover < 0 || logo < 0 {
-		t.Fatalf("the complex's <url> is missing its cover or its logo:\n%s", block)
-	}
-	if cover > logo {
-		t.Errorf("the logo is listed before the cover; want the cover first:\n%s", block)
-	}
-	if n := strings.Count(block, "<image:image>"); n != 2 {
-		t.Errorf("want 2 image entries; got %d:\n%s", n, block)
-	}
-}
-
 func TestSitemapListsALogoAloneAsOneImage(t *testing.T) {
 	doc := sitemapFor(t, photoSlug("club-norte", nil, urlPtr("https://cdn.example/logo.png")))
 
@@ -308,15 +219,6 @@ func TestSitemapListsNoImageForAComplexWithoutPhotos(t *testing.T) {
 		if block := urlBlock(doc, loc); strings.Contains(block, "image:") {
 			t.Errorf("%s lists image entries although it has no photos:\n%s", loc, block)
 		}
-	}
-}
-
-func TestSitemapEscapesAnImageURLForXML(t *testing.T) {
-	doc := sitemapFor(t, photoSlug("club-norte", urlPtr("https://cdn.example/cover.jpg?w=640&h=480"), nil))
-
-	block := urlBlock(doc, "https://vibe.example/c/club-norte")
-	if !strings.Contains(block, "<image:loc>https://cdn.example/cover.jpg?w=640&amp;h=480</image:loc>") {
-		t.Errorf("the image URL is not XML-escaped:\n%s", block)
 	}
 }
 

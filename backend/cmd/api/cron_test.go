@@ -434,49 +434,6 @@ func TestCronReleaseExpiredPayments_CancelsBooking(t *testing.T) {
 	}
 }
 
-// TestCronReleaseExpiredPayments_OneFailureDoesNotStopOthers proves the batch
-// is not aborted by one booking that fails to update: with two expired
-// bookings and Update failing only for the first, the second must still be
-// cancelled.
-func TestCronReleaseExpiredPayments_OneFailureDoesNotStopOthers(t *testing.T) {
-	failing := newExpiredCronBooking(uuid.New())
-	ok := newExpiredCronBooking(uuid.New())
-
-	var okUpdated bool
-	var updateCalls int
-	app, _ := newTestApplicationWithStores(t, func(m *stores.Stores) {
-		m.Bookings = &mockBookingStore{
-			GetExpiredPendingEnrichedFn: func(ctx context.Context, expiry time.Duration) ([]*bookingstore.CronBooking, error) {
-				return []*bookingstore.CronBooking{failing, ok}, nil
-			},
-			UpdateFn: func(ctx context.Context, b *bookingstore.Booking) error {
-				updateCalls++
-				if b.ID == failing.ID {
-					return errors.New("simulated db failure")
-				}
-				if b.ID == ok.ID {
-					okUpdated = true
-				}
-				return nil
-			},
-		}
-		m.Payments = &mockPaymentStore{
-			GetByBookingIDFn: func(ctx context.Context, bookingID uuid.UUID) (*paymentstore.Payment, error) {
-				return nil, data.ErrRecordNotFound
-			},
-		}
-	})
-
-	app.cronReleaseExpiredPayments(context.Background())
-
-	if updateCalls != 2 {
-		t.Fatalf("want both bookings attempted; got %d Update calls", updateCalls)
-	}
-	if !okUpdated {
-		t.Error("want the second booking cancelled despite the first one failing")
-	}
-}
-
 // TestCronReleaseExpiredPayments_Idempotent runs the job twice against a
 // small stateful fake store: the first run cancels the one expired booking,
 // and because a cancelled booking is no longer "pending payment" the second

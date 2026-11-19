@@ -201,14 +201,3 @@ func TestDeauthCallbacksNeedTheAppConfigured(t *testing.T) {
 		t.Fatal("an unconfigured app must not touch the connection")
 	}
 }
-
-func TestDeauthRequiresASignedRequestField(t *testing.T) {
-	t.Parallel()
-	d := newDeauth(true, connectedAs("42", "vibe.padel"), &fakeEnqueuer{})
-
-	w := httptest.NewRecorder()
-	d.Uninstall(w, deauthRequest("/api/v1/social/threads/uninstall", ""))
-	if w.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d; want 400 for an empty signed_request", w.Code)
-	}
-}

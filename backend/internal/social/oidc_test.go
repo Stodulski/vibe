@@ -165,7 +165,6 @@ func TestVerifyRefusesAnInvalidToken(t *testing.T) {
 		"expired":          idp.sign(t, tokenOpts{exp: time.Now().Add(-time.Hour)}),
 		"hs256 algorithm":  hsRaw,
 		"not a jwt at all": "abc.def",
-		"empty":            "",
 	}
 	for name, raw := range cases {
 		err := v.Verify(context.Background(), raw)

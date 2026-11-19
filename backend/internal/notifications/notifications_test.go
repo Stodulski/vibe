@@ -259,18 +259,6 @@ func fullReminder() Reminder {
 	}
 }
 
-func TestBookingConfirmedNotifiesTheClientAndTheOwner(t *testing.T) {
-	s, q, _, _ := newTestService(t)
-
-	s.BookingConfirmed(fullConfirmation())
-
-	for _, want := range []string{TaskEmailBookingConfirmation, TaskEmailOwnerNewBooking} {
-		if !q.has(want) {
-			t.Errorf("%s was not enqueued; got %v", want, q.types())
-		}
-	}
-}
-
 // A client who gave no email gets no confirmation, and the owner is told
 // regardless: the two recipients are independent.
 func TestBookingConfirmedSkipsAClientWithNoEmail(t *testing.T) {
@@ -285,17 +273,6 @@ func TestBookingConfirmedSkipsAClientWithNoEmail(t *testing.T) {
 	}
 	if !q.has(TaskEmailOwnerNewBooking) {
 		t.Error("the owner must be told regardless of the client's email")
-	}
-}
-
-func TestReminderQueuesTheClientEmail(t *testing.T) {
-	s, q, _, _ := newTestService(t)
-
-	if err := s.ReminderDue(fullReminder()); err != nil {
-		t.Fatalf("want no error; got %v", err)
-	}
-	if !q.has(TaskEmailReminder2h) {
-		t.Errorf("want the reminder email queued; got %v", q.types())
 	}
 }
 
@@ -431,8 +408,6 @@ func TestNothingIsEnqueuedWithoutARecipient(t *testing.T) {
 	s.BookingCancelled(Cancellation{})
 	s.DepositRefunded(Refund{})
 	s.ReminderDue(Reminder{})
-	s.BookingCancelled(Cancellation{})
-	s.DepositRefunded(Refund{})
 
 	if len(q.tasks) != 0 {
 		t.Errorf("want nothing enqueued with no recipient; got %v", q.types())

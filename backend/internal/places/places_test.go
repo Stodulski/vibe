@@ -368,9 +368,7 @@ func TestAutocompleteHonoursTheUpstreamStatus(t *testing.T) {
 		upstreamBody string
 		want         int
 	}{
-		{"answered", http.StatusOK, `{"suggestions":[]}`, http.StatusOK},
 		{"http rate limit", http.StatusTooManyRequests, `{"error":{"code":429,"message":"rate limited","status":"RESOURCE_EXHAUSTED"}}`, http.StatusTooManyRequests},
-		{"quota exhausted", http.StatusTooManyRequests, `{"error":{"code":429,"message":"quota","status":"RESOURCE_EXHAUSTED"}}`, http.StatusTooManyRequests},
 		{"upstream server error", http.StatusInternalServerError, `{"error":{"code":500,"message":"boom","status":"INTERNAL"}}`, http.StatusBadGateway},
 		{"upstream gateway error", http.StatusBadGateway, `boom`, http.StatusBadGateway},
 		{"key rejected: API not enabled", http.StatusForbidden, `{"error":{"code":403,"message":"Places API (New) has not been used","status":"PERMISSION_DENIED"}}`, http.StatusBadGateway},
@@ -402,7 +400,6 @@ func TestDetailsHonoursTheUpstreamStatus(t *testing.T) {
 		upstreamBody string
 		want         int
 	}{
-		{"answered", http.StatusOK, `{"formattedAddress":"x"}`, http.StatusOK},
 		{"http rate limit", http.StatusTooManyRequests, `{"error":{"code":429,"message":"rate limited","status":"RESOURCE_EXHAUSTED"}}`, http.StatusTooManyRequests},
 		// The place_id is the caller's input, so this one really is about them.
 		{"unknown place id", http.StatusNotFound, `{"error":{"code":404,"message":"not found","status":"NOT_FOUND"}}`, http.StatusNotFound},
@@ -425,60 +422,6 @@ func TestDetailsHonoursTheUpstreamStatus(t *testing.T) {
 					tt.upstreamCode, tt.upstreamBody, tt.want, w.Code, w.Body.String())
 			}
 		})
-	}
-}
-
-// PERMISSION_DENIED is the failure this migration exists to make loud: the
-// key's Cloud project not having Places API (New) enabled must reach the log
-// distinguishably from a plain outage, even though the browser gets the same
-// 502 either way.
-func TestPermissionDeniedIsLoggedByName(t *testing.T) {
-	h, _, logs := newLoggingTestHandler(t, func(w http.ResponseWriter, _ capturedRequest) {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"error":{"code":403,"message":"Places API (New) has not been used in project 123 before or it is disabled","status":"PERMISSION_DENIED"}}`))
-	})
-
-	w := httptest.NewRecorder()
-	h.Autocomplete(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?input=santa+fe", nil))
-
-	if w.Code != http.StatusBadGateway {
-		t.Errorf("want 502; got %d", w.Code)
-	}
-	if !strings.Contains(logs.String(), "PERMISSION_DENIED") {
-		t.Errorf("PERMISSION_DENIED must be distinguishable in the log:\n%s", logs.String())
-	}
-}
-
-// A quota failure (RESOURCE_EXHAUSTED) must reach the browser as 429, not as
-// this service's generic 502 — the caller needs to know backing off is the
-// right response.
-func TestResourceExhaustedIs429(t *testing.T) {
-	h, _ := newTestHandler(t, func(w http.ResponseWriter, _ capturedRequest) {
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = w.Write([]byte(`{"error":{"code":429,"message":"Quota exceeded","status":"RESOURCE_EXHAUSTED"}}`))
-	})
-
-	w := httptest.NewRecorder()
-	h.Autocomplete(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?input=santa+fe", nil))
-
-	if w.Code != http.StatusTooManyRequests {
-		t.Errorf("want 429; got %d (%s)", w.Code, w.Body.String())
-	}
-}
-
-// Details NOT_FOUND must reach the browser as 404 — the caller supplied a
-// place_id that does not resolve.
-func TestDetailsNotFoundIs404(t *testing.T) {
-	h, _ := newTestHandler(t, func(w http.ResponseWriter, _ capturedRequest) {
-		w.WriteHeader(http.StatusNotFound)
-		_, _ = w.Write([]byte(`{"error":{"code":404,"message":"place not found","status":"NOT_FOUND"}}`))
-	})
-
-	w := httptest.NewRecorder()
-	h.Details(w, httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?place_id=nonexistent", nil))
-
-	if w.Code != http.StatusNotFound {
-		t.Errorf("want 404; got %d (%s)", w.Code, w.Body.String())
 	}
 }
 

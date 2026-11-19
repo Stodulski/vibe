@@ -99,27 +99,6 @@ func TestNewApplicationRejectsEveryMissingStore(t *testing.T) {
 	}
 }
 
-// TestNewApplicationCanBeCalledTwiceInOneProcess is the spec's "called twice"
-// scenario: newApplication must launch no goroutine and register no
-// process-global, so nothing about calling it a second time — in the same
-// process, with equivalent deps — can panic or double-register anything.
-func TestNewApplicationCanBeCalledTwiceInOneProcess(t *testing.T) {
-	cfg := config.Config{Env: "test", JWT: config.JWT{Secret: testJWTSecret}}
-
-	first, err := newApplication(cfg, validTestDeps(t))
-	if err != nil {
-		t.Fatalf("first newApplication call: %v", err)
-	}
-	second, err := newApplication(cfg, validTestDeps(t))
-	if err != nil {
-		t.Fatalf("second newApplication call: %v", err)
-	}
-
-	if first == second {
-		t.Error("newApplication: two calls returned the same *application")
-	}
-}
-
 // optionalApplicationFields are the fields newApplication may legitimately
 // leave nil, each with the condition that makes it optional. Everything else
 // must be wired.

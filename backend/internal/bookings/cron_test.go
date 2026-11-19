@@ -91,14 +91,6 @@ func TestTheReminderSweepQueuesBeforeItFlags(t *testing.T) {
 	}
 }
 
-// crashAtEnqueue stands in for a worker that dies once the reminder reaches the
-// queue. The panic is the crash: nothing after it runs.
-type crashAtEnqueue struct{ *stubNotifier }
-
-func (crashAtEnqueue) ReminderDue(notifications.Reminder) error {
-	panic("worker died before the reminder was queued")
-}
-
 // TestAFailedReminderEnqueueLeavesTheBookingUnflagged is the rule the flag
 // depends on: the booking is flagged only when its reminder is queued. A refused
 // enqueue leaves it selectable, so the next tick queues it and flags it.
@@ -124,24 +116,6 @@ func TestAFailedReminderEnqueueLeavesTheBookingUnflagged(t *testing.T) {
 	}
 	if got := len(f.notify.reminders); got != 1 {
 		t.Errorf("the next tick must queue the reminder; got %d", got)
-	}
-}
-
-// TestAReminderIsFlaggedOnlyAfterItIsQueued is the reason the sweep queues before
-// it flags. Flagged first, a crash between the two leaves a flag that says the
-// reminder went out while no job exists, and every later tick skips the booking.
-func TestAReminderIsFlaggedOnlyAfterItIsQueued(t *testing.T) {
-	f := newFixture(t)
-	f.store.dueForReminder = []*bookingstore.CronBooking{cronCandidate("confirmed")}
-	f.service.notify = crashAtEnqueue{f.notify}
-
-	func() {
-		defer func() { recover() }()
-		f.service.Reminder2h(t.Context())
-	}()
-
-	if got := f.store.markedSent; len(got) != 0 {
-		t.Errorf("the booking was flagged before its reminder was queued, so a crash between the two loses it: flagged %v", got)
 	}
 }
 

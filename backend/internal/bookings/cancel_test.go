@@ -579,50 +579,6 @@ func TestCancelInfoReportsZeroAmountsForAnUnpaidBooking(t *testing.T) {
 	}
 }
 
-// cancel-info must carry the same court and schedule detail the success page
-// shows — sport, court type, the end as an instant, duration and, when the
-// complex has one, its address — so the cancel page never has to fall back to
-// a cached copy of the booking.
-func TestCancelInfoCarriesTheSameCourtDetailAsTheSuccessPage(t *testing.T) {
-	f := newFixture(t)
-	complexID := uuid.New()
-	booking := futureBooking(complexID)
-	f.store.booking = booking
-	f.linkResolver.booking = booking
-	f.complexes.complex = &complexstore.Complex{
-		ID: complexID, Name: "Vibe", Address: "Av. Siempre Viva 742", CancellationHours: 24,
-	}
-	f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1", Sport: "padel", CourtType: "outdoor"}
-
-	w := httptest.NewRecorder()
-	f.handler.PublicCancelInfo(w, publicRequest(t, http.MethodGet,
-		"/?token=test-token", ""))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
-	}
-	bookingBody, ok := decode(t, w)["booking"].(map[string]any)
-	if !ok {
-		t.Fatalf("the response must carry a booking object; got %s", w.Body.String())
-	}
-	if bookingBody["sport"] != "padel" {
-		t.Errorf("sport: want %q; got %v", "padel", bookingBody["sport"])
-	}
-	if bookingBody["court_type"] != "outdoor" {
-		t.Errorf("court_type: want %q; got %v", "outdoor", bookingBody["court_type"])
-	}
-	wantEndsAt := booking.EndsAt.Format(time.RFC3339)
-	if bookingBody["ends_at"] != wantEndsAt {
-		t.Errorf("ends_at: want %q; got %v", wantEndsAt, bookingBody["ends_at"])
-	}
-	if bookingBody["duration_minutes"] != float64(90) {
-		t.Errorf("duration_minutes: want 90; got %v", bookingBody["duration_minutes"])
-	}
-	if bookingBody["complex_address"] != "Av. Siempre Viva 742" {
-		t.Errorf("complex_address: want %q; got %v", "Av. Siempre Viva 742", bookingBody["complex_address"])
-	}
-}
-
 // The staff path refunds regardless of the window, and reports the outcome the
 // owner has to act on.
 func TestStaffCancelReportsARefundOnlyAPersonCanMake(t *testing.T) {

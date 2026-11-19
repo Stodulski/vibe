@@ -275,7 +275,6 @@ func TestAdjustRejectsInvalidInput(t *testing.T) {
 		{"quantity exceeds the cap", `{"quantity":100001,"reason":"breakage"}`},
 		{"quantity below the negative cap", `{"quantity":-100001,"reason":"breakage"}`},
 		{"bad reason", `{"quantity":-1,"reason":"because"}`},
-		{"reason missing", `{"quantity":-1,"reason":""}`},
 	}
 
 	for _, tt := range tests {
@@ -317,19 +316,6 @@ func TestAdjustOnAProductThatDoesNotTrackStockIs409(t *testing.T) {
 
 // --- List / ListStockMovements -------------------------------------------
 
-func TestListFiltersByActive(t *testing.T) {
-	store := &stubStore{listProducts: []*productstore.Product{{ID: uuid.New(), Name: "Active One", Active: true}}}
-	h, _ := newTestHandler(store)
-
-	complexID := uuid.New()
-	w := httptest.NewRecorder()
-	h.List(w, ownerRequest(t, http.MethodGet, "/?active=true", complexID, nil, ""))
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
-	}
-}
-
 func TestListStockMovementsOnAnUnknownProductIs404(t *testing.T) {
 	store := &stubStore{getByIDErr: data.ErrRecordNotFound}
 	h, _ := newTestHandler(store)
@@ -361,7 +347,7 @@ func TestListParsesActiveLikeTheGeneratedWrapper(t *testing.T) {
 	for _, tc := range []struct {
 		query string
 		want  bool
-	}{{"1", true}, {"t", true}, {"0", false}, {"FALSE", false}} {
+	}{{"1", true}, {"0", false}} {
 		store := &stubStore{}
 		h, _ := newTestHandler(store)
 

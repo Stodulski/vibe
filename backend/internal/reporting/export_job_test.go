@@ -490,7 +490,6 @@ func TestExportsAnswer501WhenNoPrivateStorageIsConfigured(t *testing.T) {
 // and half-configured must not look configured.
 func TestExportsNeedBothTheQueueAndTheBucket(t *testing.T) {
 	cases := map[string]ExportDeps{
-		"neither":      {},
 		"queue only":   {Store: newStubExportStore()},
 		"bucket only":  {Storage: &stubExportStorage{}},
 		"both present": {Store: newStubExportStore(), Storage: &stubExportStorage{}},

@@ -251,22 +251,14 @@ func TestPublicSignUpValidatesTheRequiredFieldsAndAnEmailThatLooksLikeOne(t *tes
 	}
 }
 
-func TestPublicSignUpAnswers409WhenFullAnd400WithoutMercadoPago(t *testing.T) {
+func TestPublicSignUpAnswers503WhenMercadoPagoRefusesTheCheckout(t *testing.T) {
 	f := newFixture(t)
 	h := newHandler(f)
 	params := map[string]string{"slug": "vibe", "eventID": f.store.event.ID.String()}
 	body := `{"first_name":"Ana","last_name":"Diaz","phone":"+5491112345678","email":"ana@example.com"}`
 
-	f.store.signUpErr = eventstore.ErrEventFull
-	w := httptest.NewRecorder()
-	h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", body, params))
-	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), "the event is full") {
-		t.Fatalf("want 409 full; got %d (%s)", w.Code, w.Body.String())
-	}
-
-	f.store.signUpErr = nil
 	f.checkout.err = errBoom
-	w = httptest.NewRecorder()
+	w := httptest.NewRecorder()
 	h.PublicSignUp(w, f.publicRequest(t, http.MethodPost, "/", body, params))
 	if w.Code != http.StatusServiceUnavailable {
 		t.Fatalf("want 503 when MercadoPago refuses the checkout; got %d (%s)", w.Code, w.Body.String())

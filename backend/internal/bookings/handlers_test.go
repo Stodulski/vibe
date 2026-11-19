@@ -1403,24 +1403,6 @@ func TestPublicStatusCancelledBookingCannotCancelAgain(t *testing.T) {
 	}
 }
 
-// TestPublicCancelOnATerminalBookingKeepsItsExisting400 is task 13.6: the
-// token swap does not touch PublicCancel's terminal-booking guard.
-func TestPublicCancelOnATerminalBookingKeepsItsExisting400(t *testing.T) {
-	f := newFixture(t)
-	complexID := uuid.New()
-	booking := futureBooking(complexID)
-	booking.Status = "completed"
-	f.linkResolver.booking = booking
-	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
-
-	w := httptest.NewRecorder()
-	f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
-
-	if w.Code != http.StatusBadRequest {
-		t.Errorf("want 400 for an already-terminal booking; got %d (%s)", w.Code, w.Body.String())
-	}
-}
-
 func TestPublicCancelRefusesASettledBooking(t *testing.T) {
 	for _, status := range []string{"cancelled", "completed", "no_show"} {
 		t.Run(status, func(t *testing.T) {

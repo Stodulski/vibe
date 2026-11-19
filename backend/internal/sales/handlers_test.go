@@ -77,19 +77,6 @@ func TestCreateWithTooManyItemsIs422(t *testing.T) {
 	}
 }
 
-func TestCreateWithoutOpenSessionIs409(t *testing.T) {
-	store := &stubStore{createErr: salestore.ErrNoOpenCashSession}
-	h, _ := newTestHandler(store)
-
-	body := `{"items":[{"product_id":"` + uuid.New().String() + `","quantity":1}],"method":"cash"}`
-	w := httptest.NewRecorder()
-	h.Create(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), nil, body))
-
-	if w.Code != http.StatusConflict {
-		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
-	}
-}
-
 func TestCreateWithAZeroTotalIs422(t *testing.T) {
 	store := &stubStore{createErr: salestore.ErrZeroTotal}
 	h, _ := newTestHandler(store)

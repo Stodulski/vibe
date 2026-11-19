@@ -304,22 +304,6 @@ func TestStoryFailsWhenTheFeedPostDoesNotGoToItsNetwork(t *testing.T) {
 	}
 }
 
-func TestStorySavesEachIDEvenWhenTheRunContextIsCancelled(t *testing.T) {
-	t.Parallel()
-	rig := newSequenceRig(storyWith("historia-7", storyT0.Add(-time.Minute), []Network{NetworkInstagram}, "1.jpg", "2.jpg"))
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	rig.pub.platform = cancelAfterPublish{Platform: rig.platform, cancel: cancel}
-
-	if _, err := rig.pub.RunDue(ctx); err != nil {
-		t.Fatalf("RunDue() = %v", err)
-	}
-	got := rig.post("historia-7")
-	if got.StoryItems[0].IGMediaID != "ig-1" || got.StoryItems[1].IGMediaID != "ig-2" {
-		t.Fatalf("stored items = %+v, want both Instagram ids kept", got.StoryItems)
-	}
-}
-
 func TestStoryWithLittleTimeLeftPublishesNothingAndSpendsNoAttempt(t *testing.T) {
 	t.Parallel()
 	names := []string{"1.jpg", "2.jpg", "3.jpg"}

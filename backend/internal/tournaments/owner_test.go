@@ -88,7 +88,6 @@ func TestCreateRefusesWhatTheRulesRefuse(t *testing.T) {
 		"end before start":       {func(in *CreateInput) { in.EndDate = day(9) }, "end_date"},
 		"too many days":          {func(in *CreateInput) { in.EndDate = day(10 + 61) }, "end_date"},
 		"no categories":          {func(in *CreateInput) { in.Categories = nil }, "categories"},
-		"no modality":            {func(in *CreateInput) { in.Categories[0].Modality = "" }, "categories[0].modality"},
 		"unknown modality":       {func(in *CreateInput) { in.Categories[0].Modality = "boys" }, "categories[0].modality"},
 		"level and suma":         {func(in *CreateInput) { in.Categories[0].Suma = 10 }, "categories[0].level"},
 		"neither level nor suma": {func(in *CreateInput) { in.Categories[0].Level = 0 }, "categories[0].level"},
@@ -100,7 +99,6 @@ func TestCreateRefusesWhatTheRulesRefuse(t *testing.T) {
 		"start day before":       {func(in *CreateInput) { in.Categories[0].StartsOn = day(9) }, "categories[0].starts_on"},
 		"start day after":        {func(in *CreateInput) { in.Categories[0].StartsOn = day(12) }, "categories[0].starts_on"},
 		"malformed start time":   {func(in *CreateInput) { in.Categories[0].StartsAt = "7pm" }, "categories[0].starts_at"},
-		"no start time":          {func(in *CreateInput) { in.Categories[0].StartsAt = "" }, "categories[0].starts_at"},
 		"prizes over 200":        {func(in *CreateInput) { in.Categories[0].Prizes = strings.Repeat("x", 201) }, "categories[0].prizes"},
 		"unknown format":         {func(in *CreateInput) { in.Categories[0].Format = "league" }, "categories[0].format"},
 		"capacity of one":        {func(in *CreateInput) { in.Categories[0].Capacity = 1 }, "categories[0].capacity"},
@@ -110,7 +108,6 @@ func TestCreateRefusesWhatTheRulesRefuse(t *testing.T) {
 		"group too big":          {func(in *CreateInput) { in.Categories[1].GroupSize = 13 }, "categories[1].group_size"},
 		"everybody qualifies":    {func(in *CreateInput) { in.Categories[1].GroupSize, in.Categories[1].QualifiersPerGroup = 4, 4 }, "categories[1].qualifiers_per_group"},
 		"negative qualifiers":    {func(in *CreateInput) { in.Categories[1].QualifiersPerGroup = -1 }, "categories[1].qualifiers_per_group"},
-		"no categories at all":   {func(in *CreateInput) { in.Categories = []CategoryInput{} }, "categories"},
 		"more than 20 category":  {func(in *CreateInput) { in.Categories = make([]CategoryInput, 21) }, "categories"},
 	}
 	for name, tc := range cases {

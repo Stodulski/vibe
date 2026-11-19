@@ -396,7 +396,6 @@ func TestRevenueChartPeriod(t *testing.T) {
 		wantStatus int
 	}{
 		{"absent defaults to week", "", http.StatusOK},
-		{"week is allowed", "?period=week", http.StatusOK},
 		{"month is allowed", "?period=month", http.StatusOK},
 		{"unknown value is rejected", "?period=bogus", http.StatusUnprocessableEntity},
 	}

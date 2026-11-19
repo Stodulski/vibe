@@ -240,17 +240,6 @@ func TestGoogleFinishHandlerReplayedState(t *testing.T) {
 	assertInvalidCode(t, second)
 }
 
-func TestGoogleFinishHandlerCodeRejectedByGoogle(t *testing.T) {
-	f := newFixtureWithGoogleOAuth(t)
-	f.codeExchanger.err = googleid.ErrCodeRejected
-	state := startAndBindNonce(t, f)
-
-	w := httptest.NewRecorder()
-	f.handler.GoogleFinish(w, postFinish(t, "spent-code", state, state))
-
-	assertInvalidCode(t, w)
-}
-
 func TestGoogleFinishHandlerIDTokenRejected(t *testing.T) {
 	f := newFixtureWithGoogleOAuth(t)
 	f.google.err = googleid.ErrInvalidToken

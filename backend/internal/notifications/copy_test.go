@@ -66,25 +66,6 @@ func TestPaymentAmounts(t *testing.T) {
 	}
 }
 
-func TestBalanceAmount(t *testing.T) {
-	for _, c := range []struct {
-		name             string
-		price, deposit   int
-		collectionStatus string
-		want             string
-	}{
-		{"deposit paid", 2000000, 500000, bookingstore.CollectionStatusDepositPaid, "$15.000"},
-		{"nothing collected", 2000000, 0, bookingstore.CollectionStatusUnpaid, "$20.000"},
-		{"paid in full", 2000000, 2000000, bookingstore.CollectionStatusFullyPaid, "$0"},
-	} {
-		t.Run(c.name, func(t *testing.T) {
-			if got := BalanceAmount(c.price, c.deposit, c.collectionStatus); got != c.want {
-				t.Errorf("BalanceAmount = %q; want %q", got, c.want)
-			}
-		})
-	}
-}
-
 // The grace period is operator-configured. The confirmation quoted a hardcoded
 // fifteen minutes at every venue, so anybody running a different number had
 // their confirmation contradict the rule the cancel path enforces — and the

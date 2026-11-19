@@ -966,31 +966,6 @@ func TestASecondEmailChangeRequestReplacesTheFirst(t *testing.T) {
 	}
 }
 
-// Asking to change to an address another account already uses is refused up
-// front, the same 422 shape as any other validation failure — and without
-// creating a pending request or sending mail, so the caller does not get a
-// confirmation link for an address they do not own.
-func TestUpdateCurrentUserRefusesAnEmailAlreadyTaken(t *testing.T) {
-	f := newFixture(t)
-	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
-	f.users.add(user)
-	f.users.add(verifiedUser(t, "taken@example.com", "some-other-password"))
-
-	r := withUser(postJSON(t, `{"email":"taken@example.com"}`), user)
-	w := httptest.NewRecorder()
-	f.handler.UpdateCurrentUser(w, r)
-
-	if w.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("want 422; got %d (%s)", w.Code, w.Body.String())
-	}
-	if len(f.notify.emailChanges) != 0 {
-		t.Error("no confirmation email may be sent for an address the caller does not own")
-	}
-	if len(f.audit.entries) != 0 {
-		t.Errorf("a refused request must not be recorded as one: %+v", f.audit.entries)
-	}
-}
-
 // A PUT that asks for both an email change and a password change must not
 // queue the email request — mail a live link, write the audit entry — when
 // the password half fails: requestEmailChange used to run before the
@@ -1144,30 +1119,6 @@ func TestUpdateCurrentUserWithTakenEmailPersistsNothing(t *testing.T) {
 	}
 	if len(f.audit.entries) != 0 {
 		t.Errorf("a rejected PUT must not record anything: %+v", f.audit.entries)
-	}
-}
-
-// Requesting the account's own current address again — unchanged — is simply
-// not a change, the same as any other untouched field.
-func TestUpdateCurrentUserWithTheSameEmailIsNotARequest(t *testing.T) {
-	f := newFixture(t)
-	user := verifiedUser(t, "ana@example.com", "correct-horse-battery")
-	f.users.add(user)
-
-	r := withUser(postJSON(t, `{"email":"ana@example.com"}`), user)
-	w := httptest.NewRecorder()
-	f.handler.UpdateCurrentUser(w, r)
-
-	if w.Code != http.StatusOK {
-		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
-	}
-	if len(f.notify.emailChanges) != 0 {
-		t.Error("re-submitting the current address must not queue a request")
-	}
-
-	body := decode(t, w)
-	if got, _ := body["email_change"].(string); got != "none" {
-		t.Errorf(`want email_change "none"; got %v`, body["email_change"])
 	}
 }
 

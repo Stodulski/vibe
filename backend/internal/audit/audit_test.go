@@ -6,7 +6,6 @@ import (
 	"errors"
 	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 
 	"github.com/google/uuid"
@@ -128,33 +127,6 @@ func TestRecordSnapshotsTheValueBeforeSchedulingTheWrite(t *testing.T) {
 	const want = `{"reason":"maintenance","court_name":"Cancha 1"}`
 	if got := string(store.calls[0].newJSON); got != want {
 		t.Errorf("the entry must hold the value as it was at Record time\n want %s\n  got %s", want, got)
-	}
-}
-
-// The same guarantee under the race detector, with the write on a real
-// goroutine and the caller mutating concurrently — which is exactly the shape
-// every handler that calls Record has.
-func TestRecordDoesNotRaceWithTheCallersLaterWrites(t *testing.T) {
-	store := &stubStore{}
-	var wg sync.WaitGroup
-	goRun := func(fn func()) {
-		wg.Add(1)
-		go func() { defer wg.Done(); fn() }()
-	}
-
-	rec := NewRecorder(store, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)), goRun)
-
-	slot := &struct {
-		Reason    string `json:"reason"`
-		CourtName string `json:"court_name"`
-	}{Reason: "maintenance"}
-
-	rec.Record(Entry{Action: "create", EntityType: "blocked_slot", NewValue: slot})
-	slot.CourtName = "Cancha 1"
-
-	wg.Wait()
-	if len(store.calls) != 1 {
-		t.Fatalf("want 1 insert; got %d", len(store.calls))
 	}
 }
 

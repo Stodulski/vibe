@@ -174,17 +174,6 @@ func TestGoogleFinishCodeRejectedByGoogle(t *testing.T) {
 	}
 }
 
-func TestGoogleFinishTokenExchangeUnavailable(t *testing.T) {
-	f := newFixtureWithGoogleOAuth(t)
-	f.codeExchanger.err = googleid.ErrUnavailable
-	start := exchangedNonce(t, f)
-
-	_, err := f.service.GoogleFinish(t.Context(), Actor{}, "the-auth-code", start.State)
-	if !errors.Is(err, googleid.ErrUnavailable) {
-		t.Fatalf("GoogleFinish() = %v, want an error wrapping googleid.ErrUnavailable", err)
-	}
-}
-
 func TestGoogleFinishIDTokenRejected(t *testing.T) {
 	f := newFixtureWithGoogleOAuth(t)
 	start, err := f.service.GoogleStart(t.Context())

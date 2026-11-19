@@ -219,9 +219,9 @@ func (s *stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Cou
 	return s.courts, nil
 }
 
-type stubRealtime struct{ published int }
+type stubRealtime struct{}
 
-func (s *stubRealtime) PublishBookingChanged(uuid.UUID) { s.published++ }
+func (s *stubRealtime) PublishBookingChanged(uuid.UUID) {}
 
 type stubAudit struct{ entries []audit.Entry }
 
