@@ -1,14 +1,13 @@
 /**
  * The story picture endpoint's answer: malformed requests and stories with nothing true to show
- * are uncached 404s, so the publisher never posts them; a drawn story is a JPEG cached for a
- * minute; API failures keep the share image's mapping. Reads and render are stubs.
+ * are uncached 404s, so the publisher never posts them; a drawn story is an uncached JPEG; API failures keep the share image's mapping. Reads and render are stubs.
  * Run with `pnpm test:unit`.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { ApiError } from '../src/lib/api.ts';
 import { storyImageResponse, type StoryImageDeps } from '../src/lib/story/story-response.ts';
-import type { StoryAvailability } from '../src/lib/story/story-text.ts';
+import type { StoryAvailability, StoryText } from '../src/lib/story/story-text.ts';
 
 const TODAY = '2026-11-19';
 const facts = { name: 'La Zona F5', city: 'Caleta Olivia', province: 'Santa Cruz', sports: ['Pádel'] };
@@ -58,11 +57,72 @@ test('a malformed request answers 404 without reading anything', async () => {
   assert.equal(reads, 0);
 });
 
-test('a drawn story is a JPEG cached for a minute', async () => {
+test('a drawn story is a JPEG nobody caches: the grid it shows changes by the minute', async () => {
   const response = await storyImageResponse('la-zona-f5', 'libres', new URLSearchParams(), deps());
   assert.equal(response.status, 200);
   assert.equal(response.headers.get('Content-Type'), 'image/jpeg');
-  assert.equal(response.headers.get('Cache-Control'), 'public, max-age=60, s-maxage=60');
+  assert.equal(response.headers.get('Cache-Control'), 'no-store');
+});
+
+test('the preview of a day with nothing free draws the empty story; the publisher still gets a 404', async () => {
+  const empty = () => deps({ readAvailability: async () => grid(false) });
+  let drawn: StoryText | null = null;
+  const preview = empty();
+  preview.render = async (text) => {
+    drawn = text;
+    return new Uint8Array([0xff, 0xd8, 0xff]).buffer;
+  };
+  const shown = await storyImageResponse('la-zona-f5', 'libres', new URLSearchParams('vista=1'), preview);
+  assert.equal(shown.status, 200);
+  assert.equal(shown.headers.get('Cache-Control'), 'no-store');
+  assert.equal((drawn as StoryText | null)?.empty, 'Hoy no quedan turnos libres');
+
+  const publisher = empty();
+  const skipped = await storyImageResponse('la-zona-f5', 'libres', new URLSearchParams(), publisher);
+  assert.equal(skipped.status, 404);
+  assert.equal(publisher.renders, 0);
+
+  const freed = empty();
+  const taken = await storyImageResponse('la-zona-f5', 'liberado', new URLSearchParams('hora=19:30&cancha=c1&vista=1'), freed);
+  assert.equal(taken.status, 404, 'liberado ignores vista');
+  assert.equal(freed.renders, 0);
+});
+
+test('a freed slot after midnight reads the previous operating day only when its own day lacks it', async () => {
+  const reads: string[] = [];
+  const overnight = deps({
+    readAvailability: async (_slug, date) => {
+      reads.push(date);
+      const g = grid(date === '2026-11-19');
+      g.date = date;
+      g.courts[0].slots = [{ start_time: '00:30', start_min: 1470, available: date === '2026-11-19' }];
+      return g;
+    },
+  });
+  const found = await storyImageResponse('la-zona-f5', 'liberado', new URLSearchParams('fecha=2026-11-20&hora=00:30&cancha=c1'), overnight);
+  assert.equal(found.status, 200);
+  assert.deepEqual(reads, ['2026-11-20', '2026-11-19']);
+
+  reads.length = 0;
+  const sameDay = await storyImageResponse('la-zona-f5', 'liberado', new URLSearchParams('hora=19:30&cancha=c1'), deps({
+    readAvailability: async (_slug, date) => {
+      reads.push(date);
+      return grid(true);
+    },
+  }));
+  assert.equal(sameDay.status, 200);
+  assert.deepEqual(reads, [TODAY]);
+
+  reads.length = 0;
+  const takenToday = await storyImageResponse('la-zona-f5', 'liberado', new URLSearchParams('hora=19:30&cancha=c1'), deps({
+    readAvailability: async (_slug, date) => {
+      reads.push(date);
+      if (date < TODAY) throw new ApiError('unavailable', 422);
+      return grid(false);
+    },
+  }));
+  assert.equal(takenToday.status, 404, 'a slot taken today is skipped, not retried on a refused read of yesterday');
+  assert.deepEqual(reads, [TODAY]);
 });
 
 test('a freed slot taken again answers an uncached 404 and draws nothing', async () => {

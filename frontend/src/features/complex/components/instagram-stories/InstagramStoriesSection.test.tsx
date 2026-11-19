@@ -40,6 +40,23 @@ function capturePut(respond?: () => Response) {
   return bodies;
 }
 
+/** Serves the given recent stories (freed, scheduled 18:00 venue time) under the default settings. */
+function recent(stories: { status: string; reason: string | null }[]) {
+  server.use(
+    http.get('*/complexes/:complexId/instagram/stories', () =>
+      HttpResponse.json({
+        settings: DEFAULTS,
+        recent: stories.map((s) => ({
+          kind: 'freed',
+          scheduled_for: '2026-11-19T21:00:00Z',
+          published_at: null,
+          ...s,
+        })),
+      }),
+    ),
+  );
+}
+
 function renderCard() {
   renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 }
@@ -75,7 +92,7 @@ describe('InstagramStoriesSection visibility', () => {
     renderCard();
 
     const link = await screen.findByRole('link', { name: t.preview });
-    expect(link).toHaveAttribute('href', 'https://vibe.com.ar/historias/c/los-alamos/libres.jpg');
+    expect(link).toHaveAttribute('href', 'https://vibe.com.ar/historias/c/los-alamos/libres.jpg?vista=1');
     expect(link).toHaveAttribute('target', '_blank');
   });
 });
@@ -188,5 +205,53 @@ describe('InstagramStoriesSection server refusal and history', () => {
   it('says there are no stories yet when the list is empty', async () => {
     renderCard();
     expect(await screen.findByText(t.recentEmpty)).toBeInTheDocument();
+  });
+});
+
+describe('InstagramStoriesSection skip and failure explanations', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    connection({ connected: true, needs_reconnect: false });
+  });
+
+  it.each([
+    ['nothing_to_show', 'no quedaban turnos libres'],
+    ['disabled', 'la apagaste'],
+    ['account_unusable', 'Instagram desconectado'],
+    ['day_passed', 'ya pasó el día'],
+    ['too_close', 'faltaba menos de una hora'],
+  ])('explains a story skipped for %s', async (reason, explanation) => {
+    recent([{ status: 'skipped', reason }]);
+    renderCard();
+
+    const [item] = await screen.findAllByRole('listitem');
+    expect(item).toHaveTextContent(t.statuses.skipped);
+    expect(item).toHaveTextContent(explanation);
+  });
+
+  it('shows a skipped story with an unknown or missing reason as plainly skipped', async () => {
+    recent([
+      { status: 'skipped', reason: 'some_new_code' },
+      { status: 'skipped', reason: null },
+    ]);
+    renderCard();
+
+    const items = await screen.findAllByRole('listitem');
+    expect(items).toHaveLength(2);
+    for (const item of items) {
+      expect(item).toHaveTextContent('Omitida');
+      expect(item).not.toHaveTextContent('some_new_code');
+      for (const explanation of Object.values(t.skipReasons)) expect(item).not.toHaveTextContent(explanation);
+    }
+  });
+
+  it('shows a failed story with a generic cause, never the technical reason', async () => {
+    recent([{ status: 'failed', reason: 'graph 400: (#100) Invalid parameter' }]);
+    renderCard();
+
+    const [item] = await screen.findAllByRole('listitem');
+    expect(item).toHaveTextContent('Falló');
+    expect(item).toHaveTextContent('Instagram no la aceptó');
+    expect(item).not.toHaveTextContent('Invalid parameter');
   });
 });

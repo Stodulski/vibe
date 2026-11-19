@@ -530,6 +530,7 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 	owesRefund := booking.CollectionStatus != bookingstore.CollectionStatusUnpaid && withinRefundWindow
 
 	// Cancel the booking.
+	previousStatus := booking.Status
 	booking.Status = "cancelled"
 	cancelNote := "Cancelado por el cliente"
 	if !withinRefundWindow {
@@ -591,7 +592,7 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 		}
 	}
 
-	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceClientCancel)
+	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceClientCancel, previousStatus)
 
 	// ClaimRefund clears the marker in the database but cannot reach this
 	// in-memory *Booking, so it is cleared here unconditionally: the field was

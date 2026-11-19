@@ -58,3 +58,48 @@ func assertFreedSlot(t *testing.T, f *fixture, complexID uuid.UUID, slug string,
 		t.Fatalf("freed slot = %+v; want complex %s slug %s court %s %s-%s", got, complexID, slug, courtID, startsAt, endsAt)
 	}
 }
+
+// S8.4: a booking that was still pending (a storefront hold awaiting payment)
+// never put a confirmed slot off sale, so cancelling it queues no freed-slot
+// story, on either cancellation path.
+func TestCancellingAPendingBookingAnnouncesNoFreedSlot(t *testing.T) {
+	t.Run("owner", func(t *testing.T) {
+		f := newFixture(t)
+		complexID := uuid.New()
+		booking := futureBooking(complexID)
+		booking.Status, booking.CollectionStatus = "pending", "unpaid"
+		f.store.booking = booking
+		complex := &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+		f.complexes.complex = complex
+		f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+
+		if _, err := f.service.Cancel(t.Context(), complex, Actor{}, booking.ID, "lluvia"); err != nil {
+			t.Fatalf("Cancel: %v", err)
+		}
+		if booking.Status != "cancelled" {
+			t.Fatalf("status = %s, want cancelled", booking.Status)
+		}
+		if len(f.freedSlots.slots) != 0 {
+			t.Fatalf("a pending booking's cancellation announced %d freed slots", len(f.freedSlots.slots))
+		}
+	})
+	t.Run("client", func(t *testing.T) {
+		f := newFixture(t)
+		complexID := uuid.New()
+		booking := futureBooking(complexID)
+		booking.Status, booking.CollectionStatus = "pending", "unpaid"
+		f.store.booking = booking
+		f.linkResolver.booking = booking
+		f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+		f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+
+		w := httptest.NewRecorder()
+		f.handler.PublicCancel(w, publicRequest(t, http.MethodPost, "/", `{"token":"test-token"}`))
+		if w.Code != http.StatusOK {
+			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		}
+		if len(f.freedSlots.slots) != 0 {
+			t.Fatalf("a pending booking's cancellation announced %d freed slots", len(f.freedSlots.slots))
+		}
+	})
+}

@@ -199,19 +199,21 @@ JOIN complexes c ON c.id = s.complex_id AND c.deleted_at IS NULL
 JOIN instagram_connections ic ON ic.complex_id = s.complex_id
 WHERE s.daily_enabled
   AND s.daily_time <= $1::text
+  AND (s.daily_starts_on IS NULL OR s.daily_starts_on <= $2::date)
   AND NOT ic.needs_reconnect
-  AND ic.expires_at > $2::timestamptz
+  AND ic.expires_at > $3::timestamptz
   AND NOT EXISTS (
       SELECT 1 FROM instagram_stories st
       WHERE st.complex_id = s.complex_id
-        AND st.dedup_key = $3::text
+        AND st.dedup_key = $4::text
   )
 ORDER BY c.id
-LIMIT $4::int
+LIMIT $5::int
 `
 
 type ListComplexesDueForDailyStoryParams struct {
 	NowHhmm  string             `json:"now_hhmm"`
+	Today    pgtype.Date        `json:"today"`
 	Now      pgtype.Timestamptz `json:"now"`
 	DedupKey string             `json:"dedup_key"`
 	RowLimit int32              `json:"row_limit"`
@@ -224,10 +226,12 @@ type ListComplexesDueForDailyStoryRow struct {
 
 // The live complexes whose daily story is on, whose time has come (daily_time
 // is HH:MM, so text order is time order), whose Instagram connection is
-// usable, and that have no daily story for this venue day yet.
+// usable, and that have no daily story for this venue day yet. A daily story
+// turned on after its time today starts on daily_starts_on (038).
 func (q *Queries) ListComplexesDueForDailyStory(ctx context.Context, arg ListComplexesDueForDailyStoryParams) ([]ListComplexesDueForDailyStoryRow, error) {
 	rows, err := q.db.Query(ctx, listComplexesDueForDailyStory,
 		arg.NowHhmm,
+		arg.Today,
 		arg.Now,
 		arg.DedupKey,
 		arg.RowLimit,
@@ -322,12 +326,20 @@ const markInstagramStoryAccountNeedsReconnect = `-- name: MarkInstagramStoryAcco
 UPDATE instagram_connections
 SET needs_reconnect = true
 WHERE complex_id = $1::uuid
+  AND expires_at = $2::timestamptz
   AND NOT needs_reconnect
 `
 
-// Meta refused the token while publishing (code 190).
-func (q *Queries) MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, complexID pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, markInstagramStoryAccountNeedsReconnect, complexID)
+type MarkInstagramStoryAccountNeedsReconnectParams struct {
+	ComplexID    pgtype.UUID        `json:"complex_id"`
+	OldExpiresAt pgtype.Timestamptz `json:"old_expires_at"`
+}
+
+// Meta refused the token while publishing (code 190). The failed token's
+// expiry is part of the match, as in MarkInstagramNeedsReconnect, so a
+// reconnect that landed while the story was in flight is not marked.
+func (q *Queries) MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, arg MarkInstagramStoryAccountNeedsReconnectParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markInstagramStoryAccountNeedsReconnect, arg.ComplexID, arg.OldExpiresAt)
 	if err != nil {
 		return 0, err
 	}
@@ -398,16 +410,21 @@ func (q *Queries) SaveInstagramStoryState(ctx context.Context, arg SaveInstagram
 }
 
 const upsertInstagramStorySettings = `-- name: UpsertInstagramStorySettings :one
-INSERT INTO instagram_story_settings (complex_id, daily_enabled, daily_time, freed_enabled, freed_daily_cap)
+INSERT INTO instagram_story_settings (complex_id, daily_enabled, daily_time, freed_enabled, freed_daily_cap, daily_starts_on)
 VALUES (
     $1::uuid, $2::boolean, $3::text,
-    $4::boolean, $5::int
+    $4::boolean, $5::int,
+    CASE WHEN $2::boolean THEN $6::date END
 )
 ON CONFLICT (complex_id) DO UPDATE SET
     daily_enabled   = EXCLUDED.daily_enabled,
     daily_time      = EXCLUDED.daily_time,
     freed_enabled   = EXCLUDED.freed_enabled,
-    freed_daily_cap = EXCLUDED.freed_daily_cap
+    freed_daily_cap = EXCLUDED.freed_daily_cap,
+    daily_starts_on = CASE
+        WHEN EXCLUDED.daily_enabled AND NOT instagram_story_settings.daily_enabled THEN EXCLUDED.daily_starts_on
+        ELSE instagram_story_settings.daily_starts_on
+    END
 RETURNING daily_enabled, daily_time, freed_enabled, freed_daily_cap
 `
 
@@ -417,6 +434,7 @@ type UpsertInstagramStorySettingsParams struct {
 	DailyTime     string      `json:"daily_time"`
 	FreedEnabled  bool        `json:"freed_enabled"`
 	FreedDailyCap int32       `json:"freed_daily_cap"`
+	DailyStartsOn pgtype.Date `json:"daily_starts_on"`
 }
 
 type UpsertInstagramStorySettingsRow struct {
@@ -426,6 +444,9 @@ type UpsertInstagramStorySettingsRow struct {
 	FreedDailyCap int32  `json:"freed_daily_cap"`
 }
 
+// daily_starts_on is set only by the save that turns the daily story on (no
+// row yet, or the switch was off): a later save while it stays on keeps it, so
+// moving daily_time does not move the start (038).
 func (q *Queries) UpsertInstagramStorySettings(ctx context.Context, arg UpsertInstagramStorySettingsParams) (UpsertInstagramStorySettingsRow, error) {
 	row := q.db.QueryRow(ctx, upsertInstagramStorySettings,
 		arg.ComplexID,
@@ -433,6 +454,7 @@ func (q *Queries) UpsertInstagramStorySettings(ctx context.Context, arg UpsertIn
 		arg.DailyTime,
 		arg.FreedEnabled,
 		arg.FreedDailyCap,
+		arg.DailyStartsOn,
 	)
 	var i UpsertInstagramStorySettingsRow
 	err := row.Scan(

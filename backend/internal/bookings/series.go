@@ -850,6 +850,7 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 
 // cancelQuietly cancels an unpaid occurrence with no message to the client.
 func (s *Service) cancelQuietly(ctx context.Context, complex *complexstore.Complex, actor Actor, b *bookingstore.Booking) error {
+	previousStatus := b.Status
 	b.Status = bookingstore.BookingStatusCancelled
 	note := "Cancelación: baja del turno fijo"
 	if b.Notes != nil {
@@ -861,7 +862,7 @@ func (s *Service) cancelQuietly(ctx context.Context, complex *complexstore.Compl
 	}
 	s.record(actor, complex.ID, "cancel", &b.ID, b)
 	s.freeWaitlistSlot(ctx, waitlist.Freed{ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: b.Date})
-	s.announceFreedSlot(ctx, complex, b)
+	s.announceFreedSlot(ctx, complex, b, previousStatus)
 	return nil
 }
 

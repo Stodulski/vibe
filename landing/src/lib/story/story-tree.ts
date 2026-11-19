@@ -47,8 +47,12 @@ function titleBlock(text: StoryText): ReactElement {
       text.name,
     ),
     box(
-      { fontSize: 72, fontWeight: 700, color: GREEN, textAlign: 'center', letterSpacing: -1, textShadow: SHADOW },
-      text.headline,
+      { ...CENTERED, gap: 8 },
+      box(
+        { fontSize: 72, fontWeight: 700, color: GREEN, textAlign: 'center', letterSpacing: -1, textShadow: SHADOW },
+        text.headline,
+      ),
+      ...(text.dateLine ? [box({ fontSize: 48, fontWeight: 700, textShadow: SHADOW }, text.dateLine)] : []),
     ),
   );
 }
@@ -80,6 +84,12 @@ function sportBlock(section: SportHours): ReactElement {
 }
 
 function freeCard(text: StoryText): ReactElement {
+  if (text.empty) {
+    return box(
+      { ...GLASS, ...CENTERED, width: '100%', padding: '72px 40px' },
+      box({ fontSize: 56, fontWeight: 700, textAlign: 'center' }, text.empty),
+    );
+  }
   return box(
     { ...GLASS, ...CENTERED, gap: 48, width: '100%', padding: '48px 40px' },
     ...text.sections.map(sportBlock),

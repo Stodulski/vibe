@@ -282,7 +282,7 @@ type InstagramConnectionStore interface {
 // Vibe publishes on the complex's Instagram account, and lists the latest.
 type InstagramStorySettingsStore interface {
 	GetStorySettings(ctx context.Context, complexID uuid.UUID) (complexstore.StorySettings, error)
-	SaveStorySettings(ctx context.Context, complexID uuid.UUID, in complexstore.StorySettings) (complexstore.StorySettings, error)
+	SaveStorySettings(ctx context.Context, complexID uuid.UUID, in complexstore.StorySettings, dailyStartsOn time.Time) (complexstore.StorySettings, error)
 	ListRecentStories(ctx context.Context, complexID uuid.UUID, limit int) ([]complexstore.RecentStory, error)
 }
 
@@ -291,12 +291,12 @@ type InstagramStorySettingsStore interface {
 type InstagramStoryQueue interface {
 	QueueFreedStory(ctx context.Context, story complexstore.NewStory) (bool, error)
 	QueueStory(ctx context.Context, story complexstore.NewStory) (bool, error)
-	ListDailyStoriesDue(ctx context.Context, now time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
+	ListDailyStoriesDue(ctx context.Context, now, today time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
 	ClaimDueStories(ctx context.Context, now, lockedUntil time.Time, limit int) ([]complexstore.QueuedStory, error)
 	SaveStoryState(ctx context.Context, id uuid.UUID, st complexstore.StoryState) error
 	SaveStoryContainer(ctx context.Context, id uuid.UUID, containerID string, createdAt time.Time) error
 	StoryAccount(ctx context.Context, complexID uuid.UUID) (*complexstore.StoryAccount, error)
-	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID) error
+	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) error
 }
 
 // InstagramStoryStore composes the story settings and the story queue.

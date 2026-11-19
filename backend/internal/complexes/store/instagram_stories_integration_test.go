@@ -12,7 +12,11 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
+	"github.com/stodulski/vibe-server/internal/stores"
 )
+
+// storyDay is the venue day the tests' daily stories belong to.
+var storyDay = time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
 
 func freedStory(complexID uuid.UUID, key string, day, now time.Time) complexstore.NewStory {
 	starts := now.Add(3 * time.Hour)
@@ -36,13 +40,13 @@ func TestIntegration_InstagramStorySettingsDefaultAndRoundTrip(t *testing.T) {
 		t.Fatalf("unsaved settings = %+v, %v; want the defaults", got, err)
 	}
 	want := complexstore.StorySettings{DailyEnabled: true, DailyTime: "21:30", FreedEnabled: true, FreedDailyCap: 7}
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, want); err != nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, want, storyDay); err != nil {
 		t.Fatalf("SaveStorySettings: %v", err)
 	}
 	if got, _ := s.GetStorySettings(ctx, f.ComplexID); got != want {
 		t.Fatalf("saved settings read back as %+v, want %+v", got, want)
 	}
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "23:00", FreedDailyCap: 5}); err == nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "23:00", FreedDailyCap: 5}, storyDay); err == nil {
 		t.Fatal("a daily time of 23:00 was stored")
 	}
 }
@@ -59,13 +63,13 @@ func TestIntegration_FreedStoriesRespectTheSwitchTheCapAndTheDedupKey(t *testing
 	if ok, err := s.QueueFreedStory(ctx, freedStory(f.ComplexID, "freed:a", day, now)); err != nil || ok {
 		t.Fatalf("with no settings saved: queued=%v err=%v, want nothing queued", ok, err)
 	}
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: false, FreedDailyCap: 2}); err != nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: false, FreedDailyCap: 2}, storyDay); err != nil {
 		t.Fatal(err)
 	}
 	if ok, _ := s.QueueFreedStory(ctx, freedStory(f.ComplexID, "freed:a", day, now)); ok {
 		t.Fatal("queued with freed stories off")
 	}
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: true, FreedDailyCap: 2}); err != nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: true, FreedDailyCap: 2}, storyDay); err != nil {
 		t.Fatal(err)
 	}
 	for _, tc := range []struct {
@@ -95,12 +99,12 @@ func TestIntegration_DailyStoryIsDueOncePerDayAfterItsTime(t *testing.T) {
 	s := f.Stores.InstagramStories
 	now := time.Now()
 	saveIG(t, ctx, f.Stores.Instagram, f.ComplexID, "IGAAdaily-token", now.Add(30*24*time.Hour))
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyEnabled: true, DailyTime: "10:00", FreedDailyCap: 5}); err != nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyEnabled: true, DailyTime: "10:00", FreedDailyCap: 5}, storyDay); err != nil {
 		t.Fatal(err)
 	}
 	due := func(hhmm string) bool {
 		t.Helper()
-		list, err := s.ListDailyStoriesDue(ctx, now, hhmm, "daily:2026-11-20", 10_000)
+		list, err := s.ListDailyStoriesDue(ctx, now, storyDay, hhmm, "daily:2026-11-20", 10_000)
 		if err != nil {
 			t.Fatalf("ListDailyStoriesDue: %v", err)
 		}
@@ -135,7 +139,7 @@ func TestIntegration_DailyStoryIsDueOncePerDayAfterItsTime(t *testing.T) {
 	if due("15:00") {
 		t.Fatal("still due after today's story was queued")
 	}
-	list, _ := s.ListDailyStoriesDue(ctx, now, "15:00", "daily:2026-11-21", 10_000)
+	list, _ := s.ListDailyStoriesDue(ctx, now, storyDay.AddDate(0, 0, 1), "15:00", "daily:2026-11-21", 10_000)
 	found := false
 	for _, d := range list {
 		found = found || d.ComplexID == f.ComplexID
@@ -153,7 +157,7 @@ func TestIntegration_ClaimLeasesDueStories(t *testing.T) {
 	ctx := data.ContextWithTenantBypass(context.Background())
 	s := f.Stores.InstagramStories
 	now := time.Now()
-	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: true, FreedDailyCap: 5}); err != nil {
+	if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{DailyTime: "10:00", FreedEnabled: true, FreedDailyCap: 5}, storyDay); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := s.QueueFreedStory(ctx, freedStory(f.ComplexID, "freed:due", now, now.Add(-time.Minute))); err != nil {
@@ -199,5 +203,110 @@ func TestIntegration_ClaimLeasesDueStories(t *testing.T) {
 	recent, err := s.ListRecentStories(f.Scoped(context.Background()), f.ComplexID, 10)
 	if err != nil || len(recent) != 2 || recent[0].ScheduledFor.Before(recent[1].ScheduledFor) {
 		t.Fatalf("recent = %+v, %v; want both stories, newest first", recent, err)
+	}
+}
+
+// dueToday reports whether the complex's daily story is due at hhmm on day.
+func dueToday(t *testing.T, ctx context.Context, s stores.InstagramStoryStore, complexID uuid.UUID, day time.Time, hhmm string) bool {
+	t.Helper()
+	list, err := s.ListDailyStoriesDue(ctx, time.Now(), day, hhmm, "daily:"+day.Format("2006-01-02"), 10_000)
+	if err != nil {
+		t.Fatalf("ListDailyStoriesDue: %v", err)
+	}
+	for _, d := range list {
+		if d.ComplexID == complexID {
+			return true
+		}
+	}
+	return false
+}
+
+// S8.5: a daily story turned on after its time starts on the day the save
+// that turned it on named; a later save while it stays on (a later
+// daily_time) keeps that day, and only turning it off and on again moves it.
+func TestIntegration_DailyStoryTurnedOnAfterItsTimeStartsTheNextDay(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := data.ContextWithTenantBypass(context.Background())
+	s := f.Stores.InstagramStories
+	saveIG(t, ctx, f.Stores.Instagram, f.ComplexID, "IGAAstart-token", time.Now().Add(30*24*time.Hour))
+	today, tomorrow := storyDay, storyDay.AddDate(0, 0, 1)
+	save := func(enabled bool, dailyTime string, startsOn time.Time) {
+		t.Helper()
+		if _, err := s.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{
+			DailyEnabled: enabled, DailyTime: dailyTime, FreedDailyCap: 5,
+		}, startsOn); err != nil {
+			t.Fatalf("SaveStorySettings: %v", err)
+		}
+	}
+
+	// Turned on at 15:00 with 10:00 as its time: the handler says tomorrow.
+	save(true, "10:00", tomorrow)
+	if dueToday(t, ctx, s, f.ComplexID, today, "15:00") {
+		t.Fatal("turned on after its time, it is due today")
+	}
+	// Moved to 18:00 later the same day: the handler now says today, the
+	// stored start stays tomorrow.
+	save(true, "18:00", today)
+	if dueToday(t, ctx, s, f.ComplexID, today, "18:30") {
+		t.Fatal("moving the time later made today's story due")
+	}
+	if !dueToday(t, ctx, s, f.ComplexID, tomorrow, "18:30") {
+		t.Fatal("not due on the day it starts")
+	}
+	// Off, then on again before its time: it starts today.
+	save(false, "18:00", today)
+	save(true, "18:00", today)
+	if !dueToday(t, ctx, s, f.ComplexID, today, "18:30") {
+		t.Fatal("turned on again before its time, it is not due today")
+	}
+}
+
+// S8.6: disconnecting Instagram turns both story switches off in the same
+// statement that deletes the connection.
+func TestIntegration_DisconnectTurnsTheStoriesOff(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	saveIG(t, ctx, f.Stores.Instagram, f.ComplexID, "IGAAoff-token", time.Now().Add(30*24*time.Hour))
+	if _, err := f.Stores.InstagramStories.SaveStorySettings(ctx, f.ComplexID, complexstore.StorySettings{
+		DailyEnabled: true, DailyTime: "12:00", FreedEnabled: true, FreedDailyCap: 7,
+	}, storyDay); err != nil {
+		t.Fatal(err)
+	}
+
+	if deleted, err := f.Stores.Instagram.DeleteInstagramConnection(ctx, f.ComplexID); err != nil || !deleted {
+		t.Fatalf("DeleteInstagramConnection = (%v, %v), want (true, nil)", deleted, err)
+	}
+
+	got, err := f.Stores.InstagramStories.GetStorySettings(ctx, f.ComplexID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := complexstore.StorySettings{DailyEnabled: false, DailyTime: "12:00", FreedEnabled: false, FreedDailyCap: 7}
+	if got != want {
+		t.Fatalf("settings after disconnect = %+v, want %+v", got, want)
+	}
+}
+
+// S8.9: the publisher's reconnect flag applies only to the token that failed:
+// a connection renewed since (another expiry) is left alone.
+func TestIntegration_StoryReconnectFlagMatchesTheFailedToken(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	old := time.Now().Add(10 * 24 * time.Hour).Truncate(time.Second)
+	renewed := old.Add(50 * 24 * time.Hour)
+	saveIG(t, ctx, f.Stores.Instagram, f.ComplexID, "IGAArenewed-token", renewed)
+	s := f.Stores.InstagramStories
+
+	if err := s.MarkStoryAccountNeedsReconnect(ctx, f.ComplexID, old); err != nil {
+		t.Fatal(err)
+	}
+	if acct, _ := s.StoryAccount(ctx, f.ComplexID); acct.NeedsReconnect {
+		t.Fatal("the old token's failure flagged the renewed connection")
+	}
+	if err := s.MarkStoryAccountNeedsReconnect(ctx, f.ComplexID, renewed); err != nil {
+		t.Fatal(err)
+	}
+	if acct, _ := s.StoryAccount(ctx, f.ComplexID); !acct.NeedsReconnect {
+		t.Fatal("the current token's failure did not flag the connection")
 	}
 }

@@ -21,6 +21,7 @@ export const instagram = {
     description: 'Vibe no publica nada hasta que actives alguna de estas historias.',
     daily: 'Turnos libres del día',
     dailyHelp: 'Una vez por día, a la hora que elijas, publicamos una historia con los turnos libres de ese día.',
+    dailyStartsNote: 'Si la activás después de ese horario, la primera sale mañana.',
     dailyTime: 'Hora de publicación',
     freed: 'Turnos que se liberan',
     freedHelp:
@@ -40,9 +41,18 @@ export const instagram = {
     statuses: {
       published: 'Publicada',
       pending: 'Pendiente',
-      skipped: 'Omitida (nada para mostrar)',
+      skipped: 'Omitida',
       failed: 'Falló',
     },
+    /** Why a story was skipped, by the server's stable reason code. An unknown code shows no explanation. */
+    skipReasons: {
+      nothing_to_show: 'no quedaban turnos libres',
+      disabled: 'la apagaste',
+      account_unusable: 'Instagram desconectado',
+      day_passed: 'ya pasó el día',
+      too_close: 'faltaba menos de una hora',
+    },
+    failedReason: 'Instagram no la aceptó',
   },
   callbackErrors: {
     expired: 'El enlace de conexión venció. Volvé a conectar Instagram.',
