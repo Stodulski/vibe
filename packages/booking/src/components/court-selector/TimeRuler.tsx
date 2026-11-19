@@ -52,7 +52,7 @@ export function TimeRuler({ hours, initialStartTime, severalCourts, onSelectTime
 
   return (
     <section aria-label={t.rulerLabel} className="flex flex-col gap-4">
-      <h2 className="text-text-primary text-xl font-bold">{t.timeQuestion}</h2>
+      <h2 className="text-text-primary text-center text-xl font-bold">{t.timeQuestion}</h2>
       {/* The readout sits in the wheel's empty top: only the ends climb that high, at the sides. */}
       <div className="relative z-10">
         <RulerReadout hour={current} severalCourts={severalCourts} />

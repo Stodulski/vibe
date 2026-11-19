@@ -140,7 +140,7 @@ export function ChoiceWheel<T extends string>({
 
   return (
     <section aria-label={question} className="flex flex-col gap-4">
-      <h2 className="text-text-primary text-xl font-bold">{question}</h2>
+      <h2 className="text-text-primary text-center text-xl font-bold">{question}</h2>
       <div
         ref={measureRef}
         {...wheel.handlers}

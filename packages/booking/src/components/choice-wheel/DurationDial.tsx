@@ -89,7 +89,7 @@ export function DurationDial({ question, options, selected, onChoose }: Duration
 
   return (
     <section aria-label={question} className="flex flex-col gap-4">
-      <h2 className="text-text-primary text-xl font-bold">{question}</h2>
+      <h2 className="text-text-primary text-center text-xl font-bold">{question}</h2>
       <p className="text-text-primary text-center text-4xl font-bold tabular-nums" aria-live="polite">
         {durationLabel(value)}
       </p>
