@@ -84,6 +84,18 @@ export function kitFileName(slug: string, image: KitImage): string {
   return `vibe-${slug}-${image.piece}-${image.format}.png`;
 }
 
+/**
+ * The width a picture is rasterized at for an email. The kit email shows the post 280px wide, so
+ * twice that is sharp on a dense screen, and a third as many pixels as the full picture renders
+ * fast enough for an email client to wait for it.
+ */
+export const KIT_EMAIL_WIDTH = 560;
+
+/** ?email=1 asks for the picture at the email width; anything else is the full picture. */
+export function emailWidth(query: URLSearchParams): number | undefined {
+  return query.get('email') === '1' ? KIT_EMAIL_WIDTH : undefined;
+}
+
 /** Only ?descargar=1 asks for the picture as a download. */
 export function wantsDownload(query: URLSearchParams): boolean {
   return query.get('descargar') === '1';

@@ -99,12 +99,16 @@ function ensureResvg(wasm: InitInput): Promise<void> {
   return wasmReady;
 }
 
-/** Lays a tree out as SVG with satori, then rasterizes it at its own width with resvg. */
+/**
+ * Lays a tree out as SVG with satori, then rasterizes it with resvg at its own width, or scaled to
+ * outputWidth when one is given. Fewer pixels render faster.
+ */
 export async function rasterize(
   tree: ReactElement,
   width: number,
   height: number,
   assets: CardAssets,
+  outputWidth: number = width,
 ): Promise<ArrayBuffer> {
   await ensureResvg(assets.wasm);
   const svg = await satori(tree, {
@@ -115,7 +119,7 @@ export async function rasterize(
       { name: FONT_FAMILY, data: assets.bold, weight: 700, style: 'normal' },
     ],
   });
-  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: width } });
+  const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: outputWidth } });
   try {
     const png = resvg.render().asPng();
     return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;

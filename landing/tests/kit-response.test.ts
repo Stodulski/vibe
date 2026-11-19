@@ -140,3 +140,17 @@ test('a failed read answers 503 with Retry-After and a render that throws answer
   assert.equal(broken.status, 500);
   assert.equal(broken.headers.get('Cache-Control'), 'no-store');
 });
+
+test('?email=1 renders the picture 560px wide for an email, and any other query at full size', async () => {
+  const widths: (number | undefined)[] = [];
+  const deps = stubs({
+    render: async (_card, _slug, _image, width) => {
+      widths.push(width);
+      return pngStub();
+    },
+  });
+  await kitImageResponse('la-zona-f5', 'reservar-post', new URLSearchParams('email=1'), deps);
+  await kitImageResponse('la-zona-f5', 'reservar-post', new URLSearchParams(), deps);
+  await kitImageResponse('la-zona-f5', 'reservar-post', new URLSearchParams('email=0'), deps);
+  assert.deepEqual(widths, [560, undefined, undefined]);
+});
