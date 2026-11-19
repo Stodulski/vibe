@@ -414,7 +414,7 @@ func TestFiveWaitingForASlotAreAllClaimedInOneSweep(t *testing.T) {
 		}
 	}
 	for _, e := range claimed {
-		if e.CourtSport != "padel" || e.StartTime != "19:00" || e.ComplexSlug == "" {
+		if e.CourtSport != "padel" || e.StartTime != "19:00" || e.ComplexSlug == "" || e.NotifiedAt.IsZero() {
 			t.Errorf("claimed entry = %+v; want the court's sport, the hour and the slug for the link", e)
 		}
 	}
@@ -452,8 +452,8 @@ func TestFiveWaitingForAFullEventAreAllClaimedWhenOneSpotFrees(t *testing.T) {
 		}
 	}
 	for _, e := range claimed {
-		if e.EventID != eventID || e.ComplexSlug == "" {
-			t.Errorf("claimed entry = %+v; want the event and the slug for the link", e)
+		if e.EventID != eventID || e.ComplexSlug == "" || e.NotifiedAt.IsZero() {
+			t.Errorf("claimed entry = %+v; want the event, the slug for the link and the notice instant", e)
 		}
 	}
 	if again, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100); err != nil || len(again) != 0 {
@@ -484,5 +484,90 @@ func TestFiveWaitingForAFullCategoryAreAllClaimedWhenAPairDropsOut(t *testing.T)
 		if e.TournamentID == nil || *e.TournamentID != tournamentID {
 			t.Errorf("claimed entry = %+v; want the tournament for the link", e)
 		}
+	}
+}
+
+// The people told about a freed slot who did not get it wait again once the
+// slot is taken: a later free spot reaches them with a new notice. The grid
+// stays listed after everyone was told, so the sweep can see it taken again;
+// an address that already joined again keeps one waiting entry, not two.
+func TestToldEntriesWaitAgainWhenTheirSlotIsTakenAgain(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	day := timezone.Today().AddDate(0, 0, 2)
+	pos := []string{f.CourtID.String() + " 19:00"}
+	for _, email := range fiveWaiting {
+		if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: email,
+			CourtID: f.CourtID, Day: day, StartTime: "19:00", DurationMinutes: 90}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	from := timezone.Today().AddDate(0, 0, -1)
+	grids, err := st.ListWaitingGrids(sweepCtx(), from, nil, 100)
+	if err != nil || len(grids) != 1 {
+		t.Fatalf("want one grid; got %+v (%v)", grids, err)
+	}
+	if got, err := st.ClaimFreeSlots(sweepCtx(), grids[0], pos); err != nil || len(got) != 5 {
+		t.Fatalf("want the five told at once; got %d (%v)", len(got), err)
+	}
+
+	// Everyone was told: the grid is still watched, so its slot can be seen taken.
+	if again, err := st.ListWaitingGrids(sweepCtx(), from, nil, 100); err != nil || len(again) != 1 {
+		t.Fatalf("a grid whose entries were all told must stay watched; got %+v (%v)", again, err)
+	}
+	// One of them joins again by hand before the sweep notices.
+	if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: "ana@example.com",
+		CourtID: f.CourtID, Day: day, StartTime: "19:00", DurationMinutes: 90}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Somebody holds the slot: the four still told are put back on the list.
+	rearmed, err := st.RearmTakenSlots(sweepCtx(), grids[0], pos)
+	if err != nil || rearmed != 4 {
+		t.Fatalf("want the four told addresses waiting again; got %d (%v)", rearmed, err)
+	}
+	for _, email := range fiveWaiting {
+		if n, _ := st.CountWaiting(ctx, f.ComplexID, email); n != 1 {
+			t.Errorf("%s must have exactly one waiting entry; got %d", email, n)
+		}
+	}
+	if again, err := st.RearmTakenSlots(sweepCtx(), grids[0], pos); err != nil || again != 0 {
+		t.Fatalf("a second pass re-arms nothing; got %d (%v)", again, err)
+	}
+
+	// The hold runs out: all five are told again, in one claim.
+	if got, err := st.ClaimFreeSlots(sweepCtx(), grids[0], pos); err != nil || len(got) != 5 {
+		t.Fatalf("want the five told again when it frees; got %d (%v)", len(got), err)
+	}
+}
+
+// The people told about a freed event spot wait again once the event is full
+// again, so a later free spot reaches them with a new notice.
+func TestToldEntriesWaitAgainWhenTheirEventIsFullAgain(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	eventID := newEvent(t, f, timezone.Today().AddDate(0, 0, 5), "20:00", 1)
+	paid := register(t, f, eventID, "confirmed", time.Hour)
+	for _, email := range fiveWaiting {
+		if err := st.InsertEvent(ctx, f.ComplexID, eventID, email); err != nil {
+			t.Fatal(err)
+		}
+	}
+	exec(t, f, `UPDATE open_play_registrations SET status = 'cancelled', cancelled_at = NOW() WHERE id = $1`, paid)
+	if got, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100); err != nil || len(got) != 5 {
+		t.Fatalf("want the five told at once; got %d (%v)", len(got), err)
+	}
+	if n, err := st.RearmFullEvents(sweepCtx(), timezone.Now()); err != nil || n != 0 {
+		t.Fatalf("while the spot is still free nobody is re-armed; got %d (%v)", n, err)
+	}
+
+	register(t, f, eventID, "held", time.Hour)
+	if n, err := st.RearmFullEvents(sweepCtx(), timezone.Now()); err != nil || n != 5 {
+		t.Fatalf("want the five waiting again once the event is full; got %d (%v)", n, err)
+	}
+	if got, err := st.ClaimFreedEvents(sweepCtx(), timezone.Now(), 100); err != nil || len(got) != 0 {
+		t.Fatalf("a full event tells nobody; got %d (%v)", len(got), err)
 	}
 }

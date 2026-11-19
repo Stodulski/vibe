@@ -23,7 +23,7 @@ WHERE ct.id = w.court_id
   AND w.date = $2::date
   AND w.duration_minutes = $3::int
   AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY($4::text[])
-RETURNING w.id, w.email, w.court_id, ct.name AS court_name, ct.sport::text AS court_sport, w.date, w.start_time,
+RETURNING w.id, w.notified_at, w.email, w.court_id, ct.name AS court_name, ct.sport::text AS court_sport, w.date, w.start_time,
           cx.name AS complex_name, cx.slug AS complex_slug
 `
 
@@ -35,15 +35,16 @@ type ClaimFreeSlotEntriesParams struct {
 }
 
 type ClaimFreeSlotEntriesRow struct {
-	ID          pgtype.UUID `json:"id"`
-	Email       string      `json:"email"`
-	CourtID     pgtype.UUID `json:"court_id"`
-	CourtName   string      `json:"court_name"`
-	CourtSport  string      `json:"court_sport"`
-	Date        pgtype.Date `json:"date"`
-	StartTime   pgtype.Time `json:"start_time"`
-	ComplexName string      `json:"complex_name"`
-	ComplexSlug string      `json:"complex_slug"`
+	ID          pgtype.UUID        `json:"id"`
+	NotifiedAt  pgtype.Timestamptz `json:"notified_at"`
+	Email       string             `json:"email"`
+	CourtID     pgtype.UUID        `json:"court_id"`
+	CourtName   string             `json:"court_name"`
+	CourtSport  string             `json:"court_sport"`
+	Date        pgtype.Date        `json:"date"`
+	StartTime   pgtype.Time        `json:"start_time"`
+	ComplexName string             `json:"complex_name"`
+	ComplexSlug string             `json:"complex_slug"`
 }
 
 // Marks notified, and returns with what the email needs, every entry still
@@ -65,6 +66,7 @@ func (q *Queries) ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEnt
 		var i ClaimFreeSlotEntriesRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.NotifiedAt,
 			&i.Email,
 			&i.CourtID,
 			&i.CourtName,
@@ -114,7 +116,7 @@ JOIN complexes cx ON cx.id = e.complex_id
 LEFT JOIN tournament_categories tc ON tc.event_id = e.id
 WHERE w.id = f.id
   AND w.notified_at IS NULL
-RETURNING w.id, w.email, e.id AS event_id, e.name AS event_name, e.date AS event_date,
+RETURNING w.id, w.notified_at, w.email, e.id AS event_id, e.name AS event_name, e.date AS event_date,
           e.start_time AS event_start_time, e.tournament_id, COALESCE(tc.name, '')::text AS category_name,
           cx.name AS complex_name, cx.slug AS complex_slug
 `
@@ -126,16 +128,17 @@ type ClaimFreedOpenPlayWaitlistParams struct {
 }
 
 type ClaimFreedOpenPlayWaitlistRow struct {
-	ID             pgtype.UUID `json:"id"`
-	Email          string      `json:"email"`
-	EventID        pgtype.UUID `json:"event_id"`
-	EventName      string      `json:"event_name"`
-	EventDate      pgtype.Date `json:"event_date"`
-	EventStartTime pgtype.Time `json:"event_start_time"`
-	TournamentID   pgtype.UUID `json:"tournament_id"`
-	CategoryName   string      `json:"category_name"`
-	ComplexName    string      `json:"complex_name"`
-	ComplexSlug    string      `json:"complex_slug"`
+	ID             pgtype.UUID        `json:"id"`
+	NotifiedAt     pgtype.Timestamptz `json:"notified_at"`
+	Email          string             `json:"email"`
+	EventID        pgtype.UUID        `json:"event_id"`
+	EventName      string             `json:"event_name"`
+	EventDate      pgtype.Date        `json:"event_date"`
+	EventStartTime pgtype.Time        `json:"event_start_time"`
+	TournamentID   pgtype.UUID        `json:"tournament_id"`
+	CategoryName   string             `json:"category_name"`
+	ComplexName    string             `json:"complex_name"`
+	ComplexSlug    string             `json:"complex_slug"`
 }
 
 // Claims, in one statement, every entry still waiting for an event that has a
@@ -156,6 +159,7 @@ func (q *Queries) ClaimFreedOpenPlayWaitlist(ctx context.Context, arg ClaimFreed
 		var i ClaimFreedOpenPlayWaitlistRow
 		if err := rows.Scan(
 			&i.ID,
+			&i.NotifiedAt,
 			&i.Email,
 			&i.EventID,
 			&i.EventName,
@@ -378,7 +382,6 @@ SELECT DISTINCT w.complex_id, cx.slug AS complex_slug, w.date, w.duration_minute
 FROM place_waitlist_entries w
 JOIN complexes cx ON cx.id = w.complex_id
 WHERE w.kind = 'slot'
-  AND w.notified_at IS NULL
   AND cx.is_active
   AND w.date >= $1::date
   AND ($2::date IS NULL
@@ -403,11 +406,12 @@ type ListWaitingSlotGridsRow struct {
 	DurationMinutes pgtype.Int4 `json:"duration_minutes"`
 }
 
-// The distinct grids (complex, day, duration) that slot entries still wait on,
-// from from_date, in key order after the cursor (NULL: from the start). The
-// sweep reads each grid once and walks the keys in pages, wrapping round, so
-// every waiting entry is inspected however many are still taken: an entry is
-// never starved behind older ones.
+// The distinct grids (complex, day, duration) that slot entries are on, from
+// from_date, in key order after the cursor (NULL: from the start). Entries
+// already told count too: the sweep must see their slot taken again to put
+// them back on the list. It reads each grid once and walks the keys in pages,
+// wrapping round, so every entry is inspected however many are still taken: an
+// entry is never starved behind older ones.
 func (q *Queries) ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error) {
 	rows, err := q.db.Query(ctx, listWaitingSlotGrids,
 		arg.FromDate,
@@ -437,4 +441,94 @@ func (q *Queries) ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotG
 		return nil, err
 	}
 	return items, nil
+}
+
+const rearmFullOpenPlayEntries = `-- name: RearmFullOpenPlayEntries :execrows
+UPDATE place_waitlist_entries w
+SET notified_at = NULL
+WHERE w.id IN (
+    SELECT DISTINCT ON (x.event_id, x.email) x.id
+    FROM place_waitlist_entries x
+    JOIN open_play_events e ON e.id = x.event_id
+    LEFT JOIN tournament_categories tc ON tc.event_id = e.id
+    WHERE x.kind = 'open_play'
+      AND x.notified_at IS NOT NULL
+      AND e.status = 'active'
+      AND (tc.id IS NULL OR tc.draw_generated_at IS NULL)
+      AND COALESCE(tc.starts_on + COALESCE(tc.starts_at, '00:00'::time), e.date + e.start_time)
+          > $1::date + $2::time
+      AND e.capacity <= (
+          SELECT count(*) FROM open_play_registrations r
+          WHERE r.event_id = e.id
+            AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW())))
+      AND NOT EXISTS (
+          SELECT 1 FROM place_waitlist_entries y
+          WHERE y.kind = 'open_play' AND y.notified_at IS NULL
+            AND y.event_id = x.event_id AND y.email = x.email)
+    ORDER BY x.event_id, x.email, x.notified_at DESC
+)
+`
+
+type RearmFullOpenPlayEntriesParams struct {
+	NowDate pgtype.Date `json:"now_date"`
+	NowTime pgtype.Time `json:"now_time"`
+}
+
+// Puts back on the list the addresses told about an event spot once the event
+// is full again (the ClaimFreedOpenPlayWaitlist rule, inverted) and has not
+// started, so a later free spot reaches them with a new notice. Per address and
+// event only the latest told row is re-armed, and none whose address already
+// waits for that event again.
+func (q *Queries) RearmFullOpenPlayEntries(ctx context.Context, arg RearmFullOpenPlayEntriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rearmFullOpenPlayEntries, arg.NowDate, arg.NowTime)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const rearmTakenSlotEntries = `-- name: RearmTakenSlotEntries :execrows
+UPDATE place_waitlist_entries w
+SET notified_at = NULL
+WHERE w.id IN (
+    SELECT DISTINCT ON (x.court_id, x.start_time, x.email) x.id
+    FROM place_waitlist_entries x
+    WHERE x.kind = 'slot'
+      AND x.notified_at IS NOT NULL
+      AND x.complex_id = $1::uuid
+      AND x.date = $2::date
+      AND x.duration_minutes = $3::int
+      AND (x.court_id::text || ' ' || to_char(x.start_time, 'HH24:MI')) = ANY($4::text[])
+      AND NOT EXISTS (
+          SELECT 1 FROM place_waitlist_entries y
+          WHERE y.kind = 'slot' AND y.notified_at IS NULL
+            AND y.court_id = x.court_id AND y.date = x.date AND y.start_time = x.start_time
+            AND y.duration_minutes = x.duration_minutes AND y.email = x.email)
+    ORDER BY x.court_id, x.start_time, x.email, x.notified_at DESC
+)
+`
+
+type RearmTakenSlotEntriesParams struct {
+	ComplexID       pgtype.UUID `json:"complex_id"`
+	Date            pgtype.Date `json:"date"`
+	DurationMinutes int32       `json:"duration_minutes"`
+	Positions       []string    `json:"positions"`
+}
+
+// Puts back on the list the addresses told about a slot of one grid that is
+// taken again (positions are "<court id> HH:MM"), so a later free spot reaches
+// them with a new notice. Per address and slot only the latest told row is
+// re-armed, and none whose address already waits for that slot again: the
+// unique index allows one waiting row per address and place.
+func (q *Queries) RearmTakenSlotEntries(ctx context.Context, arg RearmTakenSlotEntriesParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rearmTakenSlotEntries,
+		arg.ComplexID,
+		arg.Date,
+		arg.DurationMinutes,
+		arg.Positions,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

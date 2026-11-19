@@ -113,10 +113,13 @@ func Book(publicURL, complexSlug string) string {
 
 // StorefrontSlot is the complex's public page opened on one slot: the day, the
 // sport, the duration and the hour, the four things the storefront reads from
-// its query (useComplexPageState). It lands on the courts free at that hour, so
-// a waitlist email takes the person straight to the place that freed.
-func StorefrontSlot(publicURL, complexSlug string, day time.Time, sport string, durationMinutes int, startTime string) string {
+// its query (useComplexPageState), plus the court the notice was about. It lands
+// on the courts free at that hour, so a waitlist email takes the person straight
+// to the place that freed; when that court was taken first, the court lets the
+// page say so.
+func StorefrontSlot(publicURL, complexSlug string, day time.Time, sport string, durationMinutes int, startTime string, courtID uuid.UUID) string {
 	q := url.Values{}
+	q.Set("court", courtID.String())
 	q.Set("date", day.Format("2006-01-02"))
 	q.Set("sport", sport)
 	q.Set("duration", strconv.Itoa(durationMinutes))

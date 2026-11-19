@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // TestEveryFunctionEmitsTheConfiguredQueryParam pins the one property this
@@ -196,8 +198,9 @@ func TestEveryComplexLinkCarriesTheCPrefix(t *testing.T) {
 // sport, duration and hour, so the person lands on the courts free at that time.
 func TestStorefrontSlotOpensTheExactHour(t *testing.T) {
 	day := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
-	got := StorefrontSlot("https://vibe.test", "vibe-padel", day, "padel", 90, "19:30")
-	want := "https://vibe.test/c/vibe-padel?date=2026-11-20&duration=90&sport=padel&time=19%3A30"
+	court := uuid.MustParse("4f8b2c1e-9a3d-4e5f-8b7c-6d1e2f3a4b5c")
+	got := StorefrontSlot("https://vibe.test", "vibe-padel", day, "padel", 90, "19:30", court)
+	want := "https://vibe.test/c/vibe-padel?court=4f8b2c1e-9a3d-4e5f-8b7c-6d1e2f3a4b5c&date=2026-11-20&duration=90&sport=padel&time=19%3A30"
 	if got != want {
 		t.Errorf("StorefrontSlot = %q; want %q", got, want)
 	}

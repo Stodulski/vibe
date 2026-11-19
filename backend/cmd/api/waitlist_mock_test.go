@@ -64,3 +64,11 @@ func (m *mockPlaceWaitlistStore) ClaimFreeSlots(context.Context, waitliststore.S
 }
 
 func (m *mockPlaceWaitlistStore) DeletePast(context.Context, time.Time) (int64, error) { return 0, nil }
+
+func (m *mockPlaceWaitlistStore) RearmTakenSlots(context.Context, waitliststore.SlotGrid, []string) (int64, error) {
+	return 0, nil
+}
+
+func (m *mockPlaceWaitlistStore) RearmFullEvents(context.Context, time.Time) (int64, error) {
+	return 0, nil
+}

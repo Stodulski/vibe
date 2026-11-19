@@ -567,11 +567,12 @@ type Querier interface {
 	// include_cancelled is what the owner's list sets and the public one does not.
 	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
-	// The distinct grids (complex, day, duration) that slot entries still wait on,
-	// from from_date, in key order after the cursor (NULL: from the start). The
-	// sweep reads each grid once and walks the keys in pages, wrapping round, so
-	// every waiting entry is inspected however many are still taken: an entry is
-	// never starved behind older ones.
+	// The distinct grids (complex, day, duration) that slot entries are on, from
+	// from_date, in key order after the cursor (NULL: from the start). Entries
+	// already told count too: the sweep must see their slot taken again to put
+	// them back on the list. It reads each grid once and walks the keys in pages,
+	// wrapping round, so every entry is inspected however many are still taken: an
+	// entry is never starved behind older ones.
 	ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error)
 	// Every write that changes how many spots are taken (a sign-up, a payment
 	// confirmed late, the owner cancelling) takes this lock first, so two of them
@@ -611,6 +612,18 @@ type Querier interface {
 	// Whether any of the phones is a player of a live pair of the category: the
 	// payer of a paid or still-held sign-up, or its partner.
 	PairPlayersTaken(ctx context.Context, arg PairPlayersTakenParams) (bool, error)
+	// Puts back on the list the addresses told about an event spot once the event
+	// is full again (the ClaimFreedOpenPlayWaitlist rule, inverted) and has not
+	// started, so a later free spot reaches them with a new notice. Per address and
+	// event only the latest told row is re-armed, and none whose address already
+	// waits for that event again.
+	RearmFullOpenPlayEntries(ctx context.Context, arg RearmFullOpenPlayEntriesParams) (int64, error)
+	// Puts back on the list the addresses told about a slot of one grid that is
+	// taken again (positions are "<court id> HH:MM"), so a later free spot reaches
+	// them with a new notice. Per address and slot only the latest told row is
+	// re-armed, and none whose address already waits for that slot again: the
+	// unique index allows one waiting row per address and place.
+	RearmTakenSlotEntries(ctx context.Context, arg RearmTakenSlotEntriesParams) (int64, error)
 	// A date that is not part of the series: cancelled by the owner, or one that
 	// could not be booked. DO NOTHING keeps the first answer: a date already booked
 	// or excepted is never rewritten, and the row count says whether this call was

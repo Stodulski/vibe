@@ -8,11 +8,14 @@ import "context"
 const TaskEmailWaitlistPlaceFreed = "email:waitlist_place_freed"
 
 // WaitlistPlaceFreedEmail is one place-waitlist entry's notice. EntryID is the
-// place_waitlist_entries row; it is the deduplication subject, so one row yields
-// one email even if its task is redelivered. PlaceLabel says what freed, in the
+// place_waitlist_entries row and NoticeAt the instant the sweep told it; the two
+// together are the deduplication subject, so one notice yields one email even if
+// its task is redelivered, while a row put back on the list after someone else
+// took the place gets a new email the next time it frees. PlaceLabel says what freed, in the
 // words the email shows ("Cancha 1 el miércoles 18/11 a las 19:00").
 type WaitlistPlaceFreedEmail struct {
 	EntryID     string `json:"entry_id"`
+	NoticeAt    string `json:"notice_at"`
 	Email       string `json:"email"`
 	ComplexName string `json:"complex_name"`
 	PlaceLabel  string `json:"place_label"`
@@ -21,7 +24,7 @@ type WaitlistPlaceFreedEmail struct {
 
 // WaitlistPlaceFreed queues the notice for one place-waitlist entry.
 func (s *Service) WaitlistPlaceFreed(e WaitlistPlaceFreedEmail) {
-	s.queue.Enqueue(TaskEmailWaitlistPlaceFreed, e, dedup(TaskEmailWaitlistPlaceFreed, e.Email, e.EntryID))
+	s.queue.Enqueue(TaskEmailWaitlistPlaceFreed, e, dedup(TaskEmailWaitlistPlaceFreed, e.Email, e.EntryID+"@"+e.NoticeAt))
 }
 
 // registerWaitlistPlaceWorkers wires the delivery of the notice. RegisterWorkers calls it.

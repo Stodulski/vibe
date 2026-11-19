@@ -259,6 +259,8 @@ type PlaceWaitlistStore interface {
 	ClaimFreedEvents(ctx context.Context, now time.Time, limit int) ([]waitliststore.FreedEventEntry, error)
 	ListWaitingGrids(ctx context.Context, fromDay time.Time, after *waitliststore.SlotGrid, limit int) ([]waitliststore.SlotGrid, error)
 	ClaimFreeSlots(ctx context.Context, grid waitliststore.SlotGrid, positions []string) ([]waitliststore.FreedSlotEntry, error)
+	RearmTakenSlots(ctx context.Context, grid waitliststore.SlotGrid, positions []string) (int64, error)
+	RearmFullEvents(ctx context.Context, now time.Time) (int64, error)
 	DeletePast(ctx context.Context, today time.Time) (int64, error)
 }
 
