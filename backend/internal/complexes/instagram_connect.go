@@ -406,7 +406,8 @@ func (ig *Instagram) redirect(w http.ResponseWriter, r *http.Request, outcome, r
 }
 
 // Disconnect handles DELETE /api/v1/complexes/{id}/instagram. It deletes the
-// connection; disconnecting a complex with none is not an error. The token is
+// connection and, in the same statement, turns both story switches off (S6:
+// connecting publishes nothing by itself); disconnecting a complex with none is not an error. The token is
 // not revoked at Meta: Instagram's API documents no revocation endpoint for
 // the app to call; the owner removes the app from their Instagram settings.
 func (ig *Instagram) Disconnect(w http.ResponseWriter, r *http.Request) {
@@ -473,9 +474,11 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 
 	for _, d := range due {
 		tok, err := ig.api.Refresh(ctx, d.AccessToken)
-		if errors.Is(err, instagram.ErrRejected) {
-			// Meta answered and refused: the owner revoked access. Say so now
-			// rather than reporting connected until the token runs out.
+		if errors.Is(err, instagram.ErrRejected) && instagram.GraphCode(err) == instagram.CodeInvalidToken {
+			// Meta answered that the token is invalid: the owner revoked
+			// access. Say so now rather than reporting connected until the
+			// token runs out. Any other refusal (throttling, a 4xx about
+			// something else) is not proof of that and is retried below.
 			if _, markErr := ig.store.MarkInstagramNeedsReconnect(ctx, d.ComplexID, d.ExpiresAt); markErr != nil {
 				ig.logger.Error("instagram refresh: could not flag a revoked token", "complex_id", d.ComplexID, "error", markErr)
 			}

@@ -11,16 +11,30 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const deleteInstagramConnection = `-- name: DeleteInstagramConnection :execrows
-DELETE FROM instagram_connections WHERE complex_id = $1::uuid
+const deleteInstagramConnection = `-- name: DeleteInstagramConnection :one
+WITH deleted AS (
+    DELETE FROM instagram_connections
+    WHERE complex_id = $1::uuid
+    RETURNING complex_id
+), stories_off AS (
+    UPDATE instagram_story_settings
+    SET daily_enabled = false, freed_enabled = false
+    WHERE complex_id = $1::uuid
+      AND (daily_enabled OR freed_enabled)
+    RETURNING complex_id
+)
+SELECT count(*)::int AS deleted FROM deleted
 `
 
-func (q *Queries) DeleteInstagramConnection(ctx context.Context, complexID pgtype.UUID) (int64, error) {
-	result, err := q.db.Exec(ctx, deleteInstagramConnection, complexID)
-	if err != nil {
-		return 0, err
-	}
-	return result.RowsAffected(), nil
+// Disconnecting also turns both story switches off, in the same statement so
+// that neither can happen without the other: connecting again publishes
+// nothing until the owner turns a story type back on. Answers how many
+// connections were deleted (0 or 1).
+func (q *Queries) DeleteInstagramConnection(ctx context.Context, complexID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, deleteInstagramConnection, complexID)
+	var deleted int32
+	err := row.Scan(&deleted)
+	return deleted, err
 }
 
 const getInstagramComplexOwner = `-- name: GetInstagramComplexOwner :one

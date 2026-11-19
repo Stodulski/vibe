@@ -19,7 +19,7 @@ func (m *mockInstagramStoryStore) GetStorySettings(context.Context, uuid.UUID) (
 	return complexstore.DefaultStorySettings(), nil
 }
 
-func (m *mockInstagramStoryStore) SaveStorySettings(_ context.Context, _ uuid.UUID, in complexstore.StorySettings) (complexstore.StorySettings, error) {
+func (m *mockInstagramStoryStore) SaveStorySettings(_ context.Context, _ uuid.UUID, in complexstore.StorySettings, _ time.Time) (complexstore.StorySettings, error) {
 	return in, nil
 }
 
@@ -35,7 +35,7 @@ func (m *mockInstagramStoryStore) QueueStory(context.Context, complexstore.NewSt
 	return false, nil
 }
 
-func (m *mockInstagramStoryStore) ListDailyStoriesDue(context.Context, time.Time, string, string, int) ([]complexstore.DailyStoryDue, error) {
+func (m *mockInstagramStoryStore) ListDailyStoriesDue(context.Context, time.Time, time.Time, string, string, int) ([]complexstore.DailyStoryDue, error) {
 	return nil, nil
 }
 
@@ -55,6 +55,6 @@ func (m *mockInstagramStoryStore) StoryAccount(context.Context, uuid.UUID) (*com
 	return nil, data.ErrRecordNotFound
 }
 
-func (m *mockInstagramStoryStore) MarkStoryAccountNeedsReconnect(context.Context, uuid.UUID) error {
+func (m *mockInstagramStoryStore) MarkStoryAccountNeedsReconnect(context.Context, uuid.UUID, time.Time) error {
 	return nil
 }

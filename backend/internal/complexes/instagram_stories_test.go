@@ -39,6 +39,9 @@ type memStoryStore struct {
 	accounts map[uuid.UUID]*complexstore.StoryAccount
 	// failSaves makes that many SaveStoryState calls fail, storing nothing.
 	failSaves int
+	// dailyStartsOn is what the last SaveStorySettings was given; which save
+	// stores it is SQL, tested against Postgres.
+	dailyStartsOn time.Time
 }
 
 type memStory struct {
@@ -60,10 +63,11 @@ func (s *memStoryStore) GetStorySettings(_ context.Context, id uuid.UUID) (compl
 	return complexstore.DefaultStorySettings(), nil
 }
 
-func (s *memStoryStore) SaveStorySettings(_ context.Context, id uuid.UUID, in complexstore.StorySettings) (complexstore.StorySettings, error) {
+func (s *memStoryStore) SaveStorySettings(_ context.Context, id uuid.UUID, in complexstore.StorySettings, dailyStartsOn time.Time) (complexstore.StorySettings, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.settings[id] = in
+	s.dailyStartsOn = dailyStartsOn
 	return in, nil
 }
 
@@ -108,7 +112,7 @@ func (s *memStoryStore) QueueStory(_ context.Context, story complexstore.NewStor
 	return true, nil
 }
 
-func (s *memStoryStore) ListDailyStoriesDue(context.Context, time.Time, string, string, int) ([]complexstore.DailyStoryDue, error) {
+func (s *memStoryStore) ListDailyStoriesDue(context.Context, time.Time, time.Time, string, string, int) ([]complexstore.DailyStoryDue, error) {
 	return nil, nil
 }
 
@@ -172,10 +176,10 @@ func (s *memStoryStore) StoryAccount(_ context.Context, id uuid.UUID) (*complexs
 	return &cp, nil
 }
 
-func (s *memStoryStore) MarkStoryAccountNeedsReconnect(_ context.Context, id uuid.UUID) error {
+func (s *memStoryStore) MarkStoryAccountNeedsReconnect(_ context.Context, id uuid.UUID, oldExpiresAt time.Time) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	if a, ok := s.accounts[id]; ok {
+	if a, ok := s.accounts[id]; ok && a.ExpiresAt.Equal(oldExpiresAt) {
 		a.NeedsReconnect = true
 	}
 	return nil
@@ -209,8 +213,11 @@ type fakeStoryMeta struct {
 	createFail, publishFail *graphFailure
 	// sentImageURL is the image_url the container was created with.
 	sentImageURL string
-	// onPublish, when set, runs as media_publish arrives.
-	onPublish func()
+	// onPublish, when set, runs as media_publish arrives; onCreate as the
+	// container creation does.
+	onPublish, onCreate func()
+	// imageFetches lists the request URI of every image request, in order.
+	imageFetches []string
 	// message, when set, is the error message failures carry.
 	message string
 }
@@ -245,8 +252,12 @@ func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
 		f.mu.Unlock()
 		return true
 	}
-	mux.HandleFunc("GET /historias/c/{slug}/{piece}", func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(f.imageStatus)
+	mux.HandleFunc("GET /historias/c/{slug}/{piece}", func(w http.ResponseWriter, r *http.Request) {
+		f.mu.Lock()
+		f.imageFetches = append(f.imageFetches, r.RequestURI)
+		status := f.imageStatus
+		f.mu.Unlock()
+		w.WriteHeader(status)
 	})
 	mux.HandleFunc("GET /1784/content_publishing_limit", func(w http.ResponseWriter, r *http.Request) {
 		if authorized(w, r) {
@@ -256,6 +267,9 @@ func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
 	mux.HandleFunc("POST /1784/media", func(w http.ResponseWriter, r *http.Request) {
 		if !authorized(w, r) {
 			return
+		}
+		if f.onCreate != nil {
+			f.onCreate()
 		}
 		if f.createFail != nil {
 			fail(w, f.createFail)
@@ -607,8 +621,8 @@ func TestAStoryIsPublished(t *testing.T) {
 	if out.Published != 1 {
 		t.Fatalf("outcome = %+v", out)
 	}
-	if h.meta.sentImageURL != st.ImageURL {
-		t.Fatalf("container image_url = %q, want %q", h.meta.sentImageURL, st.ImageURL)
+	if got := withoutCacheBuster(t, h.meta.sentImageURL); got != st.ImageURL {
+		t.Fatalf("container image_url = %q, want %q plus its cache buster", h.meta.sentImageURL, st.ImageURL)
 	}
 	h.assertNoToken(t)
 }
@@ -895,5 +909,185 @@ func TestALongMultiByteReasonIsStoredAsValidUTF8(t *testing.T) {
 	}
 	if !utf8.ValidString(st.State.Reason) || len(st.State.Reason) > maxStoryReason || len(st.State.Reason) < maxStoryReason-4 {
 		t.Fatalf("reason of %d bytes, valid UTF-8 %v", len(st.State.Reason), utf8.ValidString(st.State.Reason))
+	}
+}
+
+// withoutCacheBuster is u without its v parameter.
+func withoutCacheBuster(t *testing.T, u string) string {
+	t.Helper()
+	parsed, err := url.Parse(u)
+	if err != nil {
+		t.Fatal(err)
+	}
+	q := parsed.Query()
+	q.Del("v")
+	parsed.RawQuery = q.Encode()
+	return parsed.String()
+}
+
+// --- S8 fixes ---------------------------------------------------------------
+
+// S8.2: a container kept from an earlier run is published only after the image
+// is fetched again; a 404 then (the slot was taken meanwhile) skips the story
+// with nothing_to_show and media_publish is never sent.
+func TestAKeptContainerIsCheckedAgainBeforePublishing(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	h.meta.containerStatus = instagram.ContainerInProgress
+	h.stories.PublishDue(t.Context())
+	if st.State.ContainerID != "container-1" {
+		t.Fatalf("after the first run: %+v, want the container kept", st.State)
+	}
+
+	h.meta.containerStatus = instagram.ContainerFinished
+	h.meta.imageStatus = http.StatusNotFound
+	h.now = h.now.Add(3 * time.Minute)
+	h.stories.PublishDue(t.Context())
+
+	if st.State.Status != complexstore.StorySkipped || st.State.Reason != "nothing_to_show" {
+		t.Fatalf("state = %+v, want skipped with nothing_to_show", st.State)
+	}
+	if n := h.meta.count(callPublish); n != 0 {
+		t.Fatalf("media_publish sent %d times for a slot that was taken again", n)
+	}
+	if n := len(h.meta.imageFetches); n != 2 {
+		t.Fatalf("image fetched %d times, want 2 (create, then before publishing)", n)
+	}
+}
+
+// S8.2: a container created on an earlier venue day is dropped: the story is
+// skipped with day_passed and never published, even though its slot is still
+// ahead.
+func TestAContainerFromAnEarlierVenueDayIsDropped(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	created := venueTime(22, 58).AddDate(0, 0, -1)
+	st.State.ContainerID, st.State.ContainerCreatedAt = "container-1", &created
+
+	h.stories.PublishDue(t.Context())
+
+	if st.State.Status != complexstore.StorySkipped || st.State.Reason != "day_passed" {
+		t.Fatalf("state = %+v, want skipped with day_passed", st.State)
+	}
+	if n := h.meta.count(callPublish); n != 0 {
+		t.Fatalf("media_publish sent %d times for yesterday's container", n)
+	}
+}
+
+// S8.8: skipped stories carry a stable code the panel maps.
+func TestSkippedStoriesCarryStableCodes(t *testing.T) {
+	cases := []struct {
+		name    string
+		prepare func(h *storyHarness, st *memStory)
+		want    string
+	}{
+		{"turned off", func(h *storyHarness, _ *memStory) {
+			s := h.store.settings[h.complex]
+			s.FreedEnabled = false
+			h.store.settings[h.complex] = s
+		}, "disabled"},
+		{"slot under an hour away", func(h *storyHarness, _ *memStory) { h.now = h.now.Add(2*time.Hour + time.Minute) }, "too_close"},
+		{"not connected", func(h *storyHarness, _ *memStory) { delete(h.store.accounts, h.complex) }, "account_unusable"},
+		{"needs reconnect", func(h *storyHarness, _ *memStory) { h.store.accounts[h.complex].NeedsReconnect = true }, "account_unusable"},
+		{"nothing to show", func(h *storyHarness, _ *memStory) { h.meta.imageStatus = http.StatusNotFound }, "nothing_to_show"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			h := newStoryHarness(t)
+			st := h.queueFreed(t, h.now.Add(3*time.Hour))
+			tc.prepare(h, st)
+			h.stories.PublishDue(t.Context())
+			if st.State.Status != complexstore.StorySkipped || st.State.Reason != tc.want {
+				t.Fatalf("state = %+v, want skipped with %q", st.State, tc.want)
+			}
+		})
+	}
+
+	// A daily story of a day that is over.
+	h := newStoryHarness(t)
+	_, _ = h.store.QueueStory(t.Context(), complexstore.NewStory{
+		ComplexID: h.complex, Kind: complexstore.StoryKindDaily, DedupKey: "daily:2026-11-20",
+		ImageURL:  h.meta.srv.URL + "/historias/c/club-padel/libres.jpg?fecha=2026-11-20",
+		QueuedDay: timezone.Day(venueTime(0, 0)), ScheduledFor: venueTime(10, 0),
+	})
+	st := h.store.only(t)
+	h.now = venueTime(12, 0).AddDate(0, 0, 1)
+	h.stories.PublishDue(t.Context())
+	if st.State.Status != complexstore.StorySkipped || st.State.Reason != "day_passed" {
+		t.Fatalf("yesterday's daily story: %+v, want skipped with day_passed", st.State)
+	}
+}
+
+// S8.9: the publisher's code 190 flags only the token that failed. An owner
+// who reconnected while the story was in flight keeps the new connection.
+func TestAnInvalidOldTokenDoesNotFlagAConnectionRenewedMeanwhile(t *testing.T) {
+	h := newStoryHarness(t)
+	h.meta.createFail = &graphFailure{status: http.StatusBadRequest, code: instagram.CodeInvalidToken}
+	renewed := h.now.Add(60 * 24 * time.Hour)
+	h.meta.onCreate = func() {
+		h.store.mu.Lock()
+		h.store.accounts[h.complex].ExpiresAt = renewed // the owner reconnected
+		h.store.mu.Unlock()
+	}
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+
+	h.stories.PublishDue(t.Context())
+
+	if st.State.Status != complexstore.StoryFailed {
+		t.Fatalf("state = %+v, want failed", st.State)
+	}
+	if h.store.accounts[h.complex].NeedsReconnect {
+		t.Fatal("the old token's 190 flagged the connection the owner just renewed")
+	}
+}
+
+// S8.10: the image is fetched and sent to Instagram with the same URL, which
+// carries a cache buster so neither gets a cached copy of an older image.
+func TestTheImageIsCheckedAndSentWithTheSameFreshURL(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	h.stories.PublishDue(t.Context())
+
+	if st.State.Status != complexstore.StoryPublished {
+		t.Fatalf("state = %+v, want published", st.State)
+	}
+	sent, err := url.Parse(h.meta.sentImageURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if sent.Query().Get("v") == "" {
+		t.Fatalf("container image_url %q has no cache buster", h.meta.sentImageURL)
+	}
+	if len(h.meta.imageFetches) != 1 || h.meta.imageFetches[0] != sent.RequestURI() {
+		t.Fatalf("image fetched as %v, sent to Instagram as %s", h.meta.imageFetches, sent.RequestURI())
+	}
+}
+
+// S8.5: turning the daily story on at or after today's daily_time starts it
+// the next venue day; before the time, it starts today. (Which save stores
+// the start, and the cron honouring it, are SQL: see the store's integration
+// tests.)
+func TestTurningTheDailyStoryOnAfterItsTimeStartsItTomorrow(t *testing.T) {
+	for _, tc := range []struct {
+		now       time.Time
+		dailyTime string
+		want      time.Time
+	}{
+		{venueTime(9, 59), "10:00", timezone.Day(venueTime(0, 0))},
+		{venueTime(10, 0), "10:00", timezone.Day(venueTime(0, 0).AddDate(0, 0, 1))},
+		{venueTime(15, 0), "10:00", timezone.Day(venueTime(0, 0).AddDate(0, 0, 1))},
+		{venueTime(23, 30), "22:00", timezone.Day(venueTime(0, 0).AddDate(0, 0, 1))},
+		{venueTime(0, 30), "08:00", timezone.Day(venueTime(0, 0))},
+	} {
+		h, store := newStoryRoutesHarness(t, true)
+		h.ig.cfg.Now = func() time.Time { return tc.now }
+		body := `{"daily_enabled":true,"daily_time":"` + tc.dailyTime + `","freed_enabled":false,"freed_daily_cap":5}`
+		if w := storyRequest(t, h, http.MethodPut, body, "owner@vibe.test"); w.Code != http.StatusOK {
+			t.Fatalf("PUT = %d %s", w.Code, w.Body.String())
+		}
+		if !store.dailyStartsOn.Equal(tc.want) {
+			t.Errorf("turned on at %s with daily_time %s: starts on %s, want %s",
+				tc.now.Format("15:04"), tc.dailyTime, store.dailyStartsOn.Format("2006-01-02"), tc.want.Format("2006-01-02"))
+		}
 	}
 }

@@ -39,9 +39,14 @@ type FreedSlotListener interface {
 
 // announceFreedSlot hands a cancelled booking's slot to the freed-slot
 // listener on its own goroutine, detached from the request. It is a no-op when
-// no listener is wired.
-func (s *Service) announceFreedSlot(ctx context.Context, complex *complexstore.Complex, b *bookingstore.Booking) {
-	if s.freedSlots == nil {
+// no listener is wired, and when the booking was not confirmed before the
+// cancellation: a pending booking is a storefront hold awaiting payment, so
+// its slot never went off sale and nothing was freed. previousStatus is the
+// booking's status before the cancellation, which the caller reads before it
+// overwrites b.Status: by the time the slot is announced the booking reads
+// cancelled whatever it was.
+func (s *Service) announceFreedSlot(ctx context.Context, complex *complexstore.Complex, b *bookingstore.Booking, previousStatus bookingstore.BookingStatus) {
+	if s.freedSlots == nil || previousStatus != bookingstore.BookingStatusConfirmed {
 		return
 	}
 	ctx = context.WithoutCancel(ctx)

@@ -107,7 +107,7 @@ func (s *InstagramStore) GetInstagramConnection(ctx context.Context, complexID u
 }
 
 // DeleteInstagramConnection removes the complex's connection and reports
-// whether there was one.
+// whether there was one. The same statement turns both story switches off.
 func (s *InstagramStore) DeleteInstagramConnection(ctx context.Context, complexID uuid.UUID) (bool, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()

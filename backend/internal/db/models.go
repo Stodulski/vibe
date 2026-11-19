@@ -691,6 +691,7 @@ type InstagramStorySetting struct {
 	FreedDailyCap int32              `json:"freed_daily_cap"`
 	CreatedAt     pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt     pgtype.Timestamptz `json:"updated_at"`
+	DailyStartsOn pgtype.Date        `json:"daily_starts_on"`
 }
 
 // The durable work queue. Claimed with SELECT ... FOR UPDATE SKIP LOCKED; see internal/jobs.

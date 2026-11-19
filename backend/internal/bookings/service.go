@@ -861,6 +861,7 @@ func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, act
 		return CancelResult{}, &StateError{Message: fmt.Sprintf("cannot cancel a booking with status '%s'", booking.Status)}
 	}
 
+	previousStatus := booking.Status
 	booking.Status = "cancelled"
 	if reason != "" {
 		notes := reason
@@ -905,7 +906,7 @@ func (s *Service) Cancel(ctx context.Context, complex *complexstore.Complex, act
 			"amount", outcome.AmountCentavos, "reason", outcome.Reason)
 	}
 
-	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceOwnerCancel)
+	s.notifyCancelledAndRelease(ctx, booking, complex, outcome, notifications.SourceOwnerCancel, previousStatus)
 
 	s.realtime.PublishBookingChanged(complex.ID)
 

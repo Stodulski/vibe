@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -43,11 +44,13 @@ type fakeInstagram struct {
 	// refreshFails names the tokens whose refresh fails, with the status Meta
 	// answers: 400 is a refusal (the token was revoked), 500 an outage.
 	refreshFails map[string]int
+	// refreshCodes is the Graph code a failing refresh carries (190 when unset).
+	refreshCodes map[string]int
 }
 
 func newFakeInstagram(t *testing.T) *fakeInstagram {
 	t.Helper()
-	f := &fakeInstagram{meID: "1020", refreshFails: map[string]int{}}
+	f := &fakeInstagram{meID: "1020", refreshFails: map[string]int{}, refreshCodes: map[string]int{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth/access_token", func(w http.ResponseWriter, r *http.Request) {
 		f.exchanges.Add(1)
@@ -76,8 +79,12 @@ func newFakeInstagram(t *testing.T) *fakeInstagram {
 			if status == 0 {
 				status = http.StatusBadRequest
 			}
+			code := f.refreshCodes[tok]
+			if code == 0 {
+				code = instagram.CodeInvalidToken
+			}
 			w.WriteHeader(status)
-			_, _ = w.Write([]byte(`{"error":{"message":"Error validating access token","code":190}}`))
+			_, _ = w.Write([]byte(`{"error":{"message":"Error validating access token","code":` + strconv.Itoa(code) + `}}`))
 			return
 		}
 		_, _ = w.Write([]byte(`{"access_token":"` + igFreshToken + `-` + tok + `","token_type":"bearer","expires_in":5183944}`))
@@ -656,5 +663,52 @@ func TestInstagramIsOfferedOnlyToTheOwnersOnTheAllowList(t *testing.T) {
 	}
 	if got := connectCode("Tester@Vibe.test"); got != http.StatusOK {
 		t.Fatalf("connect for an owner on the list = %d, want 200", got)
+	}
+}
+
+// S8.3: only Graph code 190 means the owner revoked access. Throttling and any
+// other refusal is counted as failed and retried on the next run, never
+// flagged for reconnect.
+func TestInstagramRefreshFlagsReconnectOnlyForCode190(t *testing.T) {
+	h := newIGHarness(t, true)
+	expires := time.Now().Add(10 * 24 * time.Hour).Truncate(time.Second)
+	cases := map[string]struct {
+		status, code int
+		flagged      bool
+	}{
+		"tok-190":       {http.StatusBadRequest, instagram.CodeInvalidToken, true},
+		"tok-throttled": {http.StatusBadRequest, 4, false},
+		"tok-other4xx":  {http.StatusBadRequest, 100, false},
+		"tok-403":       {http.StatusForbidden, 10, false},
+	}
+	ids := map[string]uuid.UUID{}
+	for tok, tc := range cases {
+		id := uuid.New()
+		ids[tok] = id
+		h.store.conns[id] = &complexstore.InstagramConnection{ComplexID: id, AccessToken: tok, ExpiresAt: expires}
+		h.meta.refreshFails[tok] = tc.status
+		h.meta.refreshCodes[tok] = tc.code
+	}
+
+	out := h.ig.RefreshTokens(t.Context())
+
+	if out.Revoked != 1 || out.Failed != 3 {
+		t.Fatalf("outcome = %+v, want 1 revoked and 3 failed", out)
+	}
+	for tok, tc := range cases {
+		if got := h.store.conns[ids[tok]].NeedsReconnect; got != tc.flagged {
+			t.Errorf("%s: needs_reconnect = %v, want %v", tok, got, tc.flagged)
+		}
+	}
+
+	// The next run retries the ones that were not flagged.
+	for tok := range cases {
+		delete(h.meta.refreshFails, tok)
+	}
+	h.ig.RefreshTokens(t.Context())
+	for tok, tc := range cases {
+		if !tc.flagged && !strings.HasPrefix(h.store.conns[ids[tok]].AccessToken, igFreshToken) {
+			t.Errorf("%s was not retried on the next run", tok)
+		}
 	}
 }

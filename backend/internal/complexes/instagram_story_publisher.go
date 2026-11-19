@@ -58,6 +58,10 @@ const (
 	// the attempt counts as failed (Meta advises up to five minutes).
 	storyContainerRecheck  = time.Minute
 	storyContainerPatience = 10 * time.Minute
+	// storyImageRecheckAge is how old a container may be before the image is
+	// fetched again right before it is published: by then the slot may have
+	// been taken again.
+	storyImageRecheckAge = 2 * time.Minute
 	// storyDeferDelay is the wait after a failure that is not the story's own
 	// (a database error, an open circuit breaker): no attempt is spent.
 	storyDeferDelay = 5 * time.Minute
@@ -73,6 +77,22 @@ const (
 	storyMetaCalls     = 4
 	maxStoryReason     = 500
 	maxStoryImageBytes = 16 << 20
+)
+
+// The reasons a skipped story is stored with: stable codes the panel maps to
+// its own copy. A failed story keeps its (scrubbed) technical reason instead.
+const (
+	// StorySkipNothingToShow: the image route answered 404, nothing is free.
+	StorySkipNothingToShow = "nothing_to_show"
+	// StorySkipDisabled: the owner turned this story type off.
+	StorySkipDisabled = "disabled"
+	// StorySkipAccountUnusable: Instagram is not connected or needs a reconnect.
+	StorySkipAccountUnusable = "account_unusable"
+	// StorySkipDayPassed: the story's venue day is over, or its container was
+	// created on an earlier venue day.
+	StorySkipDayPassed = "day_passed"
+	// StorySkipTooClose: the freed slot starts in less than an hour.
+	StorySkipTooClose = "too_close"
 )
 
 // defaultStoryBackoff is the wait before each retry of a retryable failure; its
@@ -218,7 +238,7 @@ func (s *InstagramStories) QueueDailyStories(ctx context.Context) int {
 	venue := now.In(timezone.Argentina)
 	day := venue.Format("2006-01-02")
 	dedup := "daily:" + day
-	due, err := s.store.ListDailyStoriesDue(ctx, now, venue.Format("15:04"), dedup, storyDailyBatch)
+	due, err := s.store.ListDailyStoriesDue(ctx, now, timezone.Day(venue), venue.Format("15:04"), dedup, storyDailyBatch)
 	if err != nil {
 		s.logger.Error("instagram stories: could not list the daily stories due", "error", err)
 		return 0
@@ -316,7 +336,8 @@ func (s *InstagramStories) process(ctx context.Context, st *complexstore.QueuedS
 	}
 	token := acct.AccessToken
 
-	if st.ContainerID == "" {
+	createdNow := st.ContainerID == ""
+	if createdNow {
 		if stop := s.createContainer(ctx, st, acct, now); stop != nil {
 			return *stop, token
 		}
@@ -324,29 +345,61 @@ func (s *InstagramStories) process(ctx context.Context, st *complexstore.QueuedS
 
 	status, err := s.api.ContainerStatus(ctx, st.ContainerID, token)
 	if err != nil {
-		return s.failed(ctx, st, err, true), token
+		return s.failed(ctx, st, acct, err, true), token
 	}
-	switch status {
-	case instagram.ContainerFinished:
-	case instagram.ContainerPublished:
+	if status == instagram.ContainerPublished {
 		// An earlier run published it and could not record that (a crash, the
 		// deadline, a failed save). Publishing again would post it twice.
 		return s.publishedState(st, ""), token
+	}
+	if st.ContainerCreatedAt == nil || !sameDay(timezone.Day(st.ContainerCreatedAt.In(timezone.Argentina)), now) {
+		// The image was drawn on an earlier venue day: what it shows is no
+		// longer true.
+		return s.skipped(st, StorySkipDayPassed), token
+	}
+	switch status {
+	case instagram.ContainerFinished:
 	case instagram.ContainerInProgress, "":
-		if st.ContainerCreatedAt != nil && now.Sub(*st.ContainerCreatedAt) > storyContainerPatience {
-			return s.failed(ctx, st, fmt.Errorf("%w: the container was still processing after %s", instagram.ErrUnavailable, storyContainerPatience), false), token
+		if now.Sub(*st.ContainerCreatedAt) > storyContainerPatience {
+			return s.failed(ctx, st, acct, fmt.Errorf("%w: the container was still processing after %s", instagram.ErrUnavailable, storyContainerPatience), false), token
 		}
 		return s.waiting(st, now.Add(storyContainerRecheck)), token
 	default:
 		// ERROR, EXPIRED, or anything Meta adds: a new container may work.
-		return s.failed(ctx, st, fmt.Errorf("%w: the container ended as %s", instagram.ErrUnavailable, status), false), token
+		return s.failed(ctx, st, acct, fmt.Errorf("%w: the container ended as %s", instagram.ErrUnavailable, status), false), token
+	}
+
+	if !createdNow || s.cfg.Now().Sub(*st.ContainerCreatedAt) > storyImageRecheckAge {
+		// The container holds the image as it was drawn when it was created.
+		// Before it goes out, make sure there is still something true to show.
+		if err := s.fetchImage(ctx, s.freshImageURL(st)); err != nil {
+			if errors.Is(err, errStoryImageGone) {
+				return s.skipped(st, StorySkipNothingToShow), token
+			}
+			return s.failed(ctx, st, acct, err, true), token
+		}
 	}
 
 	mediaID, err := s.api.PublishContainer(ctx, acct.InstagramUserID, token, st.ContainerID)
 	if err != nil {
-		return s.failed(ctx, st, err, instagram.GraphCode(err) != instagram.CodeResourceMissing), token
+		return s.failed(ctx, st, acct, err, instagram.GraphCode(err) != instagram.CodeResourceMissing), token
 	}
 	return s.publishedState(st, mediaID), token
+}
+
+// freshImageURL is the story's image URL with a cache-busting v parameter
+// unique to this attempt, so that no cache between the landing and Vibe or
+// Instagram hands back an older drawing of the image; the image route ignores
+// the parameter. The check fetch and the container use the same URL.
+func (s *InstagramStories) freshImageURL(st *complexstore.QueuedStory) string {
+	u, err := url.Parse(st.ImageURL)
+	if err != nil {
+		return st.ImageURL
+	}
+	q := u.Query()
+	q.Set("v", st.ID.String()+"-"+strconv.FormatInt(s.cfg.Now().UnixMilli(), 36))
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // publishedState is the final state of a published story; mediaID is empty
@@ -379,20 +432,20 @@ func (s *InstagramStories) gate(ctx context.Context, st *complexstore.QueuedStor
 	switch {
 	case st.Kind == complexstore.StoryKindDaily && !settings.DailyEnabled,
 		st.Kind == complexstore.StoryKindFreed && !settings.FreedEnabled:
-		return stop(s.skipped(st, "the owner turned this story off"))
+		return stop(s.skipped(st, StorySkipDisabled))
 	case st.Kind == complexstore.StoryKindDaily && !sameDay(st.QueuedDay, now):
-		return stop(s.skipped(st, "the day is over"))
+		return stop(s.skipped(st, StorySkipDayPassed))
 	case st.Kind == complexstore.StoryKindFreed && (st.SlotStartsAt == nil || st.SlotStartsAt.Sub(now) < storyMinLead):
-		return stop(s.skipped(st, "the slot starts in less than an hour"))
+		return stop(s.skipped(st, StorySkipTooClose))
 	}
 	acct, err := s.store.StoryAccount(ctx, st.ComplexID)
 	switch {
 	case errors.Is(err, data.ErrRecordNotFound):
-		return stop(s.skipped(st, "instagram is not connected"))
+		return stop(s.skipped(st, StorySkipAccountUnusable))
 	case err != nil:
 		return stop(s.deferred(st, now, err))
 	case acct.NeedsReconnect || !acct.ExpiresAt.After(now):
-		return stop(s.skipped(st, "instagram needs to be connected again"))
+		return stop(s.skipped(st, StorySkipAccountUnusable))
 	}
 	return acct, nil
 }
@@ -401,24 +454,25 @@ func (s *InstagramStories) gate(ctx context.Context, st *complexstore.QueuedStor
 // container, recording it on st. A non-nil state stops the story here.
 func (s *InstagramStories) createContainer(ctx context.Context, st *complexstore.QueuedStory, acct *complexstore.StoryAccount, now time.Time) *complexstore.StoryState {
 	stop := func(state complexstore.StoryState) *complexstore.StoryState { return &state }
-	if err := s.fetchImage(ctx, st.ImageURL); err != nil {
+	imageURL := s.freshImageURL(st)
+	if err := s.fetchImage(ctx, imageURL); err != nil {
 		if errors.Is(err, errStoryImageGone) {
-			return stop(s.skipped(st, "nothing free to show any more"))
+			return stop(s.skipped(st, StorySkipNothingToShow))
 		}
-		return stop(s.failed(ctx, st, err, false))
+		return stop(s.failed(ctx, st, acct, err, false))
 	}
 	used, total, err := s.api.PublishingLimit(ctx, acct.InstagramUserID, acct.AccessToken)
 	if err != nil {
-		return stop(s.failed(ctx, st, err, false))
+		return stop(s.failed(ctx, st, acct, err, false))
 	}
 	if used >= total {
 		w := s.waiting(st, now.Add(storyQuotaWait))
 		w.Reason = "instagram daily publishing limit reached"
 		return stop(w)
 	}
-	id, err := s.api.CreateStory(ctx, acct.InstagramUserID, acct.AccessToken, st.ImageURL)
+	id, err := s.api.CreateStory(ctx, acct.InstagramUserID, acct.AccessToken, imageURL)
 	if err != nil {
-		return stop(s.failed(ctx, st, err, false))
+		return stop(s.failed(ctx, st, acct, err, false))
 	}
 	// Recorded before anything else is asked of Meta: from here on a later
 	// run must find this container, never create (and publish) another.
@@ -486,11 +540,13 @@ func (s *InstagramStories) skipped(st *complexstore.QueuedStory, reason string) 
 }
 
 // failed classifies a failed attempt. An invalid token fails the story and
-// flags the connection; Meta being down, throttling, a container not ready or
+// flags the connection, but only while the connection still holds the token
+// that failed (acct, matched on its expiry as the token refresh does), so a
+// reconnect that landed while the story was in flight is not undone; Meta being down, throttling, a container not ready or
 // missing, or a failed image fetch is retried with backoff until the attempts
 // run out; any other refusal fails at once. An open circuit breaker is a wait
 // that spends no attempt. keepContainer keeps the container for the retry.
-func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedStory, err error, keepContainer bool) complexstore.StoryState {
+func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedStory, acct *complexstore.StoryAccount, err error, keepContainer bool) complexstore.StoryState {
 	now := s.cfg.Now()
 	if errors.Is(err, circuitbreaker.ErrOpen) {
 		w := s.waiting(st, now.Add(storyDeferDelay))
@@ -505,7 +561,7 @@ func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedSt
 	if code == instagram.CodeInvalidToken {
 		markCtx, cancel := data.DetachedQueryContext(ctx)
 		defer cancel()
-		if markErr := s.store.MarkStoryAccountNeedsReconnect(markCtx, st.ComplexID); markErr != nil {
+		if markErr := s.store.MarkStoryAccountNeedsReconnect(markCtx, st.ComplexID, acct.ExpiresAt); markErr != nil {
 			s.logger.Error("instagram stories: could not flag the connection for reconnect", "complex_id", st.ComplexID, "error", markErr)
 		}
 		return state

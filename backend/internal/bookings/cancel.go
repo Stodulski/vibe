@@ -418,7 +418,9 @@ func (s *Service) refundMethod(ctx context.Context, booking *bookingstore.Bookin
 // nothing to name in the message. The release is keyed on the court, so it is
 // skipped on the same court failure. source says which flow cancelled the
 // booking; it decides whether the owner is told (see notifications.SourceClientCancel).
-func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome, source string) {
+// previousStatus is the booking's status before it was cancelled; only a
+// confirmed booking's slot is announced as freed (announceFreedSlot).
+func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookingstore.Booking, complex *complexstore.Complex, outcome paymentstore.RefundOutcome, source string, previousStatus bookingstore.BookingStatus) {
 	court, courterr := s.courts.GetByID(ctx, booking.CourtID)
 	// A storefront booking cancelled before it was paid has no client; the
 	// snapshot it was held under names who to tell (see ContactOf).
@@ -463,7 +465,7 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 	s.freeWaitlistSlot(ctx, waitlist.Freed{
 		ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
 	})
-	s.announceFreedSlot(ctx, complex, booking)
+	s.announceFreedSlot(ctx, complex, booking, previousStatus)
 }
 
 // releaseHeldSlots frees the checkout lock a cancelled booking still holds.

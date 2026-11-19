@@ -101,7 +101,11 @@ type Querier interface {
 	DeleteEmailVerificationTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
 	DeleteExpiredRefreshTokens(ctx context.Context) error
-	DeleteInstagramConnection(ctx context.Context, complexID pgtype.UUID) (int64, error)
+	// Disconnecting also turns both story switches off, in the same statement so
+	// that neither can happen without the other: connecting again publishes
+	// nothing until the owner turns a story type back on. Answers how many
+	// connections were deleted (0 or 1).
+	DeleteInstagramConnection(ctx context.Context, complexID pgtype.UUID) (int32, error)
 	// The daily cleanup: slot entries whose day is gone (kept one extra day for the
 	// hours past midnight), and event entries whose event was cancelled or whose day
 	// has passed.
@@ -481,7 +485,8 @@ type Querier interface {
 	ListComplexCitiesForHubs(ctx context.Context) ([]ListComplexCitiesForHubsRow, error)
 	// The live complexes whose daily story is on, whose time has come (daily_time
 	// is HH:MM, so text order is time order), whose Instagram connection is
-	// usable, and that have no daily story for this venue day yet.
+	// usable, and that have no daily story for this venue day yet. A daily story
+	// turned on after its time today starts on daily_starts_on (038).
 	ListComplexesDueForDailyStory(ctx context.Context, arg ListComplexesDueForDailyStoryParams) ([]ListComplexesDueForDailyStoryRow, error)
 	// Connected complexes whose OAuth token has no known expiry (never recorded
 	// one, e.g. rows connected before this column existed) or expires within 30
@@ -624,8 +629,10 @@ type Querier interface {
 	// Meta refused a refresh: the owner revoked access. The old expiry is part of
 	// the match so a reconnect that raced it is not marked.
 	MarkInstagramNeedsReconnect(ctx context.Context, arg MarkInstagramNeedsReconnectParams) (int64, error)
-	// Meta refused the token while publishing (code 190).
-	MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, complexID pgtype.UUID) (int64, error)
+	// Meta refused the token while publishing (code 190). The failed token's
+	// expiry is part of the match, as in MarkInstagramNeedsReconnect, so a
+	// reconnect that landed while the story was in flight is not marked.
+	MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, arg MarkInstagramStoryAccountNeedsReconnectParams) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -778,6 +785,9 @@ type Querier interface {
 	// Connecting again (another account, or the same one after a reconnect)
 	// replaces the row and clears needs_reconnect.
 	UpsertInstagramConnection(ctx context.Context, arg UpsertInstagramConnectionParams) error
+	// daily_starts_on is set only by the save that turns the daily story on (no
+	// row yet, or the switch was off): a later save while it stays on keeps it, so
+	// moving daily_time does not move the start (038).
 	UpsertInstagramStorySettings(ctx context.Context, arg UpsertInstagramStorySettingsParams) (UpsertInstagramStorySettingsRow, error)
 	// Records a charge; after a void it rewrites the row of the voided one.
 	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)

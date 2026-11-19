@@ -2893,8 +2893,9 @@ paths:
       operationId: complexesDisconnectInstagram
       summary: Disconnect the complex's Instagram account
       description: >-
-        Deletes the stored connection and its token. Disconnecting a complex with no connection is
-        not an error. The token is not revoked at Meta; the account owner can remove the app from
+        Deletes the stored connection and its token, and turns both story types off in the same
+        statement, so connecting again publishes nothing until the owner turns them back on.
+        Disconnecting a complex with no connection is not an error. The token is not revoked at Meta; the account owner can remove the app from
         their Instagram settings.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
@@ -2996,7 +2997,15 @@ paths:
                         reason:
                           type: string
                           nullable: true
-                          description: Why a story was skipped or failed, or what a pending one waits for.
+                          description: >-
+                            Why a story was skipped or failed, or what a pending one waits for. A
+                            skipped story carries one of these stable codes: `nothing_to_show` (nothing
+                            is free any more, or the freed slot was taken again), `disabled` (the owner
+                            turned this story type off), `account_unusable` (Instagram is not connected
+                            or needs a reconnect), `day_passed` (the story's venue day is over, or its
+                            container was created on an earlier venue day), `too_close` (the freed slot
+                            starts in less than an hour). A failed story carries a technical cause,
+                            free text with no token. A pending story's text is informational.
         "401": {$ref: "#/components/responses/Unauthorized"}
         "403": {$ref: "#/components/responses/Forbidden"}
         "429": {$ref: "#/components/responses/RateLimited"}
@@ -3015,9 +3024,11 @@ paths:
       summary: Save the complex's Instagram story settings
       description: >-
         All four fields are required. The daily story goes out once per venue day at or after
-        `daily_time`; a freed story goes out when a booking is cancelled and its slot starts between
-        1 and 48 hours later, at most `freed_daily_cap` per venue day. Nothing is published from
-        23:00 to 08:00 venue time.
+        `daily_time`; turning it on at or after today's `daily_time` starts it the next venue day,
+        and a later save while it stays on (a new `daily_time`) keeps that start. A freed story goes
+        out when a confirmed booking is cancelled and its slot starts between 1 and 48 hours later,
+        at most `freed_daily_cap` per venue day. Nothing is published from 23:00 to 08:00 venue
+        time. Disconnecting Instagram turns both story types off.
       security: [{cookieAuth: [], csrfHeader: []}]
       parameters:
         - {$ref: "#/components/parameters/PathID"}

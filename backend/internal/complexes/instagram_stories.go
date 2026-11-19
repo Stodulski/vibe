@@ -11,6 +11,7 @@ import (
 
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -38,16 +39,16 @@ var storyTimeRX = regexp.MustCompile(`^([01][0-9]|2[0-3]):[0-5][0-9]$`)
 // complexstore.InstagramStoryStore satisfies it.
 type InstagramStoryStore interface {
 	GetStorySettings(ctx context.Context, complexID uuid.UUID) (complexstore.StorySettings, error)
-	SaveStorySettings(ctx context.Context, complexID uuid.UUID, in complexstore.StorySettings) (complexstore.StorySettings, error)
+	SaveStorySettings(ctx context.Context, complexID uuid.UUID, in complexstore.StorySettings, dailyStartsOn time.Time) (complexstore.StorySettings, error)
 	ListRecentStories(ctx context.Context, complexID uuid.UUID, limit int) ([]complexstore.RecentStory, error)
 	QueueFreedStory(ctx context.Context, story complexstore.NewStory) (bool, error)
 	QueueStory(ctx context.Context, story complexstore.NewStory) (bool, error)
-	ListDailyStoriesDue(ctx context.Context, now time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
+	ListDailyStoriesDue(ctx context.Context, now, today time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
 	ClaimDueStories(ctx context.Context, now, lockedUntil time.Time, limit int) ([]complexstore.QueuedStory, error)
 	SaveStoryState(ctx context.Context, id uuid.UUID, st complexstore.StoryState) error
 	SaveStoryContainer(ctx context.Context, id uuid.UUID, containerID string, createdAt time.Time) error
 	StoryAccount(ctx context.Context, complexID uuid.UUID) (*complexstore.StoryAccount, error)
-	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID) error
+	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) error
 }
 
 // StorySettings handles GET /api/v1/complexes/{id}/instagram/stories.
@@ -115,7 +116,7 @@ func (ig *Instagram) UpdateStorySettings(w http.ResponseWriter, r *http.Request)
 	saved, err := ig.stories.SaveStorySettings(r.Context(), complex, complexstore.StorySettings{
 		DailyEnabled: *input.DailyEnabled, DailyTime: *input.DailyTime,
 		FreedEnabled: *input.FreedEnabled, FreedDailyCap: *input.FreedDailyCap,
-	})
+	}, dailyStoryStartsOn(ig.cfg.Now(), *input.DailyTime))
 	if err != nil {
 		ig.respond.ServerError(w, r, err)
 		return
@@ -137,6 +138,19 @@ func (ig *Instagram) storyRoute(w http.ResponseWriter, r *http.Request) (uuid.UU
 		return uuid.Nil, false
 	}
 	return complex.ID, true
+}
+
+// dailyStoryStartsOn is the venue day a daily story turned on at now starts:
+// today when today's daily_time is still ahead, tomorrow when it has come.
+// Turning it on after its time must not publish today's story at once. The
+// store applies it only to the save that turns the story on.
+func dailyStoryStartsOn(now time.Time, dailyTime string) time.Time {
+	venue := now.In(timezone.Argentina)
+	day := timezone.Day(venue)
+	if venue.Format("15:04") >= dailyTime {
+		day = timezone.Day(venue.AddDate(0, 0, 1))
+	}
+	return day
 }
 
 func storySettingsBody(s complexstore.StorySettings) httpx.Envelope {

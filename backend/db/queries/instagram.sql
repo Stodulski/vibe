@@ -26,8 +26,23 @@ SELECT complex_id, instagram_user_id, username, account_type, expires_at,
 FROM instagram_connections
 WHERE complex_id = sqlc.arg(complex_id)::uuid;
 
--- name: DeleteInstagramConnection :execrows
-DELETE FROM instagram_connections WHERE complex_id = sqlc.arg(complex_id)::uuid;
+-- name: DeleteInstagramConnection :one
+-- Disconnecting also turns both story switches off, in the same statement so
+-- that neither can happen without the other: connecting again publishes
+-- nothing until the owner turns a story type back on. Answers how many
+-- connections were deleted (0 or 1).
+WITH deleted AS (
+    DELETE FROM instagram_connections
+    WHERE complex_id = sqlc.arg(complex_id)::uuid
+    RETURNING complex_id
+), stories_off AS (
+    UPDATE instagram_story_settings
+    SET daily_enabled = false, freed_enabled = false
+    WHERE complex_id = sqlc.arg(complex_id)::uuid
+      AND (daily_enabled OR freed_enabled)
+    RETURNING complex_id
+)
+SELECT count(*)::int AS deleted FROM deleted;
 
 -- name: ListInstagramConnectionsDueForRefresh :many
 -- The live connections whose token expires before refresh_before and was last

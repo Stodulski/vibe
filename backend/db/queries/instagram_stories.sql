@@ -5,16 +5,24 @@ FROM instagram_story_settings
 WHERE complex_id = sqlc.arg(complex_id)::uuid;
 
 -- name: UpsertInstagramStorySettings :one
-INSERT INTO instagram_story_settings (complex_id, daily_enabled, daily_time, freed_enabled, freed_daily_cap)
+-- daily_starts_on is set only by the save that turns the daily story on (no
+-- row yet, or the switch was off): a later save while it stays on keeps it, so
+-- moving daily_time does not move the start (038).
+INSERT INTO instagram_story_settings (complex_id, daily_enabled, daily_time, freed_enabled, freed_daily_cap, daily_starts_on)
 VALUES (
     sqlc.arg(complex_id)::uuid, sqlc.arg(daily_enabled)::boolean, sqlc.arg(daily_time)::text,
-    sqlc.arg(freed_enabled)::boolean, sqlc.arg(freed_daily_cap)::int
+    sqlc.arg(freed_enabled)::boolean, sqlc.arg(freed_daily_cap)::int,
+    CASE WHEN sqlc.arg(daily_enabled)::boolean THEN sqlc.arg(daily_starts_on)::date END
 )
 ON CONFLICT (complex_id) DO UPDATE SET
     daily_enabled   = EXCLUDED.daily_enabled,
     daily_time      = EXCLUDED.daily_time,
     freed_enabled   = EXCLUDED.freed_enabled,
-    freed_daily_cap = EXCLUDED.freed_daily_cap
+    freed_daily_cap = EXCLUDED.freed_daily_cap,
+    daily_starts_on = CASE
+        WHEN EXCLUDED.daily_enabled AND NOT instagram_story_settings.daily_enabled THEN EXCLUDED.daily_starts_on
+        ELSE instagram_story_settings.daily_starts_on
+    END
 RETURNING daily_enabled, daily_time, freed_enabled, freed_daily_cap;
 
 -- name: LockInstagramStorySettings :one
@@ -48,13 +56,15 @@ ON CONFLICT (complex_id, dedup_key) DO NOTHING;
 -- name: ListComplexesDueForDailyStory :many
 -- The live complexes whose daily story is on, whose time has come (daily_time
 -- is HH:MM, so text order is time order), whose Instagram connection is
--- usable, and that have no daily story for this venue day yet.
+-- usable, and that have no daily story for this venue day yet. A daily story
+-- turned on after its time today starts on daily_starts_on (038).
 SELECT c.id AS complex_id, c.slug
 FROM instagram_story_settings s
 JOIN complexes c ON c.id = s.complex_id AND c.deleted_at IS NULL
 JOIN instagram_connections ic ON ic.complex_id = s.complex_id
 WHERE s.daily_enabled
   AND s.daily_time <= sqlc.arg(now_hhmm)::text
+  AND (s.daily_starts_on IS NULL OR s.daily_starts_on <= sqlc.arg(today)::date)
   AND NOT ic.needs_reconnect
   AND ic.expires_at > sqlc.arg(now)::timestamptz
   AND NOT EXISTS (
@@ -110,10 +120,13 @@ FROM instagram_connections
 WHERE complex_id = sqlc.arg(complex_id)::uuid;
 
 -- name: MarkInstagramStoryAccountNeedsReconnect :execrows
--- Meta refused the token while publishing (code 190).
+-- Meta refused the token while publishing (code 190). The failed token's
+-- expiry is part of the match, as in MarkInstagramNeedsReconnect, so a
+-- reconnect that landed while the story was in flight is not marked.
 UPDATE instagram_connections
 SET needs_reconnect = true
 WHERE complex_id = sqlc.arg(complex_id)::uuid
+  AND expires_at = sqlc.arg(old_expires_at)::timestamptz
   AND NOT needs_reconnect;
 
 -- name: SaveInstagramStoryContainer :exec

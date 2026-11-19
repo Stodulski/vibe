@@ -122,8 +122,10 @@ func (s *InstagramStoryStore) GetStorySettings(ctx context.Context, complexID uu
 	return StorySettings{DailyEnabled: row.DailyEnabled, DailyTime: row.DailyTime, FreedEnabled: row.FreedEnabled, FreedDailyCap: int(row.FreedDailyCap)}, nil
 }
 
-// SaveStorySettings creates or replaces the complex's settings.
-func (s *InstagramStoryStore) SaveStorySettings(ctx context.Context, complexID uuid.UUID, in StorySettings) (StorySettings, error) {
+// SaveStorySettings creates or replaces the complex's settings. dailyStartsOn
+// is the venue day the daily story starts on if this save turns it on (it was
+// off, or never saved); a save that leaves it on keeps the day it already has.
+func (s *InstagramStoryStore) SaveStorySettings(ctx context.Context, complexID uuid.UUID, in StorySettings, dailyStartsOn time.Time) (StorySettings, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 	row, err := s.Q.UpsertInstagramStorySettings(ctx, db.UpsertInstagramStorySettingsParams{
@@ -132,6 +134,7 @@ func (s *InstagramStoryStore) SaveStorySettings(ctx context.Context, complexID u
 		DailyTime:     in.DailyTime,
 		FreedEnabled:  in.FreedEnabled,
 		FreedDailyCap: int32(min(max(in.FreedDailyCap, 0), 1000)), //nolint:gosec // G115: bounded above.
+		DailyStartsOn: data.DateToPg(dailyStartsOn),
 	})
 	if err != nil {
 		return StorySettings{}, fmt.Errorf("complexes: save story settings: %w", err)
@@ -203,12 +206,13 @@ func insertParams(story NewStory) db.InsertInstagramStoryParams {
 }
 
 // ListDailyStoriesDue returns the complexes whose daily story for dedupKey's
-// day is due at nowHHMM (venue time) and not queued yet.
-func (s *InstagramStoryStore) ListDailyStoriesDue(ctx context.Context, now time.Time, nowHHMM, dedupKey string, limit int) ([]DailyStoryDue, error) {
+// day (today, the venue day) is due at nowHHMM (venue time), has started, and
+// is not queued yet.
+func (s *InstagramStoryStore) ListDailyStoriesDue(ctx context.Context, now, today time.Time, nowHHMM, dedupKey string, limit int) ([]DailyStoryDue, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 	rows, err := s.Q.ListComplexesDueForDailyStory(ctx, db.ListComplexesDueForDailyStoryParams{
-		NowHhmm: nowHHMM, Now: data.TimeToPg(now), DedupKey: dedupKey,
+		NowHhmm: nowHHMM, Now: data.TimeToPg(now), Today: data.DateToPg(today), DedupKey: dedupKey,
 		RowLimit: int32(min(limit, 10_000)), //nolint:gosec // G115: bounded above.
 	})
 	if err != nil {
@@ -333,11 +337,14 @@ func (s *InstagramStoryStore) StoryAccount(ctx context.Context, complexID uuid.U
 }
 
 // MarkStoryAccountNeedsReconnect flags the complex's connection after Meta
-// refused its token while publishing.
-func (s *InstagramStoryStore) MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID) error {
+// refused its token while publishing, only while the connection still holds
+// the token that failed (oldExpiresAt, the expiry it was read with).
+func (s *InstagramStoryStore) MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) error {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
-	if _, err := s.Q.MarkInstagramStoryAccountNeedsReconnect(ctx, data.UUIDToPg(complexID)); err != nil {
+	if _, err := s.Q.MarkInstagramStoryAccountNeedsReconnect(ctx, db.MarkInstagramStoryAccountNeedsReconnectParams{
+		ComplexID: data.UUIDToPg(complexID), OldExpiresAt: data.TimeToPg(oldExpiresAt),
+	}); err != nil {
 		return fmt.Errorf("complexes: mark story account reconnect: %w", err)
 	}
 	return nil
