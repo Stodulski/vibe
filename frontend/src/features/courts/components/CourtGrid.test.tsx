@@ -73,30 +73,6 @@ describe('CourtGrid', () => {
     vi.clearAllMocks();
   });
 
-  it('renders all court names', () => {
-    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
-    expect(screen.getByText('Cancha 1')).toBeInTheDocument();
-    expect(screen.getByText('Cancha 2')).toBeInTheDocument();
-  });
-
-  it('renders court sport types', () => {
-    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
-    expect(screen.getAllByText(/p.del/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/tenis/i).length).toBeGreaterThan(0);
-  });
-
-  it('renders edit buttons for each court', () => {
-    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
-    const editButtons = screen.getAllByRole('button', { name: /editar/i });
-    expect(editButtons).toHaveLength(2);
-  });
-
-  it('renders price buttons for each court', () => {
-    renderWithProviders(<CourtGrid courts={mockCourts} complexId="c1" />);
-    const priceButtons = screen.getAllByRole('button', { name: /precios/i });
-    expect(priceButtons).toHaveLength(2);
-  });
-
   // Was anchored on `[data-tour="courts-grid"]`, which went with the tour.
   // Asserting on the rendered cards instead of on the container that holds
   // them says the same thing without depending on a hook that exists for

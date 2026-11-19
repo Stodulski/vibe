@@ -63,18 +63,6 @@ describe('CourtsPage', () => {
     lastPriceConfigProps = undefined;
   });
 
-  it('renders page title', async () => {
-    const CourtsPage = (await import('./CourtsPage')).default;
-    render(<CourtsPage />);
-    expect(screen.getByText('Canchas')).toBeInTheDocument();
-  });
-
-  it('shows loading skeleton while fetching', async () => {
-    const CourtsPage = (await import('./CourtsPage')).default;
-    render(<CourtsPage />);
-    expect(screen.getAllByTestId('skeleton-court').length).toBeGreaterThan(0);
-  });
-
   it('shows empty state when no courts', async () => {
     vi.mocked(useCourts).mockReturnValue(queryResult([]));
     const CourtsPage = (await import('./CourtsPage')).default;

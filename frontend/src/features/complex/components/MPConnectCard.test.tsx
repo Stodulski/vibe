@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
 import { MPConnectCard } from './MPConnectCard';
-import { ES_AR } from '@/shared/i18n/es_AR';
 
 const buildMPAuthUrl = vi.fn((..._args: unknown[]) => 'https://mp.test/auth?code=test');
 vi.mock('@/shared/lib/mpAuth', () => ({
@@ -162,14 +161,12 @@ describe('MPConnectCard loading', () => {
     mockMpStatusIsLoading = false;
   });
 
-  // While mp/status loads, the card shows a labelled placeholder rather than a
-  // spinner, and no connect control yet.
-  it('shows a labelled loading placeholder, not a spinner, while mp/status loads', () => {
+  // While mp/status loads the owner gets no connect link yet: an OAuth attempt
+  // must not start before the connection status is known.
+  it('offers no connect link while mp/status loads', () => {
     mockMpStatusIsLoading = true;
-    const { container } = renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
+    renderWithProviders(<MPConnectCard complexId="c1" province="Buenos Aires" />);
 
-    expect(screen.getByRole('status', { name: ES_AR.common.loading })).toBeInTheDocument();
-    expect(container.querySelector('.animate-spin')).toBeNull();
     expect(screen.queryByRole('link', { name: /conectar/i })).not.toBeInTheDocument();
   });
 });

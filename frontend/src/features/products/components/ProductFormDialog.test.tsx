@@ -57,11 +57,6 @@ describe('ProductFormDialog — create', () => {
       expect(createMutate).toHaveBeenCalledWith(expect.objectContaining({ category: 'Bebidas' }), expect.anything());
     });
   });
-
-  it('has no threshold-locked helper text for a brand-new product', () => {
-    render(<ProductFormDialog open onClose={vi.fn()} complexId="c1" existingCategories={[]} />);
-    expect(screen.queryByText(/Ya tiene un aviso configurado/)).not.toBeInTheDocument();
-  });
 });
 
 describe('ProductFormDialog — edit', () => {

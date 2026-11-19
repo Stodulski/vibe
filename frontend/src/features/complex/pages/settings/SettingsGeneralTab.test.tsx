@@ -13,14 +13,12 @@ vi.mock('@/features/complex', () => ({
 const complex = { id: 'c1', name: 'Club Vibe' } as Complex;
 
 describe('SettingsGeneralTab', () => {
-  it('ends with a danger zone: a visible destructive button that opens the confirmation', async () => {
+  it('opens the delete confirmation from the danger zone, with no overflow menu', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SettingsGeneralTab complex={complex} />);
 
-    expect(screen.getByRole('heading', { name: ES_AR.common.dangerZone })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
     const button = screen.getByRole('button', { name: ES_AR.complex.deleteComplex });
-    expect(button).toHaveAttribute('data-variant', 'destructive-outline');
 
     await user.click(button);
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument();

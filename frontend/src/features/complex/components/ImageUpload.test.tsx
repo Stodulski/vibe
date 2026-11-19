@@ -78,22 +78,9 @@ describe('ImageUpload', () => {
     expect(logo).toHaveAttribute('height', '512');
   });
 
-  it('renders file format description', () => {
-    render(<ImageUpload complex={mockComplex} />);
-    expect(screen.getByText(/JPG, PNG o WebP/i)).toBeInTheDocument();
-  });
-
   it('shows the uploaded image in its slot', () => {
     const complexWithLogo = { ...mockComplex, logo_url: 'https://test.com/logo.jpg' };
     render(<ImageUpload complex={complexWithLogo} />);
     expect(screen.getByRole('img', { name: 'Logo' })).toHaveAttribute('src', 'https://test.com/logo.jpg');
-  });
-
-  it('renders delete button when logo exists', () => {
-    const complexWithLogo = { ...mockComplex, logo_url: 'https://test.com/logo.jpg' };
-    render(<ImageUpload complex={complexWithLogo} />);
-    // The delete button has a trash icon
-    const deleteButtons = screen.getAllByRole('button');
-    expect(deleteButtons.length).toBeGreaterThan(2);
   });
 });

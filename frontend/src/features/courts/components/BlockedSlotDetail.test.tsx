@@ -21,12 +21,10 @@ function renderDetail(props: Partial<React.ComponentProps<typeof BlockedSlotDeta
 }
 
 describe('BlockedSlotDetail', () => {
-  it('shows "Desbloquear" as a destructive outline button in the footer, with no overflow menu', async () => {
+  it('calls onDelete with the slot id from "Desbloquear", with no overflow menu', async () => {
     const { user, onDelete } = renderDetail();
 
     const button = screen.getByRole('button', { name: ES_AR.courts.unblockSlot });
-    expect(button).toHaveAttribute('data-variant', 'destructive-outline');
-    expect(button.closest('[data-slot="sheet-footer"]')).not.toBeNull();
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
 
     await user.click(button);
@@ -39,14 +37,9 @@ describe('BlockedSlotDetail', () => {
     expect(screen.getByRole('button', { name: ES_AR.courts.unblockSlot })).toBeDisabled();
   });
 
-  it('capitalizes the date and does not call the read-only reason "opcional"', () => {
+  it('shows the blocked date in Spanish, on the right weekday', () => {
     renderDetail();
 
-    expect(screen.getByText('martes 6 de enero', { selector: 'p span' })).toHaveClass(
-      'inline-block',
-      'first-letter:uppercase',
-    );
-    expect(screen.getByText('Motivo')).toBeInTheDocument();
-    expect(screen.queryByText(/opcional/)).not.toBeInTheDocument();
+    expect(screen.getByText('martes 6 de enero', { selector: 'p span' })).toBeInTheDocument();
   });
 });

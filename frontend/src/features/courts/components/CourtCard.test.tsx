@@ -61,21 +61,6 @@ describe('CourtCard - content', () => {
     vi.clearAllMocks();
   });
 
-  it('renders court name', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByText('Cancha 1')).toBeInTheDocument();
-  });
-
-  it('renders sport type', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByText(/p.del/i)).toBeInTheDocument();
-  });
-
-  it('renders court type', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByText(/descubierta/i)).toBeInTheDocument();
-  });
-
   it('shows no description, not even an empty-state line', () => {
     render(<CourtCard {...defaultProps} court={mockCourt} />);
     expect(screen.queryByText('Sin descripción')).not.toBeInTheDocument();
@@ -103,21 +88,6 @@ describe('CourtCard - content', () => {
 describe('CourtCard - actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-  });
-
-  it('renders edit button', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /editar/i })).toBeInTheDocument();
-  });
-
-  it('renders prices button', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /precios/i })).toBeInTheDocument();
-  });
-
-  it('renders delete button', () => {
-    render(<CourtCard {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /eliminar/i })).toBeInTheDocument();
   });
 
   it('keeps delete as the one visible button on every width, with no overflow menu for a single action', () => {

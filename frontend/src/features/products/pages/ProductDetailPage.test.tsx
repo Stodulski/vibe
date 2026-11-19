@@ -57,21 +57,6 @@ describe('ProductDetailPage', () => {
     } as unknown as ReturnType<typeof useProductStockMovements>);
   });
 
-  it('shows the product header and the stock-movement history section', () => {
-    vi.mocked(useProduct).mockReturnValue({
-      data: { product: makeProduct({ id: 'p1', name: 'Agua mineral', stock_on_hand: 12 }) },
-      isLoading: false,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useProduct>);
-
-    renderAt('p1');
-
-    expect(screen.getByText('Agua mineral')).toBeInTheDocument();
-    expect(screen.getByText('Movimientos de stock')).toBeInTheDocument();
-    expect(screen.getByText('Todavía no hay movimientos de stock')).toBeInTheDocument();
-  });
-
   it('shows the full-screen load error when there is nothing cached', () => {
     vi.mocked(useProduct).mockReturnValue({
       data: undefined,

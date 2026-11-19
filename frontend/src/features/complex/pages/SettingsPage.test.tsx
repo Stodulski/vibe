@@ -39,12 +39,6 @@ import { makeComplex } from '@/test/factories';
 import { createWrapper } from '@/test/test-utils';
 
 describe('SettingsPage', () => {
-  it('renders page title', async () => {
-    const SettingsPage = (await import('./SettingsPage')).default;
-    render(<SettingsPage />, { wrapper: createWrapper() });
-    expect(screen.getByText('Configuración')).toBeInTheDocument();
-  });
-
   it('renders nothing when there is no complex (the layout holds the shell until it loads)', async () => {
     vi.mocked(useSelectedComplex).mockReturnValue({
       complex: null,

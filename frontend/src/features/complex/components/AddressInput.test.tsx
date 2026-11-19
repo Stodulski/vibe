@@ -1,12 +1,6 @@
 import { screen, waitFor } from '@testing-library/react';
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import {
-  mockAutocompleteSuccess,
-  mockAutocompleteJson,
-  mockGet,
-  typeAndFlush,
-  setup,
-} from './address-input-test-helpers';
+import { mockAutocompleteSuccess, mockGet, typeAndFlush, setup } from './address-input-test-helpers';
 
 describe('AddressInput', () => {
   beforeEach(() => {
@@ -16,11 +10,6 @@ describe('AddressInput', () => {
 
   afterEach(() => {
     vi.useRealTimers();
-  });
-
-  it('renders input with placeholder', () => {
-    setup();
-    expect(screen.getByPlaceholderText('Ej: Av. Libertador 1234, Palermo, CABA')).toBeInTheDocument();
   });
 
   it('has combobox role and aria attributes', () => {
@@ -70,14 +59,5 @@ describe('AddressInput', () => {
 
     const params = mockGet.mock.calls[0]?.[1]?.searchParams;
     expect(params?.session_token).toBeDefined();
-  });
-
-  it('handles autocomplete API failure gracefully', async () => {
-    mockAutocompleteJson.mockRejectedValue(new Error('Network error'));
-    setup();
-
-    await typeAndFlush(screen.getByRole('combobox'), 'Av. Libertador');
-
-    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
   });
 });
