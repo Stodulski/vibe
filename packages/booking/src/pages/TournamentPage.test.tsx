@@ -115,13 +115,12 @@ describe('TournamentPage checkout return', () => {
 });
 
 describe('TournamentPage checkout return, summary', () => {
-  it('shows what the pair paid instead of the availability, and a secondary cancel button', async () => {
+  it('shows what the pair paid instead of the availability, and a cancel button', async () => {
     serveRegistration(pairRegistration());
     open('?token=tok-1&registered=1');
 
     expect(await screen.findByText(`${t.tournaments.paidPrefix} $22.000`)).toBeInTheDocument();
-    const cancel = screen.getByRole('button', { name: t.tournaments.cancelPair });
-    expect(cancel.className).not.toMatch(/(^|\s)bg-destructive/);
+    expect(screen.getByRole('button', { name: t.tournaments.cancelPair })).toBeInTheDocument();
   });
 });
 

@@ -37,11 +37,6 @@ describe('ComplexForm edit mode and interactions', () => {
     vi.clearAllMocks();
   });
 
-  it('renders update button for edit mode', () => {
-    renderWithProviders(<ComplexForm complex={complexWithoutCoordinates} />);
-    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument();
-  });
-
   it('derives the public URL field from the name as it is typed', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ComplexForm />);

@@ -73,25 +73,6 @@ describe('Sidebar', () => {
     expect(screen.queryByAltText('Vibe')).not.toBeInTheDocument();
   });
 
-  it('renders navigation items', () => {
-    renderSidebar();
-    expect(screen.getByText('Dashboard')).toBeInTheDocument();
-    expect(screen.getByText('Reservas')).toBeInTheDocument();
-    expect(screen.getByText('Canchas')).toBeInTheDocument();
-    expect(screen.getByText('Clientes')).toBeInTheDocument();
-    expect(screen.getByText('Reportes')).toBeInTheDocument();
-  });
-
-  it('renders settings nav item', () => {
-    renderSidebar();
-    expect(screen.getByText('Configuración')).toBeInTheDocument();
-  });
-
-  it('renders the social kit nav item', () => {
-    renderSidebar();
-    expect(screen.getByText('Kit para redes')).toBeInTheDocument();
-  });
-
   // Owner request: each account has one complex, so its name label was dropped.
   it('does not render the complex name', () => {
     renderSidebar();

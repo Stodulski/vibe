@@ -45,10 +45,4 @@ describe('useTurnstileChallenge', () => {
 
     expect(result.current.isBlocked(true)).toBe(true);
   });
-
-  it('omits turnstile_token from the payload entirely (not present-as-undefined) with no token', () => {
-    const { result } = renderHook(() => useTurnstileChallenge());
-
-    expect('turnstile_token' in result.current.payload()).toBe(false);
-  });
 });

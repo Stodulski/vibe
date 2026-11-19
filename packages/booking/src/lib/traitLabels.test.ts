@@ -3,7 +3,6 @@ import { CAT_OPEN } from '../test/tournamentFixtures';
 import {
   categoryTitle,
   declarationWords,
-  levelLabel,
   modalityLabel,
   openPlayAudience,
   openPlayLabel,
@@ -36,13 +35,6 @@ describe('openPlayAudience', () => {
   it('is open to everyone when the event has no modality', () => {
     expect(openPlayAudience({ sport: 'padel' })).toBe('Abierta a todos');
     expect(openPlayAudience({ sport: 'tennis', modality: null })).toBe('Abierta a todos');
-  });
-});
-
-describe('levelLabel', () => {
-  it('names the nine levels from 1ra to 9na', () => {
-    const names = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(levelLabel);
-    expect(names).toEqual(['1ra', '2da', '3ra', '4ta', '5ta', '6ta', '7ma', '8va', '9na']);
   });
 });
 

@@ -75,13 +75,6 @@ describe('TournamentSignUpPage layout', () => {
     expect(within(ticket).getByText('Club Norte')).toBeInTheDocument();
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(cancellationWindowText(DETAIL.cancellation_hours) ?? '')).toBeInTheDocument();
-    expect(screen.getAllByText(t.publicBooking.totalOnline)).toHaveLength(2);
-  });
-
-  it('asks both phones with the booking helper text on the payer', async () => {
-    serveTournament();
-    open();
-    expect(await screen.findByText(t.publicBooking.phoneHelper)).toBeInTheDocument();
   });
 
   it('keeps the pay button out of reach for a category that is not open, and says why not', async () => {

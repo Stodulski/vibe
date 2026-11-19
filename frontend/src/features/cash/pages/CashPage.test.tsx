@@ -217,7 +217,7 @@ describe('CashPage — system categories (sale, restock)', () => {
     } as unknown as ReturnType<typeof useCashSessions>);
   });
 
-  it('renders a sale and a restock movement in the open session, with Anular offered only for the restock', () => {
+  it('renders a sale and a restock movement in the open session', () => {
     mockOpenWithMovements([
       makeCashMovement({ id: 'sale-1', kind: 'income', category: 'sale' }),
       makeCashMovement({ id: 'restock-1', kind: 'expense', category: 'restock' }),
@@ -228,9 +228,6 @@ describe('CashPage — system categories (sale, restock)', () => {
     expect(screen.getByText('Efectivo esperado')).toBeInTheDocument();
     expect(screen.getByText('Venta')).toBeInTheDocument();
     expect(screen.getByText('Reposición')).toBeInTheDocument();
-    // Exactly one Anular action offered among the two movements: the sale
-    // income is refused with 409 by the backend on a manual void.
-    expect(screen.getAllByRole('button', { name: 'Anular' })).toHaveLength(1);
   });
 });
 

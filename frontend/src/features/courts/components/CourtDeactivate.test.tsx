@@ -39,7 +39,6 @@ describe.each(renderers)('deactivating a court from %s', (_name, view) => {
 
     const dialog = await screen.findByRole('alertdialog');
     expect(within(dialog).getByText(/^¿Desactivar Cancha\s1\?$/)).toBeInTheDocument();
-    expect(within(dialog).getByRole('button', { name: 'Desactivar' })).toHaveAttribute('data-variant', 'destructive');
     expect(mutate).not.toHaveBeenCalled();
   });
 

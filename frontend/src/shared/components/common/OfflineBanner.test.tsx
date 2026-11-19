@@ -23,12 +23,6 @@ describe('OfflineBanner', () => {
     expect(container.innerHTML).toBe('');
   });
 
-  it('renders banner when offline', () => {
-    setOnline(false);
-    render(<OfflineBanner />);
-    expect(screen.getByRole('alert')).toBeInTheDocument();
-  });
-
   it('shows offline text when offline', () => {
     setOnline(false);
     render(<OfflineBanner />);

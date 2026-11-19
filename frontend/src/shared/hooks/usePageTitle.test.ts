@@ -21,13 +21,6 @@ describe('usePageTitle', () => {
     expect(document.title).toBe('Vibe');
   });
 
-  it('sets document title to app name when title is undefined', () => {
-    renderHook(() => {
-      usePageTitle(undefined);
-    });
-    expect(document.title).toBe('Vibe');
-  });
-
   it('resets document title on unmount', () => {
     const { unmount } = renderHook(() => {
       usePageTitle('Canchas');

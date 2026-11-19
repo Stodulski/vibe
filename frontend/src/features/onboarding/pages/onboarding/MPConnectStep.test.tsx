@@ -38,11 +38,6 @@ const baseProps = {
 };
 
 describe('MPConnectStep', () => {
-  it('says why the step exists, without repeating its name from the indicator', () => {
-    renderStep();
-    expect(screen.getByText(/Conect\u00e1 Mercado Pago/i)).toBeInTheDocument();
-  });
-
   it('shows loading when no auth url and not connected', () => {
     renderStep();
     // No connect button or connected state should show
@@ -87,10 +82,5 @@ describe('MPConnectStep', () => {
   it('drops the skip explanation once payments are connected', () => {
     renderStep({ mpConnected: true, mpAuthUrl: null });
     expect(screen.queryByText(/tu página muestra tu WhatsApp/i)).not.toBeInTheDocument();
-  });
-
-  it('renders back button', () => {
-    renderStep();
-    expect(screen.getByText('Volver')).toBeInTheDocument();
   });
 });

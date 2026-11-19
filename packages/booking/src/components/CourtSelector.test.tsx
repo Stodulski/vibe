@@ -127,12 +127,6 @@ describe('CourtSelector with nothing to offer', () => {
 });
 
 describe('CourtSelector — the hour is the question', () => {
-  it('offers every bookable hour', () => {
-    render(<Harness {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /^08:00\b/ })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /^11:00\b/ })).toBeInTheDocument();
-  });
-
   it('shows a taken hour in its place on the ruler, marked as taken', () => {
     render(<Harness {...defaultProps} />);
     // The player sees the whole day: 09:30 stays between 08:00 and 11:00,

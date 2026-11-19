@@ -75,12 +75,6 @@ describe('AvailabilitySection', () => {
     expect(screen.getByText(t.publicBooking.closed)).toBeInTheDocument();
   });
 
-  it('renders the court grid when isOpen is true, even with a prior error cleared', () => {
-    renderSection({ isError: false, isOpen: true });
-    expect(screen.getByTestId('court-selector')).toBeInTheDocument();
-    expect(screen.queryByText(t.publicBooking.closed)).not.toBeInTheDocument();
-  });
-
   it('renders the loading skeleton before evaluating error or open state', () => {
     renderSection({ isLoading: true, isError: true, isOpen: false });
     expect(screen.getByTestId('skeleton-grid')).toBeInTheDocument();

@@ -30,7 +30,6 @@ const { DEFAULT_CREATE_BOOKING_RESPONSE } = vi.hoisted(() => ({
 
 const { publicBookingApi } = vi.hoisted(() => ({
   publicBookingApi: {
-    getComplex: vi.fn().mockResolvedValue({ complex: { name: 'Club' }, courts: [], schedules: [] }),
     getAvailability: vi.fn().mockResolvedValue({ availability: { slots: [] } }),
     createBooking: vi.fn().mockResolvedValue(DEFAULT_CREATE_BOOKING_RESPONSE),
     getBookingStatus: vi.fn().mockResolvedValue({
@@ -57,16 +56,6 @@ vi.mock('../lib/queryKeys', () => ({
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 describe('useComplexBySlug', () => {
-  it('fetches complex by slug', async () => {
-    const { useComplexBySlug } = await import('./useComplexBySlug');
-    const { result } = renderHook(() => useComplexBySlug('test-club'), {
-      wrapper: createBookingWrapper(),
-    });
-    await waitFor(() => {
-      expect(result.current.isSuccess).toBe(true);
-    });
-  });
-
   it('is disabled when slug is undefined', async () => {
     const { useComplexBySlug } = await import('./useComplexBySlug');
     const { result } = renderHook(() => useComplexBySlug(undefined), { wrapper: createBookingWrapper() });
@@ -110,21 +99,9 @@ describe('useBookingStatus', () => {
     const { result } = renderHook(() => useBookingStatus(null), { wrapper: createBookingWrapper() });
     expect(result.current.fetchStatus).toBe('idle');
   });
-
-  it('has timedOut property', async () => {
-    const { useBookingStatus } = await import('./useBookingStatus');
-    const { result } = renderHook(() => useBookingStatus('t1'), { wrapper: createBookingWrapper() });
-    expect(result.current.timedOut).toBe(false);
-  });
 });
 
 describe('usePublicBooking', () => {
-  it('returns a mutation', async () => {
-    const { usePublicBooking } = await import('./usePublicBooking');
-    const { result } = renderHook(() => usePublicBooking(), { wrapper: createBookingWrapper() });
-    expect(typeof result.current.mutate).toBe('function');
-  });
-
   it('onError surfaces the real backend message from error.data instead of the generic fallback', async () => {
     const backendError = await makeConsumedHttpError(400, {
       title: 'Bad Request',

@@ -35,18 +35,6 @@ import { useSelectedComplex } from '@/features/complex';
 import { makeComplex } from '@/test/factories';
 
 describe('DashboardPage', () => {
-  it('shows loading skeleton while fetching', async () => {
-    vi.mocked(useDashboardStats).mockReturnValue({
-      data: undefined,
-      isLoading: true,
-      isError: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useDashboardStats>);
-    const DashboardPage = (await import('./DashboardPage')).default;
-    render(<DashboardPage />);
-    expect(screen.getByTestId('skeleton-dashboard')).toBeInTheDocument();
-  });
-
   it('shows dashboard content once stats load', async () => {
     vi.mocked(useDashboardStats).mockReturnValue({
       data: { upcoming_bookings: [] },

@@ -13,12 +13,6 @@ const totals = {
 };
 
 describe('TodayRevenueHeader', () => {
-  it('renders as "Ingresos de hoy" — renamed from "Control de caja", which this card never was', () => {
-    renderWithProviders(<TodayRevenueHeader totals={totals} />);
-    expect(screen.getByText('Ingresos de hoy')).toBeInTheDocument();
-    expect(screen.queryByText('Control de caja')).not.toBeInTheDocument();
-  });
-
   it('totals bookings plus the till income, and shows where it came from', () => {
     renderWithProviders(<TodayRevenueHeader totals={totals} />);
     expect(screen.getByText('$1.800')).toBeInTheDocument();

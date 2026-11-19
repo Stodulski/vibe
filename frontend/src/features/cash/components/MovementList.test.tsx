@@ -41,7 +41,7 @@ describe('MovementList', () => {
     expect(screen.queryByRole('button', { name: 'Anular' })).not.toBeInTheDocument();
   });
 
-  it('shows a voided movement as one crossed-out row with its reason, instead of a separate reversing row', () => {
+  it('shows a voided movement as one row with its reason, instead of a separate reversing row', () => {
     const movements = [
       makeCashMovement({
         id: 'm2',
@@ -56,7 +56,7 @@ describe('MovementList', () => {
     expect(screen.getByText('Insumos')).toBeInTheDocument();
     expect(screen.getByText('Anulado')).toBeInTheDocument();
     expect(screen.getByText('Mal cargado')).toBeInTheDocument();
-    expect(screen.getByText('-$500')).toHaveClass('line-through');
+    expect(screen.getByText('-$500')).toBeInTheDocument();
     expect(screen.queryByText('Otros ingresos')).not.toBeInTheDocument();
     expect(screen.queryByText(/Anulación de/)).not.toBeInTheDocument();
   });

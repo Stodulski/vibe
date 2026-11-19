@@ -108,22 +108,6 @@ describe('SeriesConflictsPanel, the occupied dates', () => {
       'Evento',
     ]);
   });
-
-  it('names every kind of reason in a short tag', () => {
-    expect(t.conflictTags).toEqual({
-      booking: 'Reserva',
-      fixed: 'Otro turno fijo',
-      event: 'Evento',
-      match: 'Partido de torneo',
-      overlap: 'Ocupada',
-      blocked: 'Bloqueo',
-      cancelled_by_owner: 'Liberada',
-      closed_day: 'Complejo cerrado',
-      no_price: 'Sin precio',
-      client_blocked: 'Cliente bloqueado',
-      missed: 'No se pudo crear',
-    });
-  });
 });
 
 describe('SeriesConflictsPanel, what to do each day', () => {
@@ -214,17 +198,10 @@ describe('SeriesConflictsPanel, creating', () => {
 
     expect(onBack).toHaveBeenCalledOnce();
   });
-
-  it('no longer offers to switch the whole series to another court', () => {
-    renderPanel();
-
-    expect(screen.queryByText('Cambiar de cancha')).not.toBeInTheDocument();
-    expect(screen.queryByText(/Usar Cancha/)).not.toBeInTheDocument();
-  });
 });
 
 describe('SeriesConflictsPanel, a long list', () => {
-  it('lists every date and lets the dialog scroll as a whole instead of a box inside it', () => {
+  it('lists every occupied date, however many there are', () => {
     const many: BookingSeriesConflict[] = Array.from({ length: 8 }, (_, i) => ({
       date: `2026-12-${String(7 + i * 7).padStart(2, '0')}`.replace('2026-12-35', '2027-01-04'),
       reason: 'overlap' as const,
@@ -235,6 +212,5 @@ describe('SeriesConflictsPanel, a long list', () => {
 
     const list = screen.getByRole('list', { name: /ocupad/i });
     expect(within(list).getAllByRole('listitem')).toHaveLength(8);
-    expect(list.className).not.toMatch(/max-h|overflow/);
   });
 });

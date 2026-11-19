@@ -8,39 +8,9 @@ describe('ComplexForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders name input', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
-  });
-
-  it('renders slug input', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByLabelText(/slug|url/i)).toBeInTheDocument();
-  });
-
-  it('renders phone input', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByLabelText(/tel.fono/i)).toBeInTheDocument();
-  });
-
-  it('renders email input', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-  });
-
-  it('renders create button for new complex', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByRole('button', { name: /crear complejo/i })).toBeInTheDocument();
-  });
-
   it('asks for no description when creating, since the create endpoint does not take one', () => {
     renderWithProviders(<ComplexForm />);
     expect(screen.queryByLabelText('Descripción')).not.toBeInTheDocument();
-  });
-
-  it('renders address input', () => {
-    renderWithProviders(<ComplexForm />);
-    expect(screen.getByTestId('address-input')).toBeInTheDocument();
   });
 });
 

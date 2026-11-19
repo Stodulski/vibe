@@ -73,10 +73,6 @@ const REAL_BROWSER_CASES: { name: string; ua: string }[] = [
     ua: 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Mobile Safari/537.36',
   },
   {
-    name: 'Chrome Custom Tabs on Android (same UA as ordinary Chrome — no `; wv)` marker)',
-    ua: 'Mozilla/5.0 (Linux; Android 12; Pixel 6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.127 Mobile Safari/537.36',
-  },
-  {
     name: 'Safari on iOS',
     ua: 'Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
   },

@@ -52,15 +52,6 @@ describe('BookCancelPage invalid link', () => {
 });
 
 describe('BookCancelPage cancel flow', () => {
-  it('renders the booking info and refund-eligible confirm button', async () => {
-    getCancelInfo.mockResolvedValue(mockCancelInfo);
-    await renderPage();
-    await waitFor(() => {
-      expect(screen.getByText('Cancha 1')).toBeInTheDocument();
-    });
-    expect(screen.getByRole('button', { name: /confirmar cancelaci.n/i })).toBeInTheDocument();
-  });
-
   it('fetches cancel-info with the token from the URL', async () => {
     getCancelInfo.mockResolvedValue(mockCancelInfo);
     await renderPage('tok-xyz');

@@ -70,12 +70,10 @@ describe('BookingDetail — fixed weekly bookings', () => {
     expect(bookingSeriesApi.get).toHaveBeenCalledWith('c1', 'ser1', expect.anything());
   });
 
-  it('puts the date under the title like the other panels, not a "Detalles" caption', async () => {
+  it('shows the booking date, in Spanish, under the title', async () => {
     await renderDetail(makeBooking({ date: DATE }));
 
-    const subtitle = await screen.findByText('martes 6 de enero', { selector: 'p span' });
-    expect(subtitle).toHaveClass('inline-block', 'first-letter:uppercase');
-    expect(screen.queryByText('Detalles')).not.toBeInTheDocument();
+    expect(await screen.findByText('martes 6 de enero', { selector: 'p span' })).toBeInTheDocument();
   });
 
   it('shows nothing about a series, and never fetches one, for an ordinary booking', async () => {

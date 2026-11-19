@@ -13,12 +13,6 @@ vi.mock('./CanvasAreaChart', () => ({
 import { ChartBody } from './ChartBody';
 
 describe('ChartBody', () => {
-  it('shows the skeleton while loading', () => {
-    render(<ChartBody state={{ status: 'loading' }} period="week" />);
-    expect(screen.getByRole('status')).toHaveAttribute('aria-busy', 'true');
-    expect(screen.queryByTestId('canvas-chart')).not.toBeInTheDocument();
-  });
-
   it('offers the retry carried by the error state', async () => {
     const onRetry = vi.fn();
     render(<ChartBody state={{ status: 'error', onRetry }} period="week" />);

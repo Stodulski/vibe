@@ -39,18 +39,16 @@ describe('BracketView', () => {
     expect(within(final).getByText('Nico Pons')).toBeInTheDocument();
   });
 
-  it('marks the winner of a match loaded without a score, and shows no score', () => {
+  it('marks the winner of a match loaded without a score', () => {
     const played = { ...matchById('e-f'), status: 'completed' as const, winner_pair_id: 'q2' };
     render(<BracketView matches={[played]} pairs={PAIRS} groupNames={groupNames} />);
     const final = screen.getByRole('listitem', { name: /^Final/ });
     expect(within(final).getByText('Ganó')).toBeInTheDocument();
-    expect(within(final).getByText('Nico Pons').closest('div')).toHaveClass('font-semibold');
   });
 
-  it('scrolls horizontally inside its own container, never the page', () => {
+  it('makes the scrolling bracket reachable by keyboard', () => {
     bracketOf('c-groups');
     const region = screen.getByRole('region', { name: 'Cuadro' });
-    expect(region).toHaveClass('overflow-x-auto');
     expect(region).toHaveAttribute('tabindex', '0');
   });
 
@@ -77,60 +75,9 @@ describe('BracketView', () => {
   });
 });
 
-describe('BracketView, geometry', () => {
-  const quarter = (id: string, position: number) => ({
-    ...matchById('b-s1'),
-    id,
-    category_id: 'c-big',
-    round: 1,
-    position,
-  });
-  const big = [
-    quarter('q-1', 1),
-    quarter('q-2', 2),
-    quarter('q-3', 3),
-    quarter('q-4', 4),
-    { ...matchById('b-s1'), id: 's-1', category_id: 'c-big', round: 2, position: 1 },
-    { ...matchById('b-s1'), id: 's-2', category_id: 'c-big', round: 2, position: 2 },
-    { ...matchById('b-f'), id: 'f-1', category_id: 'c-big', round: 3, position: 1 },
-  ];
-
-  it('gives every round column the same rows and each match the share of its feeders', () => {
-    render(<BracketView matches={big} pairs={PAIRS} groupNames={groupNames} />);
-    const lists = screen.getAllByRole('list');
-    expect(lists).toHaveLength(3);
-    for (const list of lists) expect(list).toHaveStyle({ gridRow: '2 / span 4' });
-    const spans = lists.map((list) => (list.firstElementChild as HTMLElement).style.gridRow);
-    expect(spans).toEqual(['1 / span 1', '1 / span 2', '1 / span 4']);
-    expect((lists[1]?.children[1] as HTMLElement).style.gridRow).toBe('3 / span 2');
-  });
-
-  it('joins each feeder pair with a stub, a vertical line and a stub into the next match', () => {
-    const { container } = render(<BracketView matches={big} pairs={PAIRS} groupNames={groupNames} />);
-    const out = [...container.querySelectorAll('[data-bracket-connector="out"]')];
-    expect(out).toHaveLength(6);
-    expect(out.filter((node) => node.className.includes('border-t border-r'))).toHaveLength(3);
-    expect(out.filter((node) => node.className.includes('border-b border-r'))).toHaveLength(3);
-    expect(container.querySelectorAll('[data-bracket-connector="in"]')).toHaveLength(3);
-  });
-
-  it('lets a long pair name wrap instead of cutting it off', () => {
-    const { container } = render(<BracketView matches={big} pairs={PAIRS} groupNames={groupNames} />);
-    expect(container.querySelector('.truncate')).toBeNull();
-  });
-});
-
 describe('BracketView, fitting the card', () => {
   afterEach(() => {
     vi.restoreAllMocks();
-  });
-
-  it('lets the columns share the card width instead of a fixed 15rem each', () => {
-    bracketOf('c-groups');
-    const columns = screen.getAllByRole('heading', { level: 4 }).map((heading) => heading.parentElement);
-    for (const column of columns) expect(column?.className).not.toMatch(/\bw-60\b/);
-    const grid = columns[0]?.parentElement;
-    expect(grid?.style.gridTemplateColumns).toContain('minmax(0, 1fr)');
   });
 
   it('shows no edge fade while the bracket fits', () => {

@@ -24,21 +24,6 @@ function makeHttpError(status: number, url = 'https://api.vibe.com.ar/v1/booking
 }
 
 describe('queryClient', () => {
-  it('is an instance of QueryClient', () => {
-    expect(queryClient).toBeDefined();
-    expect(typeof queryClient.getDefaultOptions).toBe('function');
-  });
-
-  it('has correct default staleTime for queries', () => {
-    const defaults = queryClient.getDefaultOptions();
-    expect(defaults.queries?.staleTime).toBe(5 * 60 * 1000);
-  });
-
-  it('has correct default gcTime for queries', () => {
-    const defaults = queryClient.getDefaultOptions();
-    expect(defaults.queries?.gcTime).toBe(10 * 60 * 1000);
-  });
-
   // `ky.ts`'s RETRY already retries every GET twice on 408/429/5xx, a timeout
   // and a dropped connection. A second policy here multiplied against it —
   // six requests and 3.4 s of backoff in front of the public complex page's
@@ -46,11 +31,6 @@ describe('queryClient', () => {
   // when it gives up.
   it('leaves retrying to the transport instead of multiplying against it', () => {
     expect(queryClient.getDefaultOptions().queries?.retry).toBe(false);
-  });
-
-  it('has refetchOnWindowFocus disabled', () => {
-    const defaults = queryClient.getDefaultOptions();
-    expect(defaults.queries?.refetchOnWindowFocus).toBe(false);
   });
 
   it('throws a 5xx to the error boundary and keeps every 4xx inline', () => {

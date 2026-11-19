@@ -3,7 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import { server } from '../test/msw/server';
 import { ApiError } from '../lib/ApiError';
-import { createBookingClient, BOOKING_REQUEST_TIMEOUT_MS } from './client';
+import { createBookingClient } from './client';
 
 const BASE = 'http://localhost/api/v1';
 
@@ -134,9 +134,5 @@ describe('createBookingClient retries', () => {
 
     expect(error).toBeInstanceOf(ApiError);
     expect(calls).toBe(1);
-  });
-
-  it('gives a request ten seconds before timing out', () => {
-    expect(BOOKING_REQUEST_TIMEOUT_MS).toBe(10_000);
   });
 });

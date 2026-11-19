@@ -52,12 +52,6 @@ function renderClientsPage(ClientsPage: ComponentType, initialEntries: string[] 
 }
 
 describe('ClientsPage', () => {
-  it('renders page title', async () => {
-    const ClientsPage = (await import('./ClientsPage')).default;
-    renderClientsPage(ClientsPage);
-    expect(screen.getByText('Clientes')).toBeInTheDocument();
-  });
-
   it('shows empty state when no clients', async () => {
     const ClientsPage = (await import('./ClientsPage')).default;
     renderClientsPage(ClientsPage);

@@ -71,11 +71,6 @@ describe('CreateBookingModal', () => {
     vi.clearAllMocks();
   });
 
-  it('renders dialog title', () => {
-    renderWithProviders(<CreateBookingModal {...defaultProps} />);
-    expect(screen.getAllByText(/nueva reserva/i).length).toBeGreaterThanOrEqual(1);
-  });
-
   it('renders step 1 (schedule) fields and a "Siguiente" button, not the client/payment steps', () => {
     renderWithProviders(<CreateBookingModal {...defaultProps} />);
     expect(

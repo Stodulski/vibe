@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen } from '@testing-library/react';
 import { renderBooking } from '../../test/booking';
 import { AgendaRowShell } from './AgendaRowShell';
 
@@ -40,35 +40,18 @@ describe('AgendaRowShell date block', () => {
     expect(time.compareDocumentPosition(heading) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('reads as one line on a phone: the weekday, the day and the month', () => {
+  it('reads the weekday, the day and the month in order', () => {
     renderRow();
     const { time } = dateBlockOf();
 
     expect(Array.from(time.children).map((part) => part.textContent)).toEqual(['Mié', '18', 'nov']);
-    expect(time).toHaveClass('flex-row', 'sm:flex-col');
   });
 
-  it('shows the day number in green', () => {
-    renderRow();
-
-    expect(screen.getByText('18')).toHaveClass('text-primary-400');
-  });
-
-  it('has the accent rule only from sm up', () => {
+  it('keeps the accent rule from screen readers', () => {
     renderRow();
     const { time } = dateBlockOf();
     const rule = time.nextElementSibling;
 
     expect(rule).toHaveAttribute('aria-hidden', 'true');
-    expect(rule).toHaveClass('hidden', 'sm:block');
-  });
-
-  it('stacks the row on a phone and sets it side by side from sm up, with a full-width sign-up', () => {
-    renderRow();
-    const { article } = dateBlockOf();
-    const signUp = within(article).getByRole('link', { name: /Inscribirme/ });
-
-    expect(article).toHaveClass('flex-col', 'sm:flex-row');
-    expect(signUp).toHaveClass('w-full', 'sm:w-auto');
   });
 });

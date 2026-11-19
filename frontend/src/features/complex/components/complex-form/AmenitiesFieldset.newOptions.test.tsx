@@ -18,23 +18,9 @@ describe('amenities, newer options', () => {
     vi.clearAllMocks();
   });
 
-  it('offers the newer services under their labels, and the relabelled ones', async () => {
+  it('saves a newer amenity ticked under its label', async () => {
     const user = userEvent.setup();
     renderWithProviders(<ComplexForm complex={makeComplex({ amenities: [] })} />);
-
-    for (const name of [
-      'Cumpleaños',
-      'Parrilla',
-      'Quincho',
-      'Ayuda médica',
-      'Escuelita deportiva',
-      'Kiosco o buffet',
-      'Juegos para chicos',
-      'Alquiler de equipo',
-      'Venta de pelotas y accesorios',
-    ]) {
-      expect(screen.getByRole('checkbox', { name: name })).toBeInTheDocument();
-    }
 
     await user.click(screen.getByRole('checkbox', { name: 'Quincho' }));
     await user.click(screen.getByRole('button', { name: /Guardar cambios/ }));

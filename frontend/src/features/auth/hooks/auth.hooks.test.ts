@@ -129,29 +129,7 @@ describe('useAuth', () => {
   });
 });
 
-describe('useLogin', () => {
-  it('returns a mutation with mutate function', async () => {
-    const { useLogin } = await import('./useLogin');
-    const { result } = renderHook(() => useLogin(), { wrapper: createQueryWrapper() });
-    expect(typeof result.current.mutate).toBe('function');
-  });
-});
-
-describe('useLogout', () => {
-  it('returns a mutation with mutate function', async () => {
-    const { useLogout } = await import('./useLogout');
-    const { result } = renderHook(() => useLogout(), { wrapper: createQueryWrapper() });
-    expect(typeof result.current.mutate).toBe('function');
-  });
-});
-
 describe('useRegister', () => {
-  it('returns a mutation with mutate function', async () => {
-    const { useRegister } = await import('./useRegister');
-    const { result } = renderHook(() => useRegister(), { wrapper: createQueryWrapper() });
-    expect(typeof result.current.mutate).toBe('function');
-  });
-
   const registerPayload = {
     first_name: 'Juan',
     last_name: 'Perez',

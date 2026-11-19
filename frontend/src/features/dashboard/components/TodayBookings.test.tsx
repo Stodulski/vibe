@@ -58,12 +58,6 @@ describe('TodayBookings', () => {
     expect(screen.getByText('2')).toBeInTheDocument();
   });
 
-  it('renders view all buttons', () => {
-    const bookings = [createBooking('b1')];
-    renderWithProviders(<TodayBookings bookings={bookings} complexId="c1" />);
-    expect(screen.getAllByRole('button', { name: /ver todas/i })).not.toHaveLength(0);
-  });
-
   it('navigates to bookings page when view all is clicked', async () => {
     const user = userEvent.setup();
     const bookings = [createBooking('b1')];

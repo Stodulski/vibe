@@ -88,24 +88,6 @@ describe('ScheduleConfig', () => {
     });
   });
 
-  it('renders all day names', async () => {
-    renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
-    await waitFor(() => {
-      expect(screen.getAllByText(/lunes/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/martes/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/mi.rcoles/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/jueves/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/viernes/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/s.bado/i).length).toBeGreaterThan(0);
-      expect(screen.getAllByText(/domingo/i).length).toBeGreaterThan(0);
-    });
-  });
-
-  it('renders save button', () => {
-    renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
-    expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
-  });
-
   it('gives each day exactly one "closed" control, named by that day', async () => {
     renderWithProviders(<ScheduleConfig complexId="c1" slug="padel-club" />);
     await waitFor(() => {

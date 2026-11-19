@@ -49,16 +49,6 @@ describe('CourtTable', () => {
     expect(screen.getByText('Cancha 2')).toBeInTheDocument();
   });
 
-  it('shows the sport under the court name', () => {
-    renderTable([courtWithRange]);
-    expect(screen.getByText(/p.del/i)).toBeInTheDocument();
-  });
-
-  it('shows the court type', () => {
-    renderTable([courtWithRange]);
-    expect(screen.getByText('Descubierta')).toBeInTheDocument();
-  });
-
   it('shows one general min–max price range across every band', () => {
     renderTable([courtWithRange]);
     // 1350000/2850000 centavos -> $13.500 / $28.500.

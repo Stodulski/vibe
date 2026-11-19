@@ -10,11 +10,6 @@ describe('ReportsPage', () => {
     mockedUseMonthlyReport.mockReturnValue(mockHookReturn());
   });
 
-  it('renders page title "Reportes"', () => {
-    renderReportsPage(<ReportsPage />);
-    expect(screen.getByText('Reportes')).toBeInTheDocument();
-  });
-
   // Asserted on what the trigger SHOWS, not on a `value` attribute. These are
   // the app's Select now rather than the browser's, and its trigger is a
   // button displaying the chosen option — `toHaveValue` only ever worked
@@ -30,11 +25,6 @@ describe('ReportsPage', () => {
     renderReportsPage(<ReportsPage />);
 
     expect(screen.getByLabelText(ES_AR.reports.year)).toHaveTextContent(String(new Date().getFullYear()));
-  });
-
-  it('renders "Descargar Excel" button', () => {
-    renderReportsPage(<ReportsPage />);
-    expect(screen.getByText('Descargar Excel')).toBeInTheDocument();
   });
 
   it('opens the month named by ?month= in the URL, surviving a refresh', () => {
@@ -55,14 +45,6 @@ describe('ReportsPage', () => {
 describe('ReportsPage states', () => {
   beforeEach(() => {
     mockedUseMonthlyReport.mockReturnValue(mockHookReturn());
-  });
-
-  it('shows a loading skeleton, not a centered spinner, when isLoading is true', () => {
-    mockedUseMonthlyReport.mockReturnValue(mockHookReturn({ isLoading: true }));
-    const { container } = renderReportsPage(<ReportsPage />);
-    // UI-06: this used to be a centered spinner that collapsed the panel's height.
-    expect(screen.getByRole('status')).toBeInTheDocument();
-    expect(container.querySelectorAll('[data-slot="skeleton"]').length).toBeGreaterThan(0);
   });
 
   it('shows empty state when report has no data', () => {

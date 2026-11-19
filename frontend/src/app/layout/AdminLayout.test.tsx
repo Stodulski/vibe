@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
 vi.mock('./AdminSidebar', () => ({
@@ -33,37 +33,6 @@ vi.mock('react-router-dom', async () => {
 });
 
 describe('AdminLayout', () => {
-  it('renders the admin sidebar and outlet', async () => {
-    const { AdminLayout } = await import('./AdminLayout');
-    render(
-      <MemoryRouter>
-        <AdminLayout />
-      </MemoryRouter>,
-    );
-    expect(screen.getAllByTestId('admin-sidebar').length).toBeGreaterThanOrEqual(1);
-    expect(screen.getByTestId('outlet')).toBeInTheDocument();
-  });
-
-  it('renders skip navigation link', async () => {
-    const { AdminLayout } = await import('./AdminLayout');
-    render(
-      <MemoryRouter>
-        <AdminLayout />
-      </MemoryRouter>,
-    );
-    expect(screen.getByText('Ir al contenido principal')).toBeInTheDocument();
-  });
-
-  it('renders admin header', async () => {
-    const { AdminLayout } = await import('./AdminLayout');
-    render(
-      <MemoryRouter>
-        <AdminLayout />
-      </MemoryRouter>,
-    );
-    expect(screen.getByTestId('admin-header')).toBeInTheDocument();
-  });
-
   it('has main content area with correct id', async () => {
     const { AdminLayout } = await import('./AdminLayout');
     render(

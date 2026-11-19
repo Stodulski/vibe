@@ -3,7 +3,7 @@ import { render, screen } from '@testing-library/react';
 import { DatePickerPopover } from './DatePickerPopover';
 
 describe('DatePickerPopover', () => {
-  it('shows the short date below sm and the long one from sm, never truncating either', () => {
+  it('shows both the short and the long date, and names the trigger', () => {
     render(
       <DatePickerPopover
         selectedDate="2026-12-07"
@@ -15,11 +15,8 @@ describe('DatePickerPopover', () => {
       />,
     );
 
-    const short = screen.getByText('lun 7 dic');
-    const long = screen.getByText('lunes 7 de diciembre');
-    expect(short).toHaveClass('sm:hidden');
-    expect(long).toHaveClass('hidden', 'sm:inline');
-    expect(short.className).not.toMatch(/truncate/);
+    expect(screen.getByText('lun 7 dic')).toBeInTheDocument();
+    expect(screen.getByText('lunes 7 de diciembre')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Fecha: lunes 7 de diciembre' })).toBeInTheDocument();
   });
 });

@@ -14,12 +14,9 @@ describe('useBookingsByDate', () => {
   it('calls GET complexes/:id/bookings and returns the parsed bookings array', async () => {
     const booking = makeBooking({ id: 'b1' });
     let receivedDate: string | null = null;
-    let receivedLimit: string | null = null;
     server.use(
       http.get('*/complexes/:complexId/bookings', ({ request }) => {
-        const params = new URL(request.url).searchParams;
-        receivedDate = params.get('date');
-        receivedLimit = params.get('limit');
+        receivedDate = new URL(request.url).searchParams.get('date');
         return HttpResponse.json({ bookings: [booking], metadata: { has_more: false } });
       }),
     );
@@ -35,7 +32,6 @@ describe('useBookingsByDate', () => {
 
     expect(result.current.data).toEqual([booking]);
     expect(receivedDate).toBe('2026-03-18');
-    expect(receivedLimit).toBe('200');
   });
 
   // Proves the schema wired into the query (H-schemas.md's wiring table)

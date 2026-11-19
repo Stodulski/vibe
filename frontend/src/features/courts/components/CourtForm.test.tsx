@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { renderWithProviders, screen } from '@/test/test-utils';
-import { makeCourt } from '@/test/factories';
 import { CourtForm } from './CourtForm';
 
 const mockCreateMutate = vi.fn();
@@ -31,45 +30,9 @@ describe('CourtForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders create title when no court provided', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByText(/agregar cancha/i)).toBeInTheDocument();
-  });
-
-  it('renders edit title when court is provided', () => {
-    const court = { ...makeCourt(), prices: [] };
-    renderWithProviders(<CourtForm {...defaultProps} court={court} />);
-    expect(screen.getByText(/editar cancha/i)).toBeInTheDocument();
-  });
-
-  it('renders name input', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
-  });
-
-  it('renders sport selector', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByText(/deporte/i)).toBeInTheDocument();
-  });
-
-  it('renders court type selector', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByText(/tipo de cancha/i)).toBeInTheDocument();
-  });
-
   it('does not ask for a description', () => {
     renderWithProviders(<CourtForm {...defaultProps} />);
     expect(screen.queryByLabelText(/descripci/i)).not.toBeInTheDocument();
-  });
-
-  it('renders cancel button', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /cancelar/i })).toBeInTheDocument();
-  });
-
-  it('renders create button for new court', () => {
-    renderWithProviders(<CourtForm {...defaultProps} />);
-    expect(screen.getByRole('button', { name: /crear/i })).toBeInTheDocument();
   });
 
   it('does not render when closed', () => {

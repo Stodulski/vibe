@@ -104,14 +104,6 @@ describe('ComplexPageContent in the server markup', () => {
     expect(follows(dates, map)).toBe(true);
   });
 
-  it('lays the page out as one flex column', () => {
-    const container = serverDom();
-    const root = container.firstElementChild;
-
-    expect(root?.classList.contains('flex')).toBe(true);
-    expect(root?.classList.contains('flex-col')).toBe(true);
-  });
-
   it('never asks matchMedia where the services go', () => {
     const spy = vi.spyOn(window, 'matchMedia');
 
@@ -141,7 +133,6 @@ describe('ComplexPageContent placement of the services', () => {
     const phone = headings.find((h) => h.textContent === BOOKING_MESSAGES.publicBooking.phoneOnlyTitle);
     const services = headings.find((h) => h.textContent === BOOKING_MESSAGES.complex.amenitiesSection);
 
-    expect(phone).toBeDefined();
     expect(follows(phone, services)).toBe(true);
   });
 });

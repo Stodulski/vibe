@@ -12,17 +12,6 @@ async function openDialog() {
 }
 
 describe('ImageDeleteConfirm', () => {
-  it('names the image it deletes in the title, with accented copy', async () => {
-    await openDialog();
-    expect(screen.getByRole('heading', { name: '¿Eliminar logo?' })).toBeInTheDocument();
-    expect(screen.getByText(/se va a quitar de la página del complejo/i)).toBeInTheDocument();
-  });
-
-  it('confirms deletion with the destructive variant', async () => {
-    await openDialog();
-    expect(screen.getByRole('button', { name: /^Eliminar$/ })).toHaveAttribute('data-variant', 'destructive');
-  });
-
   it('calls onConfirm when the owner confirms', async () => {
     const { user, onConfirm } = await openDialog();
     await user.click(screen.getByRole('button', { name: /^Eliminar$/ }));

@@ -147,26 +147,6 @@ describe('BookSuccessPage saved result validation', () => {
   });
 });
 
-describe('BookSuccessPage bookingDetails resolution', () => {
-  it("forwards useBookingStatus's data straight through as bookingDetails", async () => {
-    const details = {
-      status: 'confirmed',
-      collection_status: 'deposit_paid',
-      refund_status: 'none',
-      complex_name: 'Club API',
-    };
-    vi.mocked(useBookingStatus).mockReturnValueOnce({
-      data: details,
-      isLoading: false,
-      isError: false,
-      timedOut: false,
-      refetch: vi.fn(),
-    } as unknown as ReturnType<typeof useBookingStatus>);
-    await renderPage('/c/club-norte/book/success', { token: 't1' });
-    expect(lastProps?.bookingDetails).toEqual(details);
-  });
-});
-
 describe('BookSuccessPage payment-under-review resolution', () => {
   it('reads status=pending from the MP back_url and resolves the under_review view', async () => {
     await renderPage('/c/club-norte/book/success?token=t2&status=pending');

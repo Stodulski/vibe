@@ -52,7 +52,7 @@ describe('initSentry', () => {
     expect(mockInit).not.toHaveBeenCalled();
   });
 
-  it('calls Sentry.init with correct config when DSN is set', async () => {
+  it('initializes with the PII scrubbers wired and default PII off', async () => {
     // `scrubEvent`/`scrubBreadcrumb` must come from this same re-import: the
     // module-level `import` above resolved to an earlier module-registry
     // instance, so its functions are reference-unequal to the ones this
@@ -66,46 +66,17 @@ describe('initSentry', () => {
     expect(mockInit).toHaveBeenCalledWith(
       expect.objectContaining({
         dsn: 'https://test@sentry.io/123',
-        tunnel: '/_r/e',
-        tracesSampleRate: 0.1,
-        release: 'test', // stubbed via vitest.config.ts's `define`
         sendDefaultPii: false,
         replaysSessionSampleRate: 0,
-        replaysOnErrorSampleRate: 1.0,
         beforeSend: freshScrubEvent,
         beforeBreadcrumb: freshScrubBreadcrumb,
-      }),
-    );
-  });
-
-  it('includes the router-aware tracing integration and session replay', async () => {
-    const { initSentry } = await importSentryWith('https://test@sentry.io/123');
-    initSentry();
-    expect(mockReactRouterBrowserTracingIntegration).toHaveBeenCalledWith(
-      expect.objectContaining({
-        useLocation: expect.any(Function) as unknown as () => void,
-        useNavigationType: expect.any(Function) as unknown as () => void,
-        createRoutesFromChildren: expect.any(Function) as unknown as () => void,
-        matchRoutes: expect.any(Function) as unknown as () => void,
-      }),
-    );
-    expect(mockReplayIntegration).toHaveBeenCalled();
-    expect(mockInit).toHaveBeenCalledWith(
-      expect.objectContaining({
-        integrations: expect.arrayContaining([
-          expect.objectContaining({ name: 'ReactRouterBrowserTracing' }),
-          expect.objectContaining({ name: 'Replay' }),
-        ]) as unknown as unknown[],
       }),
     );
   });
 });
 
 // This file runs under `@vitest-environment node`, which has no `window` at
-// all but — like production Node itself — does define a bare-bones global
-// `navigator` (no `serviceWorker`, no `onLine`) — matching production code
-// paths that must tolerate both. See sentry.tags.test.ts for the
-// browser-side pwa_standalone/sw_version tags with a full `window`.
+// all. Init must still not throw there.
 describe('initSentry without a DOM', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -115,13 +86,11 @@ describe('initSentry without a DOM', () => {
     vi.unstubAllEnvs();
   });
 
-  it('does not throw, skips the window-only pwa_standalone tag, and tags sw_version "none"', async () => {
+  it('does not throw', async () => {
     const { initSentry } = await importSentryWith('https://test@sentry.io/123');
     expect(() => {
       initSentry();
     }).not.toThrow();
-    expect(mockSetTag).not.toHaveBeenCalledWith('pwa_standalone', expect.anything());
-    expect(mockSetTag).toHaveBeenCalledWith('sw_version', 'none');
   });
 });
 

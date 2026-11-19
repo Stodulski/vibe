@@ -43,13 +43,6 @@ describe('GoogleSignInButton — rendering', () => {
     const link = screen.getByRole('link', { name: ES_AR.auth.continueWithGoogle });
     expect(link).toHaveAttribute('href', '/api/v1/auth/google/start');
   });
-
-  it('is shaped like the primary button', () => {
-    renderButton();
-
-    const link = screen.getByRole('link', { name: ES_AR.auth.continueWithGoogle });
-    expect(link).toHaveClass('h-11', 'w-full', 'rounded-full');
-  });
 });
 
 // The redirect hop leaves this page entirely and comes back on

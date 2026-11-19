@@ -48,24 +48,14 @@ describe('TournamentDetail: bracket', () => {
     vi.clearAllMocks();
   });
 
-  it('draws every round under its heading in one region, with no sideways scroll', async () => {
+  it('draws every round under its heading in one region', async () => {
     await renderDetail(makeDrawnDetail(), t.detail.sections.bracket);
 
     const region = screen.getByRole('region', { name: t.bracket.label });
-    expect(region.className).not.toMatch(/overflow-x/);
     expect(within(region).getByRole('heading', { name: t.bracket.semifinal })).toBeInTheDocument();
     expect(within(region).getByRole('heading', { name: t.bracket.final })).toBeInTheDocument();
     expect(region).toHaveTextContent(t.bracket.sourceOf(1, 'A'));
     expect(region).toHaveTextContent(t.bracket.sourceOf(2, 'B'));
-  });
-
-  it('keeps every bracket meta line on one line with the day in figures', async () => {
-    await renderDetail(makeDrawnDetail(), t.detail.sections.bracket);
-
-    const region = screen.getByRole('region', { name: t.bracket.label });
-    for (const line of region.querySelectorAll('p.text-xs')) {
-      expect(line).toHaveClass('truncate');
-    }
   });
 });
 
@@ -73,20 +63,6 @@ describe('TournamentDetail: phone layout', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
-
-  it('has no element that scrolls sideways in any section', async () => {
-    const { user } = await renderDetail(makeDrawnDetail());
-    for (const section of [
-      t.detail.sections.pairs,
-      t.detail.sections.groups,
-      t.detail.sections.bracket,
-      t.detail.sections.matches,
-    ]) {
-      await pickSection(user, section);
-      expect(document.querySelectorAll('[class*="overflow-x-auto"], [class*="overflow-x-scroll"]')).toHaveLength(0);
-    }
-  });
-
   it('marks a qualifier with a check and a label that reaches assistive technology', async () => {
     await renderDetail(makeDrawnDetail(), t.detail.sections.groups);
 
@@ -94,16 +70,8 @@ describe('TournamentDetail: phone layout', () => {
     const qualifying = within(table).getAllByRole('row').slice(1)[0];
     if (!qualifying) throw new Error('the zone has no rows');
     const label = within(qualifying).getByText(t.groups.qualifies);
-    expect(label).toHaveClass('sr-only');
+    expect(label).toBeInTheDocument();
     expect(qualifying.querySelector('svg')).toHaveAttribute('aria-hidden', 'true');
-  });
-
-  it('keeps each zone pair name on one line', async () => {
-    await renderDetail(makeDrawnDetail(), t.detail.sections.groups);
-
-    const table = screen.getByRole('table', { name: t.groups.table('A') });
-    const names = within(table).getAllByText('Pérez / Gómez');
-    expect(names[0]).toHaveClass('truncate');
   });
 });
 

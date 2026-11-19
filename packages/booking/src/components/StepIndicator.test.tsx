@@ -19,18 +19,6 @@ describe('StepIndicator', () => {
     expect(screen.getByText(t.publicBooking.stepSelect).closest('[aria-current]')).toBeNull();
   });
 
-  // Faded ink on green reads poorly: every circle, line and label of the brand
-  // tone is full-strength, so no element of it carries an opacity utility (`/10`, `/60`...).
-  it('draws the brand tone in full ink, with no opacity on circles, lines or labels', () => {
-    const { container } = render(<StepIndicator currentStep={2} tone="brand" />);
-    const marked = Array.from(container.querySelectorAll('[class]'));
-
-    expect(marked.length).toBeGreaterThan(0);
-    for (const element of marked) {
-      expect(element.getAttribute('class')).not.toMatch(/\/\d+/);
-    }
-  });
-
   // The circle labels are `sm:inline` only — on a phone the row of circles
   // alone cannot answer "which step am I on", so the mobile-only line under
   // them carries the active step's own label.

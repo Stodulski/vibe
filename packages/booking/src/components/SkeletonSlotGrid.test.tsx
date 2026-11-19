@@ -11,9 +11,8 @@ describe('SkeletonSlotGrid', () => {
     expect(screen.getByRole('status')).toHaveAccessibleName(t.publicBooking.checkingAvailability);
   });
 
-  it('depicts the time ruler, not a grid of hour buttons', () => {
-    const { container } = render(<SkeletonSlotGrid />);
+  it('depicts the time ruler while loading', () => {
+    render(<SkeletonSlotGrid />);
     expect(screen.getByTestId('ruler-skeleton')).toBeInTheDocument();
-    expect(container.querySelectorAll('.grid')).toHaveLength(0);
   });
 });

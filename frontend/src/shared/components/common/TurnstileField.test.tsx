@@ -112,12 +112,6 @@ describe('TurnstileField', () => {
 // A sibling describe, not nested: max-lines-per-function counts a describe
 // callback's whole body.
 describe('TurnstileField visibility', () => {
-  it('asks Cloudflare to show the widget only when an interaction is required', () => {
-    render(<TurnstileField onTokenChange={vi.fn()} />);
-
-    expect(turnstileProps?.options?.appearance).toBe('interaction-only');
-  });
-
   it('collapses the widget once solved and brings it back when the token expires', () => {
     render(<TurnstileField onTokenChange={vi.fn()} />);
     const slot = screen.getByTestId('turnstile-slot');

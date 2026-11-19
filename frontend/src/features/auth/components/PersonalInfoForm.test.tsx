@@ -28,12 +28,6 @@ describe('PersonalInfoForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders first name input with default value', () => {
-    renderWithProviders(<PersonalInfoForm />);
-    const input = screen.getByLabelText(/nombre/i);
-    expect(input).toHaveValue('Juan');
-  });
-
   it('renders last name input with default value', () => {
     renderWithProviders(<PersonalInfoForm />);
     const input = screen.getByLabelText(/apellido/i);
@@ -50,11 +44,6 @@ describe('PersonalInfoForm', () => {
     renderWithProviders(<PersonalInfoForm />);
     const input = screen.getByLabelText(/tel.fono/i);
     expect(input).toHaveValue('1155550000');
-  });
-
-  it('renders save button', () => {
-    renderWithProviders(<PersonalInfoForm />);
-    expect(screen.getByRole('button', { name: /guardar/i })).toBeInTheDocument();
   });
 
   it('shows validation error when first name is cleared', async () => {

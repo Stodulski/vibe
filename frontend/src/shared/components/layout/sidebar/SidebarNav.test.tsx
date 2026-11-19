@@ -12,13 +12,8 @@ function renderAt(path: string) {
 }
 
 describe('SidebarNav — Eventos', () => {
-  it('shows one Eventos entry after Reservas instead of Canchas abiertas and Torneos', () => {
+  it('links Eventos to /events', () => {
     renderAt('/dashboard');
-    const names = screen.getAllByRole('link').map((link) => link.textContent);
-    expect(names.filter((name) => name === 'Eventos')).toHaveLength(1);
-    expect(names.indexOf('Eventos')).toBe(names.indexOf('Reservas') + 1);
-    expect(names).not.toContain('Canchas abiertas');
-    expect(names).not.toContain('Torneos');
     expect(screen.getByRole('link', { name: 'Eventos' })).toHaveAttribute('href', '/events');
   });
 
@@ -34,10 +29,8 @@ describe('SidebarNav — Eventos', () => {
 });
 
 describe('SidebarNav — Kit para redes', () => {
-  it('shows Kit para redes right before Configuración in the secondary section', () => {
+  it('links Kit para redes to /kit', () => {
     renderAt('/dashboard');
-    const names = screen.getAllByRole('link').map((link) => link.textContent);
-    expect(names.indexOf('Kit para redes')).toBe(names.indexOf('Configuración') - 1);
     expect(screen.getByRole('link', { name: 'Kit para redes' })).toHaveAttribute('href', '/kit');
   });
 

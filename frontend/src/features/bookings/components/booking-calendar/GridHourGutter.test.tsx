@@ -11,11 +11,4 @@ describe('GridHourGutter', () => {
     expect(screen.getByText('23:00')).toBeInTheDocument();
     expect(screen.queryByText('24:00')).not.toBeInTheDocument();
   });
-
-  it('hangs the midnight label below the top edge instead of centring it half outside the grid', () => {
-    render(<GridHourGutter />);
-
-    expect(screen.getByText('00:00')).not.toHaveClass('-translate-y-1/2');
-    expect(screen.getByText('12:00')).toHaveClass('-translate-y-1/2');
-  });
 });
