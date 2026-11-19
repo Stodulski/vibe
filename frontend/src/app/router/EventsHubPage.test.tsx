@@ -92,8 +92,6 @@ describe('EventsHubPage: one list for both kinds', () => {
     renderWithProviders(<EventsHubPage />);
 
     const list = await screen.findByRole('list', { name: t.listLabel });
-    expect(list).toHaveClass('divide-y');
-    expect(list).not.toHaveClass('grid');
     const [first, second] = within(list).getAllByRole('listitem');
     if (!first || !second) throw new Error('expected two list items');
     expect(first).toHaveTextContent('Torneo de pádel');

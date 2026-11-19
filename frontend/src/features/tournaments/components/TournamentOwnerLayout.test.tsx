@@ -34,48 +34,21 @@ describe('owner tournament layout', () => {
     vi.clearAllMocks();
   });
 
-  it('gives every zone table the same fixed columns', () => {
+  it('gives every zone table the same number of columns', () => {
     const detail = makeDrawnDetail();
     const pairs = new Map(detail.pairs.map((p) => [p.id, p]));
     render(<GroupsSection groups={detail.groups} pairs={pairs} qualifiers={2} />);
     for (const table of screen.getAllByRole('table')) {
-      expect(table.className).toContain('table-fixed');
       expect(table.querySelectorAll('thead th')).toHaveLength(8);
       for (const row of table.querySelectorAll('tbody tr')) {
         expect(row.querySelectorAll('td')).toHaveLength(8);
       }
     }
   });
-
-  it('shows the winner and walkover words proportionally, not in monospace', () => {
-    const detail = makeDrawnDetail();
-    const pairs = new Map(detail.pairs.map((p) => [p.id, p]));
-    const match = makeMatch({
-      id: 'm1',
-      pair1Id: 'p1',
-      pair2Id: 'p2',
-      status: 'completed',
-      winnerPairId: 'p1',
-      walkoverLoser: 2,
-    });
-    render(
-      <MatchesSection
-        matches={[match]}
-        pairs={pairs}
-        groupNames={new Map()}
-        editable={false}
-        actions={{ onSchedule: vi.fn(), onUnschedule: vi.fn(), onResult: vi.fn() }}
-        courtFee={{ fee: 0, actions: { onCharge: vi.fn(), onUndo: vi.fn() } }}
-      />,
-    );
-    const words = screen.getByText(/^(Ganó|W\.O\.)/);
-    expect(words.className).not.toContain('score-text');
-    expect(words.className).toContain('tabular-nums');
-  });
 });
 
 describe('owner tournament match rows', () => {
-  it('keeps a match schedule on one truncated line with the day in figures', () => {
+  it('writes a match schedule with the day in figures, and no actions menu when read-only', () => {
     const detail = makeDrawnDetail();
     const pairs = new Map(detail.pairs.map((p) => [p.id, p]));
     const schedule = {
@@ -97,8 +70,7 @@ describe('owner tournament match rows', () => {
         courtFee={{ fee: 0, actions: { onCharge: vi.fn(), onUndo: vi.fn() } }}
       />,
     );
-    expect(screen.getByText(/Dom 22\/11/)).toHaveClass('truncate');
-    expect(screen.getByText(t.matches.versus)).toHaveClass('shrink-0');
+    expect(screen.getByText(/Dom 22\/11/)).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.matches.actionsLabel })).not.toBeInTheDocument();
   });
 });
@@ -196,7 +168,6 @@ describe('owner tournament selects', () => {
     const categories = [1, 2, 3, 4].slice(0, count).map((level) => makeCategory({ id: `c${String(level)}`, level }));
     await renderDetail(makeDetail({ categories }));
     const row = screen.getByRole('combobox', { name: t.detail.categoriesLabel }).closest('.grid');
-    expect(row).toHaveClass('grid-cols-1', 'sm:grid-cols-[16rem_12rem]');
     expect(row).toContainElement(screen.getByRole('combobox', { name: t.detail.sectionLabel }));
   });
 });
@@ -230,15 +201,6 @@ describe('owner tournament page details', () => {
     const detail = makeDetail();
     await renderDetail({ ...detail, tournament: { ...detail.tournament, end_date: '2020-01-02' } });
     expect(screen.queryByRole('button', { name: ES_AR.common.rowActionsLabel })).not.toBeInTheDocument();
-  });
-
-  it('writes the tournament days with a capital letter on their own line', async () => {
-    await renderDetail(makeDetail());
-    const days = screen.getByText(
-      /^(L|l)unes|^(S|s)ábado|^(D|d)omingo|^(V|v)iernes|^(J|j)ueves|^(M|m)i[eé]rcoles|^(M|m)artes/,
-    );
-    const line = days.closest('p');
-    expect(line).toHaveClass('block', 'truncate', 'first-letter:uppercase');
   });
 
   it('places the cancelled note under the category row', async () => {

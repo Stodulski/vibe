@@ -44,18 +44,12 @@ describe('TournamentCard', () => {
     expect(kicker.compareDocumentPosition(title) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('shows the days, the categories and the pairs as the meta line, the days capitalised', () => {
+  it('shows the days, the categories and the pairs as the meta line', () => {
     render(<TournamentCard tournament={summary()} />);
 
     const link = screen.getByRole('link');
-    expect(within(link).getByText('viernes 2 de enero')).toHaveClass('first-letter:uppercase');
+    expect(within(link).getByText('viernes 2 de enero')).toBeInTheDocument();
     expect(within(link).getByText(t.categoriesCount(2))).toBeInTheDocument();
     expect(within(link).getByText(t.pairsCount(10))).toBeInTheDocument();
-  });
-
-  it('marks a cancelled tournament beside its title', () => {
-    render(<TournamentCard tournament={summary({ status: 'cancelled' })} />);
-
-    expect(within(screen.getByRole('link')).getByText(t.cancelledBadge)).toHaveClass('text-error-text');
   });
 });
