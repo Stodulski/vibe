@@ -27,15 +27,18 @@ export type SocialKitFormat = (typeof SOCIAL_KIT_FORMATS)[number];
  * Absolute URL of one social kit image, on `VITE_LANDING_URL`. `download` adds
  * `?descargar=1`, which the landing answers with an attachment: a plain link
  * downloads the file, since a cross-origin `download` attribute is ignored.
+ * `preview` asks for the 560px version (`?email=1`): a third of the bytes and
+ * half the render time, plenty for a thumbnail. Downloads stay full size.
  */
 export function socialKitImageUrl(
   slug: string,
   piece: SocialKitPiece,
   format: SocialKitFormat,
-  { download = false }: { download?: boolean } = {},
+  { download = false, preview = false }: { download?: boolean; preview?: boolean } = {},
 ): string {
   const url = new URL(`/kit/c/${slug}/${piece}-${format}.png`, env.VITE_LANDING_URL);
   if (download) url.searchParams.set('descargar', '1');
+  if (preview) url.searchParams.set('email', '1');
   return url.href;
 }
 

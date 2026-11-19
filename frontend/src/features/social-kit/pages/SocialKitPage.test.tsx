@@ -26,12 +26,12 @@ describe('SocialKitPage', () => {
     const reservar = screen.getByRole('article', { name: 'Link de reservas' });
     expect(within(reservar).getByRole('img', { name: 'Post: Link de reservas' })).toHaveAttribute(
       'src',
-      `${KIT_URL}/reservar-post.png`,
+      `${KIT_URL}/reservar-post.png?email=1`,
     );
     const como = screen.getByRole('article', { name: 'Cómo reservar' });
     expect(within(como).getByRole('img', { name: 'Post: Cómo reservar' })).toHaveAttribute(
       'src',
-      `${KIT_URL}/como-reservar-post.png`,
+      `${KIT_URL}/como-reservar-post.png?email=1`,
     );
     expect(within(reservar).queryByRole('paragraph')).not.toBeInTheDocument();
   });

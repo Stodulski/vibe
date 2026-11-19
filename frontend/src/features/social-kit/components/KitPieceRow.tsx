@@ -20,7 +20,7 @@ export function KitPieceRow({ piece, slug }: KitPieceRowProps) {
     <article aria-labelledby={headingId} className={KIT_ROW_CLASS}>
       <div className={KIT_THUMB_CLASS}>
         <img
-          src={socialKitImageUrl(slug, piece, 'post')}
+          src={socialKitImageUrl(slug, piece, 'post', { preview: true })}
           alt={`${t.navigation.socialKitFormats.post}: ${title}`}
           loading="lazy"
           className="bg-bg-base size-full object-cover"
