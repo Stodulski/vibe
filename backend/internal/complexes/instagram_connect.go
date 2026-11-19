@@ -87,6 +87,8 @@ type InstagramStore interface {
 	ListInstagramTokensDueForRefresh(ctx context.Context, now, refreshBefore, refreshedBefore time.Time, limit int) ([]complexstore.DueInstagramToken, []uuid.UUID, error)
 	UpdateInstagramToken(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time, token string, expiresAt, refreshedAt time.Time) (bool, error)
 	MarkExpiredInstagramConnections(ctx context.Context, now time.Time) (int64, error)
+	MarkInstagramNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) (bool, error)
+	InstagramComplexOwner(ctx context.Context, complexID uuid.UUID) (uuid.UUID, error)
 }
 
 // InstagramConfig tunes the connection flow.
@@ -263,6 +265,11 @@ func (ig *Instagram) Callback(w http.ResponseWriter, r *http.Request, in Instagr
 		return
 	}
 
+	if !ig.stillOwns(r.Context(), rec) {
+		ig.redirect(w, r, "", instagramReasonFailed)
+		return
+	}
+
 	conn, err := ig.connect(r.Context(), rec.ComplexID, in.Code)
 	if err != nil {
 		reason := instagramReasonFailed
@@ -291,6 +298,17 @@ func (ig *Instagram) Callback(w http.ResponseWriter, r *http.Request, in Instagr
 // spendAttempt consumes the attempt the state names. The complex id prefixing
 // the state only locates the attempt; the attempt's own record is what is
 // trusted, and it must agree.
+// stillOwns reports whether the person who started the attempt still owns the
+// complex: it may have changed hands while they were on the consent page.
+func (ig *Instagram) stillOwns(ctx context.Context, rec *instagramAttemptRecord) bool {
+	owner, err := ig.store.InstagramComplexOwner(data.ContextWithTenant(ctx, rec.ComplexID), rec.ComplexID)
+	if err != nil || owner != rec.UserID {
+		ig.logger.Warn("instagram connect: the person who started it no longer owns the complex", "complex_id", rec.ComplexID, "error", err)
+		return false
+	}
+	return true
+}
+
 func (ig *Instagram) spendAttempt(ctx context.Context, state string) (*instagramAttemptRecord, error) {
 	prefix, _, found := strings.Cut(state, ".")
 	complexID, err := uuid.Parse(prefix)
@@ -391,7 +409,9 @@ func (ig *Instagram) Disconnect(w http.ResponseWriter, r *http.Request) {
 
 // InstagramRefreshOutcome is what one refresh run did, for its log line.
 type InstagramRefreshOutcome struct {
-	Expired, Refreshed, Failed, Unreadable int
+	// Revoked are the tokens Meta refused to refresh, now flagged for reconnect;
+	// Skipped the refreshes a reconnect raced, which stored nothing.
+	Expired, Refreshed, Failed, Unreadable, Revoked, Skipped int
 }
 
 // RefreshTokens is the daily sweep: it marks expired connections as needing a
@@ -423,15 +443,30 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 
 	for _, d := range due {
 		tok, err := ig.api.Refresh(ctx, d.AccessToken)
+		if errors.Is(err, instagram.ErrRejected) {
+			// Meta answered and refused: the owner revoked access. Say so now
+			// rather than reporting connected until the token runs out.
+			if _, markErr := ig.store.MarkInstagramNeedsReconnect(ctx, d.ComplexID, d.ExpiresAt); markErr != nil {
+				ig.logger.Error("instagram refresh: could not flag a revoked token", "complex_id", d.ComplexID, "error", markErr)
+			}
+			out.Revoked++
+			ig.logger.Warn("instagram refresh: Meta refused the refresh; the owner must reconnect", "complex_id", d.ComplexID, "error", err)
+			continue
+		}
 		if err != nil {
 			out.Failed++
 			ig.logger.Warn("instagram refresh: refresh failed, retrying next run", "complex_id", d.ComplexID, "error", err)
 			continue
 		}
 		at := ig.cfg.Now()
-		if _, err := ig.store.UpdateInstagramToken(ctx, d.ComplexID, d.ExpiresAt, tok.AccessToken, at.Add(tok.ExpiresIn), at); err != nil {
+		stored, err := ig.store.UpdateInstagramToken(ctx, d.ComplexID, d.ExpiresAt, tok.AccessToken, at.Add(tok.ExpiresIn), at)
+		if err != nil {
 			out.Failed++
 			ig.logger.Error("instagram refresh: could not store the refreshed token", "complex_id", d.ComplexID, "error", err)
+			continue
+		}
+		if !stored {
+			out.Skipped++
 			continue
 		}
 		out.Refreshed++

@@ -183,3 +183,32 @@ func (s *InstagramStore) MarkExpiredInstagramConnections(ctx context.Context, no
 	}
 	return n, nil
 }
+
+// MarkInstagramNeedsReconnect flags the connection whose refresh Meta refused,
+// unless a reconnect replaced its token since (oldExpiresAt no longer matches).
+func (s *InstagramStore) MarkInstagramNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+	n, err := s.Q.MarkInstagramNeedsReconnect(ctx, db.MarkInstagramNeedsReconnectParams{
+		ComplexID:    data.UUIDToPg(complexID),
+		OldExpiresAt: data.TimeToPg(oldExpiresAt),
+	})
+	if err != nil {
+		return false, fmt.Errorf("complexes: mark instagram reconnect: %w", err)
+	}
+	return n > 0, nil
+}
+
+// InstagramComplexOwner returns the owner of a live complex.
+func (s *InstagramStore) InstagramComplexOwner(ctx context.Context, complexID uuid.UUID) (uuid.UUID, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+	owner, err := s.Q.GetInstagramComplexOwner(ctx, data.UUIDToPg(complexID))
+	if errors.Is(err, pgx.ErrNoRows) {
+		return uuid.Nil, data.ErrRecordNotFound
+	}
+	if err != nil {
+		return uuid.Nil, fmt.Errorf("complexes: instagram complex owner: %w", err)
+	}
+	return data.PgToUUID(owner), nil
+}

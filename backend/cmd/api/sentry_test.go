@@ -51,6 +51,19 @@ func TestScrubTextRemovesSecretsAndKeepsTheDiagnosis(t *testing.T) {
 			kept: []string{"/api/v1/auth/refresh", "failed"},
 		},
 		{
+			// The OAuth callback carries a one-time code and the state in its URL.
+			name: "oauth code and state in a callback url",
+			in:   "GET /api/v1/instagram/callback?code=AQBxR7tN9vPqLm2KcD8eYwZ1uI4oPsA3dFgH6jK&state=0193.c2VjcmV0c3RhdGVieXRlcw failed",
+			gone: []string{"AQBxR7tN9vPqLm2KcD8eYwZ1uI4oPsA3dFgH6jK", "c2VjcmV0c3RhdGVieXRlcw"},
+			kept: []string{"/api/v1/instagram/callback", "failed"},
+		},
+		{
+			name: "bare instagram token",
+			in:   "refresh failed for IGAAQ7x9Kp2LmN4vB8cD1eF6gH3jK5lM0nP and will retry",
+			gone: []string{"IGAAQ7x9Kp2LmN4vB8cD1eF6gH3jK5lM0nP"},
+			kept: []string{"refresh failed for", "will retry"},
+		},
+		{
 			name: "bare jwt in a panic value",
 			in:   "invalid token eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhYmMifQ.Zm9vYmFyYmF6 for user",
 			gone: []string{"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9", "Zm9vYmFyYmF6"},

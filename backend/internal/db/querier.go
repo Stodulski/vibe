@@ -285,6 +285,9 @@ type Querier interface {
 	// point. Only name and city are selected: nothing else of a deleted venue is
 	// public. Runs under the cross-tenant bypass of the public route.
 	GetGoneComplexBySlug(ctx context.Context, slug string) (GetGoneComplexBySlugRow, error)
+	// The owner of a live complex, which the OAuth callback checks before it
+	// attaches an account.
+	GetInstagramComplexOwner(ctx context.Context, complexID pgtype.UUID) (pgtype.UUID, error)
 	// The status read: everything but the token.
 	GetInstagramConnection(ctx context.Context, complexID pgtype.UUID) (GetInstagramConnectionRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
@@ -599,6 +602,9 @@ type Querier interface {
 	MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error)
 	// A token past its expiry cannot be refreshed: the owner has to reconnect.
 	MarkExpiredInstagramConnections(ctx context.Context, now pgtype.Timestamptz) (int64, error)
+	// Meta refused a refresh: the owner revoked access. The old expiry is part of
+	// the match so a reconnect that raced it is not marked.
+	MarkInstagramNeedsReconnect(ctx context.Context, arg MarkInstagramNeedsReconnectParams) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.

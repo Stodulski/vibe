@@ -38,3 +38,11 @@ func (m *mockInstagramStore) UpdateInstagramToken(context.Context, uuid.UUID, ti
 func (m *mockInstagramStore) MarkExpiredInstagramConnections(context.Context, time.Time) (int64, error) {
 	return 0, nil
 }
+
+func (m *mockInstagramStore) MarkInstagramNeedsReconnect(context.Context, uuid.UUID, time.Time) (bool, error) {
+	return false, nil
+}
+
+func (m *mockInstagramStore) InstagramComplexOwner(context.Context, uuid.UUID) (uuid.UUID, error) {
+	return uuid.Nil, nil
+}

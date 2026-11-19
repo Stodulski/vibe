@@ -39,13 +39,14 @@ type fakeInstagram struct {
 	meStatus int
 	// meID is the app-scoped id /me reports; it defaults to the exchanged one.
 	meID string
-	// refreshFails names the tokens whose refresh Meta refuses.
-	refreshFails map[string]bool
+	// refreshFails names the tokens whose refresh fails, with the status Meta
+	// answers: 400 is a refusal (the token was revoked), 500 an outage.
+	refreshFails map[string]int
 }
 
 func newFakeInstagram(t *testing.T) *fakeInstagram {
 	t.Helper()
-	f := &fakeInstagram{meID: "1020", refreshFails: map[string]bool{}}
+	f := &fakeInstagram{meID: "1020", refreshFails: map[string]int{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("POST /oauth/access_token", func(w http.ResponseWriter, r *http.Request) {
 		f.exchanges.Add(1)
@@ -70,8 +71,11 @@ func newFakeInstagram(t *testing.T) *fakeInstagram {
 	mux.HandleFunc("GET /refresh_access_token", func(w http.ResponseWriter, r *http.Request) {
 		f.refreshes.Add(1)
 		tok := r.URL.Query().Get("access_token")
-		if r.URL.Query().Get("grant_type") != "ig_refresh_token" || f.refreshFails[tok] {
-			w.WriteHeader(http.StatusBadRequest)
+		if status := f.refreshFails[tok]; r.URL.Query().Get("grant_type") != "ig_refresh_token" || status != 0 {
+			if status == 0 {
+				status = http.StatusBadRequest
+			}
+			w.WriteHeader(status)
 			_, _ = w.Write([]byte(`{"error":{"message":"Error validating access token","code":190}}`))
 			return
 		}
@@ -99,11 +103,15 @@ func newFakeInstagram(t *testing.T) *fakeInstagram {
 type memIGStore struct {
 	mu     sync.Mutex
 	conns  map[uuid.UUID]*complexstore.InstagramConnection
+	owners map[uuid.UUID]uuid.UUID
 	marked int
+	// raceOnUpdate makes every token update lose the race, as when a reconnect
+	// stored a newer token first.
+	raceOnUpdate bool
 }
 
 func newMemIGStore() *memIGStore {
-	return &memIGStore{conns: map[uuid.UUID]*complexstore.InstagramConnection{}}
+	return &memIGStore{conns: map[uuid.UUID]*complexstore.InstagramConnection{}, owners: map[uuid.UUID]uuid.UUID{}}
 }
 
 func (s *memIGStore) SaveInstagramConnection(_ context.Context, c *complexstore.InstagramConnection) error {
@@ -146,12 +154,36 @@ func (s *memIGStore) ListInstagramTokensDueForRefresh(context.Context, time.Time
 func (s *memIGStore) UpdateInstagramToken(_ context.Context, id uuid.UUID, old time.Time, token string, expires, refreshed time.Time) (bool, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.raceOnUpdate {
+		return false, nil
+	}
 	c, ok := s.conns[id]
 	if !ok || !c.ExpiresAt.Equal(old) {
 		return false, nil
 	}
 	c.AccessToken, c.ExpiresAt, c.RefreshedAt = token, expires, refreshed
 	return true, nil
+}
+
+func (s *memIGStore) MarkInstagramNeedsReconnect(_ context.Context, id uuid.UUID, old time.Time) (bool, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	c, ok := s.conns[id]
+	if !ok || !c.ExpiresAt.Equal(old) || c.NeedsReconnect {
+		return false, nil
+	}
+	c.NeedsReconnect = true
+	return true, nil
+}
+
+func (s *memIGStore) InstagramComplexOwner(_ context.Context, id uuid.UUID) (uuid.UUID, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	owner, ok := s.owners[id]
+	if !ok {
+		return uuid.Nil, data.ErrRecordNotFound
+	}
+	return owner, nil
 }
 
 func (s *memIGStore) MarkExpiredInstagramConnections(context.Context, time.Time) (int64, error) {
@@ -188,6 +220,7 @@ func newIGHarness(t *testing.T, available bool) *igHarness {
 		API: client, Store: h.store, Attempts: NewInstagramOAuthAttempts(nil, "test"),
 		Audit: h.audit, Respond: httpx.NewResponder(logger), Logger: logger,
 	}, InstagramConfig{Available: available, Secure: true, FrontendURL: "https://app.vibe.test"})
+	h.store.owners[h.complex.ID] = h.owner
 	return h
 }
 
@@ -490,7 +523,7 @@ func TestInstagramRefreshKeepsGoingPastAMetaErrorAndRetriesIt(t *testing.T) {
 	for id, tok := range map[uuid.UUID]string{good1: "tok-good-1", bad: "tok-bad", good2: "tok-good-2"} {
 		h.store.conns[id] = &complexstore.InstagramConnection{ComplexID: id, AccessToken: tok, ExpiresAt: expires}
 	}
-	h.meta.refreshFails["tok-bad"] = true
+	h.meta.refreshFails["tok-bad"] = http.StatusInternalServerError
 
 	out := h.ig.RefreshTokens(t.Context())
 	if out.Refreshed != 2 || out.Failed != 1 {
@@ -510,7 +543,7 @@ func TestInstagramRefreshKeepsGoingPastAMetaErrorAndRetriesIt(t *testing.T) {
 	}
 
 	// The next run tries the failed one again.
-	h.meta.refreshFails["tok-bad"] = false
+	delete(h.meta.refreshFails, "tok-bad")
 	h.ig.RefreshTokens(t.Context())
 	if c := h.store.conns[bad]; !strings.HasPrefix(c.AccessToken, igFreshToken) {
 		t.Fatalf("the failed token was not retried on the next run: %q", c.AccessToken)
@@ -526,5 +559,60 @@ func TestInstagramRefreshDoesNothingWhenTheFeatureIsOff(t *testing.T) {
 	h.ig.RefreshTokens(t.Context())
 	if h.meta.refreshes.Load() != 0 {
 		t.Fatal("the refresh called Meta with the feature off")
+	}
+}
+
+// Meta refusing a refresh means the owner revoked access: the connection says
+// so at once instead of reporting connected until the token runs out. An
+// outage is retried instead.
+func TestInstagramRefreshMarksARevokedTokenAsNeedingReconnect(t *testing.T) {
+	h := newIGHarness(t, true)
+	expires := time.Now().Add(10 * 24 * time.Hour).Truncate(time.Second)
+	revoked, down := uuid.New(), uuid.New()
+	h.store.conns[revoked] = &complexstore.InstagramConnection{ComplexID: revoked, AccessToken: "tok-revoked", ExpiresAt: expires}
+	h.store.conns[down] = &complexstore.InstagramConnection{ComplexID: down, AccessToken: "tok-down", ExpiresAt: expires}
+	h.meta.refreshFails["tok-revoked"] = http.StatusBadRequest
+	h.meta.refreshFails["tok-down"] = http.StatusInternalServerError
+
+	out := h.ig.RefreshTokens(t.Context())
+	if out.Revoked != 1 || out.Failed != 1 {
+		t.Fatalf("outcome = %+v, want 1 revoked and 1 failed", out)
+	}
+	if !h.store.conns[revoked].NeedsReconnect {
+		t.Error("a refused refresh must mark the connection as needing reconnect")
+	}
+	if h.store.conns[down].NeedsReconnect {
+		t.Error("an outage must not mark the connection; it is retried")
+	}
+}
+
+// A refresh that lost the race to a reconnect stored nothing, and is not
+// counted as refreshed.
+func TestInstagramRefreshCountsALostRaceAsSkipped(t *testing.T) {
+	h := newIGHarness(t, true)
+	expires := time.Now().Add(10 * 24 * time.Hour).Truncate(time.Second)
+	id := uuid.New()
+	h.store.conns[id] = &complexstore.InstagramConnection{ComplexID: id, AccessToken: "tok-1", ExpiresAt: expires}
+	h.store.raceOnUpdate = true
+
+	out := h.ig.RefreshTokens(t.Context())
+	if out.Refreshed != 0 || out.Skipped != 1 {
+		t.Fatalf("outcome = %+v, want 0 refreshed and 1 skipped", out)
+	}
+}
+
+// The complex changed hands while its owner was on Instagram's consent page:
+// the account is not attached to a complex the person no longer owns.
+func TestInstagramCallbackStoresNothingWhenTheOwnerChanged(t *testing.T) {
+	h := newIGHarness(t, true)
+	state, cookie := h.connect(t)
+	h.store.owners[h.complex.ID] = uuid.New()
+
+	loc := h.callback(t, InstagramCallback{Code: "AQBx-code#_", State: state}, cookie)
+	if got := outcome(loc); got == "connected" {
+		t.Fatalf("callback outcome = %s; a former owner must not connect the complex", got)
+	}
+	if len(h.store.conns) != 0 {
+		t.Fatalf("nothing must be stored; got %+v", h.store.conns)
 	}
 }

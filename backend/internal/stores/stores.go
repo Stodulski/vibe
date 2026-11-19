@@ -274,6 +274,8 @@ type InstagramConnectionStore interface {
 	ListInstagramTokensDueForRefresh(ctx context.Context, now, refreshBefore, refreshedBefore time.Time, limit int) ([]complexstore.DueInstagramToken, []uuid.UUID, error)
 	UpdateInstagramToken(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time, token string, expiresAt, refreshedAt time.Time) (bool, error)
 	MarkExpiredInstagramConnections(ctx context.Context, now time.Time) (int64, error)
+	MarkInstagramNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) (bool, error)
+	InstagramComplexOwner(ctx context.Context, complexID uuid.UUID) (uuid.UUID, error)
 }
 
 // ComplexStore composes every complex-related store capability.

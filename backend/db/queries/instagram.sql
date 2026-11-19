@@ -59,3 +59,19 @@ UPDATE instagram_connections
 SET needs_reconnect = true
 WHERE NOT needs_reconnect
   AND expires_at <= sqlc.arg(now)::timestamptz;
+
+-- name: MarkInstagramNeedsReconnect :execrows
+-- Meta refused a refresh: the owner revoked access. The old expiry is part of
+-- the match so a reconnect that raced it is not marked.
+UPDATE instagram_connections
+SET needs_reconnect = true
+WHERE complex_id = sqlc.arg(complex_id)::uuid
+  AND expires_at = sqlc.arg(old_expires_at)::timestamptz
+  AND NOT needs_reconnect;
+
+-- name: GetInstagramComplexOwner :one
+-- The owner of a live complex, which the OAuth callback checks before it
+-- attaches an account.
+SELECT owner_id FROM complexes
+WHERE id = sqlc.arg(complex_id)::uuid
+  AND deleted_at IS NULL;

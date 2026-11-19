@@ -23,6 +23,21 @@ func (q *Queries) DeleteInstagramConnection(ctx context.Context, complexID pgtyp
 	return result.RowsAffected(), nil
 }
 
+const getInstagramComplexOwner = `-- name: GetInstagramComplexOwner :one
+SELECT owner_id FROM complexes
+WHERE id = $1::uuid
+  AND deleted_at IS NULL
+`
+
+// The owner of a live complex, which the OAuth callback checks before it
+// attaches an account.
+func (q *Queries) GetInstagramComplexOwner(ctx context.Context, complexID pgtype.UUID) (pgtype.UUID, error) {
+	row := q.db.QueryRow(ctx, getInstagramComplexOwner, complexID)
+	var owner_id pgtype.UUID
+	err := row.Scan(&owner_id)
+	return owner_id, err
+}
+
 const getInstagramConnection = `-- name: GetInstagramConnection :one
 SELECT complex_id, instagram_user_id, username, account_type, expires_at,
        connected_at, refreshed_at, needs_reconnect
@@ -120,6 +135,29 @@ WHERE NOT needs_reconnect
 // A token past its expiry cannot be refreshed: the owner has to reconnect.
 func (q *Queries) MarkExpiredInstagramConnections(ctx context.Context, now pgtype.Timestamptz) (int64, error) {
 	result, err := q.db.Exec(ctx, markExpiredInstagramConnections, now)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const markInstagramNeedsReconnect = `-- name: MarkInstagramNeedsReconnect :execrows
+UPDATE instagram_connections
+SET needs_reconnect = true
+WHERE complex_id = $1::uuid
+  AND expires_at = $2::timestamptz
+  AND NOT needs_reconnect
+`
+
+type MarkInstagramNeedsReconnectParams struct {
+	ComplexID    pgtype.UUID        `json:"complex_id"`
+	OldExpiresAt pgtype.Timestamptz `json:"old_expires_at"`
+}
+
+// Meta refused a refresh: the owner revoked access. The old expiry is part of
+// the match so a reconnect that raced it is not marked.
+func (q *Queries) MarkInstagramNeedsReconnect(ctx context.Context, arg MarkInstagramNeedsReconnectParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markInstagramNeedsReconnect, arg.ComplexID, arg.OldExpiresAt)
 	if err != nil {
 		return 0, err
 	}
