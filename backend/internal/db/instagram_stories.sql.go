@@ -334,6 +334,27 @@ func (q *Queries) MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, c
 	return result.RowsAffected(), nil
 }
 
+const saveInstagramStoryContainer = `-- name: SaveInstagramStoryContainer :exec
+UPDATE instagram_stories
+SET container_id         = $1::text,
+    container_created_at = $2::timestamptz
+WHERE id = $3::uuid
+`
+
+type SaveInstagramStoryContainerParams struct {
+	ContainerID        string             `json:"container_id"`
+	ContainerCreatedAt pgtype.Timestamptz `json:"container_created_at"`
+	ID                 pgtype.UUID        `json:"id"`
+}
+
+// Records a container the moment Meta creates it, before it is checked or
+// published, and keeps the run's lease: whatever happens next, a later run
+// finds this container instead of creating (and publishing) another.
+func (q *Queries) SaveInstagramStoryContainer(ctx context.Context, arg SaveInstagramStoryContainerParams) error {
+	_, err := q.db.Exec(ctx, saveInstagramStoryContainer, arg.ContainerID, arg.ContainerCreatedAt, arg.ID)
+	return err
+}
+
 const saveInstagramStoryState = `-- name: SaveInstagramStoryState :exec
 UPDATE instagram_stories
 SET status               = $1::text,

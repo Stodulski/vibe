@@ -45,6 +45,7 @@ type InstagramStoryStore interface {
 	ListDailyStoriesDue(ctx context.Context, now time.Time, nowHHMM, dedupKey string, limit int) ([]complexstore.DailyStoryDue, error)
 	ClaimDueStories(ctx context.Context, now, lockedUntil time.Time, limit int) ([]complexstore.QueuedStory, error)
 	SaveStoryState(ctx context.Context, id uuid.UUID, st complexstore.StoryState) error
+	SaveStoryContainer(ctx context.Context, id uuid.UUID, containerID string, createdAt time.Time) error
 	StoryAccount(ctx context.Context, complexID uuid.UUID) (*complexstore.StoryAccount, error)
 	MarkStoryAccountNeedsReconnect(ctx context.Context, complexID uuid.UUID) error
 }

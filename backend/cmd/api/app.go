@@ -628,7 +628,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		AppSecret:   cfg.Instagram.AppSecret,
 		RedirectURI: apiBase + complexes.InstagramCallbackPath,
 		CB:          instagramCB,
-		HTTP:        &http.Client{Timeout: 15 * time.Second},
+		HTTP:        &http.Client{Timeout: instagram.DefaultTimeout},
 	})
 	instagramConnect := complexes.NewInstagram(complexes.InstagramDeps{
 		API:     instagramClient,
@@ -654,11 +654,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	instagramStories := complexes.NewInstagramStories(complexes.InstagramStoriesDeps{
 		API:    instagramClient,
 		Store:  d.models.InstagramStories,
-		Images: &http.Client{Timeout: 20 * time.Second},
 		Logger: d.logger,
 	}, complexes.InstagramStoriesConfig{
-		Available: cfg.Instagram.Available(),
-		PublicURL: cfg.PublicBaseURL(),
+		Available:   cfg.Instagram.Available(),
+		PublicURL:   cfg.PublicBaseURL(),
+		CallTimeout: instagram.DefaultTimeout,
 	})
 
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow, courts.WithRealtime(events))

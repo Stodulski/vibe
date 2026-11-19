@@ -179,6 +179,10 @@ func TestIntegration_ClaimLeasesDueStories(t *testing.T) {
 	if len(claimed) != 1 || claimed[0].Kind != complexstore.StoryKindFreed || claimed[0].SlotStartsAt == nil {
 		t.Fatalf("first claim = %+v, want the one due story", claimed)
 	}
+	// Recording the container keeps the lease.
+	if err := s.SaveStoryContainer(ctx, claimed[0].ID, "c-0", now); err != nil {
+		t.Fatalf("SaveStoryContainer: %v", err)
+	}
 	if again, _ := s.ClaimDueStories(ctx, now.Add(time.Minute), now.Add(4*time.Minute), 100); len(mine(again)) != 0 {
 		t.Fatalf("a leased story was claimed again: %+v", mine(again))
 	}

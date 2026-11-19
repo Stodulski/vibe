@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -13,6 +14,7 @@ import (
 	"sync"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -35,6 +37,8 @@ type memStoryStore struct {
 	settings map[uuid.UUID]complexstore.StorySettings
 	stories  []*memStory
 	accounts map[uuid.UUID]*complexstore.StoryAccount
+	// failSaves makes that many SaveStoryState calls fail, storing nothing.
+	failSaves int
 }
 
 type memStory struct {
@@ -125,12 +129,33 @@ func (s *memStoryStore) ClaimDueStories(_ context.Context, now, _ time.Time, lim
 	return out, nil
 }
 
-func (s *memStoryStore) SaveStoryState(_ context.Context, id uuid.UUID, st complexstore.StoryState) error {
+func (s *memStoryStore) SaveStoryState(ctx context.Context, id uuid.UUID, st complexstore.StoryState) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if s.failSaves > 0 {
+		s.failSaves--
+		return errors.New("connection reset")
+	}
+	for _, m := range s.stories {
+		if m.ID == id {
+			m.State = st
+		}
+	}
+	return nil
+}
+
+func (s *memStoryStore) SaveStoryContainer(ctx context.Context, id uuid.UUID, containerID string, createdAt time.Time) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	for _, m := range s.stories {
 		if m.ID == id {
-			m.State = st
+			m.State.ContainerID, m.State.ContainerCreatedAt = containerID, &createdAt
 		}
 	}
 	return nil
@@ -184,10 +209,15 @@ type fakeStoryMeta struct {
 	createFail, publishFail *graphFailure
 	// sentImageURL is the image_url the container was created with.
 	sentImageURL string
+	// onPublish, when set, runs as media_publish arrives.
+	onPublish func()
+	// message, when set, is the error message failures carry.
+	message string
 }
 
 type graphFailure struct {
 	status, code int
+	transient    bool
 }
 
 func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
@@ -195,8 +225,13 @@ func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
 	f := &fakeStoryMeta{imageStatus: http.StatusOK, containerStatus: instagram.ContainerFinished}
 	mux := http.NewServeMux()
 	fail := func(w http.ResponseWriter, g *graphFailure) {
+		msg := "refused for " + storyToken
+		if f.message != "" {
+			msg = f.message
+		}
+		body, _ := json.Marshal(map[string]any{"error": map[string]any{"message": msg, "code": g.code, "is_transient": g.transient}})
 		w.WriteHeader(g.status)
-		_, _ = w.Write([]byte(`{"error":{"message":"refused for ` + storyToken + `","code":` + strconv.Itoa(g.code) + `}}`))
+		_, _ = w.Write(body)
 	}
 	authorized := func(w http.ResponseWriter, r *http.Request) bool {
 		_ = r.ParseForm()
@@ -237,7 +272,10 @@ func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
 	})
 	mux.HandleFunc("GET /container-1", func(w http.ResponseWriter, r *http.Request) {
 		if authorized(w, r) {
-			_, _ = w.Write([]byte(`{"status_code":"` + f.containerStatus + `","id":"container-1"}`))
+			f.mu.Lock()
+			status := f.containerStatus
+			f.mu.Unlock()
+			_, _ = w.Write([]byte(`{"status_code":"` + status + `","id":"container-1"}`))
 		}
 	})
 	mux.HandleFunc("POST /1784/media_publish", func(w http.ResponseWriter, r *http.Request) {
@@ -252,11 +290,31 @@ func newFakeStoryMeta(t *testing.T) *fakeStoryMeta {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		if f.onPublish != nil {
+			f.onPublish()
+		}
+		// Meta reports a published container as PUBLISHED from now on.
+		f.mu.Lock()
+		f.containerStatus = instagram.ContainerPublished
+		f.mu.Unlock()
 		_, _ = w.Write([]byte(`{"id":"media-9"}`))
 	})
 	f.srv = httptest.NewServer(mux)
 	t.Cleanup(f.srv.Close)
 	return f
+}
+
+// count is how many Instagram requests were "METHOD path".
+func (f *fakeStoryMeta) count(call string) int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, c := range f.calls {
+		if c == call {
+			n++
+		}
+	}
+	return n
 }
 
 func (f *fakeStoryMeta) instagramCalls() int {
@@ -601,7 +659,7 @@ func TestAStoryWhoseImageIsGoneIsSkippedWithoutCallingInstagram(t *testing.T) {
 // 9007 (media not ready) and 5xx are retried after 5m, 15m and 1h; the fourth
 // failure fails the story.
 func TestRetryableFailuresBackOffThenFail(t *testing.T) {
-	for _, fail := range []graphFailure{{http.StatusBadRequest, instagram.CodeMediaNotReady}, {http.StatusInternalServerError, 1}} {
+	for _, fail := range []graphFailure{{status: http.StatusBadRequest, code: instagram.CodeMediaNotReady}, {status: http.StatusInternalServerError, code: 1}} {
 		h := newStoryHarness(t)
 		h.meta.publishFail = &fail
 		st := h.queueFreed(t, h.now.Add(40*time.Hour))
@@ -623,7 +681,7 @@ func TestRetryableFailuresBackOffThenFail(t *testing.T) {
 // Any other refusal fails the story at once.
 func TestOtherRefusalsFailAtOnce(t *testing.T) {
 	h := newStoryHarness(t)
-	h.meta.createFail = &graphFailure{http.StatusBadRequest, 100}
+	h.meta.createFail = &graphFailure{status: http.StatusBadRequest, code: 100}
 	st := h.queueFreed(t, h.now.Add(3*time.Hour))
 	h.stories.PublishDue(t.Context())
 	if st.State.Status != complexstore.StoryFailed || st.State.Attempts != 1 || st.State.Reason == "" {
@@ -639,7 +697,7 @@ func TestOtherRefusalsFailAtOnce(t *testing.T) {
 // owner is asked to connect again and nothing else is attempted.
 func TestAnInvalidTokenFailsAndFlagsTheConnection(t *testing.T) {
 	h := newStoryHarness(t)
-	h.meta.createFail = &graphFailure{http.StatusBadRequest, instagram.CodeInvalidToken}
+	h.meta.createFail = &graphFailure{status: http.StatusBadRequest, code: instagram.CodeInvalidToken}
 	st := h.queueFreed(t, h.now.Add(3*time.Hour))
 	other := h.queueSecondFreed(t, h.now.Add(4*time.Hour))
 	h.stories.PublishDue(t.Context())
@@ -710,5 +768,132 @@ func TestADailyStoryIsPublishedOnlyOnItsDay(t *testing.T) {
 	h.now = venueTime(23, 0)
 	if n := h.stories.QueueDailyStories(t.Context()); n != 0 {
 		t.Fatalf("queued %d daily stories in quiet hours", n)
+	}
+}
+
+// --- Never twice ------------------------------------------------------------
+
+const (
+	callCreate  = "POST /1784/media"
+	callPublish = "POST /1784/media_publish"
+)
+
+// A retry whose container Meta already reports PUBLISHED is published: no
+// second media_publish and no new container.
+func TestARetryWhoseContainerIsAlreadyPublishedIsNotPublishedAgain(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	created := h.now.Add(-10 * time.Minute)
+	st.State.Attempts, st.State.ContainerID, st.State.ContainerCreatedAt = 1, "container-1", &created
+	h.meta.containerStatus = instagram.ContainerPublished
+
+	h.stories.PublishDue(t.Context())
+
+	if st.State.Status != complexstore.StoryPublished || st.State.PublishedAt == nil {
+		t.Fatalf("state = %+v, want published", st.State)
+	}
+	if n, c := h.meta.count(callPublish), h.meta.count(callCreate); n != 0 || c != 0 {
+		t.Fatalf("media_publish sent %d times and %d containers created, want none", n, c)
+	}
+}
+
+// The container id is stored before media_publish, so a save that fails after
+// Meta published leaves the next run a container it finds PUBLISHED: exactly
+// one media_publish ever.
+func TestAFailedSaveAfterPublishingDoesNotPublishAgain(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	h.meta.onPublish = func() {
+		if st.State.ContainerID != "container-1" {
+			t.Errorf("media_publish arrived before the container id was stored (stored %q)", st.State.ContainerID)
+		}
+	}
+	h.store.failSaves = 1
+
+	h.stories.PublishDue(t.Context())
+	h.now = h.now.Add(time.Minute)
+	h.stories.PublishDue(t.Context())
+
+	if n := h.meta.count(callPublish); n != 1 {
+		t.Fatalf("media_publish sent %d times, want 1", n)
+	}
+	if c := h.meta.count(callCreate); c != 1 {
+		t.Fatalf("%d containers created, want 1", c)
+	}
+	if st.State.Status != complexstore.StoryPublished {
+		t.Fatalf("state = %+v, want published", st.State)
+	}
+}
+
+// A run cancelled while media_publish is in flight (SIGTERM, the job deadline)
+// still stores the story's state with its container, so the next run finds it
+// PUBLISHED instead of publishing it again.
+func TestTheStateIsSavedWhenTheRunIsCancelled(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	ctx, cancel := context.WithCancel(t.Context())
+	h.meta.onPublish = cancel
+
+	h.stories.PublishDue(ctx)
+	if st.State.Attempts != 1 || st.State.ContainerID != "container-1" {
+		t.Fatalf("after the cancelled run: %+v, want the attempt and the container stored", st.State)
+	}
+
+	h.meta.onPublish = nil
+	h.now = st.State.NextAttemptAt
+	h.stories.PublishDue(t.Context())
+	if st.State.Status != complexstore.StoryPublished || h.meta.count(callPublish) != 1 {
+		t.Fatalf("state %+v after %d media_publish, want published by exactly one", st.State, h.meta.count(callPublish))
+	}
+}
+
+// A run with less time left than one story's worst case starts no story.
+func TestARunWithoutTimeForAWholeStoryStartsNone(t *testing.T) {
+	h := newStoryHarness(t)
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	ctx, cancel := context.WithTimeout(t.Context(), 60*time.Second)
+	defer cancel()
+
+	h.stories.PublishDue(ctx)
+
+	if h.meta.instagramCalls() != 0 || st.State.Status != complexstore.StoryPending || st.State.Attempts != 0 {
+		t.Fatalf("calls %v, state %+v: want nothing started and no attempt spent", h.meta.calls, st.State)
+	}
+}
+
+// Throttling Meta answers as HTTP 400 (codes 4, 17, 32, 613, 80002, or any
+// error marked is_transient) is retried with backoff, not failed at once.
+func TestThrottlingAnsweredAs400IsRetried(t *testing.T) {
+	for _, fail := range []graphFailure{
+		{status: http.StatusBadRequest, code: 4}, {status: http.StatusBadRequest, code: 17},
+		{status: http.StatusBadRequest, code: 32}, {status: http.StatusBadRequest, code: 613},
+		{status: http.StatusBadRequest, code: 80002}, {status: http.StatusBadRequest, code: 1, transient: true},
+	} {
+		h := newStoryHarness(t)
+		h.meta.createFail = &fail
+		st := h.queueFreed(t, h.now.Add(3*time.Hour))
+		h.stories.PublishDue(t.Context())
+		if st.State.Status != complexstore.StoryPending || st.State.Attempts != 1 || !st.State.NextAttemptAt.Equal(h.now.Add(5*time.Minute)) {
+			t.Errorf("%+v: state = %+v, want pending, retried in 5m", fail, st.State)
+		}
+		if h.store.accounts[h.complex].NeedsReconnect {
+			t.Errorf("%+v flagged the connection", fail)
+		}
+	}
+}
+
+// A long reason made of multi-byte characters is cut on a character boundary:
+// Postgres refuses invalid UTF-8, which would leave the story looping.
+func TestALongMultiByteReasonIsStoredAsValidUTF8(t *testing.T) {
+	h := newStoryHarness(t)
+	h.meta.message = strings.Repeat("ñ€", 400)
+	h.meta.createFail = &graphFailure{status: http.StatusBadRequest, code: 100}
+	st := h.queueFreed(t, h.now.Add(3*time.Hour))
+	h.stories.PublishDue(t.Context())
+	if st.State.Status != complexstore.StoryFailed {
+		t.Fatalf("state = %+v, want failed", st.State)
+	}
+	if !utf8.ValidString(st.State.Reason) || len(st.State.Reason) > maxStoryReason || len(st.State.Reason) < maxStoryReason-4 {
+		t.Fatalf("reason of %d bytes, valid UTF-8 %v", len(st.State.Reason), utf8.ValidString(st.State.Reason))
 	}
 }

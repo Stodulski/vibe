@@ -33,7 +33,9 @@ const (
 	defaultAuthorizeBase = "https://www.instagram.com"
 	defaultAPIBase       = "https://api.instagram.com"
 	defaultGraphBase     = "https://graph.instagram.com"
-	defaultTimeout       = 15 * time.Second
+	// DefaultTimeout is the per-request timeout of a client built without an
+	// HTTP client, and what callers budget one Meta call at.
+	DefaultTimeout = 15 * time.Second
 	// defaultTokenLife is what Meta documents for a long-lived token, used only
 	// when a response leaves expires_in out.
 	defaultTokenLife = 60 * 24 * time.Hour
@@ -110,7 +112,7 @@ func New(cfg Config) *Client {
 	}
 	httpClient := cfg.HTTP
 	if httpClient == nil {
-		httpClient = &http.Client{Timeout: defaultTimeout}
+		httpClient = &http.Client{Timeout: DefaultTimeout}
 	}
 	return &Client{cfg: cfg, http: httpClient, cb: cfg.CB}
 }
@@ -262,12 +264,18 @@ func (c *Client) send(req *http.Request, out any) error {
 		c.cb.RecordFailure()
 		return fmt.Errorf("%w: read response: %w", ErrUnavailable, redact(err))
 	}
-	transient := resp.StatusCode >= http.StatusInternalServerError || resp.StatusCode == http.StatusTooManyRequests
-	if transient {
+	// Only an outage counts against the breaker. The breaker is shared by
+	// every complex and the connect flow, and a 429 is one account (or the
+	// app) being throttled: Meta answered, so it is recorded as a success and
+	// returned as ErrUnavailable for the caller to retry later.
+	if resp.StatusCode >= http.StatusInternalServerError {
 		c.cb.RecordFailure()
 		return newAPIError(ErrUnavailable, resp.StatusCode, raw)
 	}
 	c.cb.RecordSuccess()
+	if resp.StatusCode == http.StatusTooManyRequests {
+		return newAPIError(ErrUnavailable, resp.StatusCode, raw)
+	}
 	if resp.StatusCode >= http.StatusBadRequest {
 		return newAPIError(ErrRejected, resp.StatusCode, raw)
 	}
@@ -287,6 +295,8 @@ type APIError struct {
 	Code    int
 	Subcode int
 	Message string
+	// Transient is Graph's is_transient: Meta says a retry may succeed.
+	Transient bool
 }
 
 func (e *APIError) Error() string {
@@ -308,6 +318,18 @@ const (
 	CodeMediaNotReady = 9007
 )
 
+// throttleCodes are the Graph codes Meta uses for rate limiting, answered with
+// HTTP 400 as often as 429: 4 (app), 17 (user), 32 (page), 613 (calls within
+// one hour) and 80002 (Instagram).
+var throttleCodes = map[int]bool{4: true, 17: true, 32: true, 613: true, 80002: true}
+
+// Throttled reports whether err is Meta throttling or an error it marked
+// is_transient: a later retry may succeed even though the status is a 4xx.
+func Throttled(err error) bool {
+	var apiErr *APIError
+	return errors.As(err, &apiErr) && (apiErr.Transient || throttleCodes[apiErr.Code])
+}
+
 // GraphCode is the Graph error code err carries, 0 when it carries none.
 func GraphCode(err error) int {
 	var apiErr *APIError
@@ -325,9 +347,10 @@ func newAPIError(kind error, status int, raw []byte) *APIError {
 	var body struct {
 		ErrorMessage string `json:"error_message"`
 		Error        struct {
-			Message string `json:"message"`
-			Code    int    `json:"code"`
-			Subcode int    `json:"error_subcode"`
+			Message   string `json:"message"`
+			Code      int    `json:"code"`
+			Subcode   int    `json:"error_subcode"`
+			Transient bool   `json:"is_transient"`
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(raw, &body); err != nil {
@@ -336,7 +359,7 @@ func newAPIError(kind error, status int, raw []byte) *APIError {
 		}
 		return e
 	}
-	e.Code, e.Subcode = body.Error.Code, body.Error.Subcode
+	e.Code, e.Subcode, e.Transient = body.Error.Code, body.Error.Subcode, body.Error.Transient
 	switch {
 	case body.Error.Message != "":
 		e.Message = fmt.Sprintf("%s (code %d)", body.Error.Message, body.Error.Code)

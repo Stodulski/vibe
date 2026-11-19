@@ -668,6 +668,10 @@ type Querier interface {
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error
+	// Records a container the moment Meta creates it, before it is checked or
+	// published, and keeps the run's lease: whatever happens next, a later run
+	// finds this container instead of creating (and publishing) another.
+	SaveInstagramStoryContainer(ctx context.Context, arg SaveInstagramStoryContainerParams) error
 	// Writes back what a run did to a story and releases its lease.
 	SaveInstagramStoryState(ctx context.Context, arg SaveInstagramStoryStateParams) error
 	ScheduleMatch(ctx context.Context, arg ScheduleMatchParams) error

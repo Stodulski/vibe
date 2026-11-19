@@ -115,3 +115,12 @@ UPDATE instagram_connections
 SET needs_reconnect = true
 WHERE complex_id = sqlc.arg(complex_id)::uuid
   AND NOT needs_reconnect;
+
+-- name: SaveInstagramStoryContainer :exec
+-- Records a container the moment Meta creates it, before it is checked or
+-- published, and keeps the run's lease: whatever happens next, a later run
+-- finds this container instead of creating (and publishing) another.
+UPDATE instagram_stories
+SET container_id         = sqlc.arg(container_id)::text,
+    container_created_at = sqlc.arg(container_created_at)::timestamptz
+WHERE id = sqlc.arg(id)::uuid;

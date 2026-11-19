@@ -47,6 +47,10 @@ func (m *mockInstagramStoryStore) SaveStoryState(context.Context, uuid.UUID, com
 	return nil
 }
 
+func (m *mockInstagramStoryStore) SaveStoryContainer(context.Context, uuid.UUID, string, time.Time) error {
+	return nil
+}
+
 func (m *mockInstagramStoryStore) StoryAccount(context.Context, uuid.UUID) (*complexstore.StoryAccount, error) {
 	return nil, data.ErrRecordNotFound
 }

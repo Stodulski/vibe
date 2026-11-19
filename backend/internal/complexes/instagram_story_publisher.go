@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -64,10 +65,14 @@ const (
 	storyLease      = 3 * time.Minute
 	storyClaimBatch = 20
 	storyDailyBatch = 500
-	// storyDeadlineMargin is how much of the run must be left to start a story.
-	storyDeadlineMargin = 30 * time.Second
-	maxStoryReason      = 500
-	maxStoryImageBytes  = 16 << 20
+	// storyImageTimeout bounds the image fetch, and storyMetaCalls is the most
+	// Meta calls one story makes in a run (quota, container, status, publish):
+	// with the per-call timeout they make a story's worst case, which is how
+	// much of the run must be left to start one (storyBudget).
+	storyImageTimeout  = 20 * time.Second
+	storyMetaCalls     = 4
+	maxStoryReason     = 500
+	maxStoryImageBytes = 16 << 20
 )
 
 // defaultStoryBackoff is the wait before each retry of a retryable failure; its
@@ -90,8 +95,12 @@ type InstagramStoriesConfig struct {
 	Available bool
 	// PublicURL is the storefront origin the story images are served from.
 	PublicURL string
-	Backoff   []time.Duration
-	Now       func() time.Time
+	// CallTimeout is the timeout of one Meta call (the API client's HTTP
+	// timeout); it sizes how much of a run a story needs. Zero means
+	// instagram.DefaultTimeout.
+	CallTimeout time.Duration
+	Backoff     []time.Duration
+	Now         func() time.Time
 }
 
 // InstagramStoriesDeps is what the publisher needs from outside.
@@ -121,8 +130,11 @@ func NewInstagramStories(deps InstagramStoriesDeps, cfg InstagramStoriesConfig) 
 	if len(cfg.Backoff) == 0 {
 		cfg.Backoff = defaultStoryBackoff
 	}
+	if cfg.CallTimeout <= 0 {
+		cfg.CallTimeout = instagram.DefaultTimeout
+	}
 	if deps.Images == nil {
-		deps.Images = &http.Client{Timeout: 20 * time.Second}
+		deps.Images = &http.Client{Timeout: storyImageTimeout}
 	}
 	return &InstagramStories{api: deps.API, store: deps.Store, images: deps.Images, logger: deps.Logger, cfg: cfg}
 }
@@ -257,7 +269,7 @@ func (s *InstagramStories) PublishDue(ctx context.Context) StoryRunOutcome {
 	out.Claimed = len(stories)
 	for i := range stories {
 		st := &stories[i]
-		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) < storyDeadlineMargin {
+		if deadline, ok := ctx.Deadline(); ok && time.Until(deadline) < s.storyBudget() {
 			// Hand it back for the next run rather than start a Meta call
 			// the deadline would cut short.
 			s.save(ctx, st, s.waiting(st, s.cfg.Now()), "")
@@ -282,6 +294,13 @@ func (s *InstagramStories) PublishDue(ctx context.Context) StoryRunOutcome {
 		}
 	}
 	return out
+}
+
+// storyBudget is one story's worst case in a run: the image fetch and every
+// Meta call timing out. A run with less time left starts no story, so it never
+// starts one it cannot finish.
+func (s *InstagramStories) storyBudget() time.Duration {
+	return storyImageTimeout + storyMetaCalls*s.cfg.CallTimeout
 }
 
 // errStoryImageGone is the image route's 404: nothing true to show.
@@ -309,6 +328,10 @@ func (s *InstagramStories) process(ctx context.Context, st *complexstore.QueuedS
 	}
 	switch status {
 	case instagram.ContainerFinished:
+	case instagram.ContainerPublished:
+		// An earlier run published it and could not record that (a crash, the
+		// deadline, a failed save). Publishing again would post it twice.
+		return s.publishedState(st, ""), token
 	case instagram.ContainerInProgress, "":
 		if st.ContainerCreatedAt != nil && now.Sub(*st.ContainerCreatedAt) > storyContainerPatience {
 			return s.failed(ctx, st, fmt.Errorf("%w: the container was still processing after %s", instagram.ErrUnavailable, storyContainerPatience), false), token
@@ -323,12 +346,18 @@ func (s *InstagramStories) process(ctx context.Context, st *complexstore.QueuedS
 	if err != nil {
 		return s.failed(ctx, st, err, instagram.GraphCode(err) != instagram.CodeResourceMissing), token
 	}
+	return s.publishedState(st, mediaID), token
+}
+
+// publishedState is the final state of a published story; mediaID is empty
+// when Meta's answer to media_publish was lost.
+func (s *InstagramStories) publishedState(st *complexstore.QueuedStory, mediaID string) complexstore.StoryState {
 	published := s.cfg.Now()
 	return complexstore.StoryState{
 		Status: complexstore.StoryPublished, Attempts: st.Attempts + 1, NextAttemptAt: published,
 		ContainerID: st.ContainerID, ContainerCreatedAt: st.ContainerCreatedAt,
 		MediaID: mediaID, PublishedAt: &published,
-	}, token
+	}
 }
 
 // gate decides whether the story may be published now and returns the account
@@ -391,6 +420,13 @@ func (s *InstagramStories) createContainer(ctx context.Context, st *complexstore
 	if err != nil {
 		return stop(s.failed(ctx, st, err, false))
 	}
+	// Recorded before anything else is asked of Meta: from here on a later
+	// run must find this container, never create (and publish) another.
+	saveCtx, cancel := data.DetachedQueryContext(ctx)
+	defer cancel()
+	if err := s.store.SaveStoryContainer(saveCtx, st.ID, id, now); err != nil {
+		return stop(s.deferred(st, now, err))
+	}
 	created := now
 	st.ContainerID, st.ContainerCreatedAt = id, &created
 	return nil
@@ -399,6 +435,8 @@ func (s *InstagramStories) createContainer(ctx context.Context, st *complexstore
 // fetchImage asks the story image route for the image Instagram will fetch. A
 // 404 means there is nothing true to show; anything but a 200 is retried.
 func (s *InstagramStories) fetchImage(ctx context.Context, imageURL string) error {
+	ctx, cancel := context.WithTimeout(ctx, storyImageTimeout)
+	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, imageURL, nil)
 	if err != nil {
 		return fmt.Errorf("story image: %w", err)
@@ -465,13 +503,15 @@ func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedSt
 		state.ContainerID, state.ContainerCreatedAt = st.ContainerID, st.ContainerCreatedAt
 	}
 	if code == instagram.CodeInvalidToken {
-		if markErr := s.store.MarkStoryAccountNeedsReconnect(ctx, st.ComplexID); markErr != nil {
+		markCtx, cancel := data.DetachedQueryContext(ctx)
+		defer cancel()
+		if markErr := s.store.MarkStoryAccountNeedsReconnect(markCtx, st.ComplexID); markErr != nil {
 			s.logger.Error("instagram stories: could not flag the connection for reconnect", "complex_id", st.ComplexID, "error", markErr)
 		}
 		return state
 	}
 	retryable := code == instagram.CodeMediaNotReady || code == instagram.CodeResourceMissing ||
-		errors.Is(err, instagram.ErrUnavailable) || !errors.Is(err, instagram.ErrRejected)
+		instagram.Throttled(err) || errors.Is(err, instagram.ErrUnavailable) || !errors.Is(err, instagram.ErrRejected)
 	if retryable && state.Attempts <= len(s.cfg.Backoff) {
 		state.Status = complexstore.StoryPending
 		state.NextAttemptAt = now.Add(s.cfg.Backoff[state.Attempts-1])
@@ -484,7 +524,11 @@ func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedSt
 // and a later run takes the story again.
 func (s *InstagramStories) save(ctx context.Context, st *complexstore.QueuedStory, state complexstore.StoryState, token string) {
 	state.Reason = scrubStoryReason(state.Reason, token)
-	if err := s.store.SaveStoryState(ctx, st.ID, state); err != nil {
+	// Detached: what Meta did must be stored even when the run was cancelled
+	// (shutdown, the job deadline) while the story was in flight.
+	saveCtx, cancel := data.DetachedQueryContext(ctx)
+	defer cancel()
+	if err := s.store.SaveStoryState(saveCtx, st.ID, state); err != nil {
 		s.logger.Error("instagram stories: could not save a story", "story_id", st.ID, "complex_id", st.ComplexID, "error", err)
 	}
 	args := []any{"story_id", st.ID, "complex_id", st.ComplexID, "kind", st.Kind, "status", state.Status, "attempts", state.Attempts}
@@ -498,13 +542,20 @@ func (s *InstagramStories) save(ctx context.Context, st *complexstore.QueuedStor
 	}
 }
 
-// scrubStoryReason removes the token from a reason and bounds its length.
+// scrubStoryReason removes the token from a reason and bounds its length on a
+// character boundary: Postgres refuses invalid UTF-8, and a refused save would
+// leave the story looping without spending attempts.
 func scrubStoryReason(reason, token string) string {
 	if token != "" {
 		reason = strings.ReplaceAll(reason, token, "[redacted]")
 	}
+	reason = strings.ToValidUTF8(reason, "")
 	if len(reason) > maxStoryReason {
-		reason = reason[:maxStoryReason]
+		cut := maxStoryReason
+		for cut > 0 && !utf8.RuneStart(reason[cut]) {
+			cut--
+		}
+		reason = reason[:cut]
 	}
 	return reason
 }

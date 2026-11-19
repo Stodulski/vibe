@@ -269,6 +269,20 @@ func (s *InstagramStoryStore) SaveStoryState(ctx context.Context, id uuid.UUID, 
 	return nil
 }
 
+// SaveStoryContainer records the container Meta created for a story, keeping
+// the run's lease.
+func (s *InstagramStoryStore) SaveStoryContainer(ctx context.Context, id uuid.UUID, containerID string, createdAt time.Time) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+	err := s.Q.SaveInstagramStoryContainer(ctx, db.SaveInstagramStoryContainerParams{
+		ContainerID: containerID, ContainerCreatedAt: data.TimeToPg(createdAt), ID: data.UUIDToPg(id),
+	})
+	if err != nil {
+		return fmt.Errorf("complexes: save story container: %w", err)
+	}
+	return nil
+}
+
 func optionalText(s string) pgtype.Text {
 	if s == "" {
 		return data.TextToPg(nil)
