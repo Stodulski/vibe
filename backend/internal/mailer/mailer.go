@@ -146,9 +146,26 @@ var (
 	reNewlines  = regexp.MustCompile(`\n{3,}`)
 )
 
+// reAnchor matches one link, its address and its inner markup.
+var reAnchor = regexp.MustCompile(`(?is)<a\s[^>]*?href="([^"]*)"[^>]*>(.*?)</a>`)
+
+// anchorAsText writes a link for the plain-text part as its words followed by
+// its address in parentheses, so a reader whose client shows only that part can
+// still follow it. A link whose words already are its address is written once.
+func anchorAsText(anchor string) string {
+	m := reAnchor.FindStringSubmatch(anchor)
+	href := m[1]
+	words := strings.TrimSpace(reSpaces.ReplaceAllString(reAllTags.ReplaceAllString(m[2], ""), " "))
+	if words == "" || words == href || words == html.EscapeString(href) {
+		return href
+	}
+	return words + " (" + href + ")"
+}
+
 func htmlToPlainText(htmlBody string) string {
 	s := htmlBody
 	s = reHeadBlock.ReplaceAllString(s, "")
+	s = reAnchor.ReplaceAllStringFunc(s, anchorAsText)
 	s = reBlockTags.ReplaceAllString(s, "</$1>\n")
 	s = reBR.ReplaceAllString(s, "\n")
 	s = reAllTags.ReplaceAllString(s, "")
