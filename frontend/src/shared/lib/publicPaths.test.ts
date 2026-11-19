@@ -23,6 +23,12 @@ describe('socialKitImageUrl', () => {
       'https://vibe.com.ar/kit/c/los-alamos/reservar-post.png?descargar=1',
     );
   });
+
+  it('asks for the small version only for a preview, so a download stays full size', () => {
+    expect(socialKitImageUrl('los-alamos', 'reservar', 'post', { preview: true })).toBe(
+      'https://vibe.com.ar/kit/c/los-alamos/reservar-post.png?email=1',
+    );
+  });
 });
 
 describe('landingTutorialUrl', () => {
