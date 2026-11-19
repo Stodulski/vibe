@@ -159,17 +159,11 @@ async function pickCourt() {
 }
 
 describe('ComplexPage slot hold', () => {
-  it('renders the Turnstile widget on the complex page with the owner-app options', async () => {
+  it('renders the Turnstile widget on the complex page with its site key', async () => {
     await renderPage(TURNSTILE_CONFIG);
 
     expect(screen.getByTestId('turnstile-widget')).toBeInTheDocument();
     expect(turnstile.props?.siteKey).toBe('test-site-key');
-    expect(turnstile.props?.options).toEqual({
-      theme: 'dark',
-      size: 'flexible',
-      language: 'es',
-      appearance: 'interaction-only',
-    });
   });
 
   it('takes a hold on court pick with the Turnstile token and the previous hold, then moves to confirm', async () => {

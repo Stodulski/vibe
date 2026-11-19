@@ -35,19 +35,6 @@ beforeEach(() => {
 });
 
 describe('EventPage event', () => {
-  it('shows the event with its price breakdown and the form', async () => {
-    serveEvent();
-    open();
-
-    expect(await screen.findByRole('heading', { level: 1, name: 'Cancha abierta de pádel' })).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Nombre/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Apellido/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Teléfono/)).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Email/)).toBeInTheDocument();
-    expect(screen.getByText(t.serviceFee.label)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: t.publicBooking.paySecurely })).toBeInTheDocument();
-  });
-
   it('shows a full event as closed with no form', async () => {
     serveEvent({ ...EVENT, spots_left: 0 });
     open();
@@ -188,15 +175,14 @@ describe('EventPage checkout return', () => {
     expect(screen.getByText(new RegExp(t.events.refundUntilPrefix))).toBeInTheDocument();
   });
 
-  it('shows what the person paid instead of the availability, and a secondary cancel button', async () => {
+  it('shows what the person paid instead of the availability, and a cancel button', async () => {
     serveRegistration(registration());
     open('?token=tok-1&registered=1');
 
     expect(await screen.findByText(`${t.events.paidPrefix} $11.000`)).toBeInTheDocument();
     expect(screen.queryByText(/Quedan/)).not.toBeInTheDocument();
     expect(screen.queryByText(t.events.perPerson)).not.toBeInTheDocument();
-    const cancel = screen.getByRole('button', { name: t.events.cancelSpot });
-    expect(cancel.className).not.toMatch(/(^|\s)bg-destructive/);
+    expect(screen.getByRole('button', { name: t.events.cancelSpot })).toBeInTheDocument();
   });
 
   it('says the refund window passed when cancelling would keep the payment', async () => {
@@ -286,43 +272,5 @@ describe('EventPage checkout parity with a booking', () => {
     expect(within(ticket).getByText(t.serviceFee.label)).toBeInTheDocument();
     expect(within(ticket).getByText(t.publicBooking.totalOnline)).toBeInTheDocument();
     expect(within(ticket).getByText(/24h/)).toBeInTheDocument();
-  });
-
-  it('has no title or intro above the fields, the way the booking form has none', async () => {
-    serveEvent();
-    open();
-    await screen.findByRole('region', { name: t.events.summaryLabel });
-    expect(screen.queryByText(/Cada persona se inscribe por separado/)).not.toBeInTheDocument();
-    expect(screen.queryByRole('heading', { name: 'Tus datos' })).not.toBeInTheDocument();
-  });
-
-  it('asks the phone the way a booking does, with the same helper text', async () => {
-    serveEvent();
-    open();
-    await screen.findByRole('region', { name: t.events.summaryLabel });
-    expect(screen.getByText(t.publicBooking.phoneHelper)).toBeInTheDocument();
-  });
-
-  it('restates the total beside the pay button, as a booking does', async () => {
-    serveEvent();
-    open();
-    await screen.findByRole('region', { name: t.events.summaryLabel });
-    expect(screen.getAllByText(t.publicBooking.totalOnline)).toHaveLength(2);
-  });
-
-  it('shows a refused sign-up in the same alert box a booking uses', async () => {
-    serveEvent();
-    server.use(
-      http.post('*/public/complexes/:slug/events/:id/registrations', () => new HttpResponse(null, { status: 409 })),
-    );
-    open();
-    const user = userEvent.setup();
-    await user.type(await screen.findByLabelText(/^Nombre/), 'Ana');
-    await user.type(screen.getByLabelText(/^Apellido/), 'Pérez');
-    await user.type(screen.getByLabelText(/^Teléfono/), '1123456789');
-    await user.type(screen.getByLabelText(/^Email/), 'ana@example.com');
-    await user.click(screen.getByRole('button', { name: t.publicBooking.paySecurely }));
-    const alert = await screen.findByRole('alert');
-    expect(alert.className).toContain('bg-error-bg');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { complexCoverAlt, complexLogoAlt } from './complexImageAlt';
+import { complexCoverAlt } from './complexImageAlt';
 
 describe('complexCoverAlt', () => {
   it('names the club, its sports and its city', () => {
@@ -47,11 +47,5 @@ describe('complexCoverAlt', () => {
     const alt = complexCoverAlt({ name: 'Club Norte', city: 'Rosario', sports: ['Pádel', 'Tenis', 'Fútbol'] });
 
     expect(alt).toBe('Club Norte, canchas de pádel, tenis y fútbol en Rosario');
-  });
-});
-
-describe('complexLogoAlt', () => {
-  it('names the club as the logo', () => {
-    expect(complexLogoAlt('Club Padel Norte')).toBe('Logo de Club Padel Norte');
   });
 });

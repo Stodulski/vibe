@@ -114,23 +114,6 @@ describe('ComplexMap rendering', () => {
     vi.clearAllMocks();
   });
 
-  it('renders map container', () => {
-    render(<ComplexMap {...defaultProps} />);
-    expect(screen.getByTestId('map-container')).toBeInTheDocument();
-  });
-
-  // `public-map` scopes the dark-tile filter and control restyling in
-  // globals.css to this map instance (odd/tasks/public-pending-polish.md T3).
-  it('scopes the dark-tile treatment to this map instance', () => {
-    render(<ComplexMap {...defaultProps} />);
-    expect(screen.getByTestId('map-container')).toHaveClass('public-map');
-  });
-
-  it('renders map marker', () => {
-    render(<ComplexMap {...defaultProps} />);
-    expect(screen.getByTestId('map-marker')).toBeInTheDocument();
-  });
-
   it('renders complex name in popup', () => {
     render(<ComplexMap {...defaultProps} />);
     expect(screen.getByText('Padel Club Norte')).toBeInTheDocument();

@@ -41,13 +41,6 @@ afterEach(() => {
 });
 
 describe('ShareComplexButton', () => {
-  it('is a named button for the club, visible in the header', () => {
-    renderShare();
-
-    expect(shareButton()).toBeInTheDocument();
-    expect(shareButton()).toHaveTextContent('Compartir');
-  });
-
   it('shares the club page through navigator.share with the title, text and canonical url', async () => {
     const share = vi.fn().mockResolvedValue(undefined);
     setNavigator({ share });

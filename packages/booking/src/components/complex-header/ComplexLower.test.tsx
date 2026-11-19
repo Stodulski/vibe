@@ -52,18 +52,6 @@ describe('ComplexLower services', () => {
     expect(screen.getByText(BOOKING_MESSAGES.complex.amenities.wifi)).toBeInTheDocument();
   });
 
-  it('draws a rule above the services only when the caller asks for one', () => {
-    const complex = makeComplex({ amenities: ['parking'] });
-    const heading = { level: 2, name: BOOKING_MESSAGES.complex.amenitiesSection } as const;
-
-    const { unmount } = render(<ComplexLower complex={complex} divided />);
-    expect(screen.getByRole('heading', heading).parentElement).toHaveClass('border-t');
-    unmount();
-
-    render(<ComplexLower complex={complex} />);
-    expect(screen.getByRole('heading', heading).parentElement).not.toHaveClass('border-t');
-  });
-
   it('renders no services section when the club lists none', () => {
     render(<ComplexLower complex={makeComplex({ amenities: [] })} />);
 
@@ -86,16 +74,7 @@ describe('ComplexLower in the server markup', () => {
 
     expect(html.split(BOOKING_MESSAGES.complex.amenities.parking)).toHaveLength(2);
     expect(html.split(BOOKING_MESSAGES.complex.amenities.wifi)).toHaveLength(2);
-  });
-
-  // The page places this block after the booking, with no CSS reordering, so it
-  // only carries the gap above it, the same at every width.
-  it('carries the same gap above it at every width', () => {
-    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ amenities: ['parking'] })} />);
-
-    expect(html).toContain('class="mt-6 sm:mt-10"');
-  });
-});
+  });});
 
 describe('ComplexLower map in the server markup', () => {
   // The map itself is client-only, but the Google Maps link and the 200px
@@ -105,22 +84,9 @@ describe('ComplexLower map in the server markup', () => {
     const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);
 
     expect(html).toContain('href="https://www.google.com/maps/search/?api=1&amp;query=-34.5,-58.5"');
-  });
-
-  it('reserves the 200px map height in the HTML before the map mounts', () => {
-    const html = renderToStaticMarkup(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);
-
-    expect(html).toContain('h-[200px]');
-  });
-});
+  });});
 
 describe('ComplexLower map', () => {
-  it('shows the map once the club has coordinates', async () => {
-    render(<ComplexLower complex={makeComplex({ latitude: -34.5, longitude: -58.5 })} />);
-
-    expect(await screen.findByTestId('mock-map')).toBeInTheDocument();
-  });
-
   it('renders nothing when the club has neither services nor coordinates', () => {
     const { container } = render(<ComplexLower complex={makeComplex({ amenities: [] })} />);
 

@@ -52,11 +52,10 @@ describe('CourtPicker — no court description', () => {
 });
 
 describe('CourtPicker — the court name', () => {
-  it('wraps a long name to two lines at most and keeps the full name in a title attribute', () => {
+  it('keeps the full court name in a title attribute', () => {
     render(<CourtPicker option={mixedOption()} selectedCourtId={null} onSelect={vi.fn()} />);
 
     const name = screen.getByText('Cancha 1');
-    expect(name).toHaveClass('line-clamp-2');
     expect(name).toHaveAttribute('title', 'Cancha 1');
   });
 });

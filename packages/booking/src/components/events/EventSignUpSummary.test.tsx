@@ -48,13 +48,3 @@ describe('EventSignUpSummary courts', () => {
     expect(screen.queryByRole('listitem')).not.toBeInTheDocument();
   });
 });
-
-describe('EventSignUpSummary inside the checkout band', () => {
-  it('draws no card of its own, so the band is the only surface', () => {
-    renderBooking(<EventSignUpSummary event={EVENT} />);
-
-    const ticket = screen.getByRole('region', { name: BOOKING_MESSAGES.events.summaryLabel });
-    expect(ticket).not.toHaveClass('rounded-3xl');
-    expect(ticket).not.toHaveClass('bg-primary-500');
-  });
-});

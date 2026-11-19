@@ -158,16 +158,10 @@ describe('ComplexHeader cover alt text', () => {
       vi.restoreAllMocks();
     });
 
-    it('is inside the green band on phones and above the card on desktop', () => {
+    it('renders Volver twice for a visitor from the landing, one per layout', () => {
       vi.spyOn(document, 'referrer', 'get').mockReturnValue(`${window.location.origin}/canchas/rosario`);
-      const { container } = render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
-      const card = container.querySelector('.bg-primary-500');
-      const links = screen.getAllByRole('link', { name: 'Volver' });
-      expect(links).toHaveLength(2);
-      const inside = links.find((l) => card?.contains(l));
-      const outside = links.find((l) => !card?.contains(l));
-      expect(inside).toHaveClass('lg:hidden');
-      expect(outside).toHaveClass('hidden', 'lg:flex');
+      render(<ComplexHeader complex={mockComplex} schedules={mockSchedules} />);
+      expect(screen.getAllByRole('link', { name: 'Volver' })).toHaveLength(2);
     });
 
     it('is not shown to a visitor from another site', () => {

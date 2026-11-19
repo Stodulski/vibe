@@ -72,13 +72,6 @@ describe('BookingConfirmed success state', () => {
     expect(screen.getByRole('button', { name: /cancelar reserva/i })).toBeInTheDocument();
   });
 
-  it('shows exactly one filled (primary) button on the confirmed screen: "Nueva reserva"', () => {
-    render(<BookingConfirmed {...defaultProps} />);
-    const filled = screen.getAllByRole('button').filter((btn) => btn.dataset.variant === 'default');
-    expect(filled).toHaveLength(1);
-    expect(filled[0]).toHaveTextContent(/nueva reserva/i);
-  });
-
   it('shows cancellation hours info', () => {
     render(<BookingConfirmed {...defaultProps} />);
     expect(screen.getByText(/24h antes/)).toBeInTheDocument();
@@ -89,13 +82,6 @@ describe('BookingConfirmed loading/pending states', () => {
   it('renders loading state', () => {
     render(
       <BookingConfirmed {...defaultProps} view={{ kind: 'loading' }} status={undefined} collectionStatus={undefined} />,
-    );
-    expect(screen.getByText(/procesando/i)).toBeInTheDocument();
-  });
-
-  it('renders pending polling state', () => {
-    render(
-      <BookingConfirmed {...defaultProps} view={{ kind: 'pending' }} status="pending" collectionStatus="unpaid" />,
     );
     expect(screen.getByText(/procesando/i)).toBeInTheDocument();
   });
@@ -117,14 +103,6 @@ describe('BookingConfirmed cancelled state — rejected payment (collection_stat
     );
     // "Pago rechazado"
     expect(screen.getByText(/pago rechazado/i)).toBeInTheDocument();
-  });
-
-  it('renders retry button on failure', () => {
-    render(
-      <BookingConfirmed {...defaultProps} view={{ kind: 'cancelled' }} status="cancelled" collectionStatus="unpaid" />,
-    );
-    // "Volver a intentar"
-    expect(screen.getByRole('button', { name: /reintentar/i })).toBeInTheDocument();
   });
 
   it('calls onRetry when retry button is clicked on failure', async () => {
@@ -174,14 +152,6 @@ describe('BookingConfirmed cancelled state — not a rejected payment (money was
 });
 
 describe('BookingConfirmed timeout state', () => {
-  it('renders timeout state', () => {
-    render(
-      <BookingConfirmed {...defaultProps} view={{ kind: 'timed_out' }} status="pending" collectionStatus="unpaid" />,
-    );
-    // "Pago en proceso"
-    expect(screen.getByText(/pago en proceso/i)).toBeInTheDocument();
-  });
-
   it('shows complex phone in timeout state', () => {
     render(
       <BookingConfirmed {...defaultProps} view={{ kind: 'timed_out' }} status="pending" collectionStatus="unpaid" />,

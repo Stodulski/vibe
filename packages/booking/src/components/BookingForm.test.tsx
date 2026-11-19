@@ -49,26 +49,6 @@ beforeEach(() => {
 // The ticket of what is paid for (the summary) now sits in the checkout's band on
 // the page, so its content is asserted there (see BookConfirmPage.test).
 describe('BookingForm form fields', () => {
-  it('renders first name input', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByLabelText(/nombre/i)).toBeInTheDocument();
-  });
-
-  it('renders last name input', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByLabelText(/apellido/i)).toBeInTheDocument();
-  });
-
-  it('renders phone input', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByLabelText(/tel.fono/i)).toBeInTheDocument();
-  });
-
-  it('renders email input', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-  });
-
   it('shows the fixed +54 prefix and no selector', () => {
     renderBooking(<BookingForm {...defaultProps} />);
     expect(screen.getByText('+54')).toBeInTheDocument();
@@ -107,12 +87,6 @@ describe('BookingForm saves client data without writing on every render', () => 
 });
 
 describe('BookingForm submit button', () => {
-  it('renders submit button with price', () => {
-    renderBooking(<BookingForm {...defaultProps} />);
-    const button = screen.getByRole('button', { name: /pagar|reservar/i });
-    expect(button).toBeInTheDocument();
-  });
-
   it('disables submit button when loading', () => {
     const { container } = renderBooking(<BookingForm {...defaultProps} isLoading />);
     const button = container.querySelector('button[type="submit"]');

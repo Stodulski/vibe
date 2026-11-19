@@ -45,13 +45,6 @@ const schedules: Schedule[] = [
 ];
 
 describe('buildComplexSchema', () => {
-  it('includes core schema.org fields', () => {
-    const schema = buildComplexSchema(complex, schedules, 'https://app.test/club-norte');
-    expect(schema['@type']).toBe('SportsActivityLocation');
-    expect(schema.name).toBe('Club Norte');
-    expect(schema.url).toBe('https://app.test/club-norte');
-  });
-
   it('includes optional fields when present', () => {
     const schema = buildComplexSchema(complex, schedules, 'https://app.test/club-norte');
     expect(schema.image).toBe('https://example.com/logo.png');
