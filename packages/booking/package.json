@@ -22,6 +22,8 @@
     "./complex-response": "./src/schemas/publicBooking.schema.ts",
     "./events-response": "./src/schemas/publicEvents.schema.ts",
     "./tournaments-response": "./src/schemas/publicTournaments.schema.ts",
+    "./availability-response": "./src/schemas/availability.schema.ts",
+    "./venue-date": "./src/lib/venueDate.ts",
     "./api-client": "./src/api/client.ts",
     "./api-errors": "./src/lib/ApiError.ts",
     "./skeletons": "./src/skeletons.tsx",

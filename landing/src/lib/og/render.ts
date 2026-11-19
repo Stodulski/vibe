@@ -6,6 +6,7 @@
 import { createElement, type CSSProperties, type ReactElement, type ReactNode } from 'react';
 import satori from 'satori';
 import { initWasm, Resvg, type InitInput } from '@resvg/resvg-wasm';
+import jpeg from 'jpeg-js';
 import { complexCardText, type ComplexCardText } from './complex-card.ts';
 import { SHARE_IMAGE_HEIGHT, SHARE_IMAGE_WIDTH, type ShareFacts } from '../complex-share.ts';
 
@@ -110,6 +111,42 @@ export async function rasterize(
   assets: CardAssets,
   outputWidth: number = width,
 ): Promise<ArrayBuffer> {
+  return withRender(tree, width, height, assets, outputWidth, (rendered) => {
+    const png = rendered.asPng();
+    return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
+  });
+}
+
+/** JPEG quality for the stories: Instagram takes only JPEG for a story, and 88 keeps the photo clean. */
+const JPEG_QUALITY = 88;
+
+/** The same as rasterize, encoded as JPEG: Instagram publishes a story only from a JPEG. */
+export async function rasterizeJpeg(
+  tree: ReactElement,
+  width: number,
+  height: number,
+  assets: CardAssets,
+): Promise<ArrayBuffer> {
+  return withRender(tree, width, height, assets, width, (rendered) => {
+    const encoded = jpeg.encode(
+      { data: rendered.pixels, width: rendered.width, height: rendered.height },
+      JPEG_QUALITY,
+    ).data;
+    return encoded.buffer.slice(encoded.byteOffset, encoded.byteOffset + encoded.byteLength) as ArrayBuffer;
+  });
+}
+
+type Rendered = ReturnType<InstanceType<typeof Resvg>['render']>;
+
+/** Lays the tree out with satori, rasterizes it with resvg, and hands the pixels to encode. */
+async function withRender(
+  tree: ReactElement,
+  width: number,
+  height: number,
+  assets: CardAssets,
+  outputWidth: number,
+  encode: (rendered: Rendered) => ArrayBuffer,
+): Promise<ArrayBuffer> {
   await ensureResvg(assets.wasm);
   const svg = await satori(tree, {
     width,
@@ -121,8 +158,12 @@ export async function rasterize(
   });
   const resvg = new Resvg(svg, { fitTo: { mode: 'width', value: outputWidth } });
   try {
-    const png = resvg.render().asPng();
-    return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
+    const rendered = resvg.render();
+    try {
+      return encode(rendered);
+    } finally {
+      rendered.free();
+    }
   } finally {
     resvg.free();
   }

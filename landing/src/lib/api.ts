@@ -79,6 +79,8 @@ export interface PublicApi {
   events(slug: string): Promise<unknown>;
   /** The complex's upcoming tournaments, unparsed. */
   tournaments(slug: string): Promise<unknown>;
+  /** One day's bookable-slot grid, unparsed; duration defaults to the API's own. */
+  availability(slug: string, date: string, duration?: number): Promise<unknown>;
   hubData(city: string): Promise<HubData>;
   /** Every city that has a complex, for the city index. */
   hubIndex(): Promise<HubIndex>;
@@ -137,6 +139,11 @@ export function createPublicApi({
     },
     tournaments(slug) {
       return getJson(`/public/complexes/${encodeURIComponent(slug)}/tournaments`);
+    },
+    availability(slug, date, duration) {
+      const query = new URLSearchParams({ date });
+      if (duration !== undefined) query.set('duration', String(duration));
+      return getJson(`/public/complexes/${encodeURIComponent(slug)}/availability?${query.toString()}`);
     },
     async hubData(city) {
       const json = await getJson(`/public/hubs/${encodeURIComponent(city)}/data`);
