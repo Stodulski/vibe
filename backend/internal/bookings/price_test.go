@@ -250,14 +250,3 @@ func scheduleOnly(f *fixture, opensAt, closesAt string) {
 		f.complexes.schedules = append(f.complexes.schedules, &complexstore.Schedule{Day: d, OpenTime: opensAt, CloseTime: closesAt})
 	}
 }
-
-// at turns a clock reading into minutes from its own day's midnight, which is
-// what pricing takes now. A window running past midnight is laid out beyond
-// 1440, so an hour on the far side is `at("00:30") + 24*60`.
-func at(hhmm string) int {
-	var h, m int
-	if _, err := fmt.Sscanf(hhmm, "%d:%d", &h, &m); err != nil {
-		panic("test fixture: " + hhmm + " is not HH:MM")
-	}
-	return h*60 + m
-}
