@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -564,5 +565,55 @@ func TestAvailabilityOffersTodaysAfterMidnightSlotsBeforeTheyBegin(t *testing.T)
 	}
 	if seen != 2 {
 		t.Fatalf("the grid did not publish today's 00:00 and 00:30; matched %d", seen)
+	}
+}
+
+// A slot of today that has already begun is never for sale, however free the
+// court is, and one that has not begun yet is. The waitlist sweep trusts this
+// grid, so this is also what keeps a "a place freed" email from going out for
+// an hour that has passed.
+func TestAvailabilityNeverSellsASlotThatHasBegun(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	today := timezone.Today()
+	date := today.Format("2006-01-02")
+	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: everyDaySchedule("08:00", "23:00")}
+	store := &stubStore{
+		courts: []*courtstore.Court{{ID: courtID, ComplexID: complexID, Name: "Court 1", IsActive: true}},
+		prices: everyDayBand(courtID, "08:00", "23:00", 500_000),
+	}
+	h, _ := newTestHandler(store, &stubBookings{}, complexes)
+	fivePM := time.Date(today.Year(), today.Month(), today.Day(), 17, 0, 0, 0, timezone.Argentina)
+	h.svc.now = func() time.Time { return fivePM }
+
+	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date="+date+"&duration=60", nil)
+	w := httptest.NewRecorder()
+	h.Availability(w, withSlug(r, "vibe"))
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	grid, _ := decode(t, w)["availability"].(map[string]any)
+	courtsOut, _ := grid["courts"].([]any)
+	first, _ := courtsOut[0].(map[string]any)
+	slotsOut, _ := first["slots"].([]any)
+
+	checked := map[string]bool{}
+	for _, raw := range slotsOut {
+		s, _ := raw.(map[string]any)
+		start, _ := s["start_time"].(string)
+		switch start {
+		case "16:00", "16:30", "17:00":
+			checked[start] = true
+			if s["available"] != false {
+				t.Errorf("%s has begun at 17:00; it must not be for sale; got %v", start, s)
+			}
+		case "17:30", "18:00":
+			checked[start] = true
+			if s["available"] != true {
+				t.Errorf("%s has not begun at 17:00 and the court is free; it must be for sale; got %v", start, s)
+			}
+		}
+	}
+	if len(checked) != 5 {
+		t.Fatalf("the grid did not publish the hours around 17:00; checked %v", checked)
 	}
 }
