@@ -175,8 +175,10 @@ type Provider interface {
 
 // Notifier tells the client what happened to their money.
 type Notifier interface {
-	BookingConfirmed(c notifications.BookingConfirmation)
-	DepositRefunded(r notifications.Refund)
+	// BookingConfirmed and DepositRefunded return an error when the client's
+	// notice was not queued, for the caller to report with the booking.
+	BookingConfirmed(c notifications.BookingConfirmation) error
+	DepositRefunded(r notifications.Refund) error
 	OwnerBookingRefunded(r notifications.OwnerBookingRefund)
 }
 

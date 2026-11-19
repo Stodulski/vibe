@@ -14,11 +14,13 @@ import (
 	"maps"
 	"net"
 	"net/http"
+	"net/http/httptrace"
 	"net/mail"
 	"net/smtp"
 	"regexp"
 	"slices"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
@@ -169,18 +171,15 @@ func htmlToPlainText(htmlBody string) string {
 	s = reBlockTags.ReplaceAllString(s, "</$1>\n")
 	s = reBR.ReplaceAllString(s, "\n")
 	s = reAllTags.ReplaceAllString(s, "")
-	r := strings.NewReplacer(
-		"&nbsp;", " ", "&amp;", "&", "&lt;", "<", "&gt;", ">",
-		"&quot;", `"`, "&#39;", "'",
-		"&aacute;", "á", "&eacute;", "é", "&iacute;", "í",
-		"&oacute;", "ó", "&uacute;", "ú", "&ntilde;", "ñ",
-		"&iexcl;", "¡", "&#8211;", "–", "&mdash;", "—",
-		// &#847; and &zwnj; pad the hidden preheader; &#8203; is the
-		// zero-width space the bulletproof button's second VML spacer hack
-		// carries. All three are filler with nothing to render as text.
-		"&#847;", "", "&zwnj;", "", "&#8203;", "",
-	)
-	s = r.Replace(s)
+	// &#847; and &zwnj; pad the hidden preheader; &#8203; is the zero-width
+	// space the bulletproof button's second VML spacer hack carries. All three
+	// are filler with nothing to render as text, so they go before decoding.
+	s = strings.NewReplacer("&#847;", "", "&zwnj;", "", "&#8203;", "").Replace(s)
+	// Every other entity is decoded, numeric ones included: html.EscapeString
+	// writes a quote as &#34; and an apostrophe as &#39;, and a client name
+	// like O'Connor or a complex called "El Galpón" used to reach the
+	// plain-text part as O&#39;Connor. A non-breaking space reads as a space.
+	s = strings.ReplaceAll(html.UnescapeString(s), "\u00a0", " ")
 	s = reSpaces.ReplaceAllString(s, " ")
 	s = reNewlines.ReplaceAllString(s, "\n\n")
 	return strings.TrimSpace(s)
@@ -332,9 +331,11 @@ func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText s
 	if !m.smtpConfigured() {
 		return err
 	}
-	if isPermanent(err) {
-		// Brevo refused the message itself. SMTP would carry the same bytes to
-		// the same rejection, so the fallback would only double the work.
+	if !brevoDidNotAccept(err) {
+		// Either Brevo refused the message itself (SMTP would carry the same
+		// bytes to the same rejection), or the answer is ambiguous: the request
+		// went out and no verdict came back, so Brevo may already have
+		// accepted it and SMTP would deliver it a second time.
 		return err
 	}
 
@@ -345,6 +346,25 @@ func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText s
 	// Both errors are wrapped so the breaker classification above still sees
 	// the Brevo status code that caused the fallback.
 	return fmt.Errorf("mailer: brevo failed (%w) and smtp fallback failed: %w", err, smtpErr)
+}
+
+// errBrevoNotSent marks a Brevo call that failed before its request was
+// written: a refused connection, a failed DNS lookup or TLS handshake. Brevo
+// never saw the message.
+var errBrevoNotSent = errors.New("mailer: brevo request was never sent")
+
+// brevoDidNotAccept reports whether a Brevo failure proves the message was not
+// accepted, which is the only case the SMTP fallback may send it: an answer
+// about the service (5xx, 429, a refused key, a redirect) or a request that
+// never left. A timeout or a read error after the request was written is not
+// such proof, since Brevo may have queued the message before the answer was
+// lost, and falling back there is how a client gets the same email twice.
+func brevoDidNotAccept(err error) bool {
+	if errors.Is(err, errBrevoNotSent) {
+		return true
+	}
+	var be *brevoError
+	return errors.As(err, &be) && be.infra()
 }
 
 // ---------------------------------------------------------------------------
@@ -384,7 +404,14 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 		return fmt.Errorf("mailer: failed to marshal request: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.apiURL, bytes.NewReader(body))
+	// wrote records whether any of the request reached the connection. Until
+	// it has, a failure is one Brevo never saw.
+	var wrote atomic.Bool
+	traced := httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+		WroteHeaderField: func(string, []string) { wrote.Store(true) },
+		WroteRequest:     func(httptrace.WroteRequestInfo) { wrote.Store(true) },
+	})
+	req, err := http.NewRequestWithContext(traced, http.MethodPost, m.apiURL, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("mailer: failed to create request: %w", err)
 	}
@@ -394,6 +421,9 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
+		if !wrote.Load() {
+			return fmt.Errorf("%w: %w", errBrevoNotSent, err)
+		}
 		return fmt.Errorf("mailer: request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -677,7 +707,7 @@ func addressLine(address, mapsURL string) string {
 // fallback renders the "copy this link" line shown under a button, for a
 // client that stripped the button's markup but left plain anchors alone.
 func fallback(rawURL string) string {
-	return p(fmt.Sprintf("Si el botón no funciona, copie este link en el navegador:<br>%s",
+	return p(fmt.Sprintf("Si el botón no funciona, copiá este link en el navegador:<br>%s",
 		link(rawURL, html.EscapeString(rawURL))), 13, 12)
 }
 
@@ -701,6 +731,15 @@ func greeting(firstName string) string {
 	return fmt.Sprintf("Hola, <strong>%s</strong>.", html.EscapeString(name))
 }
 
+// The states a booking's payment can be in, as the confirmation tells it.
+// An empty state is a confirmation queued before the state was carried, and
+// reads as a paid deposit, the one wording every confirmation used to have.
+const (
+	PaidNothing = "unpaid"
+	PaidDeposit = "deposit"
+	PaidFull    = "full"
+)
+
 // SendBookingConfirmation emails the client that their booking was confirmed.
 //
 // cancelURL is empty when the booking link token could not be minted, and then the
@@ -712,59 +751,76 @@ func greeting(firstName string) string {
 // point is worse than no line. depositAmount, balanceAmount and
 // cancellationLine arrive rendered, from internal/notifications'
 // PaymentAmounts and CancellationLine, so the sentences below quote the figures
-// the caller recorded. They are assembled around those values with fixed words
-// ("Seña abonada: ... Resta pagar en el complejo: ...", "Cancelación ...").
-// The grace period cancellationLine may quote is operator-configured — this function's comment claimed a hardcoded fifteen
-// minutes long after the code had stopped believing it.
-func (m *Mailer) SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine string) error {
+// the caller recorded. paymentState (PaidNothing, PaidDeposit, PaidFull) picks
+// the sentence: a booking entered with nothing collected says what is owed and
+// promises no refund, and one paid in full is not called a "seña".
+func (m *Mailer) SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine, paymentState string, contact Contact) error {
 	subject := fmt.Sprintf("Reserva confirmada · %s", complexName)
 
 	courtEsc, complexEsc := html.EscapeString(courtName), html.EscapeString(complexName)
 	dateEsc, startEsc := html.EscapeString(date), html.EscapeString(startTime)
 
-	content := title("Su reserva está confirmada.") +
+	content := title("Tu reserva está confirmada.") +
 		p(fmt.Sprintf("<strong>%s</strong> en <strong>%s</strong>, el %s de %s.", courtEsc, complexEsc, dateEsc, startEsc), 16, 16)
 	if address != "" && mapsURL != "" {
 		content += addressLine(address, mapsURL)
 	}
-	content += p(fmt.Sprintf("Seña abonada: <strong>%s</strong>. Resta pagar en el complejo: <strong>%s</strong>.",
-		html.EscapeString(depositAmount), html.EscapeString(balanceAmount)), 16, 16)
-	content += muted("Cancelación " + html.EscapeString(cancellationLine))
+	switch paymentState {
+	case PaidNothing:
+		if balanceAmount != "" && balanceAmount != "$0" {
+			content += p(fmt.Sprintf("A pagar en el complejo: <strong>%s</strong>.", html.EscapeString(balanceAmount)), 16, 16)
+		}
+	case PaidFull:
+		content += p(fmt.Sprintf("Pagado: <strong>%s</strong>. No tenés nada pendiente de pago.", html.EscapeString(depositAmount)), 16, 16)
+		content += muted("Cancelación " + html.EscapeString(cancellationLine))
+	default:
+		content += p(fmt.Sprintf("Seña abonada: <strong>%s</strong>. Resta pagar en el complejo: <strong>%s</strong>.",
+			html.EscapeString(depositAmount), html.EscapeString(balanceAmount)), 16, 16)
+		content += muted("Cancelación " + html.EscapeString(cancellationLine))
+	}
 	if cancelURL != "" {
 		content += button(cancelURL, "Cancelar reserva")
 	}
-	content += p("Gracias por su reserva.", 16, 0)
+	content += contactLine(contact)
+	content += p("Gracias por reservar.", 16, 0)
 
 	preheader := fmt.Sprintf("%s en %s, el %s de %s.", courtEsc, complexEsc, dateEsc, startEsc)
-	return m.send(ctx, to, subject, m.wrap("Reserva confirmada", preheader, content))
+	return m.sendToClient(ctx, to, subject, m.wrap("Reserva confirmada", preheader, content), contact)
 }
 
-// SendReminder2h emails the client a reminder that their booking starts in
-// about 2 hours.
+// SendReminder2h emails the client a reminder two hours before their booking
+// starts.
 //
-// address and mapsURL render the same "Cómo llegar" line the confirmation
-// does, two hours closer to when it matters; balanceAmount is the plain
-// formatted amount from internal/notifications' BalanceAmount, in the fixed
-// words ("Resta pagar en el complejo: ...").
-func (m *Mailer) SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL string) error {
-	subject := fmt.Sprintf("Su reserva comienza en 2 horas · %s", complexName)
+// when is the start as the client reads it on the day the email arrives ("hoy
+// a las 18:00", "mañana a las 00:30"): the subject names the real start instead
+// of a countdown that was wrong for every reminder not sent exactly two hours
+// out. address and mapsURL render the same "Cómo llegar" line the confirmation
+// does; balanceAmount is the plain formatted amount from internal/notifications'
+// BalanceAmount.
+func (m *Mailer) SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, when, address, mapsURL, balanceAmount, cancelURL string, contact Contact) error {
+	subject := fmt.Sprintf("Tu turno es %s · %s", when, complexName)
 
 	courtEsc, complexEsc := html.EscapeString(courtName), html.EscapeString(complexName)
 	dateEsc, startEsc := html.EscapeString(date), html.EscapeString(startTime)
 
-	content := title("Su reserva comienza en 2 horas.") +
+	content := title(fmt.Sprintf("Tu turno es %s.", html.EscapeString(when))) +
 		p(fmt.Sprintf("<strong>%s</strong> en <strong>%s</strong>, el %s de %s.", courtEsc, complexEsc, dateEsc, startEsc), 16, 16)
 	if address != "" && mapsURL != "" {
 		content += addressLine(address, mapsURL)
 	}
-	content += p(fmt.Sprintf("Resta pagar en el complejo: <strong>%s</strong>.", html.EscapeString(balanceAmount)), 16, 16)
+	if balanceAmount == "" || balanceAmount == "$0" {
+		content += p("No tenés nada pendiente de pago.", 16, 16)
+	} else {
+		content += p(fmt.Sprintf("Resta pagar en el complejo: <strong>%s</strong>.", html.EscapeString(balanceAmount)), 16, 16)
+	}
 	if cancelURL != "" {
 		content += button(cancelURL, "Cancelar reserva")
 	}
-	content += p("Le esperamos.", 16, 0)
+	content += contactLine(contact)
+	content += p("Te esperamos.", 16, 0)
 
 	preheader := fmt.Sprintf("%s en %s, el %s de %s.", courtEsc, complexEsc, dateEsc, startEsc)
-	return m.send(ctx, to, subject, m.wrap("Su reserva es pronto", preheader, content))
+	return m.sendToClient(ctx, to, subject, m.wrap("Tu turno es pronto", preheader, content), contact)
 }
 
 // SendBookingCancelled emails the client that their booking was cancelled, and
@@ -777,26 +833,26 @@ func (m *Mailer) SendReminder2h(ctx context.Context, to, complexName, courtName,
 // when none is coming back, and is what the preheader quotes on its own,
 // since the sentence around it is fixed text a client's inbox preview line
 // need not repeat.
-func (m *Mailer) SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string) error {
+func (m *Mailer) SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string, contact Contact) error {
 	subject := fmt.Sprintf("Reserva cancelada · %s", complexName)
 
-	content := title("Su reserva fue cancelada.") +
+	content := title("Tu reserva se canceló.") +
 		p(fmt.Sprintf("<strong>%s</strong> en <strong>%s</strong>, el %s de %s.",
 			html.EscapeString(courtName), html.EscapeString(complexName), html.EscapeString(date), html.EscapeString(startTime)), 16, 16) +
 		p("Devolución: "+html.EscapeString(refundLine), 16, 16) +
-		muted("Ante cualquier consulta, contacte al complejo.")
+		contactLine(contact)
 	if bookURL != "" {
 		content += button(bookURL, "Nueva reserva")
 	}
 
-	preheader := fmt.Sprintf("Su reserva en %s fue cancelada.", html.EscapeString(complexName))
+	preheader := fmt.Sprintf("Tu reserva en %s se canceló.", html.EscapeString(complexName))
 	switch {
 	case refundAmount != "":
 		preheader = fmt.Sprintf("Devolución: %s.", html.EscapeString(refundAmount))
 	case refundLine != "":
 		preheader = "Devolución: " + html.EscapeString(refundLine)
 	}
-	return m.send(ctx, to, subject, m.wrap("Reserva cancelada", preheader, content))
+	return m.sendToClient(ctx, to, subject, m.wrap("Reserva cancelada", preheader, content), contact)
 }
 
 // SendOwnerBookingRefunded emails the complex owner that a refund MercadoPago
@@ -829,51 +885,70 @@ func (m *Mailer) SendOwnerBookingRefunded(ctx context.Context, to, complexName, 
 // SendEmailVerification emails the user a link to verify their account, valid
 // for 24 hours.
 func (m *Mailer) SendEmailVerification(ctx context.Context, to, firstName, verifyURL string) error {
-	const subject = "Verifique su email · Vibe"
+	const subject = "Confirmá tu email · Vibe"
 
-	content := title("Verifique su email.") +
-		p(greeting(firstName)+" Para activar su cuenta, presione el botón:", 16, 16) +
-		button(verifyURL, "Verificar email") +
-		muted("El link expira en 24 horas.") +
+	content := title("Confirmá tu email.") +
+		p(greeting(firstName)+" Para activar tu cuenta, tocá el botón:", 16, 16) +
+		button(verifyURL, "Confirmar email") +
+		muted("El link vence en 24 horas.") +
 		fallback(verifyURL)
 
-	return m.send(ctx, to, subject, m.wrap("Verifique su email", "Active su cuenta de Vibe.", content))
+	return m.send(ctx, to, subject, m.wrap("Confirmá tu email", "Activá tu cuenta de Vibe.", content))
 }
 
-// SendDepositRefunded emails the client that their booking deposit came back.
+// SendDepositRefunded emails the client that their money came back.
 //
 // "Devolución", in the subject and the page title as well as the body. The
 // same email used to be headed "Reembolso realizado" over a body that said
 // "Se procesó la devolución" — one message contradicting itself on the one
 // word this product has a rule about.
-func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string) error {
+//
+// cancelled says the refund also cancelled the booking (a refund MercadoPago
+// issued on its own side on a live booking). The email then says so first,
+// naming the booking from courtName, date and startTime: it is the client's
+// only notice that the booking is off, and it used to talk about money alone.
+func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact Contact) error {
 	subject := fmt.Sprintf("Devolución realizada · %s", complexName)
-	amountEsc := html.EscapeString(amount)
+	heading := "Te devolvimos el pago."
+	amountEsc, complexEsc := html.EscapeString(amount), html.EscapeString(complexName)
 
-	content := title("Devolución realizada.") +
-		p(fmt.Sprintf("Se realizó la devolución de <strong>%s</strong> de la seña de su reserva en <strong>%s</strong>.",
-			amountEsc, html.EscapeString(complexName)), 16, 16) +
-		muted("Se acredita en los próximos días hábiles, en el medio de pago utilizado.")
+	var content string
+	if cancelled {
+		subject = fmt.Sprintf("Reserva cancelada y pago devuelto · %s", complexName)
+		heading = "Tu reserva se canceló y te devolvimos el pago."
+		content = title(heading) +
+			p(fmt.Sprintf("Tu reserva de <strong>%s</strong> en <strong>%s</strong>, el %s de %s, se canceló porque el pago se devolvió por MercadoPago.",
+				html.EscapeString(courtName), complexEsc, html.EscapeString(date), html.EscapeString(startTime)), 16, 16) +
+			p(fmt.Sprintf("Te devolvimos <strong>%s</strong>.", amountEsc), 16, 16)
+	} else {
+		content = title(heading) +
+			p(fmt.Sprintf("Te devolvimos <strong>%s</strong> de tu reserva en <strong>%s</strong>.", amountEsc, complexEsc), 16, 16)
+	}
+	content += muted("Lo vas a ver en los próximos días hábiles, en el medio con el que pagaste.") +
+		contactLine(contact)
 	if bookURL != "" {
 		content += button(bookURL, "Nueva reserva")
 	}
 
-	preheader := fmt.Sprintf("Se realizó la devolución de %s de la seña de su reserva.", amountEsc)
-	return m.send(ctx, to, subject, m.wrap("Devolución realizada", preheader, content))
+	preheader := fmt.Sprintf("Te devolvimos %s de tu reserva.", amountEsc)
+	if cancelled {
+		preheader = fmt.Sprintf("Tu reserva se canceló. Te devolvimos %s.", amountEsc)
+	}
+	return m.sendToClient(ctx, to, subject, m.wrap("Devolución realizada", preheader, content), contact)
 }
 
 // SendPasswordReset emails the user a link to reset their password, valid for
 // 1 hour.
 func (m *Mailer) SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error {
-	const subject = "Restablecer contraseña · Vibe"
+	const subject = "Cambiá tu contraseña · Vibe"
 
-	content := title("Restablecer contraseña.") +
-		p(greeting(firstName)+" Recibimos una solicitud para restablecer su contraseña.", 16, 16) +
-		button(resetURL, "Restablecer contraseña") +
-		muted("El link expira en 1 hora. Si no solicitó este cambio, ignore este email.") +
+	content := title("Cambiá tu contraseña.") +
+		p(greeting(firstName)+" Recibimos un pedido para cambiar tu contraseña.", 16, 16) +
+		button(resetURL, "Cambiar contraseña") +
+		muted("El link vence en 1 hora. Si no lo pediste vos, ignorá este email.") +
 		fallback(resetURL)
 
-	return m.send(ctx, to, subject, m.wrap("Restablecer contraseña", "Siga el link para restablecer su contraseña.", content))
+	return m.send(ctx, to, subject, m.wrap("Cambiá tu contraseña", "Seguí el link para cambiar tu contraseña.", content))
 }
 
 // SendEmailChangeRequested emails the account's CURRENT address that a
@@ -885,17 +960,17 @@ func (m *Mailer) SendPasswordReset(ctx context.Context, to, firstName, resetURL 
 // email leaves the account's address untouched; only following it and
 // completing the confirmation moves it.
 func (m *Mailer) SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error {
-	const subject = "Confirme el cambio de email · Vibe"
+	const subject = "Confirmá el cambio de email · Vibe"
 
-	content := title("Confirme el cambio de email.") +
-		p(fmt.Sprintf("%s Alguien con acceso a su cuenta solicitó cambiar el email a <strong>%s</strong>.",
+	content := title("Confirmá el cambio de email.") +
+		p(fmt.Sprintf("%s Alguien con acceso a tu cuenta pidió cambiar el email a <strong>%s</strong>.",
 			greeting(firstName), html.EscapeString(newEmail)), 16, 16) +
 		button(confirmURL, "Confirmar cambio de email") +
-		muted(fmt.Sprintf("El link expira en %s. Si no fue usted, ignore este email: su email actual no cambiará.",
+		muted(fmt.Sprintf("El link vence en %s. Si no lo pediste vos, ignorá este email: tu email actual no cambia.",
 			html.EscapeString(expiresIn))) +
 		fallback(confirmURL)
 
-	return m.send(ctx, to, subject, m.wrap("Confirme el cambio de email", "Confirme el cambio de email de su cuenta Vibe.", content))
+	return m.send(ctx, to, subject, m.wrap("Confirmá el cambio de email", "Confirmá el cambio de email de tu cuenta de Vibe.", content))
 }
 
 // SendDuplicateRegistration emails the account owner that someone tried to
@@ -908,12 +983,12 @@ func (m *Mailer) SendDuplicateRegistration(ctx context.Context, to, firstName, l
 	const subject = "Intento de registro · Vibe"
 
 	content := title("Intento de registro.") +
-		p(greeting(firstName)+" Alguien intentó crear una cuenta con su email. Si fue usted, su cuenta ya existe.", 16, 16) +
+		p(greeting(firstName)+" Alguien intentó crear una cuenta con tu email. Si fuiste vos, tu cuenta ya existe.", 16, 16) +
 		button(loginURL, "Iniciar sesión") +
-		muted(fmt.Sprintf("¿Olvidó su contraseña? %s.", link(resetURL, "Restablecerla"))) +
-		muted("Si no fue usted, ignore este email.")
+		muted(fmt.Sprintf("¿Olvidaste tu contraseña? %s.", link(resetURL, "Cambiala acá"))) +
+		muted("Si no fuiste vos, ignorá este email.")
 
-	return m.send(ctx, to, subject, m.wrap("Intento de registro", "Alguien intentó registrarse con su email en Vibe.", content))
+	return m.send(ctx, to, subject, m.wrap("Intento de registro", "Alguien intentó registrarse con tu email en Vibe.", content))
 }
 
 // SendOwnerNewBooking emails the complex owner that a new booking was made.

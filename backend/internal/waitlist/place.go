@@ -319,7 +319,7 @@ func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
 				"complex_id", g.ComplexID, "date", g.Day.Format(time.DateOnly))
 			continue
 		}
-		for _, e := range claimed {
+		for _, e := range onePerAddressAndHour(claimed) {
 			day := timezone.Day(e.Day)
 			s.notify.WaitlistPlaceFreed(notifications.WaitlistPlaceFreedEmail{
 				EntryID: e.ID.String(), NoticeAt: e.NotifiedAt.UTC().Format(time.RFC3339Nano), Email: e.Email, ComplexName: e.ComplexName,
@@ -330,6 +330,37 @@ func (s *PlaceService) sweepSlots(ctx context.Context, now time.Time) {
 			})
 		}
 	}
+}
+
+// onePerAddressAndHour keeps one claimed entry per address and start time, so
+// a person who waited on several courts of the same hour gets one email for it.
+// The entry kept is one whose own court is free, which is the court the email's
+// link opens; the others were claimed with it so they are not emailed later in
+// the round. Order is preserved.
+func onePerAddressAndHour(claimed []store.FreedSlotEntry) []store.FreedSlotEntry {
+	type key struct{ email, start string }
+	kept := make(map[key]int, len(claimed))
+	out := make([]store.FreedSlotEntry, 0, len(claimed))
+	for _, e := range claimed {
+		k := key{strings.ToLower(e.Email), e.StartTime}
+		i, seen := kept[k]
+		switch {
+		case !seen:
+			kept[k] = len(out)
+			out = append(out, e)
+		case !out[i].Free && e.Free:
+			out[i] = e
+		}
+	}
+	// A group with no free entry has no court to point at; the claim never
+	// returns one, but an email with a link to a taken court is worse than none.
+	free := out[:0]
+	for _, e := range out {
+		if e.Free {
+			free = append(free, e)
+		}
+	}
+	return free
 }
 
 // courtLabel names a court the way the email says it: "Cancha 2", without

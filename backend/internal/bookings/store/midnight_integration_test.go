@@ -191,11 +191,32 @@ func TestTheTwoHourReminderSpansMidnight(t *testing.T) {
 			wantRemind: true,
 		},
 		{
-			name:       "a game booked one hour ago is not reminded twice",
+			// S3: eligibility is "made more than two hours before the start",
+			// not "made more than two hours ago". This booking was made at
+			// 21:00 for 23:30, so it is due from 21:30; the floor used to hold
+			// it back until 23:00, half an hour before the game.
+			name:       "a game booked two and a half hours ahead is reminded from two hours before",
 			now:        at(10, 22, 0),
 			date:       onDay(10),
 			startTime:  "23:30",
 			bookedAgo:  1 * time.Hour,
+			wantRemind: true,
+		},
+		{
+			name:       "a game booked three hours ahead is due as soon as its window opens",
+			now:        at(10, 21, 31),
+			date:       onDay(10),
+			startTime:  "23:30",
+			bookedAgo:  61 * time.Minute,
+			wantRemind: true,
+		},
+		{
+			// Made inside the two hours: the confirmation is fresh, no reminder.
+			name:       "a game booked ninety minutes ahead is never reminded",
+			now:        at(10, 22, 30),
+			date:       onDay(10),
+			startTime:  "23:30",
+			bookedAgo:  30 * time.Minute,
 			wantRemind: false,
 		},
 	}

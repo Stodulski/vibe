@@ -597,7 +597,7 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 	// with nothing collected reports a $0 deposit rather than quoting one
 	// nobody paid.
 	confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
-	s.notify.BookingConfirmed(notifications.BookingConfirmation{
+	if err := s.notify.BookingConfirmed(notifications.BookingConfirmation{
 		// SourceStaffCreate, and not a free-text label: this constant is what
 		// suppresses the owner's "Nueva reserva" email, since the owner is the
 		// person who just made this booking.
@@ -613,11 +613,19 @@ func (s *Service) Create(ctx context.Context, complex *complexstore.Complex, act
 		MapsURL:       mapsURL,
 		DepositAmount: confirmDepositAmount,
 		BalanceAmount: confirmBalanceAmount,
+		PaymentState:  notifications.PaymentState(booking.CollectionStatus.String()),
 		CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.GracePeriod,
 			pricing.WithinStandardWindow(booking, complex.CancellationHours)),
-		OwnerID:   complex.OwnerID.String(),
-		BookingID: booking.ID.String(),
-	})
+		ComplexPhone: complex.Phone,
+		OwnerID:      complex.OwnerID.String(),
+		BookingID:    booking.ID.String(),
+	}); err != nil {
+		// The booking is written and the owner is looking at it, so a lost
+		// confirmation must not fail the request. It is reported with the
+		// booking so it can be resent.
+		s.logger.Error("create booking: the client's confirmation email was not queued",
+			"error", err, "booking_id", booking.ID, "complex_id", complex.ID)
+	}
 
 	s.realtime.PublishBookingChanged(complex.ID)
 

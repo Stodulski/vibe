@@ -610,17 +610,19 @@ func captureSent(t *testing.T) []string {
 		func() error {
 			return m.SendBookingConfirmation(ctx, to, complex, court, date, hours,
 				"Av. Santa Fe 1200", "https://maps.example/?q=1", "https://vibe.test/cancel",
-				"DEPOSIT_AMOUNT", "BALANCE_AMOUNT", "CANCELLATION_LINE")
+				"DEPOSIT_AMOUNT", "BALANCE_AMOUNT", "CANCELLATION_LINE", PaidDeposit, Contact{})
 		},
 		func() error {
-			return m.SendReminder2h(ctx, to, complex, court, date, hours,
-				"Av. Santa Fe 1200", "https://maps.example/?q=1", "BALANCE_AMOUNT", "https://vibe.test/cancel")
+			return m.SendReminder2h(ctx, to, complex, court, date, hours, "hoy a las 18:00",
+				"Av. Santa Fe 1200", "https://maps.example/?q=1", "BALANCE_AMOUNT", "https://vibe.test/cancel", Contact{})
 		},
 		func() error {
 			return m.SendBookingCancelled(ctx, to, complex, court, date, hours,
-				"REFUND_LINE", "$5.000", "https://vibe.test/book")
+				"REFUND_LINE", "$5.000", "https://vibe.test/book", Contact{})
 		},
-		func() error { return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book") },
+		func() error {
+			return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book", false, "", "", "", Contact{})
+		},
 		func() error {
 			return m.SendBenefitsCampaign(ctx, to, "Ana", "share_page", "https://vibe.test/c/cancha",
 				"https://vibe.test/dashboard", "https://vibe.test/unsub", "https://vibe.test/baja")
@@ -852,7 +854,7 @@ func TestBookingConfirmationWithoutACancelLinkOmitsTheCancelButton(t *testing.T)
 
 	if err := m.SendBookingConfirmation(context.Background(), "ana@example.com", "Vibe Palermo", "Cancha 1",
 		"15/03", "09:00 a 10:30", "Av. Santa Fe 1200", "https://maps.example/?q=1", "",
-		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno."); err != nil {
+		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno.", PaidDeposit, Contact{}); err != nil {
 		t.Fatalf("SendBookingConfirmation = %v", err)
 	}
 
@@ -889,7 +891,7 @@ func TestComplexNameIsHTMLEscaped(t *testing.T) {
 	const evilName = `Padel & Co <b>`
 	if err := m.SendBookingConfirmation(context.Background(), "ana@example.com", evilName, "Cancha 1",
 		"01/09", "18:00 a 19:30", "", "", "https://vibe.test/cancel",
-		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno."); err != nil {
+		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno.", PaidDeposit, Contact{}); err != nil {
 		t.Fatalf("SendBookingConfirmation = %v", err)
 	}
 
@@ -991,7 +993,7 @@ func TestPlainTextFallbackHasNoMarkupArtifacts(t *testing.T) {
 
 	if err := m.SendBookingConfirmation(context.Background(), "ana@example.com", "Vibe Palermo", "Cancha 1",
 		"15/03", "09:00 a 10:30", "Av. Santa Fe 1200", "https://maps.example/?q=1", "https://vibe.test/cancel",
-		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno."); err != nil {
+		"$5.000", "$15.000", "con devolución hasta 24 horas antes del turno.", PaidDeposit, Contact{}); err != nil {
 		t.Fatalf("SendBookingConfirmation = %v", err)
 	}
 

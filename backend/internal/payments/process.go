@@ -304,7 +304,13 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 				clientEmail = *client.Email
 			}
 			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
-			s.notify.BookingConfirmed(notifications.BookingConfirmation{
+			// A refused enqueue is reported rather than returned: a retried
+			// webhook stops at the replay check at the top of this function
+			// and would send nothing, so failing it could only spend its
+			// retry budget. The report carries the payment and the booking,
+			// which is what resending the confirmation needs; the dedup key
+			// makes a resend of one that did get queued a no-op.
+			if qerr := s.notify.BookingConfirmed(notifications.BookingConfirmation{
 				// The online route: this is a sale the owner did not enter, so
 				// the owner's "Nueva reserva" email goes out.
 				Source:        notifications.SourceOnlineCheckout,
@@ -319,11 +325,15 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 				MapsURL:       mapsURL,
 				DepositAmount: confirmDepositAmount,
 				BalanceAmount: confirmBalanceAmount,
+				PaymentState:  notifications.PaymentState(booking.CollectionStatus.String()),
 				CancellationLine: notifications.CancellationLine(complex.CancellationHours, s.cfg.CancellationGracePeriod,
 					pricing.WithinStandardWindow(booking, complex.CancellationHours)),
-				OwnerID:   complex.OwnerID.String(),
-				BookingID: booking.ID.String(),
-			})
+				ComplexPhone: complex.Phone,
+				OwnerID:      complex.OwnerID.String(),
+				BookingID:    booking.ID.String(),
+			}); qerr != nil {
+				s.reportUnsentConfirmation(booking, mpPaymentID, qerr)
+			}
 		}
 	}
 	return nil
@@ -526,15 +536,16 @@ func (s *Service) reportConfirmationWithoutCancelLink(booking *bookingstore.Book
 }
 
 // reportUnsentConfirmation records a confirmation that could not be sent because a
-// record it needs could not be read. The payment is committed by then, so the
-// webhook is not failed for it; the gap is made visible instead.
+// record it needs could not be read, or the queue refused it. The payment is
+// committed by then, so the webhook is not failed for it; the gap is made
+// visible instead, with the ids a resend needs.
 func (s *Service) reportUnsentConfirmation(booking *bookingstore.Booking, mpPaymentID string, cause error) {
-	s.logger.Error("mp webhook: payment approved but the booking confirmation was not sent, a record could not be read",
+	s.logger.Error("mp webhook: payment approved but the booking confirmation was not sent",
 		"error", cause,
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
 	)
-	sentry.CaptureMessage(fmt.Sprintf("CONFIRMATION NOT SENT (record unreadable, payment recorded): mp_payment_id=%s booking_id=%s error=%v",
+	sentry.CaptureMessage(fmt.Sprintf("CONFIRMATION NOT SENT (payment recorded): mp_payment_id=%s booking_id=%s error=%v",
 		mpPaymentID, booking.ID, cause))
 }
 

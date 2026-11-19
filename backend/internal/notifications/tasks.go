@@ -109,8 +109,16 @@ type BookingConfirmation struct {
 	DepositAmount    string `json:"deposit_amount"`
 	BalanceAmount    string `json:"balance_amount"`
 	CancellationLine string `json:"cancellation_line"`
+	// PaymentState is what was collected (see PaymentState in copy.go), which
+	// decides whether the email talks about a seña, a full payment or nothing.
+	PaymentState string `json:"payment_state"`
 
-	// OwnerID is the complex owner, who is emailed separately about the sale.
+	// ComplexPhone is the complex's phone, which the email offers as the way
+	// to reach the venue. Empty leaves the line without a number.
+	ComplexPhone string `json:"complex_phone"`
+
+	// OwnerID is the complex owner, who is emailed separately about the sale
+	// and whose address the client's email replies to.
 	OwnerID string `json:"owner_id"`
 
 	// BookingID identifies the booking this is about. It is the business half
@@ -146,11 +154,24 @@ type Reminder struct {
 	// line uses.
 	MapsURL string `json:"maps_url"`
 
+	// ComplexPhone is the complex's phone, which the email offers as the way
+	// to reach the venue. Empty leaves the line without a number.
+	ComplexPhone string `json:"complex_phone,omitempty"`
+	// OwnerID is the complex owner, whose address the reply goes to.
+	OwnerID string `json:"owner_id,omitempty"`
+
 	// BookingID identifies the booking this is about. It is the business half
-	// of the queue's deduplication key (JOB-04) and never travels into the
-	// payload — the workers do not read it, and a durable queue should not
-	// store a field nobody consumes.
-	BookingID string `json:"-"`
+	// of the queue's deduplication key (JOB-04), and it travels in the payload
+	// because the worker reads the booking back before sending: a reminder
+	// whose booking was cancelled, or has already begun, is dropped. A reminder
+	// queued before this field existed has none and is sent as it was.
+	BookingID string `json:"booking_id,omitempty"`
+}
+
+// clientContact is the reminder's contact in the shape the other client emails
+// carry it.
+func (r Reminder) clientContact() clientContact {
+	return clientContact{ComplexPhone: r.ComplexPhone, OwnerID: r.OwnerID}
 }
 
 // Cancellation is the notice sent when a booking is cancelled.
@@ -179,6 +200,10 @@ type Cancellation struct {
 	// SourceClientCancel. OwnerID is the complex owner, resolved at delivery time.
 	ClientName string `json:"client_name"`
 	OwnerID    string `json:"owner_id"`
+
+	// ComplexPhone is the complex's phone, which the email offers as the way
+	// to reach the venue. Empty leaves the line without a number.
+	ComplexPhone string `json:"complex_phone"`
 
 	// Source names the flow that cancelled the booking. It decides whether the
 	// owner is emailed, and is a log field otherwise.
@@ -211,6 +236,20 @@ type Refund struct {
 	Amount      string `json:"amount"`
 	// BookURL is the booking page, absolute.
 	BookURL string `json:"book_url"`
+
+	// Cancelled says this refund also cancelled the booking (MercadoPago
+	// refunded a live booking on its own side). The client's one email then
+	// says the booking is off too, naming it by CourtName, Date and StartTime.
+	Cancelled bool   `json:"-"`
+	CourtName string `json:"-"`
+	Date      string `json:"-"`
+	StartTime string `json:"-"`
+
+	// ComplexPhone is the complex's phone, which the email offers as the way
+	// to reach the venue. Empty leaves the line without a number.
+	ComplexPhone string `json:"-"`
+	// OwnerID is the complex owner, whose address the reply goes to.
+	OwnerID string `json:"-"`
 
 	// BookingID identifies the booking this is about. It is the business half
 	// of the queue's deduplication key (JOB-04) and never travels into the
@@ -292,6 +331,17 @@ type bookingConfirmationEmail struct {
 	DepositAmount    string `json:"deposit_amount"`
 	BalanceAmount    string `json:"balance_amount"`
 	CancellationLine string `json:"cancellation_line"`
+	PaymentState     string `json:"payment_state,omitempty"`
+	clientContact
+}
+
+// clientContact is the complex's contact a client email carries: its phone,
+// and the owner whose current address the reply goes to, resolved at delivery
+// like every owner address. Both are absent from a task queued before they
+// existed, and the email then offers what it has.
+type clientContact struct {
+	ComplexPhone string `json:"complex_phone,omitempty"`
+	OwnerID      string `json:"owner_id,omitempty"`
 }
 
 // bookingCancelledEmail and depositRefundedEmail are what their email workers
@@ -307,6 +357,7 @@ type bookingCancelledEmail struct {
 	RefundLine   string `json:"refund_line"`
 	RefundAmount string `json:"refund_amount"`
 	BookURL      string `json:"book_url"`
+	clientContact
 }
 
 type depositRefundedEmail struct {
@@ -314,6 +365,11 @@ type depositRefundedEmail struct {
 	ComplexName string `json:"complex_name"`
 	Amount      string `json:"amount"`
 	BookURL     string `json:"book_url"`
+	Cancelled   bool   `json:"cancelled,omitempty"`
+	CourtName   string `json:"court_name,omitempty"`
+	Date        string `json:"date,omitempty"`
+	StartTime   string `json:"start_time,omitempty"`
+	clientContact
 }
 
 // ownerNewBooking tells the complex owner a booking was made. The owner is

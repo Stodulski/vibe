@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/jobs"
+	"github.com/stodulski/vibe-server/internal/mailer"
 )
 
 // Queue is the durable task queue this package publishes to and consumes from.
@@ -33,10 +36,13 @@ type Queue interface {
 
 // Mailer is the mail side of delivery.
 type Mailer interface {
-	SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine string) error
-	SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL string) error
-	SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string) error
-	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string) error
+	// The client emails about a booking, a fixed booking or an event end with
+	// a mailer.Contact: the complex's phone, and the owner's address as the
+	// reply-to. See contact.go.
+	SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine, paymentState string, contact mailer.Contact) error
+	SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, when, address, mapsURL, balanceAmount, cancelURL string, contact mailer.Contact) error
+	SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string, contact mailer.Contact) error
+	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact mailer.Contact) error
 	SendOwnerNewBooking(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
@@ -46,12 +52,12 @@ type Mailer interface {
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
 	// SendSeriesCreated and SendSeriesCancelled are the two notices of a fixed
 	// weekly booking. See series.go.
-	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string) error
-	SendSeriesCancelled(ctx context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string) error
+	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error
+	SendSeriesCancelled(ctx context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string, contact mailer.Contact) error
 	// SendEventRegistered and SendEventCancelled are the two notices of an
 	// open-play event sign-up. See events.go.
-	SendEventRegistered(ctx context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string) error
-	SendEventCancelled(ctx context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string) error
+	SendEventRegistered(ctx context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string, contact mailer.Contact) error
+	SendEventCancelled(ctx context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string, contact mailer.Contact) error
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 	SendWaitlistPlaceFreed(ctx context.Context, to, complexName, placeLabel, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error
@@ -67,6 +73,13 @@ type UserReader interface {
 	GetByID(ctx context.Context, id uuid.UUID) (*authstore.User, error)
 }
 
+// BookingReader reads a booking back at delivery time, so the reminder worker
+// can drop a reminder whose booking was cancelled or has already begun since it
+// was queued.
+type BookingReader interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*bookingstore.Booking, error)
+}
+
 // Service enqueues notifications and, on the worker side, delivers them.
 //
 // Unlike circuitbreaker.CircuitBreaker and auth.TokenBlacklist, this type is
@@ -79,19 +92,24 @@ type UserReader interface {
 // strictly worse than crashing. The guard belongs at boot (see
 // newApplication/validateDeps in cmd/api), not on every method here.
 type Service struct {
-	queue  Queue
-	mailer Mailer
-	users  UserReader
-	logger *slog.Logger
+	queue    Queue
+	mailer   Mailer
+	users    UserReader
+	bookings BookingReader
+	logger   *slog.Logger
+	// now is the worker's clock, a field so a test can pin it.
+	now func() time.Time
 }
 
 // NewService returns a Service.
-func NewService(queue Queue, mailer Mailer, users UserReader, logger *slog.Logger) *Service {
+func NewService(queue Queue, mailer Mailer, users UserReader, bookings BookingReader, logger *slog.Logger) *Service {
 	return &Service{
-		queue:  queue,
-		mailer: mailer,
-		users:  users,
-		logger: logger,
+		queue:    queue,
+		mailer:   mailer,
+		users:    users,
+		bookings: bookings,
+		logger:   logger,
+		now:      time.Now,
 	}
 }
 
@@ -100,15 +118,25 @@ func NewService(queue Queue, mailer Mailer, users UserReader, logger *slog.Logge
 //
 // Each recipient is independent: a client with no email is skipped, and the
 // owner is told either way.
-func (s *Service) BookingConfirmed(c BookingConfirmation) {
+//
+// It returns the queue's refusal of the client's confirmation, which is the
+// notice a client acts on: the caller has the booking id and the context to
+// report it so it can be resent. The owner's notice is still queued after a
+// refusal, and its own failure is logged by the queue.
+func (s *Service) BookingConfirmed(c BookingConfirmation) error {
+	var err error
 	if c.Email != "" {
-		s.queue.Enqueue(TaskEmailBookingConfirmation, bookingConfirmationEmail{
+		if qerr := s.queue.TryEnqueue(TaskEmailBookingConfirmation, bookingConfirmationEmail{
 			Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 			Date: c.Date, StartTime: c.StartTime,
 			Address: c.Address, MapsURL: c.MapsURL,
 			CancelURL:     c.CancelURL,
 			DepositAmount: c.DepositAmount, BalanceAmount: c.BalanceAmount, CancellationLine: c.CancellationLine,
-		}, dedup(TaskEmailBookingConfirmation, c.Email, c.BookingID))
+			PaymentState:  c.PaymentState,
+			clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
+		}, dedup(TaskEmailBookingConfirmation, c.Email, c.BookingID)); qerr != nil {
+			err = fmt.Errorf("queue booking confirmation email: %w", qerr)
+		}
 	}
 
 	// The owner is told about a sale, not about their own data entry. An owner
@@ -120,6 +148,7 @@ func (s *Service) BookingConfirmed(c BookingConfirmation) {
 			ClientName: c.ClientName, Date: c.Date, StartTime: c.StartTime,
 		}, dedup(TaskEmailOwnerNewBooking, c.OwnerID, c.BookingID))
 	}
+	return err
 }
 
 // ReminderDue queues the client's two-hour reminder by email.
@@ -137,14 +166,19 @@ func (s *Service) ReminderDue(rem Reminder) error {
 }
 
 // BookingCancelled notifies the client that their booking is off, and what
-// became of their deposit.
-func (s *Service) BookingCancelled(c Cancellation) {
+// became of their deposit. It returns the queue's refusal of the client's
+// notice, for the caller to report with the booking it is about.
+func (s *Service) BookingCancelled(c Cancellation) error {
+	var err error
 	if c.Email != "" {
-		s.queue.Enqueue(TaskEmailBookingCancelled, bookingCancelledEmail{
+		if qerr := s.queue.TryEnqueue(TaskEmailBookingCancelled, bookingCancelledEmail{
 			Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 			Date: c.Date, StartTime: c.StartTime,
 			RefundLine: c.RefundLine, RefundAmount: c.RefundAmount, BookURL: c.BookURL,
-		}, dedup(TaskEmailBookingCancelled, c.Email, c.BookingID))
+			clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
+		}, dedup(TaskEmailBookingCancelled, c.Email, c.BookingID)); qerr != nil {
+			err = fmt.Errorf("queue booking cancelled email: %w", qerr)
+		}
 	}
 
 	// The owner is told only when the client cancelled: that is the one way a
@@ -155,11 +189,13 @@ func (s *Service) BookingCancelled(c Cancellation) {
 			ClientName: c.ClientName, Date: c.Date, StartTime: c.StartTime,
 		}, dedup(TaskEmailOwnerBookingCancelled, c.OwnerID, c.BookingID))
 	}
+	return err
 }
 
 // OwnerBookingRefunded tells the complex owner that a refund MercadoPago issued
 // on its own side cancelled a live booking. It is the owner's only notice for
-// that cancellation; the client is told about the money through DepositRefunded.
+// that cancellation; the client is told through DepositRefunded, with
+// Refund.Cancelled set so their one email says the booking is off as well.
 func (s *Service) OwnerBookingRefunded(r OwnerBookingRefund) {
 	if r.OwnerID == "" {
 		return
@@ -170,14 +206,22 @@ func (s *Service) OwnerBookingRefunded(r OwnerBookingRefund) {
 	}, dedup(TaskEmailOwnerBookingRefunded, r.OwnerID, r.BookingID))
 }
 
-// DepositRefunded notifies the client that their deposit is on its way back.
-func (s *Service) DepositRefunded(ref Refund) {
-	if ref.Email != "" {
-		s.queue.Enqueue(TaskEmailDepositRefunded, depositRefundedEmail{
-			Email: ref.Email, ComplexName: ref.ComplexName,
-			Amount: ref.Amount, BookURL: ref.BookURL,
-		}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref)))
+// DepositRefunded notifies the client that their money is on its way back,
+// and, when ref.Cancelled, that the refund cancelled their booking. It returns
+// the queue's refusal, for the caller to report with the booking.
+func (s *Service) DepositRefunded(ref Refund) error {
+	if ref.Email == "" {
+		return nil
 	}
+	if err := s.queue.TryEnqueue(TaskEmailDepositRefunded, depositRefundedEmail{
+		Email: ref.Email, ComplexName: ref.ComplexName,
+		Amount: ref.Amount, BookURL: ref.BookURL,
+		Cancelled: ref.Cancelled, CourtName: ref.CourtName, Date: ref.Date, StartTime: ref.StartTime,
+		clientContact: clientContact{ComplexPhone: ref.ComplexPhone, OwnerID: ref.OwnerID},
+	}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref))); err != nil {
+		return fmt.Errorf("queue refund email: %w", err)
+	}
+	return nil
 }
 
 // refundSubject is what a refund notice is about, for its deduplication key: the

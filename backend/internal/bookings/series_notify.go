@@ -36,15 +36,17 @@ func (s *Service) notifySeriesCreated(ctx context.Context, complex *complexstore
 		return
 	}
 	c := notifications.SeriesCreation{
-		Email:       *client.Email,
-		ComplexName: complex.Name,
-		CourtName:   court.Name,
-		Weekday:     time.Weekday(ser.Weekday),
-		Hours:       seriesHours(ser),
-		From:        seriesDay(ser.StartsOn).Format("02/01"),
-		Address:     booklink.Address(complex.Address, complex.City),
-		MapsURL:     booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude),
-		SeriesID:    ser.ID.String(),
+		Email:        *client.Email,
+		ComplexName:  complex.Name,
+		CourtName:    court.Name,
+		Weekday:      time.Weekday(ser.Weekday),
+		Hours:        seriesHours(ser),
+		From:         seriesDay(ser.StartsOn).Format("02/01"),
+		Address:      booklink.Address(complex.Address, complex.City),
+		MapsURL:      booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude),
+		ComplexPhone: complex.Phone,
+		OwnerID:      complex.OwnerID.String(),
+		SeriesID:     ser.ID.String(),
 	}
 	if ser.EndsOn != nil {
 		c.Until = seriesDay(*ser.EndsOn).Format("02/01")
@@ -71,10 +73,12 @@ func (s *Service) notifySeriesCancelled(ctx context.Context, complex *complexsto
 		Hours:       seriesHours(ser),
 		// The first date the series stops holding, so that "lunes 14/12" is
 		// always a Monday of the series even when the owner picked another day.
-		From:     firstRuleDate(ser, from).Format("02/01"),
-		KeptPaid: keptPaid,
-		BookURL:  booklink.Book(s.cfg.PublicURL, complex.Slug),
-		SeriesID: ser.ID.String(),
+		From:         firstRuleDate(ser, from).Format("02/01"),
+		KeptPaid:     keptPaid,
+		BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
+		ComplexPhone: complex.Phone,
+		OwnerID:      complex.OwnerID.String(),
+		SeriesID:     ser.ID.String(),
 	}
 	if client.Email != nil {
 		c.Email = *client.Email

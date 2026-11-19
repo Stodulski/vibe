@@ -49,6 +49,15 @@ type Querier interface {
 	// Marks notified, and returns with what the email needs, every entry still
 	// waiting on one grid whose position is among the free ones given, each written
 	// "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
+	//
+	// It also claims, in the same statement, the same address's other entries for
+	// an hour one of its entries is claimed at, on courts that are not free: one
+	// person waiting on three courts at 19:00 gets one email for 19:00, not one per
+	// court, and is not emailed again this round when a second of those courts
+	// frees. The caller sends one email per address and hour, pointing at a court
+	// that is free. An entry claimed this way while its own court is still taken
+	// is put back on the list by RearmTakenSlotEntries, like any told entry whose
+	// slot is taken.
 	ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEntriesParams) ([]ClaimFreeSlotEntriesRow, error)
 	// Claims, in one statement, every entry still waiting for an event that has a
 	// free spot now and has not started, and returns what the email needs. A spot

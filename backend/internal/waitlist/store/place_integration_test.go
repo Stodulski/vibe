@@ -571,3 +571,67 @@ func TestToldEntriesWaitAgainWhenTheirEventIsFullAgain(t *testing.T) {
 		t.Fatalf("a full event tells nobody; got %d (%v)", len(got), err)
 	}
 }
+
+// S6: one address waiting on two courts at 19:00, only one of them free, is
+// claimed on both in one statement: the free court's entry (Free) and the
+// other court's (not Free), so the person gets one email for the hour and the
+// second court freeing later in the round finds nothing of theirs waiting.
+// Another address's 19:00 on the taken court, and the same address's 20:30,
+// are left waiting.
+func TestClaimTakesAnAddressSiblingEntriesForTheSameHour(t *testing.T) {
+	f := datatest.Isolated(t)
+	st := newPlaceStore(f)
+	ctx := f.Scoped(context.Background())
+	var courtB uuid.UUID
+	if err := f.DB.QueryRow(ctx, `INSERT INTO courts (complex_id, name) VALUES ($1, 'Court 2') RETURNING id`,
+		f.ComplexID).Scan(&courtB); err != nil {
+		t.Fatal(err)
+	}
+	day := timezone.Today().AddDate(0, 0, 3)
+	for _, e := range []struct {
+		email, start string
+		court        uuid.UUID
+	}{
+		{"ana@example.com", "19:00", f.CourtID}, {"ana@example.com", "19:00", courtB},
+		{"ana@example.com", "20:30", courtB}, {"bruno@example.com", "19:00", courtB},
+	} {
+		if err := st.InsertSlot(ctx, store.NewSlotEntry{ComplexID: f.ComplexID, Email: e.email,
+			CourtID: e.court, Day: day, StartTime: e.start, DurationMinutes: 90}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	grids, err := st.ListWaitingGrids(sweepCtx(), timezone.Today().AddDate(0, 0, -1), nil, 100)
+	if err != nil || len(grids) != 1 {
+		t.Fatalf("want one grid; got %+v (%v)", grids, err)
+	}
+
+	claimed, err := st.ClaimFreeSlots(sweepCtx(), grids[0], []string{f.CourtID.String() + " 19:00"})
+	if err != nil || len(claimed) != 2 {
+		t.Fatalf("want Ana's two 19:00 entries claimed; got %+v (%v)", claimed, err)
+	}
+	free := 0
+	for _, e := range claimed {
+		if e.Email != "ana@example.com" || e.StartTime != "19:00" {
+			t.Errorf("claimed %+v; only Ana's 19:00 entries belong to this claim", e)
+		}
+		if e.Free != (e.CourtID == f.CourtID) {
+			t.Errorf("entry on court %s: Free = %v", e.CourtID, e.Free)
+		}
+		if e.Free {
+			free++
+		}
+	}
+	if free != 1 {
+		t.Errorf("want exactly the free court's entry marked Free; got %d", free)
+	}
+	if n, _ := st.CountWaiting(ctx, f.ComplexID, "ana@example.com"); n != 1 {
+		t.Errorf("Ana's 20:30 entry still waits; got %d waiting", n)
+	}
+	if n, _ := st.CountWaiting(ctx, f.ComplexID, "bruno@example.com"); n != 1 {
+		t.Errorf("Bruno's 19:00 on the taken court still waits; got %d waiting", n)
+	}
+	if again, err := st.ClaimFreeSlots(sweepCtx(), grids[0], []string{courtB.String() + " 19:00"}); err != nil ||
+		len(again) != 1 || again[0].Email != "bruno@example.com" {
+		t.Fatalf("court 2 freeing later reaches Bruno alone; got %+v (%v)", again, err)
+	}
+}

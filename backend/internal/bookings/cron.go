@@ -82,6 +82,8 @@ func (s *Service) Reminder2h(ctx context.Context) {
 			BalanceAmount: notifications.BalanceAmount(b.Price, b.DepositAmount, b.CollectionStatus.String()),
 			MapsURL:       booklink.MapsURL(b.ComplexName, b.ComplexAddress, b.ComplexCity, b.ComplexLatitude, b.ComplexLongitude),
 			CancelURL:     cancelURL,
+			ComplexPhone:  b.ComplexPhone,
+			OwnerID:       ownerIDOf(b),
 			BookingID:     b.ID.String(),
 		}); err != nil {
 			// Not queued, so not flagged: the next tick selects this booking again
@@ -255,7 +257,7 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		return nil
 	}
 
-	s.notify.BookingCancelled(notifications.Cancellation{
+	if err := s.notify.BookingCancelled(notifications.Cancellation{
 		Email:       b.ClientEmail,
 		ComplexName: b.ComplexName,
 		CourtName:   b.CourtName,
@@ -269,9 +271,18 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		BookURL:    booklink.Book(s.cfg.PublicURL, b.ComplexSlug),
 		// Never owner-facing: the owner was not told about this booking
 		// (see SourceExpiredUnpaid), so there is nothing to take back.
-		Source:    notifications.SourceExpiredUnpaid,
-		BookingID: b.ID.String(),
-	})
+		Source: notifications.SourceExpiredUnpaid,
+		// No OwnerID: on a Cancellation it is also who the owner's notice
+		// goes to, and the owner never had this booking. The client still
+		// gets the complex's phone.
+		ComplexPhone: b.ComplexPhone,
+		BookingID:    b.ID.String(),
+	}); err != nil {
+		// The booking is already released; the notice is reported with it so
+		// it can be resent, rather than failing the sweep for every other row.
+		s.logger.Error("cron_release_expired_payments: the cancellation notice was not queued",
+			"error", err, "booking_id", b.ID)
+	}
 	return nil
 }
 
@@ -321,3 +332,12 @@ func (s *Service) CleanLinkTokens(ctx context.Context) {
 // the expiry sweep reads can stand in for a complex wherever a seller
 // credential is all that is needed.
 var _ sellerCredentials = (*bookingstore.CronBooking)(nil)
+
+// ownerIDOf is the complex owner a client email replies to, or empty when the
+// row carries none.
+func ownerIDOf(b *bookingstore.CronBooking) string {
+	if b.ComplexOwnerID == uuid.Nil {
+		return ""
+	}
+	return b.ComplexOwnerID.String()
+}

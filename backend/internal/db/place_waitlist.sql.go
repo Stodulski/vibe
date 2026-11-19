@@ -22,7 +22,15 @@ WHERE ct.id = w.court_id
   AND w.complex_id = $1::uuid
   AND w.date = $2::date
   AND w.duration_minutes = $3::int
-  AND (w.court_id::text || ' ' || to_char(w.start_time, 'HH24:MI')) = ANY($4::text[])
+  AND (w.email, w.start_time) IN (
+      SELECT f.email, f.start_time
+      FROM place_waitlist_entries f
+      WHERE f.kind = 'slot'
+        AND f.notified_at IS NULL
+        AND f.complex_id = $1::uuid
+        AND f.date = $2::date
+        AND f.duration_minutes = $3::int
+        AND (f.court_id::text || ' ' || to_char(f.start_time, 'HH24:MI')) = ANY($4::text[]))
 RETURNING w.id, w.notified_at, w.email, w.court_id, ct.name AS court_name, ct.sport::text AS court_sport, w.date, w.start_time,
           cx.name AS complex_name, cx.slug AS complex_slug
 `
@@ -50,6 +58,15 @@ type ClaimFreeSlotEntriesRow struct {
 // Marks notified, and returns with what the email needs, every entry still
 // waiting on one grid whose position is among the free ones given, each written
 // "<court id> HH:MM". The notified_at IS NULL guard makes it one-shot.
+//
+// It also claims, in the same statement, the same address's other entries for
+// an hour one of its entries is claimed at, on courts that are not free: one
+// person waiting on three courts at 19:00 gets one email for 19:00, not one per
+// court, and is not emailed again this round when a second of those courts
+// frees. The caller sends one email per address and hour, pointing at a court
+// that is free. An entry claimed this way while its own court is still taken
+// is put back on the list by RearmTakenSlotEntries, like any told entry whose
+// slot is taken.
 func (q *Queries) ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEntriesParams) ([]ClaimFreeSlotEntriesRow, error) {
 	rows, err := q.db.Query(ctx, claimFreeSlotEntries,
 		arg.ComplexID,

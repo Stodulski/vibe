@@ -7,6 +7,7 @@ import (
 	"time"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/mailer"
 )
 
 // This file holds the sentences a client is told about their money and their
@@ -75,6 +76,22 @@ func PaymentAmounts(priceCentavos, depositCentavos int, collectionStatus string)
 			return FormatARS(0), FormatARS(0)
 		}
 		return FormatARS(0), FormatARS(priceCentavos)
+	}
+}
+
+// PaymentState is what was collected on a booking, in the words the
+// confirmation email chooses its sentence by (mailer.PaidNothing, PaidDeposit,
+// PaidFull): a booking a staff member entered with nothing collected must not
+// read "Seña abonada: $0" nor promise a refund of it, and one paid in full is
+// not a seña.
+func PaymentState(collectionStatus string) string {
+	switch collectionStatus {
+	case bookingstore.CollectionStatusFullyPaid:
+		return mailer.PaidFull
+	case bookingstore.CollectionStatusDepositPaid:
+		return mailer.PaidDeposit
+	default:
+		return mailer.PaidNothing
 	}
 }
 

@@ -1294,11 +1294,15 @@ type CronBooking struct {
 	// look up: the reminder tells a client where to go and offers a map, and
 	// the expiry sweep's cancellation offers the venue's booking page. Every
 	// one of those is a per-booking query the enriched read exists to avoid.
-	ComplexSlug       string
-	ComplexAddress    string
-	ComplexCity       string
-	ComplexLatitude   *float64
-	ComplexLongitude  *float64
+	ComplexSlug      string
+	ComplexAddress   string
+	ComplexCity      string
+	ComplexLatitude  *float64
+	ComplexLongitude *float64
+	// ComplexPhone and ComplexOwnerID are the complex's contact the client's
+	// email carries: its phone, and the owner the reply goes to.
+	ComplexPhone      string
+	ComplexOwnerID    uuid.UUID
 	mpAccessToken     *string
 	mpAccessTokenErr  error
 	mpRefreshToken    *string
@@ -1324,8 +1328,14 @@ type CronBooking struct {
 // testable: a reminder window that only misbehaves between 22:00 and midnight
 // cannot be pinned by a suite that reads the database's own NOW().
 //
-// The created_at floor is compared against the same instant, in absolute time.
-// It used to read `b.created_at < NOW() AT TIME ZONE '<zone>' - INTERVAL '2 hours'`,
+// A booking is reminded only when it was made more than two hours before it
+// starts, and then from the moment it enters the window, two hours before the
+// start. The floor used to be `created_at < now - 2 hours`, which held a
+// booking made three hours ahead back until one hour before its game: the
+// reminder came late, or not at all once the sweep had moved on. A booking
+// made inside the two hours gets none: its confirmation is fresh.
+//
+// Before that, the floor read `b.created_at < NOW() AT TIME ZONE '<zone>' - INTERVAL '2 hours'`,
 // and that AT TIME ZONE strips the offset off a timestamptz to produce a naked
 // local timestamp, which the comparison against timestamptz created_at then
 // re-reads in the session's TimeZone — UTC on this server. The clause therefore
@@ -1339,7 +1349,8 @@ func (m *Store) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]
 		SELECT `+BookingColumns+`,
 		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
-		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
+		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
+		       cx.phone, cx.owner_id
 		FROM bookings b
 		LEFT JOIN clients cl ON cl.id = b.client_id
 		JOIN complexes cx ON cx.id = b.complex_id
@@ -1348,7 +1359,7 @@ func (m *Store) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]
 		  AND booking_starts_at(b.date, b.start_time) <= $1::timestamptz + INTERVAL '2 hours'
 		  AND b.status = 'confirmed'
 		  AND b.reminder_sent_2h = false
-		  AND b.created_at < $1::timestamptz - INTERVAL '2 hours'`, data.TimeToPg(now))
+		  AND b.created_at < booking_starts_at(b.date, b.start_time) - INTERVAL '2 hours'`, data.TimeToPg(now))
 	if err != nil {
 		return nil, err
 	}
@@ -1387,7 +1398,8 @@ func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string
 		SELECT `+BookingColumns+`,
 		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
-		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours
+		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
+		       cx.phone, cx.owner_id
 		FROM bookings b
 		LEFT JOIN clients cl ON cl.id = b.client_id
 		JOIN complexes cx ON cx.id = b.complex_id
@@ -1418,6 +1430,8 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 		var latitude, longitude pgtype.Float8
 		var mpAccessToken, mpRefreshToken pgtype.Text
 		var cancellationHours int32
+		var complexPhone string
+		var complexOwnerID pgtype.UUID
 		err := rows.Scan(
 			&b.ID, &b.ComplexID, &b.CourtID, &b.ClientID,
 			&b.Span,
@@ -1429,6 +1443,7 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 			&clientPhone, &clientEmail, &complexName, &courtName,
 			&complexSlug, &complexAddress, &complexCity, &latitude, &longitude,
 			&mpAccessToken, &mpRefreshToken, &cancellationHours,
+			&complexPhone, &complexOwnerID,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("bookings: scan cron booking row: %w", err)
@@ -1446,6 +1461,8 @@ func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, erro
 			ComplexLatitude:   data.PgToFloat8Ptr(latitude),
 			ComplexLongitude:  data.PgToFloat8Ptr(longitude),
 			CancellationHours: int(cancellationHours),
+			ComplexPhone:      complexPhone,
+			ComplexOwnerID:    data.PgToUUID(complexOwnerID),
 		}
 		cb.mpAccessToken, cb.mpAccessTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.AccessTokenColumn, data.PgToTextPtr(mpAccessToken))
 		cb.mpRefreshToken, cb.mpRefreshTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.RefreshTokenColumn, data.PgToTextPtr(mpRefreshToken))

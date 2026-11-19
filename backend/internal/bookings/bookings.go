@@ -208,8 +208,10 @@ type LinkTokenStore interface {
 
 // Notifier tells the client what happened to their booking.
 type Notifier interface {
-	BookingConfirmed(c notifications.BookingConfirmation)
-	BookingCancelled(c notifications.Cancellation)
+	// BookingConfirmed and BookingCancelled return an error when the client's
+	// notice was not queued, for the caller to report with the booking.
+	BookingConfirmed(c notifications.BookingConfirmation) error
+	BookingCancelled(c notifications.Cancellation) error
 	// SeriesCreated and SeriesCancelled are the one notice per event of a fixed
 	// weekly booking.
 	SeriesCreated(c notifications.SeriesCreation)

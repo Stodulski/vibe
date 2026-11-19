@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -73,6 +74,9 @@ type FreedSlotEntry struct {
 	StartTime   string // "HH:MM"
 	ComplexName string
 	ComplexSlug string
+	// Free says this entry's own court is free at its hour. An entry claimed
+	// with a sibling of the same address and hour on another court is not.
+	Free bool
 }
 
 // notFound turns "no row" into data.ErrRecordNotFound.
@@ -232,8 +236,9 @@ func (s *PlaceStore) ListWaitingGrids(ctx context.Context, fromDay time.Time, af
 }
 
 // ClaimFreeSlots marks notified, and returns, every entry still waiting on grid
-// whose position is among positions, each "<court id> HH:MM". A row is claimed
-// at most once.
+// whose position is among positions, each "<court id> HH:MM", together with the
+// same address's other entries for that hour (see ClaimFreeSlotEntries). A row
+// is claimed at most once.
 func (s *PlaceStore) ClaimFreeSlots(ctx context.Context, grid SlotGrid, positions []string) ([]FreedSlotEntry, error) {
 	if len(positions) == 0 {
 		return nil, nil
@@ -255,6 +260,7 @@ func (s *PlaceStore) ClaimFreeSlots(ctx context.Context, grid SlotGrid, position
 			ID: data.PgToUUID(r.ID), NotifiedAt: data.PgToTime(r.NotifiedAt), Email: r.Email, CourtID: data.PgToUUID(r.CourtID), CourtName: r.CourtName, CourtSport: r.CourtSport,
 			Day: data.PgToDate(r.Date), StartTime: data.PgToTimeStr(r.StartTime),
 			ComplexName: r.ComplexName, ComplexSlug: r.ComplexSlug,
+			Free: slices.Contains(positions, data.PgToUUID(r.CourtID).String()+" "+data.PgToTimeStr(r.StartTime)),
 		})
 	}
 	return out, nil

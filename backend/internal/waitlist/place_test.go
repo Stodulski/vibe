@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -122,19 +123,28 @@ func (f *fakePlaceStore) ListWaitingGrids(_ context.Context, _ time.Time, after 
 	return grids, nil
 }
 
-// ClaimFreeSlots claims, once, the waiting entries of grid at the positions given.
+// ClaimFreeSlots answers like the query: it claims, once, the waiting entries of
+// grid at the positions given, and with them the same address's other waiting
+// entries for that hour.
 func (f *fakePlaceStore) ClaimFreeSlots(_ context.Context, g store.SlotGrid, positions []string) ([]store.FreedSlotEntry, error) {
+	type key struct{ email, start string }
+	inGrid := func(e *fakeSlot) bool {
+		return !e.notified && e.Day.Equal(g.Day) && e.duration == g.DurationMinutes
+	}
+	free := func(e *fakeSlot) bool { return slices.Contains(positions, e.CourtID.String()+" "+e.StartTime) }
+	hours := map[key]bool{}
+	for _, e := range f.waitingSlots {
+		if inGrid(e) && free(e) {
+			hours[key{e.Email, e.StartTime}] = true
+		}
+	}
 	var out []store.FreedSlotEntry
 	for _, e := range f.waitingSlots {
-		if e.notified || !e.Day.Equal(g.Day) || e.duration != g.DurationMinutes {
-			continue
-		}
-		for _, pos := range positions {
-			if pos == e.CourtID.String()+" "+e.StartTime {
-				e.notified = true
-				out = append(out, e.FreedSlotEntry)
-				break
-			}
+		if inGrid(e) && hours[key{e.Email, e.StartTime}] {
+			e.notified = true
+			claimed := e.FreedSlotEntry
+			claimed.Free = free(e)
+			out = append(out, claimed)
 		}
 	}
 	return out, nil
@@ -174,8 +184,10 @@ type fakeGrid struct {
 	taken   []string
 	freeOn  map[string][]string
 	// more are further courts on every grid, each with its own taken starts.
-	more  map[string][]string
-	reads int
+	more map[string][]string
+	// freeAlso are further courts whose free starts are the main court's.
+	freeAlso []string
+	reads    int
 }
 
 func (g *fakeGrid) Availability(_ context.Context, _, dateStr string, _ time.Time, duration int) (*courts.AvailabilityResponse, error) {
@@ -196,6 +208,13 @@ func (g *fakeGrid) Availability(_ context.Context, _, dateStr string, _ time.Tim
 		other := courts.CourtAvailability{CourtID: id}
 		for _, s := range takenThere {
 			other.Slots = append(other.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: false})
+		}
+		out = append(out, other)
+	}
+	for _, id := range g.freeAlso {
+		other := courts.CourtAvailability{CourtID: id}
+		for _, s := range free {
+			other.Slots = append(other.Slots, courts.AvailabilitySlot{StartTime: s, StartMin: slots.ToMinutes(s), Available: true})
 		}
 		out = append(out, other)
 	}
@@ -416,6 +435,40 @@ func TestSweepEmailsOnlyTheSlotsTheGridSaysAreFree(t *testing.T) {
 	}
 }
 
+// S6: a person waiting on several courts of the same hour gets one email for
+// that hour, whether one of those courts frees or several do, pointing at a free
+// court; every one of their entries for the hour is claimed with it, so a court
+// that frees later in the round sends nothing more. Someone else waiting on the
+// same court still gets their own email.
+func TestSweepEmailsAPersonOncePerFreedHourAcrossCourts(t *testing.T) {
+	courtA, courtB, courtC := uuid.New(), uuid.New(), uuid.New()
+	wednesday := time.Date(2026, time.November, 18, 0, 0, 0, 0, time.UTC)
+	onA, onB, onC := slotEntry(courtA, wednesday, "19:00", 90), slotEntry(courtB, wednesday, "19:00", 90), slotEntry(courtC, wednesday, "19:00", 90)
+	bruno := slotEntry(courtA, wednesday, "19:00", 90)
+	bruno.Email = "bruno@example.com"
+	st := &fakePlaceStore{waitingSlots: []*fakeSlot{onC, onA, onB, bruno}}
+	// A and B are free at 19:00, C is taken.
+	g := &fakeGrid{courtID: courtA.String(), free: []string{"19:00"}, freeAlso: []string{courtB.String()},
+		more: map[string][]string{courtC.String(): {"19:00"}}}
+	n := &fakePlaceNotifier{}
+	newPlaceService(st, activeComplex(uuid.New()), g, n).Sweep(t.Context())
+
+	perEmail := map[string]int{}
+	for _, e := range n.sent {
+		perEmail[e.Email]++
+		if e.Email == "ana@example.com" && !strings.Contains(e.BookURL, "court="+courtA.String()) &&
+			!strings.Contains(e.BookURL, "court="+courtB.String()) {
+			t.Errorf("Ana's link must open a free court; got %s", e.BookURL)
+		}
+	}
+	if perEmail["ana@example.com"] != 1 || perEmail["bruno@example.com"] != 1 || len(n.sent) != 2 {
+		t.Fatalf("want one email for Ana and one for Bruno; got %v", perEmail)
+	}
+	if !onA.notified || !onB.notified || !onC.notified {
+		t.Errorf("every entry of Ana's for 19:00 is claimed with the email; A=%v B=%v C=%v", onA.notified, onB.notified, onC.notified)
+	}
+}
+
 // S4: a claimed entry is not emailed again by the next run.
 func TestSweepEmailsASlotEntryOnce(t *testing.T) {
 	courtID := uuid.New()
@@ -579,6 +632,7 @@ func TestSweepTellsEveryoneAgainWhenATakenSlotFreesOnceMore(t *testing.T) {
 	waiting := make([]*fakeSlot, 5)
 	for i := range waiting {
 		waiting[i] = slotEntry(courtID, wednesday, "19:00", 90)
+		waiting[i].Email = fmt.Sprintf("persona%d@example.com", i+1)
 	}
 	st := &fakePlaceStore{waitingSlots: waiting}
 	g := &fakeGrid{courtID: courtID.String(), free: []string{"19:00"}}

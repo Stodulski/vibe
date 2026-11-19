@@ -36,6 +36,11 @@ type SeriesCreation struct {
 	Address string
 	MapsURL string
 
+	// ComplexPhone and OwnerID are the complex's contact the email carries:
+	// its phone, and the owner whose address the reply goes to.
+	ComplexPhone string
+	OwnerID      string
+
 	// SeriesID is the deduplication subject and never travels in the payload.
 	SeriesID string
 }
@@ -56,6 +61,11 @@ type SeriesCancellation struct {
 	// BookURL is the booking page, absolute, for the email.
 	BookURL string
 
+	// ComplexPhone and OwnerID are the complex's contact the email carries:
+	// its phone, and the owner whose address the reply goes to.
+	ComplexPhone string
+	OwnerID      string
+
 	// SeriesID is the deduplication subject, with From: ending the same series
 	// from two dates is two events.
 	SeriesID string
@@ -72,6 +82,7 @@ type seriesCreatedEmail struct {
 	Until       string `json:"until"`
 	Address     string `json:"address"`
 	MapsURL     string `json:"maps_url"`
+	clientContact
 }
 
 type seriesCancelledEmail struct {
@@ -83,6 +94,7 @@ type seriesCancelledEmail struct {
 	From        string `json:"from"`
 	KeptPaid    bool   `json:"kept_paid"`
 	BookURL     string `json:"book_url"`
+	clientContact
 }
 
 var spanishWeekdays = [...]string{"domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"}
@@ -108,6 +120,7 @@ func (s *Service) SeriesCreated(c SeriesCreation) {
 		Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 		Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, From: c.From, Until: c.Until,
 		Address: c.Address, MapsURL: c.MapsURL,
+		clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
 	}, dedup(TaskEmailSeriesCreated, c.Email, c.SeriesID))
 }
 
@@ -124,6 +137,7 @@ func (s *Service) SeriesCancelled(c SeriesCancellation) {
 		Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 		Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, From: c.From,
 		KeptPaid: c.KeptPaid, BookURL: c.BookURL,
+		clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
 	}, dedup(TaskEmailSeriesCancelled, c.Email, subject))
 }
 
@@ -132,10 +146,10 @@ func (s *Service) SeriesCancelled(c SeriesCancellation) {
 func (s *Service) registerSeriesWorkers() {
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCreated, func(ctx context.Context, p seriesCreatedEmail) error {
 		return s.mailer.SendSeriesCreated(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,
-			p.From, p.Until, p.Address, p.MapsURL)
+			p.From, p.Until, p.Address, p.MapsURL, s.contactOf(ctx, p.clientContact))
 	}))
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCancelled, func(ctx context.Context, p seriesCancelledEmail) error {
 		return s.mailer.SendSeriesCancelled(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,
-			p.From, p.KeptPaid, p.BookURL)
+			p.From, p.KeptPaid, p.BookURL, s.contactOf(ctx, p.clientContact))
 	}))
 }

@@ -698,7 +698,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 
 	// Built before the handlers that capture it: auth, payments and bookings
 	// all take notify, and none of them can compile before this line runs.
-	notify := notifications.NewService(queue, mailerClient, d.models.Users, d.logger)
+	notify := notifications.NewService(queue, mailerClient, d.models.Users, d.models.Bookings, d.logger)
 
 	// The waitlist is handed to the bookings service below, so it is built here.
 	waitlistService := waitlist.NewService(d.models.Waitlist, d.models.Complexes, notify, cfg.PublicBaseURL(), d.logger)

@@ -18,11 +18,11 @@ import (
 // before the amount.
 const (
 	// LineRefunded precedes the amount that came back.
-	LineRefunded = "Le devolvimos el pago:"
+	LineRefunded = "Te devolvimos el pago:"
 	// LineRefundQueued says the money is on its way back.
-	LineRefundQueued = "Su pago se está devolviendo y lo verá acreditado en los próximos días."
+	LineRefundQueued = "Tu pago se está devolviendo y lo vas a ver acreditado en los próximos días."
 	// LineKept says the cancellation came too late for a refund.
-	LineKept = "La cancelación fue fuera de plazo, por lo que el pago no se devuelve."
+	LineKept = "La cancelación fue fuera de plazo, así que el pago no se devuelve."
 )
 
 // Day is the event's day as a person reads it: "sábado 15/11".
@@ -42,15 +42,19 @@ func Hours(ev *eventstore.Event) string {
 // Registered is the confirmation of a person's spot.
 func Registered(reg *eventstore.Registration, ev *eventstore.Event, complex *complexstore.Complex, publicURL string) notifications.EventRegistration {
 	n := notifications.EventRegistration{
-		FirstName:      reg.FirstName,
-		ComplexName:    complex.Name,
-		EventName:      ev.Name,
-		Date:           Day(ev),
-		Hours:          Hours(ev),
-		Address:        complex.Address,
+		FirstName:   reg.FirstName,
+		ComplexName: complex.Name,
+		EventName:   ev.Name,
+		Date:        Day(ev),
+		Hours:       Hours(ev),
+		// With the city, as every other email writes it: a street address
+		// alone is ambiguous across towns.
+		Address:        booklink.Address(complex.Address, complex.City),
 		MapsURL:        booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude),
 		Amount:         notifications.FormatARS(reg.Price + reg.ServiceFee),
 		EventURL:       pageOf(publicURL, complex.Slug, ev),
+		ComplexPhone:   complex.Phone,
+		OwnerID:        complex.OwnerID.String(),
 		RegistrationID: reg.ID.String(),
 	}
 	if reg.Email != nil {
@@ -72,6 +76,8 @@ func Cancelled(reg *eventstore.Registration, ev *eventstore.Event, complex *comp
 		ByOwner:        byOwner,
 		RefundLine:     refundLine,
 		EventsURL:      fmt.Sprintf("%s/c/%s", publicURL, complex.Slug),
+		ComplexPhone:   complex.Phone,
+		OwnerID:        complex.OwnerID.String(),
 		RegistrationID: reg.ID.String(),
 	}
 	if refundCentavos > 0 {
