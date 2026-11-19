@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { http, HttpResponse } from 'msw';
 import userEvent from '@testing-library/user-event';
 import { toast } from 'sonner';
-import { renderWithProviders, screen, waitFor } from '@/test/test-utils';
+import { renderWithProviders, screen, waitFor, within } from '@/test/test-utils';
 import { server } from '@/test/msw/server';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { InstagramConnectCard } from '../InstagramConnectCard';
@@ -119,16 +119,15 @@ describe('InstagramStoriesSection saving', () => {
     });
   });
 
-  it('refuses a daily time outside 08:00-22:00 without sending it', async () => {
-    const user = userEvent.setup();
-    const bodies = capturePut();
+  it('offers only the hours a daily story may go out, 08:00 to 22:00', async () => {
     renderCard();
 
-    await user.selectOptions(await screen.findByRole('combobox', { name: t.dailyTime }), '07:00');
-    await user.click(await saveButton());
-
-    expect(await screen.findByText(t.timeOutOfRange)).toBeInTheDocument();
-    expect(bodies).toEqual([]);
+    const select = await screen.findByRole('combobox', { name: t.dailyTime });
+    const hours = within(select)
+      .getAllByRole('option')
+      .map((option) => option.getAttribute('value'));
+    expect(hours[0]).toBe('08:00');
+    expect(hours.at(-1)).toBe('22:00');
   });
 });
 

@@ -63,7 +63,9 @@ function DailyTimeField({ control, error }: { control: Control<InstagramStorySet
       <Controller
         name="daily_time"
         control={control}
-        render={({ field }) => <TimeSelect value={field.value} onChange={field.onChange} aria-label={t.dailyTime} />}
+        render={({ field }) => (
+          <TimeSelect value={field.value} onChange={field.onChange} min="08:00" max="22:00" aria-label={t.dailyTime} />
+        )}
       />
       {error && (
         <p role="alert" className="text-error-text text-sm">
