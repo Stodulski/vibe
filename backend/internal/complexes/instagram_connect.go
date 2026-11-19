@@ -110,8 +110,11 @@ type InstagramConfig struct {
 
 // InstagramDeps is what the connection needs from outside.
 type InstagramDeps struct {
-	API      InstagramAPI
-	Store    InstagramStore
+	API   InstagramAPI
+	Store InstagramStore
+	// Stories keeps the story settings and queue. Nil answers the story
+	// routes with 501.
+	Stories  InstagramStoryStore
 	Attempts OAuthAttemptStore
 	Audit    Recorder
 	Respond  *httpx.Responder
@@ -122,6 +125,7 @@ type InstagramDeps struct {
 type Instagram struct {
 	api      InstagramAPI
 	store    InstagramStore
+	stories  InstagramStoryStore
 	attempts OAuthAttemptStore
 	audit    Recorder
 	respond  *httpx.Responder
@@ -135,7 +139,7 @@ func NewInstagram(deps InstagramDeps, cfg InstagramConfig) *Instagram {
 		cfg.Now = time.Now
 	}
 	return &Instagram{
-		api: deps.API, store: deps.Store, attempts: deps.Attempts, audit: deps.Audit,
+		api: deps.API, store: deps.Store, stories: deps.Stories, attempts: deps.Attempts, audit: deps.Audit,
 		respond: deps.Respond, logger: deps.Logger, cfg: cfg,
 	}
 }

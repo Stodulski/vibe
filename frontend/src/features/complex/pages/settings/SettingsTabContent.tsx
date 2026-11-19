@@ -12,6 +12,6 @@ interface SettingsTabContentProps {
 export function SettingsTabContent({ activeTab, complex }: SettingsTabContentProps) {
   if (activeTab === 'general') return <SettingsGeneralTab complex={complex} />;
   if (activeTab === 'schedules') return <ScheduleConfig complexId={complex.id} slug={complex.slug} />;
-  if (activeTab === 'instagram') return <InstagramConnectCard complexId={complex.id} />;
+  if (activeTab === 'instagram') return <InstagramConnectCard complexId={complex.id} slug={complex.slug} />;
   return <SettingsBillingTab complex={complex} />;
 }

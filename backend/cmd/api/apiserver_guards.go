@@ -162,6 +162,8 @@ var routeGuards = map[string]routeGuard{
 	"GET /api/v1/complexes/{id}/instagram":                                                          {kind: guardOwner},
 	"DELETE /api/v1/complexes/{id}/instagram":                                                       {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/instagram/connect":                                                 {kind: guardOwner},
+	"GET /api/v1/complexes/{id}/instagram/stories":                                                  {kind: guardOwner},
+	"PUT /api/v1/complexes/{id}/instagram/stories":                                                  {kind: guardOwner},
 	"GET /api/v1/instagram/callback":                                                                {kind: guardPublic},
 	"GET /api/v1/complexes/{id}/reports/export":                                                     {kind: guardOwner},
 	"POST /api/v1/complexes/{id}/reports/exports":                                                   {kind: guardOwner},

@@ -12,6 +12,7 @@ export const queryKeys = {
     schedules: (id: string) => ['complexes', id, 'schedules'] as const,
     mpStatus: (id: string) => ['complexes', id, 'mp-status'] as const,
     instagramStatus: (id: string) => ['complexes', id, 'instagram-status'] as const,
+    instagramStories: (id: string) => ['complexes', id, 'instagram-stories'] as const,
     slugAvailable: (slug: string) => ['complexes', 'slug-available', slug] as const,
   },
   courts: {

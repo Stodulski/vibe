@@ -2953,6 +2953,121 @@ paths:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
 
+  /api/v1/complexes/{id}/instagram/stories:
+    get:
+      tags: [complexes]
+      operationId: complexesInstagramStories
+      summary: Get the complex's Instagram story settings and latest stories
+      description: >-
+        A complex that never saved its settings answers the defaults: both story types off, daily
+        time 10:00, freed cap 5. Connecting Instagram publishes nothing until the owner turns a
+        story type on. `recent` is the latest 10 stories, newest first.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Settings and latest stories.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings, recent]
+                properties:
+                  settings:
+                    type: object
+                    required: [daily_enabled, daily_time, freed_enabled, freed_daily_cap]
+                    properties:
+                      daily_enabled: {type: boolean, description: The daily story of the day's free hours.}
+                      daily_time: {type: string, example: "10:00", description: "Venue time (America/Argentina/Buenos_Aires), HH:MM from 08:00 to 22:00."}
+                      freed_enabled: {type: boolean, description: A story for each booked slot a cancellation frees.}
+                      freed_daily_cap: {type: integer, minimum: 1, maximum: 10, description: Freed stories queued per venue day at most.}
+                  recent:
+                    type: array
+                    maxItems: 10
+                    items:
+                      type: object
+                      required: [kind, status, scheduled_for, published_at, reason]
+                      properties:
+                        kind: {type: string, enum: [daily, freed]}
+                        status: {type: string, enum: [pending, published, skipped, failed]}
+                        scheduled_for: {type: string, format: date-time}
+                        published_at: {type: string, format: date-time, nullable: true}
+                        reason:
+                          type: string
+                          nullable: true
+                          description: Why a story was skipped or failed, or what a pending one waits for.
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: >-
+            Instagram is not offered to this owner: INSTAGRAM_CONNECT_ENABLED is off, the Instagram
+            app id or secret is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the owner's
+            email is not on it (the same rule as connect).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+    put:
+      tags: [complexes]
+      operationId: complexesUpdateInstagramStories
+      summary: Save the complex's Instagram story settings
+      description: >-
+        All four fields are required. The daily story goes out once per venue day at or after
+        `daily_time`; a freed story goes out when a booking is cancelled and its slot starts between
+        1 and 48 hours later, at most `freed_daily_cap` per venue day. Nothing is published from
+        23:00 to 08:00 venue time.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                daily_enabled: {type: boolean}
+                daily_time: {type: string, example: "10:00"}
+                freed_enabled: {type: boolean}
+                freed_daily_cap: {type: integer}
+      responses:
+        "200":
+          description: The saved settings.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [settings]
+                properties:
+                  settings:
+                    type: object
+                    required: [daily_enabled, daily_time, freed_enabled, freed_daily_cap]
+                    properties:
+                      daily_enabled: {type: boolean, description: The daily story of the day's free hours.}
+                      daily_time: {type: string, example: "10:00", description: "Venue time (America/Argentina/Buenos_Aires), HH:MM from 08:00 to 22:00."}
+                      freed_enabled: {type: boolean, description: A story for each booked slot a cancellation frees.}
+                      freed_daily_cap: {type: integer, minimum: 1, maximum: 10, description: Freed stories queued per venue day at most.}
+        "400":
+          description: Malformed body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: >-
+            Instagram is not offered to this owner: INSTAGRAM_CONNECT_ENABLED is off, the Instagram
+            app id or secret is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the owner's
+            email is not on it (the same rule as connect).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
   /api/v1/instagram/callback:
     get:
       tags: [complexes]

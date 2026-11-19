@@ -54,3 +54,12 @@ export function landingTutorialsUrl(): string {
 export function landingTutorialUrl(slug: string): string {
   return new URL(`/tutoriales/${slug}`, env.VITE_LANDING_URL).href;
 }
+
+/**
+ * Absolute URL of today's "turnos libres" story image, the one the daily
+ * automatic story publishes, on `VITE_LANDING_URL`. The landing answers 404
+ * when nothing is free today.
+ */
+export function instagramDailyStoryUrl(slug: string): string {
+  return new URL(`/historias/c/${slug}/libres.jpg`, env.VITE_LANDING_URL).href;
+}

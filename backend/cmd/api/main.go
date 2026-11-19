@@ -110,8 +110,11 @@ type application struct {
 	// instagram serves a complex's Instagram connection routes; the scheduler
 	// also calls it for the daily token refresh.
 	instagram *complexes.Instagram
-	auth      *auth.Handler
-	payments  *payments.Handler
+	// instagramStories queues and publishes complexes' Instagram stories; the
+	// scheduler runs it every minute.
+	instagramStories *complexes.InstagramStories
+	auth             *auth.Handler
+	payments         *payments.Handler
 	// paymentsService is held separately from the handler because the scheduler
 	// calls it directly: retrying refunds, sweeping the webhook inbox and
 	// reconciling refund intents are the money domain's own background work,

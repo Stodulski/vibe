@@ -463,6 +463,7 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 	s.freeWaitlistSlot(ctx, waitlist.Freed{
 		ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
 	})
+	s.announceFreedSlot(ctx, complex, booking)
 }
 
 // releaseHeldSlots frees the checkout lock a cancelled booking still holds.

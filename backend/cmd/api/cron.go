@@ -59,6 +59,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("sweep_event_refunds", 2*time.Minute, app.openPlayService.SweepUnrefunded),
 		job("refresh_mp_tokens", 12*time.Hour, app.cronRefreshMPTokens),
 		job("refresh_instagram_tokens", 24*time.Hour, app.cronRefreshInstagramTokens),
+		job("publish_instagram_stories", time.Minute, app.cronPublishInstagramStories),
 		job("clean_tokens", 24*time.Hour, app.cronCleanExpiredTokens),
 		job("clean_webhook_events", 24*time.Hour, app.cronCleanWebhookEvents),
 		job("clean_failed_refunds", 24*time.Hour, app.cronCleanFailedRefunds),
@@ -366,6 +367,17 @@ func (app *application) cronRefreshInstagramTokens(ctx context.Context) {
 	out := app.instagram.RefreshTokens(ctx)
 	app.logger.Info("cron: instagram token refresh",
 		"refreshed", out.Refreshed, "failed", out.Failed, "expired", out.Expired, "unreadable", out.Unreadable)
+}
+
+// cronPublishInstagramStories queues the daily stories whose time has come and
+// publishes the due stories. A container Meta is still processing is left for
+// a later run, so a run stays well inside the scheduler's deadline.
+func (app *application) cronPublishInstagramStories(ctx context.Context) {
+	queued := app.instagramStories.QueueDailyStories(ctx)
+	out := app.instagramStories.PublishDue(ctx)
+	app.logger.Info("cron: instagram stories",
+		"daily_queued", queued, "claimed", out.Claimed, "published", out.Published, "skipped", out.Skipped,
+		"failed", out.Failed, "retrying", out.Retrying, "waiting", out.Waiting)
 }
 
 // cronThreadsMaintenance refreshes the Threads token when it is due and queues

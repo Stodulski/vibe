@@ -7,6 +7,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import { useConnectInstagram, useDisconnectInstagram, useInstagramStatus } from '../hooks/useInstagram';
 import { InstagramConnectCardSkeleton } from './InstagramConnectCardSkeleton';
+import { InstagramStoriesSection } from './instagram-stories/InstagramStoriesSection';
 
 const t = ES_AR;
 
@@ -124,7 +125,7 @@ function ConnectionActions({
  * consent page; the result comes back in the URL and is shown by the
  * settings page (`useInstagramCallback`).
  */
-export function InstagramConnectCard({ complexId }: { complexId: string }) {
+export function InstagramConnectCard({ complexId, slug }: { complexId: string; slug: string }) {
   const [showDisconnect, setShowDisconnect] = useState(false);
   const { data: status, isLoading, isError, refetch } = useInstagramStatus(complexId);
   const connectMutation = useConnectInstagram(complexId);
@@ -182,6 +183,11 @@ export function InstagramConnectCard({ complexId }: { complexId: string }) {
         isLoading={disconnectMutation.isPending}
         variant="destructive"
       />
+
+      {/* Stories need a usable connection: nothing to configure without one. */}
+      {state === 'connected' && !status.needs_reconnect && (
+        <InstagramStoriesSection complexId={complexId} slug={slug} />
+      )}
     </div>
   );
 }

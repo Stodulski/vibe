@@ -495,6 +495,18 @@ func (s *apiServer) ComplexesDisconnectInstagram(w http.ResponseWriter, r *http.
 	s.app.instagram.Disconnect(w, r)
 }
 
+// ComplexesInstagramStories implements gen.ServerInterface for complexesInstagramStories
+// (GET /api/v1/complexes/{id}/instagram/stories). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesInstagramStories(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.instagram.StorySettings(w, r)
+}
+
+// ComplexesUpdateInstagramStories implements gen.ServerInterface for complexesUpdateInstagramStories
+// (PUT /api/v1/complexes/{id}/instagram/stories). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesUpdateInstagramStories(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.instagram.UpdateStorySettings(w, r)
+}
+
 // ComplexesInstagramCallback implements gen.ServerInterface for complexesInstagramCallback
 // (GET /api/v1/instagram/callback). Public: Meta's redirect lands here; the
 // state cookie and the attempt it names are the check.

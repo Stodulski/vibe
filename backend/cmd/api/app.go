@@ -106,6 +106,7 @@ func validateDeps(d deps) error {
 		{"models.UserIdentities", d.models.UserIdentities != nil},
 		{"models.Complexes", d.models.Complexes != nil},
 		{"models.Instagram", d.models.Instagram != nil},
+		{"models.InstagramStories", d.models.InstagramStories != nil},
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
 		{"models.Events", d.models.Events != nil},
@@ -627,11 +628,12 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		AppSecret:   cfg.Instagram.AppSecret,
 		RedirectURI: apiBase + complexes.InstagramCallbackPath,
 		CB:          instagramCB,
-		HTTP:        &http.Client{Timeout: 15 * time.Second},
+		HTTP:        &http.Client{Timeout: instagram.DefaultTimeout},
 	})
 	instagramConnect := complexes.NewInstagram(complexes.InstagramDeps{
-		API:   instagramClient,
-		Store: d.models.Instagram,
+		API:     instagramClient,
+		Store:   d.models.Instagram,
+		Stories: d.models.InstagramStories,
 		// Registered by the owner's request on one instance, spent by Meta's
 		// redirect on whichever instance it reaches: Redis, like MercadoPago's.
 		Attempts: complexes.NewInstagramOAuthAttempts(d.rdb, cfg.Env),
@@ -644,6 +646,19 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Secure:         cfg.Env != "development",
 		FrontendURL:    cfg.FrontendURL,
 		TrustedProxies: d.trustedProxies,
+	})
+	// The stories Vibe publishes on a connected account: the daily story of
+	// free hours and a story per freed slot. Queued by the booking service and
+	// the cron job, published by the cron job; the images come from the
+	// landing's /historias route.
+	instagramStories := complexes.NewInstagramStories(complexes.InstagramStoriesDeps{
+		API:    instagramClient,
+		Store:  d.models.InstagramStories,
+		Logger: d.logger,
+	}, complexes.InstagramStoriesConfig{
+		Available:   cfg.Instagram.Available(),
+		PublicURL:   cfg.PublicBaseURL(),
+		CallTimeout: instagram.DefaultTimeout,
 	})
 
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow, courts.WithRealtime(events))
@@ -871,6 +886,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Logger:       d.logger,
 		Run:          app.background,
 		Waitlist:     waitlistService,
+		FreedSlots:   instagramStories,
 	}, bookings.Config{
 		PublicURL:       cfg.PublicBaseURL(),
 		BackendURL:      cfg.BackendURL,
@@ -982,6 +998,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
 	app.instagram = instagramConnect
+	app.instagramStories = instagramStories
 	app.scheduler = sched
 	app.mp = mpClient
 	app.mpOAuth = mpOAuthClient

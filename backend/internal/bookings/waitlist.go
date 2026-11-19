@@ -2,7 +2,12 @@ package bookings
 
 import (
 	"context"
+	"time"
 
+	"github.com/google/uuid"
+
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
@@ -22,4 +27,24 @@ func (s *Service) freeWaitlistSlot(ctx context.Context, freed waitlist.Freed) {
 	}
 	ctx = context.WithoutCancel(ctx)
 	s.run(func() { s.waitlist.SlotFreed(ctx, freed) })
+}
+
+// FreedSlotListener hears about a booked slot a cancellation put back on sale.
+// complexes.InstagramStories is the production implementation: it queues the
+// complex's freed-slot story. It must not fail or block: it runs after the
+// cancellation is committed, on its own goroutine, and logs its own errors.
+type FreedSlotListener interface {
+	SlotCancelled(ctx context.Context, complexID, courtID uuid.UUID, slug string, startsAt, endsAt time.Time)
+}
+
+// announceFreedSlot hands a cancelled booking's slot to the freed-slot
+// listener on its own goroutine, detached from the request. It is a no-op when
+// no listener is wired.
+func (s *Service) announceFreedSlot(ctx context.Context, complex *complexstore.Complex, b *bookingstore.Booking) {
+	if s.freedSlots == nil {
+		return
+	}
+	ctx = context.WithoutCancel(ctx)
+	complexID, courtID, slug, startsAt, endsAt := complex.ID, b.CourtID, complex.Slug, b.StartsAt, b.EndsAt
+	s.run(func() { s.freedSlots.SlotCancelled(ctx, complexID, courtID, slug, startsAt, endsAt) })
 }

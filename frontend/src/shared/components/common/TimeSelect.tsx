@@ -49,6 +49,8 @@ export function TimeSelect({
   disabled,
   className,
   compact,
+  min,
+  max,
   'aria-label': ariaLabel,
 }: {
   value: string;
@@ -64,8 +66,12 @@ export function TimeSelect({
    * another select, a price field and a delete button down to 320px, sets it.
    */
   compact?: boolean;
+  /** Earliest and latest half-hour offered, inclusive ("HH:MM"). The rest of the day is left out. */
+  min?: string;
+  max?: string;
   'aria-label'?: string;
 }) {
+  const options = TIME_OPTIONS.filter((time) => (!min || time >= min) && (!max || time <= max));
   return (
     // Fills the line on a phone, fixed from sm. The row has the width to give
     // there and nothing else to spend it on, and two boxes stretched to the
@@ -93,7 +99,7 @@ export function TimeSelect({
           compact && 'pr-5 pl-2 text-xs sm:pr-8 sm:pl-3.5 sm:text-sm',
         )}
       >
-        {TIME_OPTIONS.map((time) => (
+        {options.map((time) => (
           <option key={time} value={time}>
             {time}
           </option>

@@ -2473,6 +2473,48 @@ func (e CourtsUpdateJSONBodySurface) Valid() bool {
 	}
 }
 
+// Defines values for ComplexesInstagramStories200JSONResponseBodyRecentKind.
+const (
+	Daily ComplexesInstagramStories200JSONResponseBodyRecentKind = "daily"
+	Freed ComplexesInstagramStories200JSONResponseBodyRecentKind = "freed"
+)
+
+// Valid indicates whether the value is a known member of the ComplexesInstagramStories200JSONResponseBodyRecentKind enum.
+func (e ComplexesInstagramStories200JSONResponseBodyRecentKind) Valid() bool {
+	switch e {
+	case Daily:
+		return true
+	case Freed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplexesInstagramStories200JSONResponseBodyRecentStatus.
+const (
+	ComplexesInstagramStories200JSONResponseBodyRecentStatusFailed    ComplexesInstagramStories200JSONResponseBodyRecentStatus = "failed"
+	ComplexesInstagramStories200JSONResponseBodyRecentStatusPending   ComplexesInstagramStories200JSONResponseBodyRecentStatus = "pending"
+	ComplexesInstagramStories200JSONResponseBodyRecentStatusPublished ComplexesInstagramStories200JSONResponseBodyRecentStatus = "published"
+	ComplexesInstagramStories200JSONResponseBodyRecentStatusSkipped   ComplexesInstagramStories200JSONResponseBodyRecentStatus = "skipped"
+)
+
+// Valid indicates whether the value is a known member of the ComplexesInstagramStories200JSONResponseBodyRecentStatus enum.
+func (e ComplexesInstagramStories200JSONResponseBodyRecentStatus) Valid() bool {
+	switch e {
+	case ComplexesInstagramStories200JSONResponseBodyRecentStatusFailed:
+		return true
+	case ComplexesInstagramStories200JSONResponseBodyRecentStatusPending:
+		return true
+	case ComplexesInstagramStories200JSONResponseBodyRecentStatusPublished:
+		return true
+	case ComplexesInstagramStories200JSONResponseBodyRecentStatusSkipped:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for EventsCreateJSONBodyModality.
 const (
 	EventsCreateJSONBodyModalityMen   EventsCreateJSONBodyModality = "men"
@@ -5680,6 +5722,20 @@ type CourtsUpdatePricesParams struct {
 	IfMatch *IfMatchVersion `json:"If-Match,omitempty"`
 }
 
+// ComplexesInstagramStories200JSONResponseBodyRecentKind defines parameters for ComplexesInstagramStories.
+type ComplexesInstagramStories200JSONResponseBodyRecentKind string
+
+// ComplexesInstagramStories200JSONResponseBodyRecentStatus defines parameters for ComplexesInstagramStories.
+type ComplexesInstagramStories200JSONResponseBodyRecentStatus string
+
+// ComplexesUpdateInstagramStoriesJSONBody defines parameters for ComplexesUpdateInstagramStories.
+type ComplexesUpdateInstagramStoriesJSONBody struct {
+	DailyEnabled  *bool   `json:"daily_enabled,omitempty"`
+	DailyTime     *string `json:"daily_time,omitempty"`
+	FreedDailyCap *int    `json:"freed_daily_cap,omitempty"`
+	FreedEnabled  *bool   `json:"freed_enabled,omitempty"`
+}
+
 // ComplexesConnectMercadoPagoJSONBody defines parameters for ComplexesConnectMercadoPago.
 type ComplexesConnectMercadoPagoJSONBody struct {
 	Code string `json:"code"`
@@ -6476,6 +6532,9 @@ type CourtsBlockSlotJSONRequestBody CourtsBlockSlotJSONBody
 // CourtsUpdatePricesJSONRequestBody defines body for CourtsUpdatePrices for application/json ContentType.
 type CourtsUpdatePricesJSONRequestBody CourtsUpdatePricesJSONBody
 
+// ComplexesUpdateInstagramStoriesJSONRequestBody defines body for ComplexesUpdateInstagramStories for application/json ContentType.
+type ComplexesUpdateInstagramStoriesJSONRequestBody ComplexesUpdateInstagramStoriesJSONBody
+
 // ComplexesConnectMercadoPagoJSONRequestBody defines body for ComplexesConnectMercadoPago for application/json ContentType.
 type ComplexesConnectMercadoPagoJSONRequestBody ComplexesConnectMercadoPagoJSONBody
 
@@ -6843,6 +6902,12 @@ type ServerInterface interface {
 	// ComplexesConnectInstagram Start connecting the complex's Instagram professional account
 	// (POST /api/v1/complexes/{id}/instagram/connect)
 	ComplexesConnectInstagram(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesInstagramStories Get the complex's Instagram story settings and latest stories
+	// (GET /api/v1/complexes/{id}/instagram/stories)
+	ComplexesInstagramStories(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesUpdateInstagramStories Save the complex's Instagram story settings
+	// (PUT /api/v1/complexes/{id}/instagram/stories)
+	ComplexesUpdateInstagramStories(w http.ResponseWriter, r *http.Request, id PathID)
 	// ComplexesDisconnectMercadoPago Disconnect the complex's MercadoPago account
 	// (DELETE /api/v1/complexes/{id}/mp/connect)
 	ComplexesDisconnectMercadoPago(w http.ResponseWriter, r *http.Request, id PathID)
@@ -9191,6 +9256,58 @@ func (siw *ServerInterfaceWrapper) ComplexesConnectInstagram(w http.ResponseWrit
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ComplexesConnectInstagram(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ComplexesInstagramStories operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesInstagramStories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesInstagramStories(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ComplexesUpdateInstagramStories operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesUpdateInstagramStories(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesUpdateInstagramStories(w, r, id)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12310,6 +12427,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram", wrapper.ComplexesDisconnectInstagram)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram", wrapper.ComplexesInstagramStatus)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram/connect", wrapper.ComplexesConnectInstagram)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram/stories", wrapper.ComplexesInstagramStories)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram/stories", wrapper.ComplexesUpdateInstagramStories)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/instagram/callback", wrapper.ComplexesInstagramCallback)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist/places", wrapper.WaitlistJoinPlace)

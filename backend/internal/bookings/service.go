@@ -61,6 +61,7 @@ type Service struct {
 	cfg          Config
 	run          func(func())
 	waitlist     SlotFreedNotifier
+	freedSlots   FreedSlotListener
 	// now is the clock the fixed weekly series reason by; tests replace it.
 	now func() time.Time
 }
@@ -87,6 +88,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		cfg:          cfg,
 		run:          d.Run,
 		waitlist:     d.Waitlist,
+		freedSlots:   d.FreedSlots,
 		now:          time.Now,
 	}
 }

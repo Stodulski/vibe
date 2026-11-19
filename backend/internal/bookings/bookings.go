@@ -280,6 +280,9 @@ type Dependencies struct {
 	// Waitlist hears about every slot a cancellation or an expiry frees. It is
 	// optional: a nil one means no waitlist is notified.
 	Waitlist SlotFreedNotifier
+	// FreedSlots hears about every booked slot a cancellation puts back on
+	// sale (the complex's Instagram freed-slot story). Optional, like Waitlist.
+	FreedSlots FreedSlotListener
 }
 
 // Actor is who a change is attributed to, as the handler read it off the

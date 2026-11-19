@@ -49,6 +49,8 @@ var apiSurface = map[string]struct{}{
 	"GET /api/v1/complexes/{id}/instagram":                                                          {},
 	"DELETE /api/v1/complexes/{id}/instagram":                                                       {},
 	"POST /api/v1/complexes/{id}/instagram/connect":                                                 {},
+	"GET /api/v1/complexes/{id}/instagram/stories":                                                  {},
+	"PUT /api/v1/complexes/{id}/instagram/stories":                                                  {},
 	"GET /api/v1/instagram/callback":                                                                {},
 	"GET /api/v1/complexes/{id}/products":                                                           {},
 	"GET /api/v1/complexes/{id}/products/{productID}":                                               {},
