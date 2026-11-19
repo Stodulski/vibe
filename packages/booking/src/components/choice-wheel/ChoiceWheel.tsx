@@ -3,6 +3,7 @@ import { Button, cn } from '@vibe/ui';
 import { useWidth } from '../court-selector/useRulerBox';
 import { useWheelPicker } from '../court-selector/useWheelPicker';
 import { tickDepth } from '../court-selector/wheelMath';
+import { useFocusedHeight } from './useFocusedHeight';
 
 export interface WheelChoice<T extends string> {
   value: T;
@@ -31,7 +32,7 @@ interface ChoiceWheelProps<T extends string> {
 
 /** The gap a card takes on the wheel: larger cards and larger screens get more. */
 function cardWidth(size: 'regular' | 'large', width: number): number {
-  if (size === 'large') return width >= 640 ? 240 : 190;
+  if (size === 'large') return width >= 640 ? 220 : 150;
   return width >= 640 ? 168 : 128;
 }
 
@@ -75,15 +76,18 @@ interface WheelCardProps<T extends string> {
   half: number;
   width: number;
   focused: boolean;
+  /** On the centered card only: the wheel takes its height from it. */
+  cardRef?: ((el: HTMLElement | null) => void) | undefined;
   onTap: () => void;
 }
 
 /** One choice on the wheel, placed and sized by its offset from the center. */
-function WheelCard<T extends string>({ choice, offset, half, width, focused, onTap }: WheelCardProps<T>) {
+function WheelCard<T extends string>({ choice, offset, half, width, focused, cardRef, onTap }: WheelCardProps<T>) {
   const depth = tickDepth(offset, half, width, CARD_ARC);
   const x = packedOffset(offset, half);
   return (
     <button
+      ref={cardRef}
       type="button"
       aria-pressed={focused}
       onClick={onTap}
@@ -125,6 +129,7 @@ export function ChoiceWheel<T extends string>({
   size = 'regular',
 }: ChoiceWheelProps<T>) {
   const [width, , measureRef] = useWidth();
+  const [focusedHeight, focusedRef] = useFocusedHeight();
   const card = cardWidth(size, width);
   const half = width / 2;
   const chosen = choices.findIndex((choice) => choice.value === selected);
@@ -141,7 +146,10 @@ export function ChoiceWheel<T extends string>({
         {...wheel.handlers}
         role="group"
         aria-label={question}
-        className={cn(TRACK, size === 'large' ? 'h-80' : 'h-48')}>
+        // The centered choice grows 1.15 from the top (`top-3`), so the track is
+        // its height at that scale plus the offset above it and a little below.
+        style={focusedHeight ? { height: Math.ceil(focusedHeight * 1.15) + 16 } : undefined}
+        className={cn(TRACK, 'transition-[height] duration-200', size === 'large' ? 'h-80' : 'h-48')}>
         {choices.map((choice, index) => (
           <WheelCard
             key={choice.value}
@@ -150,6 +158,7 @@ export function ChoiceWheel<T extends string>({
             half={wheelReach(size, half, card)}
             width={card - 16}
             focused={index === wheel.center}
+            cardRef={index === wheel.center ? focusedRef : undefined}
             onTap={() => {
               if (index === wheel.center) onChoose(choice.value);
               else wheel.goTo(index);
