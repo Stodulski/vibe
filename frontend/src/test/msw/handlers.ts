@@ -144,6 +144,16 @@ export const handlers = [
       expires_at: null,
     }),
   ),
+  // S7 defaults: every story type off until the owner turns it on.
+  http.get('*/complexes/:complexId/instagram/stories', () =>
+    HttpResponse.json({
+      settings: { daily_enabled: false, daily_time: '10:00', freed_enabled: false, freed_daily_cap: 5 },
+      recent: [],
+    }),
+  ),
+  http.put('*/complexes/:complexId/instagram/stories', async ({ request }) =>
+    HttpResponse.json({ settings: await request.json() }),
+  ),
 
   // ─── uploads ───
   http.post('*/complexes/:complexId/uploads/presign', () =>

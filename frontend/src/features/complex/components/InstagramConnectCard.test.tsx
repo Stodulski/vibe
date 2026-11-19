@@ -52,7 +52,7 @@ describe('InstagramConnectCard connect', () => {
         return HttpResponse.json({ authorize_url: 'https://www.instagram.com/oauth/authorize?state=s1' });
       }),
     );
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     await userEvent.click(await screen.findByRole('button', { name: t.connect }));
 
@@ -69,7 +69,7 @@ describe('InstagramConnectCard connect', () => {
         HttpResponse.json({ title: 'Not Implemented' }, { status: 501 }),
       ),
     );
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     await userEvent.click(await screen.findByRole('button', { name: t.connect }));
 
@@ -88,7 +88,7 @@ describe('InstagramConnectCard connect', () => {
         return HttpResponse.json({ authorize_url: 'https://www.instagram.com/oauth/authorize?state=s2' });
       }),
     );
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     const reconnect = await screen.findByRole('button', { name: t.reconnect });
     expect(screen.getByRole('button', { name: t.disconnect })).toBeInTheDocument();
@@ -112,7 +112,7 @@ describe('InstagramConnectCard refusals and disconnect', () => {
         HttpResponse.json({ authorize_url: 'javascript:alert(1)' }),
       ),
     );
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     await userEvent.click(await screen.findByRole('button', { name: t.connect }));
 
@@ -131,7 +131,7 @@ describe('InstagramConnectCard refusals and disconnect', () => {
         return HttpResponse.json({ connected: false });
       }),
     );
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     expect(await screen.findByText('@club.padel')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.connect })).not.toBeInTheDocument();
@@ -150,7 +150,7 @@ describe('InstagramConnectCard refusals and disconnect', () => {
 
   it('shows a retry instead of "not connected" when the status read fails', async () => {
     server.use(http.get('*/complexes/:complexId/instagram', () => HttpResponse.json({}, { status: 500 })));
-    renderWithProviders(<InstagramConnectCard complexId="c1" />);
+    renderWithProviders(<InstagramConnectCard complexId="c1" slug="los-alamos" />);
 
     expect(await screen.findByRole('button', { name: ES_AR.common.refresh })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: t.connect })).not.toBeInTheDocument();

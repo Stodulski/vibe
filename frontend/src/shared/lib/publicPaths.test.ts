@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { landingTutorialUrl, publicComplexUrl, socialKitImageUrl } from './publicPaths';
+import { instagramDailyStoryUrl, landingTutorialUrl, publicComplexUrl, socialKitImageUrl } from './publicPaths';
 
 describe('publicComplexUrl', () => {
   it('points a complex storefront at the landing, under the /c/ prefix', () => {
@@ -36,5 +36,11 @@ describe('landingTutorialUrl', () => {
     expect(landingTutorialUrl('plazo-de-acreditacion-mercado-pago')).toBe(
       'https://vibe.com.ar/tutoriales/plazo-de-acreditacion-mercado-pago',
     );
+  });
+});
+
+describe('instagramDailyStoryUrl', () => {
+  it("points at the landing's daily story image for the complex", () => {
+    expect(instagramDailyStoryUrl('los-alamos')).toBe('https://vibe.com.ar/historias/c/los-alamos/libres.jpg');
   });
 });
