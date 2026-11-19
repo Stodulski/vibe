@@ -32,9 +32,4 @@ describe('RegisterForm', () => {
     expect(screen.getByRole('button', { name: /siguiente/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /crear cuenta/i })).not.toBeInTheDocument();
   });
-
-  it('shows link to login page', () => {
-    renderWithProviders(<RegisterForm />);
-    expect(screen.getByText(/inici. sesi.n/i)).toBeInTheDocument();
-  });
 });

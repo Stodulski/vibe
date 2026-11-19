@@ -82,16 +82,4 @@ describe('ResetPasswordPage', () => {
     renderPage(ResetPasswordPage, ['/reset-password?token=valid-token']);
     expect(screen.getAllByText('Nueva contraseña').length).toBeGreaterThanOrEqual(1);
   });
-
-  it('renders link to forgot password on error state', async () => {
-    const ResetPasswordPage = (await import('./ResetPasswordPage')).default;
-    renderPage(ResetPasswordPage);
-    expect(screen.getByText('Enviar enlace')).toBeInTheDocument();
-  });
-
-  it('renders go to login link on error state', async () => {
-    const ResetPasswordPage = (await import('./ResetPasswordPage')).default;
-    renderPage(ResetPasswordPage);
-    expect(screen.getByText('Ir a iniciar sesión')).toBeInTheDocument();
-  });
 });

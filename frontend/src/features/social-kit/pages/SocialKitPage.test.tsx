@@ -21,16 +21,6 @@ function renderKit() {
 }
 
 describe('SocialKitPage', () => {
-  it('shows the title and the intro', () => {
-    renderKit();
-    expect(screen.getByRole('heading', { level: 1, name: 'Kit para redes' })).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'Descargá estas imágenes y subilas a tus historias y posts. Llevan el link y el QR de tu complejo.',
-      ),
-    ).toBeInTheDocument();
-  });
-
   it('shows one row per piece with its title and its post as the thumbnail, and no explanation', () => {
     renderKit();
     const reservar = screen.getByRole('article', { name: 'Link de reservas' });

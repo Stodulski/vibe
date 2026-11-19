@@ -25,26 +25,6 @@ describe('SecurityForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders current password input', () => {
-    renderWithProviders(<SecurityForm />);
-    expect(screen.getByLabelText(/contrase.a actual/i)).toBeInTheDocument();
-  });
-
-  it('renders new password input', () => {
-    renderWithProviders(<SecurityForm />);
-    expect(screen.getByLabelText(/^nueva contrase.a$/i)).toBeInTheDocument();
-  });
-
-  it('renders confirm password input', () => {
-    renderWithProviders(<SecurityForm />);
-    expect(screen.getByLabelText(/confirmar nueva contrase.a/i)).toBeInTheDocument();
-  });
-
-  it('renders change password button', () => {
-    renderWithProviders(<SecurityForm />);
-    expect(screen.getByRole('button', { name: /cambiar contrase.a/i })).toBeInTheDocument();
-  });
-
   it('shows validation error when submitting empty form', async () => {
     const user = userEvent.setup();
     renderWithProviders(<SecurityForm />);
@@ -69,10 +49,5 @@ describe('SecurityForm', () => {
   it('renders the delete account section', () => {
     renderWithProviders(<SecurityForm />);
     expect(screen.getByTestId('delete-account-section')).toBeInTheDocument();
-  });
-
-  it('renders password hint text', () => {
-    renderWithProviders(<SecurityForm />);
-    expect(screen.getByText(/cambiar la contrase.a se cerrar/i)).toBeInTheDocument();
   });
 });

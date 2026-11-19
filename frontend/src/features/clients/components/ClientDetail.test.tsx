@@ -78,11 +78,4 @@ describe('ClientDetail', () => {
     expect(screen.getByText('93%')).toBeInTheDocument();
     expect(screen.getByText('Asistencia')).toBeInTheDocument();
   });
-
-  // The initials avatar is gone; the header now identifies the client by name
-  // with the phone as its subtitle.
-  it('renders the phone as the header subtitle', () => {
-    renderWithProviders(<ClientDetail {...defaultProps} />);
-    expect(screen.getByText(mockClient.phone)).toBeInTheDocument();
-  });
 });

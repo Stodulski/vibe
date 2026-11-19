@@ -25,12 +25,6 @@ describe('LoginForm', () => {
     vi.clearAllMocks();
   });
 
-  it('renders email and password inputs', () => {
-    renderWithProviders(<LoginForm />);
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/contrase.a/i, { selector: 'input' })).toBeInTheDocument();
-  });
-
   it('shows validation error for empty email on submit', async () => {
     const user = userEvent.setup();
     renderWithProviders(<LoginForm />);

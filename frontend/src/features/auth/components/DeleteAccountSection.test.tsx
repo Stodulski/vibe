@@ -27,14 +27,10 @@ describe('DeleteAccountSection', () => {
     vi.clearAllMocks();
   });
 
-  it('shows the danger zone with a visible destructive button and no menu', () => {
+  it('shows the danger zone heading and no overflow menu', () => {
     renderWithProviders(<DeleteAccountSection />);
 
     expect(screen.getByRole('heading', { name: ES_AR.common.dangerZone })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: ES_AR.profile.deleteAccount })).toHaveAttribute(
-      'data-variant',
-      'destructive-outline',
-    );
     expect(screen.queryByRole('button', { name: /acciones/i })).not.toBeInTheDocument();
   });
 

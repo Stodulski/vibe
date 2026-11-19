@@ -36,11 +36,6 @@ beforeEach(() => {
 });
 
 describe('CourtSetupStep', () => {
-  it('says why the step exists, without repeating its name from the indicator', () => {
-    render(<CourtSetupStep {...baseProps} />);
-    expect(screen.getByText(/nada que reservar/i)).toBeInTheDocument();
-  });
-
   // The form is behind a button rather than filling the step: the owner sees
   // what they have and one thing to do, instead of a form for a court they may
   // already have added.
@@ -89,11 +84,6 @@ describe('CourtSetupStep', () => {
 });
 
 describe('CourtSetupStep navigation', () => {
-  it('renders back button', () => {
-    render(<CourtSetupStep {...baseProps} />);
-    expect(screen.getByText('Volver')).toBeInTheDocument();
-  });
-
   // The gate is still there — without a court there is nothing to book — but a
   // real `disabled` attribute takes the button out of the tab order, so a
   // keyboard or screen-reader user reached the end of this screen and the

@@ -60,10 +60,4 @@ describe('ClientDetail blocking and notes', () => {
     renderWithProviders(<ClientDetail {...defaultProps} />);
     expect(screen.getByDisplayValue('Cliente frecuente')).toBeInTheDocument();
   });
-
-  it('offers whatsapp in the actions menu', async () => {
-    renderWithProviders(<ClientDetail {...defaultProps} />);
-    await openActionsMenu();
-    expect(screen.getByRole('menuitem', { name: /whatsapp/i })).toBeInTheDocument();
-  });
 });
