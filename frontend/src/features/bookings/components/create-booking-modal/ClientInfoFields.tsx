@@ -84,6 +84,7 @@ function ClientPhoneAndEmailFields({ register, control, errors }: ClientInfoFiel
         }
         htmlFor="client-email"
         error={errors.client_email?.message}
+        helpText={t.bookings.clientEmailHint}
       >
         <Input id="client-email" type="email" {...register('client_email')} placeholder={t.placeholders.clientEmail} />
       </FormField>
