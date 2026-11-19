@@ -22,4 +22,5 @@ export const WAITLIST_MESSAGES = {
   slotGone: 'Ese horario ya no se puede esperar. Elegí otro.',
   capReached: 'Ya estás esperando muchos lugares en este complejo.',
   tooMany: 'Probá de nuevo en un rato.',
+  takenFirst: 'Alguien reservó ese turno antes que vos. Si se vuelve a liberar, te avisamos de nuevo por email.',
 } as const;

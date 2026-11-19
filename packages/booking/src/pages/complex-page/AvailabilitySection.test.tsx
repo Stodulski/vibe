@@ -100,3 +100,21 @@ describe('AvailabilitySection', () => {
     expect(screen.queryByTestId('full-day-panel')).not.toBeInTheDocument();
   });
 });
+
+describe('AvailabilitySection, for someone who arrives from a waitlist email', () => {
+  it('says someone booked it first, and that they will be told again, above the hours still on offer', () => {
+    renderSection({ waitlistTakenFirst: true });
+    expect(screen.getByRole('status')).toHaveTextContent(t.waitlist.takenFirst);
+    expect(screen.getByTestId('court-selector')).toBeInTheDocument();
+  });
+
+  it('says it too when the whole day is now full', () => {
+    renderSection({ waitlistTakenFirst: true, emptyDay: 'full' });
+    expect(screen.getByText(t.waitlist.takenFirst)).toBeInTheDocument();
+  });
+
+  it('says nothing to a visitor the notice is not about', () => {
+    renderSection();
+    expect(screen.queryByText(t.waitlist.takenFirst)).not.toBeInTheDocument();
+  });
+});
