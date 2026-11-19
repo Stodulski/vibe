@@ -1,0 +1,25 @@
+export const instagram = {
+  tab: 'Instagram',
+  connect: 'Conectar Instagram',
+  reconnect: 'Volver a conectar',
+  disconnect: 'Desconectar',
+  notConnected: 'Instagram no conectado',
+  connected: 'Instagram conectado',
+  needsReconnect: 'Hay que volver a conectar Instagram',
+  description: 'Conectá tu cuenta y Vibe publica historias con tus turnos libres en tu Instagram.',
+  needsReconnectDescription:
+    'El permiso de Vibe sobre tu cuenta venció. Volvé a conectarla para que sigamos publicando tus historias.',
+  professionalNote: 'Tiene que ser una cuenta profesional de Instagram, de empresa o de creador.',
+  disconnectConfirm: '¿Querés desconectar Instagram? Vibe deja de publicar historias en tu cuenta.',
+  disconnectSuccess: 'Instagram desconectado',
+  disconnectError: 'No pudimos desconectar Instagram. Probá de nuevo.',
+  connectError: 'No pudimos iniciar la conexión con Instagram. Probá de nuevo.',
+  connectUnavailable: 'La conexión con Instagram todavía no está disponible.',
+  connectSuccess: 'Instagram conectado. Ya podemos publicar historias en tu cuenta.',
+  callbackErrors: {
+    expired: 'El enlace de conexión venció. Volvé a conectar Instagram.',
+    denied: 'Cancelaste la conexión con Instagram. Podés volver a intentarlo cuando quieras.',
+    failed: 'Instagram no aceptó la conexión. Revisá que la cuenta sea profesional y volvé a intentarlo.',
+    unavailable: 'No pudimos comunicarnos con Instagram. Probá de nuevo en unos minutos.',
+  },
+} as const;

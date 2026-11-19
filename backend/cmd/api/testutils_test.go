@@ -114,6 +114,7 @@ func newTestApplicationWith(t *testing.T, testLogger *slog.Logger, publicURL str
 		UserIdentities:    &mockUserIdentityStore{},
 		Tokens:            &mockTokenStore{},
 		Complexes:         &mockComplexStore{},
+		Instagram:         &mockInstagramStore{},
 		Courts:            &mockCourtStore{},
 		Cashbox:           &mockCashboxStore{},
 		Products:          &mockProductStore{},

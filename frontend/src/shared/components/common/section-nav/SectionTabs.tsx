@@ -42,14 +42,14 @@ export function SectionTabs<V extends string>({ items, active, onChange }: Secti
               }}
               className={cn(
                 SECTION_TAB_CLASS,
-                'gap-2 text-sm font-medium transition-colors',
+                'text-xs font-medium transition-colors sm:text-sm',
                 isActive
                   ? 'border-primary-500 text-primary-400'
                   : 'text-text-secondary border-transparent active:scale-[0.97]',
               )}
             >
               <item.icon className="size-4 shrink-0" />
-              <span className="truncate">{item.label}</span>
+              <span className="max-w-full truncate">{item.label}</span>
             </button>
           );
         })}

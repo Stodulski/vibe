@@ -646,6 +646,21 @@ type FailedRefund struct {
 	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
 }
 
+type InstagramConnection struct {
+	ID              pgtype.UUID        `json:"id"`
+	ComplexID       pgtype.UUID        `json:"complex_id"`
+	InstagramUserID string             `json:"instagram_user_id"`
+	Username        string             `json:"username"`
+	AccountType     string             `json:"account_type"`
+	AccessToken     string             `json:"access_token"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	ConnectedAt     pgtype.Timestamptz `json:"connected_at"`
+	RefreshedAt     pgtype.Timestamptz `json:"refreshed_at"`
+	NeedsReconnect  bool               `json:"needs_reconnect"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
 // The durable work queue. Claimed with SELECT ... FOR UPDATE SKIP LOCKED; see internal/jobs.
 type Job struct {
 	ID      pgtype.UUID        `json:"id"`

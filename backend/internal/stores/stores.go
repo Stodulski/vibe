@@ -264,6 +264,20 @@ type PlaceWaitlistStore interface {
 	DeletePast(ctx context.Context, today time.Time) (int64, error)
 }
 
+// InstagramConnectionStore keeps each complex's Instagram connection. The
+// token is sealed with the credential keyring inside the store.
+// complexes.InstagramStore is the consumer's declaration of the same set.
+type InstagramConnectionStore interface {
+	SaveInstagramConnection(ctx context.Context, c *complexstore.InstagramConnection) error
+	GetInstagramConnection(ctx context.Context, complexID uuid.UUID) (*complexstore.InstagramConnection, error)
+	DeleteInstagramConnection(ctx context.Context, complexID uuid.UUID) (bool, error)
+	ListInstagramTokensDueForRefresh(ctx context.Context, now, refreshBefore, refreshedBefore time.Time, limit int) ([]complexstore.DueInstagramToken, []uuid.UUID, error)
+	UpdateInstagramToken(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time, token string, expiresAt, refreshedAt time.Time) (bool, error)
+	MarkExpiredInstagramConnections(ctx context.Context, now time.Time) (int64, error)
+	MarkInstagramNeedsReconnect(ctx context.Context, complexID uuid.UUID, oldExpiresAt time.Time) (bool, error)
+	InstagramComplexOwner(ctx context.Context, complexID uuid.UUID) (uuid.UUID, error)
+}
+
 // ComplexStore composes every complex-related store capability.
 type ComplexStore interface {
 	ComplexCRUD
@@ -865,6 +879,7 @@ type Stores struct {
 	Users             UserStore
 	UserIdentities    UserIdentityStore
 	Complexes         ComplexStore
+	Instagram         InstagramConnectionStore
 	Courts            CourtStore
 	Cashbox           CashboxStore
 	Products          ProductStore
@@ -929,6 +944,7 @@ func newStores(pooled *data.DB, cfg Config) Stores {
 		Users:             &authstore.Users{DB: pooled, Q: q, HashCost: cfg.PasswordHashCost},
 		UserIdentities:    &authstore.Identities{DB: pooled, Q: q},
 		Complexes:         &complexstore.Store{DB: pooled, Q: q, Keys: cfg.Keys},
+		Instagram:         &complexstore.InstagramStore{Q: q, Keys: cfg.Keys},
 		Courts:            &courtstore.Store{DB: pooled, Q: q, PaymentExpiry: paymentExpiry},
 		Bookings:          bookings,
 		BookingSeries:     bookings,

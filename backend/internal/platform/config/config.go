@@ -25,6 +25,7 @@ type Config struct {
 	MP   MP
 
 	Social    Social
+	Instagram Instagram
 	Brevo     Brevo
 	Turnstile Turnstile
 	Leads     Leads
@@ -227,6 +228,26 @@ type Social struct {
 	APIBaseURL string
 	// ThreadsKeywords are the phrases the weekly Threads digest searches for.
 	ThreadsKeywords []string
+}
+
+// Instagram is the Business Login for Instagram app that complexes connect
+// their own Instagram professional account through, so Vibe can publish
+// stories for them. It is a different Meta login from Social's: the token
+// belongs to the complex, not to Vibe.
+type Instagram struct {
+	// ConnectEnabled is the feature flag. Off (the default), the connection
+	// status says enabled:false and connect is refused, whatever else is set.
+	ConnectEnabled bool
+	// AppID and AppSecret are the Instagram app id and secret shown under
+	// Instagram > API setup with Instagram login. Either one empty leaves the
+	// feature unavailable even with the flag on.
+	AppID     string
+	AppSecret string
+}
+
+// Available reports whether complexes can connect Instagram at all.
+func (i Instagram) Available() bool {
+	return i.ConnectEnabled && i.AppID != "" && i.AppSecret != ""
 }
 
 // Brevo is the transactional email provider's configuration.

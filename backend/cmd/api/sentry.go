@@ -99,6 +99,19 @@ var scrubbers = []struct {
 				`jwt_secret|password|passwd|secret|authorization|csrf[_-]?token|token)\b"?\s*[:=]\s*"?)[^\s",;&}]+`),
 		replace: "${1}" + redaction,
 	},
+	// An OAuth callback URL carries a one-time code and the state; either is
+	// enough to finish someone's connection.
+	{
+		name:    "oauth callback params",
+		pattern: regexp.MustCompile(`([?&](?:code|state)=)[^&\s"]+`),
+		replace: "${1}" + redaction,
+	},
+	// Instagram tokens start with IG and are not always labelled.
+	{
+		name:    "instagram token",
+		pattern: regexp.MustCompile(`\bIG[A-Z]{2}[A-Za-z0-9_-]{20,}`),
+		replace: redaction,
+	},
 	// A client's email address is the account identifier here, and the thing a
 	// GDPR-style deletion request is about.
 	{
