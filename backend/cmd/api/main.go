@@ -107,8 +107,11 @@ type application struct {
 	// scheduler calls it directly: the MercadoPago OAuth refresh sweep is the
 	// venue domain's own credential lifecycle, not an HTTP route.
 	complexesService *complexes.Service
-	auth             *auth.Handler
-	payments         *payments.Handler
+	// instagram serves a complex's Instagram connection routes; the scheduler
+	// also calls it for the daily token refresh.
+	instagram *complexes.Instagram
+	auth      *auth.Handler
+	payments  *payments.Handler
 	// paymentsService is held separately from the handler because the scheduler
 	// calls it directly: retrying refunds, sweeping the webhook inbox and
 	// reconciling refund intents are the money domain's own background work,

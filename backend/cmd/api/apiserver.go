@@ -24,6 +24,7 @@ package main
 import (
 	"net/http"
 
+	"github.com/stodulski/vibe-server/internal/complexes"
 	gen "github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/social"
 
@@ -474,6 +475,35 @@ func (s *apiServer) ComplexesRegisterMercadoPagoOAuthAttempt(w http.ResponseWrit
 // (GET /api/v1/complexes/{id}/mp/status). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) ComplexesMercadoPagoStatus(w http.ResponseWriter, r *http.Request, id gen.PathID) {
 	s.app.complexes.MercadoPagoStatus(w, r)
+}
+
+// ComplexesInstagramStatus implements gen.ServerInterface for complexesInstagramStatus
+// (GET /api/v1/complexes/{id}/instagram). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesInstagramStatus(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.instagram.Status(w, r)
+}
+
+// ComplexesConnectInstagram implements gen.ServerInterface for complexesConnectInstagram
+// (POST /api/v1/complexes/{id}/instagram/connect). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesConnectInstagram(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.instagram.Connect(w, r)
+}
+
+// ComplexesDisconnectInstagram implements gen.ServerInterface for complexesDisconnectInstagram
+// (DELETE /api/v1/complexes/{id}/instagram). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) ComplexesDisconnectInstagram(w http.ResponseWriter, r *http.Request, id gen.PathID) {
+	s.app.instagram.Disconnect(w, r)
+}
+
+// ComplexesInstagramCallback implements gen.ServerInterface for complexesInstagramCallback
+// (GET /api/v1/instagram/callback). Public: Meta's redirect lands here; the
+// state cookie and the attempt it names are the check.
+func (s *apiServer) ComplexesInstagramCallback(w http.ResponseWriter, r *http.Request, params gen.ComplexesInstagramCallbackParams) {
+	s.app.instagram.Callback(w, r, complexes.InstagramCallback{
+		Code:  stringValue(params.Code),
+		State: stringValue(params.State),
+		Error: stringValue(params.Error),
+	})
 }
 
 // ReportingExportPaymentsExcel implements gen.ServerInterface for reportingExportPaymentsExcel

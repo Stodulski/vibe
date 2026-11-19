@@ -58,6 +58,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("expire_event_holds", time.Minute, app.openPlayService.ExpireHolds),
 		job("sweep_event_refunds", 2*time.Minute, app.openPlayService.SweepUnrefunded),
 		job("refresh_mp_tokens", 12*time.Hour, app.cronRefreshMPTokens),
+		job("refresh_instagram_tokens", 24*time.Hour, app.cronRefreshInstagramTokens),
 		job("clean_tokens", 24*time.Hour, app.cronCleanExpiredTokens),
 		job("clean_webhook_events", 24*time.Hour, app.cronCleanWebhookEvents),
 		job("clean_failed_refunds", 24*time.Hour, app.cronCleanFailedRefunds),
@@ -357,6 +358,14 @@ func (app *application) cronCleanFailedRefunds(ctx context.Context) {
 // job.
 func (app *application) cronRefreshMPTokens(ctx context.Context) {
 	app.complexesService.RefreshMPTokens(ctx)
+}
+
+// cronRefreshInstagramTokens renews the Instagram tokens of complexes that
+// expire within 15 days and marks the expired ones as needing a reconnect.
+func (app *application) cronRefreshInstagramTokens(ctx context.Context) {
+	out := app.instagram.RefreshTokens(ctx)
+	app.logger.Info("cron: instagram token refresh",
+		"refreshed", out.Refreshed, "failed", out.Failed, "expired", out.Expired, "unreadable", out.Unreadable)
 }
 
 // cronThreadsMaintenance refreshes the Threads token when it is due and queues

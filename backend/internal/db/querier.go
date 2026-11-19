@@ -97,6 +97,7 @@ type Querier interface {
 	DeleteEmailVerificationTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
 	DeleteExpiredRefreshTokens(ctx context.Context) error
+	DeleteInstagramConnection(ctx context.Context, complexID pgtype.UUID) (int64, error)
 	// The daily cleanup: slot entries whose day is gone (kept one extra day for the
 	// hours past midnight), and event entries whose event was cancelled or whose day
 	// has passed.
@@ -284,6 +285,8 @@ type Querier interface {
 	// point. Only name and city are selected: nothing else of a deleted venue is
 	// public. Runs under the cross-tenant bypass of the public route.
 	GetGoneComplexBySlug(ctx context.Context, slug string) (GetGoneComplexBySlugRow, error)
+	// The status read: everything but the token.
+	GetInstagramConnection(ctx context.Context, complexID pgtype.UUID) (GetInstagramConnectionRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
 	// The row of a (match, side) with whether its charge was voided. Locked: the
 	// caller holds the category lock, this keeps the row put while it is rewritten.
@@ -480,6 +483,10 @@ type Querier interface {
 	// creation when they have never made one. A booking from any source (the
 	// public site, the owner's panel, the WhatsApp flow) keeps the complex alive.
 	ListInactiveNudgeCandidates(ctx context.Context, maxRows int32) ([]ListInactiveNudgeCandidatesRow, error)
+	// The live connections whose token expires before refresh_before and was last
+	// refreshed before refreshed_before (Meta refuses a token younger than 24 h),
+	// and that have not expired yet (an expired token cannot be refreshed).
+	ListInstagramConnectionsDueForRefresh(ctx context.Context, arg ListInstagramConnectionsDueForRefreshParams) ([]ListInstagramConnectionsDueForRefreshRow, error)
 	// One-off campaign (2026-11). Remove after it has been sent.
 	// The owners the social kit email has not reached yet, oldest account first, at
 	// most max_rows. Only owners whose complex is live and switched on: the email shows
@@ -590,6 +597,8 @@ type Querier interface {
 	// whole-row write from that snapshot would revert whatever another writer (an
 	// owner edit) changed in between. A row already past 'none' is left alone.
 	MarkBookingManualBalanceOwed(ctx context.Context, id pgtype.UUID) (int64, error)
+	// A token past its expiry cannot be refreshed: the owner has to reconnect.
+	MarkExpiredInstagramConnections(ctx context.Context, now pgtype.Timestamptz) (int64, error)
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -710,6 +719,9 @@ type Querier interface {
 	// wrote it first; courtstore.Store.Update tells those apart by re-reading.
 	UpdateCourt(ctx context.Context, arg UpdateCourtParams) (Court, error)
 	UpdateCourtPrice(ctx context.Context, arg UpdateCourtPriceParams) (CourtPrice, error)
+	// Stores a refreshed token. The old expiry is part of the match so a refresh
+	// that raced a reconnect does not overwrite the newer token.
+	UpdateInstagramToken(ctx context.Context, arg UpdateInstagramTokenParams) (int64, error)
 	UpdatePayment(ctx context.Context, arg UpdatePaymentParams) (Payment, error)
 	// UpdatePayment for the webhook's record of a refund MercadoPago reports. The
 	// webhook read the row before it asked MercadoPago, and a ClaimRefund that
@@ -730,6 +742,9 @@ type Querier interface {
 	// that column's own comment in db/migrations/004_pos_catalog_stock.sql.
 	UpdateProductStock(ctx context.Context, arg UpdateProductStockParams) (Product, error)
 	UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error)
+	// Connecting again (another account, or the same one after a reconnect)
+	// replaces the row and clears needs_reconnect.
+	UpsertInstagramConnection(ctx context.Context, arg UpsertInstagramConnectionParams) error
 	// Records a charge; after a void it rewrites the row of the voided one.
 	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)
 	// A repeat capture refreshes the names it has and keeps the ones it does not:

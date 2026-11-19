@@ -24,6 +24,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/indexnow"
+	"github.com/stodulski/vibe-server/internal/instagram"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/leads"
 	"github.com/stodulski/vibe-server/internal/lifecycle"
@@ -104,6 +105,7 @@ func validateDeps(d deps) error {
 		{"models.Users", d.models.Users != nil},
 		{"models.UserIdentities", d.models.UserIdentities != nil},
 		{"models.Complexes", d.models.Complexes != nil},
+		{"models.Instagram", d.models.Instagram != nil},
 		{"models.Courts", d.models.Courts != nil},
 		{"models.Bookings", d.models.Bookings != nil},
 		{"models.Events", d.models.Events != nil},
@@ -609,6 +611,40 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
+	// A complex's own Instagram account (Business Login for Instagram), so Vibe
+	// can publish stories for it. Off unless INSTAGRAM_CONNECT_ENABLED is true
+	// and the app id and secret are set. The redirect URI is on the same API
+	// origin as Threads' and is registered with Meta.
+	instagramCB := circuitbreaker.New(circuitbreaker.Config{
+		Name:            "meta_instagram",
+		MaxFailures:     3,
+		ResetTimeout:    60 * time.Second,
+		HalfOpenMaxReqs: 1,
+		OnStateChange:   cbStateChange,
+	})
+	instagramClient := instagram.New(instagram.Config{
+		AppID:       cfg.Instagram.AppID,
+		AppSecret:   cfg.Instagram.AppSecret,
+		RedirectURI: apiBase + complexes.InstagramCallbackPath,
+		CB:          instagramCB,
+		HTTP:        &http.Client{Timeout: 15 * time.Second},
+	})
+	instagramConnect := complexes.NewInstagram(complexes.InstagramDeps{
+		API:   instagramClient,
+		Store: d.models.Instagram,
+		// Registered by the owner's request on one instance, spent by Meta's
+		// redirect on whichever instance it reaches: Redis, like MercadoPago's.
+		Attempts: complexes.NewInstagramOAuthAttempts(d.rdb, cfg.Env),
+		Audit:    auditor,
+		Respond:  respond,
+		Logger:   d.logger,
+	}, complexes.InstagramConfig{
+		Available:      cfg.Instagram.Available(),
+		Secure:         cfg.Env != "development",
+		FrontendURL:    cfg.FrontendURL,
+		TrustedProxies: d.trustedProxies,
+	})
+
 	courtsService := courts.NewService(d.models.Courts, bookingsFacade, complexesService, auditor, indexNow, courts.WithRealtime(events))
 	courtsHandler := courts.NewHandler(courtsService, respond, d.trustedProxies)
 
@@ -944,6 +980,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.tournaments = tournamentsHandler
 	app.complexes = complexesHandler
 	app.complexesService = complexesService
+	app.instagram = instagramConnect
 	app.scheduler = sched
 	app.mp = mpClient
 	app.mpOAuth = mpOAuthClient

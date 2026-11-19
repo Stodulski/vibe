@@ -20,6 +20,10 @@ const (
 	// redisMPOAuthIndexKey prefixes each scope's list of live states, newest
 	// first, which is what caps how many attempts a scope holds.
 	redisMPOAuthIndexKey = "mpoauthidx:"
+	// redisIGOAuthAttemptKey and redisIGOAuthIndexKey are the same two
+	// namespaces for Instagram connection attempts (NewInstagramOAuthAttempts).
+	redisIGOAuthAttemptKey = "igoauth:"
+	redisIGOAuthIndexKey   = "igoauthidx:"
 	// mpOAuthAttemptOpTimeout bounds one round trip: both operations sit in a
 	// request an owner is waiting on.
 	mpOAuthAttemptOpTimeout = 2 * time.Second
@@ -54,9 +58,14 @@ var ErrOAuthAttemptInvalid = errors.New("mercadopago oauth attempt is unknown or
 //
 // The in-memory maps are the whole store when no Redis is configured: correct
 // on a single instance (local development, the test harness) and only there.
+//
+// The same store, under its own namespace, holds the Instagram connection
+// attempts (NewInstagramOAuthAttempts).
 type MPOAuthAttempts struct {
 	rdb    *redis.Client
 	prefix string
+	// attemptNS and indexNS are the key namespaces under prefix.
+	attemptNS, indexNS string
 
 	mu      sync.Mutex
 	entries map[string]mpOAuthAttempt // key → attempt
@@ -71,11 +80,23 @@ type mpOAuthAttempt struct {
 // NewMPOAuthAttempts returns the store. A nil Redis client makes it purely
 // in-memory. env becomes part of every key.
 func NewMPOAuthAttempts(rdb *redis.Client, env string) *MPOAuthAttempts {
+	return newOAuthAttempts(rdb, env, redisMPOAuthAttemptKey, redisMPOAuthIndexKey)
+}
+
+// NewInstagramOAuthAttempts returns the same store for Instagram connection
+// attempts, under its own namespace so neither flow can spend the other's.
+func NewInstagramOAuthAttempts(rdb *redis.Client, env string) *MPOAuthAttempts {
+	return newOAuthAttempts(rdb, env, redisIGOAuthAttemptKey, redisIGOAuthIndexKey)
+}
+
+func newOAuthAttempts(rdb *redis.Client, env, attemptNS, indexNS string) *MPOAuthAttempts {
 	return &MPOAuthAttempts{
-		rdb:     rdb,
-		prefix:  platformredis.KeyPrefix(env),
-		entries: map[string]mpOAuthAttempt{},
-		order:   map[string][]string{},
+		rdb:       rdb,
+		prefix:    platformredis.KeyPrefix(env),
+		attemptNS: attemptNS,
+		indexNS:   indexNS,
+		entries:   map[string]mpOAuthAttempt{},
+		order:     map[string][]string{},
 	}
 }
 
@@ -119,7 +140,7 @@ func (s *MPOAuthAttempts) storeRedis(ctx context.Context, scope, state string, p
 		return nil
 	})
 	if err != nil {
-		return fmt.Errorf("complexes: storing mercadopago oauth attempt: %w", err)
+		return fmt.Errorf("complexes: storing oauth attempt: %w", err)
 	}
 	if states := dropped.Val(); len(states) > 0 {
 		keys := make([]string, len(states))
@@ -127,7 +148,7 @@ func (s *MPOAuthAttempts) storeRedis(ctx context.Context, scope, state string, p
 			keys[i] = s.key(scope, old)
 		}
 		if err := s.rdb.Del(ctx, keys...).Err(); err != nil {
-			return fmt.Errorf("complexes: dropping old mercadopago oauth attempts: %w", err)
+			return fmt.Errorf("complexes: dropping old oauth attempts: %w", err)
 		}
 	}
 	return nil
@@ -150,14 +171,14 @@ func (s *MPOAuthAttempts) Consume(ctx context.Context, scope, state string) ([]b
 			return nil
 		})
 		if err != nil && !errors.Is(err, redis.Nil) {
-			return nil, fmt.Errorf("complexes: consuming mercadopago oauth attempt: %w", err)
+			return nil, fmt.Errorf("complexes: consuming oauth attempt: %w", err)
 		}
 		payload, err := got.Bytes()
 		switch {
 		case errors.Is(err, redis.Nil):
 			return nil, ErrOAuthAttemptInvalid
 		case err != nil:
-			return nil, fmt.Errorf("complexes: consuming mercadopago oauth attempt: %w", err)
+			return nil, fmt.Errorf("complexes: consuming oauth attempt: %w", err)
 		}
 		return payload, nil
 	}
@@ -200,11 +221,11 @@ func (s *MPOAuthAttempts) sweep(now time.Time) {
 }
 
 func (s *MPOAuthAttempts) key(scope, state string) string {
-	return s.prefix + redisMPOAuthAttemptKey + scope + ":" + state
+	return s.prefix + s.attemptNS + scope + ":" + state
 }
 
 func (s *MPOAuthAttempts) indexKey(scope string) string {
-	return s.prefix + redisMPOAuthIndexKey + scope
+	return s.prefix + s.indexNS + scope
 }
 
 func without(states []string, state string) []string {

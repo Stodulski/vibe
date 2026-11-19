@@ -2846,6 +2846,141 @@ paths:
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
+  /api/v1/complexes/{id}/instagram:
+    get:
+      tags: [complexes]
+      operationId: complexesInstagramStatus
+      summary: Get the complex's Instagram connection status
+      description: >-
+        Never carries the token. `connected` is true only while the stored token is usable (not
+        expired and not marked); a connection whose token expired or could not be refreshed in time
+        answers `connected: false` and `needs_reconnect: true`, with its username kept, and the owner
+        connects again.
+      security: [{cookieAuth: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Connection status.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [enabled, connected, needs_reconnect, username, account_type, expires_at]
+                properties:
+                  enabled:
+                    type: boolean
+                    description: >-
+                      False when INSTAGRAM_CONNECT_ENABLED is off or the Instagram app id or secret
+                      is unset: connect is then refused.
+                  connected: {type: boolean}
+                  needs_reconnect:
+                    type: boolean
+                    description: A connection exists but its token is no longer usable.
+                  username: {type: string, nullable: true}
+                  account_type:
+                    type: string
+                    nullable: true
+                    description: As Meta reports it, uppercased (BUSINESS or MEDIA_CREATOR).
+                  expires_at: {type: string, format: date-time, nullable: true}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+    delete:
+      tags: [complexes]
+      operationId: complexesDisconnectInstagram
+      summary: Disconnect the complex's Instagram account
+      description: >-
+        Deletes the stored connection and its token. Disconnecting a complex with no connection is
+        not an error. The token is not revoked at Meta; the account owner can remove the app from
+        their Instagram settings.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: Disconnected.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [connected]
+                properties:
+                  connected: {type: boolean, example: false}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/instagram/connect:
+    post:
+      tags: [complexes]
+      operationId: complexesConnectInstagram
+      summary: Start connecting the complex's Instagram professional account
+      description: >-
+        Registers a single-use attempt for 15 minutes, sets an HttpOnly state cookie scoped to
+        `/api/v1/instagram/callback` that binds the attempt to this browser, and answers the
+        Instagram consent page URL the panel navigates to. Business Login for Instagram, scopes
+        `instagram_business_basic,instagram_business_content_publish`. No request body.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+      responses:
+        "200":
+          description: The consent page to send the owner to.
+          headers:
+            Set-Cookie:
+              description: The state cookie, HttpOnly, SameSite=Lax, path /api/v1/instagram/callback.
+              schema: {type: string}
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authorize_url]
+                properties:
+                  authorize_url: {type: string, format: uri}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "501":
+          description: >-
+            The Instagram connection is not available: INSTAGRAM_CONNECT_ENABLED is off or the
+            Instagram app id or secret is unset. Nothing was registered.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+
+  /api/v1/instagram/callback:
+    get:
+      tags: [complexes]
+      operationId: complexesInstagramCallback
+      summary: Finish connecting a complex's Instagram account
+      description: >-
+        Meta's redirect target. Public, because the browser arrives from Instagram. The state must
+        match the cookie set by the connect call and name an unspent attempt; the attempt, not the
+        request, says which complex the connection is stored for, and the write is scoped to that
+        complex. The code is exchanged for a long-lived token (60 days), stored sealed. Always
+        answers 303 to the panel: `<FRONTEND_URL>/settings?tab=instagram&instagram=connected`, or
+        `...&instagram=error&reason=` one of `expired` (state missing, not this browser's, unknown,
+        expired or already spent; nothing stored), `denied` (consent not given), `failed` (Meta
+        refused the exchange), `unavailable` (Meta unreachable, or the feature is off).
+      security: []
+      parameters:
+        - {name: code, in: query, required: false, schema: {type: string}}
+        - {name: state, in: query, required: false, schema: {type: string}}
+        - {name: error, in: query, required: false, schema: {type: string}}
+        - {name: error_reason, in: query, required: false, schema: {type: string}}
+        - {name: error_description, in: query, required: false, schema: {type: string}}
+      responses:
+        "303":
+          description: Back to the panel's settings, with the outcome in the query string.
+          headers:
+            Location:
+              description: The panel settings URL carrying the outcome.
+              schema: {type: string}
+
   # ---------------------------------------------------------------------
   # courts
   # ---------------------------------------------------------------------

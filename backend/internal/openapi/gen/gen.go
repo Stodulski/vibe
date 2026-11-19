@@ -6093,6 +6093,15 @@ type ComplexesPresignUploadJSONBodyContentType string
 // ComplexesPresignUploadJSONBodyType defines parameters for ComplexesPresignUpload.
 type ComplexesPresignUploadJSONBodyType string
 
+// ComplexesInstagramCallbackParams defines parameters for ComplexesInstagramCallback.
+type ComplexesInstagramCallbackParams struct {
+	Code             *string `form:"code,omitempty" json:"code,omitempty"`
+	State            *string `form:"state,omitempty" json:"state,omitempty"`
+	Error            *string `form:"error,omitempty" json:"error,omitempty"`
+	ErrorReason      *string `form:"error_reason,omitempty" json:"error_reason,omitempty"`
+	ErrorDescription *string `form:"error_description,omitempty" json:"error_description,omitempty"`
+}
+
 // PlacesAutocompleteParams defines parameters for PlacesAutocomplete.
 type PlacesAutocompleteParams struct {
 	Input        string  `form:"input" json:"input"`
@@ -6822,6 +6831,15 @@ type ServerInterface interface {
 	// RealtimeStream Live booking-change feed for the owner dashboard (Server-Sent Events)
 	// (GET /api/v1/complexes/{id}/events)
 	RealtimeStream(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesDisconnectInstagram Disconnect the complex's Instagram account
+	// (DELETE /api/v1/complexes/{id}/instagram)
+	ComplexesDisconnectInstagram(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesInstagramStatus Get the complex's Instagram connection status
+	// (GET /api/v1/complexes/{id}/instagram)
+	ComplexesInstagramStatus(w http.ResponseWriter, r *http.Request, id PathID)
+	// ComplexesConnectInstagram Start connecting the complex's Instagram professional account
+	// (POST /api/v1/complexes/{id}/instagram/connect)
+	ComplexesConnectInstagram(w http.ResponseWriter, r *http.Request, id PathID)
 	// ComplexesDisconnectMercadoPago Disconnect the complex's MercadoPago account
 	// (DELETE /api/v1/complexes/{id}/mp/connect)
 	ComplexesDisconnectMercadoPago(w http.ResponseWriter, r *http.Request, id PathID)
@@ -6959,6 +6977,9 @@ type ServerInterface interface {
 	// HealthCheck Readiness probe
 	// (GET /api/v1/healthcheck)
 	HealthCheck(w http.ResponseWriter, r *http.Request)
+	// ComplexesInstagramCallback Finish connecting a complex's Instagram account
+	// (GET /api/v1/instagram/callback)
+	ComplexesInstagramCallback(w http.ResponseWriter, r *http.Request, params ComplexesInstagramCallbackParams)
 	// LivenessCheck Liveness probe
 	// (GET /api/v1/livez)
 	LivenessCheck(w http.ResponseWriter, r *http.Request)
@@ -9098,6 +9119,84 @@ func (siw *ServerInterfaceWrapper) RealtimeStream(w http.ResponseWriter, r *http
 	handler.ServeHTTP(w, r)
 }
 
+// ComplexesDisconnectInstagram operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesDisconnectInstagram(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesDisconnectInstagram(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ComplexesInstagramStatus operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesInstagramStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesInstagramStatus(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ComplexesConnectInstagram operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesConnectInstagram(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesConnectInstagram(w, r, id)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ComplexesDisconnectMercadoPago operation middleware
 func (siw *ServerInterfaceWrapper) ComplexesDisconnectMercadoPago(w http.ResponseWriter, r *http.Request) {
 
@@ -10930,6 +11029,91 @@ func (siw *ServerInterfaceWrapper) HealthCheck(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ComplexesInstagramCallback operation middleware
+func (siw *ServerInterfaceWrapper) ComplexesInstagramCallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ComplexesInstagramCallbackParams
+
+	// ------------- Optional query parameter "code" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "code", r.URL.Query(), &params.Code, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "code"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "code", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error", r.URL.Query(), &params.Error, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error_reason" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error_reason", r.URL.Query(), &params.ErrorReason, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error_reason"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error_reason", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "error_description" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "error_description", r.URL.Query(), &params.ErrorDescription, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "error_description"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "error_description", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ComplexesInstagramCallback(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // LivenessCheck operation middleware
 func (siw *ServerInterfaceWrapper) LivenessCheck(w http.ResponseWriter, r *http.Request) {
 
@@ -12120,6 +12304,10 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/connect", wrapper.ComplexesConnectMercadoPago)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/oauth-attempts", wrapper.ComplexesRegisterMercadoPagoOAuthAttempt)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/mp/status", wrapper.ComplexesMercadoPagoStatus)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram", wrapper.ComplexesDisconnectInstagram)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram", wrapper.ComplexesInstagramStatus)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/instagram/connect", wrapper.ComplexesConnectInstagram)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/instagram/callback", wrapper.ComplexesInstagramCallback)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist", wrapper.WaitlistJoin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/public/complexes/{slug}/waitlist/places", wrapper.WaitlistJoinPlace)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments", wrapper.TournamentsList)
