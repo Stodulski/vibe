@@ -86,10 +86,12 @@ type PlaceNotifier interface {
 // EventID for open play, CategoryID for a tournament category, and CourtID, Day,
 // StartTime ("HH:MM") and DurationMinutes for a court slot.
 type PlaceTarget struct {
-	Kind            string
-	EventID         uuid.UUID
-	CategoryID      uuid.UUID
-	CourtID         uuid.UUID
+	Kind       string
+	EventID    uuid.UUID
+	CategoryID uuid.UUID
+	// CourtIDs are the courts a slot wait is for: one, or every court taken at
+	// that hour, so whichever frees first sends the notice.
+	CourtIDs        []uuid.UUID
 	Day             time.Time
 	StartTime       string
 	DurationMinutes int
@@ -145,7 +147,11 @@ func (s *PlaceService) Join(ctx context.Context, slug string, target PlaceTarget
 	if err != nil {
 		return err
 	}
-	if waiting >= MaxWaitingPerEmail {
+	adding := 1
+	if target.Kind == KindSlot {
+		adding = len(target.CourtIDs)
+	}
+	if waiting+adding > MaxWaitingPerEmail {
 		return ErrTooManyWaits
 	}
 
@@ -169,32 +175,46 @@ func (s *PlaceService) Join(ctx context.Context, slug string, target PlaceTarget
 		}
 		return s.store.InsertEvent(ctx, complex.ID, eventID, email)
 	case KindSlot:
-		if err := s.store.WaitlistableCourt(ctx, complex.ID, target.CourtID); err != nil {
-			return err
-		}
-		if err := s.slotIsTaken(ctx, slug, target, now); err != nil {
-			return err
-		}
-		return s.store.InsertSlot(ctx, store.NewSlotEntry{
-			ComplexID: complex.ID, Email: email, CourtID: target.CourtID, Day: target.Day,
-			StartTime: target.StartTime, DurationMinutes: target.DurationMinutes,
-		})
+		return s.joinSlot(ctx, slug, complex.ID, target, email, now)
 	default:
 		return fmt.Errorf("waitlist: unknown place kind %q", target.Kind)
 	}
 }
 
+// joinSlot puts email on the list of every court in target taken at that hour.
+// Every court is checked before any wait is stored, so a join naming a court
+// that is free (book it) or not the complex's stores nothing.
+func (s *PlaceService) joinSlot(ctx context.Context, slug string, complexID uuid.UUID, target PlaceTarget, email string, now time.Time) error {
+	for _, courtID := range target.CourtIDs {
+		if err := s.store.WaitlistableCourt(ctx, complexID, courtID); err != nil {
+			return err
+		}
+		if err := s.slotIsTaken(ctx, slug, courtID, target, now); err != nil {
+			return err
+		}
+	}
+	for _, courtID := range target.CourtIDs {
+		if err := s.store.InsertSlot(ctx, store.NewSlotEntry{
+			ComplexID: complexID, Email: email, CourtID: courtID, Day: target.Day,
+			StartTime: target.StartTime, DurationMinutes: target.DurationMinutes,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // slotIsTaken reads the court's grid for the slot's day and duration, the one
 // the storefront shows and the sweep reads, and answers nil only for a slot the
 // grid sells, that has not begun, and that is taken now.
-func (s *PlaceService) slotIsTaken(ctx context.Context, slug string, target PlaceTarget, now time.Time) error {
+func (s *PlaceService) slotIsTaken(ctx context.Context, slug string, courtID uuid.UUID, target PlaceTarget, now time.Time) error {
 	dateStr := target.Day.Format(time.DateOnly)
 	grid, err := s.grid.Availability(ctx, slug, dateStr, target.Day, target.DurationMinutes)
 	if err != nil {
 		return err
 	}
 	for _, c := range grid.Courts {
-		if c.CourtID != target.CourtID.String() {
+		if c.CourtID != courtID.String() {
 			continue
 		}
 		for _, sl := range c.Slots {
