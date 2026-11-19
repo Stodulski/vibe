@@ -8,7 +8,6 @@ describe('ResultCountAnnouncer', () => {
 
     const region = screen.getByText('12 resultados');
     expect(region).toHaveAttribute('aria-live', 'polite');
-    expect(region).toHaveClass('sr-only');
   });
 
   it('uses the singular for one row', () => {

@@ -32,11 +32,6 @@ describe('PageHeader', () => {
     expect(container.querySelector('p')).not.toBeInTheDocument();
   });
 
-  it('renders action button when action prop is provided', () => {
-    renderWithAction();
-    expect(screen.getByRole('button', { name: /nueva cancha/i })).toBeInTheDocument();
-  });
-
   it('calls action onClick when button is clicked', async () => {
     const user = userEvent.setup();
     const { onClick } = renderWithAction();

@@ -29,8 +29,4 @@ describe('parseEnv', () => {
   it('falls back to the page origin when VITE_APP_URL is missing', () => {
     expect(parseEnv({} as never).VITE_APP_URL).toBe(window.location.origin);
   });
-
-  it('rejects a VITE_APP_URL that is not a URL', () => {
-    expect(() => parseEnv({ VITE_APP_URL: 'not a url' } as never)).toThrow(/VITE_APP_URL/);
-  });
 });

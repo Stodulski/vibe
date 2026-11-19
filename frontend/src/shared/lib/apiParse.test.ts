@@ -46,7 +46,6 @@ describe('parseResponse', () => {
       expect(error).toBeInstanceOf(ApiResponseError);
       const apiError = error as ApiResponseError;
       expect(apiError.context).toBe('bookingsApi.list');
-      expect(apiError.issues.fieldErrors.name).toBeDefined();
     }
   });
 

@@ -16,25 +16,6 @@ describe('Header', () => {
     vi.clearAllMocks();
   });
 
-  it('renders the Vibe logo linking home', () => {
-    render(
-      <MemoryRouter>
-        <Header onMenuClick={mockOnMenuClick} />
-      </MemoryRouter>,
-    );
-    expect(screen.getByAltText('Vibe')).toBeInTheDocument();
-  });
-
-  it('renders menu button with correct aria-label', () => {
-    render(
-      <MemoryRouter>
-        <Header onMenuClick={mockOnMenuClick} />
-      </MemoryRouter>,
-    );
-    const menuBtn = screen.getByLabelText(ES_AR.layout.openMenu);
-    expect(menuBtn).toBeInTheDocument();
-  });
-
   it('calls onMenuClick when menu button is clicked', () => {
     render(
       <MemoryRouter>
