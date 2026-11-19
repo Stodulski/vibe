@@ -5,7 +5,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { parseStoryRequest, storyText, type StoryAvailability } from '../src/lib/story/story-text.ts';
+import {
+  dayLabel,
+  emptyFreeText,
+  needsPreviousNight,
+  parseStoryRequest,
+  storyText,
+  type StoryAvailability,
+} from '../src/lib/story/story-text.ts';
 
 const facts = { name: 'La Zona F5', city: 'Caleta Olivia', province: 'Santa Cruz', sports: ['Pádel'] };
 const LABELS = { padel: 'Pádel', soccer: 'Fútbol' };
@@ -44,6 +51,7 @@ test('a free-hours story lists each sport once, its free hours unique and in day
   assert.ok(text);
   assert.deepEqual(text.sections, [{ sport: 'Pádel', hours: ['18:00', '19:30', '21:00'], more: 0 }]);
   assert.equal(text.headline, 'Turnos libres hoy');
+  assert.equal(text.dateLine, 'Jueves 19');
   assert.equal(text.link, 'vibe.com.ar/c/la-zona-f5');
 });
 
@@ -68,8 +76,10 @@ test('a sport with more free hours than fit shows the first ones and says how ma
 test('the headline says tomorrow, or the weekday and day, for other dates', () => {
   const tomorrow = storyText(facts, availability(), 'la-zona-f5', { piece: 'libres', date: '2026-11-20' }, TODAY, LABELS);
   assert.equal(tomorrow?.headline, 'Turnos libres mañana');
+  assert.equal(tomorrow?.dateLine, 'Viernes 20');
   const later = storyText(facts, availability(), 'la-zona-f5', { piece: 'libres', date: '2026-11-23' }, TODAY, LABELS);
   assert.equal(later?.headline, 'Turnos libres el lunes 23');
+  assert.equal(later?.dateLine, undefined, 'the headline already carries the date');
 });
 
 test('a freed-slot story names the court, the sport and the hour while that slot is still free', () => {
@@ -83,7 +93,7 @@ test('a freed-slot story names the court, the sport and the hour while that slot
   );
   assert.ok(text);
   assert.equal(text.headline, 'Se liberó un turno');
-  assert.deepEqual(text.slot, { time: '19:30', day: 'Hoy', court: 'Cancha 2', sport: 'Pádel' });
+  assert.deepEqual(text.slot, { time: '19:30', day: 'Hoy, jueves 19', court: 'Cancha 2', sport: 'Pádel' });
 });
 
 test('a freed-slot story does not repeat the sport when the court is named after it', () => {
@@ -123,4 +133,62 @@ test('an unknown piece, a bad date or hour, or a freed slot without its court is
   assert.equal(parseStoryRequest('liberado', new URLSearchParams('hora=25:00&cancha=c2'), TODAY), null);
   assert.equal(parseStoryRequest('liberado', new URLSearchParams('hora=19:30'), TODAY), null);
   assert.equal(parseStoryRequest('libres', new URLSearchParams('duracion=abc'), TODAY), null);
+});
+
+test('the day label carries the date: today, tomorrow, and other days by weekday', () => {
+  assert.equal(dayLabel(TODAY, TODAY), 'Hoy, jueves 19');
+  assert.equal(dayLabel('2026-11-20', TODAY), 'Mañana, viernes 20');
+  assert.equal(dayLabel('2026-11-23', TODAY), 'lunes 23');
+});
+
+/** An overnight venue: operating day 2026-11-19 runs past midnight, filed as start_min >= 1440. */
+function night(onPrevious: boolean | null, sameDayLateFree = true) {
+  const day = availability();
+  day.date = '2026-11-20';
+  // The 20th's own after-midnight hour is the night of the 21st: never the 00:30 of the 20th.
+  day.courts[0].slots = [slot('18:00', 1080, true), slot('00:30', 1470, sameDayLateFree)];
+  const previous = availability();
+  previous.courts[0].slots = onPrevious === null ? [slot('18:00', 1080, true)] : [slot('00:30', 1470, onPrevious)];
+  return { day, previous };
+}
+
+const afterMidnight = { piece: 'liberado', date: '2026-11-20', time: '00:30', courtId: 'c1' } as const;
+
+test('a freed slot after midnight is found on the previous operating day, not on the next night', () => {
+  const { day, previous } = night(true);
+  assert.equal(needsPreviousNight(day, afterMidnight, TODAY), true);
+  assert.equal(storyText(facts, day, 'la-zona-f5', afterMidnight, TODAY, LABELS), null, 'the 20th grid alone holds the wrong night');
+  const text = storyText(facts, day, 'la-zona-f5', afterMidnight, TODAY, LABELS, previous);
+  assert.equal(text?.slot?.time, '00:30');
+  assert.equal(text?.slot?.day, 'Mañana, viernes 20');
+});
+
+test('a freed slot after midnight taken again on the previous night is not drawn', () => {
+  const { day, previous } = night(false);
+  assert.equal(storyText(facts, day, 'la-zona-f5', afterMidnight, TODAY, LABELS, previous), null);
+  const missing = night(null);
+  assert.equal(storyText(facts, missing.day, 'la-zona-f5', afterMidnight, TODAY, LABELS, missing.previous), null);
+});
+
+test('a slot that starts on its own operating day needs no previous night', () => {
+  const day = availability();
+  day.courts[0].slots = [slot('00:30', 30, true)];
+  assert.equal(needsPreviousNight(day, afterMidnight, TODAY), false);
+  assert.equal(storyText(facts, day, 'la-zona-f5', afterMidnight, TODAY, LABELS)?.slot?.time, '00:30');
+  assert.equal(needsPreviousNight(availability(), libres, TODAY), false);
+});
+
+test('yesterday is never read: the public grid refuses past dates', () => {
+  const { day } = night(false);
+  assert.equal(needsPreviousNight(day, { ...afterMidnight, date: TODAY }, TODAY), false);
+});
+
+test('the empty preview says no free hours are left, worded for the day', () => {
+  const today = emptyFreeText(facts, 'la-zona-f5', libres, TODAY);
+  assert.equal(today.empty, 'Hoy no quedan turnos libres');
+  assert.equal(today.headline, 'Hoy, jueves 19', 'no "Turnos libres" headline over an empty day');
+  assert.equal(emptyFreeText(facts, 'la-zona-f5', { piece: 'libres', date: '2026-11-20' }, TODAY).empty, 'Mañana no quedan turnos libres');
+  const later = emptyFreeText(facts, 'la-zona-f5', { piece: 'libres', date: '2026-11-23' }, TODAY);
+  assert.equal(later.empty, 'El lunes 23 no quedan turnos libres');
+  assert.deepEqual(later.sections, []);
 });

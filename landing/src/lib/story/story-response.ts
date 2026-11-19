@@ -1,16 +1,25 @@
 /**
  * The story picture endpoint's answer. A malformed request is a 404 before anything is read. A
- * story with nothing true to show (no free hour, the freed slot taken again) is a 404 too, never
- * cached, so the publisher skips it. A drawn story is a JPEG cached for a minute: Instagram reads
- * it once when the story is created, and the grid it shows changes by the minute. The reads and
- * the render are passed in, so node:test can drive the answers with stubs.
+ * story with nothing true to show (no free hour, the freed slot taken again) is a 404 too, so the
+ * publisher skips it; only the panel's preview of libres (?vista=1) draws a "no free hours left"
+ * story instead. Nothing is cached, 200 or 404: the grid a story shows changes by the minute and
+ * the publisher must see the current answer. The reads and the render are passed in, so node:test
+ * can drive the answers with stubs.
  */
 import { ApiError } from '../api.ts';
 import type { ShareFacts } from '../complex-share.ts';
 import { failure } from '../og/complex-image.ts';
-import { parseStoryRequest, storyText, type StoryAvailability, type StoryText } from './story-text.ts';
+import {
+  emptyFreeText,
+  needsPreviousNight,
+  parseStoryRequest,
+  previousDate,
+  storyText,
+  type StoryAvailability,
+  type StoryText,
+} from './story-text.ts';
 
-export const STORY_CACHE_CONTROL = 'public, max-age=60, s-maxage=60';
+export const STORY_CACHE_CONTROL = 'no-store';
 
 export interface StoryImageDeps {
   readFacts(slug: string): Promise<ShareFacts>;
@@ -44,16 +53,24 @@ export async function storyImageResponse(
 
   let facts: ShareFacts;
   let grid: StoryAvailability;
+  let previous: StoryAvailability | undefined;
   try {
     [facts, grid] = await Promise.all([
       deps.readFacts(slug),
       deps.readAvailability(slug, request.date, request.duration),
     ]);
+    // An overnight venue files a freed 00:30 under the previous operating day.
+    if (needsPreviousNight(grid, request, deps.today)) {
+      previous = await deps.readAvailability(slug, previousDate(request.date), request.duration);
+    }
   } catch (error) {
     return readFailure(error);
   }
 
-  const text = storyText(facts, grid, slug, request, deps.today, deps.labels);
+  const preview = request.piece === 'libres' && query.get('vista') === '1';
+  const text =
+    storyText(facts, grid, slug, request, deps.today, deps.labels, previous) ??
+    (preview ? emptyFreeText(facts, slug, request, deps.today) : null);
   if (!text) return failure(404, 'No hay turnos para mostrar');
 
   try {
