@@ -59,7 +59,11 @@ function packedOffset(raw: number, half: number): number {
   return Math.sign(raw) * (inside + outside);
 }
 
-const TRACK = 'relative cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing';
+// The edges fade instead of cutting a choice in half: what lies past the side
+// reads as more to swipe to, not as something clipped.
+const TRACK =
+  'relative cursor-grab touch-pan-y overflow-hidden select-none active:cursor-grabbing ' +
+  '[mask-image:linear-gradient(to_right,transparent,#000_22%,#000_78%,transparent)]';
 
 /** How high the outer cards climb: lower than the time ruler's, cards are larger. */
 const CARD_ARC = 40;
@@ -87,11 +91,13 @@ function WheelCard<T extends string>({ choice, offset, half, width, focused, onT
         width,
         left: `calc(50% + ${(x - width / 2).toFixed(1)}px)`,
         opacity: depth.opacity,
-        transform: `translateY(${depth.rise.toFixed(1)}px) scale(${depth.scale.toFixed(3)})`,
+        // No curve and anchored at the top: without a card around each choice,
+        // the drawings line up in one row and the names in the next.
+        transform: `scale(${depth.scale.toFixed(3)})`,
       }}
       className={cn(
-        'absolute bottom-3 flex origin-bottom cursor-pointer flex-col items-center gap-3 rounded-2xl border px-3 pt-4 pb-3',
-        focused ? 'border-primary-500 bg-bg-base bg-linear-to-b from-primary-500/10 to-primary-500/10 text-primary-400' : 'border-border-interactive bg-bg-subtle text-text-primary',
+        'focus-visible:outline-primary-500 absolute top-3 flex origin-top cursor-pointer flex-col items-center gap-3 rounded-2xl px-3 pt-4 pb-3 focus-visible:outline-2',
+        focused ? 'text-primary-400' : 'text-text-primary',
       )}
     >
       {choice.art}
