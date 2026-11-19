@@ -16,6 +16,7 @@ import (
 
 	"github.com/google/uuid"
 
+	authstore "github.com/stodulski/vibe-server/internal/auth/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
@@ -614,5 +615,46 @@ func TestInstagramCallbackStoresNothingWhenTheOwnerChanged(t *testing.T) {
 	}
 	if len(h.store.conns) != 0 {
 		t.Fatalf("nothing must be stored; got %+v", h.store.conns)
+	}
+}
+
+// While Meta has not approved publishing, only the owners on the allow list see
+// the feature: everyone else gets enabled:false and a refused connect.
+func TestInstagramIsOfferedOnlyToTheOwnersOnTheAllowList(t *testing.T) {
+	h := newIGHarness(t, true)
+	h.ig.cfg.AllowedEmails = []string{"tester@vibe.test"}
+
+	as := func(email, method, target string) *http.Request {
+		r := ownerRequest(t, method, target, h.owner, h.complex, nil, "")
+		return httpx.ContextSetUser(r, &authstore.User{ID: h.owner, Role: "owner", Email: email})
+	}
+	enabled := func(email string) bool {
+		w := httptest.NewRecorder()
+		h.ig.Status(w, as(email, http.MethodGet, "/api/v1/complexes/x/instagram"))
+		var body struct {
+			Enabled bool `json:"enabled"`
+		}
+		if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
+			t.Fatalf("status body: %v", err)
+		}
+		return body.Enabled
+	}
+	connectCode := func(email string) int {
+		w := httptest.NewRecorder()
+		h.ig.Connect(w, as(email, http.MethodPost, "/api/v1/complexes/x/instagram/connect"))
+		return w.Code
+	}
+
+	if enabled("other@vibe.test") {
+		t.Fatal("an owner off the list must see enabled:false")
+	}
+	if got := connectCode("other@vibe.test"); got != http.StatusNotImplemented {
+		t.Fatalf("connect for an owner off the list = %d, want 501", got)
+	}
+	if !enabled("Tester@Vibe.test") {
+		t.Fatal("an owner on the list must see enabled:true, whatever the case of the address")
+	}
+	if got := connectCode("Tester@Vibe.test"); got != http.StatusOK {
+		t.Fatalf("connect for an owner on the list = %d, want 200", got)
 	}
 }

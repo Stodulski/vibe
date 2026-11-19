@@ -191,6 +191,12 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 		"Let complexes connect their Instagram professional account (INSTAGRAM_CONNECT_ENABLED)")
 	fs.StringVar(&cfg.Instagram.AppID, "instagram-app-id", "", "Instagram app ID for Business Login (INSTAGRAM_APP_ID)")
 	fs.StringVar(&cfg.Instagram.AppSecret, "instagram-app-secret", "", "Instagram app secret for Business Login (INSTAGRAM_APP_SECRET)")
+	fs.Func("instagram-connect-allowed-emails",
+		"comma-separated owner emails Instagram is limited to; empty offers it to every owner (INSTAGRAM_CONNECT_ALLOWED_EMAILS)",
+		func(v string) error {
+			cfg.Instagram.AllowedEmails = commaList(v)
+			return nil
+		})
 	cfg.Social.ThreadsKeywords = append([]string(nil), defaultThreadsKeywords...)
 	fs.Func("threads-keywords", "comma-separated phrases for the weekly Threads digest (SOCIAL_THREADS_KEYWORDS)", func(v string) error {
 		cfg.Social.ThreadsKeywords = commaList(v)
@@ -305,6 +311,7 @@ func (cfg *Config) applyEnv(env *reader) {
 	env.boolVal("INSTAGRAM_CONNECT_ENABLED", &cfg.Instagram.ConnectEnabled)
 	env.strVal("INSTAGRAM_APP_ID", &cfg.Instagram.AppID)
 	env.strVal("INSTAGRAM_APP_SECRET", &cfg.Instagram.AppSecret)
+	env.str("INSTAGRAM_CONNECT_ALLOWED_EMAILS", func(v string) { cfg.Instagram.AllowedEmails = commaList(v) })
 	env.str("SOCIAL_THREADS_KEYWORDS", func(v string) { cfg.Social.ThreadsKeywords = commaList(v) })
 
 	env.strVal("FRONTEND_URL", &cfg.FrontendURL)

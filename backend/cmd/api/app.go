@@ -640,6 +640,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Logger:   d.logger,
 	}, complexes.InstagramConfig{
 		Available:      cfg.Instagram.Available(),
+		AllowedEmails:  cfg.Instagram.AllowedEmails,
 		Secure:         cfg.Env != "development",
 		FrontendURL:    cfg.FrontendURL,
 		TrustedProxies: d.trustedProxies,
