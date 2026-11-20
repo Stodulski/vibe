@@ -145,6 +145,62 @@ function getCurrentUser(signal?: AbortSignal): Promise<CurrentUserResponse> {
 }
 
 /**
+ * Methods the backend never checks a CSRF token on (`CSRFProtect`).
+ */
+const CSRF_FREE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS']);
+
+/**
+ * Repeats, once, a write refused because this tab's CSRF token is stale.
+ *
+ * The CSRF token is derived from the access token, and the access token is
+ * renewed every few minutes. The tab that renews it updates its own token;
+ * a sibling tab (or the installed app) keeps the cookie the renewal wrote,
+ * which is shared, and the CSRF token of the old one, which is not. Its reads
+ * keep working, since reads carry no CSRF token, but every write answers 403,
+ * and with no 401 to set off a refresh it never recovers until a reload.
+ *
+ * `GET /auth/me` answers the CSRF token of the access token the cookie
+ * carries, without rotating anything. When it is the same as the token the
+ * request was sent with, the 403 was a real refusal and is answered
+ * unchanged. When it differs, the request is repeated once. That is almost
+ * always a CSRF refusal, which the middleware answers before any handler
+ * runs; the rare exception (a key rotation, or a sibling refresh landing
+ * between the two calls) repeats a refusal that every handler answering 403
+ * gives before doing any work, so nothing runs twice either way.
+ */
+export async function retryOnStaleCsrf({
+  request,
+  options,
+  response,
+}: {
+  request: Request;
+  options: unknown;
+  response: Response;
+}): Promise<Response> {
+  if (response.status !== 403 || CSRF_FREE_METHODS.has(request.method)) {
+    return response;
+  }
+
+  let current: string;
+  try {
+    current = (await getCurrentUser()).csrf_token;
+  } catch {
+    return response;
+  }
+  if (current === request.headers.get('X-CSRF-Token')) {
+    return response;
+  }
+
+  useStore.getState().setCsrfToken(current);
+  request.headers.set('X-CSRF-Token', current);
+  // Same cast as the 401 retry below: `options` is ky's normalized view of
+  // the `Options` this request started from. The retry answers its response
+  // instead of throwing, so a refusal it meets (a 409 for a taken slot) is
+  // turned into an `ApiError` by this client like any other.
+  return ky(request, { ...(options as Options), hooks: {}, throwHttpErrors: false });
+}
+
+/**
  * Where a session that could not be refreshed has to send the browser.
  *
  * This is a hard navigation — the store is gone and React never gets to
@@ -213,6 +269,7 @@ const api = ky.create({
       },
     ],
     afterResponse: [
+      retryOnStaleCsrf,
       async ({ request, options, response }) => {
         if (response.status !== 401) {
           return response;

@@ -1,7 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 // @vitest-environment node
 import { HTTPError } from 'ky';
-import { bootstrapSession, loginUrlPreserving, refreshAccessToken, REFRESH_RETRY_DELAY_MS } from './ky';
+import {
+  bootstrapSession,
+  loginUrlPreserving,
+  refreshAccessToken,
+  REFRESH_RETRY_DELAY_MS,
+  retryOnStaleCsrf,
+} from './ky';
 import { makeUser } from '@/test/factories';
 
 vi.mock('@sentry/react', () => ({
@@ -21,12 +27,14 @@ vi.mock('ky', () => {
       this.response = { status };
     }
   }
+  // Callable, like the real default export: a retried request goes through
+  // `ky(request, options)`.
   return {
-    default: {
+    default: Object.assign(vi.fn(), {
       create: vi.fn().mockReturnValue({}),
       post: mockPost,
       get: vi.fn(),
-    },
+    }),
     HTTPError: MockHTTPError,
   };
 });
@@ -299,5 +307,87 @@ describe('loginUrlPreserving', () => {
   it('does nothing on /login or /register, where a redirect would only wipe a half-typed form', () => {
     expect(loginUrlPreserving({ pathname: '/login', search: '' })).toBeNull();
     expect(loginUrlPreserving({ pathname: '/register', search: '?ref=x' })).toBeNull();
+  });
+});
+
+const staleCsrfUser = makeUser();
+const post = (token: string) =>
+  new Request('https://api.test/api/v1/complexes/c1/bookings', {
+    method: 'POST',
+    headers: { 'X-CSRF-Token': token },
+    body: '{}',
+  });
+const forbidden = () => new Response(null, { status: 403 });
+const options = {} as never;
+
+describe('retryOnStaleCsrf — another tab renewed the session', () => {
+  // The CSRF token is derived from the access token. When a sibling tab
+  // refreshes, the shared cookie carries a new access token while this tab
+  // still holds the CSRF token of the old one: every write answers 403 until
+  // the page is reloaded.
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('takes the CSRF token of the current cookie from /auth/me and repeats the write once with it', async () => {
+    const ky = await import('ky');
+    vi.mocked(ky.default.get).mockReturnValueOnce({
+      json: vi.fn().mockResolvedValue({ user: staleCsrfUser, csrf_token: 'current', pending_email: null }),
+    } as never);
+    const created = new Response(null, { status: 201 });
+    vi.mocked(ky.default).mockResolvedValueOnce(created as never);
+    const request = post('stale');
+
+    const result = await retryOnStaleCsrf({ request, options, response: forbidden() });
+
+    expect(result).toBe(created);
+    expect(mockSetCsrfToken).toHaveBeenCalledWith('current');
+    expect(ky.default).toHaveBeenCalledTimes(1);
+    const retried = vi.mocked(ky.default).mock.calls[0]?.[0] as Request;
+    expect(retried.headers.get('X-CSRF-Token')).toBe('current');
+    // A refusal the repeated write meets (a 409 for a taken slot) comes back as
+    // a response, so the client turns it into an `ApiError` like any other.
+    expect(vi.mocked(ky.default).mock.calls[0]?.[1]).toMatchObject({ throwHttpErrors: false });
+  });
+
+  it('answers the 403 unchanged when the token was already current: the refusal is real', async () => {
+    const ky = await import('ky');
+    vi.mocked(ky.default.get).mockReturnValueOnce({
+      json: vi.fn().mockResolvedValue({ user: staleCsrfUser, csrf_token: 'current', pending_email: null }),
+    } as never);
+    const response = forbidden();
+
+    const result = await retryOnStaleCsrf({ request: post('current'), options, response });
+
+    expect(result).toBe(response);
+    expect(ky.default).not.toHaveBeenCalled();
+    expect(mockSetCsrfToken).not.toHaveBeenCalled();
+  });
+
+  it('answers the 403 unchanged when the session cannot be read', async () => {
+    const ky = await import('ky');
+    vi.mocked(ky.default.get).mockReturnValueOnce({
+      json: vi.fn().mockRejectedValue(new Error('network')),
+    } as never);
+    const response = forbidden();
+
+    const result = await retryOnStaleCsrf({ request: post('stale'), options, response });
+
+    expect(result).toBe(response);
+    expect(ky.default).not.toHaveBeenCalled();
+  });
+
+  it('leaves reads and other statuses alone without asking for the session', async () => {
+    const ky = await import('ky');
+    const get403 = forbidden();
+    const post500 = new Response(null, { status: 500 });
+
+    const read = new Request('https://api.test/api/v1/complexes/c1/bookings');
+    await expect(retryOnStaleCsrf({ request: read, options, response: get403 })).resolves.toBe(get403);
+    await expect(retryOnStaleCsrf({ request: post('stale'), options, response: post500 })).resolves.toBe(post500);
+
+    expect(ky.default.get).not.toHaveBeenCalled();
+    expect(ky.default).not.toHaveBeenCalled();
   });
 });
