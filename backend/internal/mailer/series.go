@@ -57,3 +57,26 @@ func (m *Mailer) SendSeriesCancelled(ctx context.Context, to, complexName, court
 	preheader := fmt.Sprintf("Tu turno fijo en %s se canceló desde el %s.", complexEsc, fromEsc)
 	return m.sendToClient(ctx, to, subject, m.wrap("Turno fijo cancelado", preheader, content), contact)
 }
+
+// SendOwnerSeriesDatesLost tells the owner that the scheduler could not book
+// some dates of a fixed weekly booking, one line per date with why. Nobody
+// decided those dates were lost, so this is the only place the owner learns
+// the client has no court on them.
+func (m *Mailer) SendOwnerSeriesDatesLost(ctx context.Context, to, complexName, courtName, clientName, weekdays, hours string, lines []string) error {
+	subject := "No pudimos reservar fechas de un turno fijo · " + complexName
+
+	clientEsc, courtEsc := html.EscapeString(clientName), html.EscapeString(courtName)
+	weekdaysEsc, hoursEsc := html.EscapeString(weekdays), html.EscapeString(hours)
+
+	content := title("Hay fechas de un turno fijo sin reservar.") +
+		p(fmt.Sprintf("El turno fijo de <strong>%s</strong> (todos los %s de %s en %s) no se pudo reservar en estas fechas:",
+			clientEsc, weekdaysEsc, hoursEsc, courtEsc), 16, 16)
+	for _, line := range lines {
+		content += p(html.EscapeString(line), 8, 8)
+	}
+	content += p("El resto del turno fijo sigue igual. Si hace falta, avisale al cliente.", 16, 16) +
+		button(m.appURL+"/bookings", "Ver en el panel")
+
+	preheader := fmt.Sprintf("Turno fijo de %s: %d fechas sin reservar.", clientEsc, len(lines))
+	return m.send(ctx, to, subject, m.wrap("Fechas de un turno fijo sin reservar", preheader, content))
+}

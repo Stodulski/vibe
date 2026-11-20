@@ -150,7 +150,10 @@ func (m *Store) InsertSeriesWithBookings(ctx context.Context, s *Series, excepti
 		return err
 	}
 	var row db.BookingSeries
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, q *db.Queries) error {
+	// Retried whole on a deadlock or serialization failure: the court locks
+	// and the bookings' share locks can meet another writer in either order.
+	// Nothing outside the transaction is touched, so a replay is safe.
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, q *db.Queries) error {
 		for _, id := range courtsToLock(s, moved) {
 			if err := lockCourtForSeries(ctx, tx, id); err != nil {
 				return err
@@ -231,24 +234,43 @@ func lockCourtForSeries(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error
 }
 
 // recheckSeriesAgainstBookings asks, inside the transaction that holds the
-// court, whether any booking covers a date the new series holds within the
-// booking horizon. The predicate is the canonical one (see SlotTaken).
+// court, whether anything else holds a date the new series holds within the
+// booking horizon: a booking (the canonical predicate, see SlotTaken), another
+// series, an open-play event or a scheduled tournament match. Events and
+// matches take the same court row lock for update before they write
+// (events/store CheckCourtsFree), and so does another series, so whichever
+// commits first is seen by the other's recheck.
 func recheckSeriesAgainstBookings(ctx context.Context, tx pgx.Tx, s *Series, hold time.Duration) error {
 	horizon := timezone.Today().AddDate(0, 0, MaxBookingHorizonDays)
 	var taken bool
 	err := tx.QueryRow(ctx, `
+		WITH mine AS (
+			SELECT court_id, span
+			FROM booking_series_occurrences(NULL, ARRAY[$1]::uuid[], $2::date, $3::date)
+			WHERE series_id = $4
+		)
 		SELECT EXISTS(
 			SELECT 1
-			FROM booking_series_occurrences(NULL, ARRAY[$1]::uuid[], $2::date, $3::date) o
+			FROM mine o
 			JOIN bookings b ON b.court_id = o.court_id AND b.span && o.span
-			WHERE o.series_id = $4
-			  AND b.status NOT IN `+slotguard.ReleasedBookingStatuses+`
+			WHERE b.status NOT IN `+slotguard.ReleasedBookingStatuses+`
 			  AND NOT (
 			    b.status = 'pending'
 			    AND b.collection_status = 'unpaid'
 			    AND b.created_by IS NULL
 			    AND b.created_at < NOW() - make_interval(secs => $5)
 			  )
+		) OR EXISTS(
+			SELECT 1
+			FROM mine o
+			JOIN booking_series_occurrences(NULL, ARRAY[$1]::uuid[], $2::date - 1, $3::date + 1) other
+			  ON other.court_id = o.court_id AND other.span && o.span
+			WHERE other.series_id <> $4
+		) OR EXISTS(
+			SELECT 1
+			FROM mine o
+			JOIN court_event_occupancy(NULL, ARRAY[$1]::uuid[], $2::date - 1, $3::date + 1) e
+			  ON e.court_id = o.court_id AND e.span && o.span
 		)`,
 		data.UUIDToPg(s.CourtID), data.DateToPg(s.StartsOn), data.DateToPg(horizon),
 		data.UUIDToPg(s.ID), hold.Seconds(),
@@ -309,6 +331,69 @@ func (m *Store) EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, 
 		return nil, fmt.Errorf("bookings: end series: %w", err)
 	}
 	return seriesFromDB(row), nil
+}
+
+// SeriesEnd is what EndSeriesCancelling wrote: the series as it now stands and
+// the occurrences it cancelled.
+type SeriesEnd struct {
+	Series    *Series
+	Cancelled []*Booking
+}
+
+// EndSeriesCancelling ends a series and cancels the occurrences named in cancel,
+// in one transaction, so the owner never sees a series half ended: either its
+// new end and every cancellation it could make are written, or nothing is.
+//
+// Each cancellation is conditional (CancelUnpaidSeriesOccurrence): an
+// occurrence that a counter payment, a cancellation or its own start reached
+// first is left as it stands and simply is not in the result. The series row is
+// locked first, so two ends of the same series run one after the other.
+func (m *Store) EndSeriesCancelling(
+	ctx context.Context, complexID, seriesID uuid.UUID, cancel []uuid.UUID, note string, now time.Time,
+	endsOn *time.Time, status string,
+) (*SeriesEnd, error) {
+	ctx, cancelCtx := data.TxContext(ctx)
+	defer cancelCtx()
+
+	if err := data.AssertTenant(ctx, complexID); err != nil {
+		return nil, err
+	}
+	var out *SeriesEnd
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, q *db.Queries) error {
+		out = &SeriesEnd{}
+		var id pgtype.UUID
+		if err := tx.QueryRow(ctx, `SELECT id FROM booking_series WHERE id = $1 FOR UPDATE`,
+			data.UUIDToPg(seriesID)).Scan(&id); err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("bookings: lock series: %w", err)
+		}
+		for _, bookingID := range cancel {
+			row, err := q.CancelUnpaidSeriesOccurrence(ctx, db.CancelUnpaidSeriesOccurrenceParams{
+				ID: data.UUIDToPg(bookingID), SeriesID: data.UUIDToPg(seriesID), Note: note, Now: data.TimeToPg(now),
+			})
+			if errors.Is(err, pgx.ErrNoRows) {
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("bookings: cancel series occurrence: %w", err)
+			}
+			out.Cancelled = append(out.Cancelled, BookingFromDB(row))
+		}
+		row, err := q.EndBookingSeries(ctx, db.EndBookingSeriesParams{
+			ID: data.UUIDToPg(seriesID), EndsOn: optDateToPg(endsOn), Status: status,
+		})
+		if err != nil {
+			return fmt.Errorf("bookings: end series: %w", err)
+		}
+		out.Series = seriesFromDB(row)
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // SeriesDates returns the settled dates of a series between from and to,

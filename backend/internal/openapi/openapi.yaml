@@ -1140,7 +1140,7 @@ paths:
                 payment_method: {type: string, enum: ["", cash, transfer, debit_card, credit_card, qr_wallet]}
                 payment_option: {type: string, enum: ["", unpaid, deposit, full]}
                 notes: {type: string}
-                deposit_amount: {type: integer, description: "Centavos ARS."}
+                deposit_amount: {type: integer, description: "Centavos ARS. Required, above zero, with payment_option deposit; a deposit equal to the price is recorded as fully paid."}
                 price: {type: integer, description: "Centavos ARS. Required when no price rule covers the slot."}
 
   /api/v1/complexes/{id}/booking-series:
@@ -1219,6 +1219,13 @@ paths:
                 ends_on: {type: [string, "null"], format: date, description: "Last day, inclusive."}
                 weeks: {type: integer, minimum: 1, maximum: 156, description: "Alternative to ends_on: the number of weekly occurrences."}
                 skip_conflicts: {type: boolean, description: "Create the series turning the dates something else holds into exceptions."}
+                skip_dates:
+                  type: array
+                  description: >-
+                    With `skip_conflicts`: the conflict dates the owner was shown (the `409`'s). Only those are
+                    skipped or moved; a conflict on any other date answers `409` again, listing every conflict,
+                    and writes nothing. Absent or empty: every conflict is skipped.
+                  items: {type: string, format: date}
                 date_courts:
                   type: array
                   description: >-
@@ -7409,8 +7416,8 @@ components:
         state:
           type: string
           enum: [pending, booked, exception]
-          description: "`pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series."
-        booking_id: {type: string, format: uuid, description: "Present when `booked`."}
+          description: "`pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series. A date whose booking was cancelled is an `exception` (`cancelled_by_owner`) that still names its booking."
+        booking_id: {type: string, format: uuid, description: "Present when `booked`, and on an `exception` whose booking was cancelled."}
         reason:
           type: string
           enum: [cancelled_by_owner, overlap, blocked, closed_day, no_price, client_blocked, missed]

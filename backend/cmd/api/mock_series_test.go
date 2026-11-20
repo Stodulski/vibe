@@ -45,6 +45,12 @@ func (m *mockBookingSeriesStore) EndSeries(ctx context.Context, id uuid.UUID, en
 	return nil, data.ErrRecordNotFound
 }
 
+func (m *mockBookingSeriesStore) EndSeriesCancelling(
+	context.Context, uuid.UUID, uuid.UUID, []uuid.UUID, string, time.Time, *time.Time, string,
+) (*bookingstore.SeriesEnd, error) {
+	return nil, data.ErrRecordNotFound
+}
+
 func (m *mockBookingSeriesStore) SeriesDates(context.Context, uuid.UUID, time.Time, time.Time) ([]bookingstore.SeriesDate, error) {
 	return nil, nil
 }

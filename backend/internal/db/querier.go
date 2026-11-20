@@ -39,6 +39,12 @@ type Querier interface {
 	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
 	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	CancelTournament(ctx context.Context, arg CancelTournamentParams) (Tournament, error)
+	// Ending a series cancels one of its occurrences, but only while it is still
+	// the occurrence the owner meant: active, nothing collected, and its hours
+	// still ahead of now. A counter payment, a cancellation or the start of the
+	// game that commits first leaves the row out (no rows), and the booking
+	// stands. Run inside the transaction that also moves the series' end.
+	CancelUnpaidSeriesOccurrence(ctx context.Context, arg CancelUnpaidSeriesOccurrenceParams) (Booking, error)
 	// One-off campaign (2026-10). Remove after it has been sent.
 	// Records that an owner is being sent the campaign. The primary key makes it
 	// once-only per owner: a second claim inserts nothing.

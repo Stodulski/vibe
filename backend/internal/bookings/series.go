@@ -36,10 +36,10 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/pricing"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
-	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // Series is the domain type of a fixed weekly series.
@@ -83,6 +83,8 @@ type SeriesStore interface {
 	GetSeries(ctx context.Context, id uuid.UUID) (*Series, error)
 	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)
 	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*Series, error)
+	EndSeriesCancelling(ctx context.Context, complexID, seriesID uuid.UUID, cancel []uuid.UUID, note string, now time.Time,
+		endsOn *time.Time, status string) (*bookingstore.SeriesEnd, error)
 	SeriesDates(ctx context.Context, seriesID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error)
 	RecordSeriesException(ctx context.Context, s *Series, date time.Time, reason string) (bool, error)
 	SeriesBookingsFrom(ctx context.Context, seriesID uuid.UUID, from time.Time) ([]*bookingstore.Booking, error)
@@ -152,6 +154,11 @@ type SeriesInput struct {
 	EndsOn        *time.Time
 	Weeks         int
 	SkipConflicts bool
+	// SkipDates, when given with SkipConflicts, are the conflict dates the
+	// owner was shown: only those are skipped (or moved by DateCourts), and a
+	// conflict on any other date refuses the series as if SkipConflicts were
+	// off. Empty skips every conflict, as before.
+	SkipDates []time.Time
 	// DateCourts moves some of the conflicting dates to another court of the
 	// same sport instead of skipping them. Needs SkipConflicts.
 	DateCourts []SeriesDateCourt
@@ -597,7 +604,7 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 	if err != nil {
 		return nil, err
 	}
-	if len(conflicts) > 0 && !in.SkipConflicts {
+	if len(conflicts) > 0 && (!in.SkipConflicts || hasUnseenConflict(conflicts, in.SkipDates)) {
 		s.seriesFreeCourts(ctx, ser, conflicts)
 		return nil, &SeriesConflictsError{Conflicts: conflicts}
 	}
@@ -633,11 +640,27 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 
 	result := &SeriesResult{Series: ser, Bookings: moved, Skipped: skipped}
 	if err := s.settleDueFirstDate(ctx, complex, ser, client, result); err != nil {
-		return nil, err
+		// The series is committed and holds the date as a rule, so nobody else
+		// can take it. Answering an error here would tell the owner nothing
+		// was made, and their retry would collide with this very series; the
+		// materialization job books the date on its next run instead.
+		s.logger.Error("create series: the due first date was not booked, the job retries it",
+			"error", err, "series_id", ser.ID, "complex_id", complex.ID)
 	}
 	s.notifySeriesCreated(ctx, complex, ser, client)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return result, nil
+}
+
+// hasUnseenConflict reports whether a conflict falls on a date the owner was
+// not shown. With no seen dates given, every conflict counts as seen.
+func hasUnseenConflict(conflicts []SeriesConflict, seen []time.Time) bool {
+	if len(seen) == 0 {
+		return false
+	}
+	return slices.ContainsFunc(conflicts, func(c SeriesConflict) bool {
+		return !slices.ContainsFunc(seen, func(d time.Time) bool { return seriesDay(d).Equal(seriesDay(c.Date)) })
+	})
 }
 
 // settleDueFirstDate creates the booking of the series' first date when it is
@@ -706,18 +729,25 @@ func (s *Service) GetSeries(ctx context.Context, complexID, seriesID uuid.UUID) 
 	for _, l := range ledger {
 		settled[l.Date.Format(time.DateOnly)] = l
 	}
-	bookingOn := make(map[string]uuid.UUID, len(bookings))
+	bookingOn := make(map[string]*bookingstore.Booking, len(bookings))
 	for _, b := range bookings {
-		bookingOn[b.Date.Format(time.DateOnly)] = b.ID
+		bookingOn[b.Date.Format(time.DateOnly)] = b
 	}
+	released := ReasonCancelledByOwner
 	for _, d := range dates {
 		key := d.Format(time.DateOnly)
 		up := SeriesUpcoming{Date: d, State: SeriesStatePending}
 		if l, ok := settled[key]; ok {
 			if l.Outcome == bookingstore.SeriesDateBooked {
 				up.State = SeriesStateBooked
-				if id, found := bookingOn[key]; found {
+				if b, found := bookingOn[key]; found {
+					id := b.ID
 					up.BookingID = &id
+					// The date was booked once; a cancelled booking leaves its
+					// hours free, which is what a released date reads as.
+					if b.Status == bookingstore.BookingStatusCancelled {
+						up.State, up.Reason = SeriesStateException, &released
+					}
 				}
 			} else {
 				up.State, up.Reason = SeriesStateException, l.Reason
@@ -756,6 +786,10 @@ func (s *Service) SkipSeriesDate(ctx context.Context, complex *complexstore.Comp
 		UserID: actor.UserID, ComplexID: &complex.ID, Action: "skip_date",
 		EntityType: "booking_series", EntityID: &ser.ID, NewValue: skipped, IPAddress: actor.IP,
 	})
+	// The date held its hours like a confirmed booking; they are on sale again.
+	startsAt := slots.At(timezone.Day(day), ser.StartTime)
+	s.slotReleased(ctx, complex, ser.CourtID, day, startsAt,
+		startsAt.Add(time.Duration(ser.DurationMinutes)*time.Minute), true)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return skipped, nil
 }
@@ -797,7 +831,13 @@ func (s *Service) statusEndingOn(ser *bookingstore.Series, endsOn time.Time) str
 //
 // Cancelling the individual bookings is quiet and involves no refund, since only
 // unpaid ones are touched; the client gets one notice for the whole series
-// instead (notifySeriesCancelled).
+// instead (notifySeriesCancelled). An occurrence whose hours have started is
+// the game being played: it is neither cancelled nor announced as free.
+//
+// The cancellations and the new end are one transaction
+// (store.EndSeriesCancelling), each cancellation conditional on the booking
+// still being unpaid and not started, so a counter payment that commits in
+// between keeps its booking and never leaves the series half ended.
 func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, actor Actor, seriesID uuid.UUID, from time.Time) (*SeriesEndResult, error) {
 	ser, err := s.ownedSeries(ctx, complex.ID, seriesID)
 	if err != nil {
@@ -808,23 +848,27 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 		return nil, &FieldError{Field: "from_date", Message: "must not be in the past"}
 	}
 
+	now := s.now()
 	created, err := s.series.SeriesBookingsFrom(ctx, ser.ID, from)
 	if err != nil {
 		return nil, err
 	}
-	result := &SeriesEndResult{}
+	var active []*bookingstore.Booking
+	var targets []uuid.UUID
+	wasConfirmed := map[uuid.UUID]bool{}
 	for _, b := range created {
 		if b.Status != bookingstore.BookingStatusPending && b.Status != bookingstore.BookingStatusConfirmed {
 			continue
 		}
-		if b.CollectionStatus != bookingstore.CollectionStatusUnpaid {
-			result.Kept = append(result.Kept, b)
-			continue
+		active = append(active, b)
+		wasConfirmed[b.ID] = b.Status == bookingstore.BookingStatusConfirmed
+		if b.CollectionStatus == bookingstore.CollectionStatusUnpaid && b.StartsAt.After(now) {
+			targets = append(targets, b.ID)
 		}
-		if err := s.cancelQuietly(ctx, complex, actor, b); err != nil {
-			return nil, err
-		}
-		result.Cancelled = append(result.Cancelled, b)
+	}
+	released, err := s.unbookedDatesFrom(ctx, ser, from)
+	if err != nil {
+		return nil, err
 	}
 
 	endsOn := from.AddDate(0, 0, -1)
@@ -835,10 +879,33 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 	if floor := seriesDay(ser.StartsOn).AddDate(0, 0, -1); endsOn.Before(floor) {
 		endsOn = floor
 	}
-	result.Series, err = s.series.EndSeries(ctx, ser.ID, &endsOn, s.statusEndingOn(ser, endsOn))
+	ended, err := s.series.EndSeriesCancelling(ctx, complex.ID, ser.ID, targets, seriesEndNote, now,
+		&endsOn, s.statusEndingOn(ser, endsOn))
 	if err != nil {
 		return nil, err
 	}
+
+	result := &SeriesEndResult{Series: ended.Series, Cancelled: ended.Cancelled}
+	cancelled := make(map[uuid.UUID]bool, len(ended.Cancelled))
+	for _, b := range ended.Cancelled {
+		cancelled[b.ID] = true
+	}
+	for _, b := range active {
+		switch {
+		case cancelled[b.ID]:
+			s.record(actor, complex.ID, "cancel", &b.ID, b)
+			s.slotReleased(ctx, complex, b.CourtID, b.Date, b.StartsAt, b.EndsAt, wasConfirmed[b.ID])
+		case b.StartsAt.After(now):
+			// Paid, or paid while the series was being ended: it stands.
+			result.Kept = append(result.Kept, b)
+		}
+	}
+	for _, d := range released {
+		startsAt := slots.At(timezone.Day(d), ser.StartTime)
+		s.slotReleased(ctx, complex, ser.CourtID, d, startsAt,
+			startsAt.Add(time.Duration(ser.DurationMinutes)*time.Minute), true)
+	}
+
 	s.audit.Record(audit.Entry{
 		UserID: actor.UserID, ComplexID: &complex.ID, Action: "end",
 		EntityType: "booking_series", EntityID: &ser.ID, NewValue: result.Series, IPAddress: actor.IP,
@@ -848,22 +915,33 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 	return result, nil
 }
 
-// cancelQuietly cancels an unpaid occurrence with no message to the client.
-func (s *Service) cancelQuietly(ctx context.Context, complex *complexstore.Complex, actor Actor, b *bookingstore.Booking) error {
-	previousStatus := b.Status
-	b.Status = bookingstore.BookingStatusCancelled
-	note := "Cancelación: baja del turno fijo"
-	if b.Notes != nil {
-		note = *b.Notes + " | " + note
+// seriesEndNote is appended to the notes of an occurrence ending its series
+// cancelled.
+const seriesEndNote = "Cancelación: baja del turno fijo"
+
+// unbookedDatesFrom lists the dates of an active series, from the later of from
+// and today up to its end or the booking horizon, that it holds as a rule with
+// no booking yet: ending the series from from puts exactly these back on sale.
+func (s *Service) unbookedDatesFrom(ctx context.Context, ser *Series, from time.Time) ([]time.Time, error) {
+	if ser.Status != bookingstore.SeriesStatusActive {
+		return nil, nil
 	}
-	b.Notes = &note
-	if err := s.store.Update(ctx, b); err != nil {
-		return err
+	if today := s.today(); from.Before(today) {
+		from = today
 	}
-	s.record(actor, complex.ID, "cancel", &b.ID, b)
-	s.freeWaitlistSlot(ctx, waitlist.Freed{ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: b.Date})
-	s.announceFreedSlot(ctx, complex, b, previousStatus)
-	return nil
+	dates := ruleDates(ser, from, s.today().AddDate(0, 0, bookingstore.MaxBookingHorizonDays))
+	if len(dates) == 0 {
+		return nil, nil
+	}
+	ledger, err := s.series.SeriesDates(ctx, ser.ID, dates[0], dates[len(dates)-1])
+	if err != nil {
+		return nil, err
+	}
+	settled := make(map[string]bool, len(ledger))
+	for _, l := range ledger {
+		settled[l.Date.Format(time.DateOnly)] = true
+	}
+	return slices.DeleteFunc(dates, func(d time.Time) bool { return settled[d.Format(time.DateOnly)] }), nil
 }
 
 // MaterializeSeries is the scheduled job: it marks ended the series whose last
@@ -896,45 +974,77 @@ func (s *Service) materializeSeries(ctx context.Context, now time.Time) {
 		return
 	}
 	booked, excepted := 0, 0
+	lost := map[uuid.UUID]*seriesLoss{}
+	var order []uuid.UUID
 	for _, o := range occs {
 		if !occurrenceDue(o.Date, o.StartsAt.In(timezone.Argentina).Format("15:04"), now) {
 			continue
 		}
-		wasBooked, err := s.materializeOne(ctx, o, now)
+		settled, err := s.materializeOne(ctx, o, now)
 		switch {
 		case err != nil:
 			s.logger.Error("cron_materialize_series: date not settled, the next run retries",
 				"error", err, "series_id", o.SeriesID, "complex_id", o.ComplexID, "date", o.Date.Format(time.DateOnly))
-		case wasBooked:
+		case settled.booking != nil:
 			booked++
 			s.realtime.PublishBookingChanged(o.ComplexID)
 		default:
 			excepted++
+			if settled.reason == "" {
+				continue
+			}
+			loss, ok := lost[o.SeriesID]
+			if !ok {
+				loss = &seriesLoss{complex: settled.complex, series: settled.series, client: settled.client}
+				lost[o.SeriesID] = loss
+				order = append(order, o.SeriesID)
+			}
+			loss.dates = append(loss.dates, notifications.LostDate{Date: seriesDay(o.Date), Reason: settled.reason})
 		}
+	}
+	for _, id := range order {
+		s.notifySeriesDatesLost(data.ContextWithTenant(ctx, lost[id].complex.ID), lost[id])
 	}
 	s.logger.Info("cron_materialize_series: completed", "booked", booked, "excepted", excepted)
 }
 
-// materializeOne settles one due date, scoped to its own tenant. It reports
-// whether a booking was made.
-func (s *Service) materializeOne(ctx context.Context, o bookingstore.SeriesOccurrence, now time.Time) (bool, error) {
+// settledOccurrence is what the job did with one due date: the booking it
+// made, or the reason the date became an exception, with what it read to
+// decide.
+type settledOccurrence struct {
+	booking *bookingstore.Booking
+	reason  string
+	complex *complexstore.Complex
+	series  *Series
+	client  *clientstore.Client
+}
+
+// seriesLoss is the dates one series lost in one run of the job.
+type seriesLoss struct {
+	complex *complexstore.Complex
+	series  *Series
+	client  *clientstore.Client
+	dates   []notifications.LostDate
+}
+
+// materializeOne settles one due date, scoped to its own tenant.
+func (s *Service) materializeOne(ctx context.Context, o bookingstore.SeriesOccurrence, now time.Time) (settledOccurrence, error) {
 	ctx = data.ContextWithTenant(ctx, o.ComplexID)
-	complex, err := s.complexes.GetByID(ctx, o.ComplexID)
-	if err != nil {
-		return false, err
+	var out settledOccurrence
+	var err error
+	if out.complex, err = s.complexes.GetByID(ctx, o.ComplexID); err != nil {
+		return out, err
 	}
-	ser, err := s.series.GetSeries(ctx, o.SeriesID)
-	if err != nil {
-		return false, err
+	if out.series, err = s.series.GetSeries(ctx, o.SeriesID); err != nil {
+		return out, err
 	}
-	client, err := s.clients.GetByID(ctx, ser.ClientID)
-	if err != nil {
-		return false, err
+	if out.client, err = s.clients.GetByID(ctx, out.series.ClientID); err != nil {
+		return out, err
 	}
 	schedules, err := s.complexes.GetSchedules(ctx, o.ComplexID)
 	if err != nil {
-		return false, err
+		return out, err
 	}
-	booking, _, err := s.settleDate(ctx, complex, ser, client, schedules, o.Date, now)
-	return booking != nil, err
+	out.booking, out.reason, err = s.settleDate(ctx, out.complex, out.series, out.client, schedules, o.Date, now)
+	return out, err
 }

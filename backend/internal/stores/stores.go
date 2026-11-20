@@ -381,6 +381,10 @@ type BookingSeriesStore interface {
 	// EndExpiredSeries marks ended the active series whose last day is before day.
 	EndExpiredSeries(ctx context.Context, day time.Time) (int64, error)
 	EndSeries(ctx context.Context, id uuid.UUID, endsOn *time.Time, status string) (*bookingstore.Series, error)
+	// EndSeriesCancelling moves a series' end and cancels the named unpaid,
+	// not-yet-started occurrences in one transaction.
+	EndSeriesCancelling(ctx context.Context, complexID, seriesID uuid.UUID, cancel []uuid.UUID, note string, now time.Time,
+		endsOn *time.Time, status string) (*bookingstore.SeriesEnd, error)
 	SeriesDates(ctx context.Context, seriesID uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error)
 	// RecordSeriesException settles a date as an exception; false when the date
 	// was already settled.

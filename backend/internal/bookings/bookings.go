@@ -216,6 +216,9 @@ type Notifier interface {
 	// weekly booking.
 	SeriesCreated(c notifications.SeriesCreation)
 	SeriesCancelled(c notifications.SeriesCancellation)
+	// SeriesDatesLost tells the owner which dates of a series the scheduler
+	// turned into exceptions in one run.
+	SeriesDatesLost(c notifications.SeriesDatesLost)
 	// ReminderDue is the two-hour reminder the scheduler sends. It returns an
 	// error when the reminder was not queued, and the scheduler then leaves the
 	// booking unflagged so the next tick tries again.
