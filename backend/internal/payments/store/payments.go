@@ -346,6 +346,30 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 	return nil
 }
 
+// RecordRejection writes a rejected attempt's MercadoPago id (p.MPPaymentID)
+// and decline reason (p.StatusDetail) onto p.ID and reports whether it wrote.
+// It writes only while the row is still unpaid and never touches its status:
+// a row an approved payment settled after the caller read it keeps that
+// payment's id, so its refund still goes to the money that was captured.
+func (m *Payments) RecordRejection(ctx context.Context, p *Payment) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return false, err
+	}
+
+	n, err := m.Q.RecordPaymentRejection(ctx, db.RecordPaymentRejectionParams{
+		ID:           data.UUIDToPg(p.ID),
+		MpPaymentID:  data.TextToPg(p.MPPaymentID),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+	})
+	if err != nil {
+		return false, fmt.Errorf("payments: record rejection: %w", err)
+	}
+	return n == 1, nil
+}
+
 // UpdateUnlessRefundPending is Update for the webhook's record of a refund
 // MercadoPago reports. It writes only while the row is not 'refund_pending' and
 // reports whether it wrote: the webhook read the row before it called

@@ -263,6 +263,16 @@ func (s *stubPayments) RecordManualRefund(_ context.Context, _ uuid.UUID) (int, 
 	return s.manualRefundAmount, nil
 }
 
+// RecordRejection is the store's conditional rejection write: like the real
+// one it writes only onto a row that is still unpaid.
+func (s *stubPayments) RecordRejection(_ context.Context, p *paymentstore.Payment) (bool, error) {
+	if p.Status != "unpaid" {
+		return false, nil
+	}
+	s.updated = p
+	return true, nil
+}
+
 func (s *stubPayments) Update(_ context.Context, p *paymentstore.Payment) error {
 	s.updated = p
 	return nil

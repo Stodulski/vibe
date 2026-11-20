@@ -906,12 +906,38 @@ func (s *Service) recordRejectedPaymentDetail(ctx context.Context, bookingID uui
 	// and status_detail are filled in. The payment_status split took bookings off this
 	// enum; payments.status is what it still describes, and giving that column
 	// its own vocabulary is the other half of F11 and a separate change.
+	//
+	// The write is conditional on the row still being unpaid (RecordRejection):
+	// an approved payment can settle this same row between the read above and
+	// the write below, and the unconditional whole-row Update this used to make
+	// reverted its status and repointed its refund at the rejected attempt.
+	recorder, ok := s.ledger.(rejectionRecorder)
+	if !ok {
+		s.logger.Error("mp webhook: the payment ledger cannot record a rejection conditionally; the decline reason is not recorded",
+			"booking_id", bookingID, "mp_payment_id", mpPaymentID)
+		return
+	}
 	existingPayment.MPPaymentID = &mpPaymentID
 	existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
-	if err := s.ledger.Update(ctx, existingPayment); err != nil {
+	written, err := recorder.RecordRejection(ctx, existingPayment)
+	if err != nil {
 		s.logger.Error("mp webhook: failed to record the rejection detail on the payment row",
 			"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
+		return
 	}
+	if !written {
+		s.logger.Info("mp webhook: payment rejected but its payment row is already settled, nothing recorded",
+			"booking_id", bookingID, "mp_payment_id", mpPaymentID)
+	}
+}
+
+// rejectionRecorder is the payments store's conditional write of a rejected
+// attempt (paymentstore.Payments.RecordRejection). It is asserted rather than
+// declared on PaymentWriter because that port is shared with
+// internal/stores' PaymentStore, whose method set this change does not widen;
+// the concrete store wired in production implements it.
+type rejectionRecorder interface {
+	RecordRejection(ctx context.Context, p *paymentstore.Payment) (bool, error)
 }
 
 // statusDetailPtr turns MercadoPago's status_detail into the nilable pointer

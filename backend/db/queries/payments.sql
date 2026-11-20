@@ -36,6 +36,18 @@ SET status = $1,
 WHERE id = $6
 RETURNING *;
 
+-- name: RecordPaymentRejection :execrows
+-- A rejected checkout attempt's MercadoPago id and decline reason, written
+-- only onto a row that is still unpaid. The webhook read the row before it
+-- asked MercadoPago; an approved payment that settled the same row meanwhile
+-- owns it from then on, and a whole-row write from the stale read would revert
+-- its status and repoint its refund at a payment that captured nothing.
+UPDATE payments
+SET mp_payment_id = sqlc.arg(mp_payment_id),
+    status_detail = sqlc.arg(status_detail)
+WHERE id = sqlc.arg(id)
+  AND status = 'unpaid';
+
 -- name: UpdatePaymentUnlessRefundPending :one
 -- UpdatePayment for the webhook's record of a refund MercadoPago reports. The
 -- webhook read the row before it asked MercadoPago, and a ClaimRefund that
