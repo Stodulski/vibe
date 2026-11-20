@@ -175,6 +175,21 @@ func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, qtx *db.Qu
 		return err
 	}
 
+	// The court-day lock serializes this against booking inserts and blocked
+	// slots, but creating an event, a fixed weekly series or a tournament match
+	// takes no court-day lock: it takes the court's row FOR UPDATE and checks
+	// the hours under it. Without the court row here the two contended on
+	// nothing, and a late webhook could confirm over an event committed at the
+	// same moment, each check blind to the other's uncommitted row. FOR SHARE,
+	// after the advisory lock, as every booking insert takes it
+	// (slotguard.LockCourtLive): it waits for such a creation to commit, and
+	// the check below then sees what it wrote; one that starts later waits for
+	// this confirmation and finds the booking. A court deleted meanwhile is
+	// ErrRecordNotFound, as on the insert path.
+	if err := slotguard.LockCourtLive(ctx, tx, b.CourtID); err != nil {
+		return err
+	}
+
 	// The booking being confirmed overlaps itself, so it is the one row the
 	// overlap query has to ignore.
 	taken, err := bookingstore.SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
