@@ -661,9 +661,19 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// Whether either player of a registration's pair is a player of another live
+	// pair of the category: the payer of a paid or still-held sign-up, or its
+	// partner. A late payment on a pair whose hold ran out is refused when one is:
+	// its players signed up again in another pair meanwhile.
+	PairOfRegistrationPlayersTaken(ctx context.Context, registrationID pgtype.UUID) (bool, error)
 	// Whether any of the phones is a player of a live pair of the category: the
 	// payer of a paid or still-held sign-up, or its partner.
 	PairPlayersTaken(ctx context.Context, arg PairPlayersTakenParams) (bool, error)
+	// Whether the person of a registration (by phone) holds a live spot of the
+	// event other than that registration: paid, or a hold still inside its window.
+	// A late payment on a hold that ran out is refused when they do: the person
+	// signed up again, and confirming the old spot would give them two.
+	PhoneHoldsAnotherLiveSpot(ctx context.Context, arg PhoneHoldsAnotherLiveSpotParams) (bool, error)
 	// Puts back on the list the addresses told about an event spot once the event
 	// is full again (the ClaimFreedOpenPlayWaitlist rule, inverted) and has not
 	// started, so a later free spot reaches them with a new notice. Per address and

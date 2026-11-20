@@ -185,6 +185,41 @@ func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 	}
 }
 
+// S18: a pair whose hold ran out lets its players sign up again in another pair.
+// A late payment for the old pair is refused as unavailable (and so refunded):
+// the same players never hold two paid pairs of the category.
+func TestALatePaymentCannotGiveAPlayerTwoPaidPairs(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	old, err := f.signUp(cat, 1, "203.0.113.7") // payer +549110000001, partner +549220000001
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '1 minute' WHERE id = $1`, old.ID); err != nil {
+		t.Fatal(err)
+	}
+	// The old partner now pays as the payer of a new pair.
+	payer := "+549220000001"
+	again, _, err := f.Stores.Events.SignUp(f.ctx, eventstore.SignUpInput{
+		EventID: cat.EventID, FirstName: "Beto", LastName: "Socio", Phone: payer, ServiceFee: 20_000, IP: "203.0.113.8", MaxHoldsPerIP: 100,
+		Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer},
+			tournamentstore.Player{FirstName: "Caro", LastName: "Nueva", Phone: "+549330000001"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.pay(again, "mp-again-"+uuid.NewString()); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.pay(old, "mp-late-"+uuid.NewString()); !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+		t.Fatalf("the late payment must be refused as unavailable; got %v", err)
+	}
+	if got, err := f.Stores.Tournaments.Category(f.ctx, tr.ID, cat.ID); err != nil || got.ConfirmedCount != 1 {
+		t.Fatalf("category = %+v (%v); want only the new pair paid", got, err)
+	}
+}
+
 // Tournament data is tenant data.
 func TestTournamentsAreScopedToTheirComplex(t *testing.T) {
 	f := newFixture(t)

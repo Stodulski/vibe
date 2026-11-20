@@ -845,3 +845,28 @@ func (q *Queries) LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPl
 	)
 	return i, err
 }
+
+const phoneHoldsAnotherLiveSpot = `-- name: PhoneHoldsAnotherLiveSpot :one
+SELECT EXISTS (
+  SELECT 1 FROM open_play_registrations
+  WHERE event_id = $1 AND phone = $2 AND id <> $3
+    AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+) AS taken
+`
+
+type PhoneHoldsAnotherLiveSpotParams struct {
+	EventID  pgtype.UUID `json:"event_id"`
+	Phone    string      `json:"phone"`
+	ExceptID pgtype.UUID `json:"except_id"`
+}
+
+// Whether the person of a registration (by phone) holds a live spot of the
+// event other than that registration: paid, or a hold still inside its window.
+// A late payment on a hold that ran out is refused when they do: the person
+// signed up again, and confirming the old spot would give them two.
+func (q *Queries) PhoneHoldsAnotherLiveSpot(ctx context.Context, arg PhoneHoldsAnotherLiveSpotParams) (bool, error) {
+	row := q.db.QueryRow(ctx, phoneHoldsAnotherLiveSpot, arg.EventID, arg.Phone, arg.ExceptID)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
+}

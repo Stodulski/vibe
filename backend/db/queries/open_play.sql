@@ -75,6 +75,17 @@ UPDATE open_play_registrations
 SET status = 'expired'
 WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
 
+-- name: PhoneHoldsAnotherLiveSpot :one
+-- Whether the person of a registration (by phone) holds a live spot of the
+-- event other than that registration: paid, or a hold still inside its window.
+-- A late payment on a hold that ran out is refused when they do: the person
+-- signed up again, and confirming the old spot would give them two.
+SELECT EXISTS (
+  SELECT 1 FROM open_play_registrations
+  WHERE event_id = sqlc.arg(event_id) AND phone = sqlc.arg(phone) AND id <> sqlc.arg(except_id)
+    AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+) AS taken;
+
 -- name: InsertOpenPlayRegistration :one
 -- The hold ends hold_seconds from now on the database's clock, the one every
 -- capacity count compares held_until against.

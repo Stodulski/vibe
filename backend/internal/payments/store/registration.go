@@ -87,6 +87,12 @@ func (m *Payments) ConfirmRegistrationPayment(ctx context.Context, p *Payment, r
 		if err := m.registrationConfirmable(ctx, tx, qtx, event, reg); err != nil {
 			return err
 		}
+		// A hold of the same phone that ran out but was not swept yet still counts
+		// for the one-live-spot-per-phone index: closed here, as sign-up does, so
+		// the confirmation below cannot fail on it.
+		if err := qtx.ExpireOpenPlayHoldsOfPhone(ctx, db.ExpireOpenPlayHoldsOfPhoneParams{EventID: event.ID, Phone: reg.Phone}); err != nil {
+			return fmt.Errorf("expire stale holds of the phone: %w", err)
+		}
 		if _, err := qtx.ConfirmOpenPlayRegistration(ctx, reg.ID); err != nil {
 			return fmt.Errorf("confirm registration: %w", err)
 		}
@@ -114,6 +120,9 @@ func (m *Payments) registrationConfirmable(ctx context.Context, tx pgx.Tx, qtx *
 			return ErrRegistrationUnavailable
 		}
 	}
+	if err := playersFree(ctx, qtx, event, reg); err != nil {
+		return err
+	}
 	taken, err := qtx.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{
 		EventID: event.ID, Except: reg.ID,
 	})
@@ -121,6 +130,29 @@ func (m *Payments) registrationConfirmable(ctx context.Context, tx pgx.Tx, qtx *
 		return fmt.Errorf("count spots: %w", err)
 	}
 	if taken >= event.Capacity {
+		return ErrRegistrationUnavailable
+	}
+	return nil
+}
+
+// playersFree refuses a payment whose people hold another live spot of the
+// event: a hold that ran out let them sign up again, and confirming the old one
+// would give them two (and, by phone, fail on the one-live-spot index, which
+// retried the webhook forever instead of refunding). For a tournament pair both
+// players count, as payer or as partner.
+func playersFree(ctx context.Context, qtx *db.Queries, event db.OpenPlayEvent, reg db.OpenPlayRegistration) error {
+	taken, err := qtx.PhoneHoldsAnotherLiveSpot(ctx, db.PhoneHoldsAnotherLiveSpotParams{
+		EventID: event.ID, Phone: reg.Phone, ExceptID: reg.ID,
+	})
+	if err != nil {
+		return fmt.Errorf("check the phone's other spots: %w", err)
+	}
+	if !taken && event.TournamentID.Valid {
+		if taken, err = qtx.PairOfRegistrationPlayersTaken(ctx, reg.ID); err != nil {
+			return fmt.Errorf("check the pair's players: %w", err)
+		}
+	}
+	if taken {
 		return ErrRegistrationUnavailable
 	}
 	return nil

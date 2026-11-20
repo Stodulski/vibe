@@ -1328,6 +1328,30 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 	return i, err
 }
 
+const pairOfRegistrationPlayersTaken = `-- name: PairOfRegistrationPlayersTaken :one
+SELECT EXISTS (
+  SELECT 1
+  FROM tournament_pairs me
+  JOIN open_play_registrations mr ON mr.id = me.registration_id
+  JOIN tournament_pairs tp ON tp.category_id = me.category_id AND tp.id <> me.id AND tp.status = 'active'
+  JOIN open_play_registrations r ON r.id = tp.registration_id
+  WHERE me.registration_id = $1
+    AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))
+    AND (r.phone IN (mr.phone, me.partner_phone) OR tp.partner_phone IN (mr.phone, me.partner_phone))
+) AS taken
+`
+
+// Whether either player of a registration's pair is a player of another live
+// pair of the category: the payer of a paid or still-held sign-up, or its
+// partner. A late payment on a pair whose hold ran out is refused when one is:
+// its players signed up again in another pair meanwhile.
+func (q *Queries) PairOfRegistrationPlayersTaken(ctx context.Context, registrationID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, pairOfRegistrationPlayersTaken, registrationID)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
+}
+
 const pairPlayersTaken = `-- name: PairPlayersTaken :one
 SELECT EXISTS (
   SELECT 1 FROM tournament_pairs tp

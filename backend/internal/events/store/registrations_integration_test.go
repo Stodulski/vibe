@@ -200,6 +200,64 @@ func TestAPersonWhoseHoldRanOutCanSignUpAgain(t *testing.T) {
 	}
 }
 
+// S18: a late payment on a hold that ran out, whose person signed up again, is
+// refused as unavailable (so it is refunded), not failed on the one-live-spot-
+// per-phone index (which retried the webhook forever). The new spot is untouched,
+// held or paid.
+func TestALatePaymentOnAnExpiredHoldWhosePhoneSignedUpAgainIsUnavailable(t *testing.T) {
+	for name, payAgain := range map[string]bool{"new spot held": false, "new spot paid": true} {
+		t.Run(name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ev := eventWithCapacity(t, f, 4)
+			old, err := signUp(f, ev, "+5491100000011")
+			if err != nil {
+				t.Fatal(err)
+			}
+			expireHold(t, f, old.ID)
+			again, err := signUp(f, ev, "+5491100000011")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if payAgain {
+				if err := pay(f, again, "mp-again-"+uuid.NewString()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := pay(f, old, "mp-late-"+uuid.NewString()); !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+				t.Fatalf("the late payment must be refused as unavailable; got %v", err)
+			}
+			got, err := f.Stores.Events.GetRegistration(f.Scoped(context.Background()), again.ID)
+			want := eventstore.RegistrationHeld
+			if payAgain {
+				want = eventstore.RegistrationConfirmed
+			}
+			if err != nil || got.Status != want {
+				t.Fatalf("the new spot = %+v (%v); want it %s", got, err, want)
+			}
+		})
+	}
+}
+
+// S18: when the newer hold of the same phone ran out too, nothing live is in
+// the way and the late payment confirms the spot it paid for.
+func TestALatePaymentConfirmsWhenThePhonesNewerHoldRanOutToo(t *testing.T) {
+	f := datatest.Isolated(t)
+	ev := eventWithCapacity(t, f, 4)
+	old, err := signUp(f, ev, "+5491100000012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expireHold(t, f, old.ID)
+	again, err := signUp(f, ev, "+5491100000012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expireHold(t, f, again.ID)
+	if err := pay(f, old, "mp-late-"+uuid.NewString()); err != nil {
+		t.Fatalf("nothing live holds the phone; the payment must confirm its spot: %v", err)
+	}
+}
+
 // One address cannot hold the whole event hostage with unpaid holds.
 func TestOneAddressCannotHoldMoreThanItsShareOfSpots(t *testing.T) {
 	f := datatest.Isolated(t)
