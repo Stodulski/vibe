@@ -103,7 +103,7 @@ type CancelOpenPlayRegistrationParams struct {
 }
 
 // refund_owed marks, in the cancellation's own write, that the money the
-// registration holds is owed back (migration 043): the refund sweep finishes
+// registration holds is owed back (migration 040): the refund sweep finishes
 // that refund if the request that cancelled never does.
 func (q *Queries) CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error) {
 	row := q.db.QueryRow(ctx, cancelOpenPlayRegistration, arg.CancelledBy, arg.RefundOwed, arg.ID)

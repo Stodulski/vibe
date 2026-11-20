@@ -837,7 +837,11 @@ func (s *Service) statusEndingOn(ser *bookingstore.Series, endsOn time.Time) str
 // The cancellations and the new end are one transaction
 // (store.EndSeriesCancelling), each cancellation conditional on the booking
 // still being unpaid and not started, so a counter payment that commits in
-// between keeps its booking and never leaves the series half ended.
+// between keeps its booking. That transaction covers only the occurrences read
+// above, before the series row is locked: one the materialise job books in
+// that gap is not in the list, so it survives the end as an ordinary booking
+// past the series' new end. The window is the length of one read; closing it
+// would mean reading the occurrences under the series lock.
 func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, actor Actor, seriesID uuid.UUID, from time.Time) (*SeriesEndResult, error) {
 	ser, err := s.ownedSeries(ctx, complex.ID, seriesID)
 	if err != nil {

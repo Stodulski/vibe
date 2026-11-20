@@ -146,7 +146,7 @@ RETURNING *;
 
 -- name: CancelOpenPlayRegistration :one
 -- refund_owed marks, in the cancellation's own write, that the money the
--- registration holds is owed back (migration 043): the refund sweep finishes
+-- registration holds is owed back (migration 040): the refund sweep finishes
 -- that refund if the request that cancelled never does.
 UPDATE open_play_registrations
 SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = sqlc.arg(cancelled_by),

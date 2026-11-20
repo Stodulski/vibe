@@ -47,7 +47,7 @@ type Querier interface {
 	// come back with their previous status, so the caller knows which were paid.
 	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
 	// refund_owed marks, in the cancellation's own write, that the money the
-	// registration holds is owed back (migration 043): the refund sweep finishes
+	// registration holds is owed back (migration 040): the refund sweep finishes
 	// that refund if the request that cancelled never does.
 	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	CancelTournament(ctx context.Context, arg CancelTournamentParams) (Tournament, error)

@@ -341,8 +341,10 @@ type SeriesEnd struct {
 }
 
 // EndSeriesCancelling ends a series and cancels the occurrences named in cancel,
-// in one transaction, so the owner never sees a series half ended: either its
-// new end and every cancellation it could make are written, or nothing is.
+// in one transaction: either its new end and every cancellation it could make
+// are written, or nothing is. cancel was read by the caller before this
+// transaction locks the series, so an occurrence booked in between (the
+// materialise job) is not cancelled; see bookings.Service.EndSeries.
 //
 // Each cancellation is conditional (CancelUnpaidSeriesOccurrence): an
 // occurrence that a counter payment, a cancellation or its own start reached
