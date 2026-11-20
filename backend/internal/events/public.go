@@ -467,6 +467,11 @@ func (s *Service) CancelRegistration(ctx context.Context, actor Actor, token str
 	}
 	cancelled := res.Registration
 	view.Registration = cancelled
+	if res.Drawn {
+		// The draw was made while this request was on its way: the pair is in the
+		// bracket, so leaving is a walkover and the payment is kept.
+		view.Cancellation.Walkover, view.Cancellation.WithinWindow = true, false
+	}
 	s.realtime.PublishBookingChanged(cancelled.ComplexID)
 	s.record(actor, cancelled.ComplexID, "public_cancel", "open_play_registration", cancelled.ID, cancelled)
 

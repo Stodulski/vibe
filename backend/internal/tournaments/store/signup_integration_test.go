@@ -197,6 +197,72 @@ func TestAPaymentDuringTheDrawWaitsForItAndIsRefused(t *testing.T) {
 	}
 }
 
+// S22: a pair cancelling while the draw is being made waits for it on the
+// category's lock, then reports the draw: the pair is in the bracket, so no
+// refund is marked owed (it is a walkover, decided by the caller).
+func TestACancellationDuringTheDrawWaitsForItAndReportsIt(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := f.Scoped(context.Background())
+	tr := &tournamentstore.Tournament{
+		ComplexID: f.ComplexID, Name: "Baja", Sport: "padel", StartDate: start(), EndDate: start(), CreatedBy: f.UserID,
+	}
+	if err := f.Stores.Tournaments.Create(ctx, tr, []tournamentstore.NewCategory{{
+		Name: "9na", Format: tournamentstore.FormatElimination, Capacity: 8, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := f.Stores.Tournaments.Categories(ctx, tr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payer := "+549110008888"
+	reg, _, err := f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+		EventID: cats[0].EventID, FirstName: "A", LastName: "B", Phone: payer, ServiceFee: 1000, IP: "198.51.100.88", MaxHoldsPerIP: 100,
+		Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: "+549220008888"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	draw, err := f.Pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = draw.Rollback(context.Background()) }()
+	if _, err := draw.Exec(context.Background(),
+		`UPDATE tournament_categories SET draw_generated_at = NOW() WHERE id = $1`, cats[0].ID); err != nil {
+		t.Fatal(err)
+	}
+
+	type result struct {
+		res *eventstore.ParticipantCancel
+		err error
+	}
+	done := make(chan result, 1)
+	go func() {
+		res, err := f.Stores.Events.CancelByParticipant(ctx, reg.ID, true)
+		done <- result{res, err}
+	}()
+	select {
+	case r := <-done:
+		t.Fatalf("the cancellation must wait for the draw holding the category; it returned %+v %v", r.res, r.err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := draw.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	r := <-done
+	if r.err != nil || !r.res.Drawn || r.res.Registration.Status != eventstore.RegistrationCancelled {
+		t.Fatalf("after the draw committed the cancellation must report it; got %+v %v", r.res, r.err)
+	}
+	var marked bool
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT refund_intent_at IS NOT NULL FROM open_play_registrations WHERE id = $1`, reg.ID).Scan(&marked); err != nil || marked {
+		t.Fatalf("a walkover owes no refund; refund_intent_at set = %v (%v)", marked, err)
+	}
+}
+
 // S2/S4: two pairs racing for the last spot cannot both get it.
 func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 	f := datatest.Shared(t)

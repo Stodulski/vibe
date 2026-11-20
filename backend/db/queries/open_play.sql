@@ -154,6 +154,14 @@ SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = sqlc.arg(cancelle
 WHERE id = sqlc.arg(id) AND status IN ('held', 'confirmed')
 RETURNING *;
 
+-- name: LockEventCategoryDraw :one
+-- Whether the tournament category an event is the sign-up container of has its
+-- draw, read under the category's row lock: the lock the draw itself holds, taken
+-- after the event's (payment confirmation takes them in the same order).
+SELECT (draw_generated_at IS NOT NULL)::bool AS drawn FROM tournament_categories
+WHERE event_id = $1
+FOR UPDATE;
+
 -- name: CancelOpenPlayEventRegistrations :many
 -- The owner cancelling an event ends every registration of it at once. The rows
 -- come back with their previous status, so the caller knows which were paid.

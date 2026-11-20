@@ -81,6 +81,26 @@ func TestAPairWithdrawingAfterTheDrawForfeitsAndKeepsThePayment(t *testing.T) {
 	}
 }
 
+// S22: a draw made while the withdrawal was on its way is what the cancellation's
+// own transaction finds under the category lock: the pair is in the bracket, so
+// leaving is a walkover with the payment kept, not a refund.
+func TestADrawMadeDuringTheWithdrawalMakesItAWalkover(t *testing.T) {
+	f, gate, token := tournamentFixture(t, false)
+	f.store.drawnAtCancel = true
+	f.payments.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 820_000}
+
+	got, err := f.svc.CancelRegistration(t.Context(), visitor(), token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Outcome.Result != paymentstore.RefundNotEligible || len(f.payments.refunded) != 0 {
+		t.Errorf("outcome = %+v refunds = %v; want the payment kept", got.Outcome, f.payments.refunded)
+	}
+	if len(gate.withdrawn) != 1 || !got.View.Cancellation.Walkover {
+		t.Errorf("the pair must leave the bracket as a walkover: withdrawn = %v, view = %+v", gate.withdrawn, got.View.Cancellation)
+	}
+}
+
 // A gate that cannot say whether the draw exists stops the withdrawal: guessing the
 // refund policy would either keep money that is owed or give back what is not.
 func TestAGateThatCannotAnswerStopsTheWithdrawal(t *testing.T) {

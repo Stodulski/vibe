@@ -318,15 +318,48 @@ type ParticipantCancel struct {
 // cancellation came inside the complex's refund window) is written with the
 // cancellation itself, so a refund the request never finishes is found by the
 // refund sweep (OwnerCancelledStillPaid) rather than lost.
+//
+// It takes the event's row lock and, for a tournament pair, the category's after
+// it: the locks payment confirmation and the draw take. A draw in progress is
+// waited for and then reported (Drawn), and no refund is marked owed for a pair
+// that is in the bracket; a draw that starts after this commits leaves the pair
+// out.
 func (m *Store) CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*ParticipantCancel, error) {
-	ctx, cancel := data.QueryContext(ctx)
+	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
-	reg, err := cancelRegistration(ctx, m.Q, id, CancelledByParticipant, refundOwed)
+	var out *ParticipantCancel
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(_ pgx.Tx, q *db.Queries) error {
+		reg, err := q.GetOpenPlayRegistration(ctx, db.GetOpenPlayRegistrationParams{
+			ID: data.UUIDToPg(id), ComplexID: data.TenantParam(ctx),
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("events: read registration: %w", err)
+		}
+		event, err := q.LockOpenPlayEvent(ctx, reg.EventID)
+		if err != nil {
+			return fmt.Errorf("events: lock event: %w", err)
+		}
+		drawn := false
+		if event.TournamentID.Valid {
+			if drawn, err = q.LockEventCategoryDraw(ctx, event.ID); err != nil {
+				return fmt.Errorf("events: lock the category: %w", err)
+			}
+		}
+		cancelled, err := cancelRegistration(ctx, q, id, CancelledByParticipant, refundOwed && !drawn)
+		if err != nil {
+			return err
+		}
+		out = &ParticipantCancel{Registration: cancelled, Drawn: drawn}
+		return nil
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &ParticipantCancel{Registration: reg}, nil
+	return out, nil
 }
 
 func cancelRegistration(ctx context.Context, q *db.Queries, id uuid.UUID, by string, refundOwed bool) (*Registration, error) {

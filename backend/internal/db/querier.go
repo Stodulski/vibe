@@ -619,6 +619,10 @@ type Querier interface {
 	// wrapping round, so every entry is inspected however many are still taken: an
 	// entry is never starved behind older ones.
 	ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error)
+	// Whether the tournament category an event is the sign-up container of has its
+	// draw, read under the category's row lock: the lock the draw itself holds, taken
+	// after the event's (payment confirmation takes them in the same order).
+	LockEventCategoryDraw(ctx context.Context, eventID pgtype.UUID) (bool, error)
 	// Taken inside the freed-story transaction: two cancellations of the same
 	// complex queue one after the other, so the daily cap is never overshot.
 	LockInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (LockInstagramStorySettingsRow, error)

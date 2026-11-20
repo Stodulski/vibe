@@ -823,6 +823,22 @@ func (q *Queries) ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, 
 	return items, nil
 }
 
+const lockEventCategoryDraw = `-- name: LockEventCategoryDraw :one
+SELECT (draw_generated_at IS NOT NULL)::bool AS drawn FROM tournament_categories
+WHERE event_id = $1
+FOR UPDATE
+`
+
+// Whether the tournament category an event is the sign-up container of has its
+// draw, read under the category's row lock: the lock the draw itself holds, taken
+// after the event's (payment confirmation takes them in the same order).
+func (q *Queries) LockEventCategoryDraw(ctx context.Context, eventID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, lockEventCategoryDraw, eventID)
+	var drawn bool
+	err := row.Scan(&drawn)
+	return drawn, err
+}
+
 const lockOpenPlayEvent = `-- name: LockOpenPlayEvent :one
 SELECT id, complex_id, name, sport, date, start_time, duration_minutes, capacity, price, status, cancel_reason, cancelled_at, cancelled_by, created_by, created_at, updated_at, tournament_id, modality, level_min, level_max FROM open_play_events
 WHERE id = $1
