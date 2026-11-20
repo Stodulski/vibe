@@ -1,13 +1,11 @@
 package mailer
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
 	"html"
 	"io"
-	"net"
 	"net/http"
 	"net/http/httptest"
 	"regexp"
@@ -69,28 +67,8 @@ func TestMode(t *testing.T) {
 			want: "brevo_api",
 		},
 		{
-			name: "smtp when smtp credentials set",
-			cfg:  Config{SMTPUsername: "user", SMTPPassword: "pass"},
-			want: "smtp",
-		},
-		{
 			name: "disabled when nothing set",
 			cfg:  Config{},
-			want: "disabled",
-		},
-		{
-			name: "brevo_api with a real smtp fallback when both are set",
-			cfg:  Config{BrevoAPIKey: "key", SMTPUsername: "user", SMTPPassword: "pass"},
-			want: "brevo_api+smtp",
-		},
-		{
-			name: "disabled when only username set",
-			cfg:  Config{SMTPUsername: "user"},
-			want: "disabled",
-		},
-		{
-			name: "disabled when only password set",
-			cfg:  Config{SMTPPassword: "pass"},
 			want: "disabled",
 		},
 	}
@@ -180,30 +158,6 @@ func TestHtmlToPlainText(t *testing.T) {
 				t.Errorf("htmlToPlainText(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestGenerateMessageID(t *testing.T) {
-	id := generateMessageID("example.com")
-
-	if id[0] != '<' {
-		t.Errorf("message ID should start with '<', got %q", id)
-	}
-	if id[len(id)-1] != '>' {
-		t.Errorf("message ID should end with '>', got %q", id)
-	}
-
-	inner := id[1 : len(id)-1]
-	if idx := len(inner) - len("@example.com"); idx <= 0 {
-		t.Errorf("message ID too short: %q", id)
-	} else if inner[idx:] != "@example.com" {
-		t.Errorf("message ID should contain @example.com, got %q", id)
-	}
-
-	// Ensure uniqueness.
-	id2 := generateMessageID("example.com")
-	if id == id2 {
-		t.Error("two calls to generateMessageID returned the same value")
 	}
 }
 
@@ -316,164 +270,10 @@ func TestOpenBreakerIsReportedAsNotAttempted(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// SMTP fallback
-// ---------------------------------------------------------------------------
-
-// startFakeSMTP accepts one plain (non-TLS) SMTP session and returns the message
-// body it received. net/smtp allows PLAIN auth without TLS to a loopback host,
-// which is what makes this possible without a certificate.
-func startFakeSMTP(t *testing.T) (string, int, <-chan string) {
-	t.Helper()
-
-	var lc net.ListenConfig
-	ln, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	t.Cleanup(func() { _ = ln.Close() })
-
-	addr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		t.Fatalf("listener address is not TCP: %T", ln.Addr())
-	}
-	received := make(chan string, 1)
-
-	go serveOneSMTPSession(ln, received)
-
-	return "127.0.0.1", addr.Port, received
-}
-
-func serveOneSMTPSession(ln net.Listener, received chan<- string) {
-	conn, err := ln.Accept()
-	if err != nil {
-		return
-	}
-	defer func() { _ = conn.Close() }()
-
-	reader := bufio.NewReader(conn)
-	writer := bufio.NewWriter(conn)
-	reply := func(lines ...string) {
-		for _, l := range lines {
-			_, _ = writer.WriteString(l + "\r\n")
-		}
-		_ = writer.Flush()
-	}
-
-	reply("220 127.0.0.1 ESMTP fake")
-
-	var body strings.Builder
-	inData := false
-
-	for {
-		line, err := reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		trimmed := strings.TrimRight(line, "\r\n")
-
-		if inData {
-			if trimmed == "." {
-				inData = false
-				received <- body.String()
-				reply("250 2.0.0 Ok: queued")
-				continue
-			}
-			body.WriteString(line)
-			continue
-		}
-
-		cmd := strings.ToUpper(trimmed)
-		switch {
-		case strings.HasPrefix(cmd, "EHLO"):
-			reply("250-127.0.0.1 Hello", "250 AUTH PLAIN")
-		case strings.HasPrefix(cmd, "HELO"):
-			reply("250 127.0.0.1 Hello")
-		case strings.HasPrefix(cmd, "AUTH"):
-			reply("235 2.7.0 Accepted")
-		case cmd == "DATA":
-			inData = true
-			reply("354 End data with <CR><LF>.<CR><LF>")
-		case cmd == "QUIT":
-			reply("221 2.0.0 Bye")
-			return
-		default:
-			reply("250 2.0.0 Ok")
-		}
-	}
-}
-
-// closedPort returns a port nothing is listening on, so a dial to it fails fast.
-func closedPort(t *testing.T) int {
-	t.Helper()
-
-	var lc net.ListenConfig
-	ln, err := lc.Listen(t.Context(), "tcp", "127.0.0.1:0")
-	if err != nil {
-		t.Fatalf("listen: %v", err)
-	}
-	addr, ok := ln.Addr().(*net.TCPAddr)
-	if !ok {
-		t.Fatalf("listener address is not TCP: %T", ln.Addr())
-	}
-	_ = ln.Close()
-	return addr.Port
-}
-
-// TestBrevoOutageFallsBackToSMTP is the whole point of the "SMTP fallback"
-// comment on the struct: the transport used to be picked once from config, so a
-// Brevo outage was total mail loss on a deployment with working SMTP credentials.
-func TestBrevoOutageFallsBackToSMTP(t *testing.T) {
-	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusServiceUnavailable)
-		_, _ = w.Write([]byte(`{"message":"service unavailable"}`))
-	}))
-	defer brevo.Close()
-
-	host, port, received := startFakeSMTP(t)
-
-	var opened bool
-	cb := circuitbreaker.New(circuitbreaker.Config{
-		Name: "mail", MaxFailures: 1, ResetTimeout: time.Hour,
-		OnStateChange: func(_ string, _, to circuitbreaker.State) {
-			if to == circuitbreaker.StateOpen {
-				opened = true
-			}
-		},
-	})
-
-	m := New(Config{
-		BrevoAPIKey: "rotated-key", SMTPHost: host, SMTPPort: port,
-		SMTPUsername: "user", SMTPPassword: "pass",
-		Sender: "Vibe <noreply@vibe.com.ar>", CB: cb,
-	})
-	m.apiURL = brevo.URL
-
-	if err := m.send(context.Background(), "client@example.com", "Reserva confirmada", "<p>Tu reserva fue confirmada.</p>"); err != nil {
-		t.Fatalf("send = %v, want nil: SMTP should have carried the message", err)
-	}
-
-	select {
-	case body := <-received:
-		if !strings.Contains(body, "Reserva confirmada") {
-			t.Errorf("SMTP body does not carry the subject:\n%s", body)
-		}
-		if !strings.Contains(body, "client@example.com") {
-			t.Errorf("SMTP body does not carry the recipient:\n%s", body)
-		}
-	case <-time.After(5 * time.Second):
-		t.Fatal("SMTP fallback was never attempted")
-	}
-
-	if opened {
-		t.Error("the breaker opened on a send that ultimately succeeded")
-	}
-}
-
-// TestBrevoAuthFailureFallsBackAndCountsAgainstTheBreaker covers the rotated-key
+// TestBrevoAuthFailureCountsAgainstTheBreaker covers the rotated-key
 // case: a 401 used to be recorded as a success, so the breaker never opened and
 // 100% permanent mail loss was reported as healthy.
-func TestBrevoAuthFailureFallsBackAndCountsAgainstTheBreaker(t *testing.T) {
+func TestBrevoAuthFailureCountsAgainstTheBreaker(t *testing.T) {
 	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte(`{"message":"Key not found"}`))
@@ -490,28 +290,21 @@ func TestBrevoAuthFailureFallsBackAndCountsAgainstTheBreaker(t *testing.T) {
 		},
 	})
 
-	m := New(Config{
-		BrevoAPIKey: "rotated-key", SMTPHost: "127.0.0.1", SMTPPort: closedPort(t),
-		SMTPUsername: "user", SMTPPassword: "pass",
-		Sender: "Vibe <noreply@vibe.com.ar>", CB: cb,
-	})
+	m := New(Config{BrevoAPIKey: "rotated-key", Sender: "Vibe <noreply@vibe.com.ar>", CB: cb})
 	m.apiURL = brevo.URL
 
 	err := m.send(context.Background(), "client@example.com", "hi", "<p>hi</p>")
 	if err == nil {
-		t.Fatal("send = nil, want an error: both transports failed")
-	}
-	if !strings.Contains(err.Error(), "smtp") {
-		t.Errorf("error does not mention the SMTP fallback, so it was never tried: %v", err)
+		t.Fatal("send = nil, want an error: Brevo refused the key")
 	}
 	if !opened {
 		t.Error("a 401 from the mail provider must count against the breaker, not as a success")
 	}
 }
 
-// TestPermanentRejectionSkipsTheFallback: SMTP would carry the same bytes to the
-// same refusal, so falling back would only double the work.
-func TestPermanentRejectionSkipsTheFallback(t *testing.T) {
+// TestPermanentRejectionStopsRetriesAndSparesTheBreaker: a message Brevo refused
+// on its own merits is dead-lettered and says nothing about Brevo's health.
+func TestPermanentRejectionStopsRetriesAndSparesTheBreaker(t *testing.T) {
 	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte(`{"message":"Invalid email address"}`))
@@ -528,52 +321,18 @@ func TestPermanentRejectionSkipsTheFallback(t *testing.T) {
 		},
 	})
 
-	m := New(Config{
-		BrevoAPIKey: "key", SMTPHost: "127.0.0.1", SMTPPort: closedPort(t),
-		SMTPUsername: "user", SMTPPassword: "pass",
-		Sender: "Vibe <noreply@vibe.com.ar>", CB: cb,
-	})
+	m := New(Config{BrevoAPIKey: "key", Sender: "Vibe <noreply@vibe.com.ar>", CB: cb})
 	m.apiURL = brevo.URL
 
 	err := m.send(context.Background(), "not-an-address", "hi", "<p>hi</p>")
 	if err == nil {
 		t.Fatal("send = nil, want the provider's rejection")
 	}
-	if strings.Contains(err.Error(), "smtp") {
-		t.Errorf("the fallback ran for a message the provider itself refused: %v", err)
-	}
 	if !isPermanent(err) {
 		t.Errorf("a 4xx rejection must be permanent so the queue stops retrying it: %v", err)
 	}
 	if opened {
 		t.Error("one malformed recipient must not open the breaker for everybody else")
-	}
-}
-
-func TestBrevoSuccessSkipsSMTP(t *testing.T) {
-	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusCreated)
-		_, _ = w.Write([]byte(`{"messageId":"<abc@brevo>"}`))
-	}))
-	defer brevo.Close()
-
-	host, port, received := startFakeSMTP(t)
-
-	m := New(Config{
-		BrevoAPIKey: "key", SMTPHost: host, SMTPPort: port,
-		SMTPUsername: "user", SMTPPassword: "pass",
-		Sender: "Vibe <noreply@vibe.com.ar>",
-	})
-	m.apiURL = brevo.URL
-
-	if err := m.send(context.Background(), "client@example.com", "hi", "<p>hi</p>"); err != nil {
-		t.Fatalf("send = %v, want nil", err)
-	}
-
-	select {
-	case <-received:
-		t.Error("SMTP was used even though Brevo accepted the message")
-	case <-time.After(200 * time.Millisecond):
 	}
 }
 

@@ -93,7 +93,6 @@ func TestEnvOverridesForEveryFormerlyFlagOnlyKnob(t *testing.T) {
 		"DB_MAX_OPEN_CONNS":  "50",
 		"DB_MAX_IDLE_CONNS":  "20",
 		"DB_MAX_IDLE_TIME":   "30m",
-		"SMTP_PORT":          "2525",
 		"LIMITER_ENABLED":    "false",
 		"LIMITER_RPS":        "2.5",
 		"LIMITER_BURST":      "5",
@@ -106,8 +105,8 @@ func TestEnvOverridesForEveryFormerlyFlagOnlyKnob(t *testing.T) {
 		t.Fatalf("Load: %v", err)
 	}
 
-	if cfg.Port != 7070 || cfg.SMTP.Port != 2525 {
-		t.Errorf("ports = %d/%d", cfg.Port, cfg.SMTP.Port)
+	if cfg.Port != 7070 {
+		t.Errorf("port = %d", cfg.Port)
 	}
 	if cfg.DB.MaxOpenConns != 50 || cfg.DB.MaxIdleConns != 20 || cfg.DB.MaxIdleTime != 30*time.Minute {
 		t.Errorf("pool = %d/%d/%s", cfg.DB.MaxOpenConns, cfg.DB.MaxIdleConns, cfg.DB.MaxIdleTime)
@@ -144,7 +143,6 @@ func TestAnUnparseableValueIsAnErrorNotADefault(t *testing.T) {
 		{"DB_STATEMENT_TIMEOUT", "30 seconds"},
 		{"DB_SLOW_QUERY_THRESHOLD", "half a second"},
 		{"DB_AUTO_MIGRATE", "yes please"},
-		{"SMTP_PORT", "-1"},
 		{"LIMITER_ENABLED", "sometimes"},
 		{"LIMITER_RPS", "fast"},
 		{"LIMITER_BURST", "many"},

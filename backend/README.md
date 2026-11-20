@@ -8,7 +8,7 @@ Backend API for Vibe, a booking platform for sports complexes: court availabilit
 - PostgreSQL via [pgx/v5](https://github.com/jackc/pgx) and [sqlc](https://sqlc.dev)
 - Redis (required at runtime, see below)
 - [MercadoPago](https://www.mercadopago.com) for payments
-- [Brevo](https://www.brevo.com) transactional email API, with SMTP as a fallback
+- [Brevo](https://www.brevo.com) transactional email API (the only mail transport: outbound SMTP is blocked on the Railway plan)
 - [Cloudflare R2](https://developers.cloudflare.com/r2/) for optional object storage (images)
 - [Sentry](https://sentry.io) for optional error tracking
 - [Google Places API](https://developers.google.com/maps/documentation/places/web-service) for optional address autocomplete
@@ -259,12 +259,8 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `INSTAGRAM_APP_ID` | Instagram App ID from the Meta App Dashboard (Instagram > API setup with Instagram login). The OAuth redirect to register is `SOCIAL_API_BASE_URL` + `/api/v1/instagram/callback`. | Required when `INSTAGRAM_CONNECT_ENABLED` is true | `""` |
 | `INSTAGRAM_CONNECT_ALLOWED_EMAILS` | Comma-separated owner emails the Instagram connection is limited to, for trying it in production before Meta's approval. Empty offers it to every owner. | Optional | `""` |
 | `INSTAGRAM_APP_SECRET` | Instagram app secret for the code and token exchanges. Secret. | Required when `INSTAGRAM_CONNECT_ENABLED` is true | `""` |
-| `BREVO_API_KEY` | Brevo transactional email API key. | Optional: SMTP is used as a fallback when empty. | `""` |
+| `BREVO_API_KEY` | Brevo transactional email API key. | Optional: with none, no email is sent. | `""` |
 | `BREVO_SENDER` | From address. | Optional | `Vibe <no-reply@vibe.com.ar>` |
-| `SMTP_HOST` | SMTP host, used only when `BREVO_API_KEY` is empty. | Optional | `""` |
-| `SMTP_PORT` | SMTP port, used only when `BREVO_API_KEY` is empty. | Optional | `587` |
-| `SMTP_USERNAME` | SMTP username. | Optional | `""` |
-| `SMTP_PASSWORD` | SMTP password. | Optional | `""` |
 
 ### Storage
 

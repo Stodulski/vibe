@@ -61,7 +61,7 @@ Middleware chain order, outermost first (`Middleware.Wrap`, `internal/middleware
 - **`internal/db/`** — **sqlc-generated code — do not edit manually.** Edit SQL in `db/queries/*.sql`, then run `make sqlc`.
 - **`db/migrations/`** — Goose migrations (PostgreSQL). `001_init.sql` is the pre-launch chain squashed twice (001–042, then 002–005 on 2026-09-14), and its header says why; it was immutable-while-no-production-users until 2026-09-22, when Vibe's first production deploy ended that condition. From that date every change is a new numbered file on top of it — `002_counter_payment_methods.sql` is the first — and every applied file is immutable. See `docs/adr/0003-goose-migrations.md`.
 - **`db/queries/`** — SQL queries consumed by sqlc. One `.sql` file per entity.
-- **`internal/`** subpackages — Cross-cutting services: `circuitbreaker/`, `mailer/` (Brevo API + SMTP fallback), `jobs/` (the durable Postgres work queue), `storage/` (Cloudflare R2), `validator/`, `mp/` (MercadoPago).
+- **`internal/`** subpackages — Cross-cutting services: `circuitbreaker/`, `mailer/` (Brevo API, the only transport), `jobs/` (the durable Postgres work queue), `storage/` (Cloudflare R2), `validator/`, `mp/` (MercadoPago).
 
 ### Key patterns
 

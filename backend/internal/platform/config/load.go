@@ -150,10 +150,6 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 
 	fs.StringVar(&cfg.Brevo.APIKey, "brevo-api-key", "", "Brevo API key (BREVO_API_KEY)")
 	fs.StringVar(&cfg.Brevo.Sender, "brevo-sender", "Vibe <no-reply@vibe.com.ar>", "Email sender (BREVO_SENDER)")
-	fs.StringVar(&cfg.SMTP.Host, "smtp-host", "", "SMTP host (fallback if no Brevo API key) (SMTP_HOST)")
-	fs.IntVar(&cfg.SMTP.Port, "smtp-port", 587, "SMTP port (SMTP_PORT)")
-	fs.StringVar(&cfg.SMTP.Username, "smtp-username", "", "SMTP username (SMTP_USERNAME)")
-	fs.StringVar(&cfg.SMTP.Password, "smtp-password", "", "SMTP password (SMTP_PASSWORD)")
 
 	fs.StringVar(&cfg.Turnstile.SecretKey, "turnstile-secret-key", "",
 		"Cloudflare Turnstile secret key; enables verification on register, login and forgot-password "+
@@ -284,10 +280,6 @@ func (cfg *Config) applyEnv(env *reader) {
 
 	env.strVal("BREVO_API_KEY", &cfg.Brevo.APIKey)
 	env.strVal("BREVO_SENDER", &cfg.Brevo.Sender)
-	env.strVal("SMTP_HOST", &cfg.SMTP.Host)
-	env.intVal("SMTP_PORT", &cfg.SMTP.Port, positive)
-	env.strVal("SMTP_USERNAME", &cfg.SMTP.Username)
-	env.strVal("SMTP_PASSWORD", &cfg.SMTP.Password)
 
 	env.strVal("TURNSTILE_SECRET_KEY", &cfg.Turnstile.SecretKey)
 	env.boolVal("TURNSTILE_BOOKING_ENFORCE", &cfg.Turnstile.BookingEnforce)

@@ -29,7 +29,6 @@ type Config struct {
 	Brevo     Brevo
 	Turnstile Turnstile
 	Leads     Leads
-	SMTP      SMTP
 	R2        R2
 
 	// FrontendURL is the owner-panel origin: login, verify-email and
@@ -279,14 +278,6 @@ type Leads struct {
 	// requests, it just drops them.
 	AbandonedWebhookURL   string
 	AbandonedWebhookToken string
-}
-
-// SMTP is the fallback mail transport, used when no Brevo API key is set.
-type SMTP struct {
-	Host     string
-	Port     int
-	Username string
-	Password string
 }
 
 // R2 is Cloudflare's object storage.
