@@ -13,7 +13,7 @@ Element.prototype.scrollIntoView = vi.fn();
 
 const lateWednesday: Schedule[] = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'].map(
   (day, i) => ({
-    id: `s${i}`,
+    id: `s${String(i)}`,
     complex_id: 'c1',
     day: day as Schedule['day'],
     open_time: '20:00',
@@ -36,7 +36,9 @@ describe('DateSelector after midnight', () => {
     expect(days[0]?.getAttribute('aria-current')).toBeNull();
     expect(days[1]?.getAttribute('aria-current')).toBe('date');
 
-    await userEvent.setup().click(days[0] as HTMLElement);
+    const lastNight = days[0];
+    if (!lastNight) throw new Error('the strip lists no day');
+    await userEvent.setup().click(lastNight);
     const picked = onDateSelect.mock.calls[0]?.[0] as Date;
     expect([picked.getFullYear(), picked.getMonth(), picked.getDate()]).toEqual([2026, 9, 14]);
   });

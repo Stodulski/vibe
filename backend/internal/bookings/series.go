@@ -857,9 +857,36 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 	if err != nil {
 		return nil, err
 	}
-	var active []*bookingstore.Booking
-	var targets []uuid.UUID
-	wasConfirmed := map[uuid.UUID]bool{}
+	active, targets, wasConfirmed := seriesEndTargets(created, now)
+	released, err := s.unbookedDatesFrom(ctx, ser, from)
+	if err != nil {
+		return nil, err
+	}
+
+	endsOn := seriesEndsOn(ser, from)
+	ended, err := s.series.EndSeriesCancelling(ctx, complex.ID, ser.ID, targets, seriesEndNote, now,
+		&endsOn, s.statusEndingOn(ser, endsOn))
+	if err != nil {
+		return nil, err
+	}
+
+	result := &SeriesEndResult{Series: ended.Series, Cancelled: ended.Cancelled}
+	result.Kept = s.releaseSeriesEnd(ctx, complex, actor, ser, ended.Cancelled, active, wasConfirmed, released, now)
+
+	s.audit.Record(audit.Entry{
+		UserID: actor.UserID, ComplexID: &complex.ID, Action: "end",
+		EntityType: "booking_series", EntityID: &ser.ID, NewValue: result.Series, IPAddress: actor.IP,
+	})
+	s.notifySeriesCancelled(ctx, complex, ser, from, len(result.Kept) > 0)
+	s.realtime.PublishBookingChanged(complex.ID)
+	return result, nil
+}
+
+// seriesEndTargets sorts the bookings a series created from the end date on:
+// the live ones (pending or confirmed), whether each was confirmed, and the ids
+// of those the end may cancel — unpaid and not yet started.
+func seriesEndTargets(created []*bookingstore.Booking, now time.Time) (active []*bookingstore.Booking, targets []uuid.UUID, wasConfirmed map[uuid.UUID]bool) {
+	wasConfirmed = map[uuid.UUID]bool{}
 	for _, b := range created {
 		if b.Status != bookingstore.BookingStatusPending && b.Status != bookingstore.BookingStatusConfirmed {
 			continue
@@ -870,11 +897,13 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 			targets = append(targets, b.ID)
 		}
 	}
-	released, err := s.unbookedDatesFrom(ctx, ser, from)
-	if err != nil {
-		return nil, err
-	}
+	return active, targets, wasConfirmed
+}
 
+// seriesEndsOn is the last day a series ended from from still holds: the day
+// before from, never later than an earlier end it already has, and never
+// before the day before it starts.
+func seriesEndsOn(ser *Series, from time.Time) time.Time {
 	endsOn := from.AddDate(0, 0, -1)
 	if ser.EndsOn != nil && seriesDay(*ser.EndsOn).Before(endsOn) {
 		// Already ended earlier than the date asked for: keep the earlier end.
@@ -883,17 +912,20 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 	if floor := seriesDay(ser.StartsOn).AddDate(0, 0, -1); endsOn.Before(floor) {
 		endsOn = floor
 	}
-	ended, err := s.series.EndSeriesCancelling(ctx, complex.ID, ser.ID, targets, seriesEndNote, now,
-		&endsOn, s.statusEndingOn(ser, endsOn))
-	if err != nil {
-		return nil, err
-	}
+	return endsOn
+}
 
-	result := &SeriesEndResult{Series: ended.Series, Cancelled: ended.Cancelled}
-	cancelled := make(map[uuid.UUID]bool, len(ended.Cancelled))
-	for _, b := range ended.Cancelled {
+// releaseSeriesEnd records and announces what ending a series freed — each
+// cancelled occurrence and each date it held with no booking yet — and returns
+// the occurrences that stand because they were paid.
+func (s *Service) releaseSeriesEnd(ctx context.Context, complex *complexstore.Complex, actor Actor, ser *Series,
+	cancelledBookings, active []*bookingstore.Booking, wasConfirmed map[uuid.UUID]bool, released []time.Time, now time.Time,
+) []*bookingstore.Booking {
+	cancelled := make(map[uuid.UUID]bool, len(cancelledBookings))
+	for _, b := range cancelledBookings {
 		cancelled[b.ID] = true
 	}
+	var kept []*bookingstore.Booking
 	for _, b := range active {
 		switch {
 		case cancelled[b.ID]:
@@ -901,7 +933,7 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 			s.slotReleased(ctx, complex, b.CourtID, b.Date, b.StartsAt, b.EndsAt, wasConfirmed[b.ID])
 		case b.StartsAt.After(now):
 			// Paid, or paid while the series was being ended: it stands.
-			result.Kept = append(result.Kept, b)
+			kept = append(kept, b)
 		}
 	}
 	for _, d := range released {
@@ -909,14 +941,7 @@ func (s *Service) EndSeries(ctx context.Context, complex *complexstore.Complex, 
 		s.slotReleased(ctx, complex, ser.CourtID, d, startsAt,
 			startsAt.Add(time.Duration(ser.DurationMinutes)*time.Minute), true)
 	}
-
-	s.audit.Record(audit.Entry{
-		UserID: actor.UserID, ComplexID: &complex.ID, Action: "end",
-		EntityType: "booking_series", EntityID: &ser.ID, NewValue: result.Series, IPAddress: actor.IP,
-	})
-	s.notifySeriesCancelled(ctx, complex, ser, from, len(result.Kept) > 0)
-	s.realtime.PublishBookingChanged(complex.ID)
-	return result, nil
+	return kept
 }
 
 // seriesEndNote is appended to the notes of an occurrence ending its series
