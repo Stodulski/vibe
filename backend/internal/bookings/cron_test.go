@@ -133,7 +133,7 @@ func TestTheExpirySweepClosesTheCheckoutBeforeItFreesTheSlot(t *testing.T) {
 		MPPreferenceID: &preferenceID,
 	}
 
-	f.service.ReleaseExpiredPayments(t.Context())
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
 	if len(f.checkout.expired) != 1 || f.checkout.expired[0] != preferenceID {
 		t.Fatalf("want the checkout link expired once; got %v", f.checkout.expired)
@@ -160,7 +160,7 @@ func TestTheExpirySweepDoesNotTellTheOwner(t *testing.T) {
 	candidate := cronCandidate("pending")
 	f.store.expiredPending = []*bookingstore.CronBooking{candidate}
 
-	f.service.ReleaseExpiredPayments(t.Context())
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
 	if len(f.notify.cancelled) != 1 {
 		t.Fatalf("want one cancellation message to the client; got %d", len(f.notify.cancelled))
@@ -190,7 +190,7 @@ func TestTheExpirySweepFinishesTheBatchAfterOneFailure(t *testing.T) {
 		return nil
 	}
 
-	f.service.ReleaseExpiredPayments(t.Context())
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
 	if attempts != 2 {
 		t.Fatalf("want both bookings attempted; got %d", attempts)

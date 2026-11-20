@@ -865,6 +865,12 @@ type stubCheckout struct {
 	// unauthorizedOnce makes the first CreatePreference answer 401, the way
 	// MercadoPago answers an expired seller token, and every later one succeed.
 	unauthorizedOnce bool
+	// searchResults and searchErr answer SearchPaymentsByReference; searches
+	// and searchCallers record what it was asked.
+	searchResults []mp.Payment
+	searchErr     error
+	searches      []string
+	searchCallers []mp.Caller
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {
@@ -896,6 +902,28 @@ func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID s
 	}
 	s.expired = append(s.expired, preferenceID)
 	return nil
+}
+
+// SearchPaymentsByReference answers with searchResults, or fails with
+// searchErr, and records every reference it was asked about and as whom.
+func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference string, caller mp.Caller) ([]mp.Payment, error) {
+	s.searches = append(s.searches, reference)
+	s.searchCallers = append(s.searchCallers, caller)
+	if s.searchErr != nil {
+		return nil, s.searchErr
+	}
+	return s.searchResults, nil
+}
+
+// stubReconciler records the approved payments the expiry sweep handed it.
+type stubReconciler struct {
+	err        error
+	reconciled []string
+}
+
+func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
+	s.reconciled = append(s.reconciled, mpPaymentID)
+	return s.err
 }
 
 // errPreferenceExpiryUnavailable stands in for MercadoPago being unreachable
@@ -1065,6 +1093,7 @@ type fixture struct {
 	locks        *stubLocks
 	checkout     *stubCheckout
 	refunds      *stubRefunder
+	reconciler   *stubReconciler
 	linkResolver *stubLinkResolver
 	linkTokens   *stubLinkTokens
 	notify       *stubNotifier
@@ -1080,7 +1109,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		store: &stubStore{}, clients: &stubClients{}, complexes: &stubComplexes{},
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
-		checkout: &stubCheckout{}, refunds: &stubRefunder{},
+		checkout: &stubCheckout{}, refunds: &stubRefunder{}, reconciler: &stubReconciler{},
 		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
 		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, freedSlots: &stubFreedSlots{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}

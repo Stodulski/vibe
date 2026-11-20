@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -650,6 +651,57 @@ func (c *MPClient) GetPayment(ctx context.Context, paymentID string, caller Call
 	}
 
 	return &payment, nil
+}
+
+// paymentSearchLimit bounds one page of SearchPaymentsByReference. A checkout
+// reference is one booking, and the attempts made against one checkout link
+// are a handful, so a single page holds every one of them.
+const paymentSearchLimit = 50
+
+// SearchPaymentsByReference lists the payments MercadoPago holds under an
+// external reference (the booking or registration id a preference was created
+// with), newest first.
+//
+// It is what lets a sweep ask MercadoPago itself before giving up on an unpaid
+// checkout: a webhook that never arrived leaves an approved payment nobody
+// recorded, and expiring its booking would sell paid hours to somebody else.
+// The caller is the seller whose checkout it was, since the search answers
+// with the payments that seller collected.
+func (c *MPClient) SearchPaymentsByReference(ctx context.Context, reference string, caller Caller) ([]Payment, error) {
+	token, err := c.bearer(caller)
+	if err != nil {
+		return nil, err
+	}
+
+	q := url.Values{}
+	q.Set("external_reference", reference)
+	q.Set("sort", "date_created")
+	q.Set("criteria", "desc")
+	q.Set("limit", strconv.Itoa(paymentSearchLimit))
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/v1/payments/search?"+q.Encode(), nil)
+	if err != nil {
+		return nil, fmt.Errorf("mp: failed to create payment search request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("mp: payment search request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
+	}
+
+	var page struct {
+		Results []Payment `json:"results"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
+		return nil, fmt.Errorf("mp: failed to decode payment search response: %w", err)
+	}
+	return page.Results, nil
 }
 
 // RefundPayment creates a refund for a MercadoPago payment.
