@@ -114,9 +114,26 @@ type stubStore struct {
 	expiredHolds        []bookingstore.ReleasedHold
 	expiredHoldWindows  []time.Duration
 	complexHoldsDeleted []uuid.UUID
+
+	// publicIPs and publicCaps record the address and cap of every pre-hold
+	// POST /book insert (InsertHold with no token); publicCapErr refuses it.
+	publicIPs    []string
+	publicCaps   []int
+	publicCapErr error
 }
 
-func (s *stubStore) InsertHold(_ context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
+// InsertHold with a nil tokenHash is the pre-hold POST /book insert: the real
+// store runs InsertSafe's insert with the address and the cap, so the stub
+// records those and then is InsertSafe, which the pre-hold tests read.
+func (s *stubStore) InsertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
+	if tokenHash == nil {
+		s.publicIPs = append(s.publicIPs, ip)
+		s.publicCaps = append(s.publicCaps, maxPerIP)
+		if s.publicCapErr != nil {
+			return s.publicCapErr
+		}
+		return s.InsertSafe(ctx, b)
+	}
 	s.holdCalls = append(s.holdCalls, "insert")
 	if s.holdErr != nil {
 		return s.holdErr

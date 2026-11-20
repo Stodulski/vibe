@@ -26,11 +26,15 @@ WHERE id = $1 AND client_id IS NULL;
 -- email; an unauthenticated storefront request never overwrites it, so
 -- clearing this column sent a returning client's notices to an address they
 -- did not give for this booking.
+--
+-- hold_ip goes too: a paid booking is nobody's hold and stops counting against
+-- the address that took it (bookingstore.Store.InsertHold).
 UPDATE bookings
 SET client_id = $2,
     client_first_name = NULL,
     client_last_name = NULL,
-    client_phone = NULL
+    client_phone = NULL,
+    hold_ip = NULL
 WHERE id = $1 AND client_id IS NULL
 RETURNING client_id;
 

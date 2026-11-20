@@ -19,6 +19,9 @@ type Querier interface {
 	// email; an unauthenticated storefront request never overwrites it, so
 	// clearing this column sent a returning client's notices to an address they
 	// did not give for this booking.
+	//
+	// hold_ip goes too: a paid booking is nobody's hold and stops counting against
+	// the address that took it (bookingstore.Store.InsertHold).
 	AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error)
 	// Whether an owner's blocked slot on the booking's court covers any of the hours
 	// the booking is about to claim. It asks the same generated span column, and the

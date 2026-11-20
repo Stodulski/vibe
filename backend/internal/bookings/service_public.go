@@ -15,6 +15,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -224,9 +225,16 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, lockErr
 	}
 
-	if err := s.store.InsertSafe(ctx, booking); err != nil {
+	// Inserted with the address it came from, under the same per-address cap
+	// as a slot hold (InsertHold with no token): this path held slots with no
+	// cap at all, so a script still on it could hold a venue's evening one
+	// unpaid checkout at a time.
+	if err := s.store.InsertHold(ctx, booking, nil, httpx.RateLimitKey(actor.IP), maxActiveHoldsPerIP); err != nil {
 		// Release the slot lock on insert failure.
 		s.releaseCheckoutLock(ctx, in.CourtID, offer.startDate, in.StartTime, holder)
+		if errors.Is(err, bookingstore.ErrHoldLimit) {
+			return PublicBookResult{}, ErrTooManyHolds
+		}
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
