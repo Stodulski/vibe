@@ -296,12 +296,75 @@ func (m *Store) ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOn
 
 // CancelRegistration ends one registration: the person giving up their spot, or
 // an owner action. It answers ErrNotCancellable for one that is already over.
+// No refund is marked as owed: the caller of a cancellation that owes one uses
+// CancelByParticipant.
 func (m *Store) CancelRegistration(ctx context.Context, id uuid.UUID, by string) (*Registration, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	row, err := m.Q.CancelOpenPlayRegistration(ctx, db.CancelOpenPlayRegistrationParams{
-		ID: data.UUIDToPg(id), CancelledBy: data.TextToPg(&by),
+	return cancelRegistration(ctx, m.Q, id, by, false)
+}
+
+// ParticipantCancel is a spot its person cancelled, and whether the tournament
+// category it belongs to had its draw when the cancellation committed.
+type ParticipantCancel struct {
+	Registration *Registration
+	// Drawn is true for a tournament pair whose category's draw exists: leaving
+	// is a walkover, the payment is kept and no refund was marked owed.
+	Drawn bool
+}
+
+// CancelByParticipant ends a person's spot from their link. refundOwed (the
+// cancellation came inside the complex's refund window) is written with the
+// cancellation itself, so a refund the request never finishes is found by the
+// refund sweep (OwnerCancelledStillPaid) rather than lost.
+//
+// It takes the event's row lock and, for a tournament pair, the category's after
+// it: the locks payment confirmation and the draw take. A draw in progress is
+// waited for and then reported (Drawn), and no refund is marked owed for a pair
+// that is in the bracket; a draw that starts after this commits leaves the pair
+// out.
+func (m *Store) CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*ParticipantCancel, error) {
+	ctx, cancel := data.TxContext(ctx)
+	defer cancel()
+
+	var out *ParticipantCancel
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(_ pgx.Tx, q *db.Queries) error {
+		reg, err := q.GetOpenPlayRegistration(ctx, db.GetOpenPlayRegistrationParams{
+			ID: data.UUIDToPg(id), ComplexID: data.TenantParam(ctx),
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrRecordNotFound
+			}
+			return fmt.Errorf("events: read registration: %w", err)
+		}
+		event, err := q.LockOpenPlayEvent(ctx, reg.EventID)
+		if err != nil {
+			return fmt.Errorf("events: lock event: %w", err)
+		}
+		drawn := false
+		if event.TournamentID.Valid {
+			if drawn, err = q.LockEventCategoryDraw(ctx, event.ID); err != nil {
+				return fmt.Errorf("events: lock the category: %w", err)
+			}
+		}
+		cancelled, err := cancelRegistration(ctx, q, id, CancelledByParticipant, refundOwed && !drawn)
+		if err != nil {
+			return err
+		}
+		out = &ParticipantCancel{Registration: cancelled, Drawn: drawn}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func cancelRegistration(ctx context.Context, q *db.Queries, id uuid.UUID, by string, refundOwed bool) (*Registration, error) {
+	row, err := q.CancelOpenPlayRegistration(ctx, db.CancelOpenPlayRegistrationParams{
+		ID: data.UUIDToPg(id), CancelledBy: data.TextToPg(&by), RefundOwed: refundOwed,
 	})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -338,16 +401,17 @@ func (m *Store) ExpireHolds(ctx context.Context) ([]ExpiredHold, error) {
 	return out, nil
 }
 
-// PendingRefund is a registration the owner's cancellation ended whose money has
-// not been sent back.
+// PendingRefund is a cancelled registration whose money is owed back and has not
+// been sent: the owner's cancellation, or a participant's inside the window.
 type PendingRefund struct {
 	RegistrationID uuid.UUID
 	ComplexID      uuid.UUID
 }
 
-// OwnerCancelledStillPaid returns the registrations an event cancellation ended
-// more than grace ago whose MercadoPago payment still reads collected: the
-// refund the cancel request itself never finished. Only the sweep calls it,
+// OwnerCancelledStillPaid returns the registrations cancelled more than grace
+// ago that owe their refund — by the owner, or by the participant inside the
+// window (CancelByParticipant) — whose MercadoPago payment still reads
+// collected: the refund the cancel request itself never finished. Only the sweep calls it,
 // under the tenant bypass.
 func (m *Store) OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]PendingRefund, error) {
 	ctx, cancel := data.QueryContext(ctx)

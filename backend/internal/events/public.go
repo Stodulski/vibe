@@ -48,7 +48,7 @@ func (s *Service) PublicList(ctx context.Context, slug string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	today := timezone.Day(time.Now())
+	today := timezone.Today()
 	all, err := s.store.ListEvents(ctx, complex.ID, today, today.AddDate(0, 0, HorizonDays), false)
 	if err != nil {
 		return nil, err
@@ -456,14 +456,22 @@ func (s *Service) CancelRegistration(ctx context.Context, actor Actor, token str
 	}
 	wasPaid := reg.Status == eventstore.RegistrationConfirmed
 
-	cancelled, err := s.store.CancelRegistration(ctx, reg.ID, eventstore.CancelledByParticipant)
+	// The refund the policy owes is marked in the cancellation's own write, so
+	// the refund sweep finishes it if this request never does.
+	res, err := s.store.CancelByParticipant(ctx, reg.ID, view.Cancellation.WithinWindow)
 	if err != nil {
 		if errors.Is(err, eventstore.ErrNotCancellable) {
 			return nil, &StateError{Message: "the registration has already been cancelled"}
 		}
 		return nil, err
 	}
+	cancelled := res.Registration
 	view.Registration = cancelled
+	if res.Drawn {
+		// The draw was made while this request was on its way: the pair is in the
+		// bracket, so leaving is a walkover and the payment is kept.
+		view.Cancellation.Walkover, view.Cancellation.WithinWindow = true, false
+	}
 	s.realtime.PublishBookingChanged(cancelled.ComplexID)
 	s.record(actor, cancelled.ComplexID, "public_cancel", "open_play_registration", cancelled.ID, cancelled)
 

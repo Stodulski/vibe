@@ -4394,7 +4394,7 @@ type PublicPairRegistration struct {
 		WithinWindow bool `json:"within_window"`
 	} `json:"cancellation"`
 
-	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists, or the tournament's start date has begun in Argentina) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
 	Category       TournamentCategory               `json:"category"`
 	ComplexAddress string                           `json:"complex_address"`
 	ComplexName    string                           `json:"complex_name"`
@@ -4416,7 +4416,7 @@ type PublicPairRegistrationStatus string
 
 // PublicPairSignUp defines model for PublicPairSignUp.
 type PublicPairSignUp struct {
-	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+	// Category `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists, or the tournament's start date has begun in Argentina) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
 	Category       TournamentCategory `json:"category"`
 	MpInitPoint    string             `json:"mp_init_point"`
 	MpPreferenceId string             `json:"mp_preference_id"`
@@ -4623,7 +4623,7 @@ type Tournament struct {
 // TournamentStatus defines model for Tournament.Status.
 type TournamentStatus string
 
-// TournamentCategory `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
+// TournamentCategory `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists, or the tournament's start date has begun in Argentina) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
 type TournamentCategory struct {
 	// Capacity Pairs.
 	Capacity       int                      `json:"capacity"`

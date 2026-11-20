@@ -770,6 +770,7 @@ type OpenPlayRegistration struct {
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
 	PlayerGender    pgtype.Text        `json:"player_gender"`
 	PlayerLevel     pgtype.Int4        `json:"player_level"`
+	RefundIntentAt  pgtype.Timestamptz `json:"refund_intent_at"`
 }
 
 type OwnerNudge struct {

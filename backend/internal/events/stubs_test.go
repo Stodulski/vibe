@@ -36,6 +36,12 @@ type stubStore struct {
 	released    []uuid.UUID
 	participant []string
 	rows        []*eventstore.RegistrationRow
+	// owed is the refundOwed of every CancelByParticipant, in order; drawnAtCancel
+	// is what the cancellation's own transaction found about the draw.
+	owed          []bool
+	drawnAtCancel bool
+	// pending is what the refund sweep's read answers.
+	pending []eventstore.PendingRefund
 }
 
 func (s *stubStore) CreateEvent(_ context.Context, e *eventstore.Event, courtIDs []uuid.UUID) error {
@@ -125,10 +131,19 @@ func (s *stubStore) CancelRegistration(_ context.Context, id uuid.UUID, by strin
 	return reg, nil
 }
 
+func (s *stubStore) CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*eventstore.ParticipantCancel, error) {
+	reg, err := s.CancelRegistration(ctx, id, eventstore.CancelledByParticipant)
+	if err != nil {
+		return nil, err
+	}
+	s.owed = append(s.owed, refundOwed && !s.drawnAtCancel)
+	return &eventstore.ParticipantCancel{Registration: reg, Drawn: s.drawnAtCancel}, nil
+}
+
 func (s *stubStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, error) { return nil, nil }
 
 func (s *stubStore) OwnerCancelledStillPaid(context.Context, time.Duration, int) ([]eventstore.PendingRefund, error) {
-	return nil, nil
+	return s.pending, nil
 }
 
 type stubComplexes struct{ complex *complexstore.Complex }

@@ -46,6 +46,9 @@ type Querier interface {
 	// The owner cancelling an event ends every registration of it at once. The rows
 	// come back with their previous status, so the caller knows which were paid.
 	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
+	// refund_owed marks, in the cancellation's own write, that the money the
+	// registration holds is owed back (migration 043): the refund sweep finishes
+	// that refund if the request that cancelled never does.
 	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	CancelTournament(ctx context.Context, arg CancelTournamentParams) (Tournament, error)
 	// Ending a series cancels one of its occurrences, but only while it is still
@@ -553,10 +556,12 @@ type Querier interface {
 	// Registrations that never held a spot (expired holds) are the caller's to
 	// leave out with live_only.
 	ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPlayRegistrationsParams) ([]ListOpenPlayRegistrationsRow, error)
-	// Registrations the owner's cancellation ended whose money has not been sent
-	// back, once the cancellation is older than the grace: the refund the cancel
-	// request itself never finished (a crash, a provider outage that outlived its
-	// retries). The sweep drives each through the same refund path the cancel uses.
+	// Cancelled registrations whose money is owed back and has not been sent, once
+	// the cancellation is older than the grace: the refund the cancel request
+	// itself never finished (a crash, a provider outage that outlived its retries).
+	// The owner's cancellation always owes it; a participant's only when it came
+	// inside the refund window, which its write marked with refund_intent_at. The
+	// sweep drives each through the same refund path the cancel uses.
 	ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, arg ListOwnerCancelledRegistrationsStillPaidParams) ([]ListOwnerCancelledRegistrationsStillPaidRow, error)
 	// The pairs of a group in seed order, withdrawn ones included: a group table
 	// lists every pair that was drawn into it.
@@ -629,6 +634,10 @@ type Querier interface {
 	// wrapping round, so every entry is inspected however many are still taken: an
 	// entry is never starved behind older ones.
 	ListWaitingSlotGrids(ctx context.Context, arg ListWaitingSlotGridsParams) ([]ListWaitingSlotGridsRow, error)
+	// Whether the tournament category an event is the sign-up container of has its
+	// draw, read under the category's row lock: the lock the draw itself holds, taken
+	// after the event's (payment confirmation takes them in the same order).
+	LockEventCategoryDraw(ctx context.Context, eventID pgtype.UUID) (bool, error)
 	// Taken inside the freed-story transaction: two cancellations of the same
 	// complex queue one after the other, so the daily cap is never overshot.
 	LockInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (LockInstagramStorySettingsRow, error)
@@ -676,9 +685,19 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	// Whether either player of a registration's pair is a player of another live
+	// pair of the category: the payer of a paid or still-held sign-up, or its
+	// partner. A late payment on a pair whose hold ran out is refused when one is:
+	// its players signed up again in another pair meanwhile.
+	PairOfRegistrationPlayersTaken(ctx context.Context, registrationID pgtype.UUID) (bool, error)
 	// Whether any of the phones is a player of a live pair of the category: the
 	// payer of a paid or still-held sign-up, or its partner.
 	PairPlayersTaken(ctx context.Context, arg PairPlayersTakenParams) (bool, error)
+	// Whether the person of a registration (by phone) holds a live spot of the
+	// event other than that registration: paid, or a hold still inside its window.
+	// A late payment on a hold that ran out is refused when they do: the person
+	// signed up again, and confirming the old spot would give them two.
+	PhoneHoldsAnotherLiveSpot(ctx context.Context, arg PhoneHoldsAnotherLiveSpotParams) (bool, error)
 	// Puts back on the list the addresses told about an event spot once the event
 	// is full again (the ClaimFreedOpenPlayWaitlist rule, inverted) and has not
 	// started, so a later free spot reaches them with a new notice. Per address and

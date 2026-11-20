@@ -181,3 +181,16 @@ func TestAnEventCannotBeCancelledTwice(t *testing.T) {
 		t.Error("a refused cancel must refund nothing")
 	}
 }
+
+// S19: "today" is Argentina's date, whatever zone the process runs in. At 22:00
+// in Buenos Aires the UTC date is already tomorrow; an event later that same
+// evening is still today's, not in the past.
+func TestCreateReadsTodayOnArgentinasClock(t *testing.T) {
+	now := time.Date(2026, 11, 21, 1, 0, 0, 0, time.UTC) // 22:00 on the 20th in Buenos Aires
+	in := validInput()
+	in.Date = time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	in.StartTime, in.EndTime = "23:00", "23:59"
+	if errs := in.validate(now); len(errs) > 0 {
+		t.Fatalf("an event at 23:00 tonight must be accepted at 22:00; got %v", errs)
+	}
+}

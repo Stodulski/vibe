@@ -134,6 +134,7 @@ func TestTheEchoOfAnInAppRegistrationRefundWritesNothing(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			f, reg, paid, _ := registrationFixture(t)
+			confirmSpot(reg)
 			f.payments.byMPID = row(reg)
 			f.provider.payment = panelRefund(paid, 2000)
 

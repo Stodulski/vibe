@@ -61,6 +61,10 @@ func (m *mockEventStore) CancelRegistration(context.Context, uuid.UUID, string) 
 	return nil, eventstore.ErrNotCancellable
 }
 
+func (m *mockEventStore) CancelByParticipant(context.Context, uuid.UUID, bool) (*eventstore.ParticipantCancel, error) {
+	return nil, eventstore.ErrNotCancellable
+}
+
 func (m *mockEventStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, error) {
 	return nil, nil
 }

@@ -30,7 +30,7 @@ func (s *Service) PublicList(ctx context.Context, slug string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	today := timezone.Day(time.Now())
+	today := timezone.Today()
 	ts, err := s.store.List(ctx, complex.ID, today, today.AddDate(0, 0, HorizonDays), false)
 	if err != nil {
 		return nil, err
@@ -83,7 +83,7 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, tourname
 	if err != nil {
 		return nil, err
 	}
-	if t.Status != tournamentstore.StatusActive || cat.Cancelled || cat.DrawGeneratedAt != nil {
+	if t.Status != tournamentstore.StatusActive || cat.Cancelled || cat.DrawGeneratedAt != nil || cat.SignUpClosedByDate(time.Now()) {
 		return nil, events.ErrEventClosed
 	}
 	// Refused before AnyEvent, the hold and the checkout: a pair that does not fit

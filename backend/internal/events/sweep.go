@@ -3,6 +3,7 @@ package events
 import (
 	"context"
 
+	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -32,9 +33,10 @@ func (s *Service) ExpireHolds(ctx context.Context) {
 	}
 }
 
-// SweepUnrefunded finds the participants an event cancellation ended whose money
-// is still collected, past the grace the cancel request itself had to refund
-// them, and drives each through the same refund path the cancellation uses. It
+// SweepUnrefunded finds the cancelled registrations that owe their money back —
+// the owner's cancellations, and a participant's inside the refund window —
+// whose money is still collected, past the grace the cancel request itself had
+// to refund them, and drives each through the same refund path the cancellation uses. It
 // recovers the crash window between the cancellation's commit and the claim of
 // each refund; a refund already claimed is the retry job's, and answers
 // already-in-flight here. Called by the scheduler, under the tenant bypass.
@@ -63,7 +65,8 @@ func (s *Service) SweepUnrefunded(ctx context.Context) {
 		outcome := s.payments.RefundRegistration(ctx, reg.ID)
 		s.logger.Info("event refund sweep: drove an unrefunded cancellation", "registration_id", reg.ID, "result", outcome.Result)
 		if outcome.Result == paymentstore.RefundIssued {
-			s.notifyCancelled(reg, ev, complex, true, outcome)
+			byOwner := reg.CancelledBy != nil && *reg.CancelledBy == eventstore.CancelledByOwner
+			s.notifyCancelled(reg, ev, complex, byOwner, outcome)
 		}
 	}
 }
