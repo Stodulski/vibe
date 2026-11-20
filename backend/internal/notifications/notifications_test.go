@@ -11,6 +11,9 @@ import (
 	"github.com/google/uuid"
 
 	authstore "github.com/stodulski/vibe-server/internal/auth/store"
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mailer"
 )
 
 type enqueued struct {
@@ -92,17 +95,17 @@ func (m *stubMailer) record(kind, to string, args ...any) error {
 	return m.err
 }
 
-func (m *stubMailer) SendBookingConfirmation(_ context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine string) error {
-	return m.record("booking_confirmation", to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine)
+func (m *stubMailer) SendBookingConfirmation(_ context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine, paymentState string, contact mailer.Contact) error {
+	return m.record("booking_confirmation", to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine, paymentState, contact)
 }
-func (m *stubMailer) SendReminder2h(_ context.Context, to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL string) error {
-	return m.record("reminder", to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL)
+func (m *stubMailer) SendReminder2h(_ context.Context, to, complexName, courtName, date, startTime, when, address, mapsURL, balanceAmount, cancelURL string, contact mailer.Contact) error {
+	return m.record("reminder", to, complexName, courtName, date, startTime, address, mapsURL, balanceAmount, cancelURL, when, contact)
 }
-func (m *stubMailer) SendBookingCancelled(_ context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string) error {
-	return m.record("cancelled", to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL)
+func (m *stubMailer) SendBookingCancelled(_ context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string, contact mailer.Contact) error {
+	return m.record("cancelled", to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL, contact)
 }
-func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amount, bookURL string) error {
-	return m.record("refunded", to, complexName, amount, bookURL)
+func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact mailer.Contact) error {
+	return m.record("refunded", to, complexName, amount, bookURL, cancelled, courtName, date, startTime, contact)
 }
 func (m *stubMailer) SendOwnerNewBooking(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
 	return m.record("owner_new_booking", to, complexName, courtName, clientName, date, startTime)
@@ -127,18 +130,18 @@ func (m *stubMailer) SendEmailChangeRequested(_ context.Context, to, firstName, 
 	return m.record("email_change_requested", to, firstName, newEmail, confirmURL, expiresIn)
 }
 
-func (m *stubMailer) SendSeriesCreated(_ context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string) error {
-	return m.record("series_created", to, complexName, courtName, weekdays, hours, from, until, address, mapsURL)
+func (m *stubMailer) SendSeriesCreated(_ context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error {
+	return m.record("series_created", to, complexName, courtName, weekdays, hours, from, until, address, mapsURL, contact)
 }
-func (m *stubMailer) SendSeriesCancelled(_ context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string) error {
-	return m.record("series_cancelled", to, complexName, courtName, weekdays, hours, from, keptPaid, bookURL)
+func (m *stubMailer) SendSeriesCancelled(_ context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string, contact mailer.Contact) error {
+	return m.record("series_cancelled", to, complexName, courtName, weekdays, hours, from, keptPaid, bookURL, contact)
 }
 
-func (m *stubMailer) SendEventRegistered(_ context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string) error {
-	return m.record("event_registered", to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL)
+func (m *stubMailer) SendEventRegistered(_ context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string, contact mailer.Contact) error {
+	return m.record("event_registered", to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL, contact)
 }
-func (m *stubMailer) SendEventCancelled(_ context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string) error {
-	return m.record("event_cancelled", to, firstName, complexName, eventName, date, hours, byOwner, refundLine, refundAmount, eventsURL)
+func (m *stubMailer) SendEventCancelled(_ context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string, contact mailer.Contact) error {
+	return m.record("event_cancelled", to, firstName, complexName, eventName, date, hours, byOwner, refundLine, refundAmount, eventsURL, contact)
 }
 
 func (m *stubMailer) SendWaitlistSlotFreed(_ context.Context, to, complexName, date, bookURL string) error {
@@ -174,11 +177,30 @@ func (u *stubUsers) GetByID(context.Context, uuid.UUID) (*authstore.User, error)
 	return u.user, u.err
 }
 
+// stubBookings answers the reminder worker's read of a booking: booking is
+// returned for any id, or err.
+type stubBookings struct {
+	booking *bookingstore.Booking
+	err     error
+	reads   int
+}
+
+func (b *stubBookings) GetByID(context.Context, uuid.UUID) (*bookingstore.Booking, error) {
+	b.reads++
+	if b.err != nil {
+		return nil, b.err
+	}
+	if b.booking == nil {
+		return nil, data.ErrRecordNotFound
+	}
+	return b.booking, nil
+}
+
 func newTestService(t *testing.T) (*Service, *stubQueue, *stubMailer, *stubUsers) {
 	t.Helper()
 	q, m := newStubQueue(), &stubMailer{}
 	users := &stubUsers{user: &authstore.User{Email: "owner@example.com"}}
-	s := NewService(q, m, users, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
+	s := NewService(q, m, users, &stubBookings{}, slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 	return s, q, m, users
 }
 
@@ -557,12 +579,13 @@ func TestBookingEmailPayloadCarriesOnlyWhatTheEmailNeeds(t *testing.T) {
 		t.Fatal("no email task was enqueued")
 	}
 
-	for _, unwanted := range []string{"phone", "owner_id", "cancel_path", "maps_query", "client_name"} {
+	// owner_id is read now: the worker resolves it to the reply-to address.
+	for _, unwanted := range []string{"phone", "cancel_path", "maps_query", "client_name"} {
 		if _, present := payload[unwanted]; present {
 			t.Errorf("the email payload persists %q, which the email worker never reads", unwanted)
 		}
 	}
-	for _, required := range []string{"email", "complex_name", "court_name", "date", "start_time", "address", "maps_url", "cancel_url", "deposit_amount", "balance_amount", "cancellation_line"} {
+	for _, required := range []string{"email", "complex_name", "court_name", "date", "start_time", "address", "maps_url", "cancel_url", "deposit_amount", "balance_amount", "cancellation_line", "owner_id"} {
 		if _, present := payload[required]; !present {
 			t.Errorf("the email payload is missing %q", required)
 		}
@@ -770,7 +793,7 @@ func TestTheSameDeliveryTwiceAsksForTheSameKey(t *testing.T) {
 	first, second := newStubQueue(), newStubQueue()
 	for _, q := range []*stubQueue{first, second} {
 		s := NewService(q, &stubMailer{},
-			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
+			&stubUsers{user: &authstore.User{Email: "owner@example.com"}}, &stubBookings{},
 			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 		s.BookingConfirmed(confirmation)
 	}
@@ -796,7 +819,7 @@ func TestTwoClientsOfOneBookingDoNotShareAKey(t *testing.T) {
 	for _, email := range []string{"ana@example.com", "beto@example.com"} {
 		q := newStubQueue()
 		s := NewService(q, &stubMailer{},
-			&stubUsers{user: &authstore.User{Email: "owner@example.com"}},
+			&stubUsers{user: &authstore.User{Email: "owner@example.com"}}, &stubBookings{},
 			slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
 
 		confirmation := fullConfirmation()

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"html"
 	"strings"
+	"unicode"
+	"unicode/utf8"
 )
 
 // supportEmail is where an owner replies to a nudge, and the mailto fallback of
@@ -28,7 +30,7 @@ func nudgeCopyFor(kind, firstName, complexName string) (nudgeCopy, bool) {
 	hi := nudgeGreeting(firstName)
 	venue := html.EscapeString(strings.TrimSpace(complexName))
 	if venue == "" {
-		venue = "Tu complejo"
+		venue = "tu complejo"
 	}
 
 	switch kind {
@@ -50,14 +52,14 @@ func nudgeCopyFor(kind, firstName, complexName string) (nudgeCopy, bool) {
 		return nudgeCopy{
 			subject:   "Cargá tus canchas en Vibe",
 			preheader: "Cargá tus canchas para empezar a tomar reservas.",
-			body:      hi + " " + venue + " ya está en Vibe. Cargá tus canchas y precios para empezar a usar el turnero y tomar reservas.",
+			body:      hi + " " + sentenceStart(venue) + " ya está en Vibe. Cargá tus canchas y precios para empezar a usar el turnero y tomar reservas.",
 			cta:       "Cargar mis canchas",
 		}, true
 	case "connect_mp":
 		return nudgeCopy{
 			subject:   "Conectá MercadoPago y cobrá la seña online",
 			preheader: "Tus clientes pagan la seña al reservar y la plata va a tu cuenta.",
-			body: hi + " " + venue + " ya tiene sus canchas en Vibe. Conectá tu cuenta de MercadoPago y tus clientes pagan " +
+			body: hi + " " + sentenceStart(venue) + " ya tiene sus canchas en Vibe. Conectá tu cuenta de MercadoPago y tus clientes pagan " +
 				"la seña cuando reservan online. La plata va directo a tu cuenta. Si algo te frenó, respondé este mail.",
 			cta: "Conectar MercadoPago",
 		}, true
@@ -83,6 +85,16 @@ func nudgeCopyFor(kind, firstName, complexName string) (nudgeCopy, bool) {
 
 // nudgeGreeting addresses the reader by the first name they gave, and says just
 // "Hola." when there is none, so an empty name never leaves a gap.
+// sentenceStart capitalizes the first letter of a phrase that opens a
+// sentence. The complex's own name keeps the rest of its spelling.
+func sentenceStart(s string) string {
+	r, size := utf8.DecodeRuneInString(s)
+	if r == utf8.RuneError {
+		return s
+	}
+	return string(unicode.ToUpper(r)) + s[size:]
+}
+
 func nudgeGreeting(firstName string) string {
 	name := strings.TrimSpace(firstName)
 	if name == "" {

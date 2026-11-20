@@ -967,12 +967,14 @@ func (s *stubNotifier) ReminderDue(r notifications.Reminder) error {
 	return nil
 }
 
-func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
+func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) error {
 	s.confirmed = append(s.confirmed, c)
+	return nil
 }
 
-func (s *stubNotifier) BookingCancelled(c notifications.Cancellation) {
+func (s *stubNotifier) BookingCancelled(c notifications.Cancellation) error {
 	s.cancelled = append(s.cancelled, c)
+	return nil
 }
 
 func (s *stubNotifier) SeriesCreated(c notifications.SeriesCreation) {

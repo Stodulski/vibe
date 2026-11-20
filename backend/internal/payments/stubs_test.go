@@ -761,14 +761,19 @@ type stubNotifier struct {
 	confirmations []notifications.BookingConfirmation
 	refunds       []notifications.Refund
 	ownerRefunds  []notifications.OwnerBookingRefund
+	// confirmErr is what BookingConfirmed returns, as when the queue refuses
+	// the client's confirmation.
+	confirmErr error
 }
 
-func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) {
+func (s *stubNotifier) BookingConfirmed(c notifications.BookingConfirmation) error {
 	s.confirmations = append(s.confirmations, c)
+	return s.confirmErr
 }
 
-func (s *stubNotifier) DepositRefunded(r notifications.Refund) {
+func (s *stubNotifier) DepositRefunded(r notifications.Refund) error {
 	s.refunds = append(s.refunds, r)
+	return nil
 }
 
 func (s *stubNotifier) OwnerBookingRefunded(r notifications.OwnerBookingRefund) {

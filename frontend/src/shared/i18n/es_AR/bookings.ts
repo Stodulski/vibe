@@ -75,6 +75,8 @@ export const bookings = {
   clientFirstName: 'Nombre',
   clientLastName: 'Apellido',
   clientData: 'Datos del cliente',
+  /** Under the optional email of a booking the staff creates: email is the only automatic notice. */
+  clientEmailHint: 'Sin email, el cliente no recibe la confirmación ni el recordatorio.',
   selectCourt: 'Seleccioná una cancha',
   selectDateAndCourt: 'Seleccioná fecha y cancha',
   selectDateFirst: 'Seleccioná una fecha',

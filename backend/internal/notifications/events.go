@@ -34,6 +34,11 @@ type EventRegistration struct {
 	// EventURL is the event's public page.
 	EventURL string
 
+	// ComplexPhone and OwnerID are the complex's contact the email carries:
+	// its phone, and the owner whose address the reply goes to.
+	ComplexPhone string
+	OwnerID      string
+
 	// RegistrationID is the deduplication subject and never travels in the
 	// payload.
 	RegistrationID string
@@ -49,12 +54,17 @@ type EventCancellation struct {
 	Hours       string
 	// ByOwner is true when the owner cancelled the whole event.
 	ByOwner bool
-	// RefundLine is the sentence about the money ("Le devolvimos el pago:"); empty
+	// RefundLine is the sentence about the money ("Te devolvimos el pago:"); empty
 	// says nothing. RefundAmount is the figure that goes after it.
 	RefundLine   string
 	RefundAmount string
 	// EventsURL is the complex's public page, where the agenda is.
 	EventsURL string
+
+	// ComplexPhone and OwnerID are the complex's contact the email carries:
+	// its phone, and the owner whose address the reply goes to.
+	ComplexPhone string
+	OwnerID      string
 
 	// RegistrationID is the deduplication subject.
 	RegistrationID string
@@ -71,6 +81,7 @@ type eventRegisteredEmail struct {
 	MapsURL     string `json:"maps_url"`
 	Amount      string `json:"amount"`
 	EventURL    string `json:"event_url"`
+	clientContact
 }
 
 type eventCancelledEmail struct {
@@ -84,6 +95,7 @@ type eventCancelledEmail struct {
 	RefundLine   string `json:"refund_line"`
 	RefundAmount string `json:"refund_amount"`
 	EventsURL    string `json:"events_url"`
+	clientContact
 }
 
 // EventRegistered confirms a person's spot by email.
@@ -94,6 +106,7 @@ func (s *Service) EventRegistered(c EventRegistration) {
 	s.queue.Enqueue(TaskEmailEventRegistered, eventRegisteredEmail{
 		Email: c.Email, FirstName: c.FirstName, ComplexName: c.ComplexName, EventName: c.EventName,
 		Date: c.Date, Hours: c.Hours, Address: c.Address, MapsURL: c.MapsURL, Amount: c.Amount, EventURL: c.EventURL,
+		clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
 	}, dedup(TaskEmailEventRegistered, c.Email, c.RegistrationID))
 }
 
@@ -112,6 +125,7 @@ func (s *Service) EventCancelled(c EventCancellation) {
 		Email: c.Email, FirstName: c.FirstName, ComplexName: c.ComplexName, EventName: c.EventName,
 		Date: c.Date, Hours: c.Hours, ByOwner: c.ByOwner,
 		RefundLine: c.RefundLine, RefundAmount: c.RefundAmount, EventsURL: c.EventsURL,
+		clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
 	}, dedup(TaskEmailEventCancelled, c.Email, subject))
 }
 
@@ -120,10 +134,10 @@ func (s *Service) EventCancelled(c EventCancellation) {
 func (s *Service) registerEventWorkers() {
 	s.queue.RegisterHandler(handle(TaskEmailEventRegistered, func(ctx context.Context, p eventRegisteredEmail) error {
 		return s.mailer.SendEventRegistered(ctx, p.Email, p.FirstName, p.ComplexName, p.EventName,
-			p.Date, p.Hours, p.Address, p.MapsURL, p.Amount, p.EventURL)
+			p.Date, p.Hours, p.Address, p.MapsURL, p.Amount, p.EventURL, s.contactOf(ctx, p.clientContact))
 	}))
 	s.queue.RegisterHandler(handle(TaskEmailEventCancelled, func(ctx context.Context, p eventCancelledEmail) error {
 		return s.mailer.SendEventCancelled(ctx, p.Email, p.FirstName, p.ComplexName, p.EventName,
-			p.Date, p.Hours, p.ByOwner, p.RefundLine, p.RefundAmount, p.EventsURL)
+			p.Date, p.Hours, p.ByOwner, p.RefundLine, p.RefundAmount, p.EventsURL, s.contactOf(ctx, p.clientContact))
 	}))
 }

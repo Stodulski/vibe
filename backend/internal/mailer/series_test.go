@@ -48,7 +48,7 @@ func requireAll(t *testing.T, got sentSeries, wants ...string) {
 func TestSeriesCreatedEmailNamesTheWeekdayHoursCourtAndWhereToGo(t *testing.T) {
 	got := captureSeries(t, func(m *Mailer) error {
 		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "lunes", "19:00 a 20:30",
-			"16/11", "25/01", "Av. Santa Fe 1200", "https://maps.test/x")
+			"16/11", "25/01", "Av. Santa Fe 1200", "https://maps.test/x", Contact{})
 	})
 	requireAll(t, got,
 		"lunes", "19:00 a 20:30", "Cancha 1", "16/11", "25/01",
@@ -57,7 +57,7 @@ func TestSeriesCreatedEmailNamesTheWeekdayHoursCourtAndWhereToGo(t *testing.T) {
 
 func TestSeriesCreatedEmailWithoutAnEndOmitsIt(t *testing.T) {
 	got := captureSeries(t, func(m *Mailer) error {
-		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "sábados", "19:00 a 20:30", "16/11", "", "", "")
+		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "sábados", "19:00 a 20:30", "16/11", "", "", "", Contact{})
 	})
 	requireAll(t, got, "todos los <strong>sábados</strong>", "desde el 16/11.")
 	if strings.Contains(got.HTMLContent, "hasta el") || strings.Contains(got.HTMLContent, "Cómo llegar") {
@@ -68,13 +68,13 @@ func TestSeriesCreatedEmailWithoutAnEndOmitsIt(t *testing.T) {
 func TestSeriesCancelledEmailSaysFromWhenAndWhatStands(t *testing.T) {
 	got := captureSeries(t, func(m *Mailer) error {
 		return m.SendSeriesCancelled(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "lunes", "19:00 a 20:30",
-			"14/12", true, "https://vibe.test/vibe/book")
+			"14/12", true, "https://vibe.test/vibe/book", Contact{})
 	})
 	requireAll(t, got,
 		"lunes", "19:00 a 20:30", "Cancha 1", "14/12", "ya pagos")
 
 	got = captureSeries(t, func(m *Mailer) error {
-		return m.SendSeriesCancelled(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "lunes", "19:00 a 20:30", "14/12", false, "")
+		return m.SendSeriesCancelled(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "lunes", "19:00 a 20:30", "14/12", false, "", Contact{})
 	})
 	if strings.Contains(got.HTMLContent, "ya pagos") {
 		t.Error("nothing paid, nothing to say about payments")

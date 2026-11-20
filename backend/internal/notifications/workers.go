@@ -3,9 +3,17 @@ package notifications
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"regexp"
+	"time"
 
 	"github.com/google/uuid"
+
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mailer"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // ownerAddress resolves an owner's current email from the id a task carries,
@@ -22,6 +30,92 @@ func (s *Service) ownerAddress(ctx context.Context, op, ownerID string) (string,
 		return "", fmt.Errorf("%s: fetch owner: %w", op, err)
 	}
 	return owner.Email, nil
+}
+
+// contactOf resolves the complex's contact a client email carries. The owner's
+// address is read now, like every owner address, so a queued email replies to
+// the address the owner has today. A failed read costs the reply-to and nothing
+// else: the client is still told, and the phone line still stands.
+func (s *Service) contactOf(ctx context.Context, c clientContact) mailer.Contact {
+	contact := mailer.Contact{Phone: c.ComplexPhone}
+	if c.OwnerID == "" {
+		return contact
+	}
+	to, err := s.ownerAddress(ctx, "client email reply-to", c.OwnerID)
+	if err != nil {
+		s.logger.Warn("notifications: sending a client email without the complex's reply-to", "error", err)
+		return contact
+	}
+	contact.ReplyTo = to
+	return contact
+}
+
+// deliverReminder sends a two-hour reminder, unless its booking stopped being
+// one to remind about while the task waited in the queue: it was cancelled, or
+// it has already begun. A reminder for a cancelled booking is the email clients
+// write in about, and a late one is noise.
+//
+// A reminder queued before the booking id travelled in the payload has none,
+// and is sent as it was. A booking that cannot be read for any reason but its
+// absence fails the task, so the queue retries it instead of guessing.
+func (s *Service) deliverReminder(ctx context.Context, p Reminder) error {
+	contact := s.contactOf(ctx, p.clientContact())
+	when := reminderWhen(p, time.Time{}, s.now())
+	if p.BookingID != "" {
+		id, err := uuid.Parse(p.BookingID)
+		if err != nil {
+			return fmt.Errorf("reminder: invalid booking id: %w", err)
+		}
+		// The worker runs outside any request, so it carries no tenant; the
+		// booking is read by its id across tenants, as the sweep that queued it
+		// did.
+		booking, err := s.bookings.GetByID(data.ContextWithTenantBypass(ctx), id)
+		switch {
+		case errors.Is(err, data.ErrRecordNotFound):
+			s.logger.Info("reminder: dropped, the booking no longer exists", "booking_id", p.BookingID)
+			return nil
+		case err != nil:
+			return fmt.Errorf("reminder: read booking: %w", err)
+		}
+		if booking.Status != bookingstore.BookingStatusConfirmed {
+			s.logger.Info("reminder: dropped, the booking is no longer confirmed",
+				"booking_id", p.BookingID, "status", booking.Status)
+			return nil
+		}
+		if !booking.StartsAt.IsZero() && !s.now().Before(booking.StartsAt) {
+			s.logger.Info("reminder: dropped, the booking has already begun", "booking_id", p.BookingID)
+			return nil
+		}
+		when = reminderWhen(p, booking.StartsAt, s.now())
+	}
+	return s.mailer.SendReminder2h(ctx, p.Email, p.ComplexName, p.CourtName, p.Date, p.StartTime, when,
+		p.Address, p.MapsURL, p.BalanceAmount, p.CancelURL, contact)
+}
+
+// reReminderClock finds the start of a reminder's hours label ("18:00 a 19:30").
+var reReminderClock = regexp.MustCompile(`^\d{2}:\d{2}`)
+
+// reminderWhen is the start as the client reads it on the day the reminder
+// arrives: "hoy a las 18:00", or "mañana a las 00:30" for a game just past
+// midnight. Without the booking's start (a reminder queued before the booking
+// id travelled) it falls back to the date the payload carries.
+func reminderWhen(p Reminder, startsAt, now time.Time) string {
+	if !startsAt.IsZero() {
+		start := startsAt.In(timezone.Argentina)
+		today := timezone.Day(now.In(timezone.Argentina))
+		switch timezone.Day(start) {
+		case today:
+			return "hoy a las " + start.Format("15:04")
+		case today.AddDate(0, 0, 1):
+			return "mañana a las " + start.Format("15:04")
+		}
+		return "el " + start.Format("02/01") + " a las " + start.Format("15:04")
+	}
+	clock := reReminderClock.FindString(p.StartTime)
+	if clock == "" {
+		return "el " + p.Date
+	}
+	return "el " + p.Date + " a las " + clock
 }
 
 // handle adapts a typed delivery function into the queue's raw-payload
@@ -57,21 +151,20 @@ func (s *Service) RegisterWorkers() {
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingConfirmation, func(ctx context.Context, p bookingConfirmationEmail) error {
 		return s.mailer.SendBookingConfirmation(ctx, p.Email, p.ComplexName, p.CourtName,
-			p.Date, p.StartTime, p.Address, p.MapsURL, p.CancelURL, p.DepositAmount, p.BalanceAmount, p.CancellationLine)
+			p.Date, p.StartTime, p.Address, p.MapsURL, p.CancelURL, p.DepositAmount, p.BalanceAmount, p.CancellationLine,
+			p.PaymentState, s.contactOf(ctx, p.clientContact))
 	}))
 
-	s.queue.RegisterHandler(handle(TaskEmailReminder2h, func(ctx context.Context, p Reminder) error {
-		return s.mailer.SendReminder2h(ctx, p.Email, p.ComplexName, p.CourtName, p.Date, p.StartTime,
-			p.Address, p.MapsURL, p.BalanceAmount, p.CancelURL)
-	}))
+	s.queue.RegisterHandler(handle(TaskEmailReminder2h, s.deliverReminder))
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingCancelled, func(ctx context.Context, p bookingCancelledEmail) error {
 		return s.mailer.SendBookingCancelled(ctx, p.Email, p.ComplexName, p.CourtName, p.Date, p.StartTime,
-			p.RefundLine, p.RefundAmount, p.BookURL)
+			p.RefundLine, p.RefundAmount, p.BookURL, s.contactOf(ctx, p.clientContact))
 	}))
 
 	s.queue.RegisterHandler(handle(TaskEmailDepositRefunded, func(ctx context.Context, p depositRefundedEmail) error {
-		return s.mailer.SendDepositRefunded(ctx, p.Email, p.ComplexName, p.Amount, p.BookURL)
+		return s.mailer.SendDepositRefunded(ctx, p.Email, p.ComplexName, p.Amount, p.BookURL,
+			p.Cancelled, p.CourtName, p.Date, p.StartTime, s.contactOf(ctx, p.clientContact))
 	}))
 
 	// The owner's address is resolved here rather than captured at enqueue

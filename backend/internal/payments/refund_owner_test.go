@@ -183,3 +183,32 @@ func TestAMercadoPagoRefundWithNoPaymentRecordAlsoEmailsTheOwnerAndFreesTheSlot(
 		t.Fatalf("the freed slot must reach the waitlist on this path too; got %d", len(f.waitlist.freed))
 	}
 }
+
+// S4: the client of a live booking MercadoPago refunded is told, in their one
+// refund email, that the booking is cancelled, with the booking named. A partial
+// refund cancels nothing and says nothing of the kind.
+func TestAMercadoPagoRefundThatCancelsALiveBookingTellsTheClientItIsCancelled(t *testing.T) {
+	f, booking, payment, _ := refundFixture(t, "confirmed")
+	if err := f.service.processRefundedPayment(t.Context(), payment, &mp.Payment{
+		ID: 123, Status: "refunded", TransactionAmount: 2500, TransactionAmountRefunded: 2500,
+	}, "mp-123"); err != nil {
+		t.Fatalf("processing the refund: %v", err)
+	}
+	if len(f.notify.refunds) != 1 {
+		t.Fatalf("want one client notice; got %d", len(f.notify.refunds))
+	}
+	got := f.notify.refunds[0]
+	if !got.Cancelled || got.CourtName != "Cancha 1" || got.Date != booking.Date.Format("02/01") {
+		t.Errorf("the client's notice must say the booking is cancelled and name it; got %+v", got)
+	}
+
+	partial, _, partialPayment, _ := refundFixture(t, "confirmed")
+	if err := partial.service.processRefundedPayment(t.Context(), partialPayment, &mp.Payment{
+		ID: 124, Status: "refunded", TransactionAmount: 2500, TransactionAmountRefunded: 1000,
+	}, "mp-124"); err != nil {
+		t.Fatalf("processing the partial refund: %v", err)
+	}
+	if len(partial.notify.refunds) != 1 || partial.notify.refunds[0].Cancelled {
+		t.Errorf("a partial refund is announced without a cancellation; got %+v", partial.notify.refunds)
+	}
+}

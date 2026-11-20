@@ -84,7 +84,7 @@ func (m *Mailer) SendWelcome(ctx context.Context, to, firstName string) error {
 		p("Máximo, de Vibe", 16, 0)
 
 	const preheader = "Ya tenés tu cuenta de Vibe. Te mostramos cómo arrancar."
-	return m.sendWith(ctx, to, subject, m.wrap(subject, preheader, content), outbound{
+	return m.sendWith(ctx, to, subject, m.wrap(html.EscapeString(subject), preheader, content), outbound{
 		replyTo: supportEmail,
 	})
 }

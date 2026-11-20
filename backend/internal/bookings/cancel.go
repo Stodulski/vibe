@@ -431,7 +431,7 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 		// about their deposit, and found out about the money — or did not —
 		// from a separate email that only fires when one is actually sent.
 		refundLine, refundAmount := refundNotice(outcome)
-		s.notify.BookingCancelled(notifications.Cancellation{
+		if err := s.notify.BookingCancelled(notifications.Cancellation{
 			Email:        client.Email,
 			ComplexName:  complex.Name,
 			CourtName:    court.Name,
@@ -442,9 +442,16 @@ func (s *Service) notifyCancelledAndRelease(ctx context.Context, booking *bookin
 			BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
 			ClientName:   client.FullName(),
 			OwnerID:      complex.OwnerID.String(),
+			ComplexPhone: complex.Phone,
 			Source:       source,
 			BookingID:    booking.ID.String(),
-		})
+		}); err != nil {
+			// Committed already, so it must not fail the cancellation; it is
+			// reported with the booking so the notice can be resent.
+			s.logger.Error("cancel: the cancellation notice was not queued",
+				"error", err, "booking_id", booking.ID, "complex_id", complex.ID)
+			sentry.CaptureMessage(fmt.Sprintf("CANCELLATION NOTICE NOT QUEUED (client not told): complex_id=%s", complex.ID))
+		}
 	} else {
 		// The cancellation is already committed, so a failed read must not fail it.
 		// But the client is now owed a notice that will never be sent, and the skip

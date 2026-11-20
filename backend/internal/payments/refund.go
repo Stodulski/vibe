@@ -244,7 +244,7 @@ func (s *Service) processRefundedPayment(ctx context.Context, payment *paymentst
 	// It is unconditional now because reaching this line already means no claim of
 	// ours holds this refund — the guard at the top of the function returned on
 	// that case rather than only muting the message.
-	s.sendRefundNotification(ctx, booking, announcedRefund(movedNow, payment), refundKey(mpPaymentID, payment.RefundAmount))
+	s.sendRefundNotification(ctx, booking, announcedRefund(movedNow, payment), refundKey(mpPaymentID, payment.RefundAmount), cancelledByRefund)
 	if cancelledByRefund {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -320,7 +320,7 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 	if refunded <= 0 {
 		refunded = int(math.Round(mpPayment.TransactionAmount * 100))
 	}
-	s.sendRefundNotification(ctx, booking, refunded, refundKey(mpPaymentID, refunded))
+	s.sendRefundNotification(ctx, booking, refunded, refundKey(mpPaymentID, refunded), wasLive)
 	if wasLive {
 		s.announceRefundedCancellation(ctx, booking)
 	}
@@ -349,12 +349,35 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 // refundID names which refund of the booking this notice is about (see refundKey).
 // It is the deduplication key's half that tells a second partial refund from a
 // redelivery of the first; without it the queue dropped the second notice.
-func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string) {
+//
+// cancelled says this refund cancelled a live booking, MercadoPago having
+// refunded it on its own side. The client's notice then says the booking is off
+// as well: it is the only email they get about it, and it used to talk about the
+// money alone, leaving them to show up for a game that no longer existed. It is
+// one email rather than two so one event does not reach the client twice.
+func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string, cancelled bool) {
 	ref, ok := s.refundNotice(ctx, booking, refundCentavos, refundID)
 	if !ok {
 		return
 	}
-	s.notify.DepositRefunded(ref)
+	if cancelled {
+		ref.Cancelled = true
+		ref.Date = booking.Date.Format("02/01")
+		ref.StartTime = timezone.HoursLabel(booking.StartsAt, booking.EndsAt)
+		if court, err := s.courts.GetByID(ctx, booking.CourtID); err == nil {
+			ref.CourtName = court.Name
+		} else {
+			s.logger.Warn("refund notification: court unreadable, the cancellation notice names no court",
+				"error", err, "booking_id", booking.ID)
+		}
+	}
+	if err := s.notify.DepositRefunded(ref); err != nil {
+		// The refund is recorded; failing the caller would not resend this.
+		// The ids are what a resend needs, and the dedup key makes one safe.
+		s.logger.Error("refund notification: the client's notice was not queued",
+			"error", err, "booking_id", booking.ID, "refund", refundID, "cancelled", cancelled)
+		sentry.CaptureMessage(fmt.Sprintf("REFUND NOTICE NOT QUEUED (client not told): booking_id=%s refund=%s", booking.ID, refundID))
+	}
 }
 
 // refundNotice reads what every refund notice names (the client, the complex and
@@ -380,12 +403,14 @@ func (s *Service) refundNotice(ctx context.Context, booking *bookingstore.Bookin
 	}
 
 	return notifications.Refund{
-		Email:       client.Email,
-		ComplexName: complex.Name,
-		Amount:      formatARS(refundCentavos),
-		BookURL:     booklink.Book(s.cfg.PublicURL, complex.Slug),
-		BookingID:   booking.ID.String(),
-		RefundID:    refundID,
+		Email:        client.Email,
+		ComplexName:  complex.Name,
+		Amount:       formatARS(refundCentavos),
+		BookURL:      booklink.Book(s.cfg.PublicURL, complex.Slug),
+		ComplexPhone: complex.Phone,
+		OwnerID:      complex.OwnerID.String(),
+		BookingID:    booking.ID.String(),
+		RefundID:     refundID,
 	}, true
 }
 
@@ -644,7 +669,7 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		"booking_id", booking.ID, "mp_payment_id", settled.MPPaymentID, "amount", centavosToPesos(settled.RefundCentavos))
 	// The client is only told once the refund is recorded, and told the amount that
 	// was actually written rather than whatever the in-memory struct still holds.
-	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(claim.MPPaymentID, refundTotal))
+	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(claim.MPPaymentID, refundTotal), false)
 
 	// MercadoPago moved less than was claimed. The part that did move is back and
 	// the client has been told about it; the rest is owed with the attempt row
@@ -1393,7 +1418,7 @@ func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.Fail
 		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
 		return
 	}
-	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(fr.MPPaymentID, refundTotal))
+	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(fr.MPPaymentID, refundTotal), false)
 }
 
 // refundIntentGrace is how long a booking's refund-intent marker
