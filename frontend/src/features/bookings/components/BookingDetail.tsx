@@ -17,6 +17,11 @@ import { mercadoPagoRefundInFlight } from '../lib/mercadoPagoRefundInFlight';
 import { bookingDisplayStatus } from '@/shared/types/api.types';
 import type { Booking, BookingSeries, Client, Payment } from '@/shared/types/api.types';
 
+/** Whether the booking's hours have begun. */
+function hasStarted(b: Booking) {
+  return Date.parse(b.starts_at) <= Date.now();
+}
+
 function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   const isCancelled = b.status === 'cancelled';
   const isCompleted = b.status === 'completed';
@@ -25,7 +30,8 @@ function getBookingDetailFlags(b: Booking, payments: Payment[]) {
   // whether the client came instead.
   const isFinished = bookingDisplayStatus(b) === 'finished';
   const canCancel = !isCancelled && !isCompleted && !isNoShow && !isFinished;
-  const canMarkNoShow = b.status === 'confirmed' || b.status === 'completed';
+  // Nobody can have failed to come before the hours start; the server refuses it.
+  const canMarkNoShow = (b.status === 'confirmed' || b.status === 'completed') && hasStarted(b);
   const canMarkAttended = isFinished;
   // The server refuses a payment on a no-show (the deposit is kept) and a
   // manual refund while Mercado Pago is still sending its part back, so
@@ -184,9 +190,17 @@ function useSeriesDetail(
   };
 }
 
-/** Where the series ends when it is cancelled from this booking: its own date. */
+/**
+ * Where the series ends when it is cancelled from this booking: its own date,
+ * or the next week's once its hours have begun. A game under way is not the
+ * series' to cancel (the server leaves it standing), so the dialog says so.
+ */
 function seriesEndTarget(booking: Booking) {
-  return { seriesId: booking.series_id, fromDate: booking.date.slice(0, 10) };
+  const date = booking.date.slice(0, 10);
+  if (!hasStarted(booking)) return { seriesId: booking.series_id, fromDate: date, started: false };
+  const next = new Date(`${date}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 7);
+  return { seriesId: booking.series_id, fromDate: next.toISOString().slice(0, 10), started: true };
 }
 
 export function BookingDetail({

@@ -954,6 +954,7 @@ type stubNotifier struct {
 	reminders       []notifications.Reminder
 	seriesCreated   []notifications.SeriesCreation
 	seriesCancelled []notifications.SeriesCancellation
+	seriesDatesLost []notifications.SeriesDatesLost
 	// reminderErr is what ReminderDue returns instead of queueing, as when the
 	// queue refuses the insert.
 	reminderErr error
@@ -983,6 +984,10 @@ func (s *stubNotifier) SeriesCreated(c notifications.SeriesCreation) {
 
 func (s *stubNotifier) SeriesCancelled(c notifications.SeriesCancellation) {
 	s.seriesCancelled = append(s.seriesCancelled, c)
+}
+
+func (s *stubNotifier) SeriesDatesLost(c notifications.SeriesDatesLost) {
+	s.seriesDatesLost = append(s.seriesDatesLost, c)
 }
 
 type stubBroadcaster struct{ published []uuid.UUID }

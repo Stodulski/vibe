@@ -95,6 +95,35 @@ func (s *stubSeries) EndSeries(_ context.Context, id uuid.UUID, endsOn *time.Tim
 	return &copied, nil
 }
 
+// EndSeriesCancelling is the store's transaction in memory: each named booking
+// is cancelled only while it is active, unpaid and not started, as the
+// conditional UPDATE decides, and the series' end moves with them.
+func (s *stubSeries) EndSeriesCancelling(
+	ctx context.Context, _, id uuid.UUID, cancel []uuid.UUID, note string, now time.Time, endsOn *time.Time, status string,
+) (*bookingstore.SeriesEnd, error) {
+	out := &bookingstore.SeriesEnd{}
+	for _, b := range s.store.inserted {
+		if !slices.Contains(cancel, b.ID) || b.SeriesID == nil || *b.SeriesID != id ||
+			(b.Status != bookingstore.BookingStatusPending && b.Status != bookingstore.BookingStatusConfirmed) ||
+			b.CollectionStatus != bookingstore.CollectionStatusUnpaid || !b.StartsAt.After(now) {
+			continue
+		}
+		b.Status = bookingstore.BookingStatusCancelled
+		written := note
+		if b.Notes != nil {
+			written = *b.Notes + " | " + note
+		}
+		b.Notes = &written
+		out.Cancelled = append(out.Cancelled, b)
+	}
+	ser, err := s.EndSeries(ctx, id, endsOn, status)
+	if err != nil {
+		return nil, err
+	}
+	out.Series = ser
+	return out, nil
+}
+
 func (s *stubSeries) SeriesDates(_ context.Context, id uuid.UUID, from, to time.Time) ([]bookingstore.SeriesDate, error) {
 	var out []bookingstore.SeriesDate
 	for k, d := range s.dates {

@@ -225,3 +225,20 @@ SELECT * FROM bookings WHERE false LIMIT 1;
 UPDATE bookings
 SET refund_status = 'partial'
 WHERE id = $1 AND refund_status = 'none';
+
+-- name: CancelUnpaidSeriesOccurrence :one
+-- Ending a series cancels one of its occurrences, but only while it is still
+-- the occurrence the owner meant: active, nothing collected, and its hours
+-- still ahead of now. A counter payment, a cancellation or the start of the
+-- game that commits first leaves the row out (no rows), and the booking
+-- stands. Run inside the transaction that also moves the series' end.
+UPDATE bookings
+SET status = 'cancelled',
+    notes = CASE WHEN notes IS NULL THEN sqlc.arg(note)::text
+                 ELSE notes || ' | ' || sqlc.arg(note)::text END
+WHERE id = sqlc.arg(id)
+  AND series_id = sqlc.arg(series_id)
+  AND status IN ('pending', 'confirmed')
+  AND collection_status = 'unpaid'
+  AND lower(span) > sqlc.arg(now)::timestamptz
+RETURNING *;

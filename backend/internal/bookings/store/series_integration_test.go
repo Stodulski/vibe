@@ -18,9 +18,15 @@ import (
 // newSeries stores a weekly series starting on the date NewBooking uses.
 func newSeries(t *testing.T, f *datatest.Fixture, startsOn time.Time) *bookingstore.Series {
 	t.Helper()
+	return newSeriesAt(t, f, startsOn, "18:00")
+}
+
+// newSeriesAt is newSeries at another hour of the day.
+func newSeriesAt(t *testing.T, f *datatest.Fixture, startsOn time.Time, startTime string) *bookingstore.Series {
+	t.Helper()
 	s := &bookingstore.Series{
 		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
-		Weekday: int(startsOn.Weekday()), StartTime: "18:00", DurationMinutes: 90,
+		Weekday: int(startsOn.Weekday()), StartTime: startTime, DurationMinutes: 90,
 		StartsOn: startsOn, Status: bookingstore.SeriesStatusActive, CreatedBy: f.UserID,
 	}
 	if err := f.Stores.BookingSeries.InsertSeries(f.Scoped(context.Background()), s, nil); err != nil {
@@ -145,7 +151,8 @@ func TestEndExpiredSeriesMarksOnlyThoseWhoseLastDayPassed(t *testing.T) {
 	ctx := f.Scoped(context.Background())
 	start := time.Now().AddDate(0, 0, 7).Truncate(24 * time.Hour)
 	live := newSeries(t, f, start)
-	over := newSeries(t, f, start)
+	// Other hours: two series never hold the same ones.
+	over := newSeriesAt(t, f, start, "21:00")
 	last := start
 	if _, err := f.Stores.BookingSeries.EndSeries(ctx, over.ID, &last, bookingstore.SeriesStatusActive); err != nil {
 		t.Fatal(err)

@@ -27,9 +27,9 @@ export function cleanBookingPayload(data: CreateBookingDto): CreateBookingReques
   const cleanPaymentMethod = blankToUndefined(payment_method);
   const cleanDepositAmount =
     data.payment_option === 'deposit' && deposit_amount ? pesosToCentavos(deposit_amount) : undefined;
-  // The manual-price field only ever renders (and gets a value) when
-  // there's no server-computed estimate for this span — `price` stays
-  // undefined here otherwise, whether or not it was ever briefly populated.
+  // `price` can still hold a value typed for an earlier, unpriced span: the
+  // field is hidden once the span has an estimate, not cleared. The caller
+  // (`useCreateBookingForm.onSubmit`) drops it unless the span has no rate.
   const cleanPrice = typeof price === 'number' ? pesosToCentavos(price) : undefined;
 
   // `CreateBookingRequest`'s optional fields are absent-or-present, not

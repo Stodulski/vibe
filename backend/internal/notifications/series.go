@@ -2,6 +2,7 @@ package notifications
 
 import (
 	"context"
+	"strings"
 	"time"
 )
 
@@ -14,7 +15,79 @@ const (
 	TaskEmailSeriesCreated = "email:series_created"
 	// TaskEmailSeriesCancelled is the email half of the series cancellation.
 	TaskEmailSeriesCancelled = "email:series_cancelled"
+	// TaskEmailOwnerSeriesDatesLost tells the owner which dates of a fixed
+	// booking the scheduler could not book.
+	TaskEmailOwnerSeriesDatesLost = "email:owner_series_dates_lost"
 )
+
+// LostDate is one date of a series the scheduler turned into an exception, and
+// the ledger's reason for it (internal/bookings/store's Reason constants).
+type LostDate struct {
+	Date   time.Time
+	Reason string
+}
+
+// SeriesDatesLost is the owner's notice that dates of a fixed booking became
+// exceptions on their own: nobody cancelled them, the scheduler could not book
+// them. One notice per series and run, with every date it lost.
+type SeriesDatesLost struct {
+	OwnerID     string
+	ComplexName string
+	CourtName   string
+	ClientName  string
+	Weekday     time.Weekday
+	Hours       string
+	Dates       []LostDate
+
+	// SeriesID, with the dates, is the deduplication subject.
+	SeriesID string
+}
+
+// lostReasonText says why a date was lost, the way the owner reads it.
+var lostReasonText = map[string]string{
+	"overlap":        "el horario ya estaba ocupado",
+	"blocked":        "la cancha estaba bloqueada o ya no existe",
+	"closed_day":     "el complejo estaba cerrado ese día",
+	"no_price":       "el horario no tiene precio cargado",
+	"client_blocked": "el cliente está bloqueado",
+	"missed":         "el turno ya había pasado cuando se intentó reservar",
+}
+
+type ownerSeriesDatesLost struct {
+	OwnerID     string   `json:"owner_id"`
+	ComplexName string   `json:"complex_name"`
+	CourtName   string   `json:"court_name"`
+	ClientName  string   `json:"client_name"`
+	Weekdays    string   `json:"weekdays"`
+	Hours       string   `json:"hours"`
+	Lines       []string `json:"lines"`
+}
+
+// SeriesDatesLost tells the owner, by email, which dates of a fixed booking
+// the scheduler could not book and why.
+func (s *Service) SeriesDatesLost(c SeriesDatesLost) {
+	if c.OwnerID == "" || len(c.Dates) == 0 {
+		return
+	}
+	lines := make([]string, 0, len(c.Dates))
+	keys := make([]string, 0, len(c.Dates))
+	for _, d := range c.Dates {
+		why, ok := lostReasonText[d.Reason]
+		if !ok {
+			why = "no se pudo reservar"
+		}
+		lines = append(lines, SpanishWeekday(d.Date.Weekday())+" "+d.Date.Format("02/01")+": "+why)
+		keys = append(keys, d.Date.Format(time.DateOnly))
+	}
+	subject := ""
+	if c.SeriesID != "" {
+		subject = c.SeriesID + ":" + strings.Join(keys, ",")
+	}
+	s.queue.Enqueue(TaskEmailOwnerSeriesDatesLost, ownerSeriesDatesLost{
+		OwnerID: c.OwnerID, ComplexName: c.ComplexName, CourtName: c.CourtName, ClientName: c.ClientName,
+		Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, Lines: lines,
+	}, dedup(TaskEmailOwnerSeriesDatesLost, c.OwnerID, subject))
+}
 
 // SeriesCreation is the notice that a fixed weekly booking was set up. An empty
 // Email skips the notice.
@@ -151,5 +224,13 @@ func (s *Service) registerSeriesWorkers() {
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCancelled, func(ctx context.Context, p seriesCancelledEmail) error {
 		return s.mailer.SendSeriesCancelled(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,
 			p.From, p.KeptPaid, p.BookURL, s.contactOf(ctx, p.clientContact))
+	}))
+	s.queue.RegisterHandler(handle(TaskEmailOwnerSeriesDatesLost, func(ctx context.Context, p ownerSeriesDatesLost) error {
+		to, err := s.ownerAddress(ctx, "owner series dates lost", p.OwnerID)
+		if err != nil {
+			return err
+		}
+		return s.mailer.SendOwnerSeriesDatesLost(ctx, to, p.ComplexName, p.CourtName, p.ClientName,
+			p.Weekdays, p.Hours, p.Lines)
 	}))
 }

@@ -2,13 +2,17 @@ package bookings
 
 import (
 	"context"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/stodulski/vibe-server/internal/booklink"
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/timezone"
+	"github.com/stodulski/vibe-server/internal/waitlist"
 )
 
 // seriesHours renders the hours a series holds as a person reads them
@@ -91,4 +95,43 @@ func (s *Service) notifySeriesCancelled(ctx context.Context, complex *complexsto
 func firstRuleDate(ser *Series, from time.Time) time.Time {
 	from = seriesDay(from)
 	return from.AddDate(0, 0, (ser.Weekday-int(from.Weekday())+7)%7)
+}
+
+// slotReleased tells the waitlist and, when the hours had been off sale
+// (announce), the freed-slot listener that a series' hours are free again: a
+// cancelled occurrence, a skipped date, or the dates an ended series stops
+// holding. Hours that have already started free nothing anyone can book, so
+// they are announced to nobody.
+func (s *Service) slotReleased(
+	ctx context.Context, complex *complexstore.Complex, courtID uuid.UUID, day, startsAt, endsAt time.Time, announce bool,
+) {
+	if !startsAt.After(s.now()) {
+		return
+	}
+	s.freeWaitlistSlot(ctx, waitlist.Freed{ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: day})
+	if announce && s.freedSlots != nil {
+		ctx = context.WithoutCancel(ctx)
+		complexID, slug := complex.ID, complex.Slug
+		s.run(func() { s.freedSlots.SlotCancelled(ctx, complexID, courtID, slug, startsAt, endsAt) })
+	}
+}
+
+// notifySeriesDatesLost tells the owner which dates of a series the job turned
+// into exceptions in one run: nobody decided to give them up, so without this
+// the owner would learn it from the client standing at a taken court.
+func (s *Service) notifySeriesDatesLost(ctx context.Context, loss *seriesLoss) {
+	courtName := ""
+	if court, err := s.courts.GetByID(ctx, loss.series.CourtID); err == nil {
+		courtName = court.Name
+	}
+	s.notify.SeriesDatesLost(notifications.SeriesDatesLost{
+		OwnerID:     loss.complex.OwnerID.String(),
+		ComplexName: loss.complex.Name,
+		CourtName:   courtName,
+		ClientName:  strings.TrimSpace(loss.client.FirstName + " " + loss.client.LastName),
+		Weekday:     time.Weekday(loss.series.Weekday),
+		Hours:       seriesHours(loss.series),
+		Dates:       loss.dates,
+		SeriesID:    loss.series.ID.String(),
+	})
 }

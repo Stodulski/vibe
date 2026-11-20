@@ -3297,21 +3297,21 @@ type BookingSeriesFreeCourt struct {
 
 // BookingSeriesUpcoming One upcoming date of a series.
 type BookingSeriesUpcoming struct {
-	// BookingId Present when `booked`.
+	// BookingId Present when `booked`, and on an `exception` whose booking was cancelled.
 	BookingId *openapi_types.UUID `json:"booking_id,omitempty"`
 	Date      openapi_types.Date  `json:"date"`
 
 	// Reason Present when `exception`.
 	Reason *BookingSeriesUpcomingReason `json:"reason,omitempty"`
 
-	// State `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+	// State `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series. A date whose booking was cancelled is an `exception` (`cancelled_by_owner`) that still names its booking.
 	State BookingSeriesUpcomingState `json:"state"`
 }
 
 // BookingSeriesUpcomingReason Present when `exception`.
 type BookingSeriesUpcomingReason string
 
-// BookingSeriesUpcomingState `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+// BookingSeriesUpcomingState `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series. A date whose booking was cancelled is an `exception` (`cancelled_by_owner`) that still names its booking.
 type BookingSeriesUpcomingState string
 
 // BookingStatus defines model for BookingStatus.
@@ -5434,8 +5434,11 @@ type BookingSeriesCreateJSONBody struct {
 	Price *int `json:"price,omitempty"`
 
 	// SkipConflicts Create the series turning the dates something else holds into exceptions.
-	SkipConflicts *bool  `json:"skip_conflicts,omitempty"`
-	StartTime     string `json:"start_time"`
+	SkipConflicts *bool `json:"skip_conflicts,omitempty"`
+
+	// SkipDates With `skip_conflicts`: the conflict dates the owner was shown (the `409`'s). Only those are skipped or moved; a conflict on any other date answers `409` again, listing every conflict, and writes nothing. Absent or empty: every conflict is skipped.
+	SkipDates *[]openapi_types.Date `json:"skip_dates,omitempty"`
+	StartTime string                `json:"start_time"`
 
 	// Weeks Alternative to ends_on: the number of weekly occurrences.
 	Weeks *int `json:"weeks,omitempty"`
@@ -5485,7 +5488,7 @@ type BookingsCreateJSONBody struct {
 	CourtId         openapi_types.UUID `json:"court_id"`
 	Date            openapi_types.Date `json:"date"`
 
-	// DepositAmount Centavos ARS.
+	// DepositAmount Centavos ARS. Required, above zero, with payment_option deposit; a deposit equal to the price is recorded as fully paid.
 	DepositAmount   *int                                 `json:"deposit_amount,omitempty"`
 	DurationMinutes int                                  `json:"duration_minutes"`
 	Notes           *string                              `json:"notes,omitempty"`
