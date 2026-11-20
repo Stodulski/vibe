@@ -229,6 +229,7 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 	if err != nil {
 		return nil, err
 	}
+	previousStatus := booking.Status
 
 	// The snapshot above was read outside any lock, and the write below
 	// rebuilds every column from it. UpdateIfUnchanged applies it only while
@@ -265,6 +266,12 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 				toLabel := bookingStatusLabels[wantStatus]
 				v.AddError("status", fmt.Sprintf("cannot change from '%s' to '%s'", fromLabel, toLabel))
 			}
+		}
+		// Nobody can have failed to show up for hours that have not started,
+		// the same rule MarkAttended applies to the other half of attendance.
+		if wantStatus == bookingstore.BookingStatusNoShow && wantStatus != booking.Status &&
+			booking.StartsAt.After(s.now()) {
+			v.AddError("status", notStartedMessage)
 		}
 
 		// Prevent cancelling a paid booking via generic update — use the cancel or refund endpoint instead.
@@ -393,8 +400,10 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 
 	s.record(actor, complexID, "update", &booking.ID, booking)
 
-	// Increment no_shows counter when owner marks a booking as no_show.
-	if in.Status != nil && *in.Status == "no_show" && booking.HasClient() {
+	// Increment no_shows counter when owner marks a booking as no_show, once:
+	// resending the status of a booking already absent counts nothing.
+	if in.Status != nil && booking.Status == bookingstore.BookingStatusNoShow &&
+		previousStatus != bookingstore.BookingStatusNoShow && booking.HasClient() {
 		if err := s.clients.IncrementNoShows(ctx, booking.ClientID); err != nil {
 			s.logger.Error("update booking: failed to increment no_shows", "error", err, "client_id", booking.ClientID)
 		}
@@ -413,6 +422,10 @@ var bookingStatusLabels = map[bookingstore.BookingStatus]string{
 	bookingstore.BookingStatusCompleted: "completada",
 	bookingstore.BookingStatusNoShow:    "ausente",
 }
+
+// notStartedMessage refuses a no-show on a booking whose hours are still
+// ahead: nobody has failed to come yet.
+const notStartedMessage = "the booking has not started yet"
 
 // notFinishedMessage refuses marking attendance on a booking whose hours are
 // still ahead or under way: nobody can have shown up for all of it yet.
@@ -748,12 +761,20 @@ func (s *Service) prepareCreate(ctx context.Context, complex *complexstore.Compl
 	collectionStatus := bookingstore.CollectionStatus(bookingstore.CollectionStatusUnpaid)
 	switch in.PaymentOption {
 	case "deposit":
+		// The deposit is money the owner says was taken at the counter, so its
+		// amount is theirs to state: the complex's percentage is what the
+		// storefront asks for online, not what changed hands here.
+		if in.DepositAmount == nil || *in.DepositAmount <= 0 {
+			return nil, &FieldError{Field: "deposit_amount", Message: "must be provided"}
+		}
+		if *in.DepositAmount > totalPrice {
+			return nil, &FieldError{Field: "deposit_amount", Message: httpx.CodeDepositExceedsPrice}
+		}
+		depositAmount = *in.DepositAmount
 		collectionStatus = bookingstore.CollectionStatusDepositPaid
-		if in.DepositAmount != nil && *in.DepositAmount > 0 {
-			if *in.DepositAmount > totalPrice {
-				return nil, &FieldError{Field: "deposit_amount", Message: httpx.CodeDepositExceedsPrice}
-			}
-			depositAmount = *in.DepositAmount
+		if depositAmount == totalPrice {
+			// A deposit of the whole price is the whole price.
+			collectionStatus = bookingstore.CollectionStatusFullyPaid
 		}
 	case "full":
 		collectionStatus = bookingstore.CollectionStatusFullyPaid
