@@ -4,6 +4,7 @@ import { renderWithProviders, screen, userEvent, waitFor } from '@/test/test-uti
 import { makeBooking } from '@/test/factories';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { BookingDetail } from './BookingDetail';
+import { todayInArgentina } from '../lib/today';
 import type { Booking, BookingSeries } from '@/shared/types/api.types';
 
 vi.mock('../api/bookings.api', () => ({ bookingsApi: { getById: vi.fn() } }));
@@ -91,13 +92,11 @@ describe('BookingDetail — fixed weekly bookings', () => {
   });
 
   it('labels the cancel action as covering only this date', async () => {
-    const user = userEvent.setup();
     await renderDetail(makeBooking({ date: DATE, series_id: 'ser1' }));
 
-    await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
-
-    expect(screen.getByRole('menuitem', { name: t.series.cancelOne })).toBeInTheDocument();
-    expect(screen.getByRole('menuitem', { name: t.series.endFromHere })).toBeInTheDocument();
+    // A future occurrence offers no no-show yet, so its two actions are plain buttons.
+    expect(await screen.findByRole('button', { name: t.series.cancelOne })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: t.series.endFromHere })).toBeInTheDocument();
   });
 
   it('ends the series from this booking date after confirming, and reports what was cancelled and kept', async () => {
@@ -109,8 +108,7 @@ describe('BookingDetail — fixed weekly bookings', () => {
       kept: [makeBooking()],
     });
 
-    await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
-    await user.click(screen.getByRole('menuitem', { name: t.series.endFromHere }));
+    await user.click(await screen.findByRole('button', { name: t.series.endFromHere }));
     expect(screen.getByText(t.series.endConfirmDescription)).toBeInTheDocument();
     expect(bookingSeriesApi.end).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: t.series.endConfirmLabel }));
@@ -122,6 +120,41 @@ describe('BookingDetail — fixed weekly bookings', () => {
       expect(toast.success).toHaveBeenCalledWith('Turno fijo cancelado · 3 reservas canceladas · 1 paga se mantiene');
     });
     expect(onClose).toHaveBeenCalled();
+  });
+});
+
+describe('BookingDetail — ending a series from an occurrence under way', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('ends it from the next week and says this booking stays', async () => {
+    const user = userEvent.setup();
+    const today = todayInArgentina();
+    const nextWeek = new Date(`${today}T00:00:00Z`);
+    nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
+    const { bookingSeriesApi } = await renderDetail(
+      makeBooking({
+        date: today,
+        series_id: 'ser1',
+        starts_at: new Date(Date.now() - 1_800_000).toISOString(),
+        ends_at: new Date(Date.now() + 3_600_000).toISOString(),
+      }),
+    );
+    vi.mocked(bookingSeriesApi.end).mockResolvedValue({
+      series: { ...series, status: 'ended' },
+      cancelled: [],
+      kept: [],
+    });
+
+    await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
+    await user.click(screen.getByRole('menuitem', { name: t.series.endFromHere }));
+    expect(screen.getByText(t.series.endConfirmDescriptionStarted)).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: t.series.endConfirmLabel }));
+
+    await waitFor(() => {
+      expect(bookingSeriesApi.end).toHaveBeenCalledWith('c1', 'ser1', nextWeek.toISOString().slice(0, 10));
+    });
   });
 });
 
@@ -139,8 +172,7 @@ describe('BookingDetail — cancelling a fixed weekly booking with nothing creat
       kept: [],
     });
 
-    await user.click(await screen.findByRole('button', { name: ES_AR.common.rowActionsLabel }));
-    await user.click(screen.getByRole('menuitem', { name: t.series.endFromHere }));
+    await user.click(await screen.findByRole('button', { name: t.series.endFromHere }));
     await user.click(screen.getByRole('button', { name: t.series.endConfirmLabel }));
 
     await waitFor(() => {

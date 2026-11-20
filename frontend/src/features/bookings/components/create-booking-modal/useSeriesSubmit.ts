@@ -41,12 +41,18 @@ export function useSeriesSubmit(complexId: string, series: SeriesOptions) {
     /**
      * Sends the refused series again, on the same court: the dates in
      * `dateCourts` are booked on the court picked for them, every other
-     * refused date is left out.
+     * refused date is left out. Only the dates the owner was shown are named
+     * (`skip_dates`): one taken since is refused again instead of skipped.
      */
     submitWithChoices: (dateCourts: DateCourt[], onDone: () => void) => {
       if (!lastRequest.current) return;
       send(
-        { ...lastRequest.current, skip_conflicts: true, ...(dateCourts.length > 0 ? { date_courts: dateCourts } : {}) },
+        {
+          ...lastRequest.current,
+          skip_conflicts: true,
+          skip_dates: conflicts.map((c) => c.date),
+          ...(dateCourts.length > 0 ? { date_courts: dateCourts } : {}),
+        },
         onDone,
       );
     },

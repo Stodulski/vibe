@@ -212,7 +212,7 @@ describe('useCreateBookingForm — repeat conflicts', () => {
     });
     expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
       'c1',
-      { ...SERIES_BODY, skip_conflicts: true },
+      { ...SERIES_BODY, skip_conflicts: true, skip_dates: ['2099-01-09', '2099-01-16'] },
       expect.any(String),
     );
   });
@@ -286,7 +286,12 @@ describe('useCreateBookingForm, repeat with a day on another court', () => {
     });
     expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
       'c1',
-      { ...SERIES_BODY, skip_conflicts: true, date_courts: [{ date: '2099-01-09', court_id: 'ct2' }] },
+      {
+        ...SERIES_BODY,
+        skip_conflicts: true,
+        skip_dates: ['2099-01-09', '2099-01-16'],
+        date_courts: [{ date: '2099-01-09', court_id: 'ct2' }],
+      },
       expect.any(String),
     );
     expect(result.current.courtId).toBe(SERIES_BODY.court_id);
@@ -339,7 +344,7 @@ describe('useCreateBookingForm, repeat leaving days unbooked', () => {
     });
     expect(bookingSeriesApi.create).toHaveBeenLastCalledWith(
       'c1',
-      { ...SERIES_BODY, skip_conflicts: true },
+      { ...SERIES_BODY, skip_conflicts: true, skip_dates: ['2099-01-09', '2099-01-16'] },
       expect.any(String),
     );
   });

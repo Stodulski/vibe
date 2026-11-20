@@ -3138,13 +3138,13 @@ export interface components {
       /** Format: date */
       date: string;
       /**
-       * @description `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series.
+       * @description `pending` holds its hours, no booking yet; `booked` has its booking; `exception` is not part of the series. A date whose booking was cancelled is an `exception` (`cancelled_by_owner`) that still names its booking.
        * @enum {string}
        */
       state: 'pending' | 'booked' | 'exception';
       /**
        * Format: uuid
-       * @description Present when `booked`.
+       * @description Present when `booked`, and on an `exception` whose booking was cancelled.
        */
       booking_id?: string;
       /**
@@ -5272,7 +5272,7 @@ export interface operations {
           /** @enum {string} */
           payment_option?: '' | 'unpaid' | 'deposit' | 'full';
           notes?: string;
-          /** @description Centavos ARS. */
+          /** @description Centavos ARS. Required, above zero, with payment_option deposit; a deposit equal to the price is recorded as fully paid. */
           deposit_amount?: number;
           /** @description Centavos ARS. Required when no price rule covers the slot. */
           price?: number;
@@ -5350,6 +5350,8 @@ export interface operations {
           weeks?: number;
           /** @description Create the series turning the dates something else holds into exceptions. */
           skip_conflicts?: boolean;
+          /** @description With `skip_conflicts`: the conflict dates the owner was shown (the `409`'s). Only those are skipped or moved; a conflict on any other date answers `409` again, listing every conflict, and writes nothing. Absent or empty: every conflict is skipped. */
+          skip_dates?: string[];
           /** @description With `skip_conflicts`: conflict dates to book on another court instead of skipping them. The series stays on `court_id`; each listed date is booked as a normal booking of the series on the given court (same client, same hours, priced like any occurrence) and no longer holds `court_id` that day. The court must be another active court of the same sport and still free that date (`409` otherwise, nothing written). Dates not listed become exceptions. */
           date_courts?: {
             /** Format: date */
