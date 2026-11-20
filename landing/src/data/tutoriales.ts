@@ -41,7 +41,7 @@ export type Tutorial = {
 const contenido: Omit<Tutorial, 'dateModified'>[] = [
   {
     slug: 'grilla-de-reservas',
-    title: 'La grilla de reservas: todo el día en una pantalla',
+    title: 'Cómo ver, cargar y bloquear turnos en la grilla de reservas',
     seoTitle: 'Grilla de reservas para un complejo deportivo | Vibe',
     metaDescription:
       'Todas tus canchas del día en una pantalla, cada turno con su seña y lo que falta cobrar, y '
@@ -206,7 +206,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'precios-por-horario',
-    title: 'Precios por horario: cobrá la noche más cara',
+    title: 'Cómo cargar precios distintos según el día y el horario',
     seoTitle: 'Precios por horario y tarifa nocturna en tu cancha | Vibe',
     metaDescription:
       'Cargá un precio base por día y una franja nocturna más cara. Cómo cobra Vibe un turno que '
@@ -407,7 +407,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'base-de-clientes',
-    title: 'Tu base de clientes, armada sola',
+    title: 'Cómo buscar un cliente y ver su historial de reservas',
     seoTitle: 'Base de clientes para tu complejo deportivo | Vibe',
     metaDescription:
       'Cada persona que reserva queda guardada con su teléfono, su historial y su asistencia. Sin '
@@ -550,7 +550,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'panel-de-control',
-    title: 'El panel: tu complejo de un vistazo',
+    title: 'Cómo leer el panel: facturación, ocupación y próximas reservas',
     seoTitle: 'Panel de control para un complejo deportivo | Vibe',
     metaDescription:
       'Lo que facturaste hoy, las reservas, la ocupación y el mapa de horas muertas: qué ves apenas '
@@ -722,7 +722,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'reportes-de-facturacion',
-    title: 'El reporte del mes, listo para el contador',
+    title: 'Cómo ver la facturación del mes y descargarla en Excel',
     seoTitle: 'Reporte de facturación mensual de tu complejo | Vibe',
     metaDescription:
       'El mes cerrado solo: comparado con el anterior, abierto por método de pago y por cancha, y en '
@@ -860,7 +860,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'configuracion-del-complejo',
-    title: 'Configurá tu complejo: horarios y seña',
+    title: 'Cómo configurar los horarios, la seña y la cancelación del complejo',
     seoTitle: 'Cómo configurar horarios y seña de tu complejo | Vibe',
     metaDescription:
       'Los datos del complejo, hasta qué hora se reserva cada día, cuánta seña pedís y el estado de '
@@ -1051,7 +1051,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
        acuerdo a [...] El plazo que definas para recibir tu dinero"). No rate is
        written here: the captures show Mercado Pago's own figures, the copy never does. */
     slug: 'plazo-de-acreditacion-mercado-pago',
-    title: 'Cambiá el plazo de acreditación de Mercado Pago',
+    title: 'Cómo cambiar el plazo de acreditación de Mercado Pago',
     seoTitle: 'Cómo cambiar el plazo de acreditación de Mercado Pago | Vibe',
     metaDescription:
       'Paso a paso para elegir cuándo te queda disponible la plata de cada cobro con Mercado Pago, '
@@ -1183,7 +1183,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'abrir-y-cerrar-la-caja',
-    title: 'Abrí la caja del turno, cerrala con la cuenta hecha',
+    title: 'Cómo abrir y cerrar la caja',
     seoTitle: 'Cómo abrir y cerrar la caja de tu complejo | Vibe',
     metaDescription:
       'Abrís la caja con el efectivo del cajón. Al cerrar, cargás lo que contaste y ves si sobra o falta, '
@@ -1330,7 +1330,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'ingresos-egresos-y-anulaciones',
-    title: 'Ingresos, egresos y cómo anular un movimiento',
+    title: 'Cómo cargar un ingreso o un egreso en la caja y anularlo',
     seoTitle: 'Ingresos y egresos de caja en tu complejo | Vibe',
     metaDescription:
       'Cargá lo que entra o sale de la caja por categoría, desde clases hasta el alquiler del local, y '
@@ -1508,7 +1508,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'vender-desde-el-mostrador',
-    title: 'Vender desde el mostrador, como una caja registradora',
+    title: 'Cómo vender productos desde el mostrador',
     seoTitle: 'Vender productos desde el mostrador | Vibe',
     metaDescription:
       'Tocás un producto, se suma al carrito, elegís el método y cobrás. La venta descuenta el stock y '
@@ -1665,7 +1665,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'productos-y-stock',
-    title: 'Tu catálogo, con stock y sin sorpresas',
+    title: 'Cómo cargar productos y controlar el stock',
     seoTitle: 'Productos y control de stock en tu complejo | Vibe',
     metaDescription:
       'Cargá cada producto con su precio y, si querés, su stock. Un aviso solo cuando queda poco, y la '
@@ -1838,7 +1838,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'cobrar-una-reserva-en-el-mostrador',
-    title: 'Cobrar una reserva en el mostrador',
+    title: 'Cómo cobrar una reserva en el mostrador',
     seoTitle: 'Cómo cobrar una reserva en el mostrador | Vibe',
     metaDescription:
       'Un turno con saldo pendiente se cobra igual desde el panel: elegís el método real y queda '
@@ -1994,7 +1994,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'asistencia-de-cada-turno',
-    title: 'La asistencia de cada turno: quién vino y quién faltó',
+    title: 'Cómo marcar la asistencia de cada turno',
     seoTitle: 'Asistencia de cada turno en tu complejo | Vibe',
     metaDescription:
       'Cuando termina un turno marcás si el cliente se presentó o no, y esa marca arma sola las '
@@ -2137,7 +2137,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'cancelar-una-reserva-y-devolver',
-    title: 'Cancelar una reserva y devolver la plata',
+    title: 'Cómo cancelar una reserva y devolver lo que pagó',
     seoTitle: 'Cancelar una reserva y devolver la seña | Vibe',
     metaDescription:
       'Cómo cancelar una reserva desde el panel de Vibe, qué pasa con la seña pagada con Mercado Pago y'
@@ -2312,7 +2312,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'turnos-fijos',
-    title: 'Turnos fijos: el turno de todas las semanas, cargado una vez',
+    title: 'Cómo crear un turno fijo semanal',
     seoTitle: 'Turnos fijos semanales para tu complejo | Vibe',
     metaDescription:
       'Cómo cargar un turno fijo semanal en Vibe, cancelar una sola fecha cuando el cliente no viene y '
@@ -2486,7 +2486,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'canchas-abiertas',
-    title: 'Canchas abiertas: publicá un horario y que los jugadores se anoten',
+    title: 'Cómo publicar una cancha abierta para que los jugadores se anoten',
     seoTitle: 'Canchas abiertas con inscripción y pago online | Vibe',
     metaDescription:
       'Cómo publicar canchas abiertas en Vibe: elegís canchas, cupo y precio por persona, los jugadores '
@@ -2651,7 +2651,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'torneos',
-    title: 'Torneos: inscripción, zonas, cuadro y resultados',
+    title: 'Cómo armar un torneo con inscripción, zonas y cuadro',
     seoTitle: 'Torneos con inscripción online, zonas y cuadro | Vibe',
     metaDescription:
       'Cómo armar un torneo en Vibe: categorías con cupo y precio por pareja, inscripción y pago desde '
@@ -2873,7 +2873,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'agregar-y-editar-canchas',
-    title: 'Canchas: agregá, editá y desactivá las canchas de tu complejo',
+    title: 'Cómo agregar, editar y desactivar canchas',
     seoTitle: 'Cómo agregar y editar canchas en tu complejo | Vibe',
     metaDescription:
       'Cómo agregar una cancha en Vibe con su nombre, deporte, tipo y descripción, editarla, '
@@ -3045,7 +3045,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'bloquear-un-cliente',
-    title: 'Bloquear un cliente: cuidá tus horarios de las reservas online',
+    title: 'Cómo bloquear a un cliente para que no reserve online',
     seoTitle: 'Cómo bloquear a un cliente para que no reserve online | Vibe',
     metaDescription:
       'Cómo bloquear a un cliente desde Clientes en Vibe para que no reserve online en tu complejo, qué'
@@ -3189,7 +3189,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'perfil-del-complejo-y-link-publico',
-    title: 'Perfil del complejo y link público: lo que ven los jugadores',
+    title: 'Cómo armar el perfil del complejo y compartir tu link',
     seoTitle: 'Cómo armar el perfil de tu complejo y tu link | Vibe',
     metaDescription:
       'Cómo cargar la portada, el logo, los datos y los servicios de tu complejo en Vibe, copiar el '
@@ -3398,7 +3398,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
   },
   {
     slug: 'conectar-mercado-pago',
-    title: 'Conectá Mercado Pago y definí tu política de cancelación',
+    title: 'Cómo conectar Mercado Pago y definir la política de cancelación',
     seoTitle: 'Cómo conectar Mercado Pago a tu complejo en Vibe | Vibe',
     metaDescription:
       'Cómo conectar tu cuenta de Mercado Pago en Vibe para cobrar la seña al reservar, y cómo elegir '
