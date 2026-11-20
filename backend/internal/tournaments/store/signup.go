@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -17,7 +18,8 @@ import (
 // transaction and under the category container's row lock: the same lock that
 // serializes capacity, so two pairs racing for the last spot cannot both fit.
 //
-// Admit refuses once the draw exists (ErrEventClosed) and when any of the two
+// Admit refuses once the draw exists or the tournament's start date has begun
+// (ErrEventClosed) and when any of the two
 // players already holds a live spot in the category, as the payer or as a
 // partner (ErrAlreadyRegistered). Attach writes the pair beside the registration.
 func (m *Store) PairHooks(payer, partner Player) *eventstore.SignUpHooks {
@@ -31,7 +33,7 @@ func (m *Store) PairHooks(payer, partner Player) *eventstore.SignUpHooks {
 			if err != nil {
 				return fmt.Errorf("tournaments: read the tournament: %w", err)
 			}
-			if t.Status != StatusActive || cat.DrawGeneratedAt.Valid {
+			if t.Status != StatusActive || cat.DrawGeneratedAt.Valid || SignUpClosedByDate(data.PgToDate(t.StartDate), time.Now()) {
 				return eventstore.ErrEventClosed
 			}
 			taken, err := q.PairPlayersTaken(ctx, db.PairPlayersTakenParams{

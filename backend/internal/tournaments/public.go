@@ -3,6 +3,7 @@ package tournaments
 import (
 	"context"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -82,7 +83,7 @@ func (s *Service) SignUp(ctx context.Context, actor Actor, slug string, tourname
 	if err != nil {
 		return nil, err
 	}
-	if t.Status != tournamentstore.StatusActive || cat.Cancelled || cat.DrawGeneratedAt != nil {
+	if t.Status != tournamentstore.StatusActive || cat.Cancelled || cat.DrawGeneratedAt != nil || cat.SignUpClosedByDate(time.Now()) {
 		return nil, events.ErrEventClosed
 	}
 	// Refused before AnyEvent, the hold and the checkout: a pair that does not fit

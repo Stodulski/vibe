@@ -826,12 +826,14 @@ SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.grou
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
+       t.start_date AS tournament_start_date,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
+JOIN tournaments t ON t.id = c.tournament_id
 WHERE c.tournament_id = $1
 ORDER BY c.created_at, c.id
 `
@@ -862,6 +864,7 @@ type ListTournamentCategoriesRow struct {
 	Capacity             int32              `json:"capacity"`
 	Price                int32              `json:"price"`
 	EventStatus          string             `json:"event_status"`
+	TournamentStartDate  pgtype.Date        `json:"tournament_start_date"`
 	ConfirmedCount       int32              `json:"confirmed_count"`
 	HeldCount            int32              `json:"held_count"`
 }
@@ -904,6 +907,7 @@ func (q *Queries) ListTournamentCategories(ctx context.Context, tournamentID pgt
 			&i.Capacity,
 			&i.Price,
 			&i.EventStatus,
+			&i.TournamentStartDate,
 			&i.ConfirmedCount,
 			&i.HeldCount,
 		); err != nil {

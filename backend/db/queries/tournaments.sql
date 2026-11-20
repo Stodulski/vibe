@@ -64,12 +64,14 @@ SELECT c.*,
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
+       t.start_date AS tournament_start_date,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
+JOIN tournaments t ON t.id = c.tournament_id
 WHERE c.tournament_id = $1
 ORDER BY c.created_at, c.id;
 

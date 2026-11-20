@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -15,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -92,6 +94,40 @@ func TestSignUpClosesWithTheDrawAndALatePaymentIsRefused(t *testing.T) {
 	}
 	if d := f.detail(t, tr); len(matchesOf(d, tournamentstore.StageBracket, 0)) != 1 {
 		t.Fatalf("the draw must not change: %d matches", len(matchesOf(d, tournamentstore.StageBracket, 0)))
+	}
+}
+
+// S20 (A2): a category stops taking pairs once the tournament's start date has
+// begun in Argentina, drawn or not, and says so when it is read.
+func TestSignUpClosesOnTheTournamentsStartDate(t *testing.T) {
+	f := newFixture(t)
+	today := timezone.Today()
+	tr := &tournamentstore.Tournament{
+		ComplexID: f.ComplexID, Name: "Hoy", Sport: "padel",
+		StartDate: time.Date(today.Year(), today.Month(), today.Day(), 0, 0, 0, 0, time.UTC),
+		EndDate:   time.Date(today.Year(), today.Month(), today.Day()+1, 0, 0, 0, 0, time.UTC), CreatedBy: f.UserID,
+	}
+	if err := f.Stores.Tournaments.Create(f.ctx, tr, []tournamentstore.NewCategory{{
+		Name: "5ta", Format: tournamentstore.FormatElimination, Capacity: 8, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := f.Stores.Tournaments.Categories(f.ctx, tr.ID)
+	if err != nil || len(cats) != 1 {
+		t.Fatalf("categories: %v %v", cats, err)
+	}
+	if _, err := f.signUp(cats[0], 1, "203.0.113.7"); !errors.Is(err, eventstore.ErrEventClosed) {
+		t.Fatalf("a sign-up on the tournament's start date must be refused as closed; got %v", err)
+	}
+	if !cats[0].SignUpClosedByDate(time.Now()) {
+		t.Error("the category must read as closed by date on the start date")
+	}
+
+	// A tournament that starts tomorrow still takes pairs.
+	_, open := f.tournament(t, tournamentstore.FormatElimination, 8, 3, 2)
+	if open.SignUpClosedByDate(time.Now()) {
+		t.Error("a category whose tournament starts in days must read as open")
 	}
 }
 

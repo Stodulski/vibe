@@ -7623,7 +7623,7 @@ components:
     TournamentCategory:
       type: object
       description: >-
-        `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or
+        `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists, or the tournament's start date has begun in Argentina) or
         `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads.
       required: [id, tournament_id, name, modality, level, suma, prizes, starts_on, starts_at, format, capacity, price, spots_left, confirmed_count, held_count, group_size, qualifiers_per_group, sets_to_win, games_per_set, super_tiebreak_decider, match_duration_minutes, status, draw_generated]
       properties:
