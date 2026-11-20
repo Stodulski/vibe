@@ -4332,6 +4332,9 @@ paths:
         - name: date
           in: query
           required: true
+          description: >-
+            The grid day, in the venue's calendar. Yesterday is accepted, because a window that trades past
+            midnight still sells its after-midnight hours today; any earlier day is refused with `422`.
           schema: {type: string, format: date}
         - name: duration
           in: query

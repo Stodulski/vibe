@@ -122,12 +122,14 @@ const DAY_PARAM_RE = /^\d{4}-\d{2}-\d{2}$/;
  * (missing, malformed, a timestamp, a past or too distant day) falls back to
  * today.
  */
-export function parseDateParam(param: string | null, now: Date = new Date()): Date {
+export function parseDateParam(param: string | null, now: Date = new Date(), earliest: Date | null = null): Date {
   const today = todayInVenueTz(now);
   if (!param || !DAY_PARAM_RE.test(param)) return today;
   const parsed = parseISO(param);
   if (!isValid(parsed)) return today;
-  if (startOfDay(parsed) < today) return today;
+  // `earliest` is last night's grid day while its window is still open
+  // (lateNightGridDay); any other day before today falls back to today.
+  if (startOfDay(parsed) < (earliest ?? today)) return today;
   if (startOfDay(parsed) > addDays(today, MAX_BOOKING_HORIZON_DAYS)) return today;
   return parsed;
 }

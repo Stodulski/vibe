@@ -55,11 +55,15 @@ func (h *Handler) Availability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A day that has already ended has nothing left to book. This mirrors the
-	// past-date refusal POST /api/v1/book gives, anchored to the same
-	// product wall-clock, so the storefront never advertises a grid for a
-	// date the booking write would immediately reject.
-	if date.Before(timezone.Today()) {
+	// A grid day that has already ended has nothing left to book. This mirrors
+	// the past-date bound POST /api/v1/book applies (bookings' publicVenue),
+	// anchored to the same product wall-clock: it stops one day short of
+	// today, because yesterday's grid carries after-midnight starts that fall
+	// on today's calendar and are still bookable (00:30 at 00:10). Refusing
+	// yesterday outright kept the storefront from listing the rest of a window
+	// that was still open; whatever of it has begun is left out by the grid's
+	// own instant check.
+	if date.Before(timezone.Today().AddDate(0, 0, -1)) {
 		v := validator.New()
 		v.AddError("date", "date must not be in the past")
 		h.respond.FailedValidation(w, r, v.Errors)
