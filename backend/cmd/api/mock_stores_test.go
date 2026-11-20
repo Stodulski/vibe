@@ -1184,6 +1184,18 @@ func (m *mockPaymentStore) UpdateUnlessRefundPending(ctx context.Context, paymen
 	return true, nil
 }
 
+// RecordRejection mirrors the real store's guard: it writes only onto a row
+// that is still unpaid, through Update.
+func (m *mockPaymentStore) RecordRejection(ctx context.Context, payment *paymentstore.Payment) (bool, error) {
+	if payment.Status != "unpaid" {
+		return false, nil
+	}
+	if err := m.Update(ctx, payment); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (m *mockPaymentStore) RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (bool, error) {
 	if err := m.ConfirmWebhookPayment(ctx, payment, booking); err != nil {
 		return false, err

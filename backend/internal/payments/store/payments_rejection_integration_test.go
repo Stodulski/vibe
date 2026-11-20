@@ -8,19 +8,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
-	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
-
-// rejectionStore is the concrete payments store behind the fixture, which is
-// where RecordRejection lives.
-func rejectionStore(t *testing.T, f *datatest.Fixture) *paymentstore.Payments {
-	t.Helper()
-	p, ok := f.Stores.Payments.(*paymentstore.Payments)
-	if !ok {
-		t.Fatalf("the fixture's payments store is %T, not *paymentstore.Payments", f.Stores.Payments)
-	}
-	return p
-}
 
 // A rejected attempt's webhook reads the payment row, then writes MercadoPago's
 // decline onto it. When the booking's approved payment settled that same row in
@@ -42,7 +30,7 @@ func TestRecordRejectionLeavesASettledPaymentAlone(t *testing.T) {
 	payment.Status = "unpaid"
 	payment.MPPaymentID = &rejected
 	payment.StatusDetail = &detail
-	written, err := rejectionStore(t, f).RecordRejection(ctx, payment)
+	written, err := f.Stores.Payments.RecordRejection(ctx, payment)
 	if err != nil {
 		t.Fatalf("RecordRejection: %v", err)
 	}
@@ -83,7 +71,7 @@ func TestRecordRejectionRecordsTheReasonOnAnUnpaidCheckoutRow(t *testing.T) {
 	payment.Status = "unpaid"
 	payment.MPPaymentID = &rejected
 	payment.StatusDetail = &detail
-	written, err := rejectionStore(t, f).RecordRejection(ctx, payment)
+	written, err := f.Stores.Payments.RecordRejection(ctx, payment)
 	if err != nil {
 		t.Fatalf("RecordRejection: %v", err)
 	}

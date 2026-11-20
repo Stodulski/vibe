@@ -55,6 +55,11 @@ type PaymentWriter interface {
 	// after the webhook read it, and report whether they wrote.
 	UpdateUnlessRefundPending(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
 	RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (written bool, err error)
+	// RecordRejection writes a rejected attempt's MercadoPago id and decline
+	// reason only while the row is still unpaid, and reports whether it wrote:
+	// an approved payment that settled the row after the webhook read it keeps
+	// its id, so its refund still goes to the money that was captured.
+	RecordRejection(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
 }
 
 // RefundStore is the refund lifecycle, in the order it runs. ClaimRefund
