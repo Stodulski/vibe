@@ -128,11 +128,13 @@ func (h *Handler) ownerDetail(ctx context.Context, complexID uuid.UUID, d *tourn
 }
 
 // publicDetail is a tournament as a visitor sees it: the pairs that paid, without
-// phones, emails or payments.
+// phones, emails or payments. A pair that withdrew after the draw is still one of
+// them: its registration is cancelled, but its name stays on the bracket it was
+// drawn into, marked withdrawn.
 func (h *Handler) publicDetail(ctx context.Context, complexID uuid.UUID, d *tournamentstore.Detail) wireDetail {
 	pairs := []wirePair{}
 	for _, p := range d.Pairs {
-		if p.RegistrationStatus == eventsConfirmed {
+		if p.RegistrationStatus == eventsConfirmed || p.Status == tournamentstore.PairWithdrawn {
 			pairs = append(pairs, toWirePair(p))
 		}
 	}
