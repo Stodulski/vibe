@@ -344,7 +344,8 @@ type Cancellation struct {
 // cancellationInfo computes what PublicStatus and PublicCancelInfo both tell a
 // client about cancelling their booking right now.
 func (s *Service) cancellationInfo(booking *bookingstore.Booking, complex *complexstore.Complex) Cancellation {
-	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show"
+	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show" &&
+		!pricing.HasStarted(booking, s.now())
 	return Cancellation{
 		CanCancel:    canCancel,
 		WithinWindow: canCancel && pricing.CanRefund(booking, complex.CancellationHours, s.cfg.GracePeriod),
@@ -493,6 +494,10 @@ func (s *Service) cancelPreviewAmounts(ctx context.Context, booking *bookingstor
 	return refundAmount, paidAmount
 }
 
+// startedBookingMessage is the refusal a client gets for cancelling a booking
+// whose game has already begun.
+const startedBookingMessage = "La reserva ya empezó, no se puede cancelar desde el link."
+
 // PublicCancelResult is what a client's own cancellation produced.
 type PublicCancelResult struct {
 	Booking *bookingstore.Booking
@@ -517,6 +522,14 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 
 	if booking.Status == "cancelled" || booking.Status == "completed" || booking.Status == "no_show" {
 		return PublicCancelResult{}, &StateError{Message: "the booking has already been cancelled or completed"}
+	}
+
+	// A booking whose game has begun is no longer the client's to cancel from
+	// the link: the hours are being played, and with no window (or inside a
+	// grace period) cancelling here used to refund them in full. The owner can
+	// still cancel it from the panel.
+	if pricing.HasStarted(booking, s.now()) {
+		return PublicCancelResult{}, &StateError{Message: startedBookingMessage}
 	}
 
 	// Determine if the cancellation qualifies for a refund (standard window or grace period).

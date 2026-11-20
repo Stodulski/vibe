@@ -13,23 +13,51 @@ func TestCanRefund(t *testing.T) {
 	// and dates in the past (never refundable).
 	argTZ, _ := time.LoadLocation("America/Argentina/Buenos_Aires")
 
-	t.Run("zero cancellation hours always allows refund", func(t *testing.T) {
+	// A complex with no window refunds right up to the start, and not one
+	// minute past it: a game already being played is not a booking anybody can
+	// take back. This used to be unconditionally true, so a client of such a
+	// complex could cancel from their link mid-game and be refunded in full.
+	t.Run("zero cancellation hours refunds a booking that has not started", func(t *testing.T) {
+		future := time.Now().In(argTZ).Add(2 * time.Hour)
+		booking := &bookingstore.Booking{Date: future, StartTime: future.Format("15:04")}
+		if !CanRefund(booking, 0, 15*time.Minute) {
+			t.Error("want true before the start when cancellationHours is 0")
+		}
+	})
+
+	t.Run("zero cancellation hours does not refund a booking that has started", func(t *testing.T) {
 		booking := &bookingstore.Booking{
 			Date:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC), // past
 			StartTime: "10:00",
 		}
-		if !CanRefund(booking, 0, 15*time.Minute) {
-			t.Error("want true when cancellationHours is 0")
+		if CanRefund(booking, 0, 15*time.Minute) {
+			t.Error("want false once the booking has started, even with no window")
 		}
 	})
 
-	t.Run("negative cancellation hours always allows refund", func(t *testing.T) {
+	t.Run("negative cancellation hours does not refund a booking that has started", func(t *testing.T) {
 		booking := &bookingstore.Booking{
 			Date:      time.Date(2020, 1, 1, 0, 0, 0, 0, time.UTC),
 			StartTime: "10:00",
 		}
-		if !CanRefund(booking, -1, 15*time.Minute) {
-			t.Error("want true when cancellationHours is negative")
+		if CanRefund(booking, -1, 15*time.Minute) {
+			t.Error("want false once the booking has started, even with a negative window")
+		}
+	})
+
+	// The grace period lets a client who books late change their mind; it does
+	// not outlive the game. Booked five minutes before the start, the grace
+	// period alone would run ten minutes into the game.
+	t.Run("the grace period stops at the start", func(t *testing.T) {
+		now := time.Now().In(argTZ)
+		start := now.Add(-2 * time.Minute)
+		booking := &bookingstore.Booking{
+			Date:      start,
+			StartTime: start.Format("15:04"),
+			CreatedAt: now.Add(-5 * time.Minute),
+		}
+		if CanRefund(booking, 24, 15*time.Minute) {
+			t.Error("want false after the start even while the grace period is still running")
 		}
 	})
 
@@ -113,11 +141,25 @@ func TestRefundDeadline(t *testing.T) {
 		booking := &bookingstore.Booking{
 			Date:      time.Date(2026, 9, 6, 0, 0, 0, 0, argTZ),
 			StartTime: "19:00",
-			CreatedAt: time.Date(2026, 9, 6, 18, 50, 0, 0, argTZ), // created a minute-scale moment before start
+			CreatedAt: time.Date(2026, 9, 6, 18, 30, 0, 0, argTZ),
 		}
 		// windowDeadline = start - 24h = 2026-09-05 19:00, already past createdAt.
-		// graceEnd = createdAt + 15m = 2026-09-06 19:05, which wins.
-		want := time.Date(2026, 9, 6, 19, 5, 0, 0, argTZ)
+		// graceEnd = createdAt + 15m = 2026-09-06 18:45, which wins.
+		want := time.Date(2026, 9, 6, 18, 45, 0, 0, argTZ)
+		got := RefundDeadline(booking, 24, 15*time.Minute)
+		if !got.Equal(want) {
+			t.Errorf("want deadline %v, got %v", want, got)
+		}
+	})
+
+	t.Run("a grace period that would run past the start ends at the start", func(t *testing.T) {
+		booking := &bookingstore.Booking{
+			Date:      time.Date(2026, 9, 6, 0, 0, 0, 0, argTZ),
+			StartTime: "19:00",
+			CreatedAt: time.Date(2026, 9, 6, 18, 50, 0, 0, argTZ), // ten minutes before the start
+		}
+		// graceEnd = 19:05 is past the start; the deadline is the start itself.
+		want := time.Date(2026, 9, 6, 19, 0, 0, 0, argTZ)
 		got := RefundDeadline(booking, 24, 15*time.Minute)
 		if !got.Equal(want) {
 			t.Errorf("want deadline %v, got %v", want, got)
