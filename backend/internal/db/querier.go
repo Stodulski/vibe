@@ -13,6 +13,12 @@ import (
 type Querier interface {
 	// Names the booking's client and drops the snapshot it was held under, so the
 	// person is recorded in one place (clients) once the booking succeeded.
+	//
+	// client_email is kept: it is the address typed for THIS booking, and its
+	// notices go there (bookingstore.ContactOf). The client row keeps its own
+	// email; an unauthenticated storefront request never overwrites it, so
+	// clearing this column sent a returning client's notices to an address they
+	// did not give for this booking.
 	AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error)
 	// Whether an owner's blocked slot on the booking's court covers any of the hours
 	// the booking is about to claim. It asks the same generated span column, and the

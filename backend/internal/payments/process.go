@@ -299,8 +299,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			}
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			address := booklink.Address(complex.Address, complex.City)
-			clientEmail := ""
-			if client.Email != nil {
+			// The email typed for this booking first (bookingstore.ContactOf
+			// gives every other notice the same rule): a returning client's
+			// client row keeps the address the venue has on file, and the
+			// confirmation goes where they asked for it.
+			clientEmail := booking.ContactEmail
+			if clientEmail == "" && client.Email != nil {
 				clientEmail = *client.Email
 			}
 			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
