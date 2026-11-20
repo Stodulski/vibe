@@ -211,6 +211,20 @@ func TestParticipantCancelFollowsTheComplexCancellationPolicy(t *testing.T) {
 	}
 }
 
+// S17: when the payments behind a cancelled spot could not be read, nobody knows
+// whether money is owed: the notice promises no refund on its way.
+func TestACancellationWhosePaymentsCouldNotBeReadPromisesNoRefund(t *testing.T) {
+	f := newFixture(t)
+	f.payments.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundManual, LedgerUnread: true}
+	token := signedUpAndPaid(t, f, 48*time.Hour, 72*time.Hour)
+	if _, err := f.svc.CancelRegistration(t.Context(), visitor(), token); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RefundLine != "" {
+		t.Errorf("an unread ledger must not tell the person a refund is on its way; notices = %+v", f.notify.cancelled)
+	}
+}
+
 // A spot still being paid has no money to return, and cancelling it frees the spot.
 func TestCancellingAHeldSpotReleasesItWithoutARefundNotice(t *testing.T) {
 	f := newFixture(t)

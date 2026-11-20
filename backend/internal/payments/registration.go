@@ -145,7 +145,7 @@ func (s *Service) approveRegistrationPayment(ctx context.Context, reg *eventstor
 	case errors.Is(err, paymentstore.ErrRegistrationAlreadyPaid):
 		return s.refundExtraRegistrationPayment(ctx, reg, mpPayment, mpPaymentID, "already paid")
 	case errors.Is(err, paymentstore.ErrRegistrationUnavailable):
-		return s.refundRegistrationWhoseSpotIsGone(ctx, reg, checkout, mpPayment, mpPaymentID)
+		return s.refundRegistrationWhoseSpotIsGone(ctx, reg, mpPayment, mpPaymentID)
 	default:
 		return fmt.Errorf("confirm registration %s: %w", reg.ID, err)
 	}
@@ -196,11 +196,11 @@ func (s *Service) announceRegistration(ctx context.Context, regID uuid.UUID) {
 // was cancelled, or its hold ran out and the spot went to someone else. A
 // decision rather than a failure, so it is reported to Sentry and the event is
 // not retried.
-func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *eventstore.Registration, checkout *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) error {
 	s.logger.Error("mp webhook: the spot was gone while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID)
 	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION SPOT GONE (auto-refunding): mp_payment_id=%s registration_id=%s", mpPaymentID, reg.ID))
-	return s.claimAndRefundRegistrationPayment(ctx, reg, checkout, mpPayment, mpPaymentID)
+	return s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
 }
 
 // refundExtraRegistrationPayment sends back a second payment on a registration
@@ -208,34 +208,27 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID, why string) error {
 	s.logger.Error("mp webhook: duplicate registration payment, refunding it",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID, "why", why)
-	return s.claimAndRefundRegistrationPayment(ctx, reg, nil, mpPayment, mpPaymentID)
+	return s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
 }
 
 // claimAndRefundRegistrationPayment records the payment a refund is about to be
-// claimed against, and refunds it. The checkout row is preferred when there is
-// one; with none (or for a duplicate) the row is new, and insert and claim are
-// one transaction, so a claim that fails leaves nothing that reads as already
-// processed.
+// claimed against, and refunds it. The row is always new, and insert and claim
+// are one transaction, so a claim that fails leaves nothing that reads as
+// already processed and MercadoPago's retry starts over. The checkout row
+// sign-up wrote is left unpaid, like the checkout of any hold nobody paid:
+// settling it first and claiming after was two commits, and a crash between
+// them left a collected row the retry skipped as handled (S17).
 //
 // If recording fails the provider is never called: money must not move on
 // behalf of a refund nothing durable knows about. The error is returned so the
 // event is retried.
-func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, checkout *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
-	var claim *paymentstore.RefundClaim
-	var err error
-	if checkout != nil {
-		checkout.Status, checkout.MPPaymentID = "deposit_paid", &mpPaymentID
-		if err = s.ledger.Update(ctx, checkout); err == nil {
-			claim, err = s.refunds.ClaimRefund(ctx, checkout.ID)
-		}
-	} else {
-		paid := int(math.Round(mpPayment.TransactionAmount * 100))
-		fee := min(reg.ServiceFee, paid)
-		claim, err = s.refunds.InsertAndClaimRefund(ctx, &paymentstore.Payment{
-			RegistrationID: &reg.ID, ComplexID: reg.ComplexID, Amount: paid - fee, ServiceFee: fee,
-			Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID,
-		})
-	}
+func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) error {
+	paid := int(math.Round(mpPayment.TransactionAmount * 100))
+	fee := min(reg.ServiceFee, paid)
+	claim, err := s.refunds.InsertAndClaimRefund(ctx, &paymentstore.Payment{
+		RegistrationID: &reg.ID, ComplexID: reg.ComplexID, Amount: paid - fee, ServiceFee: fee,
+		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID, StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
+	})
 	switch {
 	case err == nil:
 	case errors.Is(err, paymentstore.ErrAlreadyRefunded), errors.Is(err, paymentstore.ErrRefundInFlight):
@@ -292,7 +285,8 @@ func (s *Service) RefundRegistration(ctx context.Context, regID uuid.UUID) payme
 	payments, err := s.registrationLedger.ListByRegistrationID(ctx, regID)
 	if err != nil {
 		s.logger.Error("registration refund: cannot read the ledger", "error", err, "registration_id", regID)
-		return paymentstore.RefundOutcome{Result: paymentstore.RefundManual, Reason: "the payments of the registration could not be read"}
+		sentry.CaptureMessage(fmt.Sprintf("REGISTRATION REFUND NOT ATTEMPTED: registration_id=%s — its payments could not be read", regID))
+		return paymentstore.RefundOutcome{Result: paymentstore.RefundManual, LedgerUnread: true, Reason: "the payments of the registration could not be read"}
 	}
 	var results []paymentstore.RefundOutcome
 	for _, p := range payments {
@@ -386,6 +380,15 @@ func (s *Service) processRecordedRegistrationPayment(ctx context.Context, paymen
 	if refundedBeyondRecorded(payment, mpPayment) {
 		return s.recordRegistrationPanelRefund(ctx, payment, mpPayment, mpPaymentID)
 	}
+	if payment.Status == "deposit_paid" || payment.Status == "fully_paid" {
+		owed, err := s.collectedForASpotNeverGiven(ctx, payment)
+		if err != nil {
+			return err
+		}
+		if owed {
+			return s.finishOrphanedRegistrationRefund(ctx, payment, mpPaymentID)
+		}
+	}
 	s.logger.Info("mp webhook: registration payment already processed, skipping",
 		"mp_payment_id", mpPaymentID, "mp_status", mpPayment.Status)
 	return nil
@@ -439,5 +442,41 @@ func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *pa
 		Result:         string(paymentstore.RefundIssued),
 		Reason:         mpPayment.StatusDetail,
 	})
+	return nil
+}
+
+// collectedForASpotNeverGiven reports whether a collected payment row belongs to
+// a registration that was never confirmed. Confirming writes the payment and the
+// registration's confirmation in one transaction, so such a row can only be a
+// refund that was recorded and then never claimed: the spot-gone path settled
+// the checkout row and claimed its refund in two commits until S17, and a crash
+// between them left this. A registration confirmed once (cancelled since or not)
+// keeps its payment as its cancellation decided.
+func (s *Service) collectedForASpotNeverGiven(ctx context.Context, payment *paymentstore.Payment) (bool, error) {
+	if !s.registrationPaymentsEnabled() || payment.RegistrationID == nil {
+		return false, nil
+	}
+	reg, err := s.registrations.GetRegistration(ctx, *payment.RegistrationID)
+	if err != nil {
+		return false, fmt.Errorf("read the registration of payment %s: %w", payment.ID, err)
+	}
+	return reg.ConfirmedAt == nil && reg.Status != eventstore.RegistrationConfirmed, nil
+}
+
+// finishOrphanedRegistrationRefund claims and issues the refund of a collected
+// payment whose spot was never given (collectedForASpotNeverGiven).
+func (s *Service) finishOrphanedRegistrationRefund(ctx context.Context, payment *paymentstore.Payment, mpPaymentID string) error {
+	s.logger.Error("mp webhook: a collected registration payment was never confirmed nor refunded, refunding it now",
+		"mp_payment_id", mpPaymentID, "payment_id", payment.ID, "registration_id", *payment.RegistrationID)
+	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION REFUND RECOVERED (auto-refunding): mp_payment_id=%s payment_id=%s", mpPaymentID, payment.ID))
+	claim, err := s.refunds.ClaimRefund(ctx, payment.ID)
+	switch {
+	case err == nil:
+	case errors.Is(err, paymentstore.ErrAlreadyRefunded), errors.Is(err, paymentstore.ErrRefundInFlight):
+		return nil
+	default:
+		return fmt.Errorf("claim the refund of registration payment %s: %w", payment.ID, err)
+	}
+	s.settleRegistrationClaim(ctx, claim)
 	return nil
 }

@@ -224,7 +224,13 @@ func (s *Service) notifyCancelled(reg *eventstore.Registration, ev *eventstore.E
 
 // refundLine is the sentence and figure a cancellation notice carries about the
 // person's money.
+//
+// An outcome whose payments could not be read carries no sentence: whether any
+// money was paid is not known, so a refund on its way is not promised.
 func refundLine(outcome paymentstore.RefundOutcome) (line string, centavos int) {
+	if outcome.LedgerUnread {
+		return "", 0
+	}
 	switch outcome.Result {
 	case paymentstore.RefundIssued, paymentstore.RefundAlreadyIssued:
 		return notice.LineRefunded, outcome.AmountCentavos
