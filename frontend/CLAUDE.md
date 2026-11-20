@@ -47,7 +47,7 @@ feature/
 
 ### Data Flow
 
-1. **API calls**: `src/shared/lib/ky.ts` — ky-based HTTP client with automatic CSRF token injection (`X-CSRF-Token` header) and 401 → token refresh → retry logic.
+1. **API calls**: `src/shared/lib/ky.ts` — ky-based HTTP client with automatic CSRF token injection (`X-CSRF-Token` header), 401 → token refresh → retry logic, and a write refused for a stale CSRF token (another tab renewed the session) → token from `GET /auth/me` → one retry.
 2. **Server state**: TanStack React Query. All query keys defined in `src/shared/lib/queryKeys.ts` factory. Config: 5min staleTime, 10min gcTime, 1 retry.
 3. **Client state**: Zustand store (`src/shared/stores/`) with auth slice (user, csrfToken) and UI slice (theme).
 4. **Forms**: React Hook Form + Zod via `@hookform/resolvers`.
