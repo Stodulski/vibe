@@ -145,9 +145,13 @@ WHERE id = $1 AND status IN ('held', 'expired')
 RETURNING *;
 
 -- name: CancelOpenPlayRegistration :one
+-- refund_owed marks, in the cancellation's own write, that the money the
+-- registration holds is owed back (migration 043): the refund sweep finishes
+-- that refund if the request that cancelled never does.
 UPDATE open_play_registrations
-SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2
-WHERE id = $1 AND status IN ('held', 'confirmed')
+SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = sqlc.arg(cancelled_by),
+    refund_intent_at = CASE WHEN sqlc.arg(refund_owed)::bool THEN NOW() END
+WHERE id = sqlc.arg(id) AND status IN ('held', 'confirmed')
 RETURNING *;
 
 -- name: CancelOpenPlayEventRegistrations :many
@@ -168,14 +172,16 @@ WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id;
 
 -- name: ListOwnerCancelledRegistrationsStillPaid :many
--- Registrations the owner's cancellation ended whose money has not been sent
--- back, once the cancellation is older than the grace: the refund the cancel
--- request itself never finished (a crash, a provider outage that outlived its
--- retries). The sweep drives each through the same refund path the cancel uses.
+-- Cancelled registrations whose money is owed back and has not been sent, once
+-- the cancellation is older than the grace: the refund the cancel request
+-- itself never finished (a crash, a provider outage that outlived its retries).
+-- The owner's cancellation always owes it; a participant's only when it came
+-- inside the refund window, which its write marked with refund_intent_at. The
+-- sweep drives each through the same refund path the cancel uses.
 SELECT r.id, r.complex_id
 FROM open_play_registrations r
 JOIN payments p ON p.registration_id = r.id
-WHERE r.status = 'cancelled' AND r.cancelled_by = 'owner'
+WHERE r.status = 'cancelled' AND (r.cancelled_by = 'owner' OR r.refund_intent_at IS NOT NULL)
   AND r.cancelled_at < sqlc.arg(older_than)::timestamptz
   AND p.method = 'mercadopago'
   AND p.status IN ('deposit_paid', 'fully_paid', 'partial_refund')

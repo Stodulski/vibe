@@ -456,13 +456,16 @@ func (s *Service) CancelRegistration(ctx context.Context, actor Actor, token str
 	}
 	wasPaid := reg.Status == eventstore.RegistrationConfirmed
 
-	cancelled, err := s.store.CancelRegistration(ctx, reg.ID, eventstore.CancelledByParticipant)
+	// The refund the policy owes is marked in the cancellation's own write, so
+	// the refund sweep finishes it if this request never does.
+	res, err := s.store.CancelByParticipant(ctx, reg.ID, view.Cancellation.WithinWindow)
 	if err != nil {
 		if errors.Is(err, eventstore.ErrNotCancellable) {
 			return nil, &StateError{Message: "the registration has already been cancelled"}
 		}
 		return nil, err
 	}
+	cancelled := res.Registration
 	view.Registration = cancelled
 	s.realtime.PublishBookingChanged(cancelled.ComplexID)
 	s.record(actor, cancelled.ComplexID, "public_cancel", "open_play_registration", cancelled.ID, cancelled)

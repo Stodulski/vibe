@@ -37,6 +37,9 @@ type Querier interface {
 	// The owner cancelling an event ends every registration of it at once. The rows
 	// come back with their previous status, so the caller knows which were paid.
 	CancelOpenPlayEventRegistrations(ctx context.Context, eventID pgtype.UUID) ([]CancelOpenPlayEventRegistrationsRow, error)
+	// refund_owed marks, in the cancellation's own write, that the money the
+	// registration holds is owed back (migration 043): the refund sweep finishes
+	// that refund if the request that cancelled never does.
 	CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error)
 	CancelTournament(ctx context.Context, arg CancelTournamentParams) (Tournament, error)
 	// One-off campaign (2026-10). Remove after it has been sent.
@@ -538,10 +541,12 @@ type Querier interface {
 	// Registrations that never held a spot (expired holds) are the caller's to
 	// leave out with live_only.
 	ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPlayRegistrationsParams) ([]ListOpenPlayRegistrationsRow, error)
-	// Registrations the owner's cancellation ended whose money has not been sent
-	// back, once the cancellation is older than the grace: the refund the cancel
-	// request itself never finished (a crash, a provider outage that outlived its
-	// retries). The sweep drives each through the same refund path the cancel uses.
+	// Cancelled registrations whose money is owed back and has not been sent, once
+	// the cancellation is older than the grace: the refund the cancel request
+	// itself never finished (a crash, a provider outage that outlived its retries).
+	// The owner's cancellation always owes it; a participant's only when it came
+	// inside the refund window, which its write marked with refund_intent_at. The
+	// sweep drives each through the same refund path the cancel uses.
 	ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, arg ListOwnerCancelledRegistrationsStillPaidParams) ([]ListOwnerCancelledRegistrationsStillPaidRow, error)
 	// The pairs of a group in seed order, withdrawn ones included: a group table
 	// lists every pair that was drawn into it.
