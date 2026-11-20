@@ -110,10 +110,13 @@ func (m *Payments) registrationConfirmable(ctx context.Context, tx pgx.Tx, qtx *
 		return ErrRegistrationUnavailable
 	}
 	// A pair that pays after its category's draw was made is not in it: the spot
-	// is gone and the payment goes back.
+	// is gone and the payment goes back. The category row is read under its lock,
+	// the one the draw holds (tournaments' lockedCategory), always taken after the
+	// event's: a draw in progress is waited for and then seen, and a draw that
+	// starts after this payment lists the pair it confirmed.
 	if event.TournamentID.Valid {
 		var drawn bool
-		if err := tx.QueryRow(ctx, `SELECT draw_generated_at IS NOT NULL FROM tournament_categories WHERE event_id = $1`, event.ID).Scan(&drawn); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT draw_generated_at IS NOT NULL FROM tournament_categories WHERE event_id = $1 FOR UPDATE`, event.ID).Scan(&drawn); err != nil {
 			return fmt.Errorf("read the category's draw: %w", err)
 		}
 		if drawn {

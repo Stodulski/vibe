@@ -131,6 +131,72 @@ func TestSignUpClosesOnTheTournamentsStartDate(t *testing.T) {
 	}
 }
 
+// S22: a payment that arrives while the draw is being made waits for it on the
+// category's lock, and then sees the draw: the pair is not in the bracket, so
+// the payment is refused (and refunded) rather than confirming a pair the
+// bracket never got.
+func TestAPaymentDuringTheDrawWaitsForItAndIsRefused(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := f.Scoped(context.Background())
+	tr := &tournamentstore.Tournament{
+		ComplexID: f.ComplexID, Name: "Sorteo", Sport: "padel", StartDate: start(), EndDate: start(), CreatedBy: f.UserID,
+	}
+	if err := f.Stores.Tournaments.Create(ctx, tr, []tournamentstore.NewCategory{{
+		Name: "8va", Format: tournamentstore.FormatElimination, Capacity: 8, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := f.Stores.Tournaments.Categories(ctx, tr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payer := "+549110007777"
+	reg, _, err := f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+		EventID: cats[0].EventID, FirstName: "A", LastName: "B", Phone: payer, ServiceFee: 1000, IP: "198.51.100.77", MaxHoldsPerIP: 100,
+		Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: "+549220007777"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	checkout := &paymentstore.Payment{
+		RegistrationID: &reg.ID, ComplexID: reg.ComplexID, Amount: reg.Price, ServiceFee: reg.ServiceFee, Method: "mercadopago", Status: "unpaid",
+	}
+	if err := f.Stores.Payments.Insert(ctx, checkout); err != nil {
+		t.Fatal(err)
+	}
+
+	// The draw in progress: it holds the category's lock and has written the
+	// draw, not yet committed.
+	draw, err := f.Pool.Begin(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = draw.Rollback(context.Background()) }()
+	if _, err := draw.Exec(context.Background(),
+		`UPDATE tournament_categories SET draw_generated_at = NOW() WHERE id = $1`, cats[0].ID); err != nil {
+		t.Fatal(err)
+	}
+
+	done := make(chan error, 1)
+	go func() {
+		mpID := "mp-during-draw-" + uuid.NewString()
+		checkout.Status, checkout.MPPaymentID = "deposit_paid", &mpID
+		done <- f.Stores.Payments.ConfirmRegistrationPayment(ctx, checkout, reg.ID)
+	}()
+	select {
+	case err := <-done:
+		t.Fatalf("the payment must wait for the draw holding the category; it returned %v", err)
+	case <-time.After(300 * time.Millisecond):
+	}
+	if err := draw.Commit(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if err := <-done; !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+		t.Fatalf("after the draw committed the payment must be refused; got %v", err)
+	}
+}
+
 // S2/S4: two pairs racing for the last spot cannot both get it.
 func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 	f := datatest.Shared(t)
