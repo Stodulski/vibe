@@ -6175,6 +6175,7 @@ type PlacesDetailsParams struct {
 
 // CourtsPublicAvailabilityParams defines parameters for CourtsPublicAvailability.
 type CourtsPublicAvailabilityParams struct {
+	// Date The grid day, in the venue's calendar. Yesterday is accepted, because a window that trades past midnight still sells its after-midnight hours today; any earlier day is refused with `422`.
 	Date openapi_types.Date `form:"date" json:"date"`
 
 	// Duration Defaults to the platform's default slot duration. Must be one of the permitted durations.

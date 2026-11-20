@@ -315,6 +315,8 @@ func TestAvailabilityRejectsAnUnpermittedDuration(t *testing.T) {
 // FINDING 1. A day that has already ended has nothing left to book, so the
 // grid refuses it the same way POST /api/v1/book refuses a past date — as a
 // validation error on `date`, not a bookable-looking 200.
+// Two days back: yesterday stays readable for the hours its grid carries past
+// midnight (TestAvailabilityListsYesterdaysGridAfterMidnight).
 func TestAvailabilityRejectsADateBeforeToday(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
 	complexes := &stubComplexes{complex: activeComplex(complexID), schedules: openEveryDay()}
@@ -325,7 +327,7 @@ func TestAvailabilityRejectsADateBeforeToday(t *testing.T) {
 
 	h, _ := newTestHandler(store, &stubBookings{}, complexes)
 
-	yesterday := timezone.Today().AddDate(0, 0, -1).Format("2006-01-02")
+	yesterday := timezone.Today().AddDate(0, 0, -2).Format("2006-01-02")
 	r := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/?date="+yesterday, nil)
 	r = withSlug(r, "vibe")
 

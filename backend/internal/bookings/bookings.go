@@ -149,6 +149,18 @@ type SlotLocker interface {
 type Checkout interface {
 	CreatePreference(ctx context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error)
 	UpdatePreferenceExpired(ctx context.Context, preferenceID string, caller mp.Caller) error
+	// SearchPaymentsByReference lists the payments made against a checkout,
+	// which the expiry sweep asks before it expires an unpaid booking.
+	SearchPaymentsByReference(ctx context.Context, reference string, caller mp.Caller) ([]mp.Payment, error)
+}
+
+// PaymentReconciler processes an approved payment MercadoPago holds for a
+// booking that no webhook confirmed, exactly as its webhook would have been
+// processed. internal/payments' Service implements it; the expiry sweep is
+// handed it by its caller (cmd/api's cron), since the payments service is
+// built after this one.
+type PaymentReconciler interface {
+	ReconcileApprovedPayment(ctx context.Context, mpPaymentID string) error
 }
 
 // TurnstileVerifier checks the Cloudflare Turnstile token the storefront

@@ -299,8 +299,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			}
 			mapsURL := booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude)
 			address := booklink.Address(complex.Address, complex.City)
-			clientEmail := ""
-			if client.Email != nil {
+			// The email typed for this booking first (bookingstore.ContactOf
+			// gives every other notice the same rule): a returning client's
+			// client row keeps the address the venue has on file, and the
+			// confirmation goes where they asked for it.
+			clientEmail := booking.ContactEmail
+			if clientEmail == "" && client.Email != nil {
 				clientEmail = *client.Email
 			}
 			confirmDepositAmount, confirmBalanceAmount := notifications.PaymentAmounts(booking.Price, booking.DepositAmount, booking.CollectionStatus.String())
@@ -906,11 +910,22 @@ func (s *Service) recordRejectedPaymentDetail(ctx context.Context, bookingID uui
 	// and status_detail are filled in. The payment_status split took bookings off this
 	// enum; payments.status is what it still describes, and giving that column
 	// its own vocabulary is the other half of F11 and a separate change.
+	//
+	// The write is conditional on the row still being unpaid (RecordRejection):
+	// an approved payment can settle this same row between the read above and
+	// the write below, and the unconditional whole-row Update this used to make
+	// reverted its status and repointed its refund at the rejected attempt.
 	existingPayment.MPPaymentID = &mpPaymentID
 	existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
-	if err := s.ledger.Update(ctx, existingPayment); err != nil {
+	written, err := s.ledger.RecordRejection(ctx, existingPayment)
+	if err != nil {
 		s.logger.Error("mp webhook: failed to record the rejection detail on the payment row",
 			"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
+		return
+	}
+	if !written {
+		s.logger.Info("mp webhook: payment rejected but its payment row is already settled, nothing recorded",
+			"booking_id", bookingID, "mp_payment_id", mpPaymentID)
 	}
 }
 

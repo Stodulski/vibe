@@ -111,6 +111,9 @@ func AttachClientFromSnapshot(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b
 	}
 	b.ClientID = clientID
 	b.ClientSnapshot = nil
+	// The typed email stays on the row (AttachBookingClient keeps it), and on
+	// b with it, so the confirmation this payment sends goes there.
+	b.ContactEmail = snap.ClientEmail.String
 	return nil
 }
 
@@ -126,12 +129,14 @@ func loadAttachedClient(ctx context.Context, tx pgx.Tx, b *Booking) error {
 		return nil
 	}
 	var clientID pgtype.UUID
-	if err := tx.QueryRow(ctx, `SELECT client_id FROM bookings WHERE id = $1`, data.UUIDToPg(b.ID)).Scan(&clientID); err != nil {
+	var email pgtype.Text
+	if err := tx.QueryRow(ctx, `SELECT client_id, client_email FROM bookings WHERE id = $1`, data.UUIDToPg(b.ID)).Scan(&clientID, &email); err != nil {
 		return fmt.Errorf("bookings: read attached client: %w", err)
 	}
 	if clientID.Valid {
 		b.ClientID = data.PgToUUID(clientID)
 		b.ClientSnapshot = nil
+		b.ContactEmail = email.String
 	}
 	return nil
 }
@@ -155,6 +160,11 @@ type ClientGetter interface {
 
 // ContactOf resolves who a booking is for. A booking with no client and no
 // snapshot loaded answers data.ErrRecordNotFound, as a missing client did.
+//
+// The email is the one typed for this booking (b.ContactEmail) when there is
+// one, and the client's own otherwise: a returning client who gives the
+// storefront a different address is told about this booking there, while
+// their client row keeps the address the venue has on file.
 func ContactOf(ctx context.Context, clients ClientGetter, b *Booking) (Contact, error) {
 	if !b.HasClient() {
 		if b.ClientSnapshot == nil {
@@ -167,8 +177,8 @@ func ContactOf(ctx context.Context, clients ClientGetter, b *Booking) (Contact, 
 	if err != nil {
 		return Contact{}, err
 	}
-	c := Contact{FirstName: client.FirstName, LastName: client.LastName, Phone: client.Phone}
-	if client.Email != nil {
+	c := Contact{FirstName: client.FirstName, LastName: client.LastName, Phone: client.Phone, Email: b.ContactEmail}
+	if c.Email == "" && client.Email != nil {
 		c.Email = *client.Email
 	}
 	return c, nil

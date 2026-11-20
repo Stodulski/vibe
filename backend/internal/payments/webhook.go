@@ -234,6 +234,42 @@ func (s *Service) DispatchRecordedEvent(event *paymentstore.WebhookEvent) {
 	})
 }
 
+// ReconcileApprovedPayment records an approved payment that MercadoPago holds
+// but no webhook delivered, and works it now, exactly as a delivery of it
+// would be worked. The booking expiry sweep calls it when it asks MercadoPago
+// about a checkout before expiring the booking (bookings.ReleaseExpiredPayments):
+// a lost or refused notification otherwise left the client's money captured
+// and their booking cancelled under them.
+//
+// It goes through the durable inbox rather than straight to the processing, so
+// a failure here is retried by the webhook sweep like any delivery's, and the
+// processing it reaches is the idempotent one: a payment already recorded is a
+// no-op, a slot sold meanwhile is refunded. The error reports only that the
+// event could not be recorded; the processing's own outcome lives on its row.
+func (s *Service) ReconcileApprovedPayment(ctx context.Context, mpPaymentID string) error {
+	payload, err := json.Marshal(map[string]any{
+		"type":   "payment",
+		"action": "payment.reconciled",
+		"data":   map[string]string{"id": mpPaymentID},
+	})
+	if err != nil {
+		return fmt.Errorf("encode reconciled payment %s: %w", mpPaymentID, err)
+	}
+	event := &paymentstore.WebhookEvent{
+		Provider:   mercadoPagoProvider,
+		ExternalID: mpPaymentID,
+		EventType:  "payment",
+		Payload:    payload,
+	}
+	if err := s.RecordWebhookEvent(ctx, event); err != nil {
+		return err
+	}
+	s.logger.Warn("mp reconcile: approved payment found with no confirmation, processing it",
+		"mp_payment_id", mpPaymentID, "event_id", event.ID)
+	s.workWebhookEvent(ctx, event)
+	return nil
+}
+
 // ProcessPendingWebhookEvents works every recorded event that is due: the ones
 // still pending because the process that recorded them died before dispatching,
 // the ones a previous attempt failed and requeued, and the ones abandoned

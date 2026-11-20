@@ -17,7 +17,7 @@ SET client_id = $2,
     client_first_name = NULL,
     client_last_name = NULL,
     client_phone = NULL,
-    client_email = NULL
+    hold_ip = NULL
 WHERE id = $1 AND client_id IS NULL
 RETURNING client_id
 `
@@ -29,6 +29,15 @@ type AttachBookingClientParams struct {
 
 // Names the booking's client and drops the snapshot it was held under, so the
 // person is recorded in one place (clients) once the booking succeeded.
+//
+// client_email is kept: it is the address typed for THIS booking, and its
+// notices go there (bookingstore.ContactOf). The client row keeps its own
+// email; an unauthenticated storefront request never overwrites it, so
+// clearing this column sent a returning client's notices to an address they
+// did not give for this booking.
+//
+// hold_ip goes too: a paid booking is nobody's hold and stops counting against
+// the address that took it (bookingstore.Store.InsertHold).
 func (q *Queries) AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, attachBookingClient, arg.ID, arg.ClientID)
 	var client_id pgtype.UUID

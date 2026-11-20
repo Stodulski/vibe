@@ -186,9 +186,8 @@ function ComplexPageBody({
 }
 
 export default function ComplexPage({ slug }: { slug: string }) {
-  const state = useComplexPageState();
-
   const { data: complexData, isLoading, error, refetch: refetchComplex } = useComplexBySlug(slug);
+  const state = useComplexPageState(complexData?.schedules);
   const availableSports = useAvailableSports(complexData);
 
   const availabilityBag = useComplexAvailability(slug, state);

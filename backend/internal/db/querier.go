@@ -13,6 +13,15 @@ import (
 type Querier interface {
 	// Names the booking's client and drops the snapshot it was held under, so the
 	// person is recorded in one place (clients) once the booking succeeded.
+	//
+	// client_email is kept: it is the address typed for THIS booking, and its
+	// notices go there (bookingstore.ContactOf). The client row keeps its own
+	// email; an unauthenticated storefront request never overwrites it, so
+	// clearing this column sent a returning client's notices to an address they
+	// did not give for this booking.
+	//
+	// hold_ip goes too: a paid booking is nobody's hold and stops counting against
+	// the address that took it (bookingstore.Store.InsertHold).
 	AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error)
 	// Whether an owner's blocked slot on the booking's court covers any of the hours
 	// the booking is about to claim. It asks the same generated span column, and the
@@ -687,6 +696,12 @@ type Querier interface {
 	// or excepted is never rewritten, and the row count says whether this call was
 	// the one that settled it.
 	RecordBookingSeriesException(ctx context.Context, arg RecordBookingSeriesExceptionParams) (int64, error)
+	// A rejected checkout attempt's MercadoPago id and decline reason, written
+	// only onto a row that is still unpaid. The webhook read the row before it
+	// asked MercadoPago; an approved payment that settled the same row meanwhile
+	// owns it from then on, and a whole-row write from the stale read would revert
+	// its status and repoint its refund at a payment that captured nothing.
+	RecordPaymentRejection(ctx context.Context, arg RecordPaymentRejectionParams) (int64, error)
 	// Undoes a claim whose email never reached the queue, so the next pass retries it.
 	ReleaseOwnerNudge(ctx context.Context, arg ReleaseOwnerNudgeParams) error
 	ReleaseRegistrationLeadNudge(ctx context.Context, email string) error

@@ -557,6 +557,9 @@ type PaymentWriter interface {
 	// writes; see payments.PaymentWriter.
 	UpdateUnlessRefundPending(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
 	RecordWebhookRefund(ctx context.Context, payment *paymentstore.Payment, booking *bookingstore.Booking) (written bool, err error)
+	// RecordRejection writes a rejected attempt's id and decline reason only
+	// onto a row still unpaid; see payments.PaymentWriter.
+	RecordRejection(ctx context.Context, payment *paymentstore.Payment) (written bool, err error)
 }
 
 // PaymentRefunder runs the refund lifecycle: claim, then call the provider, then

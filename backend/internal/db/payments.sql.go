@@ -352,6 +352,33 @@ func (q *Queries) MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPayme
 	return i, err
 }
 
+const recordPaymentRejection = `-- name: RecordPaymentRejection :execrows
+UPDATE payments
+SET mp_payment_id = $1,
+    status_detail = $2
+WHERE id = $3
+  AND status = 'unpaid'
+`
+
+type RecordPaymentRejectionParams struct {
+	MpPaymentID  pgtype.Text `json:"mp_payment_id"`
+	StatusDetail pgtype.Text `json:"status_detail"`
+	ID           pgtype.UUID `json:"id"`
+}
+
+// A rejected checkout attempt's MercadoPago id and decline reason, written
+// only onto a row that is still unpaid. The webhook read the row before it
+// asked MercadoPago; an approved payment that settled the same row meanwhile
+// owns it from then on, and a whole-row write from the stale read would revert
+// its status and repoint its refund at a payment that captured nothing.
+func (q *Queries) RecordPaymentRejection(ctx context.Context, arg RecordPaymentRejectionParams) (int64, error) {
+	result, err := q.db.Exec(ctx, recordPaymentRejection, arg.MpPaymentID, arg.StatusDetail, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updatePayment = `-- name: UpdatePayment :one
 UPDATE payments
 SET status = $1,

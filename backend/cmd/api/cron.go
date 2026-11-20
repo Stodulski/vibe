@@ -165,8 +165,10 @@ func (app *application) cronReminder2h(ctx context.Context) {
 
 // cronReleaseExpiredPayments cancels public bookings that remain unpaid past
 // the payment window. The sweep lives in bookings.Service; see cronReminder2h.
+// It asks MercadoPago first, and hands any approved payment it finds to the
+// payments service, which records and processes it as its webhook would have.
 func (app *application) cronReleaseExpiredPayments(ctx context.Context) {
-	app.bookingsService.ReleaseExpiredPayments(ctx)
+	app.bookingsService.ReleaseExpiredPayments(ctx, app.paymentsService)
 }
 
 // cronCleanExpiredTokens deletes expired refresh, verification and pending

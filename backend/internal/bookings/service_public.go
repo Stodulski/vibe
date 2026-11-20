@@ -15,6 +15,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -224,9 +225,16 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 		return PublicBookResult{}, lockErr
 	}
 
-	if err := s.store.InsertSafe(ctx, booking); err != nil {
+	// Inserted with the address it came from, under the same per-address cap
+	// as a slot hold (InsertHold with no token): this path held slots with no
+	// cap at all, so a script still on it could hold a venue's evening one
+	// unpaid checkout at a time.
+	if err := s.store.InsertHold(ctx, booking, nil, httpx.RateLimitKey(actor.IP), maxActiveHoldsPerIP); err != nil {
 		// Release the slot lock on insert failure.
 		s.releaseCheckoutLock(ctx, in.CourtID, offer.startDate, in.StartTime, holder)
+		if errors.Is(err, bookingstore.ErrHoldLimit) {
+			return PublicBookResult{}, ErrTooManyHolds
+		}
 		if errors.Is(err, bookingstore.ErrDuplicateBooking) || errors.Is(err, bookingstore.ErrSlotUnavailable) {
 			return PublicBookResult{}, ErrSlotTaken
 		}
@@ -344,7 +352,8 @@ type Cancellation struct {
 // cancellationInfo computes what PublicStatus and PublicCancelInfo both tell a
 // client about cancelling their booking right now.
 func (s *Service) cancellationInfo(booking *bookingstore.Booking, complex *complexstore.Complex) Cancellation {
-	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show"
+	canCancel := booking.Status != "cancelled" && booking.Status != "completed" && booking.Status != "no_show" &&
+		!pricing.HasStarted(booking, s.now())
 	return Cancellation{
 		CanCancel:    canCancel,
 		WithinWindow: canCancel && pricing.CanRefund(booking, complex.CancellationHours, s.cfg.GracePeriod),
@@ -493,6 +502,14 @@ func (s *Service) cancelPreviewAmounts(ctx context.Context, booking *bookingstor
 	return refundAmount, paidAmount
 }
 
+// startedBookingMessage is the refusal a client gets for cancelling a booking
+// whose game has already begun.
+const startedBookingMessage = "La reserva ya empezó, no se puede cancelar desde el link."
+
+// publicCancelRaceMessage is the 409 a client gets when their booking changed
+// between opening the link and cancelling it.
+const publicCancelRaceMessage = "La reserva cambió mientras la cancelabas. Recargá la página y volvé a intentarlo."
+
 // PublicCancelResult is what a client's own cancellation produced.
 type PublicCancelResult struct {
 	Booking *bookingstore.Booking
@@ -517,6 +534,14 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 
 	if booking.Status == "cancelled" || booking.Status == "completed" || booking.Status == "no_show" {
 		return PublicCancelResult{}, &StateError{Message: "the booking has already been cancelled or completed"}
+	}
+
+	// A booking whose game has begun is no longer the client's to cancel from
+	// the link: the hours are being played, and with no window (or inside a
+	// grace period) cancelling here used to refund them in full. The owner can
+	// still cancel it from the panel.
+	if pricing.HasStarted(booking, s.now()) {
+		return PublicCancelResult{}, &StateError{Message: startedBookingMessage}
 	}
 
 	// Determine if the cancellation qualifies for a refund (standard window or grace period).
@@ -546,7 +571,16 @@ func (s *Service) PublicCancel(ctx context.Context, actor Actor, token string) (
 		booking.RefundIntentAt = &now
 	}
 
-	if err := s.store.Update(ctx, booking); err != nil {
+	// Written only while the row is still the one the link resolved: the
+	// owner cancelling it, the payment webhook confirming it or a sweep can
+	// commit in between, and the unconditional whole-row write this used to
+	// make put the stale snapshot back over that change (and decided the
+	// refund from a collection status that was no longer true). A row that
+	// moved is refused with nothing done; the client reloads and sees it.
+	if err := s.store.UpdateIfUnchanged(ctx, booking); err != nil {
+		if errors.Is(err, data.ErrEditConflict) {
+			return PublicCancelResult{}, &ConflictError{Message: publicCancelRaceMessage}
+		}
 		return PublicCancelResult{}, err
 	}
 

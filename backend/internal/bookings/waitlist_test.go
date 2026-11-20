@@ -47,7 +47,7 @@ func TestTheExpirySweepFreesTheSlotForTheWaitlist(t *testing.T) {
 	candidate := cronCandidate("pending")
 	f.store.expiredPending = []*bookingstore.CronBooking{candidate}
 
-	f.service.ReleaseExpiredPayments(t.Context())
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
 	if len(f.waitlist.freed) != 1 {
 		t.Fatalf("want the expired day handed to the waitlist once; got %d", len(f.waitlist.freed))
