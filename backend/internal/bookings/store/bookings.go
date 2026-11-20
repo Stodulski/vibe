@@ -1015,7 +1015,7 @@ func BookingFromDB(b db.Booking) *Booking {
 		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
 		ClientSnapshot:   snapshotFromDB(b),
 		ContactEmail:     b.ClientEmail.String,
-		SeriesID:        data.PgToUUIDPtr(b.SeriesID),
+		SeriesID:         data.PgToUUIDPtr(b.SeriesID),
 		AttendedAt:       data.PgToTimePtr(b.AttendedAt),
 	}
 }
