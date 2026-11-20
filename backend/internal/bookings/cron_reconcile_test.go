@@ -2,6 +2,7 @@ package bookings
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -120,4 +121,46 @@ func TestTheExpirySweepDoesNotReplayARecordedPayment(t *testing.T) {
 	if len(f.store.updated) != 0 {
 		t.Errorf("a booking holding captured money must not be expired; got %d writes", len(f.store.updated))
 	}
+}
+
+// An approved payment the processing keeps declining (a collector or amount
+// mismatch) or failing on never confirms the booking. Within the give-up window
+// the booking is kept and the payment handed over; past it the sweep stops
+// replaying it — each replay was another inbox row and another alert, every
+// five minutes, forever — and the booking expires as it did before.
+func TestTheExpirySweepStopsKeepingAnApprovedPaymentPastTheGiveUpWindow(t *testing.T) {
+	t.Run("recently expired: kept and handed over", func(t *testing.T) {
+		f := newFixture(t)
+		candidate := expiringCheckout(f, time.Minute)
+		f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+		if len(f.reconciler.reconciled) != 1 {
+			t.Errorf("want the approved payment handed over; got %v", f.reconciler.reconciled)
+		}
+		if len(f.store.updated) != 0 {
+			t.Errorf("want the booking kept within the give-up window; got %d writes", len(f.store.updated))
+		}
+	})
+
+	t.Run("past the give-up window: expired, not replayed", func(t *testing.T) {
+		captured := withCapturedSentryEvents(t)
+		f := newFixture(t)
+		candidate := expiringCheckout(f, reconcileGiveUp+time.Minute)
+		f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+		if len(f.reconciler.reconciled) != 0 {
+			t.Errorf("past the give-up window the payment must not be replayed again; got %v", f.reconciler.reconciled)
+		}
+		if len(f.store.updated) != 1 || f.store.updated[0].Status != "cancelled" {
+			t.Fatalf("want the booking expired past the give-up window; got %v", f.store.updated)
+		}
+		msg, ok := findMessage(captured.messages(), "APPROVED PAYMENT NEVER CONFIRMED")
+		if !ok || !strings.Contains(msg, candidate.ID.String()) || !strings.Contains(msg, "mp_payment_id=42") {
+			t.Errorf("want one alert naming the booking and the payment; got %v", captured.messages())
+		}
+	})
 }

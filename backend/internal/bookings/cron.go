@@ -15,6 +15,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
@@ -165,8 +166,9 @@ const reconcileGiveUp = time.Hour
 
 // reconcileBeforeExpiry asks MercadoPago for the payments made against b's
 // checkout and reports whether b must be left pending rather than expired:
-// an approved payment was found (and handed to reconciler), or MercadoPago
-// could not be asked and b has not been expired for reconcileGiveUp yet.
+// b has not been expired for reconcileGiveUp yet, and either an approved
+// payment was found (and handed to reconciler) or MercadoPago could not be
+// asked.
 //
 // A booking with no checkout link (no payment row carrying a preference) could
 // not have been paid online, and one whose seller credential is unreadable
@@ -202,13 +204,28 @@ func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.Cro
 		return s.withinReconcileGrace(b)
 	}
 
+	// An approved payment keeps the booking only for reconcileGiveUp, the same
+	// bound the unreachable branch above uses. One the processing declines
+	// without recording (a collector or amount mismatch) or keeps failing on
+	// never confirms the booking; unbounded, every run kept it, wrote another
+	// inbox row and raised another alert, forever. Past the window it is left
+	// to a person, named in the error below, and the booking expires as it
+	// did before this reconciliation existed.
+	withinGrace := s.withinReconcileGrace(b)
 	approved := false
 	for _, p := range found {
 		if p.Status != "approved" || p.ExternalReference != b.ID.String() {
 			continue
 		}
-		approved = true
 		mpPaymentID := strconv.FormatInt(p.ID, 10)
+		if !withinGrace {
+			s.logger.Error("cron_release_expired_payments: approved payment never confirmed the booking within the give-up window; booking expired, payment needs manual review",
+				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+			sentry.CaptureMessage(fmt.Sprintf("APPROVED PAYMENT NEVER CONFIRMED, BOOKING EXPIRED (manual review): booking_id=%s mp_payment_id=%s",
+				b.ID, mpPaymentID))
+			continue
+		}
+		approved = true
 		if s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
 			// Recorded, yet the booking is still unpaid: the processing has
 			// already decided about it and replaying it would only add inbox
