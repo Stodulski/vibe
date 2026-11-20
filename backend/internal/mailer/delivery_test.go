@@ -3,13 +3,11 @@ package mailer
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 )
 
 // brevoCapture is a fake Brevo that keeps every request body and answers 201.
@@ -53,72 +51,6 @@ func confirmation(t *testing.T, m *Mailer, complexName, deposit, balance, state 
 	}
 }
 
-// S5: Brevo answered nothing after the request went out (a timeout): it may
-// have accepted the message, so SMTP must not send it again. The failure is
-// returned for the queue to retry.
-func TestABrevoTimeoutAfterTheRequestDoesNotFallBackToSMTP(t *testing.T) {
-	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.ReadAll(r.Body)
-		time.Sleep(300 * time.Millisecond)
-		w.WriteHeader(http.StatusCreated)
-	}))
-	defer brevo.Close()
-	host, port, received := startFakeSMTP(t)
-
-	m := New(Config{BrevoAPIKey: "k", SMTPHost: host, SMTPPort: port, SMTPUsername: "u", SMTPPassword: "p",
-		Sender: "Vibe <noreply@vibe.com.ar>"})
-	m.apiURL = brevo.URL
-	m.httpClient.Timeout = 50 * time.Millisecond
-
-	if err := m.send(context.Background(), "ana@example.com", "Reserva confirmada", "<p>hola</p>"); err == nil {
-		t.Fatal("send = nil; a timeout is not a delivery")
-	}
-	select {
-	case <-received:
-		t.Fatal("SMTP sent a message Brevo may already have accepted")
-	case <-time.After(300 * time.Millisecond):
-	}
-}
-
-// S5: a connection Brevo refused never carried the message, so SMTP sends it.
-func TestARefusedBrevoConnectionFallsBackToSMTP(t *testing.T) {
-	host, port, received := startFakeSMTP(t)
-	m := New(Config{BrevoAPIKey: "k", SMTPHost: host, SMTPPort: port, SMTPUsername: "u", SMTPPassword: "p",
-		Sender: "Vibe <noreply@vibe.com.ar>"})
-	m.apiURL = fmt.Sprintf("http://127.0.0.1:%d/v3/smtp/email", closedPort(t))
-
-	if err := m.send(context.Background(), "ana@example.com", "Reserva confirmada", "<p>hola</p>"); err != nil {
-		t.Fatalf("send = %v; SMTP should have carried it", err)
-	}
-	select {
-	case <-received:
-	case <-time.After(5 * time.Second):
-		t.Fatal("SMTP fallback was never attempted")
-	}
-}
-
-// S5: a 429 is Brevo shedding load, a verdict that it did not take the
-// message, so the fallback carries it.
-func TestABrevo429FallsBackToSMTP(t *testing.T) {
-	brevo := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusTooManyRequests)
-	}))
-	defer brevo.Close()
-	host, port, received := startFakeSMTP(t)
-	m := New(Config{BrevoAPIKey: "k", SMTPHost: host, SMTPPort: port, SMTPUsername: "u", SMTPPassword: "p",
-		Sender: "Vibe <noreply@vibe.com.ar>"})
-	m.apiURL = brevo.URL
-	if err := m.send(context.Background(), "ana@example.com", "x", "<p>x</p>"); err != nil {
-		t.Fatalf("send = %v", err)
-	}
-	select {
-	case <-received:
-	case <-time.After(5 * time.Second):
-		t.Fatal("SMTP fallback was never attempted on a 429")
-	}
-}
-
-// S8: the plain-text part decodes every entity html.EscapeString writes.
 func TestThePlainTextPartDecodesEscapedQuotesAndAmpersands(t *testing.T) {
 	m, bodies := brevoCapture(t)
 	confirmation(t, m, `O'Connor "Padel" & Co`, "$5.000", "$15.000", PaidDeposit, Contact{})

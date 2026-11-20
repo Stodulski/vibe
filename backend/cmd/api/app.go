@@ -292,16 +292,12 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	mpClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpCB, mpBaseURL)
 	mpOAuthClient := mp.NewMPClient(cfg.MP.AccessToken, cfg.MP.WebhookSecret, cfg.MP.AppID, cfg.MP.ClientSecret, mpOAuthCB, mpBaseURL)
 	mailerClient := mailer.New(mailer.Config{
-		BrevoAPIKey:  cfg.Brevo.APIKey,
-		SMTPHost:     cfg.SMTP.Host,
-		SMTPPort:     cfg.SMTP.Port,
-		SMTPUsername: cfg.SMTP.Username,
-		SMTPPassword: cfg.SMTP.Password,
-		Sender:       cfg.Brevo.Sender,
-		LogoURL:      cfg.FrontendURL + "/logo.png",
-		AppURL:       cfg.FrontendURL,
-		PublicURL:    cfg.PublicBaseURL(),
-		CB:           mailerCB,
+		BrevoAPIKey: cfg.Brevo.APIKey,
+		Sender:      cfg.Brevo.Sender,
+		LogoURL:     cfg.FrontendURL + "/logo.png",
+		AppURL:      cfg.FrontendURL,
+		PublicURL:   cfg.PublicBaseURL(),
+		CB:          mailerCB,
 	})
 	turnstileClient := turnstile.New(turnstile.Config{
 		SecretKey: cfg.Turnstile.SecretKey,

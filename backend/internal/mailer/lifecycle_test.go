@@ -118,36 +118,3 @@ func TestLifecycleNudgeUnknownKindIsAPermanentFailure(t *testing.T) {
 		t.Fatalf("err = %v; an unknown kind must not be retried", err)
 	}
 }
-
-func TestMIMEMessageCarriesTheListHeadersAndRefusesInjection(t *testing.T) {
-	m := New(Config{SMTPHost: "smtp.example.com", SMTPPort: 587, Sender: "Vibe <noreply@vibe.com.ar>"})
-	msg := m.mimeMessage("ana@example.com", "Asunto", "<p>hola</p>", "hola", outbound{
-		headers: map[string]string{
-			"List-Unsubscribe":      "<" + nudgeUnsub + ">, <mailto:hola@vibe.com.ar?subject=baja>",
-			"List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
-			"X-Injected":            "a\r\nBcc: evil@example.com",
-		},
-		replyTo: "hola@vibe.com.ar",
-	})
-
-	for _, want := range []string{
-		"\r\nList-Unsubscribe: <" + nudgeUnsub + ">, <mailto:hola@vibe.com.ar?subject=baja>\r\n",
-		"\r\nList-Unsubscribe-Post: List-Unsubscribe=One-Click\r\n",
-		"\r\nReply-To: hola@vibe.com.ar\r\n",
-	} {
-		if !strings.Contains(msg, want) {
-			t.Errorf("MIME message is missing %q", want)
-		}
-	}
-	if strings.Contains(msg, "\r\nBcc:") {
-		t.Fatal("a header value injected a Bcc header")
-	}
-}
-
-func TestMIMEMessageWithoutOptionsHasNoListHeaders(t *testing.T) {
-	m := New(Config{SMTPHost: "smtp.example.com", SMTPPort: 587, Sender: "Vibe <noreply@vibe.com.ar>"})
-	msg := m.mimeMessage("ana@example.com", "Asunto", "<p>hola</p>", "hola", outbound{})
-	if strings.Contains(msg, "List-Unsubscribe") || strings.Contains(msg, "Reply-To") {
-		t.Fatal("a transactional email gained list headers it was not given")
-	}
-}

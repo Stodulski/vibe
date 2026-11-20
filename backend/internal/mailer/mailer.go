@@ -3,24 +3,15 @@ package mailer
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/tls"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
 	"io"
-	"maps"
-	"net"
 	"net/http"
-	"net/http/httptrace"
 	"net/mail"
-	"net/smtp"
 	"regexp"
-	"slices"
 	"strings"
-	"sync/atomic"
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
@@ -30,22 +21,11 @@ import (
 // rather than used inline so tests can point the client at a local server.
 const brevoAPIURL = "https://api.brevo.com/v3/smtp/email"
 
-// Mailer sends transactional emails via the Brevo HTTP API, falling back to
-// SMTP when Brevo is unreachable, overloaded or refusing our credentials.
+// Mailer sends transactional emails via the Brevo HTTP API.
 type Mailer struct {
-	// Brevo API (preferred transport)
 	apiKey string
 	apiURL string
 
-	// SMTP fallback. When both are configured every message is tried over
-	// Brevo first and over SMTP only if Brevo failed for a reason that was not
-	// about this particular message — see deliver.
-	smtpHost     string
-	smtpPort     int
-	smtpUsername string
-	smtpPassword string
-
-	// Shared
 	senderName  string
 	senderEmail string
 	senderRaw   string
@@ -64,13 +44,9 @@ type Mailer struct {
 
 // Config holds all mailer configuration.
 type Config struct {
-	BrevoAPIKey  string
-	SMTPHost     string
-	SMTPPort     int
-	SMTPUsername string
-	SMTPPassword string
-	Sender       string
-	LogoURL      string
+	BrevoAPIKey string
+	Sender      string
+	LogoURL     string
 	// AppURL is the dashboard origin used for the owner's "Ver en el panel"
 	// button on the new-booking email.
 	AppURL string
@@ -79,7 +55,7 @@ type Config struct {
 	CB        *circuitbreaker.CircuitBreaker
 }
 
-// New creates a new Mailer. Uses Brevo API if apiKey is set, otherwise SMTP.
+// New creates a new Mailer. With no Brevo API key every send fails with ErrNoTransport.
 func New(cfg Config) *Mailer {
 	senderName := ""
 	senderEmail := cfg.Sender
@@ -88,45 +64,26 @@ func New(cfg Config) *Mailer {
 		senderName = addr.Name
 	}
 	return &Mailer{
-		apiKey:       cfg.BrevoAPIKey,
-		apiURL:       brevoAPIURL,
-		smtpHost:     cfg.SMTPHost,
-		smtpPort:     cfg.SMTPPort,
-		smtpUsername: cfg.SMTPUsername,
-		smtpPassword: cfg.SMTPPassword,
-		senderName:   senderName,
-		senderEmail:  senderEmail,
-		senderRaw:    cfg.Sender,
-		logoURL:      cfg.LogoURL,
-		appURL:       cfg.AppURL,
-		publicURL:    cfg.PublicURL,
-		httpClient:   &http.Client{Timeout: 5 * time.Second},
-		cb:           cfg.CB,
+		apiKey:      cfg.BrevoAPIKey,
+		apiURL:      brevoAPIURL,
+		senderName:  senderName,
+		senderEmail: senderEmail,
+		senderRaw:   cfg.Sender,
+		logoURL:     cfg.LogoURL,
+		appURL:      cfg.AppURL,
+		publicURL:   cfg.PublicURL,
+		httpClient:  &http.Client{Timeout: 5 * time.Second},
+		cb:          cfg.CB,
 	}
 }
 
-// smtpConfigured reports whether the SMTP transport can be used at all.
-func (m *Mailer) smtpConfigured() bool {
-	return m.smtpUsername != "" && m.smtpPassword != ""
-}
-
-// Mode returns which transports are usable: "brevo_api+smtp", "brevo_api",
-// "smtp", or "disabled".
-//
-// The combined value is not cosmetic — it is the difference between a
-// deployment whose mail survives a Brevo outage and one whose does not, and it
-// is the only place an operator sees that difference at boot.
+// Mode returns "brevo_api" when mail can be sent, or "disabled". It is the
+// only place an operator sees at boot that a deployment has no mail transport.
 func (m *Mailer) Mode() string {
-	switch {
-	case m.apiKey != "" && m.smtpConfigured():
-		return "brevo_api+smtp"
-	case m.apiKey != "":
+	if m.apiKey != "" {
 		return "brevo_api"
-	case m.smtpConfigured():
-		return "smtp"
-	default:
-		return "disabled"
 	}
+	return "disabled"
 }
 
 // ---------------------------------------------------------------------------
@@ -197,12 +154,12 @@ type permanentErr struct{ msg string }
 func (e permanentErr) Error() string   { return e.msg }
 func (e permanentErr) Permanent() bool { return true }
 
-// ErrNoTransport is returned when neither Brevo nor SMTP is configured.
+// ErrNoTransport is returned when no Brevo API key is configured.
 //
 // It is permanent on purpose: retrying a message with nowhere to send it just
 // burns the retry budget and hides the real problem, which is that this
 // deployment has no mail credentials.
-var ErrNoTransport error = permanentErr{"mailer: no transport configured (set BREVO_API_KEY or SMTP credentials)"}
+var ErrNoTransport error = permanentErr{"mailer: no transport configured (set BREVO_API_KEY)"}
 
 // isPermanent reports whether the provider refused this specific message.
 func isPermanent(err error) bool {
@@ -233,7 +190,7 @@ func isInfraError(err error) bool {
 	if errors.As(err, &be) {
 		return be.infra()
 	}
-	// Network errors, SMTP dial/auth failures, marshalling errors — all infra.
+	// Network errors, marshalling errors — all infra.
 	return true
 }
 
@@ -310,61 +267,14 @@ func (m *Mailer) sendWith(ctx context.Context, to, subject, htmlBody string, opt
 	return err
 }
 
-// deliver sends over Brevo, then over SMTP if Brevo failed for a reason that
-// was not about this message.
-//
-// This is the fallback the struct comment has always claimed. The transport
-// used to be chosen once, from config, so a Brevo outage was total mail loss on
-// a deployment that had perfectly good SMTP credentials sitting unused.
+// deliver sends the message over the Brevo API, the only transport. Outbound
+// SMTP is blocked on the Railway plan the server runs on, so an SMTP fallback
+// could never carry a message there.
 func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
 	if m.apiKey == "" {
-		if !m.smtpConfigured() {
-			return ErrNoTransport
-		}
-		return m.sendSMTP(ctx, to, subject, htmlBody, plainText, opts)
+		return ErrNoTransport
 	}
-
-	err := m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText, opts)
-	if err == nil {
-		return nil
-	}
-	if !m.smtpConfigured() {
-		return err
-	}
-	if !brevoDidNotAccept(err) {
-		// Either Brevo refused the message itself (SMTP would carry the same
-		// bytes to the same rejection), or the answer is ambiguous: the request
-		// went out and no verdict came back, so Brevo may already have
-		// accepted it and SMTP would deliver it a second time.
-		return err
-	}
-
-	smtpErr := m.sendSMTP(ctx, to, subject, htmlBody, plainText, opts)
-	if smtpErr == nil {
-		return nil
-	}
-	// Both errors are wrapped so the breaker classification above still sees
-	// the Brevo status code that caused the fallback.
-	return fmt.Errorf("mailer: brevo failed (%w) and smtp fallback failed: %w", err, smtpErr)
-}
-
-// errBrevoNotSent marks a Brevo call that failed before its request was
-// written: a refused connection, a failed DNS lookup or TLS handshake. Brevo
-// never saw the message.
-var errBrevoNotSent = errors.New("mailer: brevo request was never sent")
-
-// brevoDidNotAccept reports whether a Brevo failure proves the message was not
-// accepted, which is the only case the SMTP fallback may send it: an answer
-// about the service (5xx, 429, a refused key, a redirect) or a request that
-// never left. A timeout or a read error after the request was written is not
-// such proof, since Brevo may have queued the message before the answer was
-// lost, and falling back there is how a client gets the same email twice.
-func brevoDidNotAccept(err error) bool {
-	if errors.Is(err, errBrevoNotSent) {
-		return true
-	}
-	var be *brevoError
-	return errors.As(err, &be) && be.infra()
+	return m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText, opts)
 }
 
 // ---------------------------------------------------------------------------
@@ -404,14 +314,7 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 		return fmt.Errorf("mailer: failed to marshal request: %w", err)
 	}
 
-	// wrote records whether any of the request reached the connection. Until
-	// it has, a failure is one Brevo never saw.
-	var wrote atomic.Bool
-	traced := httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
-		WroteHeaderField: func(string, []string) { wrote.Store(true) },
-		WroteRequest:     func(httptrace.WroteRequestInfo) { wrote.Store(true) },
-	})
-	req, err := http.NewRequestWithContext(traced, http.MethodPost, m.apiURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.apiURL, bytes.NewReader(body))
 	if err != nil {
 		return fmt.Errorf("mailer: failed to create request: %w", err)
 	}
@@ -421,9 +324,6 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 
 	resp, err := m.httpClient.Do(req)
 	if err != nil {
-		if !wrote.Load() {
-			return fmt.Errorf("%w: %w", errBrevoNotSent, err)
-		}
 		return fmt.Errorf("mailer: request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -433,124 +333,6 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 		return &brevoError{statusCode: resp.StatusCode, body: string(respBody)}
 	}
 
-	return nil
-}
-
-// ---------------------------------------------------------------------------
-// SMTP with proper multipart + headers
-// ---------------------------------------------------------------------------
-
-func generateMessageID(domain string) string {
-	b := make([]byte, 16)
-	rand.Read(b)
-	return fmt.Sprintf("<%s.%d@%s>", hex.EncodeToString(b), time.Now().UnixNano(), domain)
-}
-
-// mimeMessage composes the multipart message the SMTP transport sends. Extra
-// headers follow the standard ones, sorted by name. Every value and name has its
-// CR and LF removed, so a caller cannot start a header of its own.
-func (m *Mailer) mimeMessage(to, subject, htmlBody, plainText string, opts outbound) string {
-	sanitize := func(s string) string {
-		return strings.NewReplacer("\r", "", "\n", "").Replace(s)
-	}
-
-	boundary := fmt.Sprintf("----=_Vibe_%d", time.Now().UnixNano())
-
-	domain := "vibe.com.ar"
-	if parts := strings.SplitN(m.senderEmail, "@", 2); len(parts) == 2 {
-		domain = parts[1]
-	}
-
-	var msg strings.Builder
-	msg.WriteString("From: " + sanitize(m.senderRaw) + "\r\n")
-	msg.WriteString("To: " + sanitize(to) + "\r\n")
-	if opts.replyTo != "" {
-		msg.WriteString("Reply-To: " + sanitize(opts.replyTo) + "\r\n")
-	}
-	for _, name := range slices.Sorted(maps.Keys(opts.headers)) {
-		msg.WriteString(sanitize(name) + ": " + sanitize(opts.headers[name]) + "\r\n")
-	}
-	msg.WriteString("Subject: " + sanitize(subject) + "\r\n")
-	msg.WriteString("Date: " + time.Now().Format(time.RFC1123Z) + "\r\n")
-	msg.WriteString("Message-ID: " + generateMessageID(domain) + "\r\n")
-	msg.WriteString("MIME-Version: 1.0\r\n")
-	msg.WriteString("Content-Type: multipart/alternative; boundary=\"" + boundary + "\"\r\n")
-	msg.WriteString("\r\n")
-
-	// Plain text part
-	msg.WriteString("--" + boundary + "\r\n")
-	msg.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
-	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n")
-	msg.WriteString("\r\n")
-	msg.WriteString(plainText)
-	msg.WriteString("\r\n\r\n")
-
-	// HTML part
-	msg.WriteString("--" + boundary + "\r\n")
-	msg.WriteString("Content-Type: text/html; charset=UTF-8\r\n")
-	msg.WriteString("Content-Transfer-Encoding: 8bit\r\n")
-	msg.WriteString("\r\n")
-	msg.WriteString(htmlBody)
-	msg.WriteString("\r\n\r\n")
-
-	msg.WriteString("--" + boundary + "--\r\n")
-	return msg.String()
-}
-
-// message, send, close) for one operation; extraction would fragment this into a chain of
-// internal-only helpers each called exactly once.
-//
-//nolint:funlen // single cohesive SMTP send flow (dial, TLS handshake, auth, compose MIME
-func (m *Mailer) sendSMTP(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
-	msg := m.mimeMessage(to, subject, htmlBody, plainText, opts)
-
-	addr := net.JoinHostPort(m.smtpHost, fmt.Sprintf("%d", m.smtpPort))
-
-	dialer := &net.Dialer{Timeout: 10 * time.Second}
-	conn, err := dialer.DialContext(ctx, "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("mailer: smtp dial failed: %w", err)
-	}
-
-	c, err := smtp.NewClient(conn, m.smtpHost)
-	if err != nil {
-		_ = conn.Close()
-		return fmt.Errorf("mailer: smtp client failed: %w", err)
-	}
-	defer func() { _ = c.Close() }() //nolint:errcheck // the send either succeeded or returned its own error; a close failure adds nothing
-
-	if ok, _ := c.Extension("STARTTLS"); ok {
-		if err = c.StartTLS(&tls.Config{ServerName: m.smtpHost}); err != nil {
-			return fmt.Errorf("mailer: starttls failed: %w", err)
-		}
-	}
-
-	auth := smtp.PlainAuth("", m.smtpUsername, m.smtpPassword, m.smtpHost)
-	if err = c.Auth(auth); err != nil {
-		return fmt.Errorf("mailer: smtp auth failed: %w", err)
-	}
-
-	if err = c.Mail(m.senderEmail); err != nil {
-		return fmt.Errorf("mailer: smtp MAIL FROM failed: %w", err)
-	}
-	if err = c.Rcpt(to); err != nil {
-		return fmt.Errorf("mailer: smtp RCPT TO failed: %w", err)
-	}
-
-	w, err := c.Data()
-	if err != nil {
-		return fmt.Errorf("mailer: smtp DATA failed: %w", err)
-	}
-	if _, err = w.Write([]byte(msg)); err != nil {
-		return fmt.Errorf("mailer: smtp write failed: %w", err)
-	}
-	if err = w.Close(); err != nil {
-		return fmt.Errorf("mailer: smtp close data failed: %w", err)
-	}
-
-	if err := c.Quit(); err != nil {
-		return fmt.Errorf("mailer: smtp quit failed: %w", err)
-	}
 	return nil
 }
 
