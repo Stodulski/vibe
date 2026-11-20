@@ -9,9 +9,11 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"net/http/httptrace"
 	"net/mail"
 	"regexp"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/stodulski/vibe-server/internal/circuitbreaker"
@@ -21,10 +23,19 @@ import (
 // rather than used inline so tests can point the client at a local server.
 const brevoAPIURL = "https://api.brevo.com/v3/smtp/email"
 
-// Mailer sends transactional emails via the Brevo HTTP API.
+// resendAPIURL is Resend's send endpoint, a field on Mailer for the same reason.
+const resendAPIURL = "https://api.resend.com/emails"
+
+// Mailer sends transactional emails over the Brevo HTTP API and, when Brevo
+// proves it did not take a message (its daily quota, an outage, a refused
+// key), over the Resend HTTP API. Both are HTTPS: outbound SMTP is blocked on
+// the Railway plan the server runs on.
 type Mailer struct {
 	apiKey string
 	apiURL string
+
+	resendKey string
+	resendURL string
 
 	senderName  string
 	senderEmail string
@@ -45,8 +56,10 @@ type Mailer struct {
 // Config holds all mailer configuration.
 type Config struct {
 	BrevoAPIKey string
-	Sender      string
-	LogoURL     string
+	// ResendAPIKey enables Resend, as Brevo's fallback or alone.
+	ResendAPIKey string
+	Sender       string
+	LogoURL      string
 	// AppURL is the dashboard origin used for the owner's "Ver en el panel"
 	// button on the new-booking email.
 	AppURL string
@@ -55,7 +68,7 @@ type Config struct {
 	CB        *circuitbreaker.CircuitBreaker
 }
 
-// New creates a new Mailer. With no Brevo API key every send fails with ErrNoTransport.
+// New creates a new Mailer. With neither API key every send fails with ErrNoTransport.
 func New(cfg Config) *Mailer {
 	senderName := ""
 	senderEmail := cfg.Sender
@@ -66,6 +79,8 @@ func New(cfg Config) *Mailer {
 	return &Mailer{
 		apiKey:      cfg.BrevoAPIKey,
 		apiURL:      brevoAPIURL,
+		resendKey:   cfg.ResendAPIKey,
+		resendURL:   resendAPIURL,
 		senderName:  senderName,
 		senderEmail: senderEmail,
 		senderRaw:   cfg.Sender,
@@ -77,13 +92,20 @@ func New(cfg Config) *Mailer {
 	}
 }
 
-// Mode returns "brevo_api" when mail can be sent, or "disabled". It is the
-// only place an operator sees at boot that a deployment has no mail transport.
+// Mode returns the usable transports: "brevo_api+resend", "brevo_api",
+// "resend" or "disabled". It is the only place an operator sees at boot
+// whether mail survives Brevo's daily cap.
 func (m *Mailer) Mode() string {
-	if m.apiKey != "" {
+	switch {
+	case m.apiKey != "" && m.resendKey != "":
+		return "brevo_api+resend"
+	case m.apiKey != "":
 		return "brevo_api"
+	case m.resendKey != "":
+		return "resend"
+	default:
+		return "disabled"
 	}
-	return "disabled"
 }
 
 // ---------------------------------------------------------------------------
@@ -154,12 +176,12 @@ type permanentErr struct{ msg string }
 func (e permanentErr) Error() string   { return e.msg }
 func (e permanentErr) Permanent() bool { return true }
 
-// ErrNoTransport is returned when no Brevo API key is configured.
+// ErrNoTransport is returned when neither Brevo nor Resend is configured.
 //
 // It is permanent on purpose: retrying a message with nowhere to send it just
 // burns the retry budget and hides the real problem, which is that this
 // deployment has no mail credentials.
-var ErrNoTransport error = permanentErr{"mailer: no transport configured (set BREVO_API_KEY)"}
+var ErrNoTransport error = permanentErr{"mailer: no transport configured (set BREVO_API_KEY or RESEND_API_KEY)"}
 
 // isPermanent reports whether the provider refused this specific message.
 func isPermanent(err error) bool {
@@ -186,34 +208,36 @@ func isInfraError(err error) bool {
 	if isPermanent(err) {
 		return false
 	}
-	var be *brevoError
-	if errors.As(err, &be) {
-		return be.infra()
+	var pe *providerError
+	if errors.As(err, &pe) {
+		return pe.infra()
 	}
 	// Network errors, marshalling errors — all infra.
 	return true
 }
 
-// brevoError wraps a non-success HTTP response from Brevo.
-type brevoError struct {
+// providerError wraps a non-success HTTP response from Brevo or Resend.
+type providerError struct {
+	provider   string
 	statusCode int
 	body       string
 }
 
-func (e *brevoError) Error() string {
-	return fmt.Sprintf("mailer: brevo API returned %d: %s", e.statusCode, e.body)
+func (e *providerError) Error() string {
+	return fmt.Sprintf("mailer: %s API returned %d: %s", e.provider, e.statusCode, e.body)
 }
 
 // infra reports whether this status is about the service rather than the
-// message: 5xx is the service failing, 429 is it shedding load, and 401/403 is
-// it refusing our credentials — which rejects every message we will ever send,
-// not this one. A 3xx from a JSON API is a misrouted request, which is also not
-// about the message.
-func (e *brevoError) infra() bool {
+// message: 5xx is the service failing, 429 is it shedding load or out of its
+// quota, 402 is the account out of credits, and 401/403 is it refusing our
+// credentials (Brevo answers its own spent quota with a 401 "Maximum credits
+// exceeded"). Each rejects every message we send, not this one. A 3xx from a
+// JSON API is a misrouted request, which is also not about the message.
+func (e *providerError) infra() bool {
 	switch {
 	case e.statusCode >= 500:
 		return true
-	case e.statusCode == http.StatusTooManyRequests:
+	case e.statusCode == http.StatusTooManyRequests, e.statusCode == http.StatusPaymentRequired:
 		return true
 	case e.statusCode == http.StatusUnauthorized, e.statusCode == http.StatusForbidden:
 		return true
@@ -227,7 +251,7 @@ func (e *brevoError) infra() bool {
 // Permanent reports whether retrying would produce the same answer. Every other
 // 4xx is this message being refused — a malformed address, a payload the API
 // will not take — and re-sending the same bytes gets the same refusal.
-func (e *brevoError) Permanent() bool {
+func (e *providerError) Permanent() bool {
 	return e.statusCode >= 400 && e.statusCode < 500 && !e.infra()
 }
 
@@ -267,14 +291,83 @@ func (m *Mailer) sendWith(ctx context.Context, to, subject, htmlBody string, opt
 	return err
 }
 
-// deliver sends the message over the Brevo API, the only transport. Outbound
-// SMTP is blocked on the Railway plan the server runs on, so an SMTP fallback
-// could never carry a message there.
+// deliver sends over Brevo, then over Resend when Brevo proves it did not take
+// the message. With one provider configured, that one carries everything.
 func (m *Mailer) deliver(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
-	if m.apiKey == "" {
+	switch {
+	case m.apiKey == "" && m.resendKey == "":
 		return ErrNoTransport
+	case m.apiKey == "":
+		return m.sendResendAPI(ctx, to, subject, htmlBody, plainText, opts)
 	}
-	return m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText, opts)
+
+	err := m.sendBrevoAPI(ctx, to, subject, htmlBody, plainText, opts)
+	if err == nil || m.resendKey == "" || !didNotAccept(err) {
+		// Brevo refused the message itself (Resend would refuse the same bytes),
+		// or its answer is ambiguous: a request that went out with no verdict
+		// back may already be queued, and Resend would deliver it twice.
+		return err
+	}
+	resendErr := m.sendResendAPI(ctx, to, subject, htmlBody, plainText, opts)
+	if resendErr == nil {
+		return nil
+	}
+	// Brevo's error comes first, so the breaker and the queue classify the
+	// pair by the failure that caused the fallback.
+	return fmt.Errorf("mailer: brevo failed (%w) and resend fallback failed: %w", err, resendErr)
+}
+
+// errNotSent marks a call that failed before its request was written: a refused
+// connection, a failed DNS lookup or TLS handshake. The provider never saw it.
+var errNotSent = errors.New("mailer: request was never sent")
+
+// didNotAccept reports whether a failure proves the message was not accepted,
+// the only case a second provider may send it: an answer about the service
+// (5xx, 429, 402, a refused key, a redirect) or a request that never left. A
+// timeout or a read error after the request was written is no such proof.
+func didNotAccept(err error) bool {
+	if errors.Is(err, errNotSent) {
+		return true
+	}
+	var pe *providerError
+	return errors.As(err, &pe) && pe.infra()
+}
+
+// postJSON sends one JSON request to a provider and turns any non-2xx answer
+// into a providerError. A failure before any byte was written wraps errNotSent.
+func (m *Mailer) postJSON(ctx context.Context, provider, url string, header http.Header, payload any) error {
+	body, err := json.Marshal(payload)
+	if err != nil {
+		return fmt.Errorf("mailer: failed to marshal request: %w", err)
+	}
+
+	var wrote atomic.Bool
+	traced := httptrace.WithClientTrace(ctx, &httptrace.ClientTrace{
+		WroteHeaderField: func(string, []string) { wrote.Store(true) },
+		WroteRequest:     func(httptrace.WroteRequestInfo) { wrote.Store(true) },
+	})
+	req, err := http.NewRequestWithContext(traced, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return fmt.Errorf("mailer: failed to create request: %w", err)
+	}
+	req.Header = header
+	req.Header.Set("accept", "application/json")
+	req.Header.Set("content-type", "application/json")
+
+	resp, err := m.httpClient.Do(req)
+	if err != nil {
+		if !wrote.Load() {
+			return fmt.Errorf("%w: %s: %w", errNotSent, provider, err)
+		}
+		return fmt.Errorf("mailer: %s request failed: %w", provider, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
+		return &providerError{provider: provider, statusCode: resp.StatusCode, body: string(respBody)}
+	}
+	return nil
 }
 
 // ---------------------------------------------------------------------------
@@ -309,31 +402,34 @@ func (m *Mailer) sendBrevoAPI(ctx context.Context, to, subject, htmlBody, plainT
 		payload.ReplyTo = &brevoContact{Email: opts.replyTo}
 	}
 
-	body, err := json.Marshal(payload)
-	if err != nil {
-		return fmt.Errorf("mailer: failed to marshal request: %w", err)
-	}
+	return m.postJSON(ctx, "brevo", m.apiURL, http.Header{"Api-Key": {m.apiKey}}, payload)
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, m.apiURL, bytes.NewReader(body))
-	if err != nil {
-		return fmt.Errorf("mailer: failed to create request: %w", err)
-	}
-	req.Header.Set("accept", "application/json")
-	req.Header.Set("content-type", "application/json")
-	req.Header.Set("api-key", m.apiKey)
+// ---------------------------------------------------------------------------
+// Resend HTTP API
+// ---------------------------------------------------------------------------
 
-	resp, err := m.httpClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("mailer: request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+type resendRequest struct {
+	From    string            `json:"from"`
+	To      []string          `json:"to"`
+	Subject string            `json:"subject"`
+	HTML    string            `json:"html"`
+	Text    string            `json:"text"`
+	ReplyTo string            `json:"reply_to,omitempty"`
+	Headers map[string]string `json:"headers,omitempty"`
+}
 
-	if resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
-		return &brevoError{statusCode: resp.StatusCode, body: string(respBody)}
+func (m *Mailer) sendResendAPI(ctx context.Context, to, subject, htmlBody, plainText string, opts outbound) error {
+	payload := resendRequest{
+		From:    m.senderRaw,
+		To:      []string{to},
+		Subject: subject,
+		HTML:    htmlBody,
+		Text:    plainText,
+		ReplyTo: opts.replyTo,
+		Headers: opts.headers,
 	}
-
-	return nil
+	return m.postJSON(ctx, "resend", m.resendURL, http.Header{"Authorization": {"Bearer " + m.resendKey}}, payload)
 }
 
 // ---------------------------------------------------------------------------

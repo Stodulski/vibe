@@ -208,6 +208,7 @@ func TestBrevoErrorClassification(t *testing.T) {
 		{status: 500, wantInfra: true, why: "provider is broken"},
 		{status: 502, wantInfra: true, why: "provider is broken"},
 		{status: 429, wantInfra: true, why: "provider is shedding load"},
+		{status: 402, wantInfra: true, why: "the account is out of credits, which fails every message"},
 		{status: 401, wantInfra: true, why: "our credentials are refused, which fails every message"},
 		{status: 403, wantInfra: true, why: "our credentials are refused, which fails every message"},
 		{status: 302, wantInfra: true, why: "a JSON API answering with a redirect is misrouted"},
@@ -218,7 +219,7 @@ func TestBrevoErrorClassification(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.why, func(t *testing.T) {
-			err := &brevoError{statusCode: tt.status, body: "..."}
+			err := &providerError{provider: "brevo", statusCode: tt.status, body: "..."}
 
 			if got := err.infra(); got != tt.wantInfra {
 				t.Errorf("status %d: infra() = %v, want %v (%s)", tt.status, got, tt.wantInfra, tt.why)

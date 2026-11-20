@@ -27,6 +27,7 @@ type Config struct {
 	Social    Social
 	Instagram Instagram
 	Brevo     Brevo
+	Resend    Resend
 	Turnstile Turnstile
 	Leads     Leads
 	R2        R2
@@ -257,6 +258,12 @@ func (i Instagram) Available() bool {
 type Brevo struct {
 	APIKey string
 	Sender string
+}
+
+// Resend is the fallback transactional email API, used when Brevo proves it did
+// not take a message (its daily quota, an outage), or alone without Brevo.
+type Resend struct {
+	APIKey string
 }
 
 // Turnstile is Cloudflare's bot check.
