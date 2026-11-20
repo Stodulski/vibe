@@ -438,7 +438,15 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 		return err
 	}
 
-	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	// Retried whole on a deadlock: the court-day lock and the court row lock
+	// taken here meet series creation's court row and court-day locks in the
+	// opposite order (bookingstore.Store.InsertSeriesWithBookings). The body does nothing
+	// outside the transaction, and p and b are put back as they were before
+	// every attempt, so an aborted attempt leaves no trace a replay could trip
+	// on (attachClient, for one, skips a booking that already names a client).
+	pIn, bIn := *p, *b
+	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
+		*p, *b = pIn, bIn
 		return m.ConfirmInTx(ctx, tx, qtx, p, b)
 	})
 }
@@ -606,8 +614,13 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		return false, err
 	}
 
+	// Retried whole on a deadlock, for the reason InsertAndConfirmBooking
+	// gives, with p and b put back before every attempt.
 	written := false
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	pIn, bIn := *p, *b
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
+		*p, *b = pIn, bIn
+		written = false
 		// Before anything is written: the slot this booking is about to claim has to
 		// still be free.
 		if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
