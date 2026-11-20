@@ -18,10 +18,10 @@ type welcomeTutorial struct {
 }
 
 var welcomeTutorials = []welcomeTutorial{
-	{slug: "grilla-de-reservas", title: "La grilla de reservas: todo el día en una pantalla"},
-	{slug: "configuracion-del-complejo", title: "Configurá tu complejo: horarios y seña"},
-	{slug: "precios-por-horario", title: "Precios por horario: cobrá la noche más cara"},
-	{slug: "reportes-de-facturacion", title: "El reporte del mes, listo para el contador"},
+	{slug: "grilla-de-reservas", title: "Cómo ver, cargar y bloquear turnos en la grilla de reservas"},
+	{slug: "configuracion-del-complejo", title: "Cómo configurar los horarios, la seña y la cancelación del complejo"},
+	{slug: "precios-por-horario", title: "Cómo cargar precios distintos según el día y el horario"},
+	{slug: "reportes-de-facturacion", title: "Cómo ver la facturación del mes y descargarla en Excel"},
 }
 
 // welcomeBullets is what Vibe does for the owner, in the order the email lists it.
