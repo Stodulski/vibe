@@ -48,7 +48,7 @@ func (s *Service) PublicList(ctx context.Context, slug string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	today := timezone.Day(time.Now())
+	today := timezone.Today()
 	all, err := s.store.ListEvents(ctx, complex.ID, today, today.AddDate(0, 0, HorizonDays), false)
 	if err != nil {
 		return nil, err

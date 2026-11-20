@@ -398,3 +398,17 @@ func TestAWinnerOnlyResultReachesTheStore(t *testing.T) {
 		t.Errorf("winner input = %+v", last)
 	}
 }
+
+// S19: "today" is Argentina's date, whatever zone the process runs in. At 22:00
+// in Buenos Aires the UTC date is already tomorrow; a tournament that starts
+// today is not in the past.
+func TestCreateReadsTodayOnArgentinasClock(t *testing.T) {
+	now := time.Date(2026, 11, 21, 1, 0, 0, 0, time.UTC) // 22:00 on the 20th in Buenos Aires
+	today := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	in := validCreate()
+	in.StartDate, in.EndDate = today, today.AddDate(0, 0, 1)
+	in.Categories[0].StartsOn, in.Categories[1].StartsOn = today, today
+	if errs := in.validate(now); errs["start_date"] != "" {
+		t.Fatalf("a tournament starting today must be accepted at 22:00; got %v", errs)
+	}
+}

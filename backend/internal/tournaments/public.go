@@ -3,7 +3,6 @@ package tournaments
 import (
 	"context"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
 
@@ -30,7 +29,7 @@ func (s *Service) PublicList(ctx context.Context, slug string) (*Page, error) {
 	if err != nil {
 		return nil, err
 	}
-	today := timezone.Day(time.Now())
+	today := timezone.Today()
 	ts, err := s.store.List(ctx, complex.ID, today, today.AddDate(0, 0, HorizonDays), false)
 	if err != nil {
 		return nil, err
