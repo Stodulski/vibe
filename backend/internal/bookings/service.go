@@ -409,6 +409,17 @@ func (s *Service) Update(ctx context.Context, complexID uuid.UUID, actor Actor, 
 		}
 	}
 
+	// A status the edit just moved to tells the client, once: resending the
+	// status a booking already holds changes nothing and says nothing.
+	if in.Status != nil && booking.Status != previousStatus {
+		switch booking.Status {
+		case bookingstore.BookingStatusCancelled:
+			s.finishEditCancel(ctx, complexID, booking, previousStatus)
+		case bookingstore.BookingStatusNoShow:
+			s.notifyNoShow(ctx, complexID, booking)
+		}
+	}
+
 	s.realtime.PublishBookingChanged(complexID)
 
 	return booking, nil
@@ -1044,6 +1055,7 @@ func (s *Service) ConfirmPayment(ctx context.Context, complexID uuid.UUID, actor
 
 	s.record(actor, complexID, "confirm_payment", &booking.ID, booking)
 	s.realtime.PublishBookingChanged(complexID)
+	s.notifyCounterPayment(ctx, complexID, booking, payment)
 
 	return booking, payment, nil
 }
@@ -1102,6 +1114,7 @@ func (s *Service) ManualRefund(ctx context.Context, complexID uuid.UUID, actor A
 
 	s.record(actor, complexID, "manual_refund", &booking.ID, booking)
 	s.realtime.PublishBookingChanged(complexID)
+	s.notifyManualRefund(ctx, complexID, booking, returned)
 
 	return ManualRefundResult{Booking: booking, Payments: payments, Returned: returned}, nil
 }

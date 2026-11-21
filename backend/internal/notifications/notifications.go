@@ -42,7 +42,7 @@ type Mailer interface {
 	SendBookingConfirmation(ctx context.Context, to, complexName, courtName, date, startTime, address, mapsURL, cancelURL, depositAmount, balanceAmount, cancellationLine, paymentState string, contact mailer.Contact) error
 	SendReminder2h(ctx context.Context, to, complexName, courtName, date, startTime, when, address, mapsURL, balanceAmount, cancelURL string, contact mailer.Contact) error
 	SendBookingCancelled(ctx context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string, contact mailer.Contact) error
-	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact mailer.Contact) error
+	SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime, reason string, byHand bool, contact mailer.Contact) error
 	SendOwnerNewBooking(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingCancelled(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
 	SendOwnerBookingRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime string) error
@@ -52,7 +52,7 @@ type Mailer interface {
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
 	// SendSeriesCreated and SendSeriesCancelled are the two notices of a fixed
 	// weekly booking. See series.go.
-	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error
+	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, moved []string, contact mailer.Contact) error
 	SendSeriesCancelled(ctx context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string, contact mailer.Contact) error
 	// SendOwnerSeriesDatesLost tells the owner which dates of a fixed booking
 	// the scheduler could not book; lines are one sentence per date.
@@ -69,6 +69,12 @@ type Mailer interface {
 	SendBenefitsCampaign(ctx context.Context, to, firstName, segment, segmentURL, panelURL, unsubscribeURL, optOutURL string) error
 	// SendSocialKitCampaign is the one-off social kit email. See campaign.go.
 	SendSocialKitCampaign(ctx context.Context, to, firstName, imageURL, kitURL, unsubscribeURL, optOutURL string) error
+	// The booking notices of booking_notices.go.
+	SendBookingNoShow(ctx context.Context, to, complexName, courtName, date, startTime, bookURL string, contact mailer.Contact) error
+	SendPaymentReceived(ctx context.Context, to, complexName, courtName, date, startTime, amount, method, balanceAmount, bookURL string, contact mailer.Contact) error
+	SendRefundOwedByVenue(ctx context.Context, to, complexName, courtName, date, startTime, amount, bookURL string, contact mailer.Contact) error
+	SendOwnerRefundOwed(ctx context.Context, to, complexName, courtName, clientName, date, startTime, amount string) error
+	SendOwnerDuplicatePaymentRefunded(ctx context.Context, to, complexName, courtName, clientName, date, startTime, amount string) error
 }
 
 // UserReader resolves the owner an owner-facing email is addressed to.
@@ -220,6 +226,7 @@ func (s *Service) DepositRefunded(ref Refund) error {
 		Email: ref.Email, ComplexName: ref.ComplexName,
 		Amount: ref.Amount, BookURL: ref.BookURL,
 		Cancelled: ref.Cancelled, CourtName: ref.CourtName, Date: ref.Date, StartTime: ref.StartTime,
+		Reason: ref.Reason, ByHand: ref.ByHand,
 		clientContact: clientContact{ComplexPhone: ref.ComplexPhone, OwnerID: ref.OwnerID},
 	}, dedup(TaskEmailDepositRefunded, ref.Email, refundSubject(ref))); err != nil {
 		return fmt.Errorf("queue refund email: %w", err)

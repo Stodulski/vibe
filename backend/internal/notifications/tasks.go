@@ -245,6 +245,14 @@ type Refund struct {
 	Date      string `json:"-"`
 	StartTime string `json:"-"`
 
+	// Reason is the one sentence saying why the money came back, rendered by
+	// the caller (a payment that arrived twice, or after the booking was
+	// cancelled). Empty says nothing more than the amount.
+	Reason string `json:"-"`
+	// ByHand says the complex returned the money directly rather than through
+	// MercadoPago, so the email does not promise processing days.
+	ByHand bool `json:"-"`
+
 	// ComplexPhone is the complex's phone, which the email offers as the way
 	// to reach the venue. Empty leaves the line without a number.
 	ComplexPhone string `json:"-"`
@@ -369,6 +377,8 @@ type depositRefundedEmail struct {
 	CourtName   string `json:"court_name,omitempty"`
 	Date        string `json:"date,omitempty"`
 	StartTime   string `json:"start_time,omitempty"`
+	Reason      string `json:"reason,omitempty"`
+	ByHand      bool   `json:"by_hand,omitempty"`
 	clientContact
 }
 

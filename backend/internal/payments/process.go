@@ -99,7 +99,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		// If that write fails the provider is deliberately never called. Money must
 		// not move on behalf of a refund nothing durable knows about — which is the
 		// exact failure this whole flow was rewritten to remove.
-		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID, latePaymentReason)
 	}
 
 	// Only after the collector check above proved the money is this complex's.
@@ -171,7 +171,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		// the re-fetch), and recursing would re-enter the top of this function and
 		// run that check a second time for no reason, plus risk a duplicate FRAUD
 		// ALERT log line.
-		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+		return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID, latePaymentReason)
 	}
 	// Settled while this payment was being checked: the same rule as at the top applies.
 	if handled, err := s.handleSettledBooking(ctx, booking, mpPayment, mpPaymentID); handled || err != nil {
@@ -201,7 +201,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			// leaves possible on purpose. Requeuing instead retries a write
 			// that can never succeed and never sends the money back.
 			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
-				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
+				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID, slotLostReason(err))
 			}
 			// The money is captured and the booking is still pending. Left as an
 			// error, the event is requeued and this write is attempted again.
@@ -225,7 +225,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			// H-23, same as above: a cancelled booking's late payment is
 			// refunded, not retried.
 			if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrBookingCancelled) {
-				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID)
+				return s.refundBookingWhoseSlotIsGone(ctx, booking, mpPayment, mpPaymentID, slotLostReason(err))
 			}
 			// Same as above: captured money against an unconfirmed booking is
 			// exactly what has to survive a transient database failure.
@@ -370,8 +370,9 @@ func (s *Service) paymentRecordedForBooking(ctx context.Context, bookingID uuid.
 // orphan sweep would refund every payment on the booking, the one that settled it
 // included. The booking row is not written either, so it stays confirmed or completed.
 //
-// Nothing here tells the client or the owner that the booking was cancelled. The
-// client gets no refund notice, which matches the cancelled late-payment path.
+// Nothing here tells anybody the booking was cancelled, because it was not. Once the
+// refund is recorded the client is told the second payment came back and why, and
+// the owner of a booking still live is told as well (settleRefundClaim).
 func (s *Service) refundSettledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
 	claim, err := s.recordDuplicatePayment(ctx, booking, mpPayment, mpPaymentID)
 	if err != nil {
@@ -391,7 +392,7 @@ func (s *Service) refundSettledBookingPayment(ctx context.Context, booking *book
 	// The row is committed with its claim, so the replay of this event returns at
 	// paymentRecordedForBooking and cannot claim the refund again, and the attempt row
 	// the claim committed is what brings the money back from here.
-	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "settled")
+	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "settled", duplicatePaymentReason)
 	return nil
 }
 
@@ -581,7 +582,7 @@ func expectedCharge(booking *bookingstore.Booking, checkout *paymentstore.Paymen
 // It is reported to Sentry rather than only logged. A stale pending booking being
 // overtaken is expected; a client paying for hours that were given away is a real
 // conflict, and somebody has to know it happened.
-func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID, reason string) error {
 	s.logger.Error("mp webhook: the slot was taken while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID,
 		"booking_id", booking.ID,
@@ -602,7 +603,7 @@ func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 	// the money captured with no refund ever claimed.
 	booking.Status = "cancelled"
 
-	return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID)
+	return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID, reason)
 }
 
 // refundCancelledBookingPayment records a payment that landed for an
@@ -623,7 +624,7 @@ func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 // paid. And it reuses the checkout payment row when there is one, because
 // inserting a second left the first orphaned with the preference id on it while
 // GetByBookingID's ordering handed everything after it the new row.
-func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) error {
+func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID, reason string) error {
 	payment, err := s.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
 	if err != nil {
 		s.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
@@ -643,7 +644,7 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	committed := false
 	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
-	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, &committed)
+	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, reason, &committed)
 }
 
 // refundRecordedPayment claims, issues and records the refund of a cancelled booking's
@@ -651,7 +652,7 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 // refund-intent marker stands on the booking is the caller's to manage. *committed is
 // set as soon as ClaimRefund commits, which is the point the marker stops being the
 // caller's to clear.
-func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingstore.Booking, paymentID uuid.UUID, mpPaymentID string, committed *bool) error {
+func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingstore.Booking, paymentID uuid.UUID, mpPaymentID, reason string, committed *bool) error {
 	claim, err := s.refunds.ClaimRefund(ctx, paymentID)
 	if err != nil {
 		s.logger.Error("mp webhook: failed to claim the refund for a cancelled booking",
@@ -668,14 +669,14 @@ func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingsto
 	}
 	// The claim committed and already cleared the marker in its own transaction.
 	*committed = true
-	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "cancelled")
+	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "cancelled", reason)
 	return nil
 }
 
 // settleRefundClaim issues the refund a committed claim reserved and records how it
 // ended. From a committed claim on, the refund queue owns the money, so nothing here
 // is returned to the caller: every outcome is recorded or queued instead.
-func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.Booking, claim *paymentstore.RefundClaim, mpPaymentID, kind string) {
+func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.Booking, claim *paymentstore.RefundClaim, mpPaymentID, kind, reason string) {
 	// The claim already committed a queued attempt before either the seller
 	// token or the provider was asked for, so the refund queue owns this from
 	// here regardless of which one refuses. Retrying the webhook event as well
@@ -692,7 +693,8 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 	}
 
 	manualOwed := s.manualOwedForBooking(ctx, booking.ID)
-	if _, err := s.refunds.RecordRefundSuccess(ctx, settled, manualOwed); err != nil {
+	refundTotal, err := s.refunds.RecordRefundSuccess(ctx, settled, manualOwed)
+	if err != nil {
 		// See AutoRefundIfPaid: the attempt stays queued and the retry job replays
 		// the call, which MercadoPago deduplicates on its idempotency key.
 		s.logger.Error("mp webhook: auto-refund issued but not recorded, left queued for retry",
@@ -713,6 +715,18 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 	)
 	s.record(booking.ComplexID, booking.ID, "refund",
 		claimEvent(*claim, settled.RefundCentavos, paymentstore.RefundIssued, ""))
+
+	// The refund is recorded, so the client is told it came back and why, with
+	// the amount that was written. The key is the one the retry job builds for
+	// the same refund (refundKey on the payment and its total), so one refund is
+	// one notice whichever path records it. A duplicate payment on a booking
+	// that still holds its court is the owner's news too: their booking stands
+	// and a payment of it went back.
+	key := refundKey(mpPaymentID, refundTotal)
+	s.sendRefundNotificationWithReason(ctx, booking, refundTotal, key, false, reason)
+	if kind == "settled" && liveBooking(booking.Status) {
+		s.announceDuplicatePaymentRefund(ctx, booking, refundTotal, key)
+	}
 
 	// A shortfall gets its own second entry rather than replacing the one
 	// above: the part that moved is genuinely refunded and the client has been

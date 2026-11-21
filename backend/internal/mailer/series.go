@@ -11,7 +11,10 @@ import (
 // hours the span as a person reads it, from and until are dd/mm (until is empty
 // when the series has no end). The copy uses voseo, like every other client
 // email, and closes with the complex's contact.
-func (m *Mailer) SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact Contact) error {
+//
+// moved lists the dates played on another court because the series' own court
+// was taken, one line each ("12/12: Cancha 2"); empty when there are none.
+func (m *Mailer) SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, moved []string, contact Contact) error {
 	subject := "Tu turno fijo en " + complexName
 
 	weekdaysEsc, hoursEsc := html.EscapeString(weekdays), html.EscapeString(hours)
@@ -24,6 +27,12 @@ func (m *Mailer) SendSeriesCreated(ctx context.Context, to, complexName, courtNa
 	content := title("Tu turno fijo está reservado.") +
 		p(fmt.Sprintf("Tu turno fijo quedó reservado: todos los <strong>%s</strong> de <strong>%s</strong> en <strong>%s</strong> (%s), %s. Cada turno se paga en el complejo.",
 			weekdaysEsc, hoursEsc, courtEsc, complexEsc, span), 16, 16)
+	if len(moved) > 0 {
+		content += p("Estas fechas las jugás en otra cancha:", 16, 8)
+		for _, line := range moved {
+			content += p(html.EscapeString(line), 8, 8)
+		}
+	}
 	if address != "" && mapsURL != "" {
 		content += addressLine(address, mapsURL)
 	}
