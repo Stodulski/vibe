@@ -928,3 +928,46 @@ func TestLifecycleNudgeIsDeduplicatedPerKindAndSubjectAndDelivered(t *testing.T)
 		t.Fatalf("the opt-out link did not reach the mailer; got %v", got)
 	}
 }
+
+// A booking cancelled by its expired payment window can be reopened by a late
+// payment and then cancelled for real by the owner or the client, all within the
+// queue's dedup retention. The real cancellation is a different notice and must
+// not be dropped as a redelivery of the expiry notice.
+func TestTheExpiryNoticeDoesNotSwallowALaterCancellationOfTheSameBooking(t *testing.T) {
+	s, q, _, _ := newTestService(t)
+	bookingID := uuid.New().String()
+
+	expired := fullCancellation()
+	expired.Source = SourceExpiredUnpaid
+	expired.BookingID = bookingID
+	if err := s.BookingCancelled(expired); err != nil {
+		t.Fatalf("expiry notice: %v", err)
+	}
+	for _, source := range []string{SourceOwnerCancel, SourceClientCancel} {
+		real := fullCancellation()
+		real.Source = source
+		real.BookingID = bookingID
+		if err := s.BookingCancelled(real); err != nil {
+			t.Fatalf("%s notice: %v", source, err)
+		}
+	}
+
+	var keys []string
+	for _, task := range q.tasks {
+		if task.taskType == TaskEmailBookingCancelled {
+			keys = append(keys, task.dedupKey)
+		}
+	}
+	if len(keys) != 3 {
+		t.Fatalf("want three client cancellation notices, got %d", len(keys))
+	}
+	if keys[0] == "" || keys[1] == "" {
+		t.Fatalf("every notice needs a dedup key; got %q", keys)
+	}
+	if keys[0] == keys[1] || keys[0] == keys[2] {
+		t.Errorf("the expiry notice shares its dedup key with a real cancellation, which the queue would drop: %q", keys)
+	}
+	if keys[1] != keys[2] {
+		t.Errorf("owner and client cancellations of one booking are one notice and must keep sharing a key: %q", keys)
+	}
+}
