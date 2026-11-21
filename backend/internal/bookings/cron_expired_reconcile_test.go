@@ -207,3 +207,66 @@ func TestAnExpiredBookingWhoseLinkWillNotCloseAlertsOnce(t *testing.T) {
 		t.Errorf("want exactly one alert, the give-up naming the booking; got %v", messages)
 	}
 }
+
+// The public path creates the checkout link before it saves the payment row,
+// and a failed save is only logged. Such a booking could still be paid: the
+// expiry sweep asks MercadoPago about it by its id before expiring it, and a
+// payment found is processed instead.
+func TestTheExpirySweepAsksAboutACheckoutWhosePaymentRowWasNeverSaved(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiringCheckout(f, time.Minute)
+	f.payments.payment = nil
+	f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if !slices.Equal(f.checkout.searches, []string{candidate.ID.String()}) {
+		t.Fatalf("want MercadoPago asked about the booking; got %v", f.checkout.searches)
+	}
+	if !slices.Equal(f.reconciler.reconciled, []string{"42"}) {
+		t.Fatalf("want the approved payment processed; got %v", f.reconciler.reconciled)
+	}
+	if len(f.store.updated) != 0 || len(f.notify.cancelled) != 0 {
+		t.Errorf("a paid booking must not be expired nor its client told so; writes %d, notices %d",
+			len(f.store.updated), len(f.notify.cancelled))
+	}
+}
+
+// After expiry, the same booking with no payment row is still asked about by
+// the reconciliation; one that never reached MercadoPago costs a single search
+// and is then settled for good.
+func TestAnExpiredBookingWithNoPaymentRowIsAskedAboutOnce(t *testing.T) {
+	t.Run("paid: processed", func(t *testing.T) {
+		f := newFixture(t)
+		candidate := expiredWithCheckout(f)
+		f.payments.payment = nil
+		f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+		if !slices.Equal(f.reconciler.reconciled, []string{"42"}) {
+			t.Fatalf("want the approved payment processed; got %v", f.reconciler.reconciled)
+		}
+		if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+			t.Errorf("want the booking marked reconciled; got %v", f.store.holdReconciled)
+		}
+	})
+	t.Run("never reached MercadoPago: one search", func(t *testing.T) {
+		f := newFixture(t)
+		candidate := expiredWithCheckout(f)
+		f.payments.payment = nil
+
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+		if !slices.Equal(f.checkout.searches, []string{candidate.ID.String()}) {
+			t.Errorf("want exactly one search; got %v", f.checkout.searches)
+		}
+		if len(f.checkout.expired) != 0 {
+			t.Errorf("no link is known, so nothing is closed; got %v", f.checkout.expired)
+		}
+		if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+			t.Errorf("want the booking marked reconciled; got %v", f.store.holdReconciled)
+		}
+	})
+}

@@ -123,6 +123,61 @@ func (q *Queries) DeleteBookingHoldExpiry(ctx context.Context, bookingID pgtype.
 	return err
 }
 
+const expireUnpaidBooking = `-- name: ExpireUnpaidBooking :one
+UPDATE bookings
+SET status = 'cancelled',
+    notes = $2
+WHERE id = $1
+  AND status = 'pending'
+  AND collection_status = 'unpaid'
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+`
+
+type ExpireUnpaidBookingParams struct {
+	ID    pgtype.UUID `json:"id"`
+	Notes pgtype.Text `json:"notes"`
+}
+
+// The release sweep's cancellation of a storefront booking whose payment
+// window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
+// read taken before it asked MercadoPago, and a client cancellation or a
+// payment committed in between must not be overwritten into an expiry. No row
+// means the booking is no longer pending and unpaid.
+func (q *Queries) ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBookingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, expireUnpaidBooking, arg.ID, arg.Notes)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.CourtID,
+		&i.ClientID,
+		&i.Date,
+		&i.StartTime,
+		&i.DurationMinutes,
+		&i.Price,
+		&i.DepositAmount,
+		&i.Status,
+		&i.ReminderSent2h,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RefundIntentAt,
+		&i.Span,
+		&i.CollectionStatus,
+		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
+		&i.HoldTokenHash,
+		&i.HoldIp,
+		&i.SeriesID,
+		&i.AttendedAt,
+	)
+	return i, err
+}
+
 const getBookedSlots = `-- name: GetBookedSlots :many
 SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
 FROM bookings b
@@ -813,13 +868,16 @@ func (q *Queries) MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error 
 
 const recordBookingHoldReconcileFailure = `-- name: RecordBookingHoldReconcileFailure :one
 UPDATE booking_hold_expiries
-SET failed_attempts = failed_attempts + 1
+SET failed_attempts = failed_attempts + 1,
+    next_attempt_at = NOW() + make_interval(mins => LEAST(5 * (failed_attempts + 1), 120))
 WHERE booking_id = $1
 RETURNING failed_attempts
 `
 
 // MercadoPago could not be asked, or an approved payment could not be handed
-// over: counted, so the sweep gives up after a bounded number of runs.
+// over: counted, so the sweep gives up after a bounded number of attempts, and
+// asked again later, five minutes more for every failed attempt, at most two
+// hours apart (the backoff DeferRegistrationPaymentCheck uses).
 func (q *Queries) RecordBookingHoldReconcileFailure(ctx context.Context, bookingID pgtype.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, recordBookingHoldReconcileFailure, bookingID)
 	var failed_attempts int32

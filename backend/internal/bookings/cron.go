@@ -157,6 +157,12 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler Payment
 
 		note := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
 		if err := s.cancelUnpaidHold(ctx, b, note, true); err != nil {
+			if errors.Is(err, data.ErrEditConflict) {
+				// Cancelled by its client or paid since it was read: left as
+				// it is, and nobody is told it expired.
+				s.logger.Info("cron_release_expired_payments: booking changed since it was read, not expired", "booking_id", b.ID)
+				continue
+			}
 			s.logger.Error("cron_release_expired_payments: failed to cancel booking", "error", err, "booking_id", b.ID)
 			continue
 		}
@@ -181,23 +187,22 @@ const reconcileGiveUp = time.Hour
 // payment was found (and handed to reconciler) or MercadoPago could not be
 // asked.
 //
-// A booking with no checkout link (no payment row carrying a preference) could
-// not have been paid online, and one whose seller credential is unreadable
-// cannot be asked about; both are expired as before.
+// A booking whose seller credential is unreadable cannot be asked about, and
+// is expired as before. One with no payment row is asked about all the same
+// (see below); one that never reached MercadoPago costs a search that finds
+// nothing.
 func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) bool {
 	if reconciler == nil {
 		return false
 	}
-	payment, err := s.payments.GetByBookingID(ctx, b.ID)
-	switch {
-	case errors.Is(err, data.ErrRecordNotFound):
-		return false
-	case err != nil:
+	// A missing payment row is no answer: the public path creates the
+	// checkout link before it saves the row and only logs a failed save, and
+	// MercadoPago is searched by the booking id alone. Only an unreadable row
+	// keeps the booking unasked.
+	if _, err := s.payments.GetByBookingID(ctx, b.ID); err != nil && !errors.Is(err, data.ErrRecordNotFound) {
 		s.logger.Error("cron_release_expired_payments: payment row unreadable, cannot ask MercadoPago; booking kept",
 			"error", err, "booking_id", b.ID)
 		return s.withinReconcileGrace(b)
-	case payment.MPPreferenceID == nil || *payment.MPPreferenceID == "":
-		return false
 	}
 
 	// The same party closeCheckout addressed the link as: the seller whose
@@ -297,10 +302,15 @@ const (
 	expiredHoldLookback = 48 * time.Hour
 	// expiredHoldBatch bounds the MercadoPago calls one run makes.
 	expiredHoldBatch = 50
-	// expiredHoldMaxFailures is how many runs may fail to settle one booking
-	// (MercadoPago unreachable, the link not closable, a payment not handed
-	// over) before the sweep stops and alerts.
-	expiredHoldMaxFailures = 12
+	// expiredHoldMaxFailures is how many attempts may fail to settle one
+	// booking (MercadoPago unreachable, the link not closable, a payment not
+	// handed over) before the sweep stops and alerts. The store spaces the
+	// attempts five minutes more apart after each failure, at most two hours
+	// (RecordHoldReconcileFailure), so twenty span about sixteen hours: an
+	// outage of MercadoPago lasting hours no longer abandons every booking
+	// expired in it, as twelve runs at the bare five-minute cadence did after
+	// one hour. Inside the 48-hour lookback.
+	expiredHoldMaxFailures = 20
 )
 
 // expiredHoldOutcome is what one reconciliation of an expired booking ended in.
@@ -315,12 +325,14 @@ const (
 	// counting a failure; the lookback bounds it.
 	expiredHoldInFlight
 	// expiredHoldFailed: the question could not be asked or answered. Asked
-	// again, counted against expiredHoldMaxFailures.
+	// again once the store's backoff allows, counted against
+	// expiredHoldMaxFailures.
 	expiredHoldFailed
 )
 
-// reconcileExpiredHolds asks MercadoPago about the recently expired bookings
-// that had a checkout link (S1, slot-hold gaps). The inline release
+// reconcileExpiredHolds asks MercadoPago about the recently expired
+// storefront bookings (S1, slot-hold gaps), with or without a saved payment
+// row (ExpiredHoldsToReconcile says why). The inline release
 // (bookingstore.ReleaseStalePendingOverlaps) cancels a booking without closing
 // its link or asking anything, and even the sweep's own expiry asks before a
 // payment in flight may settle; once cancelled, neither was ever looked at

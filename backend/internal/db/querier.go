@@ -164,13 +164,22 @@ type Querier interface {
 	// against capacity the moment held_until passed; this only closes the rows.
 	// Every hold opened a MercadoPago checkout, so each is marked due a payment
 	// check in the same write: a payment whose webhook never arrived is still
-	// found, and the person is told the spot expired only once none was.
+	// found, and the person is told the spot expired only once none was. The first
+	// check is due three minutes later, not at once: MercadoPago's search lags
+	// behind a payment approved in the hold's last seconds.
 	ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHoldsRow, error)
 	// Lets a person whose own earlier hold ran out sign up again: the one-live-
 	// spot-per-phone index would otherwise still count the stale row.
-	// The hold is still asked about (payment_check_due_at), silently: the person is
-	// signing up again, so no expiry notice follows.
+	// The hold is still asked about (payment_check_due_at, three minutes on, as the
+	// sweep's expiry), silently: the person is signing up again, so no expiry
+	// notice follows.
 	ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error
+	// The release sweep's cancellation of a storefront booking whose payment
+	// window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
+	// read taken before it asked MercadoPago, and a client cancellation or a
+	// payment committed in between must not be overwritten into an expiry. No row
+	// means the booking is no longer pending and unpaid.
+	ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBookingParams) (Booking, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
 	// the id is a sale's, or none at all.
@@ -759,7 +768,9 @@ type Querier interface {
 	// unique index allows one waiting row per address and place.
 	RearmTakenSlotEntries(ctx context.Context, arg RearmTakenSlotEntriesParams) (int64, error)
 	// MercadoPago could not be asked, or an approved payment could not be handed
-	// over: counted, so the sweep gives up after a bounded number of runs.
+	// over: counted, so the sweep gives up after a bounded number of attempts, and
+	// asked again later, five minutes more for every failed attempt, at most two
+	// hours apart (the backoff DeferRegistrationPaymentCheck uses).
 	RecordBookingHoldReconcileFailure(ctx context.Context, bookingID pgtype.UUID) (int32, error)
 	// A date that is not part of the series: cancelled by the owner, or one that
 	// could not be booked. DO NOTHING keeps the first answer: a date already booked

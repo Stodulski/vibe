@@ -88,9 +88,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	// A booking cancelled only because its payment window ran out is the
 	// exception (slot-hold gaps S5): this payment is the one it was waiting
 	// for, so it goes on to the confirmation below, which reopens it when its
-	// hours are still free and refunds it (slot taken) when they are not. The
-	// store re-checks the expiry record under the booking's lock, so a stale
-	// read here can only lead to the refund, never to a wrong confirmation.
+	// hours are still free and refunds it (slot taken) when they are not. One
+	// already refunded or owed a refund, or whose hours already began, does
+	// not read as cancelled by hold expiry (bookingstore.ReopenableByLatePaymentSQL)
+	// and is refunded here as any late payment. The store re-checks the same
+	// test under the booking's lock, so a stale read here can only lead to the
+	// refund, never to a wrong confirmation.
 	if booking.Status == "cancelled" && !booking.CancelledByHoldExpiry {
 		s.logger.Info("mp webhook: booking already cancelled, issuing automatic refund",
 			"mp_payment_id", mpPaymentID,

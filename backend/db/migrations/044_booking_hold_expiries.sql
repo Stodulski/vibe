@@ -25,7 +25,11 @@ SET LOCAL lock_timeout = '3s';
 -- else". Both expiry paths write it in the statement or transaction that
 -- cancels the booking. The release sweep reads the recent ones back, closes
 -- their checkout link and asks MercadoPago once for an approved payment
--- (reconciled_at, failed_attempts), and the confirmation path reopens a
+-- (reconciled_at). A run that cannot ask, or cannot hand a payment over,
+-- counts it in failed_attempts and pushes next_attempt_at back five minutes
+-- more for every failure, at most two hours apart, the backoff event
+-- registrations use (045): a MercadoPago outage over an hour must not use up
+-- every attempt of the bookings expired in it. The confirmation path reopens a
 -- booking that has a row here when its hours are still free, deleting the row
 -- in the same transaction so a later owner cancellation is final again.
 --
@@ -38,6 +42,7 @@ CREATE TABLE booking_hold_expiries (
     expired_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     reconciled_at   TIMESTAMPTZ,
     failed_attempts INTEGER NOT NULL DEFAULT 0,
+    next_attempt_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     CONSTRAINT booking_hold_expiries_booking_id_fkey
         FOREIGN KEY (booking_id) REFERENCES bookings (id) ON DELETE CASCADE,
     CONSTRAINT booking_hold_expiries_complex_id_fkey
@@ -45,9 +50,9 @@ CREATE TABLE booking_hold_expiries (
     CONSTRAINT booking_hold_expiries_failed_attempts_check CHECK (failed_attempts >= 0)
 );
 
--- The sweep's read: the recent rows not yet reconciled, oldest first.
+-- The sweep's read: the rows not yet reconciled whose next attempt is due.
 CREATE INDEX idx_booking_hold_expiries_unreconciled
-    ON booking_hold_expiries (expired_at)
+    ON booking_hold_expiries (next_attempt_at)
     WHERE reconciled_at IS NULL;
 
 ALTER TABLE booking_hold_expiries ENABLE ROW LEVEL SECURITY;

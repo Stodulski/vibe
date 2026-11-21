@@ -4,12 +4,14 @@ package store_test
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	datatest "github.com/stodulski/vibe-server/internal/data/datatest"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
@@ -104,8 +106,10 @@ func expiredBooking(t *testing.T, f *datatest.Fixture, start, end string, checko
 	return b
 }
 
-// The sweep's read returns each expired booking with a checkout until it is
-// reconciled or has failed too often, and nothing without a checkout.
+// The sweep's read returns each expired booking until it is reconciled or has
+// failed too often, a checkout row or not: MercadoPago is searched by the
+// booking id alone, and a booking whose payment row failed to save after its
+// link was created could still have been paid.
 func TestExpiredHoldsToReconcileReturnsOnlyWhatIsStillToAsk(t *testing.T) {
 	f := datatest.Isolated(t)
 	reconciled := expiredBooking(t, f, "08:00", "09:00", true)
@@ -126,13 +130,18 @@ func TestExpiredHoldsToReconcileReturnsOnlyWhatIsStillToAsk(t *testing.T) {
 			t.Fatalf("RecordHoldReconcileFailure: want %d; got %d, %v", want, got, err)
 		}
 	}
+	// Due again, so only the failure bound can leave it out.
+	makeDue(t, f, failing.ID)
 
 	ids := reconcileIDs(t, f)
 	if !ids[waiting.ID] {
 		t.Error("want the unreconciled booking with a checkout returned")
 	}
-	if ids[reconciled.ID] || ids[failing.ID] || ids[noCheckout.ID] {
-		t.Errorf("want reconciled, exhausted and checkout-less bookings left out; got %v", ids)
+	if !ids[noCheckout.ID] {
+		t.Error("want the unreconciled booking without a checkout row returned: MercadoPago is asked by its id")
+	}
+	if ids[reconciled.ID] || ids[failing.ID] {
+		t.Errorf("want reconciled and exhausted bookings left out; got %v", ids)
 	}
 
 	if _, err := f.DB.Exec(ctx,
@@ -141,5 +150,105 @@ func TestExpiredHoldsToReconcileReturnsOnlyWhatIsStillToAsk(t *testing.T) {
 	}
 	if reconcileIDs(t, f)[waiting.ID] {
 		t.Error("want a booking past the lookback left out")
+	}
+}
+
+// makeDue moves a record's next attempt into the past.
+func makeDue(t *testing.T, f *datatest.Fixture, bookingID uuid.UUID) {
+	t.Helper()
+	if _, err := f.DB.Exec(f.Scoped(context.Background()),
+		`UPDATE booking_hold_expiries SET next_attempt_at = NOW() - INTERVAL '1 second' WHERE booking_id = $1`, bookingID); err != nil {
+		t.Fatalf("making the record due: %v", err)
+	}
+}
+
+// A failed attempt is not retried on the very next run: the record waits five
+// minutes more for every failure, at most two hours, so a MercadoPago outage
+// of a few hours does not use up every attempt of the bookings expired in it.
+func TestAFailedReconciliationBacksOff(t *testing.T) {
+	f := datatest.Isolated(t)
+	b := expiredBooking(t, f, "08:00", "09:00", true)
+	ctx := f.Scoped(context.Background())
+
+	if !reconcileIDs(t, f)[b.ID] {
+		t.Fatal("a fresh record must be due at once")
+	}
+	for attempt := 1; attempt <= 30; attempt++ {
+		if _, err := f.Stores.Bookings.RecordHoldReconcileFailure(ctx, b.ID); err != nil {
+			t.Fatalf("RecordHoldReconcileFailure: %v", err)
+		}
+		var wait float64
+		if err := f.DB.QueryRow(ctx,
+			`SELECT EXTRACT(EPOCH FROM next_attempt_at - NOW()) FROM booking_hold_expiries WHERE booking_id = $1`, b.ID).Scan(&wait); err != nil {
+			t.Fatalf("reading the next attempt: %v", err)
+		}
+		want := min(5*attempt, 120) * 60
+		if wait < float64(want)-5 || wait > float64(want)+5 {
+			t.Fatalf("after %d failures want the next attempt in %ds; got %.0fs", attempt, want, wait)
+		}
+		list, err := f.Stores.Bookings.ExpiredHoldsToReconcile(ctx, 48*time.Hour, 50, 100)
+		if err != nil {
+			t.Fatalf("ExpiredHoldsToReconcile: %v", err)
+		}
+		for _, got := range list {
+			if got.ID == b.ID {
+				t.Fatalf("after %d failures the record must wait for its next attempt", attempt)
+			}
+		}
+	}
+	makeDue(t, f, b.ID)
+	list, err := f.Stores.Bookings.ExpiredHoldsToReconcile(ctx, 48*time.Hour, 50, 100)
+	if err != nil || len(list) != 1 || list[0].ID != b.ID {
+		t.Fatalf("a record whose next attempt came must be read again; got %v, %v", list, err)
+	}
+}
+
+// The release sweep cancels from a read taken before it asked MercadoPago. A
+// client who cancelled in between, or a payment that confirmed the booking in
+// between, must not be overwritten into an expiry: the first would become a
+// booking a late payment can reopen, the second a paid booking cancelled.
+func TestExpireHoldLeavesABookingThatChangedSinceItWasRead(t *testing.T) {
+	cases := map[string]struct {
+		write      string
+		wantStatus string
+	}{
+		"client cancelled": {`UPDATE bookings SET status = 'cancelled', notes = 'Cancelado por el cliente' WHERE id = $1`, "cancelled"},
+		"paid meanwhile":   {`UPDATE bookings SET status = 'confirmed', collection_status = 'deposit_paid' WHERE id = $1`, "confirmed"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ctx := f.Scoped(context.Background())
+			b := f.CreateBooking(t, datatest.BookingOptions{
+				Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true,
+			})
+			if _, err := f.DB.Exec(ctx, tc.write, b.ID); err != nil {
+				t.Fatalf("the concurrent write: %v", err)
+			}
+			b.Status = "cancelled"
+			note := "Cancelado automáticamente: tiempo de pago expirado (10m0s)"
+			b.Notes = &note
+
+			if err := f.Stores.Bookings.ExpireHold(ctx, b); !errors.Is(err, data.ErrEditConflict) {
+				t.Fatalf("want ExpireHold refused with ErrEditConflict for a booking no longer pending and unpaid; got %v", err)
+			}
+			if status, _, _ := f.ReadBookingState(t, b.ID); status != tc.wantStatus {
+				t.Errorf("want the booking left %s; got %s", tc.wantStatus, status)
+			}
+			var n int
+			if err := f.DB.QueryRow(ctx, `SELECT count(*) FROM booking_hold_expiries WHERE booking_id = $1`, b.ID).Scan(&n); err != nil {
+				t.Fatalf("counting expiry rows: %v", err)
+			}
+			if n != 0 {
+				t.Errorf("want no expiry recorded; got %d rows", n)
+			}
+			got, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+			if err != nil {
+				t.Fatalf("GetByID: %v", err)
+			}
+			if got.Notes != nil && *got.Notes == note {
+				t.Error("the expiry note overwrote the concurrent write")
+			}
+		})
 	}
 }

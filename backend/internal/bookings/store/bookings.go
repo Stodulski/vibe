@@ -235,9 +235,11 @@ type Booking struct {
 	AttendedAt *time.Time `json:"attended_at"`
 	// CancelledByHoldExpiry reports a booking cancelled only because its
 	// payment window ran out (a booking_hold_expiries row, see
-	// hold_expiry.go). GetByID reads it; every other read leaves it false. The
-	// payment confirmation reads it to reopen such a booking when a late
-	// payment finds its hours still free, instead of refunding it.
+	// hold_expiry.go) that a late payment may still reopen: never paid, owing
+	// no refund, not yet started (ReopenableByLatePaymentSQL). GetByID reads
+	// it; every other read leaves it false. The payment confirmation reads it
+	// to reopen such a booking when a late payment finds its hours still
+	// free, instead of refunding it.
 	CancelledByHoldExpiry bool `json:"-"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
@@ -674,7 +676,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
 		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email,
-		       EXISTS(SELECT 1 FROM booking_hold_expiries e WHERE e.booking_id = b.id) AS cancelled_by_hold_expiry
+		       `+ReopenableByLatePaymentSQL("b")+` AS cancelled_by_hold_expiry
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -703,7 +705,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		return nil, fmt.Errorf("bookings: get by id: %w", err)
 	}
 	booking := BookingFromDB(b)
-	booking.CancelledByHoldExpiry = b.Status == db.BookingStatusCancelled && cancelledByHoldExpiry
+	booking.CancelledByHoldExpiry = cancelledByHoldExpiry
 	booking.CourtName = courtName
 	booking.ClientName = clientName
 	booking.ClientPhone = clientPhone

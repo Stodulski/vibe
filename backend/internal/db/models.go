@@ -441,6 +441,7 @@ type BookingHoldExpiry struct {
 	ExpiredAt      pgtype.Timestamptz `json:"expired_at"`
 	ReconciledAt   pgtype.Timestamptz `json:"reconciled_at"`
 	FailedAttempts int32              `json:"failed_attempts"`
+	NextAttemptAt  pgtype.Timestamptz `json:"next_attempt_at"`
 }
 
 type BookingLinkToken struct {

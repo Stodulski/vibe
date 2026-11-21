@@ -252,6 +252,20 @@ WHERE id = sqlc.arg(id)
   AND lower(span) > sqlc.arg(now)::timestamptz
 RETURNING *;
 
+-- name: ExpireUnpaidBooking :one
+-- The release sweep's cancellation of a storefront booking whose payment
+-- window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
+-- read taken before it asked MercadoPago, and a client cancellation or a
+-- payment committed in between must not be overwritten into an expiry. No row
+-- means the booking is no longer pending and unpaid.
+UPDATE bookings
+SET status = 'cancelled',
+    notes = $2
+WHERE id = $1
+  AND status = 'pending'
+  AND collection_status = 'unpaid'
+RETURNING *;
+
 -- name: InsertBookingHoldExpiry :exec
 -- Records that a storefront booking was cancelled by hold expiry and nothing
 -- else (044_booking_hold_expiries.sql). Written in the transaction that
@@ -269,9 +283,12 @@ WHERE booking_id = $1;
 
 -- name: RecordBookingHoldReconcileFailure :one
 -- MercadoPago could not be asked, or an approved payment could not be handed
--- over: counted, so the sweep gives up after a bounded number of runs.
+-- over: counted, so the sweep gives up after a bounded number of attempts, and
+-- asked again later, five minutes more for every failed attempt, at most two
+-- hours apart (the backoff DeferRegistrationPaymentCheck uses).
 UPDATE booking_hold_expiries
-SET failed_attempts = failed_attempts + 1
+SET failed_attempts = failed_attempts + 1,
+    next_attempt_at = NOW() + make_interval(mins => LEAST(5 * (failed_attempts + 1), 120))
 WHERE booking_id = $1
 RETURNING failed_attempts;
 

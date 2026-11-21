@@ -203,3 +203,131 @@ func TestTheReversalTriggerStillRefusesReopeningWithoutAnExpiryAndMoney(t *testi
 		}
 	})
 }
+
+// A booking the expiry cancelled whose first late payment was already refunded
+// (or is owed a refund) is not reopened by a second payment. The reversal
+// trigger refuses that write, and a guard looser than the trigger answered it
+// with a raw 23514 the webhook retried forever instead of refunding; the guard
+// and GetByID now refuse exactly what the trigger refuses, as a cancellation.
+func TestASecondLatePaymentOnARefundedExpiredBookingIsRefusedAsCancelled(t *testing.T) {
+	cases := map[string]string{
+		"refunded":       `UPDATE bookings SET collection_status = 'deposit_paid', refund_status = 'full' WHERE id = $1`,
+		"refund pending": `UPDATE bookings SET collection_status = 'deposit_paid', refund_status = 'pending' WHERE id = $1`,
+		"refund owed":    `UPDATE bookings SET refund_intent_at = NOW() WHERE id = $1`,
+	}
+	for name, write := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ctx := f.Scoped(context.Background())
+			b, checkout := expiredStorefrontBooking(t, f)
+			if _, err := f.DB.Exec(ctx, write, b.ID); err != nil {
+				t.Fatalf("settling the first late payment: %v", err)
+			}
+			got, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+			if err != nil {
+				t.Fatalf("GetByID: %v", err)
+			}
+			if got.CancelledByHoldExpiry {
+				t.Error("GetByID must not offer a booking the trigger refuses to reopen")
+			}
+			confirmedByLatePayment(b, checkout)
+			if err := f.Stores.Payments.ConfirmWebhookPayment(ctx, checkout, b); !errors.Is(err, bookingstore.ErrBookingCancelled) {
+				t.Fatalf("want ErrBookingCancelled, which the webhook refunds; got %v", err)
+			}
+			if status, _, _ := f.ReadBookingState(t, b.ID); status != "cancelled" {
+				t.Errorf("want the booking still cancelled; got %s", status)
+			}
+		})
+	}
+}
+
+// A late hand-over (the reconciliation can run hours later) must not confirm
+// a booking whose hours already began: the payment is refunded as late instead.
+func TestALatePaymentDoesNotReopenABookingThatAlreadyStarted(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	b, checkout := expiredStorefrontBooking(t, f)
+	if _, err := f.DB.Exec(ctx, `UPDATE bookings SET date = CURRENT_DATE - 1 WHERE id = $1`, b.ID); err != nil {
+		t.Fatalf("moving the booking into the past: %v", err)
+	}
+	b.Date = time.Now().AddDate(0, 0, -1)
+	got, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.CancelledByHoldExpiry {
+		t.Error("GetByID must not offer a booking that already started for reopening")
+	}
+	confirmedByLatePayment(b, checkout)
+	if err := f.Stores.Payments.ConfirmWebhookPayment(ctx, checkout, b); !errors.Is(err, bookingstore.ErrBookingCancelled) {
+		t.Fatalf("want ErrBookingCancelled, which the webhook refunds as a late payment; got %v", err)
+	}
+	if status, _, _ := f.ReadBookingState(t, b.ID); status != "cancelled" {
+		t.Errorf("want the booking still cancelled; got %s", status)
+	}
+}
+
+// Another visitor's checkout on the same hours, itself past its payment
+// window, does not block the court (SlotTaken's stale carve-out) but did still
+// count for the exclusion constraint, so the reopening failed with a raw
+// 23P01 and the event was requeued. The stale row is released first, as an
+// insert releases it, and recorded as expired for the sweep.
+func TestALatePaymentReopensOverAStaleCheckoutOnTheSameHours(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	b, checkout := expiredStorefrontBooking(t, f)
+	stale := f.CreateBooking(t, datatest.BookingOptions{
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true,
+	})
+	f.BackdateBookingCreatedAt(t, stale.ID, time.Hour)
+	confirmedByLatePayment(b, checkout)
+
+	if err := f.Stores.Payments.ConfirmWebhookPayment(ctx, checkout, b); err != nil {
+		t.Fatalf("a late payment into hours only a stale checkout holds must reopen the booking: %v", err)
+	}
+	if status, _, _ := f.ReadBookingState(t, b.ID); status != "confirmed" {
+		t.Errorf("want the booking confirmed; got %s", status)
+	}
+	if status, _, _ := f.ReadBookingState(t, stale.ID); status != "cancelled" {
+		t.Errorf("want the stale checkout released; got %s", status)
+	}
+	if n := holdExpiryRows(t, f, stale); n != 1 {
+		t.Errorf("want the released checkout recorded as expired for the sweep; got %d rows", n)
+	}
+}
+
+// A reopened booking no longer reads as cancelled by the expiry: its note is
+// taken off, whichever expiry path wrote it, and anything else the note said
+// is kept.
+func TestAReopenedBookingLosesTheExpiryNote(t *testing.T) {
+	cases := map[string]struct{ note, want string }{
+		"sweep note":      {"Cancelado automáticamente: tiempo de pago expirado (10m0s)", ""},
+		"inline note":     {"Cancelado automáticamente: tiempo de pago expirado", ""},
+		"after a comment": {"Llega tarde | Cancelado automáticamente: tiempo de pago expirado (15m0s)", "Llega tarde"},
+	}
+	for name, tc := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ctx := f.Scoped(context.Background())
+			b, checkout := expiredStorefrontBooking(t, f)
+			note := tc.note
+			b.Notes = &note
+			confirmedByLatePayment(b, checkout)
+
+			if err := f.Stores.Payments.ConfirmWebhookPayment(ctx, checkout, b); err != nil {
+				t.Fatalf("ConfirmWebhookPayment: %v", err)
+			}
+			got, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+			if err != nil {
+				t.Fatalf("GetByID: %v", err)
+			}
+			gotNote := ""
+			if got.Notes != nil {
+				gotNote = *got.Notes
+			}
+			if gotNote != tc.want {
+				t.Errorf("want note %q; got %q", tc.want, gotNote)
+			}
+		})
+	}
+}
