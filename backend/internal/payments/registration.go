@@ -208,7 +208,7 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 	s.logger.Error("mp webhook: the spot was gone while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID)
 	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION SPOT GONE (auto-refunding): mp_payment_id=%s registration_id=%s", mpPaymentID, reg.ID))
-	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID, paymentstore.RefundCauseRegistrationSpotGone)
 	if err == nil && outcome.Result == paymentstore.RefundIssued {
 		// The same notice the retry job sends when it finishes such a refund,
 		// keyed on the registration and the amount, so one refund is one email.
@@ -222,7 +222,7 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID, why string) error {
 	s.logger.Error("mp webhook: duplicate registration payment, refunding it",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID, "why", why)
-	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID, paymentstore.RefundCauseRegistrationExtraPayment)
 	if err == nil && outcome.Result == paymentstore.RefundIssued {
 		// The spot is kept: the person is told this payment came back. The row
 		// is new, so what it refunded is both this move and its running total.
@@ -243,13 +243,13 @@ func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *event
 // behalf of a refund nothing durable knows about. The error is returned so the
 // event is retried. The outcome says whether the money already moved, which is
 // when the caller may tell the person; a queued refund is told by the retry job.
-func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) (paymentstore.RefundOutcome, error) {
+func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) (paymentstore.RefundOutcome, error) {
 	paid := int(math.Round(mpPayment.TransactionAmount * 100))
 	fee := min(reg.ServiceFee, paid)
-	claim, err := s.refunds.InsertAndClaimRefund(ctx, &paymentstore.Payment{
+	claim, err := s.refunds.InsertAndClaimRefundWithCause(ctx, &paymentstore.Payment{
 		RegistrationID: &reg.ID, ComplexID: reg.ComplexID, Amount: paid - fee, ServiceFee: fee,
 		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID, StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
-	})
+	}, cause)
 	switch {
 	case err == nil:
 	case errors.Is(err, paymentstore.ErrAlreadyRefunded), errors.Is(err, paymentstore.ErrRefundInFlight):

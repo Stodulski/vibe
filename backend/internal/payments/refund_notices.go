@@ -9,6 +9,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -26,14 +27,42 @@ const (
 	slotTakenReason = "No pudimos confirmar tu reserva: el turno se ocupó antes de que se acreditara tu pago."
 )
 
-// slotLostReason says why a payment the confirmation refused is going back:
+// slotLostCause says why a payment the confirmation refused is going back:
 // the booking had already been cancelled (its payment window ran out), or its
 // hours went to somebody else.
-func slotLostReason(err error) string {
+func slotLostCause(err error) paymentstore.RefundCause {
 	if errors.Is(err, bookingstore.ErrBookingCancelled) {
-		return latePaymentReason
+		return paymentstore.RefundCauseLatePayment
 	}
-	return slotTakenReason
+	return paymentstore.RefundCauseSlotTaken
+}
+
+// clientReason is the sentence the refund notice gives for cause. A refund
+// somebody asked for, or a cause that is not a booking's, gives none.
+func clientReason(cause paymentstore.RefundCause) string {
+	switch cause {
+	case paymentstore.RefundCauseLatePayment:
+		return latePaymentReason
+	case paymentstore.RefundCauseSlotTaken:
+		return slotTakenReason
+	case paymentstore.RefundCauseDuplicatePayment:
+		return duplicatePaymentReason
+	}
+	return ""
+}
+
+// announceAutomaticRefund tells the client a booking's refund is back, with the
+// reason its cause gives, and tells the owner when the refund was a second
+// payment on a booking that still holds its court: their booking stands and a
+// payment of it went back. Both paths that record a refund call it, the webhook
+// and the retry job, and both key it on the payment and the total written
+// (refundKey), so one refund is one notice whichever path records it.
+func (s *Service) announceAutomaticRefund(ctx context.Context, booking *bookingstore.Booking, mpPaymentID string, refundTotal int, cause paymentstore.RefundCause) {
+	key := refundKey(mpPaymentID, refundTotal)
+	s.sendRefundNotificationWithReason(ctx, booking, refundTotal, key, false, clientReason(cause))
+	if cause == paymentstore.RefundCauseDuplicatePayment && liveBooking(booking.Status) {
+		s.announceDuplicatePaymentRefund(ctx, booking, refundTotal, key)
+	}
 }
 
 // announceDuplicatePaymentRefund tells the owner that a client's second payment
