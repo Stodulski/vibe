@@ -56,20 +56,23 @@ func (s *Service) readNoticeSubject(ctx context.Context, complexID uuid.UUID, bo
 }
 
 // editCancelOutcome is what an owner's cancellation through the general edit
-// did about the client's money. The edit never refunds: it refuses a paid
-// booking whose refund nobody decided (cancelPaidViaUpdateMessage), so the
-// only paid bookings it cancels are ones the refund pipeline already owns, and
-// the notice reports where that refund stands. An unpaid booking owes nothing.
+// did about the client's money. The edit never refunds, so the notice only
+// reports what the row already says, and claims a refund was sent only when
+// the row records one (refund_status 'full'). Every other paid case is the
+// complex's to settle by hand: 'partial' is cash owed, and on a live booking
+// 'pending' is only ever the owner's own mark (the refund pipeline writes it on
+// bookings it cancels, which the edit cannot cancel again), so no automatic
+// "your refund is back" notice will follow. A paid booking with no refund at
+// all is reachable when one request cancels and marks paid together, since the
+// guard reads the booking before the request's collection status lands.
 func editCancelOutcome(booking *bookingstore.Booking) paymentstore.RefundOutcome {
 	switch {
 	case booking.CollectionStatus == bookingstore.CollectionStatusUnpaid:
 		return paymentstore.RefundOutcome{Result: paymentstore.RefundNone, Reason: "the booking was never paid"}
-	case booking.RefundStatus == bookingstore.RefundStatusPending:
-		return paymentstore.RefundOutcome{Result: paymentstore.RefundQueued, Reason: "a refund was already under way"}
-	case booking.RefundStatus == bookingstore.RefundStatusPartial:
-		return paymentstore.RefundOutcome{Result: paymentstore.RefundManual, Reason: "a balance is owed by hand"}
-	default:
+	case booking.RefundStatus == bookingstore.RefundStatusFull:
 		return paymentstore.RefundOutcome{Result: paymentstore.RefundAlreadyIssued, Reason: "the refund was already issued"}
+	default:
+		return paymentstore.RefundOutcome{Result: paymentstore.RefundManual, Reason: "the complex settles the money by hand"}
 	}
 }
 

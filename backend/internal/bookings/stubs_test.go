@@ -651,7 +651,9 @@ type stubPayments struct {
 	// getErr fails GetByBookingID with something other than "no such row",
 	// standing in for the database being unavailable while a cancellation is
 	// deciding what can be refunded.
-	getErr    error
+	getErr error
+	// listErr fails ListByBookingID alone, after any write that came before it.
+	listErr   error
 	inserted  []*paymentstore.Payment
 	confirmed []*paymentstore.Payment
 	updated   []*paymentstore.Payment
@@ -712,6 +714,9 @@ func (s *stubPayments) ListByBookingID(ctx context.Context, _ uuid.UUID) ([]*pay
 	}
 	if s.getErr != nil {
 		return nil, s.getErr
+	}
+	if s.listErr != nil {
+		return nil, s.listErr
 	}
 	if s.ledger != nil {
 		return s.ledger, nil

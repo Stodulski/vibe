@@ -1,6 +1,7 @@
 package bookings
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -74,9 +75,12 @@ func TestCancellingThroughTheEditTellsTheClientAndFreesTheSlot(t *testing.T) {
 	}
 }
 
-// S1: a booking whose refund the pipeline already decided (pending here) stays
-// cancellable through the edit, and the edit still must not start a second
-// refund. The client is told the money is on its way.
+// S1: a live booking whose refund is already marked pending stays cancellable
+// through the edit, and the edit still must not start a second refund. On a
+// live booking only the owner's own edit writes 'pending' (the refund pipeline
+// writes it on bookings it cancels, which the edit cannot cancel again), so
+// nothing will send a "your refund is back" notice later: the client is told
+// the complex returns the money, not that a notice is coming.
 func TestCancellingThroughTheEditNeverStartsARefund(t *testing.T) {
 	f, complexID, booking := noticeFixture(t)
 	booking.RefundStatus = bookingstore.RefundStatusPending
@@ -88,8 +92,30 @@ func TestCancellingThroughTheEditNeverStartsARefund(t *testing.T) {
 	if len(f.refunds.refunded) != 0 {
 		t.Fatalf("the edit must not start a refund; AutoRefundIfPaid ran %d times", len(f.refunds.refunded))
 	}
-	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RefundLine != refundMessage(paymentstore.RefundQueued, 0) {
-		t.Fatalf("want one notice saying the refund is in progress; got %+v", f.notify.cancelled)
+	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RefundLine != refundMessage(paymentstore.RefundManual, 0) {
+		t.Fatalf("want one notice saying the complex returns the money; got %+v", f.notify.cancelled)
+	}
+}
+
+// One request can cancel an unpaid booking and mark it paid at once: the
+// paid-booking guard reads the booking before the request's collection status
+// lands, so it passes, and the booking is saved cancelled, paid, and with no
+// refund at all. The client must not be told a refund was already sent.
+func TestCancellingAndMarkingPaidInOneEditDoesNotClaimARefundWasSent(t *testing.T) {
+	f, complexID, booking := noticeFixture(t)
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
+
+	cancelled := string(bookingstore.BookingStatusCancelled)
+	paid := string(bookingstore.CollectionStatusDepositPaid)
+	_, err := f.service.Update(t.Context(), complexID, Actor{}, booking.ID, UpdateInput{Status: &cancelled, CollectionStatus: &paid})
+	if err != nil {
+		// Refusing the combination outright is just as correct.
+		return
+	}
+	for _, n := range f.notify.cancelled {
+		if n.RefundLine == refundMessage(paymentstore.RefundAlreadyIssued, 0) {
+			t.Fatalf("no refund exists, yet the client is told it was already sent: %+v", n)
+		}
 	}
 }
 
@@ -157,6 +183,23 @@ func TestAManualRefundTellsTheClientTheAmountReturned(t *testing.T) {
 	}
 	if r.BookingID != booking.ID.String() || r.RefundID == "" {
 		t.Errorf("the notice must carry its deduplication subject; got booking %q refund %q", r.BookingID, r.RefundID)
+	}
+}
+
+// S3: once the close-out is committed the money is back with the client, so a
+// read that fails after it (the payments list the response carries) must not
+// cost them the notice: a retried request is refused as no longer owed, and
+// nothing would ever tell them.
+func TestAManualRefundIsToldEvenIfTheReadAfterItFails(t *testing.T) {
+	f, complexID, booking := noticeFixture(t)
+	booking.Status = bookingstore.BookingStatusCancelled
+	booking.RefundStatus = bookingstore.RefundStatusPartial
+	f.payments.manualRefundAmount = 1_250_000
+	f.payments.listErr = errors.New("database unavailable")
+
+	_, _ = f.service.ManualRefund(t.Context(), complexID, Actor{}, booking.ID)
+	if len(f.notify.refunds) != 1 {
+		t.Fatalf("the committed close-out must be told; got %d notices", len(f.notify.refunds))
 	}
 }
 
