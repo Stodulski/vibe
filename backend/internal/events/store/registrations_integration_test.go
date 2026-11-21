@@ -306,6 +306,65 @@ func TestTheSweepFindsAParticipantCancellationThatOwesItsRefund(t *testing.T) {
 	}
 }
 
+// S17: the owner withdrawing one paid participant ends the spot as the owner's,
+// owes the money back so the refund sweep finds it, and leaves the other
+// participants alone; a second withdrawal is refused.
+func TestTheOwnerWithdrawingAParticipantOwesTheRefund(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	ev := eventWithCapacity(t, f, 4)
+	gone, err := signUp(f, ev, "+5491100000031")
+	if err != nil {
+		t.Fatal(err)
+	}
+	stays, err := signUp(f, ev, "+5491100000032")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, reg := range []*eventstore.Registration{gone, stays} {
+		if err := pay(f, reg, "mp-"+uuid.NewString()); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	res, err := f.Stores.Events.CancelByOwner(ctx, gone.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Drawn {
+		t.Error("an open-play event has no draw")
+	}
+	got, err := f.Stores.Events.GetRegistration(ctx, gone.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != eventstore.RegistrationCancelled || got.CancelledBy == nil || *got.CancelledBy != eventstore.CancelledByOwner {
+		t.Errorf("registration = %s by %v; want cancelled by the owner", got.Status, got.CancelledBy)
+	}
+	other, err := f.Stores.Events.GetRegistration(ctx, stays.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if other.Status != eventstore.RegistrationConfirmed {
+		t.Errorf("the other participant must keep the spot; got %s", other.Status)
+	}
+
+	pending, err := f.Stores.Events.OwnerCancelledStillPaid(data.ContextWithTenantBypass(context.Background()), -time.Minute, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	for _, p := range pending {
+		found = found || p.RegistrationID == gone.ID
+	}
+	if !found {
+		t.Error("an owner withdrawal whose refund never ran must be swept")
+	}
+	if _, err := f.Stores.Events.CancelByOwner(ctx, gone.ID); !errors.Is(err, eventstore.ErrNotCancellable) {
+		t.Fatalf("a second withdrawal answers ErrNotCancellable; got %v", err)
+	}
+}
+
 // One address cannot hold the whole event hostage with unpaid holds.
 func TestOneAddressCannotHoldMoreThanItsShareOfSpots(t *testing.T) {
 	f := datatest.Isolated(t)

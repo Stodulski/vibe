@@ -391,3 +391,65 @@ func (s *Service) refundCancelledRegistration(ctx context.Context, complex *comp
 	s.notifyCancelled(reg, ev, complex, true, outcome)
 	return Refund{RegistrationID: regID, Outcome: outcome}
 }
+
+// Withdraw is the owner taking one participant out of an open-play event: their
+// spot ends as the owner's, whatever they paid is refunded in full regardless of
+// the cancellation window (owner rule A9), and they are told with the owner's
+// cancellation notice. The owner is not told of their own action. It is refused
+// once the event has started.
+func (s *Service) Withdraw(ctx context.Context, complex *complexstore.Complex, actor Actor, eventID, registrationID uuid.UUID) (*Refund, error) {
+	ev, err := s.ownedEvent(ctx, complex.ID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	if !timezone.Now().Before(ev.StartsAt()) {
+		return nil, &StateError{Message: "the event has already started"}
+	}
+	return s.WithdrawAny(ctx, complex, actor, eventID, registrationID)
+}
+
+// WithdrawAny is Withdraw for any event of the complex, a tournament category's
+// container included, with no time limit of its own: the tournaments domain
+// withdraws its pairs through it and applies its own. A pair in a drawn bracket
+// leaves it exactly as a pair withdrawing itself after the draw does (its
+// matches become walkovers), and is still refunded.
+func (s *Service) WithdrawAny(ctx context.Context, complex *complexstore.Complex, actor Actor, eventID, registrationID uuid.UUID) (*Refund, error) {
+	if actor.UserID == nil {
+		return nil, ErrNoActor
+	}
+	ev, err := s.AnyEvent(ctx, complex.ID, eventID)
+	if err != nil {
+		return nil, err
+	}
+	reg, err := s.store.GetRegistration(ctx, registrationID)
+	if err != nil {
+		return nil, err
+	}
+	if reg.EventID != ev.ID || reg.ComplexID != complex.ID {
+		return nil, data.ErrRecordNotFound
+	}
+	// The refund is marked owed in the cancellation's own write, so the refund
+	// sweep finishes it if this request never does.
+	res, err := s.store.CancelByOwner(ctx, registrationID)
+	if err != nil {
+		if errors.Is(err, eventstore.ErrNotCancellable) {
+			return nil, &StateError{Message: "the registration has already been cancelled"}
+		}
+		return nil, err
+	}
+	s.realtime.PublishBookingChanged(complex.ID)
+	s.record(actor, complex.ID, "withdraw", "open_play_registration", res.Registration.ID, res.Registration)
+
+	// The rest runs on its own context: the owner closing the tab must not leave
+	// the pair in the bracket or the person unrefunded.
+	rctx := context.WithoutCancel(ctx)
+	if res.Drawn && s.tournaments != nil {
+		// As for a pair leaving by itself: the spot is already ended, so a failure
+		// is logged, and the owner can still load the walkovers by hand.
+		if err := s.tournaments.PairWithdrawn(rctx, registrationID); err != nil {
+			s.logger.Error("tournament withdrawal: the pair's matches were not turned into walkovers", "error", err, "registration_id", registrationID)
+		}
+	}
+	refund := s.refundCancelledRegistration(rctx, complex, ev, registrationID)
+	return &refund, nil
+}

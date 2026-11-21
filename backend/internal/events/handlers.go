@@ -216,6 +216,31 @@ func (h *Handler) Cancel(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"event": toGenEvent(result.Event), "refunds": refunds})
 }
 
+// Withdraw handles POST /api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw.
+func (h *Handler) Withdraw(w http.ResponseWriter, r *http.Request) {
+	complex, ok := httpx.ContextGetComplex(r)
+	if !ok {
+		h.respond.ServerError(w, r, fmt.Errorf("missing complex in context"))
+		return
+	}
+	eventID, err := httpx.ReadUUIDParam(r, "eventID")
+	if err != nil {
+		h.respond.NotFound(w, r)
+		return
+	}
+	registrationID, err := httpx.ReadUUIDParam(r, "registrationID")
+	if err != nil {
+		h.respond.NotFound(w, r)
+		return
+	}
+	ref, err := h.svc.Withdraw(r.Context(), complex, h.actor(r), eventID, registrationID)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"registration_id": ref.RegistrationID, "refund": bookings.RefundEnvelope(ref.Outcome)})
+}
+
 // PublicList handles GET /api/v1/public/complexes/{slug}/events.
 func (h *Handler) PublicList(w http.ResponseWriter, r *http.Request) {
 	page, err := h.svc.PublicList(r.Context(), httpx.ReadStringParam(r, "slug"))

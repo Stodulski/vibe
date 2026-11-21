@@ -734,6 +734,7 @@ type RegistrationStore interface {
 	ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOnly bool) ([]*eventstore.RegistrationRow, error)
 	CancelRegistration(ctx context.Context, id uuid.UUID, by string) (*eventstore.Registration, error)
 	CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*eventstore.ParticipantCancel, error)
+	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
 }
