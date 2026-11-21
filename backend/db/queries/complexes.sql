@@ -154,3 +154,18 @@ VALUES ($1, $2)
 ON CONFLICT (complex_id) DO UPDATE
 SET episode = EXCLUDED.episode,
     notified_at = NOW();
+
+-- name: GetComplexOwnerAndName :one
+-- The owner a notice about a live complex goes to, and the name it gives.
+SELECT owner_id, name FROM complexes WHERE id = $1 AND deleted_at IS NULL;
+
+-- name: ListUnflaggedExpiredInstagramConnections :many
+-- Instagram connections whose token has expired and that are not flagged for
+-- a reconnect yet. Listed (rather than flagged in bulk) so each one can be
+-- flagged with its expiry as the guard and its owner told once.
+SELECT complex_id, expires_at
+FROM instagram_connections
+WHERE NOT needs_reconnect
+  AND expires_at <= sqlc.arg(now)::timestamptz
+ORDER BY expires_at
+LIMIT sqlc.arg(row_limit)::int;

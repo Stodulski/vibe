@@ -274,6 +274,8 @@ type Querier interface {
 	// answered by GetGoneComplexBySlug, not here. See the soft-delete cascade in
 	// db/migrations/001_init.sql.
 	GetComplexBySlug(ctx context.Context, slug string) (ActiveComplex, error)
+	// The owner a notice about a live complex goes to, and the name it gives.
+	GetComplexOwnerAndName(ctx context.Context, id pgtype.UUID) (GetComplexOwnerAndNameRow, error)
 	//
 	// Carries a court count, because a complex with no courts can take no booking
 	// at all — it looked identical to a finished one.
@@ -628,6 +630,10 @@ type Querier interface {
 	// The tournaments of one complex that overlap the window, soonest first.
 	// include_cancelled is what the owner's list sets and the public one does not.
 	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
+	// Instagram connections whose token has expired and that are not flagged for
+	// a reconnect yet. Listed (rather than flagged in bulk) so each one can be
+	// flagged with its expiry as the guard and its owner told once.
+	ListUnflaggedExpiredInstagramConnections(ctx context.Context, arg ListUnflaggedExpiredInstagramConnectionsParams) ([]ListUnflaggedExpiredInstagramConnectionsRow, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
 	// The distinct grids (complex, day, duration) that slot entries are on, from
 	// from_date, in key order after the cursor (NULL: from the start). Entries

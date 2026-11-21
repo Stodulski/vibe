@@ -103,6 +103,23 @@ func (q *Queries) GetComplexBySlug(ctx context.Context, slug string) (ActiveComp
 	return i, err
 }
 
+const getComplexOwnerAndName = `-- name: GetComplexOwnerAndName :one
+SELECT owner_id, name FROM complexes WHERE id = $1 AND deleted_at IS NULL
+`
+
+type GetComplexOwnerAndNameRow struct {
+	OwnerID pgtype.UUID `json:"owner_id"`
+	Name    string      `json:"name"`
+}
+
+// The owner a notice about a live complex goes to, and the name it gives.
+func (q *Queries) GetComplexOwnerAndName(ctx context.Context, id pgtype.UUID) (GetComplexOwnerAndNameRow, error) {
+	row := q.db.QueryRow(ctx, getComplexOwnerAndName, id)
+	var i GetComplexOwnerAndNameRow
+	err := row.Scan(&i.OwnerID, &i.Name)
+	return i, err
+}
+
 const getComplexesByOwner = `-- name: GetComplexesByOwner :many
 SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, c.version, c.description, c.instagram, (
     SELECT COUNT(*) FROM active_courts ct WHERE ct.complex_id = c.id
@@ -404,6 +421,48 @@ func (q *Queries) ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveCo
 			&i.Description,
 			&i.Instagram,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnflaggedExpiredInstagramConnections = `-- name: ListUnflaggedExpiredInstagramConnections :many
+SELECT complex_id, expires_at
+FROM instagram_connections
+WHERE NOT needs_reconnect
+  AND expires_at <= $1::timestamptz
+ORDER BY expires_at
+LIMIT $2::int
+`
+
+type ListUnflaggedExpiredInstagramConnectionsParams struct {
+	Now      pgtype.Timestamptz `json:"now"`
+	RowLimit int32              `json:"row_limit"`
+}
+
+type ListUnflaggedExpiredInstagramConnectionsRow struct {
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// Instagram connections whose token has expired and that are not flagged for
+// a reconnect yet. Listed (rather than flagged in bulk) so each one can be
+// flagged with its expiry as the guard and its owner told once.
+func (q *Queries) ListUnflaggedExpiredInstagramConnections(ctx context.Context, arg ListUnflaggedExpiredInstagramConnectionsParams) ([]ListUnflaggedExpiredInstagramConnectionsRow, error) {
+	rows, err := q.db.Query(ctx, listUnflaggedExpiredInstagramConnections, arg.Now, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnflaggedExpiredInstagramConnectionsRow
+	for rows.Next() {
+		var i ListUnflaggedExpiredInstagramConnectionsRow
+		if err := rows.Scan(&i.ComplexID, &i.ExpiresAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

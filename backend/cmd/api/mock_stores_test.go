@@ -563,6 +563,14 @@ func (m *mockComplexStore) RecordMPRefreshFailureNotice(context.Context, uuid.UU
 	return nil
 }
 
+func (m *mockComplexStore) ComplexOwnerAndName(context.Context, uuid.UUID) (uuid.UUID, string, error) {
+	return uuid.Nil, "", data.ErrRecordNotFound
+}
+
+func (m *mockComplexStore) ListUnflaggedExpiredInstagramConnections(context.Context, time.Time, int) ([]complexstore.ExpiredInstagramConnection, error) {
+	return nil, nil
+}
+
 func (m *mockComplexStore) SlugExists(ctx context.Context, slug string) (bool, error) {
 	if m.SlugExistsFn != nil {
 		return m.SlugExistsFn(ctx, slug)

@@ -645,6 +645,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Audit:    auditor,
 		Respond:  respond,
 		Logger:   d.logger,
+		// The owner hears when the connection needs reconnecting.
+		Notify:  notify,
+		Notices: d.models.Complexes,
 	}, complexes.InstagramConfig{
 		Available:      cfg.Instagram.Available(),
 		AllowedEmails:  cfg.Instagram.AllowedEmails,
@@ -660,6 +663,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		API:    instagramClient,
 		Store:  d.models.InstagramStories,
 		Logger: d.logger,
+		Notify: notify,
+		Owners: d.models.Complexes,
 	}, complexes.InstagramStoriesConfig{
 		Available:   cfg.Instagram.Available(),
 		PublicURL:   cfg.PublicBaseURL(),
