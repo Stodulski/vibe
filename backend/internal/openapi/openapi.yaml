@@ -7816,9 +7816,12 @@ components:
             partner: {$ref: "#/components/schemas/TournamentOwnerPlayer"}
             registration:
               type: object
-              description: The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`).
-              required: [status, price, service_fee, held_until, confirmed_at, cancelled_by, signed_up_at]
+              description: >-
+                The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). `id`
+                is what `tournamentsPairWithdraw` names the pair by.
+              required: [id, status, price, service_fee, held_until, confirmed_at, cancelled_by, signed_up_at]
               properties:
+                id: {type: string, format: uuid}
                 status: {type: string, enum: [held, confirmed, cancelled, expired]}
                 price: {type: integer}
                 service_fee: {type: integer}

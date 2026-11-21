@@ -4881,11 +4881,12 @@ type TournamentOwnerPair struct {
 	} `json:"payment"`
 	Players []TournamentPlayer `json:"players"`
 
-	// Registration The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`).
+	// Registration The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). `id` is what `tournamentsPairWithdraw` names the pair by.
 	Registration struct {
 		CancelledBy *TournamentOwnerPairRegistrationCancelledBy `json:"cancelled_by"`
 		ConfirmedAt *time.Time                                  `json:"confirmed_at"`
 		HeldUntil   time.Time                                   `json:"held_until"`
+		Id          openapi_types.UUID                          `json:"id"`
 		Price       int                                         `json:"price"`
 		ServiceFee  int                                         `json:"service_fee"`
 		SignedUpAt  time.Time                                   `json:"signed_up_at"`
