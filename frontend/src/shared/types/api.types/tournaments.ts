@@ -45,6 +45,9 @@ export type CancelTournamentResponse = Ok<'tournamentsCancel'>;
 
 export type CancelTournamentCategoryResponse = Ok<'tournamentsCategoryCancel'>;
 
+/** `POST .../pairs/{registrationID}/withdraw`: the pair the owner took out and its refund. */
+export type WithdrawPairResponse = Ok<'tournamentsPairWithdraw'>;
+
 export type DrawGenerateRequest = Body<'tournamentsDrawGenerate'>;
 
 export type DrawMoveRequest = Body<'tournamentsDrawMove'>;

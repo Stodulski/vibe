@@ -6,6 +6,7 @@ import {
   matchEnvelopeSchema,
   tournamentDetailSchema,
   tournamentsListSchema,
+  withdrawPairSchema,
 } from '../schemas/tournaments.schema';
 import type {
   CancelTournamentCategoryResponse,
@@ -20,6 +21,7 @@ import type {
   TournamentDetailResponse,
   TournamentMatchResponse,
   TournamentsListResponse,
+  WithdrawPairResponse,
 } from '@/shared/types/api.types';
 
 const base = (complexId: string) => `complexes/${complexId}/tournaments`;
@@ -59,6 +61,17 @@ export const tournamentsApi = {
       .post(`${category(complexId, tournamentId, categoryId)}/cancel`)
       .json()
       .then(parseWith(cancelCategorySchema, 'tournamentsApi.cancelCategory')),
+
+  withdrawPair: (
+    complexId: string,
+    tournamentId: string,
+    categoryId: string,
+    registrationId: string,
+  ): Promise<WithdrawPairResponse> =>
+    api
+      .post(`${category(complexId, tournamentId, categoryId)}/pairs/${registrationId}/withdraw`)
+      .json()
+      .then(parseWith(withdrawPairSchema, 'tournamentsApi.withdrawPair')),
 
   generateDraw: (
     complexId: string,

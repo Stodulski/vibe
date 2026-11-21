@@ -51,6 +51,7 @@ export function makePair(opts: {
     payer: owner(first, payerTraits),
     partner: owner(second, partnerTraits),
     registration: {
+      id: `reg-${opts.id}`,
       status: registration,
       price: 2000000,
       service_fee: 100000,
