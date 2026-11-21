@@ -358,7 +358,7 @@ func (s *Service) openCheckout(ctx context.Context, req checkoutRequest) (Public
 			"booking_id", booking.ID,
 		)
 		// Cancel the booking so the slot is freed immediately instead of
-		// blocking it for 15 minutes until the expiration sweep runs.
+		// blocking it for the whole payment window until the expiration sweep runs.
 		//
 		// The client may have left while MercadoPago was refusing the checkout,
 		// and that cancels ctx. A cancelled context fails the write before it
