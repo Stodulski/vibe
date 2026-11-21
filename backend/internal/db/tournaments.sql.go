@@ -826,12 +826,14 @@ SELECT c.id, c.tournament_id, c.complex_id, c.event_id, c.name, c.format, c.grou
        e.capacity AS capacity,
        e.price AS price,
        e.status AS event_status,
+       t.start_date AS tournament_start_date,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
+JOIN tournaments t ON t.id = c.tournament_id
 WHERE c.tournament_id = $1
 ORDER BY c.created_at, c.id
 `
@@ -862,6 +864,7 @@ type ListTournamentCategoriesRow struct {
 	Capacity             int32              `json:"capacity"`
 	Price                int32              `json:"price"`
 	EventStatus          string             `json:"event_status"`
+	TournamentStartDate  pgtype.Date        `json:"tournament_start_date"`
 	ConfirmedCount       int32              `json:"confirmed_count"`
 	HeldCount            int32              `json:"held_count"`
 }
@@ -904,6 +907,7 @@ func (q *Queries) ListTournamentCategories(ctx context.Context, tournamentID pgt
 			&i.Capacity,
 			&i.Price,
 			&i.EventStatus,
+			&i.TournamentStartDate,
 			&i.ConfirmedCount,
 			&i.HeldCount,
 		); err != nil {
@@ -1322,6 +1326,30 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 		&i.StartsAt,
 	)
 	return i, err
+}
+
+const pairOfRegistrationPlayersTaken = `-- name: PairOfRegistrationPlayersTaken :one
+SELECT EXISTS (
+  SELECT 1
+  FROM tournament_pairs me
+  JOIN open_play_registrations mr ON mr.id = me.registration_id
+  JOIN tournament_pairs tp ON tp.category_id = me.category_id AND tp.id <> me.id AND tp.status = 'active'
+  JOIN open_play_registrations r ON r.id = tp.registration_id
+  WHERE me.registration_id = $1
+    AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))
+    AND (r.phone IN (mr.phone, me.partner_phone) OR tp.partner_phone IN (mr.phone, me.partner_phone))
+) AS taken
+`
+
+// Whether either player of a registration's pair is a player of another live
+// pair of the category: the payer of a paid or still-held sign-up, or its
+// partner. A late payment on a pair whose hold ran out is refused when one is:
+// its players signed up again in another pair meanwhile.
+func (q *Queries) PairOfRegistrationPlayersTaken(ctx context.Context, registrationID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, pairOfRegistrationPlayersTaken, registrationID)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
 }
 
 const pairPlayersTaken = `-- name: PairPlayersTaken :one

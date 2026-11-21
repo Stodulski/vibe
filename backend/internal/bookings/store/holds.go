@@ -77,11 +77,22 @@ func HashHoldToken(plaintext string) []byte {
 // InsertHold inserts b as a hold, carrying its token hash and the address that
 // took it, through the same guarded insert InsertSafe runs.
 //
+// A nil tokenHash inserts a storefront booking that is not a hold — POST /book
+// without a hold token, whose b carries its ClientSnapshot — with the address
+// and under the same cap, which that path otherwise escaped entirely.
+//
+// The cap counts every storefront booking from the address that still holds
+// its slot: an untouched hold, and one converted (or booked without a hold)
+// whose payment has not arrived within its window. Counting only untouched
+// holds let one address convert each hold with made-up details and take the
+// next. Payment attaches the client and clears the address
+// (AttachBookingClient), and the expiry window ends the rest.
+//
 // The per-address cap is counted and enforced in the same transaction, under
 // a transaction-scoped advisory lock on the address, so two requests from one
 // address cannot both see room for one more. That lock is always taken before
 // the court-day locks the insert takes, and nothing takes them the other way
-// round, so the two cannot deadlock.
+// round, so the two cannot deadlock. A maxPerIP of 0 enforces no cap.
 func (m *Store) InsertHold(ctx context.Context, b *Booking, tokenHash []byte, ip string, maxPerIP int) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
@@ -99,12 +110,15 @@ func (m *Store) InsertHold(ctx context.Context, b *Booking, tokenHash []byte, ip
 			SELECT COUNT(*) FROM bookings b
 			WHERE b.hold_ip = $1
 			  AND b.status = 'pending'
-			  AND b.created_at > NOW() - make_interval(secs => $2)
-			  AND `+untouchedHold, ip, m.PaymentExpiry.Seconds()).Scan(&live)
+			  AND b.created_by IS NULL
+			  AND b.collection_status = 'unpaid'
+			  AND b.client_id IS NULL
+			  AND b.created_at > NOW() - make_interval(secs => $2)`,
+			ip, m.PaymentExpiry.Seconds()).Scan(&live)
 		if err != nil {
 			return fmt.Errorf("count live holds: %w", err)
 		}
-		if live >= maxPerIP {
+		if maxPerIP > 0 && live >= maxPerIP {
 			return ErrHoldLimit
 		}
 
@@ -143,9 +157,12 @@ func (m *Store) GetHold(ctx context.Context, tokenHash []byte) (*Booking, error)
 }
 
 // ConvertHold turns the hold b.ID into the storefront booking POST /book used
-// to insert: it writes b.ClientSnapshot and b.Notes, clears the token and the
-// address, and mints the booking's link token into b.LinkToken, in one
-// transaction.
+// to insert: it writes b.ClientSnapshot and b.Notes, clears the token, and
+// mints the booking's link token into b.LinkToken, in one transaction.
+//
+// The address is kept: until it is paid the converted booking still counts
+// against the address that took it (see InsertHold), and the payment write
+// clears it (AttachBookingClient).
 //
 // The UPDATE re-checks, under the row lock, that the row is still the live,
 // untouched hold this token names. A second conversion, a release or the
@@ -170,7 +187,7 @@ func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) e
 			UPDATE bookings b
 			SET client_first_name = $3, client_last_name = $4, client_phone = $5, client_email = $6,
 			    notes = COALESCE($7, b.notes),
-			    hold_token_hash = NULL, hold_ip = NULL
+			    hold_token_hash = NULL
 			WHERE b.id = $1
 			  AND b.hold_token_hash = $2
 			  AND b.status = 'pending'

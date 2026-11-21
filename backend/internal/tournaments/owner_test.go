@@ -12,12 +12,15 @@ import (
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
+// day counts from Argentina's today, the date validate checks against: the UTC
+// date is a day ahead from 21:00 to midnight there.
 func day(offset int) time.Time {
-	d := time.Now().AddDate(0, 0, offset)
+	d := timezone.Today().AddDate(0, 0, offset)
 	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
 }
 
@@ -396,5 +399,19 @@ func TestAWinnerOnlyResultReachesTheStore(t *testing.T) {
 	}
 	if last := f.store.results[len(f.store.results)-1]; last.Winner != 2 || last.MatchID != mid || len(last.Sets) != 0 {
 		t.Errorf("winner input = %+v", last)
+	}
+}
+
+// S19: "today" is Argentina's date, whatever zone the process runs in. At 22:00
+// in Buenos Aires the UTC date is already tomorrow; a tournament that starts
+// today is not in the past.
+func TestCreateReadsTodayOnArgentinasClock(t *testing.T) {
+	now := time.Date(2026, 11, 21, 1, 0, 0, 0, time.UTC) // 22:00 on the 20th in Buenos Aires
+	today := time.Date(2026, 11, 20, 0, 0, 0, 0, time.UTC)
+	in := validCreate()
+	in.StartDate, in.EndDate = today, today.AddDate(0, 0, 1)
+	in.Categories[0].StartsOn, in.Categories[1].StartsOn = today, today
+	if errs := in.validate(now); errs["start_date"] != "" {
+		t.Fatalf("a tournament starting today must be accepted at 22:00; got %v", errs)
 	}
 }

@@ -226,6 +226,8 @@ export const bookings = {
     endConfirmTitle: 'Cancelar el turno fijo',
     endConfirmDescription:
       'Esta fecha y las siguientes quedan libres. Si alguna ya tiene su reserva sin pago, se cancela; si tiene un pago, se mantiene.',
+    endConfirmDescriptionStarted:
+      'Este turno ya empezó y se mantiene. Las fechas siguientes quedan libres. Si alguna ya tiene su reserva sin pago, se cancela; si tiene un pago, se mantiene.',
     endConfirmLabel: 'Cancelar turno fijo',
     endSuccess: (cancelled: number, kept: number) => {
       const ended = 'Turno fijo cancelado';

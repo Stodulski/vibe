@@ -17,7 +17,7 @@ SET client_id = $2,
     client_first_name = NULL,
     client_last_name = NULL,
     client_phone = NULL,
-    client_email = NULL
+    hold_ip = NULL
 WHERE id = $1 AND client_id IS NULL
 RETURNING client_id
 `
@@ -29,11 +29,85 @@ type AttachBookingClientParams struct {
 
 // Names the booking's client and drops the snapshot it was held under, so the
 // person is recorded in one place (clients) once the booking succeeded.
+//
+// client_email is kept: it is the address typed for THIS booking, and its
+// notices go there (bookingstore.ContactOf). The client row keeps its own
+// email; an unauthenticated storefront request never overwrites it, so
+// clearing this column sent a returning client's notices to an address they
+// did not give for this booking.
+//
+// hold_ip goes too: a paid booking is nobody's hold and stops counting against
+// the address that took it (bookingstore.Store.InsertHold).
 func (q *Queries) AttachBookingClient(ctx context.Context, arg AttachBookingClientParams) (pgtype.UUID, error) {
 	row := q.db.QueryRow(ctx, attachBookingClient, arg.ID, arg.ClientID)
 	var client_id pgtype.UUID
 	err := row.Scan(&client_id)
 	return client_id, err
+}
+
+const cancelUnpaidSeriesOccurrence = `-- name: CancelUnpaidSeriesOccurrence :one
+UPDATE bookings
+SET status = 'cancelled',
+    notes = CASE WHEN notes IS NULL THEN $1::text
+                 ELSE notes || ' | ' || $1::text END
+WHERE id = $2
+  AND series_id = $3
+  AND status IN ('pending', 'confirmed')
+  AND collection_status = 'unpaid'
+  AND lower(span) > $4::timestamptz
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+`
+
+type CancelUnpaidSeriesOccurrenceParams struct {
+	Note     string             `json:"note"`
+	ID       pgtype.UUID        `json:"id"`
+	SeriesID pgtype.UUID        `json:"series_id"`
+	Now      pgtype.Timestamptz `json:"now"`
+}
+
+// Ending a series cancels one of its occurrences, but only while it is still
+// the occurrence the owner meant: active, nothing collected, and its hours
+// still ahead of now. A counter payment, a cancellation or the start of the
+// game that commits first leaves the row out (no rows), and the booking
+// stands. Run inside the transaction that also moves the series' end.
+func (q *Queries) CancelUnpaidSeriesOccurrence(ctx context.Context, arg CancelUnpaidSeriesOccurrenceParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, cancelUnpaidSeriesOccurrence,
+		arg.Note,
+		arg.ID,
+		arg.SeriesID,
+		arg.Now,
+	)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.CourtID,
+		&i.ClientID,
+		&i.Date,
+		&i.StartTime,
+		&i.DurationMinutes,
+		&i.Price,
+		&i.DepositAmount,
+		&i.Status,
+		&i.ReminderSent2h,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RefundIntentAt,
+		&i.Span,
+		&i.CollectionStatus,
+		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
+		&i.HoldTokenHash,
+		&i.HoldIp,
+		&i.SeriesID,
+		&i.AttendedAt,
+	)
+	return i, err
 }
 
 const getBookedSlots = `-- name: GetBookedSlots :many

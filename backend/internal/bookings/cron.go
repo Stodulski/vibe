@@ -12,8 +12,10 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
@@ -118,7 +120,14 @@ func (s *Service) Reminder2h(ctx context.Context) {
 // its own copy of the expiry code, and the copy had already drifted — one
 // attempt against the cancel path's two, and a credential it could not decrypt
 // quietly became a call made as the platform.
-func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
+//
+// Before a booking is expired MercadoPago itself is asked whether its checkout
+// was paid (reconcileBeforeExpiry): a notification that never arrived, or was
+// refused, used to leave an approved payment unrecorded while this sweep
+// cancelled the booking and sold its hours again. An approved payment is handed
+// to reconciler, which processes it as the webhook would have, and the booking
+// is left for that processing to confirm or refund.
+func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler PaymentReconciler) {
 	s.releaseExpiredHolds(ctx)
 
 	bookings, err := s.store.GetExpiredPendingEnriched(ctx, s.cfg.PaymentExpiry)
@@ -132,6 +141,10 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 		// Expire the MP preference FIRST so the client can't pay while we cancel.
 		s.expireCheckoutPreference(ctx, &b.Booking, b)
 
+		if s.reconcileBeforeExpiry(ctx, b, reconciler) {
+			continue
+		}
+
 		note := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
 		if err := s.cancelUnpaidHold(ctx, b, note); err != nil {
 			s.logger.Error("cron_release_expired_payments: failed to cancel booking", "error", err, "booking_id", b.ID)
@@ -142,6 +155,117 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context) {
 	}
 
 	s.logger.Info("cron_release_expired_payments: completed", "candidates", len(bookings), "released", released)
+}
+
+// reconcileGiveUp is how long after its payment window an unpaid booking is
+// kept while MercadoPago cannot be asked about it. Past it the booking is
+// expired anyway: its hours already read as free to everyone else (the stale
+// pending carve-out), and a payment that surfaces later is refunded by the
+// confirmation path's late-payment handling, as it always was.
+const reconcileGiveUp = time.Hour
+
+// reconcileBeforeExpiry asks MercadoPago for the payments made against b's
+// checkout and reports whether b must be left pending rather than expired:
+// b has not been expired for reconcileGiveUp yet, and either an approved
+// payment was found (and handed to reconciler) or MercadoPago could not be
+// asked.
+//
+// A booking with no checkout link (no payment row carrying a preference) could
+// not have been paid online, and one whose seller credential is unreadable
+// cannot be asked about; both are expired as before.
+func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) bool {
+	if reconciler == nil {
+		return false
+	}
+	payment, err := s.payments.GetByBookingID(ctx, b.ID)
+	switch {
+	case errors.Is(err, data.ErrRecordNotFound):
+		return false
+	case err != nil:
+		s.logger.Error("cron_release_expired_payments: payment row unreadable, cannot ask MercadoPago; booking kept",
+			"error", err, "booking_id", b.ID)
+		return s.withinReconcileGrace(b)
+	case payment.MPPreferenceID == nil || *payment.MPPreferenceID == "":
+		return false
+	}
+
+	// The same party closeCheckout addressed the link as: the seller whose
+	// checkout it is. An unreadable credential has already been alerted on
+	// there, and asking as anyone else would answer about the wrong account.
+	caller, err := expiryCaller(b)
+	if err != nil {
+		return false
+	}
+
+	found, err := s.checkout.SearchPaymentsByReference(ctx, b.ID.String(), caller)
+	if err != nil {
+		s.logger.Error("cron_release_expired_payments: MercadoPago could not be asked about the checkout; booking kept",
+			"error", err, "booking_id", b.ID)
+		return s.withinReconcileGrace(b)
+	}
+
+	// An approved payment keeps the booking only for reconcileGiveUp, the same
+	// bound the unreachable branch above uses. One the processing declines
+	// without recording (a collector or amount mismatch) or keeps failing on
+	// never confirms the booking; unbounded, every run kept it, wrote another
+	// inbox row and raised another alert, forever. Past the window it is left
+	// to a person, named in the error below, and the booking expires as it
+	// did before this reconciliation existed.
+	withinGrace := s.withinReconcileGrace(b)
+	approved := false
+	for _, p := range found {
+		if p.Status != "approved" || p.ExternalReference != b.ID.String() {
+			continue
+		}
+		mpPaymentID := strconv.FormatInt(p.ID, 10)
+		if !withinGrace {
+			s.logger.Error("cron_release_expired_payments: approved payment never confirmed the booking within the give-up window; booking expired, payment needs manual review",
+				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+			sentry.CaptureMessage(fmt.Sprintf("APPROVED PAYMENT NEVER CONFIRMED, BOOKING EXPIRED (manual review): booking_id=%s mp_payment_id=%s",
+				b.ID, mpPaymentID))
+			continue
+		}
+		approved = true
+		if s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+			// Recorded, yet the booking is still unpaid: the processing has
+			// already decided about it and replaying it would only add inbox
+			// rows. The money is captured, so the booking is not expired.
+			s.logger.Error("cron_release_expired_payments: approved payment is recorded but the booking is unpaid; booking kept for review",
+				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+			continue
+		}
+		if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
+			s.logger.Error("cron_release_expired_payments: an approved payment could not be recorded; booking kept for the next run",
+				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		}
+	}
+	if approved {
+		s.logger.Warn("cron_release_expired_payments: booking was paid but never confirmed, reconciled instead of expired",
+			"booking_id", b.ID)
+	}
+	return approved
+}
+
+// paymentAlreadyRecorded reports whether the booking's ledger already holds a
+// settled row for mpPaymentID. An unreadable ledger answers false, so the
+// reconciliation goes ahead: its processing is idempotent.
+func (s *Service) paymentAlreadyRecorded(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) bool {
+	rows, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false
+	}
+	for _, r := range rows {
+		if r.MPPaymentID != nil && *r.MPPaymentID == mpPaymentID && r.Status != "unpaid" {
+			return true
+		}
+	}
+	return false
+}
+
+// withinReconcileGrace reports whether b's payment window closed less than
+// reconcileGiveUp ago.
+func (s *Service) withinReconcileGrace(b *bookingstore.CronBooking) bool {
+	return time.Since(b.CreatedAt.Add(s.cfg.PaymentExpiry)) < reconcileGiveUp
 }
 
 // releaseExpiredHolds deletes the slot holds nobody converted within the

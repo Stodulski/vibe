@@ -124,7 +124,7 @@ func (in *CreateInput) validate(now time.Time) map[string]string {
 	if !slices.Contains(allowedSports, in.Sport) {
 		errs["sport"] = "must be a supported sport"
 	}
-	today, start, end := timezone.Day(now), timezone.Day(in.StartDate), timezone.Day(in.EndDate)
+	today, start, end := timezone.Day(now.In(timezone.Argentina)), timezone.Day(in.StartDate), timezone.Day(in.EndDate)
 	switch {
 	case start.Before(today):
 		errs["start_date"] = "must not be in the past"

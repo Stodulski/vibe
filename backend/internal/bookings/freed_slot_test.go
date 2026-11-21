@@ -32,6 +32,28 @@ func TestAPublicCancelHandsTheFreedSlotToTheListener(t *testing.T) {
 	assertFreedSlot(t, f, complexID, "vibe", booking.CourtID, booking.StartsAt, booking.EndsAt)
 }
 
+// The owner cancelling a booking whose game has started frees no hours anyone
+// can still book: nobody on the waitlist or the freed-slot listener is told.
+func TestAnOwnerCancelOfAStartedBookingAnnouncesNothing(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking := futureBooking(complexID)
+	booking.StartsAt = time.Now().Add(-15 * time.Minute)
+	booking.EndsAt = booking.StartsAt.Add(90 * time.Minute)
+	booking.CollectionStatus = "unpaid"
+	f.store.booking = booking
+	complex := &complexstore.Complex{ID: complexID, Name: "Vibe", Slug: "vibe", CancellationHours: 24}
+	f.complexes.complex = complex
+	f.clients.client = &clientstore.Client{ID: booking.ClientID, Phone: "+5491155551234"}
+
+	if _, err := f.service.Cancel(t.Context(), complex, Actor{}, booking.ID, "lluvia"); err != nil {
+		t.Fatalf("Cancel: %v", err)
+	}
+	if len(f.freedSlots.slots) != 0 || len(f.waitlist.freed) != 0 {
+		t.Errorf("hours under way were announced: slots %v, waitlist %v", f.freedSlots.slots, f.waitlist.freed)
+	}
+}
+
 // The owner cancelling a booking frees its slot the same way.
 func TestAnOwnerCancelHandsTheFreedSlotToTheListener(t *testing.T) {
 	f := newFixture(t)

@@ -138,6 +138,9 @@ type Category struct {
 	Cancelled      bool
 	ConfirmedCount int
 	HeldCount      int
+	// TournamentStartDate is the first day of the tournament the category is
+	// part of: sign-up closes when it begins (SignUpClosedByDate).
+	TournamentStartDate time.Time
 }
 
 // MatchFormat is the format its results are validated and counted by.
@@ -152,6 +155,25 @@ func categoryFormat(c db.TournamentCategory) draw.Format {
 
 // SpotsLeft is the pairs that can still sign up.
 func (c *Category) SpotsLeft() int { return max(0, c.Capacity-c.ConfirmedCount-c.HeldCount) }
+
+// SignUpClosedByDate reports whether the category stopped taking pairs because
+// its tournament's start date has begun in Argentina (owner rule A2,
+// 2026-11-20), drawn or not.
+// A category read without its tournament's date (zero) is not closed by it: the
+// sign-up's own check (PairHooks) reads the tournament and decides for real.
+func (c *Category) SignUpClosedByDate(now time.Time) bool {
+	if c.TournamentStartDate.IsZero() {
+		return false
+	}
+	return SignUpClosedByDate(c.TournamentStartDate, now)
+}
+
+// SignUpClosedByDate reports whether a tournament starting on startDate (a
+// calendar date, whatever its location) has begun at now, on Argentina's clock.
+func SignUpClosedByDate(startDate, now time.Time) bool {
+	first := time.Date(startDate.Year(), startDate.Month(), startDate.Day(), 0, 0, 0, 0, timezone.Argentina)
+	return !now.Before(first)
+}
 
 // Pair is two players signed up together. The payer is the registration's
 // person.
@@ -335,6 +357,7 @@ func categoryFromRow(r db.ListTournamentCategoriesRow) *Category {
 		MatchDurationMinutes: int(r.MatchDurationMinutes), CourtFee: int(r.CourtFee),
 		DrawGeneratedAt: data.PgToTimePtr(r.DrawGeneratedAt), Capacity: int(r.Capacity), Price: int(r.Price),
 		Cancelled: r.EventStatus != "active", ConfirmedCount: int(r.ConfirmedCount), HeldCount: int(r.HeldCount),
+		TournamentStartDate: data.PgToDate(r.TournamentStartDate),
 	}
 }
 

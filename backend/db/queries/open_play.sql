@@ -75,6 +75,17 @@ UPDATE open_play_registrations
 SET status = 'expired'
 WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
 
+-- name: PhoneHoldsAnotherLiveSpot :one
+-- Whether the person of a registration (by phone) holds a live spot of the
+-- event other than that registration: paid, or a hold still inside its window.
+-- A late payment on a hold that ran out is refused when they do: the person
+-- signed up again, and confirming the old spot would give them two.
+SELECT EXISTS (
+  SELECT 1 FROM open_play_registrations
+  WHERE event_id = sqlc.arg(event_id) AND phone = sqlc.arg(phone) AND id <> sqlc.arg(except_id)
+    AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+) AS taken;
+
 -- name: InsertOpenPlayRegistration :one
 -- The hold ends hold_seconds from now on the database's clock, the one every
 -- capacity count compares held_until against.
@@ -134,10 +145,22 @@ WHERE id = $1 AND status IN ('held', 'expired')
 RETURNING *;
 
 -- name: CancelOpenPlayRegistration :one
+-- refund_owed marks, in the cancellation's own write, that the money the
+-- registration holds is owed back (migration 040): the refund sweep finishes
+-- that refund if the request that cancelled never does.
 UPDATE open_play_registrations
-SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2
-WHERE id = $1 AND status IN ('held', 'confirmed')
+SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = sqlc.arg(cancelled_by),
+    refund_intent_at = CASE WHEN sqlc.arg(refund_owed)::bool THEN NOW() END
+WHERE id = sqlc.arg(id) AND status IN ('held', 'confirmed')
 RETURNING *;
+
+-- name: LockEventCategoryDraw :one
+-- Whether the tournament category an event is the sign-up container of has its
+-- draw, read under the category's row lock: the lock the draw itself holds, taken
+-- after the event's (payment confirmation takes them in the same order).
+SELECT (draw_generated_at IS NOT NULL)::bool AS drawn FROM tournament_categories
+WHERE event_id = $1
+FOR UPDATE;
 
 -- name: CancelOpenPlayEventRegistrations :many
 -- The owner cancelling an event ends every registration of it at once. The rows
@@ -157,14 +180,16 @@ WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id;
 
 -- name: ListOwnerCancelledRegistrationsStillPaid :many
--- Registrations the owner's cancellation ended whose money has not been sent
--- back, once the cancellation is older than the grace: the refund the cancel
--- request itself never finished (a crash, a provider outage that outlived its
--- retries). The sweep drives each through the same refund path the cancel uses.
+-- Cancelled registrations whose money is owed back and has not been sent, once
+-- the cancellation is older than the grace: the refund the cancel request
+-- itself never finished (a crash, a provider outage that outlived its retries).
+-- The owner's cancellation always owes it; a participant's only when it came
+-- inside the refund window, which its write marked with refund_intent_at. The
+-- sweep drives each through the same refund path the cancel uses.
 SELECT r.id, r.complex_id
 FROM open_play_registrations r
 JOIN payments p ON p.registration_id = r.id
-WHERE r.status = 'cancelled' AND r.cancelled_by = 'owner'
+WHERE r.status = 'cancelled' AND (r.cancelled_by = 'owner' OR r.refund_intent_at IS NOT NULL)
   AND r.cancelled_at < sqlc.arg(older_than)::timestamptz
   AND p.method = 'mercadopago'
   AND p.status IN ('deposit_paid', 'fully_paid', 'partial_refund')

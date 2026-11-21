@@ -175,6 +175,21 @@ func (m *Payments) guardSlotStillFree(ctx context.Context, tx pgx.Tx, qtx *db.Qu
 		return err
 	}
 
+	// The court-day lock serializes this against booking inserts and blocked
+	// slots, but creating an event, a fixed weekly series or a tournament match
+	// takes no court-day lock: it takes the court's row FOR UPDATE and checks
+	// the hours under it. Without the court row here the two contended on
+	// nothing, and a late webhook could confirm over an event committed at the
+	// same moment, each check blind to the other's uncommitted row. FOR SHARE,
+	// after the advisory lock, as every booking insert takes it
+	// (slotguard.LockCourtLive): it waits for such a creation to commit, and
+	// the check below then sees what it wrote; one that starts later waits for
+	// this confirmation and finds the booking. A court deleted meanwhile is
+	// ErrRecordNotFound, as on the insert path.
+	if err := slotguard.LockCourtLive(ctx, tx, b.CourtID); err != nil {
+		return err
+	}
+
 	// The booking being confirmed overlaps itself, so it is the one row the
 	// overlap query has to ignore.
 	taken, err := bookingstore.SlotTaken(ctx, tx, b, m.PaymentExpiry, b.ID)
@@ -346,6 +361,30 @@ func (m *Payments) Update(ctx context.Context, p *Payment) error {
 	return nil
 }
 
+// RecordRejection writes a rejected attempt's MercadoPago id (p.MPPaymentID)
+// and decline reason (p.StatusDetail) onto p.ID and reports whether it wrote.
+// It writes only while the row is still unpaid and never touches its status:
+// a row an approved payment settled after the caller read it keeps that
+// payment's id, so its refund still goes to the money that was captured.
+func (m *Payments) RecordRejection(ctx context.Context, p *Payment) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, p.ComplexID); err != nil {
+		return false, err
+	}
+
+	n, err := m.Q.RecordPaymentRejection(ctx, db.RecordPaymentRejectionParams{
+		ID:           data.UUIDToPg(p.ID),
+		MpPaymentID:  data.TextToPg(p.MPPaymentID),
+		StatusDetail: data.TextToPg(p.StatusDetail),
+	})
+	if err != nil {
+		return false, fmt.Errorf("payments: record rejection: %w", err)
+	}
+	return n == 1, nil
+}
+
 // UpdateUnlessRefundPending is Update for the webhook's record of a refund
 // MercadoPago reports. It writes only while the row is not 'refund_pending' and
 // reports whether it wrote: the webhook read the row before it called
@@ -399,7 +438,15 @@ func (m *Payments) InsertAndConfirmBooking(ctx context.Context, p *Payment, b *b
 		return err
 	}
 
-	return m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	// Retried whole on a deadlock: the court-day lock and the court row lock
+	// taken here meet series creation's court row and court-day locks in the
+	// opposite order (bookingstore.Store.InsertSeriesWithBookings). The body does nothing
+	// outside the transaction, and p and b are put back as they were before
+	// every attempt, so an aborted attempt leaves no trace a replay could trip
+	// on (attachClient, for one, skips a booking that already names a client).
+	pIn, bIn := *p, *b
+	return m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
+		*p, *b = pIn, bIn
 		return m.ConfirmInTx(ctx, tx, qtx, p, b)
 	})
 }
@@ -567,8 +614,13 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 		return false, err
 	}
 
+	// Retried whole on a deadlock, for the reason InsertAndConfirmBooking
+	// gives, with p and b put back before every attempt.
 	written := false
-	err := m.DB.WithTx(ctx, func(tx pgx.Tx, qtx *db.Queries) error {
+	pIn, bIn := *p, *b
+	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
+		*p, *b = pIn, bIn
+		written = false
 		// Before anything is written: the slot this booking is about to claim has to
 		// still be free.
 		if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {

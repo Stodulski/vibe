@@ -230,6 +230,7 @@ func TestTheRetryJobNotifiesAPersonWhoseQueuedRefundFinished(t *testing.T) {
 // refund is alerted rather than guessed at.
 func TestAWebhookForARecordedRegistrationPaymentChangesNothing(t *testing.T) {
 	f, reg, paid, notifier := registrationFixture(t)
+	confirmSpot(reg)
 	mpID := "mp-123"
 	f.payments.byMPID = &paymentstore.Payment{ID: uuid.New(), RegistrationID: &reg.ID, Status: "deposit_paid", MPPaymentID: &mpID}
 	f.provider.payment = paid
@@ -259,4 +260,11 @@ func TestTheWebhookRoutesARegistrationPaymentToTheRegistrationFlow(t *testing.T)
 	if len(notifier.registered) != 1 || f.bookings.updated != nil {
 		t.Errorf("registered = %d, booking touched = %v", len(notifier.registered), f.bookings.updated != nil)
 	}
+}
+
+// confirmSpot puts a registration in the state a recorded, collected payment
+// leaves it: confirming writes the payment and the confirmation together.
+func confirmSpot(reg *eventstore.Registration) {
+	at := time.Now().Add(-time.Hour)
+	reg.Status, reg.ConfirmedAt = eventstore.RegistrationConfirmed, &at
 }

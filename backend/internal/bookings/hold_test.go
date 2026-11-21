@@ -378,7 +378,7 @@ func TestTheExpirySweepDeletesUntouchedHolds(t *testing.T) {
 	nobody.ClientEmail, nobody.ClientPhone = "", ""
 	f.store.expiredPending = []*bookingstore.CronBooking{nobody}
 
-	f.service.ReleaseExpiredPayments(t.Context())
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
 	if len(f.store.expiredHoldWindows) != 1 || f.store.expiredHoldWindows[0] != 15*time.Minute {
 		t.Fatalf("want the hold sweep run with the payment expiry; got %v", f.store.expiredHoldWindows)

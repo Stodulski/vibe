@@ -1341,10 +1341,10 @@ func TestPublicStatusGraceStillOpenAfterWindowClosed(t *testing.T) {
 	complexID := uuid.New()
 	now := time.Now().In(timezone.Argentina)
 	booking := futureBooking(complexID)
-	// Starts in 2 minutes against a 24h window: the standard window closed
+	// Starts in 30 minutes against a 24h window: the standard window closed
 	// long before this booking was even made.
-	booking.Date = now
-	booking.StartTime = now.Add(2 * time.Minute).Format("15:04")
+	booking.Date = now.Add(30 * time.Minute)
+	booking.StartTime = now.Add(30 * time.Minute).Format("15:04")
 	booking.CreatedAt = now.Add(-time.Minute)
 	f.linkResolver.booking = booking
 	f.complexes.complex = &complexstore.Complex{ID: complexID, Name: "Vibe", CancellationHours: 24}
@@ -1455,8 +1455,10 @@ func TestPublicCancelOutsideTheWindowDoesNotRefund(t *testing.T) {
 	booking := futureBooking(complexID)
 	// Two hours from now, against a 24-hour window, and created long enough ago
 	// that the grace period has passed.
-	booking.Date = time.Now().In(timezone.Argentina)
-	booking.StartTime = time.Now().In(timezone.Argentina).Add(2 * time.Hour).Format("15:04")
+	// The date of the start itself: from 22:00 two hours ahead is tomorrow.
+	start := time.Now().In(timezone.Argentina).Add(2 * time.Hour)
+	booking.Date = start
+	booking.StartTime = start.Format("15:04")
 	booking.CreatedAt = time.Now().Add(-24 * time.Hour)
 	f.store.booking = booking
 	f.linkResolver.booking = booking

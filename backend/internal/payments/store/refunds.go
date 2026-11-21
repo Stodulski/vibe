@@ -758,6 +758,10 @@ type RefundOutcome struct {
 	// Reason is a short operator-facing note. It is logged and alerted on, never
 	// shown to a client.
 	Reason string
+	// LedgerUnread says the payments behind the outcome could not be read, so
+	// whether any money is owed at all is not known: nothing may tell the
+	// client a refund is on its way. Result is RefundManual, for a person to look.
+	LedgerUnread bool
 }
 
 // MoneyReturned reports whether the client already has their money back.

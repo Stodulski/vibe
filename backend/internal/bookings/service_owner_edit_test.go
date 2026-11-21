@@ -62,7 +62,8 @@ func (r *racingStore) UpdateIfUnchanged(_ context.Context, b *bookingstore.Booki
 func TestOwnerEditDoesNotRevertAConcurrentCancellation(t *testing.T) {
 	f := newFixture(t)
 	complexID := uuid.New()
-	row := futureBooking(complexID)
+	// Started, so a no-show is a legal edit on the snapshot the owner read.
+	row := endedBooking(complexID)
 	row.UpdatedAt = time.Now().Add(-time.Minute)
 
 	racing := &racingStore{stubStore: f.store, row: row}

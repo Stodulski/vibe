@@ -136,6 +136,26 @@ func TestThePublicWireMatchesTheDocumentAndShowsNoContactData(t *testing.T) {
 	}
 }
 
+// S21: a pair that withdrew after the draw left a cancelled registration behind,
+// but it is still in the bracket: the public view keeps its name, marked
+// withdrawn, so its matches do not read as empty slots.
+func TestThePublicViewKeepsAPairThatWithdrewAfterTheDraw(t *testing.T) {
+	f := newFixture(t)
+	d := richDetail(f)
+	gone := d.Pairs[2]
+	gone.RegistrationStatus, gone.Status = "cancelled", tournamentstore.PairWithdrawn
+	w := f.handler().publicDetail(t.Context(), f.complex.ID, d)
+	for _, p := range w.Pairs.([]wirePair) {
+		if p.ID == gone.ID {
+			if p.Status != tournamentstore.PairWithdrawn || len(p.Players) == 0 || p.Players[0].LastName != "Tres" {
+				t.Fatalf("withdrawn pair = %+v; want its names and the withdrawn status", p)
+			}
+			return
+		}
+	}
+	t.Fatal("a pair that withdrew after the draw must stay on the public bracket")
+}
+
 func TestThePairViewsMatchTheDocument(t *testing.T) {
 	f := newFixture(t)
 	view := &PairView{

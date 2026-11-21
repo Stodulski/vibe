@@ -190,7 +190,7 @@ func toWireCategory(c *tournamentstore.Category, serviceFee *int) wireCategory {
 	switch {
 	case c.Cancelled:
 		status = "cancelled"
-	case c.DrawGeneratedAt != nil:
+	case c.DrawGeneratedAt != nil, c.SignUpClosedByDate(time.Now()):
 		status = "closed"
 	}
 	out := wireCategory{

@@ -16,6 +16,12 @@ const upcoming = {
   starts_at: new Date(hourAhead).toISOString(),
   ends_at: new Date(hourAhead + 3_600_000).toISOString(),
 };
+// Started half an hour ago and not over yet: cancellable, and the client can
+// already be marked absent.
+const underWay = {
+  starts_at: new Date(Date.now() - 1_800_000).toISOString(),
+  ends_at: new Date(Date.now() + 3_600_000).toISOString(),
+};
 
 async function renderDetail(booking: Booking, payments: Payment[] = [], onAttended = vi.fn()) {
   const { bookingsApi } = await import('../api/bookings.api');
@@ -60,7 +66,7 @@ describe('BookingDetail footer', () => {
 
   it('shows two secondary actions as footer buttons, with no overflow menu', async () => {
     await renderDetail(
-      makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...upcoming }),
+      makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...underWay }),
     );
 
     const cancel = await screen.findByRole('button', { name: t.cancel });
@@ -162,6 +168,15 @@ describe('BookingDetail footer, a booking whose hours are over', () => {
 
     await screen.findByRole('button', { name: t.statuses.no_show });
     expect(screen.queryByRole('button', { name: t.statuses.completed })).not.toBeInTheDocument();
+  });
+
+  it('offers no no-show before the hours have started, which the server refuses', async () => {
+    await renderDetail(
+      makeBooking({ status: 'confirmed', collection_status: 'deposit_paid', refund_status: 'none', ...upcoming }),
+    );
+
+    await screen.findByRole('button', { name: t.cancel });
+    expect(screen.queryByRole('button', { name: t.statuses.no_show })).not.toBeInTheDocument();
   });
 
   it('offers no attendance while the hours are still ahead', async () => {

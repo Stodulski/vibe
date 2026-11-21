@@ -236,3 +236,79 @@ describe('useCreateBookingForm — deposit amount kept when hand-entered (02-boo
     );
   });
 });
+
+// The server refuses a deposit with no amount (it used to record the complex's
+// percentage as cash taken); the form asks for it instead of sending it.
+describe('useCreateBookingForm — deposit with no amount', () => {
+  it('blocks submit and asks for the amount', async () => {
+    const { bookingsApi } = await import('../../api/bookings.api');
+    vi.mocked(bookingsApi.create).mockClear();
+    const { result } = renderHook(
+      () =>
+        useCreateBookingForm({
+          open: false,
+          complexId: 'c1',
+          courts: [pricedCourt()],
+          depositPercentage: 0,
+          schedules: SCHEDULES,
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      fillClientAndSchedule(result.current, 'ct1');
+      result.current.setValue('payment_option', 'deposit');
+      result.current.setValue('payment_method', 'cash');
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit((data) => {
+        result.current.onSubmit(data, vi.fn());
+      })();
+    });
+
+    expect(bookingsApi.create).not.toHaveBeenCalled();
+    expect(result.current.errors.deposit_amount?.message).toBe(t.validation.amountRequired);
+  });
+});
+
+// A manual price typed while the span had no rate stays in the form after the
+// owner moves to an hour that has one: the field is hidden, not cleared.
+describe('useCreateBookingForm — stale manual price once the span has a rate', () => {
+  it('sends no price when the chosen span has a computed estimate', async () => {
+    const { bookingsApi } = await import('../../api/bookings.api');
+    vi.mocked(bookingsApi.create).mockClear();
+    vi.mocked(bookingsApi.create).mockResolvedValueOnce({ booking: {} } as never);
+    const onClose = vi.fn();
+    const { result } = renderHook(
+      () =>
+        useCreateBookingForm({
+          open: false,
+          complexId: 'c1',
+          courts: [pricedCourt()],
+          depositPercentage: 0,
+          schedules: SCHEDULES,
+        }),
+      { wrapper },
+    );
+
+    act(() => {
+      fillClientAndSchedule(result.current, 'ct1');
+      result.current.setValue('price', 5000);
+    });
+    await waitFor(() => {
+      expect(result.current.estimatedPrice).toBe(100000);
+    });
+
+    await act(async () => {
+      await result.current.handleSubmit((data) => {
+        result.current.onSubmit(data, onClose);
+      })();
+    });
+
+    await waitFor(() => {
+      expect(onClose).toHaveBeenCalled();
+    });
+    expect(vi.mocked(bookingsApi.create).mock.calls[0]?.[1]).not.toHaveProperty('price');
+  });
+});

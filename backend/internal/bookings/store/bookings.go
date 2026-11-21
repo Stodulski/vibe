@@ -217,6 +217,12 @@ type Booking struct {
 	// client_snapshot.go); nil once a client is attached. Personal data, so
 	// never encoded.
 	ClientSnapshot *ClientSnapshot `json:"-"`
+	// ContactEmail is the email typed for this booking on the storefront
+	// (bookings.client_email), which outlives attaching its client: notices
+	// for the booking go there, and to the client's own email only when it is
+	// empty (see ContactOf). Empty for a booking read without the column and
+	// for one nobody typed an email for. Personal data, so never encoded.
+	ContactEmail string `json:"-"`
 	// SeriesID names the fixed weekly series this booking is an occurrence of;
 	// nil for every other booking. Set by the series service before the insert
 	// (which then records the date as generated, in the same transaction) and
@@ -829,6 +835,7 @@ func (m *Store) Update(ctx context.Context, b *Booking) error {
 	// which a booking resolved through its public link was not read with; the
 	// cancellation notice that follows a public cancel needs it.
 	b.ClientSnapshot = snapshotFromDB(dbBooking)
+	b.ContactEmail = dbBooking.ClientEmail.String
 	return nil
 }
 
@@ -871,6 +878,7 @@ func (m *Store) UpdateIfUnchanged(ctx context.Context, b *Booking) error {
 
 	b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
 	b.ClientSnapshot = snapshotFromDB(dbBooking)
+	b.ContactEmail = dbBooking.ClientEmail.String
 	return nil
 }
 
@@ -1006,6 +1014,7 @@ func BookingFromDB(b db.Booking) *Booking {
 		UpdatedAt:        data.PgToTime(b.UpdatedAt),
 		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
 		ClientSnapshot:   snapshotFromDB(b),
+		ContactEmail:     b.ClientEmail.String,
 		SeriesID:         data.PgToUUIDPtr(b.SeriesID),
 		AttendedAt:       data.PgToTimePtr(b.AttendedAt),
 	}
@@ -1347,7 +1356,7 @@ func (m *Store) GetForReminder2hEnriched(ctx context.Context, now time.Time) ([]
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
-		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
+		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(NULLIF(b.client_email, ''), cl.email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
 		       cx.phone, cx.owner_id
@@ -1396,7 +1405,7 @@ func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string
 
 	rows, err := m.DB.Query(ctx, `
 		SELECT `+BookingColumns+`,
-		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(cl.email, b.client_email, ''), cx.name, co.name,
+		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(NULLIF(b.client_email, ''), cl.email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
 		       cx.phone, cx.owner_id

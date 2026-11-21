@@ -17,6 +17,7 @@ export function EndSeriesDialog({
   complexId,
   seriesId,
   fromDate,
+  started = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -24,8 +25,10 @@ export function EndSeriesDialog({
   complexId: string;
   /** Null for an ordinary booking: there is nothing to end. */
   seriesId: string | null | undefined;
-  /** The occurrence the owner is looking at, `YYYY-MM-DD`: where the series ends. */
+  /** `YYYY-MM-DD`: where the series ends. */
   fromDate: string;
+  /** The occurrence the owner is looking at has begun: it stays, the series ends after it. */
+  started?: boolean;
 }) {
   const endSeries = useEndBookingSeries(complexId);
   if (!seriesId) return null;
@@ -46,7 +49,7 @@ export function EndSeriesDialog({
         );
       }}
       title={t.bookings.series.endConfirmTitle}
-      description={t.bookings.series.endConfirmDescription}
+      description={started ? t.bookings.series.endConfirmDescriptionStarted : t.bookings.series.endConfirmDescription}
       confirmLabel={t.bookings.series.endConfirmLabel}
       // "Cancelar" next to "Cancelar turno fijo" would read as the same action.
       cancelLabel={t.common.back}

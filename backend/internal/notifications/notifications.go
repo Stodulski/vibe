@@ -54,6 +54,9 @@ type Mailer interface {
 	// weekly booking. See series.go.
 	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error
 	SendSeriesCancelled(ctx context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string, contact mailer.Contact) error
+	// SendOwnerSeriesDatesLost tells the owner which dates of a fixed booking
+	// the scheduler could not book; lines are one sentence per date.
+	SendOwnerSeriesDatesLost(ctx context.Context, to, complexName, courtName, clientName, weekdays, hours string, lines []string) error
 	// SendEventRegistered and SendEventCancelled are the two notices of an
 	// open-play event sign-up. See events.go.
 	SendEventRegistered(ctx context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string, contact mailer.Contact) error

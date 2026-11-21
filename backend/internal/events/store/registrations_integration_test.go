@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -197,6 +199,110 @@ func TestAPersonWhoseHoldRanOutCanSignUpAgain(t *testing.T) {
 	expireHold(t, f, again.ID)
 	if _, err := signUp(f, ev, "+5491100000009"); err != nil {
 		t.Fatalf("a person whose hold ran out can sign up again: %v", err)
+	}
+}
+
+// S18: a late payment on a hold that ran out, whose person signed up again, is
+// refused as unavailable (so it is refunded), not failed on the one-live-spot-
+// per-phone index (which retried the webhook forever). The new spot is untouched,
+// held or paid.
+func TestALatePaymentOnAnExpiredHoldWhosePhoneSignedUpAgainIsUnavailable(t *testing.T) {
+	for name, payAgain := range map[string]bool{"new spot held": false, "new spot paid": true} {
+		t.Run(name, func(t *testing.T) {
+			f := datatest.Isolated(t)
+			ev := eventWithCapacity(t, f, 4)
+			old, err := signUp(f, ev, "+5491100000011")
+			if err != nil {
+				t.Fatal(err)
+			}
+			expireHold(t, f, old.ID)
+			again, err := signUp(f, ev, "+5491100000011")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if payAgain {
+				if err := pay(f, again, "mp-again-"+uuid.NewString()); err != nil {
+					t.Fatal(err)
+				}
+			}
+			if err := pay(f, old, "mp-late-"+uuid.NewString()); !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+				t.Fatalf("the late payment must be refused as unavailable; got %v", err)
+			}
+			got, err := f.Stores.Events.GetRegistration(f.Scoped(context.Background()), again.ID)
+			want := eventstore.RegistrationHeld
+			if payAgain {
+				want = eventstore.RegistrationConfirmed
+			}
+			if err != nil || got.Status != want {
+				t.Fatalf("the new spot = %+v (%v); want it %s", got, err, want)
+			}
+		})
+	}
+}
+
+// S18: when the newer hold of the same phone ran out too, nothing live is in
+// the way and the late payment confirms the spot it paid for.
+func TestALatePaymentConfirmsWhenThePhonesNewerHoldRanOutToo(t *testing.T) {
+	f := datatest.Isolated(t)
+	ev := eventWithCapacity(t, f, 4)
+	old, err := signUp(f, ev, "+5491100000012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expireHold(t, f, old.ID)
+	again, err := signUp(f, ev, "+5491100000012")
+	if err != nil {
+		t.Fatal(err)
+	}
+	expireHold(t, f, again.ID)
+	if err := pay(f, old, "mp-late-"+uuid.NewString()); err != nil {
+		t.Fatalf("nothing live holds the phone; the payment must confirm its spot: %v", err)
+	}
+}
+
+// S17: a participant's cancellation that owes the refund marks it in the same
+// write, so the refund sweep finishes a refund the request never did. One that
+// came too late keeps the payment, and the sweep leaves it alone.
+func TestTheSweepFindsAParticipantCancellationThatOwesItsRefund(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	ev := eventWithCapacity(t, f, 4)
+	owed, err := signUp(f, ev, "+5491100000021")
+	if err != nil {
+		t.Fatal(err)
+	}
+	kept, err := signUp(f, ev, "+5491100000022")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, reg := range []*eventstore.Registration{owed, kept} {
+		if err := pay(f, reg, "mp-"+uuid.NewString()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := f.Stores.Events.CancelByParticipant(ctx, owed.ID, true); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Stores.Events.CancelByParticipant(ctx, kept.ID, false); err != nil {
+		t.Fatal(err)
+	}
+
+	pending, err := f.Stores.Events.OwnerCancelledStillPaid(data.ContextWithTenantBypass(context.Background()), -time.Minute, 50)
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := map[uuid.UUID]bool{}
+	for _, p := range pending {
+		found[p.RegistrationID] = true
+	}
+	if !found[owed.ID] {
+		t.Error("a cancellation inside the window whose refund never ran must be swept")
+	}
+	if found[kept.ID] {
+		t.Error("a cancellation outside the window keeps the payment and must not be swept")
+	}
+	if _, err := f.Stores.Events.CancelByParticipant(ctx, owed.ID, true); !errors.Is(err, eventstore.ErrNotCancellable) {
+		t.Fatalf("a second cancellation answers ErrNotCancellable; got %v", err)
 	}
 }
 

@@ -114,9 +114,26 @@ type stubStore struct {
 	expiredHolds        []bookingstore.ReleasedHold
 	expiredHoldWindows  []time.Duration
 	complexHoldsDeleted []uuid.UUID
+
+	// publicIPs and publicCaps record the address and cap of every pre-hold
+	// POST /book insert (InsertHold with no token); publicCapErr refuses it.
+	publicIPs    []string
+	publicCaps   []int
+	publicCapErr error
 }
 
-func (s *stubStore) InsertHold(_ context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
+// InsertHold with a nil tokenHash is the pre-hold POST /book insert: the real
+// store runs InsertSafe's insert with the address and the cap, so the stub
+// records those and then is InsertSafe, which the pre-hold tests read.
+func (s *stubStore) InsertHold(ctx context.Context, b *bookingstore.Booking, tokenHash []byte, ip string, maxPerIP int) error {
+	if tokenHash == nil {
+		s.publicIPs = append(s.publicIPs, ip)
+		s.publicCaps = append(s.publicCaps, maxPerIP)
+		if s.publicCapErr != nil {
+			return s.publicCapErr
+		}
+		return s.InsertSafe(ctx, b)
+	}
 	s.holdCalls = append(s.holdCalls, "insert")
 	if s.holdErr != nil {
 		return s.holdErr
@@ -865,6 +882,12 @@ type stubCheckout struct {
 	// unauthorizedOnce makes the first CreatePreference answer 401, the way
 	// MercadoPago answers an expired seller token, and every later one succeed.
 	unauthorizedOnce bool
+	// searchResults and searchErr answer SearchPaymentsByReference; searches
+	// and searchCallers record what it was asked.
+	searchResults []mp.Payment
+	searchErr     error
+	searches      []string
+	searchCallers []mp.Caller
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {
@@ -896,6 +919,28 @@ func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID s
 	}
 	s.expired = append(s.expired, preferenceID)
 	return nil
+}
+
+// SearchPaymentsByReference answers with searchResults, or fails with
+// searchErr, and records every reference it was asked about and as whom.
+func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference string, caller mp.Caller) ([]mp.Payment, error) {
+	s.searches = append(s.searches, reference)
+	s.searchCallers = append(s.searchCallers, caller)
+	if s.searchErr != nil {
+		return nil, s.searchErr
+	}
+	return s.searchResults, nil
+}
+
+// stubReconciler records the approved payments the expiry sweep handed it.
+type stubReconciler struct {
+	err        error
+	reconciled []string
+}
+
+func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
+	s.reconciled = append(s.reconciled, mpPaymentID)
+	return s.err
 }
 
 // errPreferenceExpiryUnavailable stands in for MercadoPago being unreachable
@@ -954,6 +999,7 @@ type stubNotifier struct {
 	reminders       []notifications.Reminder
 	seriesCreated   []notifications.SeriesCreation
 	seriesCancelled []notifications.SeriesCancellation
+	seriesDatesLost []notifications.SeriesDatesLost
 	// reminderErr is what ReminderDue returns instead of queueing, as when the
 	// queue refuses the insert.
 	reminderErr error
@@ -983,6 +1029,10 @@ func (s *stubNotifier) SeriesCreated(c notifications.SeriesCreation) {
 
 func (s *stubNotifier) SeriesCancelled(c notifications.SeriesCancellation) {
 	s.seriesCancelled = append(s.seriesCancelled, c)
+}
+
+func (s *stubNotifier) SeriesDatesLost(c notifications.SeriesDatesLost) {
+	s.seriesDatesLost = append(s.seriesDatesLost, c)
 }
 
 type stubBroadcaster struct{ published []uuid.UUID }
@@ -1065,6 +1115,7 @@ type fixture struct {
 	locks        *stubLocks
 	checkout     *stubCheckout
 	refunds      *stubRefunder
+	reconciler   *stubReconciler
 	linkResolver *stubLinkResolver
 	linkTokens   *stubLinkTokens
 	notify       *stubNotifier
@@ -1080,7 +1131,7 @@ func newFixture(t *testing.T) *fixture {
 	f := &fixture{
 		store: &stubStore{}, clients: &stubClients{}, complexes: &stubComplexes{},
 		courts: &stubCourts{}, payments: &stubPayments{}, locks: &stubLocks{},
-		checkout: &stubCheckout{}, refunds: &stubRefunder{},
+		checkout: &stubCheckout{}, refunds: &stubRefunder{}, reconciler: &stubReconciler{},
 		linkResolver: &stubLinkResolver{}, linkTokens: &stubLinkTokens{},
 		notify: &stubNotifier{}, waitlist: &stubWaitlist{}, freedSlots: &stubFreedSlots{}, realtime: &stubBroadcaster{}, audit: &stubRecorder{},
 	}

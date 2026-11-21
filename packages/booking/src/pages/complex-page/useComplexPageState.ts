@@ -3,9 +3,12 @@ import { useQueryParams } from '../../lib/navigation';
 import { format } from 'date-fns/format';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import { useUnsavedWork } from '@vibe/ui';
-import type { DurationMinutes, Sport } from '../../api/types';
+import type { DurationMinutes, Schedule, Sport } from '../../api/types';
 import { parseDateParam } from './schema';
 import { useVenueNow } from '../../hooks/useVenueNow';
+import { lateNightGridDay } from '../../lib/venueDate';
+
+const NO_SCHEDULES: readonly Schedule[] = [];
 import { readWaitlistNotice } from './waitlistNotice';
 
 // Matches the availability endpoint's own default, so the initial fetch (made
@@ -118,7 +121,7 @@ function useFlowChangeHandlers(setSelectedSlot: (slot: null) => void, patchParam
  * to WhatsApp to ask a friend and comes back would find the page reset. So the
  * page counts as busy while, and only while, a slot is selected.
  */
-export function useComplexPageState() {
+export function useComplexPageState(schedules: readonly Schedule[] = NO_SCHEDULES) {
   const [searchParams] = useQueryParams();
   const patchParams = useQueryPatch();
   const flow = readFlow(searchParams);
@@ -135,7 +138,12 @@ export function useComplexPageState() {
   // that has since passed falls back to the new today.
   const dateParam = searchParams.get('date');
   const now = useVenueNow();
-  const selectedDate = useMemo(() => parseDateParam(dateParam, now), [dateParam, now]);
+  // Last night's grid day stays selectable while its window still runs past
+  // midnight (lateNightGridDay); before the schedules load it is not.
+  const selectedDate = useMemo(
+    () => parseDateParam(dateParam, now, lateNightGridDay(now, schedules)),
+    [dateParam, now, schedules],
+  );
 
   const sportFilter = flow.sport;
   // Two different questions share `flow.duration`: what to request, and what

@@ -211,6 +211,65 @@ func TestParticipantCancelFollowsTheComplexCancellationPolicy(t *testing.T) {
 	}
 }
 
+// S17: a cancellation inside the window marks the refund as owed in its own
+// write, so the sweep finishes a refund this request never does; one outside the
+// window marks nothing, and its payment is kept.
+func TestAParticipantCancellationMarksTheRefundItOwes(t *testing.T) {
+	for name, tc := range map[string]struct {
+		startsIn time.Duration
+		owed     bool
+	}{
+		"inside the window":  {72 * time.Hour, true},
+		"outside the window": {6 * time.Hour, false},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			f.payments.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 820_000}
+			token := signedUpAndPaid(t, f, 48*time.Hour, tc.startsIn)
+			if _, err := f.svc.CancelRegistration(t.Context(), visitor(), token); err != nil {
+				t.Fatal(err)
+			}
+			if len(f.store.owed) != 1 || f.store.owed[0] != tc.owed {
+				t.Fatalf("refund owed written with the cancellation = %v, want [%v]", f.store.owed, tc.owed)
+			}
+		})
+	}
+}
+
+// S17: the sweep finishing a participant's refund tells them it came back as
+// their own cancellation, not as the owner's.
+func TestTheSweepTellsAParticipantTheirOwnCancellationWasRefunded(t *testing.T) {
+	f := newFixture(t)
+	token := signedUpAndPaid(t, f, 48*time.Hour, 72*time.Hour)
+	reg := f.store.byToken[token]
+	by := eventstore.CancelledByParticipant
+	reg.Status, reg.CancelledBy = eventstore.RegistrationCancelled, &by
+	f.store.pending = []eventstore.PendingRefund{{RegistrationID: reg.ID, ComplexID: reg.ComplexID}}
+	f.payments.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: 820_000}
+
+	f.svc.SweepUnrefunded(t.Context())
+	if len(f.payments.refunded) != 1 {
+		t.Fatalf("the sweep must drive the refund; got %v", f.payments.refunded)
+	}
+	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].ByOwner {
+		t.Errorf("the notice must name the participant's own cancellation; got %+v", f.notify.cancelled)
+	}
+}
+
+// S17: when the payments behind a cancelled spot could not be read, nobody knows
+// whether money is owed: the notice promises no refund on its way.
+func TestACancellationWhosePaymentsCouldNotBeReadPromisesNoRefund(t *testing.T) {
+	f := newFixture(t)
+	f.payments.outcome = paymentstore.RefundOutcome{Result: paymentstore.RefundManual, LedgerUnread: true}
+	token := signedUpAndPaid(t, f, 48*time.Hour, 72*time.Hour)
+	if _, err := f.svc.CancelRegistration(t.Context(), visitor(), token); err != nil {
+		t.Fatal(err)
+	}
+	if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RefundLine != "" {
+		t.Errorf("an unread ledger must not tell the person a refund is on its way; notices = %+v", f.notify.cancelled)
+	}
+}
+
 // A spot still being paid has no money to return, and cancelling it frees the spot.
 func TestCancellingAHeldSpotReleasesItWithoutARefundNotice(t *testing.T) {
 	f := newFixture(t)

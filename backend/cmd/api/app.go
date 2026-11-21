@@ -891,6 +891,8 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		PaymentExpiry:   cfg.Booking.PaymentExpiry,
 		SlotLockTTL:     cfg.Booking.SlotLockTTL,
 		LinkTokenBuffer: cfg.Booking.LinkTokenBuffer,
+		// The same switch as the request limiter: off only on the E2E stack.
+		UncappedHoldsPerIP: !cfg.Limiter.Enabled,
 	})
 	// Disconnecting MercadoPago releases the venue's unpaid storefront bookings
 	// first, and that lives in the bookings domain, built only here — after the

@@ -90,18 +90,23 @@ func (q *Queries) CancelOpenPlayEventRegistrations(ctx context.Context, eventID 
 
 const cancelOpenPlayRegistration = `-- name: CancelOpenPlayRegistration :one
 UPDATE open_play_registrations
-SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $2
-WHERE id = $1 AND status IN ('held', 'confirmed')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
+SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $1,
+    refund_intent_at = CASE WHEN $2::bool THEN NOW() END
+WHERE id = $3 AND status IN ('held', 'confirmed')
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at
 `
 
 type CancelOpenPlayRegistrationParams struct {
-	ID          pgtype.UUID `json:"id"`
 	CancelledBy pgtype.Text `json:"cancelled_by"`
+	RefundOwed  bool        `json:"refund_owed"`
+	ID          pgtype.UUID `json:"id"`
 }
 
+// refund_owed marks, in the cancellation's own write, that the money the
+// registration holds is owed back (migration 040): the refund sweep finishes
+// that refund if the request that cancelled never does.
 func (q *Queries) CancelOpenPlayRegistration(ctx context.Context, arg CancelOpenPlayRegistrationParams) (OpenPlayRegistration, error) {
-	row := q.db.QueryRow(ctx, cancelOpenPlayRegistration, arg.ID, arg.CancelledBy)
+	row := q.db.QueryRow(ctx, cancelOpenPlayRegistration, arg.CancelledBy, arg.RefundOwed, arg.ID)
 	var i OpenPlayRegistration
 	err := row.Scan(
 		&i.ID,
@@ -124,6 +129,7 @@ func (q *Queries) CancelOpenPlayRegistration(ctx context.Context, arg CancelOpen
 		&i.UpdatedAt,
 		&i.PlayerGender,
 		&i.PlayerLevel,
+		&i.RefundIntentAt,
 	)
 	return i, err
 }
@@ -132,7 +138,7 @@ const confirmOpenPlayRegistration = `-- name: ConfirmOpenPlayRegistration :one
 UPDATE open_play_registrations
 SET status = 'confirmed', confirmed_at = NOW()
 WHERE id = $1 AND status IN ('held', 'expired')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at
 `
 
 // A hold that ran out and was swept can still be confirmed by a payment that
@@ -162,6 +168,7 @@ func (q *Queries) ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUI
 		&i.UpdatedAt,
 		&i.PlayerGender,
 		&i.PlayerLevel,
+		&i.RefundIntentAt,
 	)
 	return i, err
 }
@@ -284,7 +291,7 @@ func (q *Queries) GetOpenPlayEvent(ctx context.Context, arg GetOpenPlayEventPara
 }
 
 const getOpenPlayRegistration = `-- name: GetOpenPlayRegistration :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at FROM open_play_registrations
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -319,12 +326,13 @@ func (q *Queries) GetOpenPlayRegistration(ctx context.Context, arg GetOpenPlayRe
 		&i.UpdatedAt,
 		&i.PlayerGender,
 		&i.PlayerLevel,
+		&i.RefundIntentAt,
 	)
 	return i, err
 }
 
 const getOpenPlayRegistrationByTokenHash = `-- name: GetOpenPlayRegistrationByTokenHash :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at FROM open_play_registrations
 WHERE access_token_hash = $1
 `
 
@@ -352,6 +360,7 @@ func (q *Queries) GetOpenPlayRegistrationByTokenHash(ctx context.Context, access
 		&i.UpdatedAt,
 		&i.PlayerGender,
 		&i.PlayerLevel,
+		&i.RefundIntentAt,
 	)
 	return i, err
 }
@@ -451,7 +460,7 @@ VALUES (
     $10, $11,
     $12::text, $13::int
 )
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at
 `
 
 type InsertOpenPlayRegistrationParams struct {
@@ -510,6 +519,7 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 		&i.UpdatedAt,
 		&i.PlayerGender,
 		&i.PlayerLevel,
+		&i.RefundIntentAt,
 	)
 	return i, err
 }
@@ -659,7 +669,7 @@ func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEvents
 }
 
 const listOpenPlayRegistrations = `-- name: ListOpenPlayRegistrations :many
-SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at, r.player_gender, r.player_level,
+SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at, r.player_gender, r.player_level, r.refund_intent_at,
        p.id AS payment_id,
        COALESCE(p.status::text, '')::text AS payment_status,
        COALESCE(p.amount, 0)::int AS payment_amount,
@@ -704,6 +714,7 @@ type ListOpenPlayRegistrationsRow struct {
 	UpdatedAt           pgtype.Timestamptz `json:"updated_at"`
 	PlayerGender        pgtype.Text        `json:"player_gender"`
 	PlayerLevel         pgtype.Int4        `json:"player_level"`
+	RefundIntentAt      pgtype.Timestamptz `json:"refund_intent_at"`
 	PaymentID           pgtype.UUID        `json:"payment_id"`
 	PaymentStatus       string             `json:"payment_status"`
 	PaymentAmount       int32              `json:"payment_amount"`
@@ -746,6 +757,7 @@ func (q *Queries) ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPla
 			&i.UpdatedAt,
 			&i.PlayerGender,
 			&i.PlayerLevel,
+			&i.RefundIntentAt,
 			&i.PaymentID,
 			&i.PaymentStatus,
 			&i.PaymentAmount,
@@ -767,7 +779,7 @@ const listOwnerCancelledRegistrationsStillPaid = `-- name: ListOwnerCancelledReg
 SELECT r.id, r.complex_id
 FROM open_play_registrations r
 JOIN payments p ON p.registration_id = r.id
-WHERE r.status = 'cancelled' AND r.cancelled_by = 'owner'
+WHERE r.status = 'cancelled' AND (r.cancelled_by = 'owner' OR r.refund_intent_at IS NOT NULL)
   AND r.cancelled_at < $1::timestamptz
   AND p.method = 'mercadopago'
   AND p.status IN ('deposit_paid', 'fully_paid', 'partial_refund')
@@ -785,10 +797,12 @@ type ListOwnerCancelledRegistrationsStillPaidRow struct {
 	ComplexID pgtype.UUID `json:"complex_id"`
 }
 
-// Registrations the owner's cancellation ended whose money has not been sent
-// back, once the cancellation is older than the grace: the refund the cancel
-// request itself never finished (a crash, a provider outage that outlived its
-// retries). The sweep drives each through the same refund path the cancel uses.
+// Cancelled registrations whose money is owed back and has not been sent, once
+// the cancellation is older than the grace: the refund the cancel request
+// itself never finished (a crash, a provider outage that outlived its retries).
+// The owner's cancellation always owes it; a participant's only when it came
+// inside the refund window, which its write marked with refund_intent_at. The
+// sweep drives each through the same refund path the cancel uses.
 func (q *Queries) ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, arg ListOwnerCancelledRegistrationsStillPaidParams) ([]ListOwnerCancelledRegistrationsStillPaidRow, error) {
 	rows, err := q.db.Query(ctx, listOwnerCancelledRegistrationsStillPaid, arg.OlderThan, arg.PageLimit)
 	if err != nil {
@@ -807,6 +821,22 @@ func (q *Queries) ListOwnerCancelledRegistrationsStillPaid(ctx context.Context, 
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockEventCategoryDraw = `-- name: LockEventCategoryDraw :one
+SELECT (draw_generated_at IS NOT NULL)::bool AS drawn FROM tournament_categories
+WHERE event_id = $1
+FOR UPDATE
+`
+
+// Whether the tournament category an event is the sign-up container of has its
+// draw, read under the category's row lock: the lock the draw itself holds, taken
+// after the event's (payment confirmation takes them in the same order).
+func (q *Queries) LockEventCategoryDraw(ctx context.Context, eventID pgtype.UUID) (bool, error) {
+	row := q.db.QueryRow(ctx, lockEventCategoryDraw, eventID)
+	var drawn bool
+	err := row.Scan(&drawn)
+	return drawn, err
 }
 
 const lockOpenPlayEvent = `-- name: LockOpenPlayEvent :one
@@ -844,4 +874,29 @@ func (q *Queries) LockOpenPlayEvent(ctx context.Context, id pgtype.UUID) (OpenPl
 		&i.LevelMax,
 	)
 	return i, err
+}
+
+const phoneHoldsAnotherLiveSpot = `-- name: PhoneHoldsAnotherLiveSpot :one
+SELECT EXISTS (
+  SELECT 1 FROM open_play_registrations
+  WHERE event_id = $1 AND phone = $2 AND id <> $3
+    AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+) AS taken
+`
+
+type PhoneHoldsAnotherLiveSpotParams struct {
+	EventID  pgtype.UUID `json:"event_id"`
+	Phone    string      `json:"phone"`
+	ExceptID pgtype.UUID `json:"except_id"`
+}
+
+// Whether the person of a registration (by phone) holds a live spot of the
+// event other than that registration: paid, or a hold still inside its window.
+// A late payment on a hold that ran out is refused when they do: the person
+// signed up again, and confirming the old spot would give them two.
+func (q *Queries) PhoneHoldsAnotherLiveSpot(ctx context.Context, arg PhoneHoldsAnotherLiveSpotParams) (bool, error) {
+	row := q.db.QueryRow(ctx, phoneHoldsAnotherLiveSpot, arg.EventID, arg.Phone, arg.ExceptID)
+	var taken bool
+	err := row.Scan(&taken)
+	return taken, err
 }

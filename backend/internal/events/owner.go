@@ -163,7 +163,7 @@ func (in *CreateInput) validateWindow(errs map[string]string, now time.Time) {
 	if d := durationOf(in.StartTime, in.EndTime); d < MinDurationMinutes || d > MaxDurationMinutes {
 		errs["end_time"] = fmt.Sprintf("the event must last between %d minutes and %d hours", MinDurationMinutes, MaxDurationMinutes/60)
 	}
-	today := timezone.Day(now)
+	today := timezone.Day(now.In(timezone.Argentina))
 	date := timezone.Day(in.Date)
 	switch {
 	case date.Before(today):

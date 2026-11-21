@@ -34,6 +34,14 @@ import (
 // script to hold a venue's evening.
 const maxActiveHoldsPerIP = 3
 
+// holdsPerIP is the cap InsertHold enforces; 0 means none (Config.UncappedHoldsPerIP).
+func (s *Service) holdsPerIP() int {
+	if s.cfg.UncappedHoldsPerIP {
+		return 0
+	}
+	return maxActiveHoldsPerIP
+}
+
 // minCheckoutWindow is the shortest a converted hold's checkout link is made
 // payable for. The link expires with the hold, never a fresh window; but a
 // visitor who submits with a few seconds left must still get a link MercadoPago
@@ -123,7 +131,7 @@ func (s *Service) TakeHold(ctx context.Context, actor Actor, in HoldInput) (Hold
 	// Counted per network, the key the rate limiter uses: an IPv6 client owns a
 	// whole /64, and keyed on the full address each of its addresses would get
 	// a cap of its own.
-	if err := s.store.InsertHold(ctx, booking, hash, httpx.RateLimitKey(actor.IP), maxActiveHoldsPerIP); err != nil {
+	if err := s.store.InsertHold(ctx, booking, hash, httpx.RateLimitKey(actor.IP), s.holdsPerIP()); err != nil {
 		switch {
 		case errors.Is(err, bookingstore.ErrHoldLimit):
 			return Hold{}, ErrTooManyHolds

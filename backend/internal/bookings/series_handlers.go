@@ -28,19 +28,20 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var input struct {
-		CourtID         string  `json:"court_id"`
-		FirstDate       string  `json:"first_date"`
-		StartTime       string  `json:"start_time"`
-		DurationMinutes int     `json:"duration_minutes"`
-		ClientPhone     string  `json:"client_phone"`
-		ClientEmail     string  `json:"client_email"`
-		ClientFirstName string  `json:"client_first_name"`
-		ClientLastName  string  `json:"client_last_name"`
-		Notes           string  `json:"notes"`
-		Price           *int    `json:"price"`
-		EndsOn          *string `json:"ends_on"`
-		Weeks           int     `json:"weeks"`
-		SkipConflicts   bool    `json:"skip_conflicts"`
+		CourtID         string   `json:"court_id"`
+		FirstDate       string   `json:"first_date"`
+		StartTime       string   `json:"start_time"`
+		DurationMinutes int      `json:"duration_minutes"`
+		ClientPhone     string   `json:"client_phone"`
+		ClientEmail     string   `json:"client_email"`
+		ClientFirstName string   `json:"client_first_name"`
+		ClientLastName  string   `json:"client_last_name"`
+		Notes           string   `json:"notes"`
+		Price           *int     `json:"price"`
+		EndsOn          *string  `json:"ends_on"`
+		Weeks           int      `json:"weeks"`
+		SkipConflicts   bool     `json:"skip_conflicts"`
+		SkipDates       []string `json:"skip_dates"`
 		DateCourts      []struct {
 			Date    string `json:"date"`
 			CourtID string `json:"court_id"`
@@ -99,6 +100,15 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		endsOn = &end
 	}
 	dateCourts := parseDateCourts(input.DateCourts, v)
+	skipDates := make([]time.Time, 0, len(input.SkipDates))
+	for _, raw := range input.SkipDates {
+		d, err := time.Parse(time.DateOnly, raw)
+		if err != nil {
+			v.AddError("skip_dates", "must be dates in YYYY-MM-DD format")
+			break
+		}
+		skipDates = append(skipDates, d)
+	}
 	if !v.Valid() {
 		h.respond.FailedValidation(w, r, v.Errors)
 		return
@@ -118,6 +128,7 @@ func (h *Handler) CreateSeries(w http.ResponseWriter, r *http.Request) {
 		EndsOn:          endsOn,
 		Weeks:           input.Weeks,
 		SkipConflicts:   input.SkipConflicts,
+		SkipDates:       skipDates,
 		DateCourts:      dateCourts,
 	})
 	if err != nil {
