@@ -78,6 +78,7 @@ type Events interface {
 	CancelAny(ctx context.Context, complex *complexstore.Complex, actor events.Actor, eventID uuid.UUID, reason *string) (*events.CancelResult, error)
 	Status(ctx context.Context, token string) (*events.View, error)
 	CancelRegistration(ctx context.Context, actor events.Actor, token string) (*events.CancelResultPublic, error)
+	WithdrawAny(ctx context.Context, complex *complexstore.Complex, actor events.Actor, eventID, registrationID uuid.UUID) (*events.Refund, error)
 }
 
 // CourtReader supplies the courts a match may be scheduled on.

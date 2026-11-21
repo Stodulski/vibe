@@ -4466,6 +4466,12 @@ type RefundOutcomeStatus string
 // RefundStatus `partial` is set only by the system, never accepted as client input.
 type RefundStatus string
 
+// RegistrationWithdrawal defines model for RegistrationWithdrawal.
+type RegistrationWithdrawal struct {
+	Refund         RefundOutcome      `json:"refund"`
+	RegistrationId openapi_types.UUID `json:"registration_id"`
+}
+
 // RevenueDataPoint defines model for RevenueDataPoint.
 type RevenueDataPoint struct {
 	// Amount Centavos ARS.
@@ -5079,6 +5085,9 @@ type PathSlug = string
 
 // ProductID defines model for ProductID.
 type ProductID = openapi_types.UUID
+
+// RegistrationID defines model for RegistrationID.
+type RegistrationID = openapi_types.UUID
 
 // SaleID defines model for SaleID.
 type SaleID = openapi_types.UUID
@@ -6936,6 +6945,9 @@ type ServerInterface interface {
 	// EventsCancel Cancel an open-play event
 	// (POST /api/v1/complexes/{id}/open-play-events/{eventID}/cancel)
 	EventsCancel(w http.ResponseWriter, r *http.Request, id PathID, eventID EventID)
+	// EventsRegistrationWithdraw Withdraw one participant from an open-play event
+	// (POST /api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw)
+	EventsRegistrationWithdraw(w http.ResponseWriter, r *http.Request, id PathID, eventID EventID, registrationID RegistrationID)
 	// ProductsList List this complex's product catalog
 	// (GET /api/v1/complexes/{id}/products)
 	ProductsList(w http.ResponseWriter, r *http.Request, id PathID, params ProductsListParams)
@@ -7022,6 +7034,9 @@ type ServerInterface interface {
 	// TournamentsDrawMove Swap two pairs of a drawn category
 	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move)
 	TournamentsDrawMove(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, categoryID CategoryID)
+	// TournamentsPairWithdraw Withdraw one pair from a tournament category
+	// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw)
+	TournamentsPairWithdraw(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, categoryID CategoryID, registrationID RegistrationID)
 	// TournamentsMatchCourtFeeUndo Undo a court fee charge recorded by mistake
 	// (DELETE /api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/court-fee/{side})
 	TournamentsMatchCourtFeeUndo(w http.ResponseWriter, r *http.Request, id PathID, tournamentID TournamentID, matchID MatchID, side TournamentsMatchCourtFeeUndoParamsSide)
@@ -9576,6 +9591,50 @@ func (siw *ServerInterfaceWrapper) EventsCancel(w http.ResponseWriter, r *http.R
 	handler.ServeHTTP(w, r)
 }
 
+// EventsRegistrationWithdraw operation middleware
+func (siw *ServerInterfaceWrapper) EventsRegistrationWithdraw(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "eventID" -------------
+	var eventID EventID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "eventID", r.PathValue("eventID"), &eventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "eventID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "registrationID" -------------
+	var registrationID RegistrationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "registrationID", r.PathValue("registrationID"), &registrationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "registrationID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EventsRegistrationWithdraw(w, r, id, eventID, registrationID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ProductsList operation middleware
 func (siw *ServerInterfaceWrapper) ProductsList(w http.ResponseWriter, r *http.Request) {
 
@@ -10826,6 +10885,59 @@ func (siw *ServerInterfaceWrapper) TournamentsDrawMove(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.TournamentsDrawMove(w, r, id, tournamentID, categoryID)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TournamentsPairWithdraw operation middleware
+func (siw *ServerInterfaceWrapper) TournamentsPairWithdraw(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "id" -------------
+	var id PathID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "id", r.PathValue("id"), &id, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "id", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "tournamentID" -------------
+	var tournamentID TournamentID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tournamentID", r.PathValue("tournamentID"), &tournamentID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tournamentID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "categoryID" -------------
+	var categoryID CategoryID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "categoryID", r.PathValue("categoryID"), &categoryID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "categoryID", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "registrationID" -------------
+	var registrationID RegistrationID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "registrationID", r.PathValue("registrationID"), &registrationID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "registrationID", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TournamentsPairWithdraw(w, r, id, tournamentID, categoryID, registrationID)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12398,6 +12510,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events", wrapper.EventsCreate)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events/{eventID}", wrapper.EventsGet)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events/{eventID}/cancel", wrapper.EventsCancel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw", wrapper.EventsRegistrationWithdraw)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsGet)
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}", wrapper.BookingsUpdate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/bookings/{bookingID}/cancel", wrapper.BookingsCancel)
@@ -12441,6 +12554,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}", wrapper.TournamentsGet)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/cancel", wrapper.TournamentsCancel)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel", wrapper.TournamentsCategoryCancel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw", wrapper.TournamentsPairWithdraw)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw", wrapper.TournamentsDrawGenerate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw/move", wrapper.TournamentsDrawMove)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/complexes/{id}/tournaments/{tournamentID}/matches/{matchID}/schedule", wrapper.TournamentsMatchUnschedule)

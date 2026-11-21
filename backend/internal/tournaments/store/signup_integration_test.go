@@ -263,6 +263,53 @@ func TestACancellationDuringTheDrawWaitsForItAndReportsIt(t *testing.T) {
 	}
 }
 
+// S17: the owner withdrawing a pair after the draw reports the draw (the caller
+// takes the pair out of the bracket) and, unlike a pair leaving by itself, still
+// owes the refund (A9).
+func TestTheOwnerWithdrawingADrawnPairReportsTheDrawAndOwesTheRefund(t *testing.T) {
+	f := datatest.Shared(t)
+	ctx := f.Scoped(context.Background())
+	tr := &tournamentstore.Tournament{
+		ComplexID: f.ComplexID, Name: "Retiro", Sport: "padel", StartDate: start(), EndDate: start(), CreatedBy: f.UserID,
+	}
+	if err := f.Stores.Tournaments.Create(ctx, tr, []tournamentstore.NewCategory{{
+		Name: "8va", Format: tournamentstore.FormatElimination, Capacity: 8, Price: 500_000, GroupSize: 3, QualifiersPerGroup: 2,
+		SetsToWin: 2, GamesPerSet: 6, SuperTiebreakDecider: true, MatchDurationMinutes: 90,
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	cats, err := f.Stores.Tournaments.Categories(ctx, tr.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	payer := "+549110007777"
+	reg, _, err := f.Stores.Events.SignUp(ctx, eventstore.SignUpInput{
+		EventID: cats[0].EventID, FirstName: "A", LastName: "B", Phone: payer, ServiceFee: 1000, IP: "198.51.100.77", MaxHoldsPerIP: 100,
+		Hooks: f.Stores.Tournaments.PairHooks(tournamentstore.Player{Phone: payer}, tournamentstore.Player{FirstName: "C", LastName: "D", Phone: "+549220007777"}),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE tournament_categories SET draw_generated_at = NOW() WHERE id = $1`, cats[0].ID); err != nil {
+		t.Fatal(err)
+	}
+
+	res, err := f.Stores.Events.CancelByOwner(ctx, reg.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !res.Drawn || res.Registration.Status != eventstore.RegistrationCancelled ||
+		res.Registration.CancelledBy == nil || *res.Registration.CancelledBy != eventstore.CancelledByOwner {
+		t.Fatalf("got %+v; want a drawn pair cancelled by the owner", res)
+	}
+	var marked bool
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT refund_intent_at IS NOT NULL FROM open_play_registrations WHERE id = $1`, reg.ID).Scan(&marked); err != nil || !marked {
+		t.Fatalf("the owner's withdrawal owes the refund; refund_intent_at set = %v (%v)", marked, err)
+	}
+}
+
 // S2/S4: two pairs racing for the last spot cannot both get it.
 func TestPairsRacingForTheLastSpotCannotExceedCapacity(t *testing.T) {
 	f := datatest.Shared(t)
