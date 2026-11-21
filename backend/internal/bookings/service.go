@@ -62,8 +62,20 @@ type Service struct {
 	run          func(func())
 	waitlist     SlotFreedNotifier
 	freedSlots   FreedSlotListener
+	// holdExpiries records the bookings the release sweep expires and reads
+	// back the ones to ask MercadoPago about; see SetHoldExpiries.
+	holdExpiries HoldExpiryStore
 	// now is the clock the fixed weekly series reason by; tests replace it.
 	now func() time.Time
+}
+
+// SetHoldExpiries gives the release sweep the record of bookings cancelled by
+// hold expiry (cron.go, reconcileExpiredHolds). cmd/api sets it to the same
+// booking store as Dependencies.Store, before the first sweep runs. Without
+// it the sweep expires bookings without recording them, as it did before
+// that record existed, and never asks about them again.
+func (s *Service) SetHoldExpiries(h HoldExpiryStore) {
+	s.holdExpiries = h
 }
 
 // NewService returns a Service backed by the given dependencies.

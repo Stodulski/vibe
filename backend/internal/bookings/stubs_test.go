@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,13 @@ type stubStore struct {
 	markSentErr    error
 	markedSent     []uuid.UUID
 	expiredPending []*bookingstore.CronBooking
+	// The hold-expiry record: holdExpired is every booking ExpireHold wrote,
+	// expiredToReconcile what ExpiredHoldsToReconcile reads from, and
+	// holdReconciled/holdFailures what the sweep wrote back about them.
+	holdExpired        []uuid.UUID
+	expiredToReconcile []*bookingstore.CronBooking
+	holdReconciled     []uuid.UUID
+	holdFailures       map[uuid.UUID]int
 	// unpaidHolds is what GetUnpaidPublicPendingEnriched answers, and
 	// unpaidHoldsAsked the complex each call asked about.
 	unpaidHolds      []*bookingstore.CronBooking
@@ -428,6 +436,45 @@ func (s *stubStore) GetExpiredPendingEnriched(_ context.Context, expiry time.Dur
 		return nil, s.expiredErr
 	}
 	return s.expiredPending, nil
+}
+
+// ExpireHold is Update that also records the booking as cancelled by hold
+// expiry, the way the real transaction writes both rows.
+func (s *stubStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) error {
+	if err := s.Update(ctx, b); err != nil {
+		return err
+	}
+	s.holdExpired = append(s.holdExpired, b.ID)
+	return nil
+}
+
+// ExpiredHoldsToReconcile answers expiredToReconcile minus the bookings
+// already marked reconciled or past the failure bound, as the query filters.
+func (s *stubStore) ExpiredHoldsToReconcile(_ context.Context, _ time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error) {
+	var out []*bookingstore.CronBooking
+	for _, b := range s.expiredToReconcile {
+		if slices.Contains(s.holdReconciled, b.ID) || s.holdFailures[b.ID] >= maxFailures {
+			continue
+		}
+		out = append(out, b)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (s *stubStore) MarkHoldReconciled(_ context.Context, id uuid.UUID) error {
+	s.holdReconciled = append(s.holdReconciled, id)
+	return nil
+}
+
+func (s *stubStore) RecordHoldReconcileFailure(_ context.Context, id uuid.UUID) (int, error) {
+	if s.holdFailures == nil {
+		s.holdFailures = map[uuid.UUID]int{}
+	}
+	s.holdFailures[id]++
+	return s.holdFailures[id], nil
 }
 
 func (s *stubStore) GetUnpaidPublicPendingEnriched(_ context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
@@ -1173,6 +1220,7 @@ func newFixture(t *testing.T) *fixture {
 	})
 	f.handler = NewHandler(f.service, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 	f.store.payments = f.payments
+	f.service.SetHoldExpiries(f.store)
 	return f
 }
 

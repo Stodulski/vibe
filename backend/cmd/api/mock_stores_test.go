@@ -910,6 +910,23 @@ func (m *mockBookingStore) DeleteExpiredHolds(context.Context, time.Duration) ([
 
 func (m *mockBookingStore) DeleteComplexHolds(context.Context, uuid.UUID) error { return nil }
 
+// ExpireHold is the release sweep's cancellation: the same booking write as
+// Update (plus the expiry record, which this mock does not keep), so a test
+// that watches Update sees the sweep's cancellations too.
+func (m *mockBookingStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) error {
+	return m.Update(ctx, b)
+}
+
+func (m *mockBookingStore) ExpiredHoldsToReconcile(context.Context, time.Duration, int, int) ([]*bookingstore.CronBooking, error) {
+	return nil, nil
+}
+
+func (m *mockBookingStore) MarkHoldReconciled(context.Context, uuid.UUID) error { return nil }
+
+func (m *mockBookingStore) RecordHoldReconcileFailure(context.Context, uuid.UUID) (int, error) {
+	return 0, nil
+}
+
 func (m *mockBookingStore) GetUnpaidPublicPendingEnriched(ctx context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
 	if m.GetUnpaidPublicPendingEnrichedFn != nil {
 		return m.GetUnpaidPublicPendingEnrichedFn(ctx, complexID)

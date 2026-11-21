@@ -110,6 +110,19 @@ func (q *Queries) CancelUnpaidSeriesOccurrence(ctx context.Context, arg CancelUn
 	return i, err
 }
 
+const deleteBookingHoldExpiry = `-- name: DeleteBookingHoldExpiry :exec
+DELETE FROM booking_hold_expiries
+WHERE booking_id = $1
+`
+
+// The booking was reopened by the payment it was waiting for, in the same
+// transaction: from here it is a live booking, and a later cancellation of it
+// is final like any other.
+func (q *Queries) DeleteBookingHoldExpiry(ctx context.Context, bookingID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteBookingHoldExpiry, bookingID)
+	return err
+}
+
 const getBookedSlots = `-- name: GetBookedSlots :many
 SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
 FROM bookings b
@@ -736,6 +749,38 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 	return i, err
 }
 
+const insertBookingHoldExpiry = `-- name: InsertBookingHoldExpiry :exec
+INSERT INTO booking_hold_expiries (booking_id, complex_id)
+VALUES ($1, $2)
+ON CONFLICT (booking_id) DO NOTHING
+`
+
+type InsertBookingHoldExpiryParams struct {
+	BookingID pgtype.UUID `json:"booking_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// Records that a storefront booking was cancelled by hold expiry and nothing
+// else (044_booking_hold_expiries.sql). Written in the transaction that
+// cancels it; a second write for the same booking changes nothing.
+func (q *Queries) InsertBookingHoldExpiry(ctx context.Context, arg InsertBookingHoldExpiryParams) error {
+	_, err := q.db.Exec(ctx, insertBookingHoldExpiry, arg.BookingID, arg.ComplexID)
+	return err
+}
+
+const markBookingHoldReconciled = `-- name: MarkBookingHoldReconciled :exec
+UPDATE booking_hold_expiries
+SET reconciled_at = NOW()
+WHERE booking_id = $1
+`
+
+// The release sweep asked MercadoPago about this expired booking and handed
+// any approved payment over: it is not asked again.
+func (q *Queries) MarkBookingHoldReconciled(ctx context.Context, bookingID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markBookingHoldReconciled, bookingID)
+	return err
+}
+
 const markBookingManualBalanceOwed = `-- name: MarkBookingManualBalanceOwed :execrows
 UPDATE bookings
 SET refund_status = 'partial'
@@ -764,6 +809,22 @@ WHERE id = $1
 func (q *Queries) MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error {
 	_, err := q.db.Exec(ctx, markReminderSent2h, id)
 	return err
+}
+
+const recordBookingHoldReconcileFailure = `-- name: RecordBookingHoldReconcileFailure :one
+UPDATE booking_hold_expiries
+SET failed_attempts = failed_attempts + 1
+WHERE booking_id = $1
+RETURNING failed_attempts
+`
+
+// MercadoPago could not be asked, or an approved payment could not be handed
+// over: counted, so the sweep gives up after a bounded number of runs.
+func (q *Queries) RecordBookingHoldReconcileFailure(ctx context.Context, bookingID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, recordBookingHoldReconcileFailure, bookingID)
+	var failed_attempts int32
+	err := row.Scan(&failed_attempts)
+	return failed_attempts, err
 }
 
 const updateBooking = `-- name: UpdateBooking :one

@@ -251,3 +251,33 @@ WHERE id = sqlc.arg(id)
   AND collection_status = 'unpaid'
   AND lower(span) > sqlc.arg(now)::timestamptz
 RETURNING *;
+
+-- name: InsertBookingHoldExpiry :exec
+-- Records that a storefront booking was cancelled by hold expiry and nothing
+-- else (044_booking_hold_expiries.sql). Written in the transaction that
+-- cancels it; a second write for the same booking changes nothing.
+INSERT INTO booking_hold_expiries (booking_id, complex_id)
+VALUES ($1, $2)
+ON CONFLICT (booking_id) DO NOTHING;
+
+-- name: MarkBookingHoldReconciled :exec
+-- The release sweep asked MercadoPago about this expired booking and handed
+-- any approved payment over: it is not asked again.
+UPDATE booking_hold_expiries
+SET reconciled_at = NOW()
+WHERE booking_id = $1;
+
+-- name: RecordBookingHoldReconcileFailure :one
+-- MercadoPago could not be asked, or an approved payment could not be handed
+-- over: counted, so the sweep gives up after a bounded number of runs.
+UPDATE booking_hold_expiries
+SET failed_attempts = failed_attempts + 1
+WHERE booking_id = $1
+RETURNING failed_attempts;
+
+-- name: DeleteBookingHoldExpiry :exec
+-- The booking was reopened by the payment it was waiting for, in the same
+-- transaction: from here it is a live booking, and a later cancellation of it
+-- is final like any other.
+DELETE FROM booking_hold_expiries
+WHERE booking_id = $1;

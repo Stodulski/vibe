@@ -435,6 +435,14 @@ type Booking struct {
 	AttendedAt       pgtype.Timestamptz               `json:"attended_at"`
 }
 
+type BookingHoldExpiry struct {
+	BookingID      pgtype.UUID        `json:"booking_id"`
+	ComplexID      pgtype.UUID        `json:"complex_id"`
+	ExpiredAt      pgtype.Timestamptz `json:"expired_at"`
+	ReconciledAt   pgtype.Timestamptz `json:"reconciled_at"`
+	FailedAttempts int32              `json:"failed_attempts"`
+}
+
 type BookingLinkToken struct {
 	ID        pgtype.UUID        `json:"id"`
 	BookingID pgtype.UUID        `json:"booking_id"`

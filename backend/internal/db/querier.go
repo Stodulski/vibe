@@ -124,6 +124,10 @@ type Querier interface {
 	CountWaitingPlaceEntriesOfEmail(ctx context.Context, arg CountWaitingPlaceEntriesOfEmailParams) (int32, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
+	// The booking was reopened by the payment it was waiting for, in the same
+	// transaction: from here it is a live booking, and a later cancellation of it
+	// is final like any other.
+	DeleteBookingHoldExpiry(ctx context.Context, bookingID pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
 	DeleteEmailVerificationTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteExpiredEmailVerificationTokens(ctx context.Context) error
@@ -407,6 +411,10 @@ type Querier interface {
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
+	// Records that a storefront booking was cancelled by hold expiry and nothing
+	// else (044_booking_hold_expiries.sql). Written in the transaction that
+	// cancels it; a second write for the same booking changes nothing.
+	InsertBookingHoldExpiry(ctx context.Context, arg InsertBookingHoldExpiryParams) error
 	InsertBookingSeries(ctx context.Context, arg InsertBookingSeriesParams) (BookingSeries, error)
 	// Serves both an ordinary movement (voids_movement_id NULL) and a void
 	// (voids_movement_id set): cash_movements_check_void (003_cashbox.sql)
@@ -671,6 +679,9 @@ type Querier interface {
 	// Every change to a category's draw, matches or results takes this lock first,
 	// so two of them can never interleave on the same bracket.
 	LockTournamentCategory(ctx context.Context, id pgtype.UUID) (TournamentCategory, error)
+	// The release sweep asked MercadoPago about this expired booking and handed
+	// any approved payment over: it is not asked again.
+	MarkBookingHoldReconciled(ctx context.Context, bookingID pgtype.UUID) error
 	// Marks a cancelled booking's cash or transfer balance as owed back by hand, so
 	// the owner's manual-refund action becomes available. Only refund_status moves,
 	// and only from 'none': the refund path runs after its own read, and a
@@ -732,6 +743,9 @@ type Querier interface {
 	// re-armed, and none whose address already waits for that slot again: the
 	// unique index allows one waiting row per address and place.
 	RearmTakenSlotEntries(ctx context.Context, arg RearmTakenSlotEntriesParams) (int64, error)
+	// MercadoPago could not be asked, or an approved payment could not be handed
+	// over: counted, so the sweep gives up after a bounded number of runs.
+	RecordBookingHoldReconcileFailure(ctx context.Context, bookingID pgtype.UUID) (int32, error)
 	// A date that is not part of the series: cancelled by the owner, or one that
 	// could not be booked. DO NOTHING keeps the first answer: a date already booked
 	// or excepted is never rewritten, and the row count says whether this call was

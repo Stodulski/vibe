@@ -127,8 +127,18 @@ func (s *Service) Reminder2h(ctx context.Context) {
 // cancelled the booking and sold its hours again. An approved payment is handed
 // to reconciler, which processes it as the webhook would have, and the booking
 // is left for that processing to confirm or refund.
+//
+// Expiring is not the end of the story either: a booking expired here or by
+// a new booking landing on its stale hours (ReleaseStalePendingOverlaps) is
+// asked about once more on a later run (reconcileExpiredHolds), since a
+// payment can still be approved after the question above, and the inline
+// release never asks at all.
 func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler PaymentReconciler) {
 	s.releaseExpiredHolds(ctx)
+
+	// Before this run expires anything, so a booking it expires is asked about
+	// on the next run rather than straight after the question above.
+	s.reconcileExpiredHolds(ctx, reconciler)
 
 	bookings, err := s.store.GetExpiredPendingEnriched(ctx, s.cfg.PaymentExpiry)
 	if err != nil {
@@ -146,7 +156,7 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler Payment
 		}
 
 		note := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
-		if err := s.cancelUnpaidHold(ctx, b, note); err != nil {
+		if err := s.cancelUnpaidHold(ctx, b, note, true); err != nil {
 			s.logger.Error("cron_release_expired_payments: failed to cancel booking", "error", err, "booking_id", b.ID)
 			continue
 		}
@@ -160,8 +170,9 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler Payment
 // reconcileGiveUp is how long after its payment window an unpaid booking is
 // kept while MercadoPago cannot be asked about it. Past it the booking is
 // expired anyway: its hours already read as free to everyone else (the stale
-// pending carve-out), and a payment that surfaces later is refunded by the
-// confirmation path's late-payment handling, as it always was.
+// pending carve-out), the expired booking is asked about again by
+// reconcileExpiredHolds, and a payment that surfaces later reopens it into
+// hours still free or is refunded by the confirmation path.
 const reconcileGiveUp = time.Hour
 
 // reconcileBeforeExpiry asks MercadoPago for the payments made against b's
@@ -268,6 +279,142 @@ func (s *Service) withinReconcileGrace(b *bookingstore.CronBooking) bool {
 	return time.Since(b.CreatedAt.Add(s.cfg.PaymentExpiry)) < reconcileGiveUp
 }
 
+// HoldExpiryStore is the record of storefront bookings cancelled only because
+// their payment window ran out (bookingstore.Store, hold_expiry.go).
+type HoldExpiryStore interface {
+	// ExpireHold writes the cancelled booking and records it as expired, in
+	// one transaction.
+	ExpireHold(ctx context.Context, b *bookingstore.Booking) error
+	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
+	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
+	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
+}
+
+const (
+	// expiredHoldLookback is how long after its expiry a booking is still
+	// asked about. MercadoPago settles an in-process payment within hours;
+	// past this a payment nobody found is a person's to chase.
+	expiredHoldLookback = 48 * time.Hour
+	// expiredHoldBatch bounds the MercadoPago calls one run makes.
+	expiredHoldBatch = 50
+	// expiredHoldMaxFailures is how many runs may fail to settle one booking
+	// (MercadoPago unreachable, the link not closable, a payment not handed
+	// over) before the sweep stops and alerts.
+	expiredHoldMaxFailures = 12
+)
+
+// expiredHoldOutcome is what one reconciliation of an expired booking ended in.
+type expiredHoldOutcome int
+
+const (
+	// expiredHoldSettled: MercadoPago was asked, and every approved payment
+	// was handed over or already recorded. Not asked again.
+	expiredHoldSettled expiredHoldOutcome = iota
+	// expiredHoldInFlight: a payment is still being processed by MercadoPago
+	// (pending, in process, authorized). Asked again on the next run, without
+	// counting a failure; the lookback bounds it.
+	expiredHoldInFlight
+	// expiredHoldFailed: the question could not be asked or answered. Asked
+	// again, counted against expiredHoldMaxFailures.
+	expiredHoldFailed
+)
+
+// reconcileExpiredHolds asks MercadoPago about the recently expired bookings
+// that had a checkout link (S1, slot-hold gaps). The inline release
+// (bookingstore.ReleaseStalePendingOverlaps) cancels a booking without closing
+// its link or asking anything, and even the sweep's own expiry asks before a
+// payment in flight may settle; once cancelled, neither was ever looked at
+// again, so an approved payment whose webhook was lost stayed captured with
+// no payment row, no refund and no alert. Each one is now asked once: its
+// link is closed (a no-op when the sweep already closed it), MercadoPago is
+// asked for its payments, and an approved one goes to reconciler — the same
+// processing the webhook runs, which reopens the booking into hours still
+// free or refunds it.
+func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentReconciler) {
+	if reconciler == nil || s.holdExpiries == nil {
+		return
+	}
+	expired, err := s.holdExpiries.ExpiredHoldsToReconcile(ctx, expiredHoldLookback, expiredHoldBatch, expiredHoldMaxFailures)
+	if err != nil {
+		s.logger.Error("cron_release_expired_payments: failed to read expired bookings to reconcile", "error", err)
+		return
+	}
+	for _, b := range expired {
+		switch s.reconcileExpiredHold(ctx, b, reconciler) {
+		case expiredHoldSettled:
+			if err := s.holdExpiries.MarkHoldReconciled(ctx, b.ID); err != nil {
+				// Asked again next run; the processing is idempotent.
+				s.logger.Error("cron_release_expired_payments: failed to mark an expired booking reconciled",
+					"error", err, "booking_id", b.ID)
+			}
+		case expiredHoldInFlight:
+		case expiredHoldFailed:
+			failures, err := s.holdExpiries.RecordHoldReconcileFailure(ctx, b.ID)
+			if err != nil {
+				s.logger.Error("cron_release_expired_payments: failed to count a reconciliation failure",
+					"error", err, "booking_id", b.ID)
+				continue
+			}
+			if failures >= expiredHoldMaxFailures {
+				s.logger.Error("cron_release_expired_payments: an expired booking could not be reconciled with MercadoPago; giving up, needs manual review",
+					"booking_id", b.ID, "failures", failures)
+				sentry.CaptureMessage(fmt.Sprintf("EXPIRED BOOKING NOT RECONCILED WITH MERCADOPAGO (manual review): booking_id=%s failures=%d",
+					b.ID, failures))
+			}
+		}
+	}
+}
+
+// reconcileExpiredHold closes b's checkout link and asks MercadoPago about its
+// payments, handing every approved one not yet recorded to reconciler.
+func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) expiredHoldOutcome {
+	// Closed before asking, so nothing can be approved after the answer. The
+	// inline release left it open; the sweep's own expiry already closed it,
+	// and closing it again changes nothing.
+	if err := s.closeCheckout(ctx, &b.Booking, b); err != nil {
+		return expiredHoldFailed
+	}
+	caller, err := expiryCaller(b)
+	if err != nil {
+		return expiredHoldFailed
+	}
+	found, err := s.checkout.SearchPaymentsByReference(ctx, b.ID.String(), caller)
+	if err != nil {
+		s.logger.Error("cron_release_expired_payments: MercadoPago could not be asked about an expired booking's checkout",
+			"error", err, "booking_id", b.ID)
+		return expiredHoldFailed
+	}
+
+	outcome := expiredHoldSettled
+	for _, p := range found {
+		if p.ExternalReference != b.ID.String() {
+			continue
+		}
+		switch p.Status {
+		case "pending", "in_process", "authorized":
+			if outcome == expiredHoldSettled {
+				outcome = expiredHoldInFlight
+			}
+			continue
+		case "approved":
+		default:
+			continue
+		}
+		mpPaymentID := strconv.FormatInt(p.ID, 10)
+		if s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+			continue
+		}
+		s.logger.Warn("cron_release_expired_payments: an expired booking was paid and never processed, reconciling it",
+			"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
+			s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking could not be handed over",
+				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
+			outcome = expiredHoldFailed
+		}
+	}
+	return outcome
+}
+
 // releaseExpiredHolds deletes the slot holds nobody converted within the
 // payment window (see bookingstore.Store.ReleaseHold for why they are deleted)
 // and tells each affected complex's grid once and the waitlist once per venue
@@ -332,7 +479,7 @@ func (s *Service) ReleaseUnpaidHolds(ctx context.Context, complexID uuid.UUID) e
 			stillOpen = err
 			continue
 		}
-		if err := s.cancelUnpaidHold(ctx, b, "Cancelado automáticamente: el complejo desconectó MercadoPago"); err != nil {
+		if err := s.cancelUnpaidHold(ctx, b, "Cancelado automáticamente: el complejo desconectó MercadoPago", false); err != nil {
 			return fmt.Errorf("bookings: cancel unpaid hold %s: %w", b.ID, err)
 		}
 		s.logger.Info("mp_disconnect: released unpaid booking", "booking_id", b.ID, "complex_id", complexID)
@@ -357,14 +504,24 @@ func (s *Service) checkoutBeingSetUp(ctx context.Context, b *bookingstore.CronBo
 // cancelUnpaidHold cancels a storefront booking that was never paid, whose
 // checkout link the caller has already closed, and tells the client why it went
 // away. The owner is not told: they never had this booking.
-func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBooking, note string) error {
+//
+// expired says the payment window ran out, which is recorded with the
+// cancellation (HoldExpiryStore.ExpireHold): such a booking is asked about
+// again by reconcileExpiredHolds, and reopened by a late payment into hours
+// still free. A disconnect's release is not one: the seller can no longer be
+// asked anything, and the booking stays cancelled.
+func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBooking, note string, expired bool) error {
 	b.Status = "cancelled"
 	if b.Notes != nil {
 		note = *b.Notes + " | " + note
 	}
 	b.Notes = &note
 
-	if err := s.store.Update(ctx, &b.Booking); err != nil {
+	write := s.store.Update
+	if expired && s.holdExpiries != nil {
+		write = s.holdExpiries.ExpireHold
+	}
+	if err := write(ctx, &b.Booking); err != nil {
 		return err
 	}
 

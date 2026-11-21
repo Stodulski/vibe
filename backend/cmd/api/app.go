@@ -908,6 +908,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// first, and that lives in the bookings domain, built only here — after the
 	// complexes service. Closed the same way as SetCourts, before any request.
 	complexesService.SetHoldReleaser(bookingsService)
+	// The release sweep records the bookings it expires and asks MercadoPago
+	// about them once more later (bookings.Service.SetHoldExpiries).
+	bookingsService.SetHoldExpiries(d.models.Bookings)
 	// The Turnstile client is passed to the handler, not the service: the check
 	// is computed over the request, which never reaches the service. It only
 	// gates POST /book when the operator set TURNSTILE_BOOKING_ENFORCE and the

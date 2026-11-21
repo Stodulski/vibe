@@ -505,9 +505,21 @@ type BookingHoldManager interface {
 	DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) error
 }
 
+// BookingHoldExpiryManager is the record of storefront bookings cancelled only
+// because their payment window ran out (bookingstore hold_expiry.go): written
+// by the release sweep's expiry, read back so each one is asked about with
+// MercadoPago once.
+type BookingHoldExpiryManager interface {
+	ExpireHold(ctx context.Context, booking *bookingstore.Booking) error
+	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
+	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
+	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
+}
+
 // BookingStore composes every booking-related store capability.
 type BookingStore interface {
 	BookingHoldManager
+	BookingHoldExpiryManager
 	BookingCreator
 	BookingReader
 	BookingUpdater
