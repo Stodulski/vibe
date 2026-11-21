@@ -1455,8 +1455,10 @@ func TestPublicCancelOutsideTheWindowDoesNotRefund(t *testing.T) {
 	booking := futureBooking(complexID)
 	// Two hours from now, against a 24-hour window, and created long enough ago
 	// that the grace period has passed.
-	booking.Date = time.Now().In(timezone.Argentina)
-	booking.StartTime = time.Now().In(timezone.Argentina).Add(2 * time.Hour).Format("15:04")
+	// The date of the start itself: from 22:00 two hours ahead is tomorrow.
+	start := time.Now().In(timezone.Argentina).Add(2 * time.Hour)
+	booking.Date = start
+	booking.StartTime = start.Format("15:04")
 	booking.CreatedAt = time.Now().Add(-24 * time.Hour)
 	f.store.booking = booking
 	f.linkResolver.booking = booking

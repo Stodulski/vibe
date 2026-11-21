@@ -787,8 +787,10 @@ func TestStaffCancelAlwaysSetsTheRefundIntentMarkerWhenPaid(t *testing.T) {
 func outOfWindowBooking(complexID uuid.UUID) *bookingstore.Booking {
 	b := futureBooking(complexID)
 	now := time.Now().In(timezone.Argentina)
-	b.Date = now
-	b.StartTime = now.Add(2 * time.Hour).Format("15:04")
+	// The date of the start itself: from 22:00 two hours ahead is tomorrow.
+	start := now.Add(2 * time.Hour)
+	b.Date = start
+	b.StartTime = start.Format("15:04")
 	b.CreatedAt = now.Add(-24 * time.Hour)
 	return b
 }
