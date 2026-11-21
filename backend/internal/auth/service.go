@@ -756,6 +756,10 @@ func (s *Service) DeleteAccount(ctx context.Context, actor Actor, user *authstor
 		NewValue: accountEvent{Email: recordedAddress(user.Email), Actor: actorSelf},
 	})
 
+	// The address was captured in user before the row went, and travels in the
+	// payload: there is no account left to resolve it from at delivery.
+	s.notify.AccountDeleted(notifications.AccountDeletedEmail{To: user.Email, FirstName: user.FirstName}, user.ID.String())
+
 	return nil
 }
 
@@ -871,6 +875,11 @@ func (s *Service) UpdateCurrentUser(ctx context.Context, actor Actor, user *auth
 			EntityID: accountID(user.ID),
 			NewValue: accountEvent{Email: recordedAddress(user.Email)},
 		})
+
+		// Told now, with the credential already changed: the revocations below
+		// can fail and return, and none of them un-changes the password. Each
+		// change is its own event, so it gets its own id.
+		s.notify.PasswordChanged(notifications.PasswordChangedEmail{To: user.Email, FirstName: user.FirstName}, uuid.NewString())
 
 		if err := s.tokens.DeleteAllForUser(ctx, user.ID); err != nil {
 			return nil, EmailChangeNone, err
@@ -1089,6 +1098,12 @@ func (s *Service) ConfirmEmailChange(ctx context.Context, actor Actor, token str
 		NewValue: accountEvent{Email: recordedAddress(user.Email)},
 	})
 
+	// The previous address is the one the owner still reads if this was not
+	// them, so the notice goes there, keyed on the request it confirms.
+	s.notify.EmailChanged(notifications.EmailChangedEmail{
+		To: previousEmail, FirstName: user.FirstName, NewEmail: user.Email,
+	}, req.ID.String())
+
 	// The address just changed and is unverified again — the same
 	// re-verification UpdateCurrentUser used to trigger synchronously; now it
 	// runs once the new address is actually in place. This is also the step
@@ -1240,6 +1255,10 @@ func (s *Service) ResetPassword(ctx context.Context, actor Actor, token, passwor
 		EntityID: accountID(user.ID),
 		NewValue: accountEvent{Email: recordedAddress(user.Email)},
 	})
+
+	// Whoever held the link may not be the owner, so the account's address is
+	// told, keyed on the reset token that was spent.
+	s.notify.PasswordChanged(notifications.PasswordChangedEmail{To: user.Email, FirstName: user.FirstName}, resetToken.ID.String())
 
 	// Clear the login lockout, because a locked-out account is exactly the
 	// account whose owner is likely to be standing here: being locked out is

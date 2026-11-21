@@ -425,6 +425,27 @@ type stubNotifier struct {
 	duplicates    []notifications.DuplicateRegistrationEmail
 	emailChanges  []notifications.EmailChangeRequestedEmail
 	welcomes      []welcomeSent
+	// The security notices, each with the event id it was keyed on.
+	passwordChanges []securityNotice[notifications.PasswordChangedEmail]
+	emailChanged    []securityNotice[notifications.EmailChangedEmail]
+	deletions       []securityNotice[notifications.AccountDeletedEmail]
+}
+
+type securityNotice[T any] struct {
+	email T
+	event string
+}
+
+func (s *stubNotifier) PasswordChanged(e notifications.PasswordChangedEmail, eventID string) {
+	s.passwordChanges = append(s.passwordChanges, securityNotice[notifications.PasswordChangedEmail]{e, eventID})
+}
+
+func (s *stubNotifier) EmailChanged(e notifications.EmailChangedEmail, requestID string) {
+	s.emailChanged = append(s.emailChanged, securityNotice[notifications.EmailChangedEmail]{e, requestID})
+}
+
+func (s *stubNotifier) AccountDeleted(e notifications.AccountDeletedEmail, userID string) {
+	s.deletions = append(s.deletions, securityNotice[notifications.AccountDeletedEmail]{e, userID})
 }
 
 func (s *stubNotifier) Welcome(e notifications.WelcomeEmail, userID string) {

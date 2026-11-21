@@ -50,6 +50,14 @@ type Mailer interface {
 	SendPasswordReset(ctx context.Context, to, firstName, resetURL string) error
 	SendDuplicateRegistration(ctx context.Context, to, firstName, loginURL, resetURL string) error
 	SendEmailChangeRequested(ctx context.Context, to, firstName, newEmail, confirmURL, expiresIn string) error
+	// The security notices and the owner's connection notices. See account.go.
+	SendPasswordChanged(ctx context.Context, to, firstName string) error
+	SendEmailChanged(ctx context.Context, to, firstName, newEmail string) error
+	SendAccountDeleted(ctx context.Context, to, firstName string) error
+	SendOwnerMPConnected(ctx context.Context, to, complexName string) error
+	SendOwnerMPDisconnected(ctx context.Context, to, complexName string) error
+	SendOwnerMPRefreshFailed(ctx context.Context, to, complexName string) error
+	SendOwnerInstagramReconnect(ctx context.Context, to, complexName string) error
 	// SendSeriesCreated and SendSeriesCancelled are the two notices of a fixed
 	// weekly booking. See series.go.
 	SendSeriesCreated(ctx context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error

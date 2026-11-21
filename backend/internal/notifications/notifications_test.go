@@ -164,6 +164,34 @@ func (m *stubMailer) SendWelcome(_ context.Context, to, firstName string) error 
 	return m.record("welcome", to, firstName)
 }
 
+func (m *stubMailer) SendPasswordChanged(_ context.Context, to, firstName string) error {
+	return m.record("password_changed", to, firstName)
+}
+
+func (m *stubMailer) SendEmailChanged(_ context.Context, to, firstName, newEmail string) error {
+	return m.record("email_changed", to, firstName, newEmail)
+}
+
+func (m *stubMailer) SendAccountDeleted(_ context.Context, to, firstName string) error {
+	return m.record("account_deleted", to, firstName)
+}
+
+func (m *stubMailer) SendOwnerMPConnected(_ context.Context, to, complexName string) error {
+	return m.record("owner_mp_connected", to, complexName)
+}
+
+func (m *stubMailer) SendOwnerMPDisconnected(_ context.Context, to, complexName string) error {
+	return m.record("owner_mp_disconnected", to, complexName)
+}
+
+func (m *stubMailer) SendOwnerMPRefreshFailed(_ context.Context, to, complexName string) error {
+	return m.record("owner_mp_refresh_failed", to, complexName)
+}
+
+func (m *stubMailer) SendOwnerInstagramReconnect(_ context.Context, to, complexName string) error {
+	return m.record("owner_instagram_reconnect", to, complexName)
+}
+
 func (m *stubMailer) SendBenefitsCampaign(_ context.Context, to, firstName, segment, _, _, _, _ string) error {
 	return m.record("benefits_campaign", to, firstName+"|"+segment)
 }
@@ -451,6 +479,8 @@ func TestWorkersDeliverEachTaskType(t *testing.T) {
 		TaskEmailDepositRefunded, TaskEmailOwnerNewBooking, TaskEmailOwnerBookingCancelled, TaskEmailOwnerBookingRefunded, TaskEmailVerification,
 		TaskEmailPasswordReset, TaskEmailDuplicateRegistration, TaskEmailChangeRequested,
 		TaskEmailLifecycleNudge, TaskEmailWelcome,
+		TaskEmailPasswordChanged, TaskEmailEmailChanged, TaskEmailAccountDeleted,
+		TaskEmailOwnerMPConnected, TaskEmailOwnerMPDisconnected, TaskEmailOwnerMPRefreshFailed, TaskEmailOwnerInstagramReconnect,
 	} {
 		if _, ok := q.handlers[taskType]; !ok {
 			t.Errorf("no worker registered for %s", taskType)
