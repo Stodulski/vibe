@@ -542,6 +542,18 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold hold
 		return err
 	}
 	if hasCollision {
+		// An owner refused by a visitor's live online hold is told so, and
+		// when it frees: the hold is not on their calendar as a booking, and a
+		// bare "unavailable" for a cell that looked free read as a fault.
+		if b.CreatedBy != nil {
+			freesAt, held, err := liveHoldFreesAt(ctx, tx, b, m.PaymentExpiry)
+			if err != nil {
+				return err
+			}
+			if held {
+				return &HoldBlockedError{FreesAt: freesAt}
+			}
+		}
 		return ErrSlotUnavailable
 	}
 

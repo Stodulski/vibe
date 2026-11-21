@@ -274,7 +274,7 @@ func TestPublicBookConvertsAHold(t *testing.T) {
 		}
 	})
 
-	t.Run("a hold with seconds left gets the floor, not a fresh window", func(t *testing.T) {
+	t.Run("a hold with seconds left gets the minimum payment window, not a fresh one", func(t *testing.T) {
 		f := newFixture(t)
 		complexID, courtID := preparePublicBooking(f)
 		token := seedHold(t, f, complexID, courtID, 14*time.Minute+45*time.Second)
@@ -282,8 +282,9 @@ func TestPublicBookConvertsAHold(t *testing.T) {
 		w := httptest.NewRecorder()
 		f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", holdBookBody(complexID, courtID, token)))
 
-		if w.Code != http.StatusCreated || f.checkout.lastInput.ExpiresIn != minCheckoutWindow {
-			t.Fatalf("want 201 with ExpiresIn %v; got %d %v", minCheckoutWindow, w.Code, f.checkout.lastInput.ExpiresIn)
+		got := f.checkout.lastInput.ExpiresIn
+		if w.Code != http.StatusCreated || got > bookingstore.MinPaymentWindow || got < bookingstore.MinPaymentWindow-10*time.Second {
+			t.Fatalf("want 201 with ExpiresIn ~%v; got %d %v", bookingstore.MinPaymentWindow, w.Code, got)
 		}
 	})
 

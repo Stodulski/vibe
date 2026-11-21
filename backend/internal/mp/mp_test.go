@@ -898,3 +898,57 @@ func TestWithBaseURLEmptyKeepsTheRealAPI(t *testing.T) {
 		t.Errorf("baseURL = %q, want %q", client.baseURL, DefaultBaseURL)
 	}
 }
+
+// GetPreference reads back a checkout link the seller already created, as the
+// seller: a visitor whose card was rejected pays again on the same link.
+func TestGetPreference(t *testing.T) {
+	t.Run("reads the link as the seller", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.Method != http.MethodGet || r.URL.Path != "/checkout/preferences/pref-1" {
+				t.Errorf("unexpected request: %s %s", r.Method, r.URL.Path)
+			}
+			if r.Header.Get("Authorization") != "Bearer seller-token" {
+				t.Errorf("want the seller's token; got %s", r.Header.Get("Authorization"))
+			}
+			w.Header().Set("Content-Type", "application/json")
+			if _, err := w.Write([]byte(`{"id":"pref-1","init_point":"https://mp.test/checkout?pref_id=pref-1"}`)); err != nil {
+				t.Errorf("w.Write: %v", err)
+			}
+		}))
+		defer ts.Close()
+
+		client := NewMPClient("marketplace-token", "secret", "app", "client", nil)
+		client.baseURL = ts.URL
+
+		pref, err := client.GetPreference(t.Context(), "pref-1", mustSeller(t, "seller-token"))
+		if err != nil {
+			t.Fatalf("GetPreference: %v", err)
+		}
+		if pref.ID != "pref-1" || pref.InitPoint != "https://mp.test/checkout?pref_id=pref-1" {
+			t.Errorf("got %+v", pref)
+		}
+	})
+
+	t.Run("a refusal is an APIError", func(t *testing.T) {
+		ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer ts.Close()
+
+		client := NewMPClient("marketplace-token", "secret", "app", "client", nil)
+		client.baseURL = ts.URL
+
+		_, err := client.GetPreference(t.Context(), "pref-1", mustSeller(t, "seller-token"))
+		var apiErr *APIError
+		if !errors.As(err, &apiErr) || apiErr.StatusCode != http.StatusNotFound {
+			t.Errorf("want a 404 APIError; got %v", err)
+		}
+	})
+
+	t.Run("the platform cannot read a seller's link", func(t *testing.T) {
+		client := NewMPClient("marketplace-token", "secret", "app", "client", nil)
+		if _, err := client.GetPreference(t.Context(), "pref-1", AsPlatform()); !errors.Is(err, ErrPlatformCannotSell) {
+			t.Errorf("want ErrPlatformCannotSell; got %v", err)
+		}
+	})
+}

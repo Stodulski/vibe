@@ -12,6 +12,7 @@ import type {
   FixedBlock,
   Schedule,
 } from '@/shared/types/api.types';
+import type { OnlineHold } from '../../schemas/onlineHold.schema';
 
 const t = ES_AR;
 
@@ -23,6 +24,7 @@ interface BookingContentProps {
   blockedSlots: BlockedSlot[];
   fixedBlocks?: FixedBlock[] | undefined;
   eventBlocks?: CourtEventBlock[] | undefined;
+  onlineHolds?: OnlineHold[] | undefined;
   isPast: boolean;
   selectedDate: string;
   courts: CourtWithPrices[];
@@ -43,6 +45,7 @@ export function BookingContent({
   blockedSlots,
   fixedBlocks,
   eventBlocks,
+  onlineHolds,
   isPast,
   selectedDate,
   courts,
@@ -82,6 +85,7 @@ export function BookingContent({
       blockedSlots={blockedSlots}
       fixedBlocks={fixedBlocks}
       eventBlocks={eventBlocks}
+      onlineHolds={onlineHolds}
       courts={courts}
       date={selectedDate}
       schedules={schedules}

@@ -128,6 +128,10 @@ type stubStore struct {
 	publicIPs    []string
 	publicCaps   []int
 	publicCapErr error
+
+	// liveHolds is what LiveHolds answers; liveHoldDays the days it was asked.
+	liveHolds    []bookingstore.LiveHold
+	liveHoldDays []time.Time
 }
 
 // InsertHold with a nil tokenHash is the pre-hold POST /book insert: the real
@@ -172,6 +176,11 @@ func (s *stubStore) ConvertHold(_ context.Context, b *bookingstore.Booking, toke
 	if !bytes.Equal(tokenHash, s.heldHash) {
 		return bookingstore.ErrHoldNotFound
 	}
+	// The real ConvertHold leaves at least MinPaymentWindow to pay by moving
+	// created_at, against the fixture's 15-minute window.
+	if floor := time.Now().Add(bookingstore.MinPaymentWindow - 15*time.Minute); b.CreatedAt.Before(floor) {
+		b.CreatedAt = floor
+	}
 	b.LinkToken = "stub-converted-link-token"
 	s.converted = append(s.converted, b)
 	return nil
@@ -189,6 +198,13 @@ func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (bookingsto
 func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error) {
 	s.expiredHoldWindows = append(s.expiredHoldWindows, expiry)
 	return s.expiredHolds, nil
+}
+
+// LiveHolds answers liveHolds, whatever complex and day are asked about, and
+// records the days asked.
+func (s *stubStore) LiveHolds(_ context.Context, _ uuid.UUID, day time.Time) ([]bookingstore.LiveHold, error) {
+	s.liveHoldDays = append(s.liveHoldDays, day)
+	return s.liveHolds, nil
 }
 
 func (s *stubStore) DeleteComplexHolds(_ context.Context, complexID uuid.UUID) error {
@@ -940,6 +956,22 @@ type stubCheckout struct {
 	searchErr     error
 	searches      []string
 	searchCallers []mp.Caller
+	// readErr fails GetPreference; reads records the preference ids it was
+	// asked for and readCallers as whom.
+	readErr     error
+	reads       []string
+	readCallers []mp.Caller
+}
+
+// GetPreference answers the link of the preference it is asked about, built
+// from its id, or fails with readErr.
+func (s *stubCheckout) GetPreference(_ context.Context, preferenceID string, caller mp.Caller) (*mp.Preference, error) {
+	s.reads = append(s.reads, preferenceID)
+	s.readCallers = append(s.readCallers, caller)
+	if s.readErr != nil {
+		return nil, s.readErr
+	}
+	return &mp.Preference{ID: preferenceID, InitPoint: "https://mp.test/checkout?pref_id=" + preferenceID}, nil
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {

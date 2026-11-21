@@ -12,6 +12,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -66,9 +67,19 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The day's online holds ride along on the day's read, so the grid can
+	// draw the hours a visitor is booking right now (which are not bookings
+	// the owner has, and so are not in the list above).
+	holds, err := h.svc.LiveHolds(r.Context(), complex.ID, date)
+	if err != nil {
+		h.respond.ServerError(w, r, err)
+		return
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"bookings": toGenBookings(bookings),
-		"metadata": toGenMetadata(metadata),
+		"bookings":     toGenBookings(bookings),
+		"metadata":     toGenMetadata(metadata),
+		"online_holds": toOnlineHolds(holds),
 	})
 }
 
@@ -157,12 +168,18 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	var validationErr *ValidationError
 	var conflictErr *ConflictError
 	var stateErr *StateError
+	var holdBlocked *bookingstore.HoldBlockedError
 
 	if h.refuseSeriesConflicts(w, r, err) {
 		return
 	}
 
 	switch {
+	case errors.As(err, &holdBlocked):
+		// Still slot-unavailable, for every client switching on the kind; the
+		// detail tells the owner why a cell that looked free is not, and when
+		// it will be.
+		h.respond.Refuse(w, r, httpx.SlotUnavailable(holdBlockedMessage(holdBlocked.FreesAt)))
 	case errors.As(err, &validationErr):
 		h.respond.FailedValidation(w, r, validationErr.Errors)
 	case errors.As(err, &fieldErr):
@@ -189,6 +206,13 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 // slotTakenMessage is what both booking write paths tell a client whose chosen
 // hours somebody else now holds.
 const slotTakenMessage = "the selected time slot is no longer available, please choose another"
+
+// holdBlockedMessage is what an owner is told when a visitor's live online
+// hold is what stands in the way: the owner's app shows the detail as it is.
+func holdBlockedMessage(freesAt time.Time) string {
+	return fmt.Sprintf("Este horario se está reservando online. Si no se paga, se libera a las %s.",
+		freesAt.In(timezone.Argentina).Format("15:04"))
+}
 
 // toGenBooking maps a store booking onto the generated wire type (HTTP-08): a
 // handler must never serialize bookingstore.Booking directly, because that

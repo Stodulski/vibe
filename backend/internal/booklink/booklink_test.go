@@ -2,7 +2,6 @@ package booklink
 
 import (
 	"net/url"
-	"strings"
 	"testing"
 	"time"
 
@@ -45,17 +44,17 @@ func TestEveryFunctionEmitsTheConfiguredQueryParam(t *testing.T) {
 		}
 	}
 
-	// Failure carries no credential at all.
-	failure := Failure("https://vibe.test", "acme")
+	// Failure carries the same credential Success does, beside the error: the
+	// storefront needs it to offer paying again or letting the slot go. It is
+	// the bearer token MercadoPago already holds in the success URL, so the
+	// failure redirect tells no third party anything new.
+	failure := Failure("https://vibe.test", "acme", credential)
 	fu, err := url.Parse(failure)
 	if err != nil {
 		t.Fatalf("Failure built an unparsable URL %q: %v", failure, err)
 	}
-	if len(fu.Query()) != 1 || fu.Query().Get("error") == "" {
-		t.Errorf("Failure: want only an error query parameter; got %q", failure)
-	}
-	if strings.Contains(failure, QueryParam) {
-		t.Errorf("Failure must carry no credential; got %q", failure)
+	if len(fu.Query()) != 2 || fu.Query().Get("error") != "payment_failed" || fu.Query().Get(QueryParam) != credential {
+		t.Errorf("Failure: want only the error and the credential; got %q", failure)
 	}
 }
 
@@ -166,7 +165,7 @@ func TestEveryComplexLinkCarriesTheCPrefix(t *testing.T) {
 		{"Cancel", Cancel(origin, slug, credential), origin + "/c/acme/book/cancel?token=cred-abc123"},
 		{"Success", Success(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123"},
 		{"SuccessPending", SuccessPending(origin, slug, credential), origin + "/c/acme/book/success?token=cred-abc123&status=pending"},
-		{"Failure", Failure(origin, slug), origin + "/c/acme/book?error=payment_failed"},
+		{"Failure", Failure(origin, slug, credential), origin + "/c/acme/book?error=payment_failed&token=cred-abc123"},
 		{"Book", Book(origin, slug), origin + "/c/acme/book"},
 	}
 	for _, tt := range tests {

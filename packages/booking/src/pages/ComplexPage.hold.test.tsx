@@ -326,3 +326,24 @@ function oldDraft() {
     cancellationHours: 24,
   };
 }
+
+describe('ComplexPage slot hold cooldown', () => {
+  it('shows the cooldown refusal in the words the server wrote, with when the hours free up', async () => {
+    const detail = 'Reservaste este horario hace poco y no se completó el pago. Vas a poder elegirlo de nuevo desde las 19:40.';
+    captureHolds(() =>
+      HttpResponse.json(
+        { type: 'https://vibe.com.ar/problems/hold-cooldown', title: '', status: 409, detail },
+        { status: 409 },
+      ),
+    );
+    await renderPage(TURNSTILE_CONFIG);
+    solveChallenge();
+
+    await pickCourt();
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(detail);
+    });
+    expect(assignSpy).not.toHaveBeenCalled();
+  });
+});

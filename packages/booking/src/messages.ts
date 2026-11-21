@@ -1,5 +1,6 @@
 import { DECLARATION_MESSAGES } from './declarationMessages';
 import { EVENT_MESSAGES } from './eventMessages';
+import { HOLD_MESSAGES } from './holdMessages';
 import { RULER_MESSAGES } from './rulerMessages';
 import { TOURNAMENT_MESSAGES } from './tournamentMessages';
 import { WAITLIST_MESSAGES } from './waitlistMessages';
@@ -79,6 +80,7 @@ export const BOOKING_MESSAGES = {
     paymentFailedDescription: 'No se cobró nada. El turno quedó libre.',
     paymentFailedSlotLabel: 'Turno',
     paymentFailedChooseAnother: 'Elegir otro horario',
+    ...HOLD_MESSAGES,
     paymentFailedCallComplex: 'Llamar al complejo',
     paymentFailedWhatsApp: 'Escribir por WhatsApp',
     paymentProcessing: 'Pago en proceso',

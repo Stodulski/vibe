@@ -1,0 +1,295 @@
+package bookings
+
+import (
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
+)
+
+// clock is how a test spells an instant on the venue's wall clock.
+func clock(t time.Time) string { return t.In(timezone.Argentina).Format("15:04") }
+
+// S2: a hold refused by the cooldown answers its own kind, and tells the
+// visitor in Spanish when the hours can be picked again.
+func TestTakeHoldRefusedByTheCooldown(t *testing.T) {
+	f := newFixture(t)
+	complexID, courtID := preparePublicBooking(f)
+	until := time.Now().Add(7 * time.Minute)
+	f.store.holdErr = &bookingstore.HoldCooldownError{Until: until}
+
+	w := httptest.NewRecorder()
+	f.handler.TakeHold(w, publicRequest(t, http.MethodPost, "/", holdBody(complexID, courtID, "")))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := decode(t, w)
+	if problemKind(body) != string(KindHoldCooldown) {
+		t.Errorf("want kind %q; got %q", KindHoldCooldown, problemKind(body))
+	}
+	detail, _ := body["detail"].(string)
+	if !strings.Contains(detail, clock(until)) || !strings.Contains(detail, "elegir otro horario") {
+		t.Errorf("want a Spanish detail naming %s; got %q", clock(until), detail)
+	}
+}
+
+// S3: an owner booking refused by a visitor's live hold keeps the
+// slot-unavailable contract and says, in Spanish, when the slot frees.
+func TestStaffCreateOverALiveHoldSaysWhenItFrees(t *testing.T) {
+	f, complexID, courtID := staffFixture(t)
+	freesAt := time.Now().Add(9 * time.Minute)
+	f.store.insertErr = &bookingstore.HoldBlockedError{FreesAt: freesAt}
+	date, _ := bookableDate()
+	body := fmt.Sprintf(`{"court_id":%q,"date":%q,"start_time":%q,"duration_minutes":90,`+
+		`"client_first_name":"Ana","client_last_name":"Perez","client_phone":"+541100000000","payment_option":"unpaid"}`,
+		courtID, date.Format("2006-01-02"), onGrid)
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", complexID, map[string]string{"id": complexID.String()}, body))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	got := decode(t, w)
+	if problemKind(got) != "slot-unavailable" {
+		t.Errorf("the kind must stay slot-unavailable; got %q", problemKind(got))
+	}
+	detail, _ := got["detail"].(string)
+	if !strings.Contains(detail, "reservando online") || !strings.Contains(detail, clock(freesAt)) {
+		t.Errorf("want the online hold and %s in the detail; got %q", clock(freesAt), detail)
+	}
+}
+
+// S3, previous behavior: any other slot refusal is the sentence it always was.
+func TestStaffCreateOverABookingKeepsItsRefusal(t *testing.T) {
+	f, complexID, courtID := staffFixture(t)
+	f.store.insertErr = bookingstore.ErrSlotUnavailable
+	date, _ := bookableDate()
+	body := fmt.Sprintf(`{"court_id":%q,"date":%q,"start_time":%q,"duration_minutes":90,`+
+		`"client_first_name":"Ana","client_last_name":"Perez","client_phone":"+541100000000","payment_option":"unpaid"}`,
+		courtID, date.Format("2006-01-02"), onGrid)
+
+	w := httptest.NewRecorder()
+	f.handler.Create(w, ownerRequest(t, http.MethodPost, "/", complexID, map[string]string{"id": complexID.String()}, body))
+
+	got := decode(t, w)
+	if w.Code != http.StatusConflict || problemKind(got) != "slot-unavailable" || got["detail"] != slotTakenMessage {
+		t.Errorf("want the plain slot-unavailable refusal; got %d %v", w.Code, got)
+	}
+}
+
+// S3: the owner's day read carries the day's online holds, and nothing that
+// names the visitor.
+func TestListCarriesTheDaysOnlineHolds(t *testing.T) {
+	f := newFixture(t)
+	courtID := uuid.New()
+	day := time.Date(2027, 3, 20, 0, 0, 0, 0, time.UTC)
+	freesAt := time.Date(2027, 3, 18, 22, 10, 0, 0, time.UTC)
+	f.store.liveHolds = []bookingstore.LiveHold{{
+		CourtID: courtID, Date: day, StartTime: "23:00", DurationMinutes: 90, FreesAt: freesAt,
+	}}
+
+	w := httptest.NewRecorder()
+	f.handler.List(w, ownerRequest(t, http.MethodGet, "/?date=2027-03-20", uuid.New(), nil, ""))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.store.liveHoldDays) != 1 || !f.store.liveHoldDays[0].Equal(day) {
+		t.Errorf("want the holds of the day asked; asked %v", f.store.liveHoldDays)
+	}
+	holds, _ := decode(t, w)["online_holds"].([]any)
+	if len(holds) != 1 {
+		t.Fatalf("want one online hold; got %v", holds)
+	}
+	got, _ := holds[0].(map[string]any)
+	want := map[string]any{
+		"court_id": courtID.String(), "date": "2027-03-20", "start_time": "23:00",
+		"end_time": "00:30", "duration_minutes": float64(90), "frees_at": "2027-03-18T22:10:00Z",
+	}
+	if len(got) != len(want) {
+		t.Errorf("want exactly %v; got %v", want, got)
+	}
+	for k, v := range want {
+		if got[k] != v {
+			t.Errorf("%s = %v, want %v", k, got[k], v)
+		}
+	}
+}
+
+// S3, previous behavior: a day with no holds still lists its bookings, and the
+// holds are an empty list rather than missing.
+func TestListWithNoOnlineHolds(t *testing.T) {
+	f := newFixture(t)
+	f.store.list = []*bookingstore.Booking{futureBooking(uuid.New())}
+
+	w := httptest.NewRecorder()
+	f.handler.List(w, ownerRequest(t, http.MethodGet, "/?date=2027-03-20", uuid.New(), nil, ""))
+
+	body := decode(t, w)
+	bookings, _ := body["bookings"].([]any)
+	holds, ok := body["online_holds"].([]any)
+	if w.Code != http.StatusOK || len(bookings) != 1 || !ok || len(holds) != 0 {
+		t.Errorf("want one booking and an empty hold list; got %d %v", w.Code, body)
+	}
+}
+
+// failedCheckout is a converted storefront booking whose payment was
+// rejected: still pending, nothing collected, a checkout on file, opened
+// minutesAgo of its window ago.
+func failedCheckout(f *fixture, minutesAgo int) *bookingstore.Booking {
+	complexID, courtID := preparePublicBooking(f)
+	b := futureBooking(complexID)
+	b.CourtID = courtID
+	b.ClientID = uuid.Nil
+	b.Status = "pending"
+	b.CollectionStatus = bookingstore.CollectionStatusUnpaid
+	b.CreatedAt = time.Now().Add(-time.Duration(minutesAgo) * time.Minute)
+	b.ClientSnapshot = &bookingstore.ClientSnapshot{FirstName: "Ana", LastName: "Perez", Phone: "+5491100000077", Email: "ana@example.com"}
+	f.linkResolver.booking = b
+	f.linkResolver.validToken = "link-token"
+	pref := "pref-77"
+	f.payments.payment = &paymentstore.Payment{BookingID: b.ID, ComplexID: complexID, Method: "mercadopago", Status: "unpaid", MPPreferenceID: &pref}
+	return b
+}
+
+const checkoutBody = `{"token":"link-token"}`
+
+// S4: a visitor whose card was rejected pays again on the same checkout while
+// the window lasts.
+func TestRetryCheckoutHandsBackTheSameCheckout(t *testing.T) {
+	f := newFixture(t)
+	b := failedCheckout(f, 5)
+
+	w := httptest.NewRecorder()
+	f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+	}
+	checkout, _ := decode(t, w)["checkout"].(map[string]any)
+	if checkout["mp_init_point"] != "https://mp.test/checkout?pref_id=pref-77" {
+		t.Errorf("want the booking's own checkout link; got %v", checkout["mp_init_point"])
+	}
+	if want := b.CreatedAt.Add(15 * time.Minute).UTC().Format(time.RFC3339); checkout["expires_at"] != want {
+		t.Errorf("expires_at = %v, want the end of the window %s", checkout["expires_at"], want)
+	}
+	if len(f.checkout.reads) != 1 || f.checkout.created != 0 || len(f.store.updated) != 0 {
+		t.Errorf("a retry reads the checkout and writes nothing: reads=%v created=%d updated=%d",
+			f.checkout.reads, f.checkout.created, len(f.store.updated))
+	}
+	if f.checkout.readCallers[0] != mustSeller(t, "seller-token") {
+		t.Errorf("the checkout must be read as the seller; got %+v", f.checkout.readCallers[0])
+	}
+}
+
+// S4: no retry once the booking cannot be paid any more.
+func TestRetryCheckoutRefusesWhatCannotBePaid(t *testing.T) {
+	for name, mutate := range map[string]func(*bookingstore.Booking){
+		"the window is over":  func(b *bookingstore.Booking) { b.CreatedAt = time.Now().Add(-16 * time.Minute) },
+		"it was released":     func(b *bookingstore.Booking) { b.Status = "cancelled" },
+		"it was paid already": func(b *bookingstore.Booking) { b.CollectionStatus = bookingstore.CollectionStatusDepositPaid },
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			mutate(failedCheckout(f, 5))
+
+			w := httptest.NewRecorder()
+			f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+			if w.Code != http.StatusConflict || len(f.checkout.reads) != 0 {
+				t.Errorf("want 409 and no checkout read; got %d reads=%v (%s)", w.Code, f.checkout.reads, w.Body.String())
+			}
+		})
+	}
+}
+
+// S4: "Elegir otro horario" closes the checkout, gives the slot back to the
+// grid and the waitlist, and tells nobody by email.
+func TestReleaseCheckoutGivesTheSlotBack(t *testing.T) {
+	f := newFixture(t)
+	b := failedCheckout(f, 5)
+
+	w := httptest.NewRecorder()
+	f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204; got %d (%s)", w.Code, w.Body.String())
+	}
+	if len(f.store.updated) != 1 || f.store.updated[0].Status != "cancelled" || f.store.updated[0].ID != b.ID {
+		t.Fatalf("want the booking cancelled; got %+v", f.store.updated)
+	}
+	if len(f.checkout.expired) != 1 || f.checkout.expired[0] != "pref-77" {
+		t.Errorf("the checkout must be closed so it cannot be paid; expired %v", f.checkout.expired)
+	}
+	if len(f.realtime.published) != 1 || len(f.waitlist.freed) != 1 {
+		t.Errorf("the grid and the waitlist must hear the slot is free; published=%d freed=%d", len(f.realtime.published), len(f.waitlist.freed))
+	}
+	if len(f.notify.cancelled) != 0 {
+		t.Errorf("no email for a release the visitor asked for on screen; got %d", len(f.notify.cancelled))
+	}
+	if len(f.audit.entries) != 1 || f.audit.entries[0].Action != "public_release" {
+		t.Errorf("want one public_release audit entry; got %+v", f.audit.entries)
+	}
+}
+
+// S4: a release of a booking that was paid after all is refused and changes
+// nothing; one already released is a no-op.
+func TestReleaseCheckoutLeavesPaidAndReleasedBookingsAlone(t *testing.T) {
+	t.Run("paid", func(t *testing.T) {
+		f := newFixture(t)
+		b := failedCheckout(f, 5)
+		b.Status = "confirmed"
+		b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+
+		w := httptest.NewRecorder()
+		f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+		if w.Code != http.StatusConflict || len(f.store.updated) != 0 || len(f.checkout.expired) != 0 {
+			t.Errorf("want 409 and nothing touched; got %d updated=%d expired=%v", w.Code, len(f.store.updated), f.checkout.expired)
+		}
+	})
+	t.Run("already released", func(t *testing.T) {
+		f := newFixture(t)
+		failedCheckout(f, 5).Status = "cancelled"
+
+		w := httptest.NewRecorder()
+		f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+		if w.Code != http.StatusNoContent || len(f.store.updated) != 0 || len(f.realtime.published) != 0 {
+			t.Errorf("want 204 and nothing written; got %d updated=%d", w.Code, len(f.store.updated))
+		}
+	})
+}
+
+// S4: the checkout's failure redirect carries the booking's link token, so the
+// storefront can offer both; it carries nothing about the visitor.
+func TestTheCheckoutFailureRedirectCarriesTheLinkToken(t *testing.T) {
+	f := newFixture(t)
+	complexID, courtID := preparePublicBooking(f)
+
+	w := httptest.NewRecorder()
+	f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", publicBookBody(complexID, courtID, 90)))
+	if w.Code != http.StatusCreated {
+		t.Fatalf("want 201; got %d (%s)", w.Code, w.Body.String())
+	}
+
+	failure, err := url.Parse(f.checkout.lastInput.BackURLs.Failure)
+	if err != nil {
+		t.Fatalf("failure URL %q: %v", f.checkout.lastInput.BackURLs.Failure, err)
+	}
+	q := failure.Query()
+	if q.Get("token") != f.store.inserted[0].LinkToken || q.Get("error") != "payment_failed" || len(q) != 2 {
+		t.Errorf("want only the error and the booking's link token; got %q", failure.String())
+	}
+}

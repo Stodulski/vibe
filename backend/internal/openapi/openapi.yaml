@@ -886,7 +886,11 @@ paths:
         "409":
           description: >-
             Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the
-            booking horizon, or already held or booked (`slot-unavailable`).
+            booking horizon, or already held or booked (`slot-unavailable`). `hold-cooldown` when
+            this client address held overlapping hours on the court for a whole payment window
+            without paying, less than 10 minutes ago; its `detail` is a Spanish sentence for the
+            visitor saying from when they can pick them again. Picking hours again after letting a
+            hold go continues that hold's window instead of starting a new one.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -941,6 +945,102 @@ paths:
           description: Released, or there was nothing to release.
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/book/checkout/retry:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicCheckoutRetry
+      summary: Pay again on the checkout of a booking whose payment failed
+      description: >-
+        Public, authenticated by the booking's link token, which MercadoPago's failure redirect
+        carries. While the booking is still a pending, unpaid storefront booking inside its payment
+        window, answers its own MercadoPago checkout link again (the same preference: nothing is
+        created or written) and when the window ends. Cross-tenant bypass reason `resolves`.
+      security: []
+      responses:
+        "200":
+          description: The checkout to pay on, and when it closes.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [checkout]
+                properties:
+                  checkout:
+                    type: object
+                    required: [mp_init_point, expires_at]
+                    properties:
+                      mp_init_point: {type: string}
+                      expires_at: {type: string, format: date-time}
+        "400":
+          description: Malformed body, or the complex has no MercadoPago connected.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The booking can no longer be paid (its window ended, it was released, or it was paid).
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "410": {$ref: "#/components/responses/LinkExpired"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+        "503":
+          description: The checkout link could not be read from MercadoPago.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string, maxLength: 256}
+
+  /api/v1/book/checkout/release:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicCheckoutRelease
+      summary: Give back the slot of a booking whose payment failed
+      description: >-
+        Public, authenticated by the booking's link token, which MercadoPago's failure redirect
+        carries. Closes the checkout and cancels the pending, unpaid storefront booking, so the slot
+        is free again and no longer counts against the visitor's hold cap. No email is sent. Picking
+        the same hours again continues the window the booking had. Cross-tenant bypass reason
+        `resolves`.
+      security: []
+      responses:
+        "204":
+          description: The slot is free (released now, or already).
+        "400":
+          description: Malformed body.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "409":
+          description: The booking was paid after all, or changed while it was being released.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "410": {$ref: "#/components/responses/LinkExpired"}
+        "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [token]
+              properties:
+                token: {type: string, maxLength: 256}
 
   /api/v1/book/status:
     get:
@@ -1080,6 +1180,14 @@ paths:
                     type: array
                     items: {$ref: "#/components/schemas/Booking"}
                   metadata: {$ref: "#/components/schemas/Metadata"}
+                  online_holds:
+                    type: array
+                    description: >-
+                      The hours visitors are booking online on the day right now: storefront
+                      bookings inside their payment window, which are not in `bookings` and still
+                      hold their slot. Nothing that identifies the visitor. Always the whole day,
+                      whatever the page or filters.
+                    items: {$ref: "#/components/schemas/OnlineHold"}
         "400":
           description: Missing or malformed `date`, or an invalid cursor.
           content:
@@ -6702,6 +6810,20 @@ components:
                       last_name: {type: string}
 
   schemas:
+    OnlineHold:
+      type: object
+      description: >-
+        Hours a visitor is booking online: held from the storefront and not yet paid. Free again at
+        `frees_at` if nobody pays.
+      required: [court_id, date, start_time, end_time, duration_minutes, frees_at]
+      properties:
+        court_id: {type: string, format: uuid}
+        date: {type: string, format: date, description: "The day the hold starts on."}
+        start_time: {type: string, description: "HH:MM."}
+        end_time: {type: string, description: "HH:MM; earlier than start_time when the hold runs past midnight."}
+        duration_minutes: {type: integer}
+        frees_at: {type: string, format: date-time}
+
     Problem:
       type: object
       description: >-

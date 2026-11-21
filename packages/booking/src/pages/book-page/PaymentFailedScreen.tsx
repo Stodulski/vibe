@@ -6,6 +6,7 @@ import { BOOKING_MESSAGES } from '../../messages';
 import { readStoredBookingInfo } from '../../lib/storedBookingInfo';
 import { whatsappChatHref } from '../../lib/whatsapp';
 import { keepTogether } from '../../lib/keepTogether';
+import { useFailedCheckout } from './useFailedCheckout';
 
 const t = BOOKING_MESSAGES;
 
@@ -23,12 +24,13 @@ const t = BOOKING_MESSAGES;
  * so the summary is the part that disappears, never the explanation or the
  * way forward.
  *
- * No retry button yet, deliberately. Re-posting the same slot collides with
- * the lock the first attempt still holds and comes back as "no longer
- * available"; returning to the original checkout is the right move and needs
- * its own verification first.
+ * A rejected payment leaves the booking pending and its slot held. When the
+ * redirect carries the booking's link token (`booklink.Failure`), the page
+ * offers paying again on that same checkout, or giving the slot back before
+ * picking another time, so the visitor is never locked out by their own
+ * booking. Without the token (an older link) it only links back to the complex.
  */
-export function PaymentFailedScreen({ slug }: { slug: string }) {
+export function PaymentFailedScreen({ slug, token }: { slug: string; token?: string | undefined }) {
   const booking = readStoredBookingInfo();
   const whatsAppHref = booking ? whatsappChatHref(booking.complexPhone) : null;
 
@@ -38,7 +40,9 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
 
       <div className="mb-4 space-y-2">
         <h1 className="text-text-primary text-xl font-bold">{t.publicBooking.paymentFailed}</h1>
-        <p className="text-text-secondary text-sm">{t.publicBooking.paymentFailedDescription}</p>
+        <p className="text-text-secondary text-sm">
+          {token ? t.publicBooking.paymentFailedHeldDescription : t.publicBooking.paymentFailedDescription}
+        </p>
       </div>
 
       {booking && (
@@ -55,9 +59,13 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
       )}
 
       <div className="flex w-full flex-col gap-2">
-        <Button asChild size="lg" className="min-h-12">
-          <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</a>
-        </Button>
+        {token ? (
+          <FailedCheckoutActions slug={slug} token={token} />
+        ) : (
+          <Button asChild size="lg" className="min-h-12">
+            <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</a>
+          </Button>
+        )}
         {booking && whatsAppHref && (
           <Button asChild variant="ghost" className="min-h-12">
             <a
@@ -77,5 +85,33 @@ export function PaymentFailedScreen({ slug }: { slug: string }) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Pay again on the same checkout, or give the slot back and pick another time. */
+function FailedCheckoutActions({ slug, token }: { slug: string; token: string }) {
+  const { gone, failed, busy, retry, release } = useFailedCheckout(slug, token);
+
+  return (
+    <>
+      {gone && (
+        <p role="alert" className="text-text-secondary text-sm">
+          {t.publicBooking.paymentFailedRetryGone}
+        </p>
+      )}
+      {failed && (
+        <p role="alert" className="text-error-text text-sm">
+          {t.publicBooking.paymentFailedActionError}
+        </p>
+      )}
+      {!gone && (
+        <Button size="lg" className="min-h-12" disabled={busy} onClick={retry}>
+          {t.publicBooking.paymentFailedRetry}
+        </Button>
+      )}
+      <Button size="lg" variant={gone ? 'default' : 'outline'} className="min-h-12" disabled={busy} onClick={release}>
+        {t.publicBooking.paymentFailedChooseAnother}
+      </Button>
+    </>
   );
 }

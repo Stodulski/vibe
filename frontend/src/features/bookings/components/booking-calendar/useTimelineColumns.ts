@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import type { Booking, BlockedSlot, CourtWithPrices, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
+import type { OnlineHold } from '../../schemas/onlineHold.schema';
 
 export interface TimelineColumnData {
   courtId: string;
@@ -8,6 +9,8 @@ export interface TimelineColumnData {
   blocked: BlockedSlot[];
   fixed: FixedBlock[];
   event: CourtEventBlock[];
+  /** Hours a visitor is booking online on this court. */
+  online: OnlineHold[];
 }
 
 /**
@@ -23,12 +26,14 @@ export function useTimelineColumns({
   blockedSlots,
   fixedBlocks,
   eventBlocks,
+  onlineHolds,
 }: {
   activeCourts: CourtWithPrices[];
   bookings: Booking[];
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
   eventBlocks: CourtEventBlock[];
+  onlineHolds: OnlineHold[];
 }): TimelineColumnData[] {
   return useMemo(() => {
     const columns: TimelineColumnData[] = activeCourts.map((court) => ({
@@ -38,6 +43,7 @@ export function useTimelineColumns({
       blocked: blockedSlots.filter((s) => s.court_id === court.id),
       fixed: fixedBlocks.filter((f) => f.court_id === court.id),
       event: eventBlocks.filter((e) => e.court_id === court.id),
+      online: onlineHolds.filter((h) => h.court_id === court.id),
     }));
 
     const knownIds = new Set(activeCourts.map((c) => c.id));
@@ -55,9 +61,10 @@ export function useTimelineColumns({
         blocked: blockedSlots.filter((s) => s.court_id === courtId),
         fixed: fixedBlocks.filter((f) => f.court_id === courtId),
         event: eventBlocks.filter((e) => e.court_id === courtId),
+        online: onlineHolds.filter((h) => h.court_id === courtId),
       });
     }
 
     return columns;
-  }, [activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks]);
+  }, [activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks, onlineHolds]);
 }

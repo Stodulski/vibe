@@ -609,6 +609,45 @@ func (c *MPClient) UpdatePreferenceExpired(ctx context.Context, preferenceID str
 	return nil
 }
 
+// GetPreference reads back a checkout preference the seller created, for its
+// payment link (init_point). A visitor whose card was rejected pays again on
+// the same link while it is still open: a preference takes any number of
+// attempts until its expiration, and reusing it keeps one checkout per
+// booking for the webhook, the expiry sweep and the reconciliation to reason
+// about. Like CreatePreference it is only ever made as the seller.
+func (c *MPClient) GetPreference(ctx context.Context, preferenceID string, caller Caller) (*Preference, error) {
+	if caller.platform {
+		return nil, ErrPlatformCannotSell
+	}
+	token, err := c.bearer(caller)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/checkout/preferences/"+url.PathEscape(preferenceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("mp: failed to create preference read request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("mp: preference read request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
+	}
+
+	var pref Preference
+	if err := json.NewDecoder(resp.Body).Decode(&pref); err != nil {
+		return nil, fmt.Errorf("mp: failed to decode preference: %w", err)
+	}
+	return &pref, nil
+}
+
 // GetPayment fetches a payment from MercadoPago by ID.
 //
 // AsPlatform is load-bearing here and must keep working: internal/payments'

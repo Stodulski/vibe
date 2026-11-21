@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useSelectedComplex, useSchedules } from '@/features/complex';
 import { useCourts, useBlockedSlots, useFixedBlocks, useEventBlocks, useMatchBlocks } from '@/features/courts';
-import { useBookings, useBookingModals, useBookingActions } from '@/features/bookings';
+import { useBookings, useOnlineHolds, useBookingModals, useBookingActions } from '@/features/bookings';
 import { useDateNav } from './use-bookings-page/useDateNav';
 import type { CourtEventBlock } from '@/shared/types/api.types';
 
@@ -18,6 +18,7 @@ export function useBookingsPage(complexId: string) {
   const { selectedDate } = dateNav;
 
   const { data: bookings = [], isLoading, isError, refetch } = useBookings(complexId, selectedDate);
+  const { data: onlineHolds = [] } = useOnlineHolds(complexId, selectedDate);
   const { data: blockedSlots = [] } = useBlockedSlots(complexId, selectedDate, selectedDate);
   const { data: fixedBlocks = [] } = useFixedBlocks(complexId, selectedDate, selectedDate);
   const { data: openPlayBlocks = [] } = useEventBlocks(complexId, selectedDate, selectedDate);
@@ -55,6 +56,7 @@ export function useBookingsPage(complexId: string) {
     blockedSlots,
     fixedBlocks,
     eventBlocks,
+    onlineHolds,
     isLoading,
     isError,
     refetch,

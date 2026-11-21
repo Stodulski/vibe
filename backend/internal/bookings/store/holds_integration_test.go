@@ -122,7 +122,10 @@ func slotsEnd(start string) string {
 	return t.Add(90 * time.Minute).Format("15:04")
 }
 
-func TestReleaseDeletesAnUntouchedHoldAndIsIdempotent(t *testing.T) {
+// A released hold is cancelled rather than deleted: it stays, through its
+// cooldown, as the record that its address already spent part of a window on
+// those hours (HoldCooldown). It holds nothing.
+func TestReleaseCancelsAnUntouchedHoldAndIsIdempotent(t *testing.T) {
 	f := datatest.Isolated(t)
 	hold := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, hold)
@@ -134,8 +137,8 @@ func TestReleaseDeletesAnUntouchedHoldAndIsIdempotent(t *testing.T) {
 	if freed.Day.Format(time.DateOnly) != hold.Date.Format(time.DateOnly) || freed.ComplexSlug == "" || freed.ComplexName == "" {
 		t.Errorf("want the freed slot's day and venue for the waitlist; got %+v (hold on %v)", freed, hold.Date)
 	}
-	if bookingExists(t, f, hold.ID) {
-		t.Error("a released untouched hold must be gone")
+	if status, _, _ := f.ReadBookingState(t, hold.ID); status != "cancelled" {
+		t.Errorf("a released untouched hold must be cancelled; got %q", status)
 	}
 	if contains(bookedStarts(t, f, hold.Date), "18:00") {
 		t.Error("a released hold must free its slot")
@@ -368,8 +371,8 @@ func TestConvertRacesConvertAndRelease(t *testing.T) {
 				t.Error("a converted booking must survive the release")
 			}
 		case errors.Is(convertErr, bookingstore.ErrHoldNotFound) && released:
-			if bookingExists(t, f, hold.ID) {
-				t.Error("a released hold must be gone")
+			if status, _, _ := f.ReadBookingState(t, hold.ID); status != "cancelled" {
+				t.Errorf("a released hold must be cancelled; got %q", status)
 			}
 		default:
 			t.Fatalf("want exactly one of convert/release to win; convert=%v released=%v", convertErr, released)
