@@ -17,6 +17,9 @@ export type OpenPlayEventDetailResponse = Ok<'eventsGet'>;
 
 export type CancelOpenPlayEventResponse = Ok<'eventsCancel'>;
 
+/** `POST .../registrations/{registrationID}/withdraw`: the participant the owner took out and their refund. */
+export type WithdrawParticipantResponse = Ok<'eventsRegistrationWithdraw'>;
+
 // ─── Public side of the events, as the booking package reads them ───
 
 /**

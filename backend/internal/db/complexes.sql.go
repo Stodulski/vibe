@@ -103,6 +103,23 @@ func (q *Queries) GetComplexBySlug(ctx context.Context, slug string) (ActiveComp
 	return i, err
 }
 
+const getComplexOwnerAndName = `-- name: GetComplexOwnerAndName :one
+SELECT owner_id, name FROM complexes WHERE id = $1 AND deleted_at IS NULL
+`
+
+type GetComplexOwnerAndNameRow struct {
+	OwnerID pgtype.UUID `json:"owner_id"`
+	Name    string      `json:"name"`
+}
+
+// The owner a notice about a live complex goes to, and the name it gives.
+func (q *Queries) GetComplexOwnerAndName(ctx context.Context, id pgtype.UUID) (GetComplexOwnerAndNameRow, error) {
+	row := q.db.QueryRow(ctx, getComplexOwnerAndName, id)
+	var i GetComplexOwnerAndNameRow
+	err := row.Scan(&i.OwnerID, &i.Name)
+	return i, err
+}
+
 const getComplexesByOwner = `-- name: GetComplexesByOwner :many
 SELECT c.id, c.owner_id, c.name, c.slug, c.address, c.city, c.province, c.country_code, c.currency, c.phone, c.email, c.logo_url, c.cover_url, c.deposit_percentage, c.cancellation_hours, c.latitude, c.longitude, c.is_active, c.mp_access_token, c.mp_refresh_token, c.mp_user_id, c.deleted_at, c.created_at, c.updated_at, c.amenities, c.mp_token_expires_at, c.version, c.description, c.instagram, (
     SELECT COUNT(*) FROM active_courts ct WHERE ct.complex_id = c.id
@@ -249,6 +266,18 @@ func (q *Queries) GetGoneComplexBySlug(ctx context.Context, slug string) (GetGon
 	return i, err
 }
 
+const getMPRefreshFailureNotice = `-- name: GetMPRefreshFailureNotice :one
+SELECT episode FROM mp_refresh_failure_notices WHERE complex_id = $1
+`
+
+// The refresh-failure episode the owner was last emailed about, if any.
+func (q *Queries) GetMPRefreshFailureNotice(ctx context.Context, complexID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getMPRefreshFailureNotice, complexID)
+	var episode string
+	err := row.Scan(&episode)
+	return episode, err
+}
+
 const insertComplex = `-- name: InsertComplex :one
 INSERT INTO complexes (
     owner_id, name, slug,
@@ -392,6 +421,48 @@ func (q *Queries) ListComplexesNeedingMPRefresh(ctx context.Context) ([]ActiveCo
 			&i.Description,
 			&i.Instagram,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnflaggedExpiredInstagramConnections = `-- name: ListUnflaggedExpiredInstagramConnections :many
+SELECT complex_id, expires_at
+FROM instagram_connections
+WHERE NOT needs_reconnect
+  AND expires_at <= $1::timestamptz
+ORDER BY expires_at
+LIMIT $2::int
+`
+
+type ListUnflaggedExpiredInstagramConnectionsParams struct {
+	Now      pgtype.Timestamptz `json:"now"`
+	RowLimit int32              `json:"row_limit"`
+}
+
+type ListUnflaggedExpiredInstagramConnectionsRow struct {
+	ComplexID pgtype.UUID        `json:"complex_id"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
+// Instagram connections whose token has expired and that are not flagged for
+// a reconnect yet. Listed (rather than flagged in bulk) so each one can be
+// flagged with its expiry as the guard and its owner told once.
+func (q *Queries) ListUnflaggedExpiredInstagramConnections(ctx context.Context, arg ListUnflaggedExpiredInstagramConnectionsParams) ([]ListUnflaggedExpiredInstagramConnectionsRow, error) {
+	rows, err := q.db.Query(ctx, listUnflaggedExpiredInstagramConnections, arg.Now, arg.RowLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnflaggedExpiredInstagramConnectionsRow
+	for rows.Next() {
+		var i ListUnflaggedExpiredInstagramConnectionsRow
+		if err := rows.Scan(&i.ComplexID, &i.ExpiresAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -548,4 +619,24 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		&i.Instagram,
 	)
 	return i, err
+}
+
+const upsertMPRefreshFailureNotice = `-- name: UpsertMPRefreshFailureNotice :exec
+INSERT INTO mp_refresh_failure_notices (complex_id, episode)
+VALUES ($1, $2)
+ON CONFLICT (complex_id) DO UPDATE
+SET episode = EXCLUDED.episode,
+    notified_at = NOW()
+`
+
+type UpsertMPRefreshFailureNoticeParams struct {
+	ComplexID pgtype.UUID `json:"complex_id"`
+	Episode   string      `json:"episode"`
+}
+
+// Records that the owner was emailed about this refresh-failure episode,
+// replacing the previous one.
+func (q *Queries) UpsertMPRefreshFailureNotice(ctx context.Context, arg UpsertMPRefreshFailureNoticeParams) error {
+	_, err := q.db.Exec(ctx, upsertMPRefreshFailureNotice, arg.ComplexID, arg.Episode)
+	return err
 }

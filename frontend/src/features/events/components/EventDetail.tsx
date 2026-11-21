@@ -12,13 +12,14 @@ import { openPlayTitle } from '@/shared/lib/traitLabels';
 import { formatPrice, getHttpErrorMessage } from '@/shared/lib/utils';
 import { formatEventDay, formatEventTimeRange } from '@/shared/lib/eventDates';
 import { keepTogether } from '@/shared/lib/keepTogether';
-import { todayInArgentina } from '@/shared/lib/today';
+import { nowInArgentina, todayInArgentina } from '@/shared/lib/today';
 import { useEvent } from '../hooks/useEvent';
 import { EVENT_DETAIL_BODY_CLASS } from '../lib/eventLayout';
 import { paidCount, sortParticipants } from '../lib/participantStatus';
 import { CancelEventDialog } from './CancelEventDialog';
 import { EventDetailSkeleton } from './EventDetailSkeleton';
 import { ParticipantList } from './ParticipantList';
+import { WithdrawParticipantDialog } from './WithdrawParticipantDialog';
 import type { OpenPlayEvent, OpenPlayParticipant } from '@/shared/types/api.types';
 
 const t = ES_AR.events;
@@ -53,7 +54,28 @@ function EventFacts({ event }: { event: OpenPlayEvent }) {
   );
 }
 
-function EventBody({ event, participants }: { event: OpenPlayEvent; participants: OpenPlayParticipant[] }) {
+/** Whether the event has started, on Argentina's clock: from then on nobody is taken out of it. */
+function hasStarted(event: OpenPlayEvent): boolean {
+  const today = todayInArgentina();
+  if (event.date !== today) return event.date < today;
+  const now = nowInArgentina();
+  const hhmm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+  return event.start_time <= hhmm;
+}
+
+/** The event's facts and participants; while it can still change, each live spot's menu takes the person out. */
+function EventBody({
+  complexId,
+  event,
+  participants,
+}: {
+  complexId: string;
+  event: OpenPlayEvent;
+  participants: OpenPlayParticipant[];
+}) {
+  const [withdrawing, setWithdrawing] = useState<OpenPlayParticipant | null>(null);
+  // One person can be taken out of a live event until it starts.
+  const canWithdraw = event.status === 'active' && !hasStarted(event);
   return (
     <div className={EVENT_DETAIL_BODY_CLASS}>
       <EventFacts event={event} />
@@ -61,9 +83,29 @@ function EventBody({ event, participants }: { event: OpenPlayEvent; participants
         <h3 className="text-text-primary mb-1 text-sm font-semibold">
           {t.detail.participants} · {t.detail.confirmedCount(paidCount(participants))}
         </h3>
-        <ParticipantList participants={sortParticipants(participants)} sport={event.sport} />
+        <ParticipantList
+          participants={sortParticipants(participants)}
+          sport={event.sport}
+          {...(canWithdraw ? { onWithdraw: setWithdrawing } : {})}
+        />
       </section>
+      <WithdrawParticipantDialog
+        onClose={() => {
+          setWithdrawing(null);
+        }}
+        complexId={complexId}
+        eventId={event.id}
+        participant={withdrawing}
+      />
     </div>
+  );
+}
+
+function EventLoadError({ error }: { error: unknown }) {
+  return (
+    <p role="alert" className="text-error-text px-4 pt-4 text-sm sm:px-6">
+      {getHttpErrorMessage(error, t.detail.loadError)}
+    </p>
   );
 }
 
@@ -117,12 +159,8 @@ export function EventDetail({ open, onClose, complexId, eventId }: EventDetailPr
             }
           />
           {isLoading && <EventDetailSkeleton />}
-          {!!error && (
-            <p role="alert" className="text-error-text px-4 pt-4 text-sm sm:px-6">
-              {getHttpErrorMessage(error, t.detail.loadError)}
-            </p>
-          )}
-          {event && <EventBody event={event} participants={participants} />}
+          {!!error && <EventLoadError error={error} />}
+          {event && <EventBody complexId={complexId} event={event} participants={participants} />}
           {canCancel && (
             <EventFooter
               onCancel={() => {

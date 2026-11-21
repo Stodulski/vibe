@@ -651,7 +651,9 @@ type stubPayments struct {
 	// getErr fails GetByBookingID with something other than "no such row",
 	// standing in for the database being unavailable while a cancellation is
 	// deciding what can be refunded.
-	getErr    error
+	getErr error
+	// listErr fails ListByBookingID alone, after any write that came before it.
+	listErr   error
 	inserted  []*paymentstore.Payment
 	confirmed []*paymentstore.Payment
 	updated   []*paymentstore.Payment
@@ -712,6 +714,9 @@ func (s *stubPayments) ListByBookingID(ctx context.Context, _ uuid.UUID) ([]*pay
 	}
 	if s.getErr != nil {
 		return nil, s.getErr
+	}
+	if s.listErr != nil {
+		return nil, s.listErr
 	}
 	if s.ledger != nil {
 		return s.ledger, nil
@@ -1000,6 +1005,9 @@ type stubNotifier struct {
 	seriesCreated   []notifications.SeriesCreation
 	seriesCancelled []notifications.SeriesCancellation
 	seriesDatesLost []notifications.SeriesDatesLost
+	noShows         []notifications.NoShow
+	receipts        []notifications.PaymentReceipt
+	refunds         []notifications.Refund
 	// reminderErr is what ReminderDue returns instead of queueing, as when the
 	// queue refuses the insert.
 	reminderErr error
@@ -1033,6 +1041,17 @@ func (s *stubNotifier) SeriesCancelled(c notifications.SeriesCancellation) {
 
 func (s *stubNotifier) SeriesDatesLost(c notifications.SeriesDatesLost) {
 	s.seriesDatesLost = append(s.seriesDatesLost, c)
+}
+
+func (s *stubNotifier) BookingNoShow(n notifications.NoShow) { s.noShows = append(s.noShows, n) }
+
+func (s *stubNotifier) PaymentReceived(r notifications.PaymentReceipt) {
+	s.receipts = append(s.receipts, r)
+}
+
+func (s *stubNotifier) DepositRefunded(r notifications.Refund) error {
+	s.refunds = append(s.refunds, r)
+	return nil
 }
 
 type stubBroadcaster struct{ published []uuid.UUID }

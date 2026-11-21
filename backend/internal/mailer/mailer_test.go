@@ -380,7 +380,7 @@ func captureSent(t *testing.T) []string {
 				"REFUND_LINE", "$5.000", "https://vibe.test/book", Contact{})
 		},
 		func() error {
-			return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book", false, "", "", "", Contact{})
+			return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book", false, "", "", "", "", false, Contact{})
 		},
 		func() error {
 			return m.SendBenefitsCampaign(ctx, to, "Ana", "share_page", "https://vibe.test/c/cancha",
@@ -391,6 +391,13 @@ func captureSent(t *testing.T) []string {
 				"https://app.vibe.test/kit", "https://vibe.test/unsub", "https://vibe.test/baja")
 		},
 		func() error { return m.SendOwnerNewBooking(ctx, to, complex, court, "Ana Perez", date, hours) },
+		func() error { return m.SendPasswordChanged(ctx, to, "Ana") },
+		func() error { return m.SendEmailChanged(ctx, to, "Ana", "ana@new.example") },
+		func() error { return m.SendAccountDeleted(ctx, to, "Ana") },
+		func() error { return m.SendOwnerMPConnected(ctx, to, complex) },
+		func() error { return m.SendOwnerMPDisconnected(ctx, to, complex) },
+		func() error { return m.SendOwnerMPRefreshFailed(ctx, to, complex) },
+		func() error { return m.SendOwnerInstagramReconnect(ctx, to, complex) },
 		func() error { return m.SendEmailVerification(ctx, to, "Ana", "https://vibe.test/verify?t=1") },
 		func() error { return m.SendPasswordReset(ctx, to, "Ana", "https://vibe.test/reset?t=2") },
 		func() error {
@@ -423,6 +430,25 @@ func captureSent(t *testing.T) []string {
 				"https://vibe.test/unsub?t=7", "https://vibe.test/baja?t=7")
 		},
 		func() error { return m.SendWelcome(ctx, to, "Ana") },
+		func() error {
+			return m.SendDepositRefunded(ctx, to, complex, "$5.000", "https://vibe.test/book", false, "", "", "",
+				"REFUND_REASON", true, Contact{})
+		},
+		func() error {
+			return m.SendBookingNoShow(ctx, to, complex, court, date, hours, "https://vibe.test/book", Contact{})
+		},
+		func() error {
+			return m.SendPaymentReceived(ctx, to, complex, court, date, hours, "$5.000", "en efectivo", "$15.000", "https://vibe.test/book", Contact{})
+		},
+		func() error {
+			return m.SendRefundOwedByVenue(ctx, to, complex, court, date, hours, "$5.000", "https://vibe.test/book", Contact{})
+		},
+		func() error {
+			return m.SendOwnerRefundOwed(ctx, to, complex, court, "Ana Perez", date, hours, "$5.000")
+		},
+		func() error {
+			return m.SendOwnerDuplicatePaymentRefunded(ctx, to, complex, court, "Ana Perez", date, hours, "$5.000")
+		},
 	}
 	for i, send := range sends {
 		if err := send(); err != nil {

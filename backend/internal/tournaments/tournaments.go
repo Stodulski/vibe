@@ -24,6 +24,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -52,6 +53,20 @@ type Store interface {
 	ChargeCourtFee(ctx context.Context, in tournamentstore.ChargeInput) (*tournamentstore.MatchFee, error)
 	UndoCourtFee(ctx context.Context, matchID uuid.UUID, side int, by uuid.UUID) error
 	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
+	// DueMatchReminders and MarkMatchReminded drive the two-hour match reminder.
+	DueMatchReminders(ctx context.Context, now time.Time) ([]tournamentstore.DueMatch, error)
+	MarkMatchReminded(ctx context.Context, matchID uuid.UUID) error
+}
+
+// ComplexReader supplies the venue a sweep's notice names.
+type ComplexReader interface {
+	GetByID(ctx context.Context, id uuid.UUID) (*complexstore.Complex, error)
+}
+
+// Notifier queues a player's notice about their tournament. A refusal is
+// returned so a sweep leaves its match unmarked and tries again.
+type Notifier interface {
+	TournamentNoticeDue(notifications.TournamentNotice) error
 }
 
 // Events is the open-play events domain this one is built on: the sign-up, its
@@ -63,6 +78,7 @@ type Events interface {
 	CancelAny(ctx context.Context, complex *complexstore.Complex, actor events.Actor, eventID uuid.UUID, reason *string) (*events.CancelResult, error)
 	Status(ctx context.Context, token string) (*events.View, error)
 	CancelRegistration(ctx context.Context, actor events.Actor, token string) (*events.CancelResultPublic, error)
+	WithdrawAny(ctx context.Context, complex *complexstore.Complex, actor events.Actor, eventID, registrationID uuid.UUID) (*events.Refund, error)
 }
 
 // CourtReader supplies the courts a match may be scheduled on.
@@ -88,6 +104,11 @@ type Dependencies struct {
 	Realtime Broadcaster
 	Audit    Recorder
 	Logger   *slog.Logger
+	// Complexes, Notify and PublicURL send the players their draw and match
+	// notices; PublicURL is the storefront origin their links are built on.
+	Complexes ComplexReader
+	Notify    Notifier
+	PublicURL string
 }
 
 // Service holds this module's rules.
@@ -98,11 +119,18 @@ type Service struct {
 	realtime Broadcaster
 	audit    Recorder
 	logger   *slog.Logger
+
+	complexes ComplexReader
+	notify    Notifier
+	publicURL string
 }
 
 // NewService returns a Service backed by the given dependencies.
 func NewService(d Dependencies) *Service {
-	return &Service{store: d.Store, events: d.Events, courts: d.Courts, realtime: d.Realtime, audit: d.Audit, logger: d.Logger}
+	return &Service{
+		store: d.Store, events: d.Events, courts: d.Courts, realtime: d.Realtime, audit: d.Audit, logger: d.Logger,
+		complexes: d.Complexes, notify: d.Notify, publicURL: d.PublicURL,
+	}
 }
 
 // Actor is who is acting; it is the events domain's, so a sign-up passes through

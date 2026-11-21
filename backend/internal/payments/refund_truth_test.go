@@ -269,7 +269,7 @@ func TestAnUnclaimedRefundLeavesTheSweepAMarkerRatherThanAFalseRefundPending(t *
 
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
 
-	err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123")
+	err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123", latePaymentReason)
 	if err == nil {
 		t.Fatalf("a claim the database refused must be returned as retryable")
 	}
@@ -316,7 +316,7 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 
 	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
 
-	if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123"); err != nil {
+	if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123", latePaymentReason); err != nil {
 		t.Fatalf("refunding a payment for a cancelled booking: %v", err)
 	}
 

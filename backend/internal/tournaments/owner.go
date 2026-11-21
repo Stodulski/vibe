@@ -16,6 +16,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/mailer"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
@@ -500,6 +501,39 @@ func (s *Service) CancelCategory(ctx context.Context, complex *complexstore.Comp
 	return &CancelResult{Tournament: t, Refunds: res.Refunds}, nil
 }
 
+// WithdrawPair is the owner taking one pair out of a category: its spot ends as
+// the owner's and whatever it paid is refunded in full, after the draw too
+// (owner rule A9), and the payer is told. After the draw the pair leaves the
+// bracket exactly as a pair withdrawing itself does. It is allowed while the
+// tournament is not over (a pair can get injured mid-tournament) and refused
+// once its last day has passed in Argentina.
+func (s *Service) WithdrawPair(ctx context.Context, complex *complexstore.Complex, actor Actor, tournamentID, categoryID, registrationID uuid.UUID) (*Refund, error) {
+	t, cat, err := s.category(ctx, complex.ID, tournamentID, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	if cat.Cancelled || t.Status != tournamentstore.StatusActive {
+		return nil, &StateError{Message: "the tournament or category was cancelled"}
+	}
+	if tournamentOver(t.EndDate, timezone.Now()) {
+		return nil, &StateError{Message: "the tournament is already over"}
+	}
+	ref, err := s.events.WithdrawAny(ctx, complex, actor, cat.EventID, registrationID)
+	if err != nil {
+		return nil, err
+	}
+	s.record(actor, complex.ID, "withdraw_pair", categoryID, map[string]uuid.UUID{"registration_id": registrationID})
+	return ref, nil
+}
+
+// tournamentOver reports whether a tournament whose last day is endDate (a
+// calendar date, whatever its location) is over at now: that day has ended on
+// Argentina's clock.
+func tournamentOver(endDate, now time.Time) bool {
+	after := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, timezone.Argentina).AddDate(0, 0, 1)
+	return !now.Before(after)
+}
+
 // DrawInput is an owner generating a category's draw.
 type DrawInput struct {
 	// SeedOrder names the pairs, best seed first; the rest follow in random order.
@@ -509,10 +543,12 @@ type DrawInput struct {
 // GenerateDraw makes (or remakes) a category's draw from its paid pairs. It
 // closes the category's sign-up, and is refused once a result exists.
 func (s *Service) GenerateDraw(ctx context.Context, complex *complexstore.Complex, actor Actor, tournamentID, categoryID uuid.UUID, in DrawInput) (*tournamentstore.Detail, error) {
-	if _, _, err := s.category(ctx, complex.ID, tournamentID, categoryID); err != nil {
+	_, cat, err := s.category(ctx, complex.ID, tournamentID, categoryID)
+	if err != nil {
 		return nil, err
 	}
-	err := s.store.GenerateDraw(ctx, tournamentstore.DrawInput{
+	remade := cat.DrawGeneratedAt != nil
+	err = s.store.GenerateDraw(ctx, tournamentstore.DrawInput{
 		CategoryID: categoryID, SeedOrder: in.SeedOrder,
 		//nolint:gosec // G404: orders the unseeded pairs of a draw the owner can remake; not a secret.
 		Shuffle: func(ids []uuid.UUID) { rand.Shuffle(len(ids), func(i, j int) { ids[i], ids[j] = ids[j], ids[i] }) },
@@ -522,7 +558,12 @@ func (s *Service) GenerateDraw(ctx context.Context, complex *complexstore.Comple
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
 	s.record(actor, complex.ID, "generate_draw", categoryID, map[string]int{"seeds": len(in.SeedOrder)})
-	return s.Get(ctx, complex.ID, tournamentID)
+	d, err := s.Get(ctx, complex.ID, tournamentID)
+	if err != nil {
+		return nil, err
+	}
+	s.notifyDraw(complex, d, categoryID, remade)
+	return d, nil
 }
 
 // drawError turns what the store refused a draw change with into the error the
@@ -577,22 +618,22 @@ func (s *Service) match(ctx context.Context, complexID, tournamentID, matchID uu
 	return nil, data.ErrRecordNotFound
 }
 
-// matchCategory is the category a match of the tournament belongs to.
-func (s *Service) matchCategory(ctx context.Context, complexID, tournamentID, matchID uuid.UUID) (*tournamentstore.Category, error) {
+// matchCategory is a match of the tournament and the category it belongs to.
+func (s *Service) matchCategory(ctx context.Context, complexID, tournamentID, matchID uuid.UUID) (*tournamentstore.Match, *tournamentstore.Category, error) {
 	m, err := s.match(ctx, complexID, tournamentID, matchID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	cats, err := s.store.Categories(ctx, tournamentID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	for _, c := range cats {
 		if c.ID == m.CategoryID {
-			return c, nil
+			return m, c, nil
 		}
 	}
-	return nil, data.ErrRecordNotFound
+	return nil, nil, data.ErrRecordNotFound
 }
 
 // ScheduleInput is an owner giving a match a court, a day and a time.
@@ -618,7 +659,7 @@ func (s *Service) Schedule(ctx context.Context, complex *complexstore.Complex, a
 	if len(errs) > 0 {
 		return nil, &ValidationError{Errors: errs}
 	}
-	cat, err := s.matchCategory(ctx, complex.ID, tournamentID, matchID)
+	before, cat, err := s.matchCategory(ctx, complex.ID, tournamentID, matchID)
 	if err != nil {
 		return nil, err
 	}
@@ -633,7 +674,29 @@ func (s *Service) Schedule(ctx context.Context, complex *complexstore.Complex, a
 	}
 	s.realtime.PublishBookingChanged(complex.ID)
 	s.record(actor, complex.ID, "schedule_match", matchID, m)
+	s.announceSchedule(ctx, complex, tournamentID, before, m)
 	return m, nil
+}
+
+// announceSchedule tells the match's players its court and time, unless it was
+// already there: a first schedule is announced as such, a change as a move. It
+// never fails the schedule: a notice that cannot be built or queued is logged.
+func (s *Service) announceSchedule(ctx context.Context, complex *complexstore.Complex, tournamentID uuid.UUID, before, after *tournamentstore.Match) {
+	if s.notify == nil || sameSlot(before, after) {
+		return
+	}
+	kind := mailer.TournamentMatchScheduled
+	if before.Scheduled() {
+		kind = mailer.TournamentMatchMoved
+	}
+	d, err := s.store.Detail(ctx, tournamentID)
+	if err != nil {
+		s.logger.Error("tournament schedule: cannot read the tournament to tell the players", "error", err, "match_id", after.ID)
+		return
+	}
+	if err := s.notifyMatch(ctx, complex, d, after, kind, time.Now()); err != nil {
+		s.logger.Error("tournament schedule: failed to queue a player's notice", "error", err, "match_id", after.ID)
+	}
 }
 
 func (s *Service) scheduleError(ctx context.Context, complexID uuid.UUID, err error) error {

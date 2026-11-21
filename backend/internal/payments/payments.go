@@ -67,9 +67,14 @@ type PaymentWriter interface {
 // resource held, and exactly one of the two recorders closes the attempt out.
 type RefundStore interface {
 	ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error)
-	// InsertAndClaimRefund records a new payment and claims its refund in one
-	// transaction, for a duplicate payment that is refunded as it is recorded.
-	InsertAndClaimRefund(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
+	// ClaimRefundWithCause is ClaimRefund for a refund the webhook makes on its
+	// own: the cause is stored with the attempt, so the retry job that may finish
+	// it tells the person the same reason.
+	ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
+	// InsertAndClaimRefundWithCause records a new payment and claims its refund in
+	// one transaction, for a duplicate payment that is refunded as it is
+	// recorded, storing why with the attempt.
+	InsertAndClaimRefundWithCause(ctx context.Context, payment *paymentstore.Payment, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's cash/transfer balance still owed by
 	// hand — computed by manualBalance or manualOwedForBooking — so the
 	// booking is written 'partial_refund' rather than 'refunded' whenever this
@@ -185,6 +190,12 @@ type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation) error
 	DepositRefunded(r notifications.Refund) error
 	OwnerBookingRefunded(r notifications.OwnerBookingRefund)
+	// OwnerDuplicatePaymentRefunded tells the owner a client's second payment
+	// on a live booking went back on its own.
+	OwnerDuplicatePaymentRefunded(r notifications.OwnerDuplicatePaymentRefund)
+	// RefundOwedByVenue tells the client and the owner that money is owed back
+	// by hand, once nothing automatic can return it.
+	RefundOwedByVenue(r notifications.RefundOwed)
 }
 
 // SlotFreedNotifier hears about a slot that a refund put back on sale when it

@@ -43,6 +43,8 @@ func (app *application) cronJobs() []scheduler.Job {
 
 	return []scheduler.Job{
 		job("reminder_2h", 5*time.Minute, app.cronReminder2h),
+		job("event_reminders", 5*time.Minute, app.openPlayService.RemindUpcoming),
+		job("tournament_match_reminders", 5*time.Minute, app.tournamentsService.RemindMatches),
 		job("publish_social_posts", 5*time.Minute, app.cronPublishSocialPosts),
 		job("threads_token_maintenance", 24*time.Hour, app.cronThreadsMaintenance),
 		job("threads_keyword_digest", time.Hour, app.cronThreadsKeywordDigest),

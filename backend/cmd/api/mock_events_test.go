@@ -17,6 +17,8 @@ type mockEventStore struct {
 	GetEventFn func(ctx context.Context, id uuid.UUID) (*eventstore.Event, error)
 	// CancelEventFn answers CancelEvent; unset, the event is not found.
 	CancelEventFn func(ctx context.Context, id, by uuid.UUID, reason *string) (*eventstore.Event, []uuid.UUID, error)
+	// GetRegistrationFn answers GetRegistration; unset, it is not found.
+	GetRegistrationFn func(ctx context.Context, id uuid.UUID) (*eventstore.Registration, error)
 }
 
 func (m *mockEventStore) CreateEvent(context.Context, *eventstore.Event, []uuid.UUID) error {
@@ -45,7 +47,10 @@ func (m *mockEventStore) SignUp(context.Context, eventstore.SignUpInput) (*event
 	return nil, "", data.ErrRecordNotFound
 }
 
-func (m *mockEventStore) GetRegistration(context.Context, uuid.UUID) (*eventstore.Registration, error) {
+func (m *mockEventStore) GetRegistration(ctx context.Context, id uuid.UUID) (*eventstore.Registration, error) {
+	if m.GetRegistrationFn != nil {
+		return m.GetRegistrationFn(ctx, id)
+	}
 	return nil, data.ErrRecordNotFound
 }
 
@@ -62,6 +67,10 @@ func (m *mockEventStore) CancelRegistration(context.Context, uuid.UUID, string) 
 }
 
 func (m *mockEventStore) CancelByParticipant(context.Context, uuid.UUID, bool) (*eventstore.ParticipantCancel, error) {
+	return nil, eventstore.ErrNotCancellable
+}
+
+func (m *mockEventStore) CancelByOwner(context.Context, uuid.UUID) (*eventstore.ParticipantCancel, error) {
 	return nil, eventstore.ErrNotCancellable
 }
 

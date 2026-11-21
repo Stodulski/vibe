@@ -311,6 +311,24 @@ func (s *stubPayments) InsertAndClaimRefund(ctx context.Context, p *paymentstore
 	return s.ClaimRefund(ctx, p.ID)
 }
 
+// InsertAndClaimRefundWithCause and ClaimRefundWithCause carry the cause onto
+// the claim, as the real store does when it writes the attempt row.
+func (s *stubPayments) InsertAndClaimRefundWithCause(ctx context.Context, p *paymentstore.Payment, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	claim, err := s.InsertAndClaimRefund(ctx, p)
+	if claim != nil {
+		claim.Cause = cause
+	}
+	return claim, err
+}
+
+func (s *stubPayments) ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	claim, err := s.ClaimRefund(ctx, paymentID)
+	if claim != nil {
+		claim.Cause = cause
+	}
+	return claim, err
+}
+
 func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
 	if s.claimErr != nil {
 		return nil, s.claimErr
@@ -771,6 +789,10 @@ type stubNotifier struct {
 	confirmations []notifications.BookingConfirmation
 	refunds       []notifications.Refund
 	ownerRefunds  []notifications.OwnerBookingRefund
+	// ownerDuplicates and owedByVenue are the duplicate-payment and the
+	// owed-by-hand notices, in order.
+	ownerDuplicates []notifications.OwnerDuplicatePaymentRefund
+	owedByVenue     []notifications.RefundOwed
 	// confirmErr is what BookingConfirmed returns, as when the queue refuses
 	// the client's confirmation.
 	confirmErr error
@@ -788,6 +810,14 @@ func (s *stubNotifier) DepositRefunded(r notifications.Refund) error {
 
 func (s *stubNotifier) OwnerBookingRefunded(r notifications.OwnerBookingRefund) {
 	s.ownerRefunds = append(s.ownerRefunds, r)
+}
+
+func (s *stubNotifier) OwnerDuplicatePaymentRefunded(r notifications.OwnerDuplicatePaymentRefund) {
+	s.ownerDuplicates = append(s.ownerDuplicates, r)
+}
+
+func (s *stubNotifier) RefundOwedByVenue(r notifications.RefundOwed) {
+	s.owedByVenue = append(s.owedByVenue, r)
 }
 
 // stubWaitlist keeps every freed slot the waitlist is handed.

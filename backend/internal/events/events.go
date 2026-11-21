@@ -38,8 +38,11 @@ type Store interface {
 	ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOnly bool) ([]*eventstore.RegistrationRow, error)
 	CancelRegistration(ctx context.Context, id uuid.UUID, by string) (*eventstore.Registration, error)
 	CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*eventstore.ParticipantCancel, error)
+	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+	DueReminders(ctx context.Context, now time.Time) ([]eventstore.DueReminder, error)
+	MarkReminded(ctx context.Context, id uuid.UUID) error
 }
 
 // ComplexReader supplies the venue a request names, by id or by public slug.
@@ -76,6 +79,11 @@ type Checkout interface {
 // Notifier sends the notices of a sign-up.
 type Notifier interface {
 	EventCancelled(notifications.EventCancellation)
+	// OwnerEventCancelled tells the owner a paid participant gave up their spot.
+	OwnerEventCancelled(notifications.OwnerEventNotice)
+	// EventReminderDue queues a day-before reminder; a refusal is returned so
+	// the sweep leaves the spot unmarked and tries again.
+	EventReminderDue(notifications.EventReminder) error
 }
 
 // Broadcaster pushes a change to the owner's open dashboards.

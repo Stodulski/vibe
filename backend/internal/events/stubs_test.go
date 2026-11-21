@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -42,6 +43,12 @@ type stubStore struct {
 	drawnAtCancel bool
 	// pending is what the refund sweep's read answers.
 	pending []eventstore.PendingRefund
+	// expired is what the hold sweep closes; due is what the reminder sweep
+	// reads, and reminded the registrations it marked.
+	expired  []eventstore.ExpiredHold
+	due      []eventstore.DueReminder
+	dueAt    []time.Time
+	reminded []uuid.UUID
 }
 
 func (s *stubStore) CreateEvent(_ context.Context, e *eventstore.Event, courtIDs []uuid.UUID) error {
@@ -140,7 +147,39 @@ func (s *stubStore) CancelByParticipant(ctx context.Context, id uuid.UUID, refun
 	return &eventstore.ParticipantCancel{Registration: reg, Drawn: s.drawnAtCancel}, nil
 }
 
-func (s *stubStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, error) { return nil, nil }
+func (s *stubStore) CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error) {
+	reg, err := s.CancelRegistration(ctx, id, eventstore.CancelledByOwner)
+	if err != nil {
+		return nil, err
+	}
+	s.owed = append(s.owed, true)
+	return &eventstore.ParticipantCancel{Registration: reg, Drawn: s.drawnAtCancel}, nil
+}
+
+func (s *stubStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, error) {
+	for _, h := range s.expired {
+		if reg, ok := s.regs[h.ID]; ok {
+			reg.Status = eventstore.RegistrationExpired
+		}
+	}
+	return s.expired, nil
+}
+
+func (s *stubStore) DueReminders(_ context.Context, now time.Time) ([]eventstore.DueReminder, error) {
+	s.dueAt = append(s.dueAt, now)
+	var out []eventstore.DueReminder
+	for _, d := range s.due {
+		if !slices.Contains(s.reminded, d.RegistrationID) {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+func (s *stubStore) MarkReminded(_ context.Context, id uuid.UUID) error {
+	s.reminded = append(s.reminded, id)
+	return nil
+}
 
 func (s *stubStore) OwnerCancelledStillPaid(context.Context, time.Duration, int) ([]eventstore.PendingRefund, error) {
 	return s.pending, nil
@@ -205,7 +244,23 @@ func (s *stubCheckout) CreatePreference(_ context.Context, in mp.CreatePreferenc
 }
 
 type stubNotifier struct {
-	cancelled []notifications.EventCancellation
+	cancelled      []notifications.EventCancellation
+	ownerCancelled []notifications.OwnerEventNotice
+	reminders      []notifications.EventReminder
+	// refuseReminders makes EventReminderDue fail, as a refused enqueue does.
+	refuseReminders bool
+}
+
+func (s *stubNotifier) OwnerEventCancelled(n notifications.OwnerEventNotice) {
+	s.ownerCancelled = append(s.ownerCancelled, n)
+}
+
+func (s *stubNotifier) EventReminderDue(r notifications.EventReminder) error {
+	if s.refuseReminders {
+		return errBoom
+	}
+	s.reminders = append(s.reminders, r)
+	return nil
 }
 
 func (s *stubNotifier) EventCancelled(n notifications.EventCancellation) {

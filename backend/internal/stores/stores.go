@@ -307,10 +307,27 @@ type InstagramStoryStore interface {
 }
 
 // ComplexStore composes every complex-related store capability.
+// ComplexMPRefreshNoticeManager remembers which MercadoPago refresh-failure
+// episode each complex's owner was emailed about (complexes.MPRefreshNoticeStore).
+type ComplexMPRefreshNoticeManager interface {
+	MPRefreshFailureNotified(ctx context.Context, complexID uuid.UUID, episode string) (bool, error)
+	RecordMPRefreshFailureNotice(ctx context.Context, complexID uuid.UUID, episode string) error
+}
+
+// ComplexConnectionNoticeReader is what the owner's connection notices read:
+// who a complex's notice goes to, and which Instagram connections ran out
+// unflagged (complexes.InstagramNoticeStore).
+type ComplexConnectionNoticeReader interface {
+	ComplexOwnerAndName(ctx context.Context, complexID uuid.UUID) (uuid.UUID, string, error)
+	ListUnflaggedExpiredInstagramConnections(ctx context.Context, now time.Time, limit int) ([]complexstore.ExpiredInstagramConnection, error)
+}
+
 type ComplexStore interface {
 	ComplexCRUD
 	ComplexScheduleManager
 	ComplexMPManager
+	ComplexMPRefreshNoticeManager
+	ComplexConnectionNoticeReader
 }
 
 // ---------------------------------------------------------------------------
@@ -574,6 +591,10 @@ type PaymentRefunder interface {
 	// InsertAndClaimRefund records a new payment and claims its refund in one
 	// transaction; see payments.RefundStore.
 	InsertAndClaimRefund(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
+	// ClaimRefundWithCause and InsertAndClaimRefundWithCause store why the
+	// webhook refunded on its own with the attempt; see payments.RefundStore.
+	ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
+	InsertAndClaimRefundWithCause(ctx context.Context, payment *paymentstore.Payment, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's still-outstanding cash/transfer
 	// balance; see the identical parameter on payments.PaymentStore.
 	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)
@@ -717,8 +738,16 @@ type RegistrationStore interface {
 	ListRegistrations(ctx context.Context, eventID uuid.UUID, liveOnly bool) ([]*eventstore.RegistrationRow, error)
 	CancelRegistration(ctx context.Context, id uuid.UUID, by string) (*eventstore.Registration, error)
 	CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*eventstore.ParticipantCancel, error)
+	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+}
+
+// RegistrationReminderManager finds the paid spots due their day-before
+// reminder and marks them once it is queued.
+type RegistrationReminderManager interface {
+	DueReminders(ctx context.Context, now time.Time) ([]eventstore.DueReminder, error)
+	MarkReminded(ctx context.Context, id uuid.UUID) error
 }
 
 // EventsStore composes every events capability: one concrete store
@@ -727,6 +756,7 @@ type EventsStore interface {
 	EventWriter
 	EventReader
 	RegistrationStore
+	RegistrationReminderManager
 }
 
 // ---------------------------------------------------------------------------
@@ -766,11 +796,19 @@ type TournamentWriter interface {
 	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
 }
 
+// MatchReminderManager finds the scheduled matches due their two-hour reminder
+// and marks them once it is queued.
+type MatchReminderManager interface {
+	DueMatchReminders(ctx context.Context, now time.Time) ([]tournamentstore.DueMatch, error)
+	MarkMatchReminded(ctx context.Context, matchID uuid.UUID) error
+}
+
 // TournamentsStore composes every tournaments capability: one concrete store
 // (internal/tournaments/store) satisfies all of them.
 type TournamentsStore interface {
 	TournamentReader
 	TournamentWriter
+	MatchReminderManager
 }
 
 // ---------------------------------------------------------------------------

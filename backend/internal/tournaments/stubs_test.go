@@ -2,8 +2,10 @@ package tournaments
 
 import (
 	"context"
+	"errors"
 	"io"
 	"log/slog"
+	"slices"
 	"testing"
 	"time"
 
@@ -16,6 +18,8 @@ import (
 	"github.com/stodulski/vibe-server/internal/events"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -39,6 +43,24 @@ type stubStore struct {
 	feeSet      []int
 	charges     []tournamentstore.ChargeInput
 	undone      []int
+	// due is what the match reminder sweep reads; reminded the matches it marked.
+	due      []tournamentstore.DueMatch
+	reminded []uuid.UUID
+}
+
+func (s *stubStore) DueMatchReminders(context.Context, time.Time) ([]tournamentstore.DueMatch, error) {
+	var out []tournamentstore.DueMatch
+	for _, d := range s.due {
+		if !slices.Contains(s.reminded, d.MatchID) {
+			out = append(out, d)
+		}
+	}
+	return out, nil
+}
+
+func (s *stubStore) MarkMatchReminded(_ context.Context, id uuid.UUID) error {
+	s.reminded = append(s.reminded, id)
+	return nil
 }
 
 func (s *stubStore) Create(_ context.Context, t *tournamentstore.Tournament, cats []tournamentstore.NewCategory) error {
@@ -157,6 +179,18 @@ func (s *stubStore) Schedule(_ context.Context, in tournamentstore.ScheduleInput
 	if s.scheduleErr != nil {
 		return nil, s.scheduleErr
 	}
+	// The match the detail holds takes the court and the time, as the store's
+	// does, so a later read sees it scheduled.
+	for i, m := range s.detail.Matches {
+		if m.ID == in.MatchID {
+			moved := *m
+			start := in.StartTime
+			on := in.Date
+			moved.CourtID, moved.ScheduledOn, moved.StartTime, moved.Duration = &in.CourtID, &on, &start, &in.Minutes
+			s.detail.Matches[i] = &moved
+			return &moved, nil
+		}
+	}
 	return &tournamentstore.Match{ID: in.MatchID}, nil
 }
 
@@ -182,6 +216,15 @@ type stubEvents struct {
 	signUps   []events.SignUpInput
 	hooks     []*eventstore.SignUpHooks
 	signUpErr error
+	// withdrawn is every owner withdrawal, as (event, registration);
+	// withdrawOutcome is the refund each answers.
+	withdrawn       [][2]uuid.UUID
+	withdrawOutcome paymentstore.RefundOutcome
+}
+
+func (s *stubEvents) WithdrawAny(_ context.Context, _ *complexstore.Complex, _ events.Actor, eventID, registrationID uuid.UUID) (*events.Refund, error) {
+	s.withdrawn = append(s.withdrawn, [2]uuid.UUID{eventID, registrationID})
+	return &events.Refund{RegistrationID: registrationID, Outcome: s.withdrawOutcome}, nil
 }
 
 func (s *stubEvents) PublicComplex(context.Context, string) (*complexstore.Complex, error) {
@@ -219,6 +262,26 @@ func (s *stubCourts) GetByComplex(context.Context, uuid.UUID) ([]*courtstore.Cou
 	return s.courts, nil
 }
 
+type stubComplexes struct{ complex *complexstore.Complex }
+
+func (s *stubComplexes) GetByID(context.Context, uuid.UUID) (*complexstore.Complex, error) {
+	return s.complex, nil
+}
+
+type stubNotifier struct {
+	notices []notifications.TournamentNotice
+	// refuse makes TournamentNoticeDue fail, as a refused enqueue does.
+	refuse bool
+}
+
+func (s *stubNotifier) TournamentNoticeDue(n notifications.TournamentNotice) error {
+	if s.refuse {
+		return errors.New("queue refused")
+	}
+	s.notices = append(s.notices, n)
+	return nil
+}
+
 type stubRealtime struct{}
 
 func (s *stubRealtime) PublishBookingChanged(uuid.UUID) {}
@@ -235,6 +298,7 @@ type fixture struct {
 	owner   uuid.UUID
 	court   *courtstore.Court
 	audit   *stubAudit
+	notify  *stubNotifier
 }
 
 // newFixture wires a venue with one court and a tournament in the store, a
@@ -263,13 +327,14 @@ func newFixture(t *testing.T) *fixture {
 			Categories: []*tournamentstore.Category{cat},
 		}},
 		events:  &stubEvents{complex: complex, refunds: map[uuid.UUID][]events.Refund{}},
-		complex: complex, owner: uuid.New(), audit: &stubAudit{},
+		complex: complex, owner: uuid.New(), audit: &stubAudit{}, notify: &stubNotifier{},
 		court: &courtstore.Court{ID: uuid.New(), ComplexID: complexID, Name: "Cancha 1", IsActive: true},
 	}
 	f.events.event = &eventstore.Event{ID: cat.EventID, ComplexID: complexID, TournamentID: &tid}
 	f.svc = NewService(Dependencies{
 		Store: f.store, Events: f.events, Courts: &stubCourts{courts: []*courtstore.Court{f.court}},
 		Realtime: &stubRealtime{}, Audit: f.audit, Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Complexes: &stubComplexes{complex: complex}, Notify: f.notify, PublicURL: "https://vibe.test",
 	})
 	return f
 }

@@ -48,7 +48,7 @@ func requireAll(t *testing.T, got sentSeries, wants ...string) {
 func TestSeriesCreatedEmailNamesTheWeekdayHoursCourtAndWhereToGo(t *testing.T) {
 	got := captureSeries(t, func(m *Mailer) error {
 		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "lunes", "19:00 a 20:30",
-			"16/11", "25/01", "Av. Santa Fe 1200", "https://maps.test/x", Contact{})
+			"16/11", "25/01", "Av. Santa Fe 1200", "https://maps.test/x", nil, Contact{})
 	})
 	requireAll(t, got,
 		"lunes", "19:00 a 20:30", "Cancha 1", "16/11", "25/01",
@@ -57,7 +57,7 @@ func TestSeriesCreatedEmailNamesTheWeekdayHoursCourtAndWhereToGo(t *testing.T) {
 
 func TestSeriesCreatedEmailWithoutAnEndOmitsIt(t *testing.T) {
 	got := captureSeries(t, func(m *Mailer) error {
-		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "sábados", "19:00 a 20:30", "16/11", "", "", "", Contact{})
+		return m.SendSeriesCreated(t.Context(), "ana@example.com", "Vibe Padel", "Cancha 1", "sábados", "19:00 a 20:30", "16/11", "", "", "", nil, Contact{})
 	})
 	requireAll(t, got, "todos los <strong>sábados</strong>", "desde el 16/11.")
 	if strings.Contains(got.HTMLContent, "hasta el") || strings.Contains(got.HTMLContent, "Cómo llegar") {

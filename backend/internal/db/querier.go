@@ -274,6 +274,8 @@ type Querier interface {
 	// answered by GetGoneComplexBySlug, not here. See the soft-delete cascade in
 	// db/migrations/001_init.sql.
 	GetComplexBySlug(ctx context.Context, slug string) (ActiveComplex, error)
+	// The owner a notice about a live complex goes to, and the name it gives.
+	GetComplexOwnerAndName(ctx context.Context, id pgtype.UUID) (GetComplexOwnerAndNameRow, error)
 	//
 	// Carries a court count, because a complex with no courts can take no booking
 	// at all — it looked identical to a finished one.
@@ -330,6 +332,8 @@ type Querier interface {
 	// No row means the defaults (everything off), which the store answers itself.
 	GetInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (GetInstagramStorySettingsRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
+	// The refresh-failure episode the owner was last emailed about, if any.
+	GetMPRefreshFailureNotice(ctx context.Context, complexID pgtype.UUID) (string, error)
 	// The row of a (match, side) with whether its charge was voided. Locked: the
 	// caller holds the category lock, this keeps the row put while it is rewritten.
 	GetMatchFeeForUpdate(ctx context.Context, arg GetMatchFeeForUpdateParams) (GetMatchFeeForUpdateRow, error)
@@ -556,6 +560,14 @@ type Querier interface {
 	// Registrations that never held a spot (expired holds) are the caller's to
 	// leave out with live_only.
 	ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPlayRegistrationsParams) ([]ListOpenPlayRegistrationsRow, error)
+	// The paid spots whose event or tournament category starts within the next day
+	// and that were not reminded yet. A plain event starts at its own date and
+	// time; a tournament category at its own start (starts_on, starts_at) when the
+	// owner gave one, else on the tournament's first day, read as 09:00 so a
+	// category without an hour is reminded the morning before rather than at
+	// midnight. A spot paid inside that day just got its confirmation and is not
+	// reminded again. The partner of a tournament pair comes beside the payer.
+	ListOpenPlayRegistrationsForReminder(ctx context.Context, now pgtype.Timestamptz) ([]ListOpenPlayRegistrationsForReminderRow, error)
 	// Cancelled registrations whose money is owed back and has not been sent, once
 	// the cancellation is older than the grace: the refund the cancel request
 	// itself never finished (a crash, a provider outage that outlived its retries).
@@ -618,6 +630,10 @@ type Querier interface {
 	ListTournamentMatchFees(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatchFee, error)
 	// Every match of every category of a tournament, bracket after group stage.
 	ListTournamentMatches(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatch, error)
+	// The scheduled matches with both pairs known and playing, of a live category,
+	// that start within the next two hours and were not reminded yet: the window
+	// the booking reminder uses, over the same booking_starts_at.
+	ListTournamentMatchesForReminder(ctx context.Context, now pgtype.Timestamptz) ([]ListTournamentMatchesForReminderRow, error)
 	// Every pair of a tournament with its registration (the payer, the state of the
 	// spot) and the payment that carries the money, as the owner's pair list reads
 	// it, oldest sign-up first. Registrations that never held a spot (expired
@@ -626,6 +642,10 @@ type Querier interface {
 	// The tournaments of one complex that overlap the window, soonest first.
 	// include_cancelled is what the owner's list sets and the public one does not.
 	ListTournaments(ctx context.Context, arg ListTournamentsParams) ([]Tournament, error)
+	// Instagram connections whose token has expired and that are not flagged for
+	// a reconnect yet. Listed (rather than flagged in bulk) so each one can be
+	// flagged with its expiry as the guard and its owner told once.
+	ListUnflaggedExpiredInstagramConnections(ctx context.Context, arg ListUnflaggedExpiredInstagramConnectionsParams) ([]ListUnflaggedExpiredInstagramConnectionsRow, error)
 	ListVerifyEmailNudgeCandidates(ctx context.Context, maxRows int32) ([]ListVerifyEmailNudgeCandidatesRow, error)
 	// The distinct grids (complex, day, duration) that slot entries are on, from
 	// from_date, in key order after the cursor (NULL: from the start). Entries
@@ -666,6 +686,7 @@ type Querier interface {
 	// expiry is part of the match, as in MarkInstagramNeedsReconnect, so a
 	// reconnect that landed while the story was in flight is not marked.
 	MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, arg MarkInstagramStoryAccountNeedsReconnectParams) (int64, error)
+	MarkOpenPlayRegistrationReminded(ctx context.Context, id pgtype.UUID) error
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -685,6 +706,7 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	MarkTournamentMatchReminded(ctx context.Context, id pgtype.UUID) error
 	// Whether either player of a registration's pair is a player of another live
 	// pair of the category: the payer of a paid or still-held sign-up, or its
 	// partner. A late payment on a pair whose hold ran out is refused when one is:
@@ -838,6 +860,9 @@ type Querier interface {
 	// row yet, or the switch was off): a later save while it stays on keeps it, so
 	// moving daily_time does not move the start (038).
 	UpsertInstagramStorySettings(ctx context.Context, arg UpsertInstagramStorySettingsParams) (UpsertInstagramStorySettingsRow, error)
+	// Records that the owner was emailed about this refresh-failure episode,
+	// replacing the previous one.
+	UpsertMPRefreshFailureNotice(ctx context.Context, arg UpsertMPRefreshFailureNoticeParams) error
 	// Records a charge; after a void it rewrites the row of the voided one.
 	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)
 	// A repeat capture refreshes the names it has and keeps the ones it does not:

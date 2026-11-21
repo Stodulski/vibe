@@ -132,6 +132,7 @@ func (s *Service) EventCancelled(c EventCancellation) {
 // registerEventWorkers wires the delivery of the event notices.
 // RegisterWorkers calls it.
 func (s *Service) registerEventWorkers() {
+	s.registerEventNoticeWorkers()
 	s.queue.RegisterHandler(handle(TaskEmailEventRegistered, func(ctx context.Context, p eventRegisteredEmail) error {
 		return s.mailer.SendEventRegistered(ctx, p.Email, p.FirstName, p.ComplexName, p.EventName,
 			p.Date, p.Hours, p.Address, p.MapsURL, p.Amount, p.EventURL, s.contactOf(ctx, p.clientContact))
