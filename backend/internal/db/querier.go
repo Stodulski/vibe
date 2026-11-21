@@ -104,6 +104,9 @@ type Querier interface {
 	// stored expected_cash yet appear in a summary later rebuilt over
 	// [opened_at, closed_at) — see Service.Close's own comment.
 	CloseCashSession(ctx context.Context, arg CloseCashSessionParams) (CashSession, error)
+	// MercadoPago answered, or the sweep gave up: the check is done. Zero rows means
+	// another run closed it first.
+	CloseRegistrationPaymentCheck(ctx context.Context, id pgtype.UUID) (int64, error)
 	// A hold that ran out and was swept can still be confirmed by a payment that
 	// arrives late, while the event has room (the caller checks, under the event
 	// lock).
@@ -122,6 +125,9 @@ type Querier interface {
 	// How many places one address is still waiting for at one complex; the join
 	// caps it.
 	CountWaitingPlaceEntriesOfEmail(ctx context.Context, arg CountWaitingPlaceEntriesOfEmailParams) (int32, error)
+	// MercadoPago could not be asked: count the attempt and ask again later, five
+	// minutes more for every failed attempt, at most two hours apart.
+	DeferRegistrationPaymentCheck(ctx context.Context, id pgtype.UUID) (int16, error)
 	DeleteAllRefreshTokensByUser(ctx context.Context, userID pgtype.UUID) error
 	DeleteBlockedSlot(ctx context.Context, id pgtype.UUID) error
 	DeleteCourtPrice(ctx context.Context, id pgtype.UUID) error
@@ -152,9 +158,14 @@ type Querier interface {
 	EndExpiredBookingSeries(ctx context.Context, endsOn pgtype.Date) (int64, error)
 	// The sweep: marks expired the holds nobody paid in time. They stopped counting
 	// against capacity the moment held_until passed; this only closes the rows.
+	// Every hold opened a MercadoPago checkout, so each is marked due a payment
+	// check in the same write: a payment whose webhook never arrived is still
+	// found, and the person is told the spot expired only once none was.
 	ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHoldsRow, error)
 	// Lets a person whose own earlier hold ran out sign up again: the one-live-
 	// spot-per-phone index would otherwise still count the stale row.
+	// The hold is still asked about (payment_check_due_at), silently: the person is
+	// signing up again, so no expiry notice follows.
 	ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means
@@ -532,6 +543,10 @@ type Querier interface {
 	// The pairs a draw is made of: paid sign-ups that have not withdrawn, in the
 	// owner's seed order where there is one (unseeded last), then by sign-up.
 	ListDrawablePairs(ctx context.Context, categoryID pgtype.UUID) ([]TournamentPair, error)
+	// The expired holds whose checkout MercadoPago is due to be asked about, oldest
+	// first. Only an expired row is a candidate: a late payment that confirmed it
+	// meanwhile already answered the question.
+	ListDueRegistrationPaymentChecks(ctx context.Context, pageLimit int32) ([]ListDueRegistrationPaymentChecksRow, error)
 	ListFinishSignupNudgeCandidates(ctx context.Context, maxRows int32) ([]ListFinishSignupNudgeCandidatesRow, error)
 	// An owner counts as active from the last request they made, or from account
 	// creation when they have never made one. A booking from any source (the

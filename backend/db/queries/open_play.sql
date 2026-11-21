@@ -71,8 +71,10 @@ WHERE event_id = sqlc.arg(event_id)
 -- name: ExpireOpenPlayHoldsOfPhone :exec
 -- Lets a person whose own earlier hold ran out sign up again: the one-live-
 -- spot-per-phone index would otherwise still count the stale row.
+-- The hold is still asked about (payment_check_due_at), silently: the person is
+-- signing up again, so no expiry notice follows.
 UPDATE open_play_registrations
-SET status = 'expired'
+SET status = 'expired', payment_check_due_at = NOW(), payment_check_notify = false
 WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
 
 -- name: PhoneHoldsAnotherLiveSpot :one
@@ -174,10 +176,39 @@ RETURNING r.id, old.status AS previous_status;
 -- name: ExpireOpenPlayHolds :many
 -- The sweep: marks expired the holds nobody paid in time. They stopped counting
 -- against capacity the moment held_until passed; this only closes the rows.
+-- Every hold opened a MercadoPago checkout, so each is marked due a payment
+-- check in the same write: a payment whose webhook never arrived is still
+-- found, and the person is told the spot expired only once none was.
 UPDATE open_play_registrations
-SET status = 'expired'
+SET status = 'expired', payment_check_due_at = NOW(), payment_check_notify = true
 WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id;
+
+-- name: ListDueRegistrationPaymentChecks :many
+-- The expired holds whose checkout MercadoPago is due to be asked about, oldest
+-- first. Only an expired row is a candidate: a late payment that confirmed it
+-- meanwhile already answered the question.
+SELECT id, complex_id, event_id, payment_checks, payment_check_notify
+FROM open_play_registrations
+WHERE status = 'expired' AND payment_check_due_at <= NOW()
+ORDER BY payment_check_due_at
+LIMIT sqlc.arg(page_limit)::int;
+
+-- name: CloseRegistrationPaymentCheck :execrows
+-- MercadoPago answered, or the sweep gave up: the check is done. Zero rows means
+-- another run closed it first.
+UPDATE open_play_registrations
+SET payment_check_due_at = NULL
+WHERE id = $1 AND payment_check_due_at IS NOT NULL;
+
+-- name: DeferRegistrationPaymentCheck :one
+-- MercadoPago could not be asked: count the attempt and ask again later, five
+-- minutes more for every failed attempt, at most two hours apart.
+UPDATE open_play_registrations
+SET payment_checks = payment_checks + 1,
+    payment_check_due_at = NOW() + make_interval(mins => LEAST(5 * (payment_checks + 1), 120))
+WHERE id = $1 AND payment_check_due_at IS NOT NULL
+RETURNING payment_checks;
 
 -- name: ListOwnerCancelledRegistrationsStillPaid :many
 -- Cancelled registrations whose money is owed back and has not been sent, once

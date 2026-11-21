@@ -929,10 +929,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Clients:   clientsService,
 		Payments:  paymentsService,
 		Checkout:  mpClient,
-		Notify:    notify,
-		Realtime:  events,
-		Audit:     auditor,
-		Logger:    d.logger,
+		// The hold sweep asks MercadoPago before it tells a person their spot
+		// expired, and hands an approved payment no webhook delivered to the
+		// payments service, which processes it as the webhook would have.
+		Reconciler: paymentsService,
+		Notify:     notify,
+		Realtime:   events,
+		Audit:      auditor,
+		Logger:     d.logger,
 	}, openplay.Config{
 		PublicURL:     cfg.PublicBaseURL(),
 		BackendURL:    cfg.BackendURL,

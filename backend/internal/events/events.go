@@ -41,6 +41,9 @@ type Store interface {
 	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+	DuePaymentChecks(ctx context.Context, limit int) ([]eventstore.PaymentCheck, error)
+	ClosePaymentCheck(ctx context.Context, id uuid.UUID) (bool, error)
+	DeferPaymentCheck(ctx context.Context, id uuid.UUID) (int, error)
 	DueReminders(ctx context.Context, now time.Time) ([]eventstore.DueReminder, error)
 	MarkReminded(ctx context.Context, id uuid.UUID) error
 }
@@ -74,6 +77,17 @@ type Payments interface {
 // Checkout is the MercadoPago side of a sign-up.
 type Checkout interface {
 	CreatePreference(ctx context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error)
+	// SearchPaymentsByReference lists the payments made against a checkout,
+	// which the hold sweep asks before it tells a person their spot expired.
+	SearchPaymentsByReference(ctx context.Context, reference string, caller mp.Caller) ([]mp.Payment, error)
+}
+
+// PaymentReconciler processes an approved payment MercadoPago holds for a
+// registration that no webhook confirmed, exactly as its webhook would have
+// been processed: confirmed while there is room, refunded otherwise. The
+// payments service implements it.
+type PaymentReconciler interface {
+	ReconcileApprovedPayment(ctx context.Context, mpPaymentID string) error
 }
 
 // Notifier sends the notices of a sign-up.
@@ -123,11 +137,13 @@ type Dependencies struct {
 	Clients   ClientReader
 	Payments  Payments
 	Checkout  Checkout
-	Notify    Notifier
-	Realtime  Broadcaster
-	Audit     Recorder
-	Logger    *slog.Logger
-	Run       func(func())
+	// Reconciler is handed the approved payments the hold sweep finds.
+	Reconciler PaymentReconciler
+	Notify     Notifier
+	Realtime   Broadcaster
+	Audit      Recorder
+	Logger     *slog.Logger
+	Run        func(func())
 }
 
 // TournamentGate is what the events domain asks of the tournaments domain,
@@ -151,6 +167,7 @@ type Service struct {
 	clients     ClientReader
 	payments    Payments
 	checkout    Checkout
+	reconciler  PaymentReconciler
 	notify      Notifier
 	realtime    Broadcaster
 	audit       Recorder
@@ -162,7 +179,7 @@ type Service struct {
 func NewService(d Dependencies, cfg Config) *Service {
 	return &Service{
 		store: d.Store, complexes: d.Complexes, courts: d.Courts, clients: d.Clients,
-		payments: d.Payments, checkout: d.Checkout, notify: d.Notify, realtime: d.Realtime,
+		payments: d.Payments, checkout: d.Checkout, reconciler: d.Reconciler, notify: d.Notify, realtime: d.Realtime,
 		audit: d.Audit, logger: d.Logger, cfg: cfg,
 	}
 }

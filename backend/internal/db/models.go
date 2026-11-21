@@ -757,28 +757,31 @@ type OpenPlayEventCourt struct {
 }
 
 type OpenPlayRegistration struct {
-	ID              pgtype.UUID        `json:"id"`
-	EventID         pgtype.UUID        `json:"event_id"`
-	ComplexID       pgtype.UUID        `json:"complex_id"`
-	FirstName       string             `json:"first_name"`
-	LastName        string             `json:"last_name"`
-	Phone           string             `json:"phone"`
-	Email           pgtype.Text        `json:"email"`
-	Status          string             `json:"status"`
-	Price           int32              `json:"price"`
-	ServiceFee      int32              `json:"service_fee"`
-	HeldUntil       pgtype.Timestamptz `json:"held_until"`
-	AccessTokenHash []byte             `json:"access_token_hash"`
-	HoldIp          pgtype.Text        `json:"hold_ip"`
-	ConfirmedAt     pgtype.Timestamptz `json:"confirmed_at"`
-	CancelledAt     pgtype.Timestamptz `json:"cancelled_at"`
-	CancelledBy     pgtype.Text        `json:"cancelled_by"`
-	CreatedAt       pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
-	PlayerGender    pgtype.Text        `json:"player_gender"`
-	PlayerLevel     pgtype.Int4        `json:"player_level"`
-	RefundIntentAt  pgtype.Timestamptz `json:"refund_intent_at"`
-	ReminderSentAt  pgtype.Timestamptz `json:"reminder_sent_at"`
+	ID                 pgtype.UUID        `json:"id"`
+	EventID            pgtype.UUID        `json:"event_id"`
+	ComplexID          pgtype.UUID        `json:"complex_id"`
+	FirstName          string             `json:"first_name"`
+	LastName           string             `json:"last_name"`
+	Phone              string             `json:"phone"`
+	Email              pgtype.Text        `json:"email"`
+	Status             string             `json:"status"`
+	Price              int32              `json:"price"`
+	ServiceFee         int32              `json:"service_fee"`
+	HeldUntil          pgtype.Timestamptz `json:"held_until"`
+	AccessTokenHash    []byte             `json:"access_token_hash"`
+	HoldIp             pgtype.Text        `json:"hold_ip"`
+	ConfirmedAt        pgtype.Timestamptz `json:"confirmed_at"`
+	CancelledAt        pgtype.Timestamptz `json:"cancelled_at"`
+	CancelledBy        pgtype.Text        `json:"cancelled_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	PlayerGender       pgtype.Text        `json:"player_gender"`
+	PlayerLevel        pgtype.Int4        `json:"player_level"`
+	RefundIntentAt     pgtype.Timestamptz `json:"refund_intent_at"`
+	ReminderSentAt     pgtype.Timestamptz `json:"reminder_sent_at"`
+	PaymentCheckDueAt  pgtype.Timestamptz `json:"payment_check_due_at"`
+	PaymentChecks      int16              `json:"payment_checks"`
+	PaymentCheckNotify bool               `json:"payment_check_notify"`
 }
 
 type OwnerNudge struct {
