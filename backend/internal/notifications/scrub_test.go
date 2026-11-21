@@ -30,6 +30,11 @@ func TestEveryNotificationTaskHasItsPayloadScrubbed(t *testing.T) {
 		TaskEmailOwnerSeriesDatesLost,
 		TaskEmailEventRegistered,
 		TaskEmailEventCancelled,
+		TaskEmailBookingNoShow,
+		TaskEmailPaymentReceived,
+		TaskEmailRefundOwedByVenue,
+		TaskEmailOwnerRefundOwed,
+		TaskEmailOwnerDuplicatePaymentRefunded,
 	}
 	// The rows of the removed WhatsApp channel still in the queue are scrubbed too.
 	tasks = append(tasks, legacyWhatsAppTasks...)

@@ -305,12 +305,14 @@ func (m *Store) CancelRegistration(ctx context.Context, id uuid.UUID, by string)
 	return cancelRegistration(ctx, m.Q, id, by, false)
 }
 
-// ParticipantCancel is a spot its person cancelled, and whether the tournament
-// category it belongs to had its draw when the cancellation committed.
+// ParticipantCancel is a spot cancelled by its person or by the owner, and
+// whether the tournament category it belongs to had its draw when the
+// cancellation committed.
 type ParticipantCancel struct {
 	Registration *Registration
 	// Drawn is true for a tournament pair whose category's draw exists: leaving
-	// is a walkover, the payment is kept and no refund was marked owed.
+	// is a walkover. A pair that left by itself keeps no refund; one the owner
+	// withdrew is still refunded (A9).
 	Drawn bool
 }
 
@@ -325,6 +327,23 @@ type ParticipantCancel struct {
 // that is in the bracket; a draw that starts after this commits leaves the pair
 // out.
 func (m *Store) CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwed bool) (*ParticipantCancel, error) {
+	return m.cancelUnderLocks(ctx, id, CancelledByParticipant, func(drawn bool) bool { return refundOwed && !drawn })
+}
+
+// CancelByOwner ends one person's spot by the owner's hand. The owner's
+// withdrawal always owes the money back, after the draw too (owner rule A9), so
+// the refund is marked owed in the cancellation's own write and the refund
+// sweep finishes it if the request never does. It takes the same locks as
+// CancelByParticipant, so a draw running at the same time is waited for and
+// reported (Drawn): the caller then takes the pair out of the bracket.
+func (m *Store) CancelByOwner(ctx context.Context, id uuid.UUID) (*ParticipantCancel, error) {
+	return m.cancelUnderLocks(ctx, id, CancelledByOwner, func(bool) bool { return true })
+}
+
+// cancelUnderLocks ends a registration under the event's row lock and, for a
+// tournament pair, the category's after it. owed decides, from whether the
+// category had its draw, whether the refund is marked owed.
+func (m *Store) cancelUnderLocks(ctx context.Context, id uuid.UUID, by string, owed func(drawn bool) bool) (*ParticipantCancel, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -349,7 +368,7 @@ func (m *Store) CancelByParticipant(ctx context.Context, id uuid.UUID, refundOwe
 				return fmt.Errorf("events: lock the category: %w", err)
 			}
 		}
-		cancelled, err := cancelRegistration(ctx, q, id, CancelledByParticipant, refundOwed && !drawn)
+		cancelled, err := cancelRegistration(ctx, q, id, by, owed(drawn))
 		if err != nil {
 			return err
 		}
@@ -430,6 +449,51 @@ func (m *Store) OwnerCancelledStillPaid(ctx context.Context, grace time.Duration
 		out[i] = PendingRefund{RegistrationID: data.PgToUUID(r.ID), ComplexID: data.PgToUUID(r.ComplexID)}
 	}
 	return out, nil
+}
+
+// DueReminder is a paid spot whose day-before reminder is due. StartsAt is when
+// the event, or the tournament category, starts; HasTime is false for a
+// tournament category the owner gave no hour, whose reminder names the day
+// alone. A tournament pair's partner comes with it, nil when there is none.
+type DueReminder struct {
+	RegistrationID   uuid.UUID
+	StartsAt         time.Time
+	HasTime          bool
+	PartnerFirstName string
+	PartnerEmail     *string
+}
+
+// DueReminders returns the paid spots whose event starts within a day of now
+// and that were not reminded yet. now is the caller's clock, as the booking
+// reminder's is. Only the sweep calls it, under the tenant bypass.
+func (m *Store) DueReminders(ctx context.Context, now time.Time) ([]DueReminder, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.Q.ListOpenPlayRegistrationsForReminder(ctx, data.TimeToPg(now))
+	if err != nil {
+		return nil, fmt.Errorf("events: list due reminders: %w", err)
+	}
+	out := make([]DueReminder, len(rows))
+	for i, r := range rows {
+		out[i] = DueReminder{
+			RegistrationID: data.PgToUUID(r.RegistrationID), StartsAt: data.PgToTime(r.StartsAt), HasTime: r.HasTime,
+			PartnerFirstName: r.PartnerFirstName.String, PartnerEmail: data.PgToTextPtr(r.PartnerEmail),
+		}
+	}
+	return out, nil
+}
+
+// MarkReminded records that a registration's reminder was queued, so the next
+// sweep does not select it again.
+func (m *Store) MarkReminded(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := m.Q.MarkOpenPlayRegistrationReminded(ctx, data.UUIDToPg(id)); err != nil {
+		return fmt.Errorf("events: mark reminded: %w", err)
+	}
+	return nil
 }
 
 func registrationFromDB(r db.OpenPlayRegistration) *Registration {

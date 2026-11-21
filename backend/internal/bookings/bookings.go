@@ -235,6 +235,13 @@ type Notifier interface {
 	// error when the reminder was not queued, and the scheduler then leaves the
 	// booking unflagged so the next tick tries again.
 	ReminderDue(r notifications.Reminder) error
+	// BookingNoShow tells the client the complex marked them as not attended.
+	BookingNoShow(n notifications.NoShow)
+	// PaymentReceived is the client's receipt for a counter payment.
+	PaymentReceived(r notifications.PaymentReceipt)
+	// DepositRefunded tells the client money came back; here, cash the owner
+	// returned by hand. It returns the queue's refusal, for the caller to report.
+	DepositRefunded(r notifications.Refund) error
 }
 
 // Broadcaster pushes a change to the owner's open dashboards.

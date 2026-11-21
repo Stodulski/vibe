@@ -6,6 +6,8 @@ package notice
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/stodulski/vibe-server/internal/booklink"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
@@ -96,4 +98,94 @@ func pageOf(publicURL, slug string, ev *eventstore.Event) string {
 		return booklink.TournamentPage(publicURL, slug, *ev.TournamentID)
 	}
 	return booklink.EventPage(publicURL, slug, ev.ID)
+}
+
+// LineExpired is the line of the notice that tells a person their unpaid hold
+// ran out: the spot went back on sale and nothing was charged.
+const LineExpired = "Tu lugar se liberó porque el pago no se completó a tiempo, así que no hay nada que devolver. Si todavía querés ir, podés anotarte de nuevo."
+
+// Expired is the notice that a person's unpaid hold ran out, sent as the
+// cancellation of their spot with LineExpired as its money line.
+func Expired(reg *eventstore.Registration, ev *eventstore.Event, complex *complexstore.Complex, publicURL string) notifications.EventCancellation {
+	return Cancelled(reg, ev, complex, publicURL, false, LineExpired, 0)
+}
+
+// Owner is the owner's notice about a person's spot: who, for which event,
+// when, and what they paid.
+func Owner(reg *eventstore.Registration, ev *eventstore.Event, complex *complexstore.Complex) notifications.OwnerEventNotice {
+	return notifications.OwnerEventNotice{
+		OwnerID:         complex.OwnerID.String(),
+		ComplexName:     complex.Name,
+		EventName:       ev.Name,
+		Date:            Day(ev),
+		Hours:           Hours(ev),
+		ParticipantName: strings.TrimSpace(reg.FirstName + " " + reg.LastName),
+		Amount:          notifications.FormatARS(reg.Price + reg.ServiceFee),
+		RegistrationID:  reg.ID.String(),
+	}
+}
+
+// Refunded is the notice that part of a person's payment came back while their
+// spot stays. movedCentavos is what came back this time; refundedTotal is the
+// payment's running total after it, which tells one refund from the next.
+func Refunded(reg *eventstore.Registration, ev *eventstore.Event, complex *complexstore.Complex, publicURL string, movedCentavos, refundedTotal int) notifications.EventRefund {
+	n := notifications.EventRefund{
+		FirstName:      reg.FirstName,
+		ComplexName:    complex.Name,
+		EventName:      ev.Name,
+		Date:           Day(ev),
+		EventURL:       pageOf(publicURL, complex.Slug, ev),
+		ComplexPhone:   complex.Phone,
+		OwnerID:        complex.OwnerID.String(),
+		RegistrationID: reg.ID.String(),
+		RefundedTotal:  refundedTotal,
+	}
+	if movedCentavos > 0 {
+		n.Amount = notifications.FormatARS(movedCentavos)
+	}
+	if reg.Email != nil {
+		n.Email = *reg.Email
+	}
+	return n
+}
+
+// Reminder is the day-before reminder of a person's spot. The email goes to
+// email under firstName, so a tournament partner gets their own.
+func Reminder(reg *eventstore.Registration, ev *eventstore.Event, complex *complexstore.Complex, publicURL, email, firstName string, startsAt time.Time, hasTime bool, now time.Time) notifications.EventReminder {
+	return notifications.EventReminder{
+		Email:          email,
+		FirstName:      firstName,
+		ComplexName:    complex.Name,
+		EventName:      ev.Name,
+		When:           When(startsAt, hasTime, now),
+		Address:        booklink.Address(complex.Address, complex.City),
+		MapsURL:        booklink.MapsURL(complex.Name, complex.Address, complex.City, complex.Latitude, complex.Longitude),
+		EventURL:       pageOf(publicURL, complex.Slug, ev),
+		ComplexPhone:   complex.Phone,
+		OwnerID:        complex.OwnerID.String(),
+		RegistrationID: reg.ID.String(),
+	}
+}
+
+// When is an instant as a person reads it on the day the email arrives: "hoy
+// sábado 15/11 a las 19:00", "mañana sábado 15/11 a las 19:00", or "el sábado
+// 15/11 a las 19:00" further out. Without hasTime the hour is left out: the
+// owner gave the day alone.
+func When(startsAt time.Time, hasTime bool, now time.Time) string {
+	start := startsAt.In(timezone.Argentina)
+	day := timezone.Day(start)
+	today := timezone.Day(now.In(timezone.Argentina))
+	label := notifications.SpanishWeekday(day.Weekday()) + " " + start.Format("02/01")
+	switch {
+	case day.Equal(today):
+		label = "hoy " + label
+	case day.Equal(today.AddDate(0, 0, 1)):
+		label = "mañana " + label
+	default:
+		label = "el " + label
+	}
+	if hasTime {
+		label += " a las " + start.Format("15:04")
+	}
+	return label
 }

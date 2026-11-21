@@ -285,6 +285,12 @@ func (s *apiServer) EventsCancel(w http.ResponseWriter, r *http.Request, id gen.
 	s.app.openPlay.Cancel(w, r)
 }
 
+// EventsRegistrationWithdraw implements gen.ServerInterface for eventsRegistrationWithdraw
+// (POST /api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) EventsRegistrationWithdraw(w http.ResponseWriter, r *http.Request, id gen.PathID, eventID gen.EventID, registrationID gen.RegistrationID) {
+	s.app.openPlay.Withdraw(w, r)
+}
+
 // EventsPublicList implements gen.ServerInterface for eventsPublicList
 // (GET /api/v1/public/complexes/{slug}/events). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) EventsPublicList(w http.ResponseWriter, r *http.Request, slug gen.PathSlug) {
@@ -862,6 +868,12 @@ func (s *apiServer) TournamentsCancel(w http.ResponseWriter, r *http.Request, id
 // (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/cancel). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) TournamentsCategoryCancel(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID) {
 	s.app.tournaments.CancelCategory(w, r)
+}
+
+// TournamentsPairWithdraw implements gen.ServerInterface for tournamentsPairWithdraw
+// (POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) TournamentsPairWithdraw(w http.ResponseWriter, r *http.Request, id gen.PathID, tournamentID gen.TournamentID, categoryID gen.CategoryID, registrationID gen.RegistrationID) {
+	s.app.tournaments.WithdrawPair(w, r)
 }
 
 // TournamentsDrawGenerate implements gen.ServerInterface for tournamentsDrawGenerate

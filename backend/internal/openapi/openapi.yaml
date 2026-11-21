@@ -1551,6 +1551,39 @@ paths:
               properties:
                 reason: {type: string, maxLength: 500}
 
+  /api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw:
+    post:
+      tags: [events]
+      operationId: eventsRegistrationWithdraw
+      summary: Withdraw one participant from an open-play event
+      description: >-
+        The owner takes one person out of the event. Their spot ends as cancelled by the owner and
+        whatever they paid is refunded in full through MercadoPago, service fee included, whatever the
+        complex's cancellation window says; a refund MercadoPago cannot complete now stays queued and
+        is retried. The person is told by email with the owner's cancellation notice; the owner is
+        not. Refused with `400` once the event has started, and for a spot that is already over.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/EventID"}
+        - {$ref: "#/components/parameters/RegistrationID"}
+      responses:
+        "200":
+          description: The withdrawn participant and their refund.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RegistrationWithdrawal"}
+        "400":
+          description: The event has started, or the spot is already over.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
   /api/v1/complexes/{id}/bookings/{bookingID}:
     get:
       tags: [bookings]
@@ -3482,6 +3515,41 @@ paths:
         "403": {$ref: "#/components/responses/Forbidden"}
         "404": {$ref: "#/components/responses/NotFound"}
         "422": {$ref: "#/components/responses/ValidationError"}
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw:
+    post:
+      tags: [tournaments]
+      operationId: tournamentsPairWithdraw
+      summary: Withdraw one pair from a tournament category
+      description: >-
+        The owner takes one pair out of the category. Its spot ends as cancelled by the owner and
+        whatever it paid is refunded in full, after the draw too; the payer is told by email with the
+        owner's cancellation notice. After the draw the pair leaves the bracket as a pair that
+        withdrew itself does: its matches become walkovers and its name stays on the bracket.
+        Allowed while the tournament is not over; refused with `400` once its last day has passed
+        (Argentina), for a cancelled category, and for a spot that is already over.
+      security: [{cookieAuth: [], csrfHeader: []}]
+      parameters:
+        - {$ref: "#/components/parameters/PathID"}
+        - {$ref: "#/components/parameters/TournamentID"}
+        - {$ref: "#/components/parameters/CategoryID"}
+        - {$ref: "#/components/parameters/RegistrationID"}
+      responses:
+        "200":
+          description: The withdrawn pair and its refund.
+          content:
+            application/json:
+              schema: {$ref: "#/components/schemas/RegistrationWithdrawal"}
+        "400":
+          description: The tournament is over, the category is cancelled, or the spot is already over.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
+        "401": {$ref: "#/components/responses/Unauthorized"}
+        "403": {$ref: "#/components/responses/Forbidden"}
+        "404": {$ref: "#/components/responses/NotFound"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 
@@ -6446,6 +6514,11 @@ components:
       in: path
       required: true
       schema: {type: string, format: uuid}
+    RegistrationID:
+      name: registrationID
+      in: path
+      required: true
+      schema: {type: string, format: uuid}
     TournamentID:
       name: tournamentID
       in: path
@@ -7743,9 +7816,12 @@ components:
             partner: {$ref: "#/components/schemas/TournamentOwnerPlayer"}
             registration:
               type: object
-              description: The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`).
-              required: [status, price, service_fee, held_until, confirmed_at, cancelled_by, signed_up_at]
+              description: >-
+                The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). `id`
+                is what `tournamentsPairWithdraw` names the pair by.
+              required: [id, status, price, service_fee, held_until, confirmed_at, cancelled_by, signed_up_at]
               properties:
+                id: {type: string, format: uuid}
                 status: {type: string, enum: [held, confirmed, cancelled, expired]}
                 price: {type: integer}
                 service_fee: {type: integer}
@@ -7916,6 +7992,13 @@ components:
           items: {$ref: "#/components/schemas/TournamentMatch"}
         complex_name: {type: string}
         cancellation_hours: {type: integer}
+
+    RegistrationWithdrawal:
+      type: object
+      required: [registration_id, refund]
+      properties:
+        registration_id: {type: string, format: uuid}
+        refund: {$ref: "#/components/schemas/RefundOutcome"}
 
     TournamentRefunds:
       type: array

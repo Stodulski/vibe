@@ -260,7 +260,7 @@ func (q *Queries) GetTournamentCategoryByEvent(ctx context.Context, eventID pgty
 }
 
 const getTournamentMatch = `-- name: GetTournamentMatch :one
-SELECT id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at FROM tournament_matches WHERE id = $1
+SELECT id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at, reminder_sent_at FROM tournament_matches WHERE id = $1
 `
 
 func (q *Queries) GetTournamentMatch(ctx context.Context, id pgtype.UUID) (TournamentMatch, error) {
@@ -294,6 +294,7 @@ func (q *Queries) GetTournamentMatch(ctx context.Context, id pgtype.UUID) (Tourn
 		&i.DurationMinutes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReminderSentAt,
 	)
 	return i, err
 }
@@ -514,7 +515,7 @@ INSERT INTO tournament_matches (
     pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-RETURNING id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at
+RETURNING id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at, reminder_sent_at
 `
 
 type InsertTournamentMatchParams struct {
@@ -578,6 +579,7 @@ func (q *Queries) InsertTournamentMatch(ctx context.Context, arg InsertTournamen
 		&i.DurationMinutes,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ReminderSentAt,
 	)
 	return i, err
 }
@@ -638,7 +640,7 @@ func (q *Queries) InsertTournamentPair(ctx context.Context, arg InsertTournament
 }
 
 const listCategoryMatches = `-- name: ListCategoryMatches :many
-SELECT id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at FROM tournament_matches
+SELECT id, category_id, complex_id, stage, group_id, round, position, pair1_id, pair2_id, slot1_group_id, slot1_rank, slot2_group_id, slot2_rank, bye, next_match_id, next_slot, status, winner_pair_id, sets, walkover_loser, completed_at, court_id, scheduled_on, start_time, duration_minutes, created_at, updated_at, reminder_sent_at FROM tournament_matches
 WHERE category_id = $1
 ORDER BY stage DESC, round, position, id
 `
@@ -680,6 +682,7 @@ func (q *Queries) ListCategoryMatches(ctx context.Context, categoryID pgtype.UUI
 			&i.DurationMinutes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReminderSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1028,7 +1031,7 @@ func (q *Queries) ListTournamentMatchFees(ctx context.Context, tournamentID pgty
 }
 
 const listTournamentMatches = `-- name: ListTournamentMatches :many
-SELECT m.id, m.category_id, m.complex_id, m.stage, m.group_id, m.round, m.position, m.pair1_id, m.pair2_id, m.slot1_group_id, m.slot1_rank, m.slot2_group_id, m.slot2_rank, m.bye, m.next_match_id, m.next_slot, m.status, m.winner_pair_id, m.sets, m.walkover_loser, m.completed_at, m.court_id, m.scheduled_on, m.start_time, m.duration_minutes, m.created_at, m.updated_at FROM tournament_matches m
+SELECT m.id, m.category_id, m.complex_id, m.stage, m.group_id, m.round, m.position, m.pair1_id, m.pair2_id, m.slot1_group_id, m.slot1_rank, m.slot2_group_id, m.slot2_rank, m.bye, m.next_match_id, m.next_slot, m.status, m.winner_pair_id, m.sets, m.walkover_loser, m.completed_at, m.court_id, m.scheduled_on, m.start_time, m.duration_minutes, m.created_at, m.updated_at, m.reminder_sent_at FROM tournament_matches m
 JOIN tournament_categories c ON c.id = m.category_id
 WHERE c.tournament_id = $1
 ORDER BY m.category_id, m.stage DESC, m.round, m.position, m.id
@@ -1072,7 +1075,56 @@ func (q *Queries) ListTournamentMatches(ctx context.Context, tournamentID pgtype
 			&i.DurationMinutes,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ReminderSentAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTournamentMatchesForReminder = `-- name: ListTournamentMatchesForReminder :many
+SELECT m.id AS match_id, tc.tournament_id, m.complex_id
+FROM tournament_matches m
+JOIN tournament_categories tc ON tc.id = m.category_id
+JOIN open_play_events e ON e.id = tc.event_id
+JOIN tournaments t ON t.id = tc.tournament_id
+JOIN tournament_pairs p1 ON p1.id = m.pair1_id
+JOIN tournament_pairs p2 ON p2.id = m.pair2_id
+WHERE m.status = 'pending'
+  AND NOT m.bye
+  AND m.court_id IS NOT NULL
+  AND m.reminder_sent_at IS NULL
+  AND p1.status = 'active' AND p2.status = 'active'
+  AND e.status = 'active' AND t.status = 'active'
+  AND booking_starts_at(m.scheduled_on, m.start_time) > $1::timestamptz
+  AND booking_starts_at(m.scheduled_on, m.start_time) <= $1::timestamptz + INTERVAL '2 hours'
+ORDER BY booking_starts_at(m.scheduled_on, m.start_time), m.id
+`
+
+type ListTournamentMatchesForReminderRow struct {
+	MatchID      pgtype.UUID `json:"match_id"`
+	TournamentID pgtype.UUID `json:"tournament_id"`
+	ComplexID    pgtype.UUID `json:"complex_id"`
+}
+
+// The scheduled matches with both pairs known and playing, of a live category,
+// that start within the next two hours and were not reminded yet: the window
+// the booking reminder uses, over the same booking_starts_at.
+func (q *Queries) ListTournamentMatchesForReminder(ctx context.Context, now pgtype.Timestamptz) ([]ListTournamentMatchesForReminderRow, error) {
+	rows, err := q.db.Query(ctx, listTournamentMatchesForReminder, now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTournamentMatchesForReminderRow
+	for rows.Next() {
+		var i ListTournamentMatchesForReminderRow
+		if err := rows.Scan(&i.MatchID, &i.TournamentID, &i.ComplexID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -1328,6 +1380,17 @@ func (q *Queries) LockTournamentCategory(ctx context.Context, id pgtype.UUID) (T
 	return i, err
 }
 
+const markTournamentMatchReminded = `-- name: MarkTournamentMatchReminded :exec
+UPDATE tournament_matches
+SET reminder_sent_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) MarkTournamentMatchReminded(ctx context.Context, id pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markTournamentMatchReminded, id)
+	return err
+}
+
 const pairOfRegistrationPlayersTaken = `-- name: PairOfRegistrationPlayersTaken :one
 SELECT EXISTS (
   SELECT 1
@@ -1379,7 +1442,7 @@ func (q *Queries) PairPlayersTaken(ctx context.Context, arg PairPlayersTakenPara
 
 const scheduleMatch = `-- name: ScheduleMatch :exec
 UPDATE tournament_matches
-SET court_id = $2, scheduled_on = $3, start_time = $4, duration_minutes = $5
+SET court_id = $2, scheduled_on = $3, start_time = $4, duration_minutes = $5, reminder_sent_at = NULL
 WHERE id = $1
 `
 
@@ -1521,7 +1584,7 @@ func (q *Queries) SetPairPlacement(ctx context.Context, arg SetPairPlacementPara
 
 const unscheduleMatch = `-- name: UnscheduleMatch :exec
 UPDATE tournament_matches
-SET court_id = NULL, scheduled_on = NULL, start_time = NULL, duration_minutes = NULL
+SET court_id = NULL, scheduled_on = NULL, start_time = NULL, duration_minutes = NULL, reminder_sent_at = NULL
 WHERE id = $1
 `
 

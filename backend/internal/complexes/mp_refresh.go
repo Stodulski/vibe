@@ -80,6 +80,11 @@ func (s *Service) RefreshMPCredentials(ctx context.Context, complexID uuid.UUID,
 
 	newTokens, err := s.oauth.RefreshOAuthToken(ctx, refreshTok)
 	if err != nil {
+		if IsMPRefreshRejected(err) {
+			// Final: only a reconnect recovers, and until then online
+			// payments stop. The owner is the one who can reconnect.
+			s.mpRefreshRefused(ctx, c, refreshTok)
+		}
 		return "", fmt.Errorf("refreshing the MercadoPago token: %w", err)
 	}
 

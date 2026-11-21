@@ -49,7 +49,35 @@ type RefundClaim struct {
 	// RefundCentavos is the amount to send to the provider, computed under the
 	// payment lock at claim time.
 	RefundCentavos int
+	// Cause is why the refund was made when nobody asked for it, stored with the
+	// attempt row so the retry job tells the person the same reason.
+	Cause RefundCause
 }
+
+// RefundCause says why the webhook sent a payment back on its own. It is stored
+// on the claim's attempt row (failed_refunds.cause), so a refund the retry job
+// finishes is told the way the immediate path tells it. The empty cause is a
+// refund somebody asked for, stored as NULL, which is what every row written
+// before the column carries.
+type RefundCause string
+
+const (
+	// RefundCauseNone is a refund somebody asked for: a cancellation.
+	RefundCauseNone RefundCause = ""
+	// RefundCauseLatePayment is a payment that arrived for a booking already cancelled.
+	RefundCauseLatePayment RefundCause = "late_payment"
+	// RefundCauseSlotTaken means the hours went to somebody else while the payment
+	// was in flight.
+	RefundCauseSlotTaken RefundCause = "slot_taken"
+	// RefundCauseDuplicatePayment is a second payment on a booking another
+	// payment had already settled.
+	RefundCauseDuplicatePayment RefundCause = "duplicate_payment"
+	// RefundCauseRegistrationSpotGone is a sign-up payment for a spot that is gone.
+	RefundCauseRegistrationSpotGone RefundCause = "registration_spot_gone"
+	// RefundCauseRegistrationExtraPayment is a second payment on a sign-up already
+	// paid; the spot stays.
+	RefundCauseRegistrationExtraPayment RefundCause = "registration_extra_payment"
+)
 
 // ClaimRefund reserves a payment for refund and commits, in one short transaction.
 //
@@ -69,6 +97,12 @@ type RefundClaim struct {
 // this codebase initiates one, so a requested-amount parameter would only be an
 // untested path through the money code.
 func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*RefundClaim, error) {
+	return m.ClaimRefundWithCause(ctx, paymentID, RefundCauseNone)
+}
+
+// ClaimRefundWithCause is ClaimRefund for a refund the webhook makes on its own:
+// the cause is written on the attempt row in the claim's transaction.
+func (m *Payments) ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause RefundCause) (*RefundClaim, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -83,7 +117,7 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 	var claim *RefundClaim
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
 		var err error
-		claim, err = claimInTx(ctx, tx, qtx, paymentID, true)
+		claim, err = claimInTx(ctx, tx, qtx, paymentID, true, cause)
 		return err
 	})
 	if err != nil {
@@ -99,6 +133,12 @@ func (m *Payments) ClaimRefund(ctx context.Context, paymentID uuid.UUID) (*Refun
 // processed, so MercadoPago's retry of the event skipped it and the money stayed
 // held. Here either both are committed or neither is, and the retry starts over.
 func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*RefundClaim, error) {
+	return m.InsertAndClaimRefundWithCause(ctx, p, RefundCauseNone)
+}
+
+// InsertAndClaimRefundWithCause is InsertAndClaimRefund with the cause written on
+// the attempt row in the same transaction.
+func (m *Payments) InsertAndClaimRefundWithCause(ctx context.Context, p *Payment, cause RefundCause) (*RefundClaim, error) {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
 
@@ -115,7 +155,7 @@ func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*Refun
 		// The booking is settled, so it carries no refund-intent marker
 		// (bookings_refund_intent_only_when_cancelled), and clearing one would only
 		// bump its updated_at and refuse an owner edit in progress as a conflict.
-		claim, err = claimInTx(ctx, tx, qtx, data.PgToUUID(dbPayment.ID), false)
+		claim, err = claimInTx(ctx, tx, qtx, data.PgToUUID(dbPayment.ID), false, cause)
 		if err != nil {
 			return err
 		}
@@ -132,7 +172,7 @@ func (m *Payments) InsertAndClaimRefund(ctx context.Context, p *Payment) (*Refun
 // payment, check it may be refunded, mark it refund_pending and commit a durable
 // attempt row with it. clearIntent clears the booking's refund-intent marker in the
 // same transaction, for the claims that marker was set ahead of.
-func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.UUID, clearIntent bool) (*RefundClaim, error) {
+func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.UUID, clearIntent bool, cause RefundCause) (*RefundClaim, error) {
 	locked, err := qtx.GetPaymentByIDForUpdate(ctx, db.GetPaymentByIDForUpdateParams{
 		ID:        data.UUIDToPg(paymentID),
 		ComplexID: data.TenantParam(ctx),
@@ -169,6 +209,7 @@ func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.U
 		ComplexID:      data.PgToUUID(dbPayment.ComplexID),
 		MPPaymentID:    mpPaymentID,
 		RefundCentavos: remaining,
+		Cause:          cause,
 	}
 	if err := recordRefundAttempt(ctx, tx, claim); err != nil {
 		return nil, err
@@ -258,12 +299,12 @@ func bookingIDOrNil(id uuid.UUID) *uuid.UUID {
 // 'refund_pending' with no queued attempt is money nothing will ever retry.
 func recordRefundAttempt(ctx context.Context, tx pgx.Tx, claim *RefundClaim) error {
 	err := tx.QueryRow(ctx, `
-		INSERT INTO failed_refunds (payment_id, booking_id, complex_id, amount, mp_payment_id, error_message, next_retry_at, status)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+		INSERT INTO failed_refunds (payment_id, booking_id, complex_id, amount, mp_payment_id, error_message, next_retry_at, status, cause)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending', NULLIF($8, ''))
 		RETURNING id`,
 		claim.PaymentID, bookingIDOrNil(claim.BookingID), claim.ComplexID,
 		claim.RefundCentavos, claim.MPPaymentID, claimedAttemptNote,
-		time.Now().Add(firstRetryDelay),
+		time.Now().Add(firstRetryDelay), string(claim.Cause),
 	).Scan(&claim.AttemptID)
 	if err != nil {
 		return fmt.Errorf("record refund attempt: %w", err)

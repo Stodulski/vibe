@@ -153,6 +153,11 @@ type Notifier interface {
 	// Welcome queues the owner's one welcome email. userID is the account it is
 	// deduplicated under.
 	Welcome(e notifications.WelcomeEmail, userID string)
+	// The security notices: sent once the change they report is committed,
+	// with no opt-out. Each is keyed on the event it reports.
+	PasswordChanged(e notifications.PasswordChangedEmail, eventID string)
+	EmailChanged(e notifications.EmailChangedEmail, requestID string)
+	AccountDeleted(e notifications.AccountDeletedEmail, userID string)
 }
 
 // UserCache is the cached-user invalidation this module triggers when an

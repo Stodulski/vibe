@@ -689,7 +689,12 @@ func (m *Mailer) SendEmailVerification(ctx context.Context, to, firstName, verif
 // issued on its own side on a live booking). The email then says so first,
 // naming the booking from courtName, date and startTime: it is the client's
 // only notice that the booking is off, and it used to talk about money alone.
-func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact Contact) error {
+//
+// reason, when set, is the one sentence saying why the money came back (a
+// payment that arrived twice, or after the booking was cancelled). byHand
+// says the complex returned it directly rather than through MercadoPago, so
+// the line about the payment method's processing days does not apply.
+func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime, reason string, byHand bool, contact Contact) error {
 	subject := fmt.Sprintf("Devolución realizada · %s", complexName)
 	heading := "Te devolvimos el pago."
 	amountEsc, complexEsc := html.EscapeString(amount), html.EscapeString(complexName)
@@ -706,8 +711,13 @@ func (m *Mailer) SendDepositRefunded(ctx context.Context, to, complexName, amoun
 		content = title(heading) +
 			p(fmt.Sprintf("Te devolvimos <strong>%s</strong> de tu reserva en <strong>%s</strong>.", amountEsc, complexEsc), 16, 16)
 	}
-	content += muted("Lo vas a ver en los próximos días hábiles, en el medio con el que pagaste.") +
-		contactLine(contact)
+	if reason != "" {
+		content += p(html.EscapeString(reason), 16, 16)
+	}
+	if !byHand {
+		content += muted("Lo vas a ver en los próximos días hábiles, en el medio con el que pagaste.")
+	}
+	content += contactLine(contact)
 	if bookURL != "" {
 		content += button(bookURL, "Nueva reserva")
 	}

@@ -356,10 +356,18 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 // money alone, leaving them to show up for a game that no longer existed. It is
 // one email rather than two so one event does not reach the client twice.
 func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string, cancelled bool) {
+	s.sendRefundNotificationWithReason(ctx, booking, refundCentavos, refundID, cancelled, "")
+}
+
+// sendRefundNotificationWithReason is sendRefundNotification with the sentence
+// saying why the money came back (refund_notices.go), for the refunds the
+// webhook issues on its own: the client did not ask for them.
+func (s *Service) sendRefundNotificationWithReason(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string, cancelled bool, reason string) {
 	ref, ok := s.refundNotice(ctx, booking, refundCentavos, refundID)
 	if !ok {
 		return
 	}
+	ref.Reason = reason
 	if cancelled {
 		ref.Cancelled = true
 		ref.Date = booking.Date.Format("02/01")
@@ -434,7 +442,18 @@ func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim p
 	}
 
 	if manualOwed := s.manualOwedForBooking(ctx, booking.ID); manualOwed > 0 {
+		before := booking.RefundStatus
 		s.markManualBalanceOwed(ctx, booking)
+		// Told only when this call is what left the cash owed: the write
+		// committed and moved the booking to 'partial'. Only the cash balance
+		// is announced; the automatic half is still the retry job's. Only a
+		// cancelled booking owes its cash back: on one that stands (a second
+		// payment's refund ran out) the cash is the valid payment of the
+		// booking, and ManualRefund refuses it anyway.
+		if booking.Status == bookingstore.BookingStatusCancelled &&
+			before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
+			s.announceRefundOwedByHand(ctx, booking, manualOwed, claim.AttemptID)
+		}
 	}
 }
 
@@ -1407,10 +1426,13 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 
 // notifyRetriedRefund tells the client about a refund the retry job completed.
 // The amount is the total RecordRefundSuccess actually wrote, so the message
-// cannot disagree with the row.
+// cannot disagree with the row. The cause the claim stored on the attempt gives
+// the same reason, and the same owner notice, the immediate path gives; an
+// attempt with none (a cancellation's refund, or a row older than the column)
+// gets the plain notice.
 func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
 	if fr.RegistrationID != nil {
-		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, refundTotal)
+		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, fr.MPPaymentID, refundTotal)
 		return
 	}
 	booking, bErr := s.bookings.GetByID(ctx, fr.BookingID)
@@ -1418,7 +1440,7 @@ func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.Fail
 		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
 		return
 	}
-	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(fr.MPPaymentID, refundTotal), false)
+	s.announceAutomaticRefund(ctx, booking, fr.MPPaymentID, refundTotal, fr.Cause)
 }
 
 // refundIntentGrace is how long a booking's refund-intent marker

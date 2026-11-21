@@ -15,6 +15,7 @@ import type {
   TournamentOwnerSummary,
   TournamentStanding,
   TournamentsListResponse,
+  WithdrawPairResponse,
 } from '@/shared/types/api.types';
 
 const nullableString = z.string().nullable();
@@ -87,6 +88,7 @@ const pairSchema = exact<TournamentOwnerPair>(
       partner: ownerPlayerSchema,
       registration: z
         .object({
+          id: z.string(),
           status: z.enum(['held', 'confirmed', 'cancelled', 'expired']),
           price: z.number(),
           service_fee: z.number(),
@@ -235,3 +237,5 @@ export const cancelTournamentSchema = exact<CancelTournamentResponse>(
 export const cancelCategorySchema = exact<CancelTournamentCategoryResponse>(
   z.object({ refunds: refundsSchema }).loose(),
 );
+
+export const withdrawPairSchema = exact<WithdrawPairResponse>(refundsSchema.element);

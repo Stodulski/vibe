@@ -148,6 +148,9 @@ func (s *Service) RegisterWorkers() {
 	s.registerCampaignWorkers()
 	s.registerSeriesWorkers()
 	s.registerEventWorkers()
+	s.registerBookingNoticeWorkers()
+	s.registerAccountWorkers()
+	s.registerConnectionWorkers()
 
 	s.queue.RegisterHandler(handle(TaskEmailBookingConfirmation, func(ctx context.Context, p bookingConfirmationEmail) error {
 		return s.mailer.SendBookingConfirmation(ctx, p.Email, p.ComplexName, p.CourtName,
@@ -164,7 +167,7 @@ func (s *Service) RegisterWorkers() {
 
 	s.queue.RegisterHandler(handle(TaskEmailDepositRefunded, func(ctx context.Context, p depositRefundedEmail) error {
 		return s.mailer.SendDepositRefunded(ctx, p.Email, p.ComplexName, p.Amount, p.BookURL,
-			p.Cancelled, p.CourtName, p.Date, p.StartTime, s.contactOf(ctx, p.clientContact))
+			p.Cancelled, p.CourtName, p.Date, p.StartTime, p.Reason, p.ByHand, s.contactOf(ctx, p.clientContact))
 	}))
 
 	// The owner's address is resolved here rather than captured at enqueue
