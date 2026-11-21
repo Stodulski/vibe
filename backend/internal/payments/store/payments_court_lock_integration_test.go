@@ -78,6 +78,8 @@ func TestAConfirmationWaitsForACourtHeldByAnEventBeingCreated(t *testing.T) {
 				t.Fatalf("locking the court: %v", err)
 			}
 
+			// Read before the confirmation starts: it rewrites *b on every attempt.
+			day := b.Date.Format("2006-01-02")
 			done := make(chan error, 1)
 			go func() { done <- tc.confirm(ctx, f, b) }()
 
@@ -90,7 +92,7 @@ func TestAConfirmationWaitsForACourtHeldByAnEventBeingCreated(t *testing.T) {
 			if _, err := event.Exec(ctx, `
 				INSERT INTO blocked_slots (court_id, date, start_time, end_time, reason)
 				VALUES ($1, $2::date, '17:00'::time, '21:00'::time, 'maintenance')`,
-				f.CourtID, b.Date.Format("2006-01-02")); err != nil {
+				f.CourtID, day); err != nil {
 				t.Fatalf("writing the event's occupancy: %v", err)
 			}
 			if err := event.Commit(ctx); err != nil {

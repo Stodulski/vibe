@@ -92,7 +92,7 @@ func HashHoldToken(plaintext string) []byte {
 // a transaction-scoped advisory lock on the address, so two requests from one
 // address cannot both see room for one more. That lock is always taken before
 // the court-day locks the insert takes, and nothing takes them the other way
-// round, so the two cannot deadlock.
+// round, so the two cannot deadlock. A maxPerIP of 0 enforces no cap.
 func (m *Store) InsertHold(ctx context.Context, b *Booking, tokenHash []byte, ip string, maxPerIP int) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
@@ -118,7 +118,7 @@ func (m *Store) InsertHold(ctx context.Context, b *Booking, tokenHash []byte, ip
 		if err != nil {
 			return fmt.Errorf("count live holds: %w", err)
 		}
-		if live >= maxPerIP {
+		if maxPerIP > 0 && live >= maxPerIP {
 			return ErrHoldLimit
 		}
 

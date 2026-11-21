@@ -268,6 +268,11 @@ type Config struct {
 	// bookingstore.Store.InsertSafe uses for its own mint — both come from
 	// the one -booking-link-token-buffer flag.
 	LinkTokenBuffer time.Duration
+	// UncappedHoldsPerIP lifts the per-address cap on live storefront holds
+	// (maxActiveHoldsPerIP). It follows the request rate limiter's switch
+	// (-limiter-enabled=false), which only the isolated E2E stack turns off:
+	// every browser there shares one loopback address.
+	UncappedHoldsPerIP bool
 }
 
 // Dependencies groups what NewService needs.

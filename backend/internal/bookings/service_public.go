@@ -229,7 +229,7 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 	// as a slot hold (InsertHold with no token): this path held slots with no
 	// cap at all, so a script still on it could hold a venue's evening one
 	// unpaid checkout at a time.
-	if err := s.store.InsertHold(ctx, booking, nil, httpx.RateLimitKey(actor.IP), maxActiveHoldsPerIP); err != nil {
+	if err := s.store.InsertHold(ctx, booking, nil, httpx.RateLimitKey(actor.IP), s.holdsPerIP()); err != nil {
 		// Release the slot lock on insert failure.
 		s.releaseCheckoutLock(ctx, in.CourtID, offer.startDate, in.StartTime, holder)
 		if errors.Is(err, bookingstore.ErrHoldLimit) {

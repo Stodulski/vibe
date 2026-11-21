@@ -73,6 +73,22 @@ func TestAStorefrontBookingWithoutAHoldIsCappedPerAddress(t *testing.T) {
 	}
 }
 
+// A cap of 0 enforces none: the isolated E2E stack runs with the rate limiter
+// off, every browser behind the one loopback address, and its specs leave
+// unpaid storefront bookings behind from test to test.
+func TestACapOfZeroLetsOneAddressHoldAnyNumber(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+
+	for _, span := range [][2]string{{"10:00", "11:30"}, {"12:00", "13:30"}, {"14:00", "15:30"}} {
+		b := newHold(f, span[0], span[1])
+		withContact(b)
+		if err := f.Stores.Bookings.InsertHold(ctx, b, nil, holdIP, 0); err != nil {
+			t.Fatalf("uncapped, the booking at %s must go in; got %v", span[0], err)
+		}
+	}
+}
+
 // A booking that was paid names its client and is nobody's hold any more: it
 // stops counting, and the address it came from is not kept on it.
 func TestAPaidBookingNoLongerCountsOrKeepsItsAddress(t *testing.T) {

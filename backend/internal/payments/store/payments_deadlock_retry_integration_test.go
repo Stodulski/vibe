@@ -79,6 +79,8 @@ func TestAConfirmationAbortedByADeadlockWithASeriesIsRetried(t *testing.T) {
 			}
 
 			done := make(chan error, 1)
+			// Read before the confirmation starts: it rewrites *b on every attempt.
+			day := b.Date
 			go func() { done <- tc.confirm(ctx, f, b) }()
 
 			// The confirmation now holds the court-day lock and waits on the row.
@@ -90,7 +92,7 @@ func TestAConfirmationAbortedByADeadlockWithASeriesIsRetried(t *testing.T) {
 
 			// Closing the cycle: this waits on the confirmation's court-day lock
 			// until PostgreSQL aborts the confirmation and releases it.
-			if err := slotguard.LockCourtDay(ctx, series, f.CourtID, b.Date); err != nil {
+			if err := slotguard.LockCourtDay(ctx, series, f.CourtID, day); err != nil {
 				t.Fatalf("the series side was chosen as the deadlock victim; the test cannot tell anything: %v", err)
 			}
 			if err := series.Rollback(ctx); err != nil {
