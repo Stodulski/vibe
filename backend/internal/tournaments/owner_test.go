@@ -10,14 +10,17 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
+// day counts from Argentina's today, the date validate checks against: the UTC
+// date is a day ahead from 21:00 to midnight there.
 func day(offset int) time.Time {
-	d := time.Now().AddDate(0, 0, offset)
+	d := timezone.Today().AddDate(0, 0, offset)
 	return time.Date(d.Year(), d.Month(), d.Day(), 0, 0, 0, 0, time.UTC)
 }
 
