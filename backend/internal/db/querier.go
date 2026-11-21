@@ -556,6 +556,14 @@ type Querier interface {
 	// Registrations that never held a spot (expired holds) are the caller's to
 	// leave out with live_only.
 	ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPlayRegistrationsParams) ([]ListOpenPlayRegistrationsRow, error)
+	// The paid spots whose event or tournament category starts within the next day
+	// and that were not reminded yet. A plain event starts at its own date and
+	// time; a tournament category at its own start (starts_on, starts_at) when the
+	// owner gave one, else on the tournament's first day, read as 09:00 so a
+	// category without an hour is reminded the morning before rather than at
+	// midnight. A spot paid inside that day just got its confirmation and is not
+	// reminded again. The partner of a tournament pair comes beside the payer.
+	ListOpenPlayRegistrationsForReminder(ctx context.Context, now pgtype.Timestamptz) ([]ListOpenPlayRegistrationsForReminderRow, error)
 	// Cancelled registrations whose money is owed back and has not been sent, once
 	// the cancellation is older than the grace: the refund the cancel request
 	// itself never finished (a crash, a provider outage that outlived its retries).
@@ -618,6 +626,10 @@ type Querier interface {
 	ListTournamentMatchFees(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatchFee, error)
 	// Every match of every category of a tournament, bracket after group stage.
 	ListTournamentMatches(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentMatch, error)
+	// The scheduled matches with both pairs known and playing, of a live category,
+	// that start within the next two hours and were not reminded yet: the window
+	// the booking reminder uses, over the same booking_starts_at.
+	ListTournamentMatchesForReminder(ctx context.Context, now pgtype.Timestamptz) ([]ListTournamentMatchesForReminderRow, error)
 	// Every pair of a tournament with its registration (the payer, the state of the
 	// spot) and the payment that carries the money, as the owner's pair list reads
 	// it, oldest sign-up first. Registrations that never held a spot (expired
@@ -666,6 +678,7 @@ type Querier interface {
 	// expiry is part of the match, as in MarkInstagramNeedsReconnect, so a
 	// reconnect that landed while the story was in flight is not marked.
 	MarkInstagramStoryAccountNeedsReconnect(ctx context.Context, arg MarkInstagramStoryAccountNeedsReconnectParams) (int64, error)
+	MarkOpenPlayRegistrationReminded(ctx context.Context, id pgtype.UUID) error
 	// Written by applyManualRefundRows (internal/payments/store/refunds.go),
 	// once per unrefunded cash/transfer row a manual refund closes out, in the
 	// same transaction as the booking's own move off refund_status 'partial'.
@@ -685,6 +698,7 @@ type Querier interface {
 	MarkPaymentManuallyRefunded(ctx context.Context, arg MarkPaymentManuallyRefundedParams) (Payment, error)
 	MarkRefreshTokenUsed(ctx context.Context, tokenHash []byte) error
 	MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error
+	MarkTournamentMatchReminded(ctx context.Context, id pgtype.UUID) error
 	// Whether either player of a registration's pair is a player of another live
 	// pair of the category: the payer of a paid or still-held sign-up, or its
 	// partner. A late payment on a pair whose hold ran out is refused when one is:

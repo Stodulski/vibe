@@ -31,8 +31,18 @@ func (s *stubRegistrations) GetEvent(context.Context, uuid.UUID) (*eventstore.Ev
 }
 
 type stubRegistrationNotifier struct {
-	registered []notifications.EventRegistration
-	cancelled  []notifications.EventCancellation
+	registered      []notifications.EventRegistration
+	cancelled       []notifications.EventCancellation
+	ownerRegistered []notifications.OwnerEventNotice
+	refunded        []notifications.EventRefund
+}
+
+func (s *stubRegistrationNotifier) OwnerEventRegistered(n notifications.OwnerEventNotice) {
+	s.ownerRegistered = append(s.ownerRegistered, n)
+}
+
+func (s *stubRegistrationNotifier) EventRefunded(n notifications.EventRefund) {
+	s.refunded = append(s.refunded, n)
 }
 
 func (s *stubRegistrationNotifier) EventRegistered(n notifications.EventRegistration) {

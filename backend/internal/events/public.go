@@ -13,6 +13,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/checkout"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/events/notice"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
@@ -497,5 +498,10 @@ func (s *Service) CancelRegistration(ctx context.Context, actor Actor, token str
 		}
 	}
 	s.notifyCancelled(cancelled, view.Event, view.Complex, false, outcome)
+	if wasPaid {
+		// The owner heard of the paid spot, so they hear it is free again. A hold
+		// never paid was never announced to them (S9).
+		s.notify.OwnerEventCancelled(notice.Owner(cancelled, view.Event, view.Complex))
+	}
 	return &CancelResultPublic{View: view, Outcome: outcome}, nil
 }

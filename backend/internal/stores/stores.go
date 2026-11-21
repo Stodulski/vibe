@@ -721,12 +721,20 @@ type RegistrationStore interface {
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
 }
 
+// RegistrationReminderManager finds the paid spots due their day-before
+// reminder and marks them once it is queued.
+type RegistrationReminderManager interface {
+	DueReminders(ctx context.Context, now time.Time) ([]eventstore.DueReminder, error)
+	MarkReminded(ctx context.Context, id uuid.UUID) error
+}
+
 // EventsStore composes every events capability: one concrete store
 // (internal/events/store) satisfies all of them.
 type EventsStore interface {
 	EventWriter
 	EventReader
 	RegistrationStore
+	RegistrationReminderManager
 }
 
 // ---------------------------------------------------------------------------
