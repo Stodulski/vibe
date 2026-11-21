@@ -330,6 +330,8 @@ type Querier interface {
 	// No row means the defaults (everything off), which the store answers itself.
 	GetInstagramStorySettings(ctx context.Context, complexID pgtype.UUID) (GetInstagramStorySettingsRow, error)
 	GetLatestEmailVerificationTokenByUser(ctx context.Context, userID pgtype.UUID) (EmailVerificationToken, error)
+	// The refresh-failure episode the owner was last emailed about, if any.
+	GetMPRefreshFailureNotice(ctx context.Context, complexID pgtype.UUID) (string, error)
 	// The row of a (match, side) with whether its charge was voided. Locked: the
 	// caller holds the category lock, this keeps the row put while it is rewritten.
 	GetMatchFeeForUpdate(ctx context.Context, arg GetMatchFeeForUpdateParams) (GetMatchFeeForUpdateRow, error)
@@ -838,6 +840,9 @@ type Querier interface {
 	// row yet, or the switch was off): a later save while it stays on keeps it, so
 	// moving daily_time does not move the start (038).
 	UpsertInstagramStorySettings(ctx context.Context, arg UpsertInstagramStorySettingsParams) (UpsertInstagramStorySettingsRow, error)
+	// Records that the owner was emailed about this refresh-failure episode,
+	// replacing the previous one.
+	UpsertMPRefreshFailureNotice(ctx context.Context, arg UpsertMPRefreshFailureNoticeParams) error
 	// Records a charge; after a void it rewrites the row of the voided one.
 	UpsertMatchFee(ctx context.Context, arg UpsertMatchFeeParams) (TournamentMatchFee, error)
 	// A repeat capture refreshes the names it has and keeps the ones it does not:

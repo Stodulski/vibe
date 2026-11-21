@@ -578,6 +578,11 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		})
 	}
 
+	// Built before the services and handlers that capture it: complexes,
+	// auth, payments and bookings all take notify, and none of them can
+	// compile before this line runs.
+	notify := notifications.NewService(queue, mailerClient, d.models.Users, d.models.Bookings, d.logger)
+
 	complexesConfig := complexes.Config{
 		FrontendURL:    cfg.FrontendURL,
 		TrustedProxies: d.trustedProxies,
@@ -605,6 +610,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Logger:   d.logger,
 		Run:      app.background,
 		Pages:    indexNow,
+		// The owner hears when MercadoPago is connected, disconnected, or
+		// stops renewing; the store remembers each refusal they were told of.
+		Notify:         notify,
+		RefreshNotices: d.models.Complexes,
 	}, complexesConfig)
 	complexesHandler := complexes.NewHandler(complexesService, respond, complexesConfig)
 
@@ -691,10 +700,6 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// than answering a venue page with no courts on it, so moving this line
 	// below the router fails loudly instead of shipping an empty list.
 	complexesService.SetCourts(courtsService)
-
-	// Built before the handlers that capture it: auth, payments and bookings
-	// all take notify, and none of them can compile before this line runs.
-	notify := notifications.NewService(queue, mailerClient, d.models.Users, d.models.Bookings, d.logger)
 
 	// The waitlist is handed to the bookings service below, so it is built here.
 	waitlistService := waitlist.NewService(d.models.Waitlist, d.models.Complexes, notify, cfg.PublicBaseURL(), d.logger)

@@ -141,3 +141,16 @@ SELECT * FROM active_complexes
 WHERE mp_refresh_token IS NOT NULL
   AND is_active = true
   AND (mp_token_expires_at IS NULL OR mp_token_expires_at < now() + interval '30 days');
+
+-- name: GetMPRefreshFailureNotice :one
+-- The refresh-failure episode the owner was last emailed about, if any.
+SELECT episode FROM mp_refresh_failure_notices WHERE complex_id = $1;
+
+-- name: UpsertMPRefreshFailureNotice :exec
+-- Records that the owner was emailed about this refresh-failure episode,
+-- replacing the previous one.
+INSERT INTO mp_refresh_failure_notices (complex_id, episode)
+VALUES ($1, $2)
+ON CONFLICT (complex_id) DO UPDATE
+SET episode = EXCLUDED.episode,
+    notified_at = NOW();

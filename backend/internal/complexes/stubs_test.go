@@ -341,6 +341,8 @@ type fixture struct {
 	oauth    *stubOAuth
 	storage  *stubStorage
 	audit    *stubRecorder
+	notify   *stubMPNotifier
+	notices  *stubRefreshNotices
 	logs     *bytes.Buffer
 }
 
@@ -356,6 +358,8 @@ func newFixture(t *testing.T) *fixture {
 		oauth:    &stubOAuth{},
 		storage:  &stubStorage{uploadURL: "https://cdn.example/upload", publicURL: "https://cdn.example/logo.png"},
 		audit:    &stubRecorder{},
+		notify:   &stubMPNotifier{},
+		notices:  &stubRefreshNotices{told: map[uuid.UUID]string{}},
 		logs:     &bytes.Buffer{},
 	}
 	logger := slog.New(slog.NewTextHandler(f.logs, nil))
@@ -365,15 +369,17 @@ func newFixture(t *testing.T) *fixture {
 		Store: f.store,
 		// Left nil and closed by SetCourts below, exactly as cmd/api does it:
 		// the court service does not exist when this one is built.
-		Courts:   nil,
-		Bookings: f.bookings,
-		Payments: f.payments,
-		Attempts: f.attempts,
-		OAuth:    f.oauth,
-		Storage:  f.storage,
-		Audit:    f.audit,
-		Logger:   logger,
-		Run:      func(fn func()) { fn() }, // run background work inline so tests can observe it
+		Courts:         nil,
+		Bookings:       f.bookings,
+		Payments:       f.payments,
+		Attempts:       f.attempts,
+		OAuth:          f.oauth,
+		Storage:        f.storage,
+		Audit:          f.audit,
+		Logger:         logger,
+		Run:            func(fn func()) { fn() }, // run background work inline so tests can observe it
+		Notify:         f.notify,
+		RefreshNotices: f.notices,
 	}, cfg)
 	f.service.SetCourts(f.courts)
 	f.holds = &stubHolds{store: f.store}

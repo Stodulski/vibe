@@ -249,6 +249,18 @@ func (q *Queries) GetGoneComplexBySlug(ctx context.Context, slug string) (GetGon
 	return i, err
 }
 
+const getMPRefreshFailureNotice = `-- name: GetMPRefreshFailureNotice :one
+SELECT episode FROM mp_refresh_failure_notices WHERE complex_id = $1
+`
+
+// The refresh-failure episode the owner was last emailed about, if any.
+func (q *Queries) GetMPRefreshFailureNotice(ctx context.Context, complexID pgtype.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getMPRefreshFailureNotice, complexID)
+	var episode string
+	err := row.Scan(&episode)
+	return episode, err
+}
+
 const insertComplex = `-- name: InsertComplex :one
 INSERT INTO complexes (
     owner_id, name, slug,
@@ -548,4 +560,24 @@ func (q *Queries) UpdateComplex(ctx context.Context, arg UpdateComplexParams) (C
 		&i.Instagram,
 	)
 	return i, err
+}
+
+const upsertMPRefreshFailureNotice = `-- name: UpsertMPRefreshFailureNotice :exec
+INSERT INTO mp_refresh_failure_notices (complex_id, episode)
+VALUES ($1, $2)
+ON CONFLICT (complex_id) DO UPDATE
+SET episode = EXCLUDED.episode,
+    notified_at = NOW()
+`
+
+type UpsertMPRefreshFailureNoticeParams struct {
+	ComplexID pgtype.UUID `json:"complex_id"`
+	Episode   string      `json:"episode"`
+}
+
+// Records that the owner was emailed about this refresh-failure episode,
+// replacing the previous one.
+func (q *Queries) UpsertMPRefreshFailureNotice(ctx context.Context, arg UpsertMPRefreshFailureNoticeParams) error {
+	_, err := q.db.Exec(ctx, upsertMPRefreshFailureNotice, arg.ComplexID, arg.Episode)
+	return err
 }
