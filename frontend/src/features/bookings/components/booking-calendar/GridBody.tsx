@@ -8,6 +8,7 @@ import { GRID_HEIGHT_PX } from './gridLayout';
 import type { Booking, BlockedSlot, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
 import type { TimelineColumnData } from './useTimelineColumns';
+import type { OnlineHold } from '../../schemas/onlineHold.schema';
 
 interface GridBodyProps {
   columns: TimelineColumnData[];
@@ -23,6 +24,7 @@ interface GridBodyProps {
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
   eventBlocks: CourtEventBlock[];
+  onlineHolds: OnlineHold[];
   slots: string[];
   nowMin: number | null;
   onSelectBooking: (booking: Booking) => void;
@@ -51,6 +53,7 @@ export function GridBody({
   blockedSlots,
   fixedBlocks,
   eventBlocks,
+  onlineHolds,
   slots,
   nowMin,
   onSelectBooking,
@@ -60,7 +63,11 @@ export function GridBody({
   onSelectEventBlock,
 }: GridBodyProps) {
   const { open, preview, setPreview, openOn, pick, close } = useSlotMenu(columns, date, onCreateBooking);
-  const heldBlocks = useMemo(() => [...fixedBlocks, ...eventBlocks], [fixedBlocks, eventBlocks]);
+  // Online holds are obstacles like the rest: no free slot, and no duration, may run into one.
+  const heldBlocks = useMemo(
+    () => [...fixedBlocks, ...eventBlocks, ...onlineHolds],
+    [fixedBlocks, eventBlocks, onlineHolds],
+  );
 
   return (
     // The plot area alone (the gutter and court names are annotations), pinned

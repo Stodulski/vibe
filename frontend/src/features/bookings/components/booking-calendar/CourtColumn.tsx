@@ -5,6 +5,7 @@ import { FreeSlots } from './FreeSlots';
 import { BlockedBlock } from './BlockedBlock';
 import { FixedBlockBar } from './FixedBlockBar';
 import { EventBlockBar } from './EventBlockBar';
+import { OnlineHoldBar } from './OnlineHoldBar';
 import { fixedBlockSpans, type HeldBlock } from './fixedBlocks';
 import { BookingBlock } from './BookingBlock';
 import { DAY_START_MIN, DAY_END_MIN } from './gridLayout';
@@ -52,11 +53,11 @@ interface CourtColumnProps {
 
 /**
  * The hours held on this court that are not a booking: fixed weekly bookings
- * and open-play events. Both are drawn as the same kind of bar, each handed to
- * its own handler when pressed.
+ * and open-play events, drawn as the same kind of bar and each handed to its
+ * own handler when pressed, and online holds, which open nothing.
  */
 function ColumnHeldBlocks({
-  column: { courtName, fixed, event: events },
+  column: { courtName, fixed, event: events, online },
   date,
   onFixed,
   onEvent,
@@ -90,6 +91,14 @@ function ColumnHeldBlocks({
           onSelect={() => {
             onEvent?.(block);
           }}
+        />
+      ))}
+      {online.map((hold) => (
+        <OnlineHoldBar
+          key={`${hold.court_id}-${hold.date}-${hold.start_time}`}
+          hold={hold}
+          courtName={courtName}
+          date={date}
         />
       ))}
     </>

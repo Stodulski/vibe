@@ -129,6 +129,8 @@ export const bookings = {
   depositPayment: 'Seña',
   depositAmountInput: 'Monto de la seña',
   blockedSlot: 'Horario bloqueado',
+  onlineHold: 'Reservando online',
+  onlineHoldFreesAt: (time: string) => `Libre a las ${time} si no se paga`,
   currentTime: 'Hora actual',
   timelineFreeSlot: 'Crear reserva',
   minutesShort: 'min',

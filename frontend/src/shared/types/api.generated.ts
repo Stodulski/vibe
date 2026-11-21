@@ -357,6 +357,46 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/book/checkout/retry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Pay again on the checkout of a booking whose payment failed
+     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. While the booking is still a pending, unpaid storefront booking inside its payment window, answers its own MercadoPago checkout link again (the same preference: nothing is created or written) and when the window ends. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicCheckoutRetry'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/checkout/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Give back the slot of a booking whose payment failed
+     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. Closes the checkout and cancels the pending, unpaid storefront booking, so the slot is free again and no longer counts against the visitor's hold cap. No email is sent. Picking the same hours again continues the window the booking had. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicCheckoutRelease'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/book/status': {
     parameters: {
       query?: never;
@@ -2572,6 +2612,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Hours a visitor is booking online: held from the storefront and not yet paid. Free again at `frees_at` if nobody pays. */
+    OnlineHold: {
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: date
+       * @description The day the hold starts on.
+       */
+      date: string;
+      /** @description HH:MM. */
+      start_time: string;
+      /** @description HH:MM; earlier than start_time when the hold runs past midnight. */
+      end_time: string;
+      duration_minutes: number;
+      /** Format: date-time */
+      frees_at: string;
+    };
     /** @description An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording. */
     Problem: {
       /**
@@ -5179,7 +5236,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). */
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). `hold-cooldown` when this client address held overlapping hours on the court for a whole payment window without paying, less than 10 minutes ago; its `detail` is a Spanish sentence for the visitor saying from when they can pick them again. Picking hours again after letting a hold go continues that hold's window instead of starting a new one. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5211,6 +5268,117 @@ export interface operations {
         };
         content?: never;
       };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicCheckoutRetry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The checkout to pay on, and when it closes. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            checkout: {
+              mp_init_point: string;
+              /** Format: date-time */
+              expires_at: string;
+            };
+          };
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description The booking can no longer be paid (its window ended, it was released, or it was paid). */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      410: components['responses']['LinkExpired'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The checkout link could not be read from MercadoPago. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  bookingsPublicCheckoutRelease: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The slot is free (released now, or already). */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description The booking was paid after all, or changed while it was being released. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      410: components['responses']['LinkExpired'];
+      422: components['responses']['ValidationError'];
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];
     };
@@ -5376,6 +5544,8 @@ export interface operations {
           'application/json': {
             bookings: components['schemas']['Booking'][];
             metadata: components['schemas']['Metadata'];
+            /** @description The hours visitors are booking online on the day right now: storefront bookings inside their payment window, which are not in `bookings` and still hold their slot. Nothing that identifies the visitor. Always the whole day, whatever the page or filters. */
+            online_holds?: components['schemas']['OnlineHold'][];
           };
         };
       };
