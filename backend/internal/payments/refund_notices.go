@@ -47,6 +47,9 @@ func clientReason(cause paymentstore.RefundCause) string {
 		return slotTakenReason
 	case paymentstore.RefundCauseDuplicatePayment:
 		return duplicatePaymentReason
+	case paymentstore.RefundCauseNone, paymentstore.RefundCauseRegistrationSpotGone,
+		paymentstore.RefundCauseRegistrationExtraPayment:
+		return ""
 	}
 	return ""
 }

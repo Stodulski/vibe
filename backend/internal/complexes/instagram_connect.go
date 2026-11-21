@@ -489,13 +489,7 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 			// access. Say so now rather than reporting connected until the
 			// token runs out. Any other refusal (throttling, a 4xx about
 			// something else) is not proof of that and is retried below.
-			flagged, markErr := ig.store.MarkInstagramNeedsReconnect(ctx, d.ComplexID, d.ExpiresAt)
-			if markErr != nil {
-				ig.logger.Error("instagram refresh: could not flag a revoked token", "complex_id", d.ComplexID, "error", markErr)
-			}
-			if flagged {
-				instagramReconnectNotice(ctx, ig.notify, ig.notices, ig.logger, d.ComplexID, d.ExpiresAt)
-			}
+			ig.flagRevoked(ctx, d.ComplexID, d.ExpiresAt)
 			out.Revoked++
 			ig.logger.Warn("instagram refresh: Meta refused the refresh; the owner must reconnect", "complex_id", d.ComplexID, "error", err)
 			continue
@@ -519,6 +513,18 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 		out.Refreshed++
 	}
 	return out
+}
+
+// flagRevoked flags a connection whose token Meta called invalid and tells the
+// owner when this call is the one that flagged it.
+func (ig *Instagram) flagRevoked(ctx context.Context, complexID uuid.UUID, expiresAt time.Time) {
+	flagged, err := ig.store.MarkInstagramNeedsReconnect(ctx, complexID, expiresAt)
+	if err != nil {
+		ig.logger.Error("instagram refresh: could not flag a revoked token", "complex_id", complexID, "error", err)
+	}
+	if flagged {
+		instagramReconnectNotice(ctx, ig.notify, ig.notices, ig.logger, complexID, expiresAt)
+	}
 }
 
 // flagExpired flags, one by one, the connections whose token ran out, and

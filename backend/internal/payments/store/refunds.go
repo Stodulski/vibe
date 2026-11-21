@@ -64,17 +64,17 @@ type RefundCause string
 const (
 	// RefundCauseNone is a refund somebody asked for: a cancellation.
 	RefundCauseNone RefundCause = ""
-	// RefundCauseLatePayment: the payment arrived for a booking already cancelled.
+	// RefundCauseLatePayment is a payment that arrived for a booking already cancelled.
 	RefundCauseLatePayment RefundCause = "late_payment"
-	// RefundCauseSlotTaken: the hours went to somebody else while the payment
+	// RefundCauseSlotTaken means the hours went to somebody else while the payment
 	// was in flight.
 	RefundCauseSlotTaken RefundCause = "slot_taken"
-	// RefundCauseDuplicatePayment: a second payment on a booking another
+	// RefundCauseDuplicatePayment is a second payment on a booking another
 	// payment had already settled.
 	RefundCauseDuplicatePayment RefundCause = "duplicate_payment"
-	// RefundCauseRegistrationSpotGone: a sign-up payment for a spot that is gone.
+	// RefundCauseRegistrationSpotGone is a sign-up payment for a spot that is gone.
 	RefundCauseRegistrationSpotGone RefundCause = "registration_spot_gone"
-	// RefundCauseRegistrationExtraPayment: a second payment on a sign-up already
+	// RefundCauseRegistrationExtraPayment is a second payment on a sign-up already
 	// paid; the spot stays.
 	RefundCauseRegistrationExtraPayment RefundCause = "registration_extra_payment"
 )

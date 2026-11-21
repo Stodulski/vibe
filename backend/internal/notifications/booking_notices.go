@@ -140,7 +140,7 @@ type ownerBookingMoney struct {
 
 // paymentMethodPhrases says how a counter payment was made, the way the
 // receipt reads it after the amount ("$5.000 en efectivo").
-var paymentMethodPhrases = map[string]string{
+var paymentMethodPhrases = map[string]string{ //nolint:gosec // G101 false positive: payment method labels, not credentials.
 	"cash":        "en efectivo",
 	"transfer":    "por transferencia",
 	"debit_card":  "con tarjeta de débito",

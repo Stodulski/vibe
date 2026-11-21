@@ -306,7 +306,6 @@ type InstagramStoryStore interface {
 	InstagramStoryQueue
 }
 
-// ComplexStore composes every complex-related store capability.
 // ComplexMPRefreshNoticeManager remembers which MercadoPago refresh-failure
 // episode each complex's owner was emailed about (complexes.MPRefreshNoticeStore).
 type ComplexMPRefreshNoticeManager interface {
@@ -322,6 +321,7 @@ type ComplexConnectionNoticeReader interface {
 	ListUnflaggedExpiredInstagramConnections(ctx context.Context, now time.Time, limit int) ([]complexstore.ExpiredInstagramConnection, error)
 }
 
+// ComplexStore composes every complex-related store capability.
 type ComplexStore interface {
 	ComplexCRUD
 	ComplexScheduleManager
