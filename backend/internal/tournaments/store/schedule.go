@@ -125,3 +125,41 @@ func (m *Store) Unschedule(ctx context.Context, matchID uuid.UUID) (*Match, erro
 	}
 	return matchFromDB(out), nil
 }
+
+// DueMatch is a scheduled match whose two-hour reminder is due, with the
+// tournament and the complex it belongs to.
+type DueMatch struct {
+	MatchID      uuid.UUID
+	TournamentID uuid.UUID
+	ComplexID    uuid.UUID
+}
+
+// DueMatchReminders returns the scheduled matches of live categories, both
+// pairs known and playing, that start within two hours of now and were not
+// reminded yet. Scheduling a match again clears its mark. Only the sweep calls
+// it, under the tenant bypass.
+func (m *Store) DueMatchReminders(ctx context.Context, now time.Time) ([]DueMatch, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.Q.ListTournamentMatchesForReminder(ctx, data.TimeToPg(now))
+	if err != nil {
+		return nil, fmt.Errorf("tournaments: list due match reminders: %w", err)
+	}
+	out := make([]DueMatch, len(rows))
+	for i, r := range rows {
+		out[i] = DueMatch{MatchID: data.PgToUUID(r.MatchID), TournamentID: data.PgToUUID(r.TournamentID), ComplexID: data.PgToUUID(r.ComplexID)}
+	}
+	return out, nil
+}
+
+// MarkMatchReminded records that a match's reminder was queued.
+func (m *Store) MarkMatchReminded(ctx context.Context, matchID uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := m.Q.MarkTournamentMatchReminded(ctx, data.UUIDToPg(matchID)); err != nil {
+		return fmt.Errorf("tournaments: mark match reminded: %w", err)
+	}
+	return nil
+}

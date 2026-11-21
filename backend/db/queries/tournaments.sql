@@ -207,12 +207,12 @@ WHERE id = $1;
 
 -- name: ScheduleMatch :exec
 UPDATE tournament_matches
-SET court_id = $2, scheduled_on = $3, start_time = $4, duration_minutes = $5
+SET court_id = $2, scheduled_on = $3, start_time = $4, duration_minutes = $5, reminder_sent_at = NULL
 WHERE id = $1;
 
 -- name: UnscheduleMatch :exec
 UPDATE tournament_matches
-SET court_id = NULL, scheduled_on = NULL, start_time = NULL, duration_minutes = NULL
+SET court_id = NULL, scheduled_on = NULL, start_time = NULL, duration_minutes = NULL, reminder_sent_at = NULL
 WHERE id = $1;
 
 -- name: CountCategoryResults :one
@@ -296,3 +296,29 @@ SELECT count(*)::int FROM tournament_match_fees f
 JOIN tournament_matches m ON m.id = f.match_id
 WHERE m.category_id = $1
   AND NOT EXISTS (SELECT 1 FROM cash_movements v WHERE v.voids_movement_id = f.cash_movement_id);
+
+-- name: ListTournamentMatchesForReminder :many
+-- The scheduled matches with both pairs known and playing, of a live category,
+-- that start within the next two hours and were not reminded yet: the window
+-- the booking reminder uses, over the same booking_starts_at.
+SELECT m.id AS match_id, tc.tournament_id, m.complex_id
+FROM tournament_matches m
+JOIN tournament_categories tc ON tc.id = m.category_id
+JOIN open_play_events e ON e.id = tc.event_id
+JOIN tournaments t ON t.id = tc.tournament_id
+JOIN tournament_pairs p1 ON p1.id = m.pair1_id
+JOIN tournament_pairs p2 ON p2.id = m.pair2_id
+WHERE m.status = 'pending'
+  AND NOT m.bye
+  AND m.court_id IS NOT NULL
+  AND m.reminder_sent_at IS NULL
+  AND p1.status = 'active' AND p2.status = 'active'
+  AND e.status = 'active' AND t.status = 'active'
+  AND booking_starts_at(m.scheduled_on, m.start_time) > sqlc.arg(now)::timestamptz
+  AND booking_starts_at(m.scheduled_on, m.start_time) <= sqlc.arg(now)::timestamptz + INTERVAL '2 hours'
+ORDER BY booking_starts_at(m.scheduled_on, m.start_time), m.id;
+
+-- name: MarkTournamentMatchReminded :exec
+UPDATE tournament_matches
+SET reminder_sent_at = NOW()
+WHERE id = $1;

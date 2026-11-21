@@ -721,12 +721,20 @@ type RegistrationStore interface {
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
 }
 
+// RegistrationReminderManager finds the paid spots due their day-before
+// reminder and marks them once it is queued.
+type RegistrationReminderManager interface {
+	DueReminders(ctx context.Context, now time.Time) ([]eventstore.DueReminder, error)
+	MarkReminded(ctx context.Context, id uuid.UUID) error
+}
+
 // EventsStore composes every events capability: one concrete store
 // (internal/events/store) satisfies all of them.
 type EventsStore interface {
 	EventWriter
 	EventReader
 	RegistrationStore
+	RegistrationReminderManager
 }
 
 // ---------------------------------------------------------------------------
@@ -766,11 +774,19 @@ type TournamentWriter interface {
 	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
 }
 
+// MatchReminderManager finds the scheduled matches due their two-hour reminder
+// and marks them once it is queued.
+type MatchReminderManager interface {
+	DueMatchReminders(ctx context.Context, now time.Time) ([]tournamentstore.DueMatch, error)
+	MarkMatchReminded(ctx context.Context, matchID uuid.UUID) error
+}
+
 // TournamentsStore composes every tournaments capability: one concrete store
 // (internal/tournaments/store) satisfies all of them.
 type TournamentsStore interface {
 	TournamentReader
 	TournamentWriter
+	MatchReminderManager
 }
 
 // ---------------------------------------------------------------------------

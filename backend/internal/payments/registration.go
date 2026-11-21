@@ -41,6 +41,11 @@ type RegistrationReader interface {
 type RegistrationNotifier interface {
 	EventRegistered(notifications.EventRegistration)
 	EventCancelled(notifications.EventCancellation)
+	// OwnerEventRegistered tells the owner a person paid their spot.
+	OwnerEventRegistered(notifications.OwnerEventNotice)
+	// EventRefunded tells a person part of their payment came back while their
+	// spot stays.
+	EventRefunded(notifications.EventRefund)
 }
 
 // registrationIDOf reads the open-play registration a MercadoPago payment was
@@ -189,6 +194,9 @@ func (s *Service) announceRegistration(ctx context.Context, regID uuid.UUID) {
 		return
 	}
 	s.registrationNotify.EventRegistered(notice.Registered(reg, ev, complex, s.cfg.PublicURL))
+	// The owner hears of every paid spot, as of every paid booking: a sign-up is
+	// always the person's own, never the owner's click (S9).
+	s.registrationNotify.OwnerEventRegistered(notice.Owner(reg, ev, complex))
 }
 
 // refundRegistrationWhoseSpotIsGone sends back a payment that arrived for a
@@ -401,8 +409,8 @@ func (s *Service) processRecordedRegistrationPayment(ctx context.Context, paymen
 // goes with the refund is the owner's call, not the webhook's. Nothing is refunded
 // from here.
 //
-// The participant is not told: the only notice a registration has about its
-// money is the cancellation notice, and the spot is not cancelled.
+// The participant is told what came back once the refund is recorded, and that
+// the spot is still theirs (S11).
 func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) error {
 	// A claim of ours holds this refund: the refund lifecycle records it, as on
 	// the booking path. One refund, one owner.
@@ -442,7 +450,33 @@ func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *pa
 		Result:         string(paymentstore.RefundIssued),
 		Reason:         mpPayment.StatusDetail,
 	})
+	s.notifyRegistrationPanelRefund(ctx, *payment.RegistrationID, movedNow, payment.RefundAmount)
 	return nil
+}
+
+// notifyRegistrationPanelRefund tells a person part of their payment came back
+// from the owner's MercadoPago panel. It runs after the refund is recorded and
+// never fails it: a notice that cannot be built is logged.
+func (s *Service) notifyRegistrationPanelRefund(ctx context.Context, regID uuid.UUID, movedCentavos, refundedTotal int) {
+	if s.registrationNotify == nil || movedCentavos <= 0 {
+		return
+	}
+	reg, err := s.registrations.GetRegistration(ctx, regID)
+	if err != nil {
+		s.logger.Error("mp webhook: cannot tell a participant of their panel refund", "error", err, "registration_id", regID)
+		return
+	}
+	ev, err := s.registrations.GetEvent(ctx, reg.EventID)
+	if err != nil {
+		s.logger.Error("mp webhook: cannot tell a participant of their panel refund, event unreadable", "error", err, "registration_id", regID)
+		return
+	}
+	complex, err := s.complexes.GetByID(ctx, reg.ComplexID)
+	if err != nil {
+		s.logger.Error("mp webhook: cannot tell a participant of their panel refund, complex unreadable", "error", err, "registration_id", regID)
+		return
+	}
+	s.registrationNotify.EventRefunded(notice.Refunded(reg, ev, complex, s.cfg.PublicURL, movedCentavos, refundedTotal))
 }
 
 // collectedForASpotNeverGiven reports whether a collected payment row belongs to

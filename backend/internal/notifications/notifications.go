@@ -61,6 +61,13 @@ type Mailer interface {
 	// open-play event sign-up. See events.go.
 	SendEventRegistered(ctx context.Context, to, firstName, complexName, eventName, date, hours, address, mapsURL, amount, eventURL string, contact mailer.Contact) error
 	SendEventCancelled(ctx context.Context, to, firstName, complexName, eventName, date, hours string, byOwner bool, refundLine, refundAmount, eventsURL string, contact mailer.Contact) error
+	// The owner's notices of a paid spot, a participant's partial refund and
+	// reminder, and a tournament's draw and match notices. See event_notices.go.
+	SendOwnerEventRegistered(ctx context.Context, to string, n mailer.OwnerEventNotice) error
+	SendOwnerEventCancelled(ctx context.Context, to string, n mailer.OwnerEventNotice) error
+	SendEventRefunded(ctx context.Context, to, firstName, complexName, eventName, date, amount, eventURL string, contact mailer.Contact) error
+	SendEventReminder(ctx context.Context, to, firstName, complexName, eventName, when, address, mapsURL, eventURL string, contact mailer.Contact) error
+	SendTournamentNotice(ctx context.Context, to string, n mailer.TournamentNotice, contact mailer.Contact) error
 	SendWaitlistSlotFreed(ctx context.Context, to, complexName, date, bookURL string) error
 	SendWaitlistPlaceFreed(ctx context.Context, to, complexName, placeLabel, bookURL string) error
 	SendLifecycleNudge(ctx context.Context, to, kind, firstName, complexName, ctaURL, unsubscribeURL, optOutURL string) error

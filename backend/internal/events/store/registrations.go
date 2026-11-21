@@ -432,6 +432,51 @@ func (m *Store) OwnerCancelledStillPaid(ctx context.Context, grace time.Duration
 	return out, nil
 }
 
+// DueReminder is a paid spot whose day-before reminder is due. StartsAt is when
+// the event, or the tournament category, starts; HasTime is false for a
+// tournament category the owner gave no hour, whose reminder names the day
+// alone. A tournament pair's partner comes with it, nil when there is none.
+type DueReminder struct {
+	RegistrationID   uuid.UUID
+	StartsAt         time.Time
+	HasTime          bool
+	PartnerFirstName string
+	PartnerEmail     *string
+}
+
+// DueReminders returns the paid spots whose event starts within a day of now
+// and that were not reminded yet. now is the caller's clock, as the booking
+// reminder's is. Only the sweep calls it, under the tenant bypass.
+func (m *Store) DueReminders(ctx context.Context, now time.Time) ([]DueReminder, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.Q.ListOpenPlayRegistrationsForReminder(ctx, data.TimeToPg(now))
+	if err != nil {
+		return nil, fmt.Errorf("events: list due reminders: %w", err)
+	}
+	out := make([]DueReminder, len(rows))
+	for i, r := range rows {
+		out[i] = DueReminder{
+			RegistrationID: data.PgToUUID(r.RegistrationID), StartsAt: data.PgToTime(r.StartsAt), HasTime: r.HasTime,
+			PartnerFirstName: r.PartnerFirstName.String, PartnerEmail: data.PgToTextPtr(r.PartnerEmail),
+		}
+	}
+	return out, nil
+}
+
+// MarkReminded records that a registration's reminder was queued, so the next
+// sweep does not select it again.
+func (m *Store) MarkReminded(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if err := m.Q.MarkOpenPlayRegistrationReminded(ctx, data.UUIDToPg(id)); err != nil {
+		return fmt.Errorf("events: mark reminded: %w", err)
+	}
+	return nil
+}
+
 func registrationFromDB(r db.OpenPlayRegistration) *Registration {
 	return &Registration{
 		ID:          data.PgToUUID(r.ID),

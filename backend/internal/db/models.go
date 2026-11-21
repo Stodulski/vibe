@@ -771,6 +771,7 @@ type OpenPlayRegistration struct {
 	PlayerGender    pgtype.Text        `json:"player_gender"`
 	PlayerLevel     pgtype.Int4        `json:"player_level"`
 	RefundIntentAt  pgtype.Timestamptz `json:"refund_intent_at"`
+	ReminderSentAt  pgtype.Timestamptz `json:"reminder_sent_at"`
 }
 
 type OwnerNudge struct {
@@ -1042,6 +1043,7 @@ type TournamentMatch struct {
 	DurationMinutes pgtype.Int4        `json:"duration_minutes"`
 	CreatedAt       pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ReminderSentAt  pgtype.Timestamptz `json:"reminder_sent_at"`
 }
 
 type TournamentMatchFee struct {

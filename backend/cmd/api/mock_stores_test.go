@@ -16,10 +16,12 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
+	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -1763,3 +1765,18 @@ func (m *mockLockStore) TryAdvisory(ctx context.Context, key string) (bool, func
 	}
 	return true, func() {}, nil
 }
+
+// The reminder sweeps of events and tournaments read nothing from these mocks:
+// no wiring test drives them.
+
+func (m *mockEventStore) DueReminders(context.Context, time.Time) ([]eventstore.DueReminder, error) {
+	return nil, nil
+}
+
+func (m *mockEventStore) MarkReminded(context.Context, uuid.UUID) error { return nil }
+
+func (m *mockTournamentStore) DueMatchReminders(context.Context, time.Time) ([]tournamentstore.DueMatch, error) {
+	return nil, nil
+}
+
+func (m *mockTournamentStore) MarkMatchReminded(context.Context, uuid.UUID) error { return nil }

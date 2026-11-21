@@ -195,3 +195,40 @@ WHERE r.status = 'cancelled' AND (r.cancelled_by = 'owner' OR r.refund_intent_at
   AND p.status IN ('deposit_paid', 'fully_paid', 'partial_refund')
 ORDER BY r.cancelled_at
 LIMIT sqlc.arg(page_limit)::int;
+
+-- name: ListOpenPlayRegistrationsForReminder :many
+-- The paid spots whose event or tournament category starts within the next day
+-- and that were not reminded yet. A plain event starts at its own date and
+-- time; a tournament category at its own start (starts_on, starts_at) when the
+-- owner gave one, else on the tournament's first day, read as 09:00 so a
+-- category without an hour is reminded the morning before rather than at
+-- midnight. A spot paid inside that day just got its confirmation and is not
+-- reminded again. The partner of a tournament pair comes beside the payer.
+SELECT r.id AS registration_id,
+       s.starts_at::timestamptz AS starts_at,
+       s.has_time::boolean AS has_time,
+       p.partner_first_name,
+       p.partner_email
+FROM open_play_registrations r
+JOIN open_play_events e ON e.id = r.event_id
+LEFT JOIN tournament_categories c ON c.event_id = e.id
+LEFT JOIN tournament_pairs p ON p.registration_id = r.id AND p.status = 'active'
+CROSS JOIN LATERAL (
+    SELECT CASE
+             WHEN e.tournament_id IS NULL THEN booking_starts_at(e.date, e.start_time)
+             ELSE booking_starts_at(COALESCE(c.starts_on, e.date), COALESCE(c.starts_at, '09:00'::time))
+           END AS starts_at,
+           (e.tournament_id IS NULL OR c.starts_at IS NOT NULL) AS has_time
+) s
+WHERE r.status = 'confirmed'
+  AND r.reminder_sent_at IS NULL
+  AND e.status = 'active'
+  AND s.starts_at > sqlc.arg(now)::timestamptz
+  AND s.starts_at <= sqlc.arg(now)::timestamptz + INTERVAL '24 hours'
+  AND (r.confirmed_at IS NULL OR r.confirmed_at < s.starts_at - INTERVAL '24 hours')
+ORDER BY s.starts_at, r.id;
+
+-- name: MarkOpenPlayRegistrationReminded :exec
+UPDATE open_play_registrations
+SET reminder_sent_at = NOW()
+WHERE id = $1;
