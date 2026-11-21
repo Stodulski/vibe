@@ -114,8 +114,31 @@ type SeriesCreation struct {
 	ComplexPhone string
 	OwnerID      string
 
+	// Moved are the dates played on another court because the series' own
+	// court was taken on them, in date order.
+	Moved []MovedDate
+
 	// SeriesID is the deduplication subject and never travels in the payload.
 	SeriesID string
+}
+
+// MovedDate is one date of a fixed booking played on another court: Date as
+// dd/mm and the court it is played on.
+type MovedDate struct {
+	Date      string
+	CourtName string
+}
+
+// movedLines renders each moved date as the email lists it ("23/11: Cancha 3").
+func movedLines(moved []MovedDate) []string {
+	if len(moved) == 0 {
+		return nil
+	}
+	lines := make([]string, 0, len(moved))
+	for _, m := range moved {
+		lines = append(lines, m.Date+": "+m.CourtName)
+	}
+	return lines
 }
 
 // SeriesCancellation is the notice that the owner cancelled a fixed weekly
@@ -155,6 +178,9 @@ type seriesCreatedEmail struct {
 	Until       string `json:"until"`
 	Address     string `json:"address"`
 	MapsURL     string `json:"maps_url"`
+	// Moved is one line per date played on another court; absent from a task
+	// queued before it existed, which then lists none.
+	Moved []string `json:"moved,omitempty"`
 	clientContact
 }
 
@@ -192,7 +218,7 @@ func (s *Service) SeriesCreated(c SeriesCreation) {
 	s.queue.Enqueue(TaskEmailSeriesCreated, seriesCreatedEmail{
 		Email: c.Email, ComplexName: c.ComplexName, CourtName: c.CourtName,
 		Weekdays: SpanishWeekdays(c.Weekday), Hours: c.Hours, From: c.From, Until: c.Until,
-		Address: c.Address, MapsURL: c.MapsURL,
+		Address: c.Address, MapsURL: c.MapsURL, Moved: movedLines(c.Moved),
 		clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
 	}, dedup(TaskEmailSeriesCreated, c.Email, c.SeriesID))
 }
@@ -219,7 +245,7 @@ func (s *Service) SeriesCancelled(c SeriesCancellation) {
 func (s *Service) registerSeriesWorkers() {
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCreated, func(ctx context.Context, p seriesCreatedEmail) error {
 		return s.mailer.SendSeriesCreated(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,
-			p.From, p.Until, p.Address, p.MapsURL, s.contactOf(ctx, p.clientContact))
+			p.From, p.Until, p.Address, p.MapsURL, p.Moved, s.contactOf(ctx, p.clientContact))
 	}))
 	s.queue.RegisterHandler(handle(TaskEmailSeriesCancelled, func(ctx context.Context, p seriesCancelledEmail) error {
 		return s.mailer.SendSeriesCancelled(ctx, p.Email, p.ComplexName, p.CourtName, p.Weekdays, p.Hours,

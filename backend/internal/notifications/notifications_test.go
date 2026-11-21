@@ -104,8 +104,8 @@ func (m *stubMailer) SendReminder2h(_ context.Context, to, complexName, courtNam
 func (m *stubMailer) SendBookingCancelled(_ context.Context, to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL string, contact mailer.Contact) error {
 	return m.record("cancelled", to, complexName, courtName, date, startTime, refundLine, refundAmount, bookURL, contact)
 }
-func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime string, contact mailer.Contact) error {
-	return m.record("refunded", to, complexName, amount, bookURL, cancelled, courtName, date, startTime, contact)
+func (m *stubMailer) SendDepositRefunded(_ context.Context, to, complexName, amount, bookURL string, cancelled bool, courtName, date, startTime, reason string, byHand bool, contact mailer.Contact) error {
+	return m.record("refunded", to, complexName, amount, bookURL, cancelled, courtName, date, startTime, reason, byHand, contact)
 }
 func (m *stubMailer) SendOwnerNewBooking(_ context.Context, to, complexName, courtName, clientName, date, startTime string) error {
 	return m.record("owner_new_booking", to, complexName, courtName, clientName, date, startTime)
@@ -130,8 +130,8 @@ func (m *stubMailer) SendEmailChangeRequested(_ context.Context, to, firstName, 
 	return m.record("email_change_requested", to, firstName, newEmail, confirmURL, expiresIn)
 }
 
-func (m *stubMailer) SendSeriesCreated(_ context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, contact mailer.Contact) error {
-	return m.record("series_created", to, complexName, courtName, weekdays, hours, from, until, address, mapsURL, contact)
+func (m *stubMailer) SendSeriesCreated(_ context.Context, to, complexName, courtName, weekdays, hours, from, until, address, mapsURL string, moved []string, contact mailer.Contact) error {
+	return m.record("series_created", to, complexName, courtName, weekdays, hours, from, until, address, mapsURL, moved, contact)
 }
 func (m *stubMailer) SendSeriesCancelled(_ context.Context, to, complexName, courtName, weekdays, hours, from string, keptPaid bool, bookURL string, contact mailer.Contact) error {
 	return m.record("series_cancelled", to, complexName, courtName, weekdays, hours, from, keptPaid, bookURL, contact)
@@ -170,6 +170,26 @@ func (m *stubMailer) SendBenefitsCampaign(_ context.Context, to, firstName, segm
 
 func (m *stubMailer) SendSocialKitCampaign(_ context.Context, to, firstName, imageURL, _, _, _ string) error {
 	return m.record("social_kit_campaign", to, firstName+"|"+imageURL)
+}
+
+func (m *stubMailer) SendBookingNoShow(_ context.Context, to, complexName, courtName, date, startTime, bookURL string, contact mailer.Contact) error {
+	return m.record("booking_no_show", to, complexName, courtName, date, startTime, bookURL, contact)
+}
+
+func (m *stubMailer) SendPaymentReceived(_ context.Context, to, complexName, courtName, date, startTime, amount, method, balanceAmount, bookURL string, contact mailer.Contact) error {
+	return m.record("payment_received", to, complexName, courtName, date, startTime, amount, method, balanceAmount, bookURL, contact)
+}
+
+func (m *stubMailer) SendRefundOwedByVenue(_ context.Context, to, complexName, courtName, date, startTime, amount, bookURL string, contact mailer.Contact) error {
+	return m.record("refund_owed_by_venue", to, complexName, courtName, date, startTime, amount, bookURL, contact)
+}
+
+func (m *stubMailer) SendOwnerRefundOwed(_ context.Context, to, complexName, courtName, clientName, date, startTime, amount string) error {
+	return m.record("owner_refund_owed", to, complexName, courtName, clientName, date, startTime, amount)
+}
+
+func (m *stubMailer) SendOwnerDuplicatePaymentRefunded(_ context.Context, to, complexName, courtName, clientName, date, startTime, amount string) error {
+	return m.record("owner_duplicate_payment_refunded", to, complexName, courtName, clientName, date, startTime, amount)
 }
 
 type stubUsers struct {

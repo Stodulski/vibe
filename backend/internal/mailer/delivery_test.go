@@ -123,7 +123,7 @@ func TestTheReminderSubjectNamesTheRealStart(t *testing.T) {
 func TestARefundThatCancelledTheBookingTellsTheClient(t *testing.T) {
 	m, bodies := brevoCapture(t)
 	if err := m.SendDepositRefunded(context.Background(), "ana@example.com", "Vibe", "$5.000", "",
-		true, "Cancha 1", "19/11", "18:00 a 19:30", Contact{}); err != nil {
+		true, "Cancha 1", "19/11", "18:00 a 19:30", "", false, Contact{}); err != nil {
 		t.Fatal(err)
 	}
 	got := decodeSent(t, (*bodies)[0])
