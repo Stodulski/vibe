@@ -28,15 +28,27 @@ func approved(id int64, reg *eventstore.Registration) mp.Payment {
 
 func (f *fixture) openChecks() int { return len(f.store.checks) }
 
+// sweepUntilAnswered runs the hold sweep, lets the clock pass, and runs it
+// again: a first empty answer from MercadoPago is asked once more before a
+// check closes on "nothing found".
+func (f *fixture) sweepUntilAnswered(t *testing.T) {
+	t.Helper()
+	f.svc.ExpireHolds(t.Context())
+	f.store.makeDue()
+	f.svc.ExpireHolds(t.Context())
+}
+
 // S6: a hold MercadoPago holds no payment for (it never reached a checkout, or
 // nobody paid it) expires exactly as before: closed, told once, never handed to
 // the payment processing. MercadoPago is asked as the seller, by the
-// registration the checkout was opened for, and asked only once.
+// registration the checkout was opened for, and asked twice (a first empty
+// answer is asked again, for MercadoPago's search lag), never more.
 func TestAnExpiredHoldWithNoPaymentExpiresAsBefore(t *testing.T) {
 	f := newFixture(t)
 	reg := expiringHold(t, f)
 
-	f.svc.ExpireHolds(t.Context())
+	f.sweepUntilAnswered(t)
+	f.store.makeDue()
 	f.svc.ExpireHolds(t.Context())
 
 	if reg.Status != eventstore.RegistrationExpired {
@@ -50,8 +62,8 @@ func TestAnExpiredHoldWithNoPaymentExpiresAsBefore(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(f.checkout.searched) != 1 || f.checkout.searched[0] != reg.ID.String() || f.checkout.callers[0] != seller {
-		t.Errorf("searches = %v callers = %v, want one by the registration as the seller", f.checkout.searched, f.checkout.callers)
+	if len(f.checkout.searched) != 2 || f.checkout.searched[0] != reg.ID.String() || f.checkout.callers[0] != seller {
+		t.Errorf("searches = %v callers = %v, want two by the registration as the seller", f.checkout.searched, f.checkout.callers)
 	}
 	if len(f.reconcile.reconciled) != 0 || f.openChecks() != 0 {
 		t.Errorf("reconciled = %v open checks = %d, want none", f.reconcile.reconciled, f.openChecks())
@@ -96,7 +108,7 @@ func TestOnlyAnApprovedPaymentOfTheCheckoutIsProcessed(t *testing.T) {
 		{ID: 4, Status: "pending", ExternalReference: reg.ID.String()},
 	}}
 
-	f.svc.ExpireHolds(t.Context())
+	f.sweepUntilAnswered(t)
 
 	if len(f.reconcile.reconciled) != 0 {
 		t.Errorf("reconciled = %v, want none", f.reconcile.reconciled)
@@ -209,7 +221,7 @@ func TestASilentCheckProcessesAPaymentButTellsNothing(t *testing.T) {
 	}
 	f.checkout.found = map[string][]mp.Payment{paid.ID.String(): {approved(7, paid)}}
 
-	f.svc.ExpireHolds(t.Context())
+	f.sweepUntilAnswered(t)
 
 	if len(f.reconcile.reconciled) != 1 || f.reconcile.reconciled[0] != "7" {
 		t.Errorf("reconciled = %v, want the paid hold's payment", f.reconcile.reconciled)
@@ -231,4 +243,52 @@ func TestASpotConfirmedDuringTheCheckIsNotToldExpired(t *testing.T) {
 	if len(f.notify.cancelled) != 0 {
 		t.Errorf("notices = %+v, want none for a confirmed spot", f.notify.cancelled)
 	}
+}
+
+// A payment approved in the last seconds of the hold may not show in
+// MercadoPago's search yet. A first "nothing found" is not trusted: the check
+// is asked once more later, and only a second empty answer tells the person
+// their spot expired. A payment that shows up on that second ask is processed.
+func TestAFirstEmptyAnswerIsAskedOnceMoreBeforeTellingExpired(t *testing.T) {
+	t.Run("still nothing: told once", func(t *testing.T) {
+		f := newFixture(t)
+		reg := expiringHold(t, f)
+
+		f.svc.ExpireHolds(t.Context())
+		if len(f.notify.cancelled) != 0 || f.openChecks() != 1 {
+			t.Fatalf("notices = %+v open checks = %d, want the first empty answer asked again, untold",
+				f.notify.cancelled, f.openChecks())
+		}
+		f.store.makeDue()
+		f.svc.ExpireHolds(t.Context())
+		f.store.makeDue()
+		f.svc.ExpireHolds(t.Context())
+
+		if len(f.checkout.searched) != 2 {
+			t.Errorf("searches = %d, want exactly two", len(f.checkout.searched))
+		}
+		if f.openChecks() != 0 {
+			t.Errorf("open checks = %d, want the check closed after the second empty answer", f.openChecks())
+		}
+		if len(f.notify.cancelled) != 1 || f.notify.cancelled[0].RegistrationID != reg.ID.String() {
+			t.Errorf("notices = %+v, want one expiry notice", f.notify.cancelled)
+		}
+	})
+	t.Run("found on the second ask: processed", func(t *testing.T) {
+		f := newFixture(t)
+		reg := expiringHold(t, f)
+
+		f.svc.ExpireHolds(t.Context())
+		f.checkout.found = map[string][]mp.Payment{reg.ID.String(): {approved(9, reg)}}
+		f.reconcile.confirms = map[string]*eventstore.Registration{"9": reg}
+		f.store.makeDue()
+		f.svc.ExpireHolds(t.Context())
+
+		if len(f.reconcile.reconciled) != 1 || f.reconcile.reconciled[0] != "9" {
+			t.Fatalf("reconciled = %v, want the late-showing payment processed", f.reconcile.reconciled)
+		}
+		if len(f.notify.cancelled) != 0 {
+			t.Errorf("notices = %+v, want no expiry notice for a paid spot", f.notify.cancelled)
+		}
+	})
 }

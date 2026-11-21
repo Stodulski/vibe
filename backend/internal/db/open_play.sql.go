@@ -238,7 +238,7 @@ func (q *Queries) DeferRegistrationPaymentCheck(ctx context.Context, id pgtype.U
 
 const expireOpenPlayHolds = `-- name: ExpireOpenPlayHolds :many
 UPDATE open_play_registrations
-SET status = 'expired', payment_check_due_at = NOW(), payment_check_notify = true
+SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = true
 WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id
 `
@@ -253,7 +253,9 @@ type ExpireOpenPlayHoldsRow struct {
 // against capacity the moment held_until passed; this only closes the rows.
 // Every hold opened a MercadoPago checkout, so each is marked due a payment
 // check in the same write: a payment whose webhook never arrived is still
-// found, and the person is told the spot expired only once none was.
+// found, and the person is told the spot expired only once none was. The first
+// check is due three minutes later, not at once: MercadoPago's search lags
+// behind a payment approved in the hold's last seconds.
 func (q *Queries) ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHoldsRow, error) {
 	rows, err := q.db.Query(ctx, expireOpenPlayHolds)
 	if err != nil {
@@ -276,7 +278,7 @@ func (q *Queries) ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHold
 
 const expireOpenPlayHoldsOfPhone = `-- name: ExpireOpenPlayHoldsOfPhone :exec
 UPDATE open_play_registrations
-SET status = 'expired', payment_check_due_at = NOW(), payment_check_notify = false
+SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = false
 WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW()
 `
 
@@ -287,8 +289,9 @@ type ExpireOpenPlayHoldsOfPhoneParams struct {
 
 // Lets a person whose own earlier hold ran out sign up again: the one-live-
 // spot-per-phone index would otherwise still count the stale row.
-// The hold is still asked about (payment_check_due_at), silently: the person is
-// signing up again, so no expiry notice follows.
+// The hold is still asked about (payment_check_due_at, three minutes on, as the
+// sweep's expiry), silently: the person is signing up again, so no expiry
+// notice follows.
 func (q *Queries) ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error {
 	_, err := q.db.Exec(ctx, expireOpenPlayHoldsOfPhone, arg.EventID, arg.Phone)
 	return err

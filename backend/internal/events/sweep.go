@@ -76,7 +76,8 @@ func (s *Service) checkExpiredPayments(ctx context.Context) {
 // its checkout is handed to the payment processing, which confirms the spot
 // while there is room and refunds it otherwise, and tells the person either
 // way. No approved payment closes the check and tells the person their spot
-// expired, when the check owes that notice. A MercadoPago that cannot be asked,
+// expired, when the check owes that notice — on the second answer, since a
+// first empty one is asked again a few minutes later (search lag). A MercadoPago that cannot be asked,
 // or a payment that cannot be handed over, defers the check to a later run,
 // told nothing, until maxPaymentChecks attempts failed.
 func (s *Service) checkPayment(ctx context.Context, check eventstore.PaymentCheck) {
@@ -86,6 +87,18 @@ func (s *Service) checkPayment(ctx context.Context, check eventstore.PaymentChec
 	}
 	if err != nil {
 		s.deferPaymentCheck(ctx, check, len(approvedIDs) > 0, err)
+		return
+	}
+	if len(approvedIDs) == 0 && check.Failures == 0 {
+		// The first answer, and it found nothing. MercadoPago's search lags
+		// behind a payment approved in the last seconds of the hold, so it is
+		// asked once more, a few minutes later, before the person is told the
+		// spot expired. Pushed back like a failed attempt, which it counts as:
+		// a later empty answer is trusted, as is one after a failed attempt,
+		// which already came minutes later.
+		if _, err := s.store.DeferPaymentCheck(ctx, check.RegistrationID); err != nil {
+			s.logger.Error("event holds: failed to defer a payment check for its second ask", "error", err, "registration_id", check.RegistrationID)
+		}
 		return
 	}
 	closed, err := s.store.ClosePaymentCheck(ctx, check.RegistrationID)

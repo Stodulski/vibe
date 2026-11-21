@@ -26,6 +26,30 @@ func openCheckout(t *testing.T, f *datatest.Fixture, reg *eventstore.Registratio
 	}
 }
 
+// firstCheckWaits asserts no check is due straight after an expiry, each open
+// one is due about three minutes on (MercadoPago's search lags behind a payment
+// approved in the hold's last seconds), and then lets that time come.
+func firstCheckWaits(t *testing.T, f *datatest.Fixture) {
+	t.Helper()
+	if due := dueChecks(t, f); len(due) != 0 {
+		t.Fatalf("due = %+v; want the first check a few minutes after the expiry, not at once", due)
+	}
+	var lo, hi float64
+	if err := f.DB.QueryRow(context.Background(), `
+		SELECT MIN(EXTRACT(EPOCH FROM payment_check_due_at - NOW())), MAX(EXTRACT(EPOCH FROM payment_check_due_at - NOW()))
+		FROM open_play_registrations WHERE complex_id = $1 AND payment_check_due_at IS NOT NULL`, f.ComplexID).Scan(&lo, &hi); err != nil {
+		t.Fatal(err)
+	}
+	if lo < 170 || hi > 185 {
+		t.Fatalf("first checks due in %.0f..%.0fs; want about three minutes", lo, hi)
+	}
+	if _, err := f.DB.Exec(context.Background(), `
+		UPDATE open_play_registrations SET payment_check_due_at = NOW() - interval '1 second'
+		WHERE complex_id = $1 AND payment_check_due_at IS NOT NULL`, f.ComplexID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func dueChecks(t *testing.T, f *datatest.Fixture) []eventstore.PaymentCheck {
 	t.Helper()
 	due, err := f.Stores.Events.DuePaymentChecks(f.Scoped(context.Background()), 50)
@@ -64,6 +88,7 @@ func TestTheSweepMarksEveryExpiredHoldDueANotifyingPaymentCheck(t *testing.T) {
 	if err != nil || len(swept) != 2 {
 		t.Fatalf("swept = %+v (%v); want the two holds past their window", swept, err)
 	}
+	firstCheckWaits(t, f)
 	due := dueChecks(t, f)
 	if len(due) != 2 {
 		t.Fatalf("due = %+v; want both expired holds", due)
@@ -91,6 +116,7 @@ func TestAHoldExpiredByASignUpOfItsPhoneIsDueASilentPaymentCheck(t *testing.T) {
 	if _, err := signUp(f, ev, "+5491100000024"); err != nil {
 		t.Fatal(err)
 	}
+	firstCheckWaits(t, f)
 	due := dueChecks(t, f)
 	if len(due) != 1 || due[0].RegistrationID != old.ID || due[0].Notify {
 		t.Fatalf("due = %+v; want the old hold, not notifying", due)
