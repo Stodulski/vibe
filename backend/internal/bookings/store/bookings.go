@@ -233,6 +233,12 @@ type Booking struct {
 	// (bookings_attended_only_completed, db/migrations/031_booking_attendance.sql),
 	// so a completed booking without it reads "Turno finalizado".
 	AttendedAt *time.Time `json:"attended_at"`
+	// CancelledByHoldExpiry reports a booking cancelled only because its
+	// payment window ran out (a booking_hold_expiries row, see
+	// hold_expiry.go). GetByID reads it; every other read leaves it false. The
+	// payment confirmation reads it to reopen such a booking when a late
+	// payment finds its hours still free, instead of refunding it.
+	CancelledByHoldExpiry bool `json:"-"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
 	CourtName   string `json:"court_name"`
@@ -660,13 +666,15 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 
 	var b db.Booking
 	var courtName, clientName, clientPhone string
+	var cancelledByHoldExpiry bool
 	err := m.DB.QueryRow(ctx, `
 		SELECT `+BookingColumns+`,
 		       b.refund_intent_at, b.series_id, b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
-		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email
+		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email,
+		       EXISTS(SELECT 1 FROM booking_hold_expiries e WHERE e.booking_id = b.id) AS cancelled_by_hold_expiry
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -686,6 +694,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		&b.RefundIntentAt, &b.SeriesID, &b.AttendedAt,
 		&courtName, &clientName, &clientPhone,
 		&b.ClientFirstName, &b.ClientLastName, &b.ClientPhone, &b.ClientEmail,
+		&cancelledByHoldExpiry,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -694,6 +703,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		return nil, fmt.Errorf("bookings: get by id: %w", err)
 	}
 	booking := BookingFromDB(b)
+	booking.CancelledByHoldExpiry = b.Status == db.BookingStatusCancelled && cancelledByHoldExpiry
 	booking.CourtName = courtName
 	booking.ClientName = clientName
 	booking.ClientPhone = clientPhone

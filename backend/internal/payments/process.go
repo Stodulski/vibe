@@ -82,9 +82,16 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		return nil
 	}
 
-	// If the booking was already cancelled (e.g. cron expired it, or owner cancelled it),
+	// If the booking was already cancelled (e.g. the owner or the client cancelled it),
 	// issue an automatic refund instead of re-confirming.
-	if booking.Status == "cancelled" {
+	//
+	// A booking cancelled only because its payment window ran out is the
+	// exception (slot-hold gaps S5): this payment is the one it was waiting
+	// for, so it goes on to the confirmation below, which reopens it when its
+	// hours are still free and refunds it (slot taken) when they are not. The
+	// store re-checks the expiry record under the booking's lock, so a stale
+	// read here can only lead to the refund, never to a wrong confirmation.
+	if booking.Status == "cancelled" && !booking.CancelledByHoldExpiry {
 		s.logger.Info("mp webhook: booking already cancelled, issuing automatic refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -138,6 +145,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			"booking_id", booking.ID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: amount mismatch mp_payment_id=%s booking_id=%s expected=%d actual=%d", mpPaymentID, booking.ID, expectedCentavos, actualCentavos))
+		// A booking the expiry cancelled is not left holding the money for a
+		// person to sort out, as a pending one is: nobody holds it, so the
+		// payment goes back as any late payment on a cancelled booking does.
+		if booking.Status == "cancelled" {
+			return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID, paymentstore.RefundCauseLatePayment)
+		}
 		return nil
 	}
 
@@ -160,7 +173,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		sentry.CaptureMessage(fmt.Sprintf("PRICE CHANGED during webhook: mp_payment_id=%s booking_id=%s original=%d new=%d", mpPaymentID, booking.ID, expectedCentavos, revalidatedExpected))
 	}
 
-	if booking.Status == "cancelled" {
+	if booking.Status == "cancelled" && !booking.CancelledByHoldExpiry {
 		s.logger.Info("mp webhook: booking was cancelled concurrently, issuing auto-refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
