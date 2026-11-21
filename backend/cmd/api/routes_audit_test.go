@@ -70,6 +70,8 @@ var publicRoutes = map[string]string{
 	"GET /api/v1/book/status":                 "clients check their booking by token, without an account",
 	"GET /api/v1/book/cancel-info":            "same, before cancelling",
 	"POST /api/v1/book/cancel":                "clients cancel their own booking without an account",
+	"POST /api/v1/book/checkout/retry":        "a visitor whose payment failed pays again, authenticated by the booking's link token",
+	"POST /api/v1/book/checkout/release":      "a visitor whose payment failed gives the slot back, authenticated by the booking's link token",
 	"POST /api/v1/book/holds":                 "the storefront holds the slot a visitor picked, before they have an account or a booking",
 	"POST /api/v1/book/holds/{token}/release": "the visitor lets their slot hold go, authenticated by the hold's own token",
 

@@ -3772,6 +3772,22 @@ type OccupancyPoint struct {
 	Percentage int `json:"percentage"`
 }
 
+// OnlineHold Hours a visitor is booking online: held from the storefront and not yet paid. Free again at `frees_at` if nobody pays.
+type OnlineHold struct {
+	CourtId openapi_types.UUID `json:"court_id"`
+
+	// Date The day the hold starts on.
+	Date            openapi_types.Date `json:"date"`
+	DurationMinutes int                `json:"duration_minutes"`
+
+	// EndTime HH:MM; earlier than start_time when the hold runs past midnight.
+	EndTime string    `json:"end_time"`
+	FreesAt time.Time `json:"frees_at"`
+
+	// StartTime HH:MM.
+	StartTime string `json:"start_time"`
+}
+
 // OpenPlayEvent An open-play event ("canchas abiertas"): it holds its courts for its window and people sign up one by one. `end_time` may be earlier than `start_time` when the event runs past midnight. Prices are centavos ARS per person.
 type OpenPlayEvent struct {
 	CancelReason *string            `json:"cancel_reason,omitempty"`
@@ -5315,6 +5331,16 @@ type BookingsPublicCancelInfoParams struct {
 	Token BookingToken `form:"token" json:"token"`
 }
 
+// BookingsPublicCheckoutReleaseJSONBody defines parameters for BookingsPublicCheckoutRelease.
+type BookingsPublicCheckoutReleaseJSONBody struct {
+	Token string `json:"token"`
+}
+
+// BookingsPublicCheckoutRetryJSONBody defines parameters for BookingsPublicCheckoutRetry.
+type BookingsPublicCheckoutRetryJSONBody struct {
+	Token string `json:"token"`
+}
+
 // BookingsPublicHoldCreateJSONBody defines parameters for BookingsPublicHoldCreate.
 type BookingsPublicHoldCreateJSONBody struct {
 	ComplexId openapi_types.UUID `json:"complex_id"`
@@ -6489,6 +6515,12 @@ type BookingsPublicCreateJSONRequestBody BookingsPublicCreateJSONBody
 // BookingsPublicCancelJSONRequestBody defines body for BookingsPublicCancel for application/json ContentType.
 type BookingsPublicCancelJSONRequestBody BookingsPublicCancelJSONBody
 
+// BookingsPublicCheckoutReleaseJSONRequestBody defines body for BookingsPublicCheckoutRelease for application/json ContentType.
+type BookingsPublicCheckoutReleaseJSONRequestBody BookingsPublicCheckoutReleaseJSONBody
+
+// BookingsPublicCheckoutRetryJSONRequestBody defines body for BookingsPublicCheckoutRetry for application/json ContentType.
+type BookingsPublicCheckoutRetryJSONRequestBody BookingsPublicCheckoutRetryJSONBody
+
 // BookingsPublicHoldCreateJSONRequestBody defines body for BookingsPublicHoldCreate for application/json ContentType.
 type BookingsPublicHoldCreateJSONRequestBody BookingsPublicHoldCreateJSONBody
 
@@ -6784,6 +6816,12 @@ type ServerInterface interface {
 	// BookingsPublicCancelInfo Preview refund terms before cancelling a public booking
 	// (GET /api/v1/book/cancel-info)
 	BookingsPublicCancelInfo(w http.ResponseWriter, r *http.Request, params BookingsPublicCancelInfoParams)
+	// BookingsPublicCheckoutRelease Give back the slot of a booking whose payment failed
+	// (POST /api/v1/book/checkout/release)
+	BookingsPublicCheckoutRelease(w http.ResponseWriter, r *http.Request)
+	// BookingsPublicCheckoutRetry Pay again on the checkout of a booking whose payment failed
+	// (POST /api/v1/book/checkout/retry)
+	BookingsPublicCheckoutRetry(w http.ResponseWriter, r *http.Request)
 	// BookingsPublicHoldCreate Hold a slot while the visitor fills in their details
 	// (POST /api/v1/book/holds)
 	BookingsPublicHoldCreate(w http.ResponseWriter, r *http.Request)
@@ -7498,6 +7536,34 @@ func (siw *ServerInterfaceWrapper) BookingsPublicCancelInfo(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BookingsPublicCancelInfo(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicCheckoutRelease operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicCheckoutRelease(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicCheckoutRelease(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicCheckoutRetry operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicCheckoutRetry(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicCheckoutRetry(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12498,6 +12564,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book", wrapper.BookingsPublicCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds", wrapper.BookingsPublicHoldCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/release", wrapper.BookingsPublicHoldRelease)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/checkout/retry", wrapper.BookingsPublicCheckoutRetry)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/checkout/release", wrapper.BookingsPublicCheckoutRelease)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/book/status", wrapper.BookingsPublicStatus)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/book/cancel-info", wrapper.BookingsPublicCancelInfo)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/cancel", wrapper.BookingsPublicCancel)

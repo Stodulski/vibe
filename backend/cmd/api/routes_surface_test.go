@@ -123,6 +123,8 @@ var apiSurface = map[string]struct{}{
 	"POST /api/v1/auth/verify-email":                                                    {},
 	"POST /api/v1/book":                                                                 {},
 	"POST /api/v1/book/cancel":                                                          {},
+	"POST /api/v1/book/checkout/retry":                                                  {},
+	"POST /api/v1/book/checkout/release":                                                {},
 	"POST /api/v1/book/holds":                                                           {},
 	"POST /api/v1/book/holds/{token}/release":                                           {},
 	"POST /api/v1/complexes":                                                            {},

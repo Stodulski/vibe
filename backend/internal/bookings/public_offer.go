@@ -340,7 +340,7 @@ func (s *Service) openCheckout(ctx context.Context, req checkoutRequest) (Public
 		Caller:         req.seller,
 		BackURLs: mp.BackURLs{
 			Success: booklink.Success(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
-			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug),
+			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
 			Pending: booklink.SuccessPending(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
 		},
 		BackendURL:     s.cfg.BackendURL,

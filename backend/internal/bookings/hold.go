@@ -10,11 +10,24 @@
 // when an unpaid storefront booking stops holding its slot (SlotTaken,
 // GetBookedSlots, the expiry sweep), so the countdown, the grid and the sweep
 // can never disagree about when a hold ends.
+//
+// Three rules sit on top of that window (slot-hold-gaps, 2026-11-21), all kept
+// in created_at so every reader still agrees:
+//   - An address that held hours for a whole window without paying waits
+//     bookingstore.HoldCooldown before holding them again; letting a hold go
+//     and picking the hours again continues its clock instead of restarting
+//     it (bookingstore.Store.InsertHold).
+//   - Submitting the details leaves at least bookingstore.MinPaymentWindow to
+//     pay (bookingstore.Store.ConvertHold).
+//   - A visitor whose payment failed can pay again on the same checkout, or let
+//     the slot go, through the booking's link token (RetryCheckout,
+//     ReleaseCheckout).
 package bookings
 
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -23,7 +36,9 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
+	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/slots"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 )
@@ -41,14 +56,6 @@ func (s *Service) holdsPerIP() int {
 	}
 	return maxActiveHoldsPerIP
 }
-
-// minCheckoutWindow is the shortest a converted hold's checkout link is made
-// payable for. The link expires with the hold, never a fresh window; but a
-// visitor who submits with a few seconds left must still get a link MercadoPago
-// can open. A payment that completes in that overshoot, after the sweep has
-// released the booking, is refused and refunded by the confirmation path's
-// guardSlotStillFree, as any late payment is.
-const minCheckoutWindow = time.Minute
 
 // ErrHoldExpired reports a booking request whose hold is gone: unknown,
 // released, already converted, or past its window. The storefront answers it
@@ -224,10 +231,10 @@ func (s *Service) bookFromHold(ctx context.Context, actor Actor, in PublicBookIn
 	}
 	s.recordPublicBook(actor, held)
 
-	// The checkout is payable for what is left of the hold, never a fresh
-	// window: the 15 minutes run from the pick and cover both the Datos step
-	// and MercadoPago, and the sweep releases the booking when they end.
-	expiresIn := max(time.Until(held.CreatedAt.Add(s.cfg.PaymentExpiry)), minCheckoutWindow)
+	// The checkout is payable for what is left of the hold, which ConvertHold
+	// has just made at least bookingstore.MinPaymentWindow (it moved
+	// held.CreatedAt), and the sweep releases the booking when it ends.
+	expiresIn := time.Until(held.CreatedAt.Add(s.cfg.PaymentExpiry))
 	return s.openCheckout(ctx, checkoutRequest{
 		booking: held, complex: complex, court: court, seller: seller,
 		rawDate: in.RawDate, expiresIn: expiresIn, payer: in,
@@ -289,6 +296,11 @@ func (h *Handler) TakeHold(w http.ResponseWriter, r *http.Request) {
 		Replaces: input.Replaces,
 	})
 	if err != nil {
+		var cooldown *bookingstore.HoldCooldownError
+		if errors.As(err, &cooldown) {
+			h.respond.Refuse(w, r, holdCooldownRefusal(cooldown.Until))
+			return
+		}
 		h.refuse(w, r, err)
 		return
 	}
@@ -307,6 +319,202 @@ func (h *Handler) TakeHold(w http.ResponseWriter, r *http.Request) {
 // tokens exist.
 func (h *Handler) ReleaseHold(w http.ResponseWriter, r *http.Request, token string) {
 	h.svc.ReleaseHold(r.Context(), token)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// KindHoldCooldown is the Problem kind of a hold refused by the cooldown, so
+// the storefront can tell it from somebody else holding the slot.
+const KindHoldCooldown httpx.Kind = "hold-cooldown"
+
+// holdCooldownRefusal is the 409 for a hold refused by the cooldown. Its detail
+// is written for the visitor, who reads it as it is: when the hours can be
+// picked again, on the venue's clock.
+func holdCooldownRefusal(until time.Time) httpx.Refusal {
+	refusal := httpx.Conflict(fmt.Sprintf(
+		"Reservaste este horario hace poco y no se completó el pago. Vas a poder elegirlo de nuevo desde las %s, o podés elegir otro horario.",
+		until.In(timezone.Argentina).Format("15:04")))
+	refusal.Kind = KindHoldCooldown
+	return refusal
+}
+
+// checkoutNotRetryableMessage is the 409 detail when the booking a failed
+// payment left behind can no longer be paid: its window ended, it was released,
+// or it was paid after all.
+const checkoutNotRetryableMessage = "the booking can no longer be paid, please choose a time again"
+
+// checkoutPaidMessage is the 409 detail for a release of a booking that was
+// paid after all: there is nothing to let go.
+const checkoutPaidMessage = "La reserva ya está pagada, no hace falta liberarla."
+
+// preferenceReader reads back a checkout link. *mp.MPClient implements it; the
+// Checkout interface stays the three calls every other path needs, and a
+// Checkout without it answers RetryCheckout with ErrCheckoutUnavailable.
+type preferenceReader interface {
+	GetPreference(ctx context.Context, preferenceID string, caller mp.Caller) (*mp.Preference, error)
+}
+
+var _ preferenceReader = (*mp.MPClient)(nil)
+
+// unpaidStorefrontBooking reports whether b is a visitor's booking still
+// waiting for its payment: made from the storefront, nothing collected, nobody
+// attached by a payment.
+func unpaidStorefrontBooking(b *bookingstore.Booking) bool {
+	return b.CreatedBy == nil && b.CollectionStatus == bookingstore.CollectionStatusUnpaid && !b.HasClient()
+}
+
+// CheckoutRetry is the checkout a visitor pays again on, and when it closes.
+type CheckoutRetry struct {
+	InitPoint string
+	ExpiresAt time.Time
+}
+
+// RetryCheckout hands a visitor whose payment failed the same MercadoPago
+// checkout again, while the booking's payment window lasts. The booking is
+// still pending and still holds its slot; nothing is written.
+func (s *Service) RetryCheckout(ctx context.Context, token string) (CheckoutRetry, error) {
+	booking, complex, err := s.ResolveLink(ctx, token)
+	if err != nil {
+		return CheckoutRetry{}, err
+	}
+	expiresAt := booking.CreatedAt.Add(s.cfg.PaymentExpiry)
+	if booking.Status != "pending" || !unpaidStorefrontBooking(booking) || !time.Now().Before(expiresAt) {
+		return CheckoutRetry{}, &ConflictError{Message: checkoutNotRetryableMessage}
+	}
+
+	payment, err := s.payments.GetByBookingID(ctx, booking.ID)
+	if err != nil || payment.MPPreferenceID == nil || *payment.MPPreferenceID == "" {
+		if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+			return CheckoutRetry{}, err
+		}
+		return CheckoutRetry{}, ErrCheckoutUnavailable
+	}
+	reader, ok := s.checkout.(preferenceReader)
+	if !ok {
+		return CheckoutRetry{}, ErrCheckoutUnavailable
+	}
+	seller, err := s.publicSeller(complex)
+	if err != nil {
+		return CheckoutRetry{}, err
+	}
+	pref, err := reader.GetPreference(ctx, *payment.MPPreferenceID, seller)
+	if err != nil || pref.InitPoint == "" {
+		s.logger.Error("checkout retry: the checkout link could not be read", "error", err, "booking_id", booking.ID)
+		return CheckoutRetry{}, ErrCheckoutUnavailable
+	}
+	return CheckoutRetry{InitPoint: pref.InitPoint, ExpiresAt: expiresAt}, nil
+}
+
+// publicRelease is the audit entry of a visitor letting go of a booking whose
+// payment failed.
+type publicRelease struct {
+	Actor   string                `json:"actor"`
+	Booking *bookingstore.Booking `json:"booking"`
+}
+
+// ReleaseCheckout lets a visitor whose payment failed give the slot back, so
+// they can pick another: the checkout is closed, the booking cancelled and the
+// slot handed to the grid and the waitlist. A booking already released or run
+// out is a no-op; one that was paid after all is refused. No email is sent:
+// the visitor is on the page that asked for it, and the owner never had this
+// booking (slotguard.UnpaidPublicBooking).
+//
+// A released booking no longer counts against the visitor's per-address cap
+// (only pending ones do). Picking the same hours again continues the window
+// it had rather than starting a new one (bookingstore.Store.InsertHold).
+func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string) error {
+	booking, complex, err := s.ResolveLink(ctx, token)
+	if err != nil {
+		return err
+	}
+	if booking.Status == "cancelled" {
+		return nil
+	}
+	if booking.Status != "pending" || !unpaidStorefrontBooking(booking) {
+		return &ConflictError{Message: checkoutPaidMessage}
+	}
+
+	// Closed first, so the visitor cannot pay while the booking is cancelled.
+	// A link that would not close is alerted inside; a payment that lands on
+	// it anyway is the late payment the confirmation path already handles.
+	s.expireCheckoutPreference(ctx, booking, complex)
+
+	booking.Status = "cancelled"
+	note := "Liberado por el cliente tras un pago rechazado"
+	if booking.Notes != nil {
+		note = *booking.Notes + " | " + note
+	}
+	booking.Notes = &note
+	if err := s.store.UpdateIfUnchanged(ctx, booking); err != nil {
+		if errors.Is(err, data.ErrEditConflict) {
+			return &ConflictError{Message: publicCancelRaceMessage}
+		}
+		return err
+	}
+
+	s.realtime.PublishBookingChanged(booking.ComplexID)
+	s.record(actor, booking.ComplexID, "public_release", &booking.ID, publicRelease{Actor: publicActor, Booking: booking})
+	s.releaseHeldSlots(ctx, booking)
+	s.freeWaitlistSlot(ctx, waitlist.Freed{
+		ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
+	})
+	return nil
+}
+
+// readCheckoutToken decodes the {"token": "..."} body the two checkout routes
+// take, answering the request itself when it is unusable.
+func (h *Handler) readCheckoutToken(w http.ResponseWriter, r *http.Request) (string, bool) {
+	var input struct {
+		Token string `json:"token"`
+	}
+	if err := httpx.ReadJSON(w, r, &input); err != nil {
+		h.respond.BadRequest(w, r, err)
+		return "", false
+	}
+	v := validator.New()
+	v.Check(input.Token != "", "token", "must be provided")
+	v.Check(len(input.Token) <= 256, "token", "must not be more than 256 characters")
+	if !v.Valid() {
+		h.respond.FailedValidation(w, r, v.Errors)
+		return "", false
+	}
+	return input.Token, true
+}
+
+// RetryCheckout handles POST /api/v1/book/checkout/retry: the failure page's
+// "Reintentar el pago". Authenticated by the booking's link token, which the
+// failure redirect carries (booklink.Failure).
+func (h *Handler) RetryCheckout(w http.ResponseWriter, r *http.Request) {
+	token, ok := h.readCheckoutToken(w, r)
+	if !ok {
+		return
+	}
+	retry, err := h.svc.RetryCheckout(r.Context(), token)
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
+		"checkout": httpx.Envelope{
+			"mp_init_point": retry.InitPoint,
+			"expires_at":    retry.ExpiresAt.UTC().Format(time.RFC3339),
+		},
+	})
+}
+
+// ReleaseCheckout handles POST /api/v1/book/checkout/release: the failure
+// page's "Elegir otro horario". 204 when the slot is free (released now, or
+// already), 409 when the booking was paid after all.
+func (h *Handler) ReleaseCheckout(w http.ResponseWriter, r *http.Request) {
+	token, ok := h.readCheckoutToken(w, r)
+	if !ok {
+		return
+	}
+	if err := h.svc.ReleaseCheckout(r.Context(), h.actor(r), token); err != nil {
+		h.refuse(w, r, err)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
 }

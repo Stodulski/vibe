@@ -75,6 +75,8 @@ var routeGuards = map[string]routeGuard{
 	"POST /api/v1/auth/verify-email":                                {kind: guardPublic},
 	"POST /api/v1/book":                                             {kind: guardPublic, idempotentKey: "public-book"},
 	"POST /api/v1/book/cancel":                                      {kind: guardPublic},
+	"POST /api/v1/book/checkout/retry":                              {kind: guardPublic},
+	"POST /api/v1/book/checkout/release":                            {kind: guardPublic},
 	"POST /api/v1/book/holds":                                       {kind: guardPublic},
 	"POST /api/v1/book/holds/{token}/release":                       {kind: guardPublic},
 	"GET /api/v1/book/cancel-info":                                  {kind: guardPublic},

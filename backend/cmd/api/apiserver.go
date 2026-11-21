@@ -159,6 +159,18 @@ func (s *apiServer) BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Req
 	s.app.bookings.ReleaseHold(w, r, token)
 }
 
+// BookingsPublicCheckoutRetry implements gen.ServerInterface for bookingsPublicCheckoutRetry
+// (POST /api/v1/book/checkout/retry). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicCheckoutRetry(w http.ResponseWriter, r *http.Request) {
+	s.app.bookings.RetryCheckout(w, r)
+}
+
+// BookingsPublicCheckoutRelease implements gen.ServerInterface for bookingsPublicCheckoutRelease
+// (POST /api/v1/book/checkout/release). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicCheckoutRelease(w http.ResponseWriter, r *http.Request) {
+	s.app.bookings.ReleaseCheckout(w, r)
+}
+
 // BookingsPublicCancel implements gen.ServerInterface for bookingsPublicCancel
 // (POST /api/v1/book/cancel). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsPublicCancel(w http.ResponseWriter, r *http.Request) {
