@@ -19,6 +19,7 @@ import (
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
@@ -215,6 +216,15 @@ type stubEvents struct {
 	signUps   []events.SignUpInput
 	hooks     []*eventstore.SignUpHooks
 	signUpErr error
+	// withdrawn is every owner withdrawal, as (event, registration);
+	// withdrawOutcome is the refund each answers.
+	withdrawn       [][2]uuid.UUID
+	withdrawOutcome paymentstore.RefundOutcome
+}
+
+func (s *stubEvents) WithdrawAny(_ context.Context, _ *complexstore.Complex, _ events.Actor, eventID, registrationID uuid.UUID) (*events.Refund, error) {
+	s.withdrawn = append(s.withdrawn, [2]uuid.UUID{eventID, registrationID})
+	return &events.Refund{RegistrationID: registrationID, Outcome: s.withdrawOutcome}, nil
 }
 
 func (s *stubEvents) PublicComplex(context.Context, string) (*complexstore.Complex, error) {

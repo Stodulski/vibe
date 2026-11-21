@@ -126,6 +126,21 @@ export const events = {
     call: 'Llamar',
   },
 
+  // The owner taking one participant out of the event (S17).
+  withdraw: {
+    action: 'Dar de baja',
+    actions: (name: string) => `Acciones de ${name}`,
+    confirmTitle: (name: string) => `Dar de baja a ${name}`,
+    confirmDescriptionPaid:
+      'Se libera su lugar. Le devolvemos todo lo que pagó por Mercado Pago, servicio incluido, y le avisamos por email.',
+    confirmDescriptionUnpaid:
+      'Se libera su lugar. Todavía no pagó, así que no hay nada que devolver. Le avisamos por email.',
+    confirmLabel: 'Sí, dar de baja',
+    back: 'Volver',
+    success: (refunded: boolean) => (refunded ? 'Baja hecha · reembolso en curso' : 'Baja hecha'),
+    error: 'No pudimos dar de baja a la persona',
+  },
+
   // Cancel
   cancel: {
     action: 'Cancelar evento',

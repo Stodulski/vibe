@@ -343,6 +343,24 @@ func (h *Handler) CancelCategory(w http.ResponseWriter, r *http.Request) {
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"refunds": refundsBody(res.Refunds)})
 }
 
+// WithdrawPair handles POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw.
+func (h *Handler) WithdrawPair(w http.ResponseWriter, r *http.Request) {
+	complex, ok := h.complex(w, r)
+	if !ok {
+		return
+	}
+	ids, ok := h.ids(w, r, "tournamentID", "categoryID", "registrationID")
+	if !ok {
+		return
+	}
+	ref, err := h.svc.WithdrawPair(r.Context(), complex.Complex, h.actor(r), ids[0], ids[1], ids[2])
+	if err != nil {
+		h.refuse(w, r, err)
+		return
+	}
+	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{"registration_id": ref.RegistrationID, "refund": bookings.RefundEnvelope(ref.Outcome)})
+}
+
 // GenerateDraw handles POST /api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/draw.
 func (h *Handler) GenerateDraw(w http.ResponseWriter, r *http.Request) {
 	complex, ok := h.complex(w, r)

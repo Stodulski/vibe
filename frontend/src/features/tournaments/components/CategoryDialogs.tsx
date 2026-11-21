@@ -6,6 +6,7 @@ import { CourtFeeDialogs } from './CourtFeeDialogs';
 import { ResultDialog } from './ResultDialog';
 import { ScheduleMatchDialog } from './ScheduleMatchDialog';
 import { SwapPairDialog } from './SwapPairDialog';
+import { WithdrawPairDialog } from './WithdrawPairDialog';
 import type { CategoryDialogs } from './useCategoryDialogs';
 import type { Tournament, TournamentOwnerCategory } from '@/shared/types/api.types';
 
@@ -46,17 +47,12 @@ export function CategoryDialogsHost({ complexId, tournament, category, view, dia
         match={find(dialogs.resultMatchId)}
         pairs={view.pairsById}
       />
-      <SwapPairDialog
-        open={!!dialogs.swapPairId}
-        onClose={() => {
-          dialogs.setSwapPairId(null);
-        }}
+      <PairDialogs
         complexId={complexId}
         tournamentId={tournament.id}
-        categoryId={category.id}
-        pair={dialogs.swapPairId ? (view.pairsById.get(dialogs.swapPairId) ?? null) : null}
-        pairs={view.pairs}
-        needsOtherGroup={category.format === 'groups'}
+        category={category}
+        view={view}
+        dialogs={dialogs}
       />
       <CourtFeeDialogs
         complexId={complexId}
@@ -75,6 +71,43 @@ export function CategoryDialogsHost({ complexId, tournament, category, view, dia
         categoryId={category.id}
         categoryName={categoryTitle({ ...category, sport: tournament.sport })}
         paidCount={view.paidPairs.length}
+      />
+    </>
+  );
+}
+
+/** The dialogs a pair's row opens: the swap and the owner's withdrawal. */
+function PairDialogs({
+  complexId,
+  tournamentId,
+  category,
+  view,
+  dialogs,
+}: Omit<CategoryDialogsHostProps, 'tournament'> & { tournamentId: string }) {
+  const find = (id: string | null) => (id ? (view.pairsById.get(id) ?? null) : null);
+  return (
+    <>
+      <SwapPairDialog
+        open={!!dialogs.swapPairId}
+        onClose={() => {
+          dialogs.setSwapPairId(null);
+        }}
+        complexId={complexId}
+        tournamentId={tournamentId}
+        categoryId={category.id}
+        pair={find(dialogs.swapPairId)}
+        pairs={view.pairs}
+        needsOtherGroup={category.format === 'groups'}
+      />
+      <WithdrawPairDialog
+        onClose={() => {
+          dialogs.setWithdrawPairId(null);
+        }}
+        complexId={complexId}
+        tournamentId={tournamentId}
+        categoryId={category.id}
+        drawn={category.draw_generated}
+        pair={find(dialogs.withdrawPairId)}
       />
     </>
   );

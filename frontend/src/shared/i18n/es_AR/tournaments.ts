@@ -105,6 +105,18 @@ export const tournaments = {
     swapConfirm: 'Intercambiar',
     swapError: 'No pudimos intercambiar las parejas',
     swapGroupHint: 'Tienen que estar en zonas distintas.',
+    // The owner taking one pair out of the category (S17).
+    withdraw: 'Dar de baja',
+    withdrawTitle: (name: string) => `Dar de baja a ${name}`,
+    withdrawDescriptionPaid:
+      'Se libera su lugar. Le devolvemos todo lo que pagó por Mercado Pago, servicio incluido, y le avisamos por email.',
+    withdrawDescriptionUnpaid:
+      'Se libera su lugar. Todavía no pagó, así que no hay nada que devolver. Le avisamos por email.',
+    withdrawDrawnNote: 'Ya está en el cuadro: los partidos que le faltan los gana el rival por W.O.',
+    withdrawConfirm: 'Sí, dar de baja',
+    withdrawBack: 'Volver',
+    withdrawSuccess: (refunded: boolean) => (refunded ? 'Baja hecha · reembolso en curso' : 'Baja hecha'),
+    withdrawError: 'No pudimos dar de baja a la pareja',
   },
 
   // Draw

@@ -82,11 +82,13 @@ function PairRow({
   price,
   groupName,
   onSwap,
+  onWithdraw,
 }: {
   pair: TournamentOwnerPair;
   price: number;
   groupName?: string;
   onSwap?: () => void;
+  onWithdraw?: () => void;
 }) {
   const sport = useSport();
   const badge = paymentBadge(pair, price);
@@ -108,7 +110,13 @@ function PairRow({
         { kind: 'separator', key: 'swap-separator' },
       ]
     : [];
-  const menuItems = [...swapItems, ...contactItems(pair)];
+  const withdrawItems: OverflowMenuItem[] = onWithdraw
+    ? [
+        { kind: 'action', key: 'withdraw', label: t.withdraw, onClick: onWithdraw },
+        { kind: 'separator', key: 'withdraw-separator' },
+      ]
+    : [];
+  const menuItems = [...swapItems, ...withdrawItems, ...contactItems(pair)];
 
   // Flat on every width: the names on the left, the badge and the "⋯" menu on the right, on one row.
   return (
@@ -144,20 +152,37 @@ interface PairsSectionProps {
   /** Whether pairs can be swapped now: a draw exists and no result is loaded. */
   canSwap: boolean;
   onSwap: (pairId: string) => void;
+  /** Whether the owner can take pairs out now: the category is live. */
+  canWithdraw?: boolean;
+  onWithdraw?: (pairId: string) => void;
   /** The category's price per pair: a pair confirmed at it shows no payment badge. */
   price: number;
   /** A draw exists, so the rows follow the seed order. */
   seeded: boolean;
 }
 
-/** Every pair that held a spot: its players, zone, seed and traits, the row's menu (swap and contacts), and the payment only when it is an exception. */
-export function PairsSection({ pairs, groupNames, canSwap, onSwap, price, seeded }: PairsSectionProps) {
+/** Every pair that held a spot: its players, zone, seed and traits, the row's menu (swap, withdraw and contacts), and the payment only when it is an exception. */
+export function PairsSection({
+  pairs,
+  groupNames,
+  canSwap,
+  onSwap,
+  canWithdraw = false,
+  onWithdraw,
+  price,
+  seeded,
+}: PairsSectionProps) {
   if (pairs.length === 0) return <p className="text-text-tertiary text-xs">{t.none}</p>;
   const rows = seeded ? [...pairs].sort(bySeed) : pairs;
   return (
     <ul aria-label={ES_AR.tournaments.detail.sections.pairs}>
       {rows.map((pair) => {
         const swappable = canSwap && pair.seed !== null && pair.status === 'active';
+        // Only a spot still held or paid can be ended.
+        const withdrawable =
+          canWithdraw &&
+          !!onWithdraw &&
+          (pair.registration.status === 'held' || pair.registration.status === 'confirmed');
         const groupName = pair.group_id ? groupNames.get(pair.group_id) : undefined;
         return (
           <PairRow
@@ -169,6 +194,13 @@ export function PairsSection({ pairs, groupNames, canSwap, onSwap, price, seeded
               ? {
                   onSwap: () => {
                     onSwap(pair.id);
+                  },
+                }
+              : {})}
+            {...(withdrawable
+              ? {
+                  onWithdraw: () => {
+                    onWithdraw(pair.id);
                   },
                 }
               : {})}

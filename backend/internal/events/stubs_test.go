@@ -147,6 +147,15 @@ func (s *stubStore) CancelByParticipant(ctx context.Context, id uuid.UUID, refun
 	return &eventstore.ParticipantCancel{Registration: reg, Drawn: s.drawnAtCancel}, nil
 }
 
+func (s *stubStore) CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error) {
+	reg, err := s.CancelRegistration(ctx, id, eventstore.CancelledByOwner)
+	if err != nil {
+		return nil, err
+	}
+	s.owed = append(s.owed, true)
+	return &eventstore.ParticipantCancel{Registration: reg, Drawn: s.drawnAtCancel}, nil
+}
+
 func (s *stubStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, error) {
 	for _, h := range s.expired {
 		if reg, ok := s.regs[h.ID]; ok {

@@ -5,6 +5,7 @@ import type {
   OpenPlayEvent,
   OpenPlayEventDetailResponse,
   OpenPlayParticipant,
+  WithdrawParticipantResponse,
 } from '@/shared/types/api.types';
 
 const SPORTS = ['padel', 'tennis', 'soccer', 'basketball', 'volleyball', 'hockey', 'pickleball'] as const;
@@ -79,26 +80,29 @@ export const eventDetailEnvelopeSchema = exact<OpenPlayEventDetailResponse>(
   z.object({ event: eventSchema, participants: z.array(participantSchema) }).loose(),
 );
 
+/** One participant's refund, as the cancel and the withdrawal answer it. */
+const participantRefundSchema = z
+  .object({
+    registration_id: z.string(),
+    refund: z
+      .object({
+        status: z.enum(['none', 'not_eligible', 'issued', 'already_issued', 'queued', 'manual']),
+        message: z.string(),
+        amount: z.number().optional(),
+        manual_amount: z.number().optional(),
+        manual_message: z.string().optional(),
+      })
+      .loose(),
+  })
+  .loose();
+
 export const cancelEventEnvelopeSchema = exact<CancelOpenPlayEventResponse>(
   z
     .object({
       event: eventSchema,
-      refunds: z.array(
-        z
-          .object({
-            registration_id: z.string(),
-            refund: z
-              .object({
-                status: z.enum(['none', 'not_eligible', 'issued', 'already_issued', 'queued', 'manual']),
-                message: z.string(),
-                amount: z.number().optional(),
-                manual_amount: z.number().optional(),
-                manual_message: z.string().optional(),
-              })
-              .loose(),
-          })
-          .loose(),
-      ),
+      refunds: z.array(participantRefundSchema),
     })
     .loose(),
 );
+
+export const withdrawParticipantSchema = exact<WithdrawParticipantResponse>(participantRefundSchema);

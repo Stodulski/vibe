@@ -501,6 +501,39 @@ func (s *Service) CancelCategory(ctx context.Context, complex *complexstore.Comp
 	return &CancelResult{Tournament: t, Refunds: res.Refunds}, nil
 }
 
+// WithdrawPair is the owner taking one pair out of a category: its spot ends as
+// the owner's and whatever it paid is refunded in full, after the draw too
+// (owner rule A9), and the payer is told. After the draw the pair leaves the
+// bracket exactly as a pair withdrawing itself does. It is allowed while the
+// tournament is not over (a pair can get injured mid-tournament) and refused
+// once its last day has passed in Argentina.
+func (s *Service) WithdrawPair(ctx context.Context, complex *complexstore.Complex, actor Actor, tournamentID, categoryID, registrationID uuid.UUID) (*Refund, error) {
+	t, cat, err := s.category(ctx, complex.ID, tournamentID, categoryID)
+	if err != nil {
+		return nil, err
+	}
+	if cat.Cancelled || t.Status != tournamentstore.StatusActive {
+		return nil, &StateError{Message: "the tournament or category was cancelled"}
+	}
+	if tournamentOver(t.EndDate, timezone.Now()) {
+		return nil, &StateError{Message: "the tournament is already over"}
+	}
+	ref, err := s.events.WithdrawAny(ctx, complex, actor, cat.EventID, registrationID)
+	if err != nil {
+		return nil, err
+	}
+	s.record(actor, complex.ID, "withdraw_pair", categoryID, map[string]uuid.UUID{"registration_id": registrationID})
+	return ref, nil
+}
+
+// tournamentOver reports whether a tournament whose last day is endDate (a
+// calendar date, whatever its location) is over at now: that day has ended on
+// Argentina's clock.
+func tournamentOver(endDate, now time.Time) bool {
+	after := time.Date(endDate.Year(), endDate.Month(), endDate.Day(), 0, 0, 0, 0, timezone.Argentina).AddDate(0, 0, 1)
+	return !now.Before(after)
+}
+
 // DrawInput is an owner generating a category's draw.
 type DrawInput struct {
 	// SeedOrder names the pairs, best seed first; the rest follow in random order.

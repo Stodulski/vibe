@@ -79,6 +79,8 @@ type wirePair struct {
 }
 
 type wireRegistration struct {
+	// ID is what the owner names the pair by to withdraw it.
+	ID          uuid.UUID  `json:"id"`
 	Status      string     `json:"status"`
 	Price       int        `json:"price"`
 	ServiceFee  int        `json:"service_fee"`
@@ -240,7 +242,7 @@ func toWireOwnerPair(p *tournamentstore.PairRow) wireOwnerPair {
 		Payer:    wireOwnerPlayer{FirstName: p.Payer.FirstName, LastName: p.Payer.LastName, Phone: p.Payer.Phone, Email: p.Payer.Email, Gender: p.Payer.Gender, Level: p.Payer.Level},
 		Partner:  wireOwnerPlayer{FirstName: p.Partner.FirstName, LastName: p.Partner.LastName, Phone: p.Partner.Phone, Email: p.Partner.Email, Gender: p.Partner.Gender, Level: p.Partner.Level},
 		Registration: wireRegistration{
-			Status: p.RegistrationStatus, Price: p.Price, ServiceFee: p.ServiceFee, HeldUntil: p.HeldUntil,
+			ID: p.RegistrationID, Status: p.RegistrationStatus, Price: p.Price, ServiceFee: p.ServiceFee, HeldUntil: p.HeldUntil,
 			ConfirmedAt: p.ConfirmedAt, CancelledBy: p.CancelledBy, SignedUpAt: p.SignedUpAt,
 		},
 	}

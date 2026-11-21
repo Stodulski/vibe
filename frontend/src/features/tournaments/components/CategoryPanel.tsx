@@ -89,6 +89,8 @@ function CategorySection({ section, category, view, open, dialogs, onUnschedule 
         groupNames={view.groupNames}
         canSwap={open && drawn && !view.locked}
         onSwap={dialogs.setSwapPairId}
+        canWithdraw={open}
+        onWithdraw={dialogs.setWithdrawPairId}
         price={category.price}
         seeded={drawn}
       />
