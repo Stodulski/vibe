@@ -184,3 +184,26 @@ func TestTheExpirySweepDoesNotReplayAPaymentOnAnExpiredBooking(t *testing.T) {
 		t.Errorf("want the booking marked reconciled; got %v", f.store.holdReconciled)
 	}
 }
+
+// A checkout link that will not close is retried every run, and alerts once,
+// when the sweep gives up — not once per run, which would bury every other
+// alert under a dozen copies of this one.
+func TestAnExpiredBookingWhoseLinkWillNotCloseAlertsOnce(t *testing.T) {
+	captured := withCapturedSentryEvents(t)
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	f.checkout.expireErr = errors.New("mercadopago refused")
+
+	for range expiredHoldMaxFailures + 2 {
+		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+	}
+
+	if len(f.store.holdReconciled) != 0 {
+		t.Errorf("a booking whose link stayed open must not read as reconciled; got %v", f.store.holdReconciled)
+	}
+	messages := captured.messages()
+	if len(messages) != 1 || !strings.Contains(messages[0], "EXPIRED BOOKING NOT RECONCILED") ||
+		!strings.Contains(messages[0], candidate.ID.String()) {
+		t.Errorf("want exactly one alert, the give-up naming the booking; got %v", messages)
+	}
+}

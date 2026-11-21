@@ -370,8 +370,9 @@ func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentR
 func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) expiredHoldOutcome {
 	// Closed before asking, so nothing can be approved after the answer. The
 	// inline release left it open; the sweep's own expiry already closed it,
-	// and closing it again changes nothing.
-	if err := s.closeCheckout(ctx, &b.Booking, b); err != nil {
+	// and closing it again changes nothing. Quietly: a failure here is retried
+	// every run, and reconcileExpiredHolds alerts once when it gives up.
+	if err := s.closeCheckoutQuietly(ctx, &b.Booking, b); err != nil {
 		return expiredHoldFailed
 	}
 	caller, err := expiryCaller(b)
