@@ -753,6 +753,12 @@ type RegistrationStore interface {
 	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+	// DuePaymentChecks, ClosePaymentCheck and DeferPaymentCheck are the expired
+	// holds MercadoPago is still to be asked about, before anyone is told the
+	// spot expired.
+	DuePaymentChecks(ctx context.Context, limit int) ([]eventstore.PaymentCheck, error)
+	ClosePaymentCheck(ctx context.Context, id uuid.UUID) (bool, error)
+	DeferPaymentCheck(ctx context.Context, id uuid.UUID) (int, error)
 }
 
 // RegistrationReminderManager finds the paid spots due their day-before
