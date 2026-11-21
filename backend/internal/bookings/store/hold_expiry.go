@@ -131,6 +131,39 @@ func (m *Store) RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.U
 	return int(n), err
 }
 
+// ExtendHold keeps a storefront booking's hold live for liveFor more while its
+// payment is in process (S8). Every reader decides a hold has lapsed from
+// created_at plus the payment window, so the hold is extended by moving
+// created_at forward to now + liveFor - window, never backwards. Only a booking
+// still pending and unpaid is touched; any other is left as it is and
+// ErrEditConflict returned.
+func (m *Store) ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error {
+	ctx, cancel := data.TxContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, complexID); err != nil {
+		return err
+	}
+	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
+		tag, err := tx.Exec(ctx, `
+			UPDATE bookings
+			SET created_at = GREATEST(created_at,
+			        NOW() + make_interval(secs => $2::float8) - make_interval(secs => $3::float8))
+			WHERE id = $1
+			  AND status = 'pending'
+			  AND collection_status = 'unpaid'
+			  AND created_by IS NULL`,
+			data.UUIDToPg(bookingID), liveFor.Seconds(), window.Seconds())
+		if err != nil {
+			return fmt.Errorf("extend hold: %w", err)
+		}
+		if tag.RowsAffected() == 0 {
+			return data.ErrEditConflict
+		}
+		return nil
+	})
+}
+
 // ReopenableByLatePaymentSQL is the SQL test, over the bookings row aliased
 // alias, for a booking a late online payment may reopen (S5): cancelled only
 // by hold expiry (a booking_hold_expiries row), never paid, owing no refund

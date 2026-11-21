@@ -86,7 +86,9 @@ type stubStore struct {
 	// The hold-expiry record: holdExpired is every booking ExpireHold wrote,
 	// expiredToReconcile what ExpiredHoldsToReconcile reads from, and
 	// holdReconciled/holdFailures what the sweep wrote back about them.
-	holdExpired        []uuid.UUID
+	holdExpired []uuid.UUID
+	// holdExtended is every booking ExtendHold kept live.
+	holdExtended       []uuid.UUID
 	expiredToReconcile []*bookingstore.CronBooking
 	holdReconciled     []uuid.UUID
 	holdFailures       map[uuid.UUID]int
@@ -461,6 +463,12 @@ func (s *stubStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) err
 		return err
 	}
 	s.holdExpired = append(s.holdExpired, b.ID)
+	return nil
+}
+
+// ExtendHold records the booking whose hold was kept live.
+func (s *stubStore) ExtendHold(_ context.Context, bookingID, _ uuid.UUID, _, _ time.Duration) error {
+	s.holdExtended = append(s.holdExtended, bookingID)
 	return nil
 }
 

@@ -923,6 +923,10 @@ func (m *mockBookingStore) ExpiredHoldsToReconcile(context.Context, time.Duratio
 
 func (m *mockBookingStore) MarkHoldReconciled(context.Context, uuid.UUID) error { return nil }
 
+func (m *mockBookingStore) ExtendHold(context.Context, uuid.UUID, uuid.UUID, time.Duration, time.Duration) error {
+	return nil
+}
+
 func (m *mockBookingStore) RecordHoldReconcileFailure(context.Context, uuid.UUID) (int, error) {
 	return 0, nil
 }

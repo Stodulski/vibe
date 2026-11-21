@@ -252,3 +252,37 @@ func TestExpireHoldLeavesABookingThatChangedSinceItWasRead(t *testing.T) {
 		})
 	}
 }
+
+// S8: a hold whose payment is in process is extended, and the extension is
+// what every reader honours: the hours stay taken for a new booking, and the
+// booking stays pending. A booking no longer pending is not touched.
+func TestExtendHoldKeepsTheHoursTaken(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	stale := newStaleBooking(t, f)
+	withCheckout(t, f, stale)
+
+	if err := f.Stores.Bookings.ExtendHold(ctx, stale.ID, stale.ComplexID, 6*time.Minute, 10*time.Minute); err != nil {
+		t.Fatalf("ExtendHold: %v", err)
+	}
+
+	err := f.Stores.Bookings.InsertSafe(ctx, f.NewBooking(overlappingBookingOptions()))
+	if !errors.Is(err, bookingstore.ErrSlotUnavailable) {
+		t.Fatalf("want the extended hold to keep its hours taken; got %v", err)
+	}
+	got, err := f.Stores.Bookings.GetByID(ctx, stale.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Status != "pending" {
+		t.Errorf("want the extended booking still pending; got %q", got.Status)
+	}
+
+	got.Status = "cancelled"
+	if err := f.Stores.Bookings.Update(ctx, got); err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if err := f.Stores.Bookings.ExtendHold(ctx, stale.ID, stale.ComplexID, 6*time.Minute, 10*time.Minute); !errors.Is(err, data.ErrEditConflict) {
+		t.Errorf("a cancelled booking must not be extended; got %v", err)
+	}
+}

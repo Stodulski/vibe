@@ -21,6 +21,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/waitlist"
@@ -258,8 +259,43 @@ func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.Cro
 	if approved {
 		s.logger.Warn("cron_release_expired_payments: booking was paid but never confirmed, reconciled instead of expired",
 			"booking_id", b.ID)
+		return true
 	}
-	return approved
+	return s.extendWhilePaymentInProcess(ctx, b, found)
+}
+
+// extendWhilePaymentInProcess keeps b's hold live while MercadoPago is still
+// processing a payment on it (S8, slot-hold gaps). The window exists so nobody
+// blocks a court without meaning to buy; a visitor whose payment is in process
+// is buying. Keeping the row pending is not enough, because every reader frees
+// the hours by the clock, so the hold itself is extended, one sweep at a time,
+// for at most inProcessHoldLimit after the attempt started. An attempt without
+// a start time, or past the bound, extends nothing and the booking expires as
+// before; a later approval is still reconciled by reconcileExpiredHolds.
+func (s *Service) extendWhilePaymentInProcess(ctx context.Context, b *bookingstore.CronBooking, found []mp.Payment) bool {
+	if s.holdExpiries == nil {
+		return false
+	}
+	for _, p := range found {
+		if p.ExternalReference != b.ID.String() || p.DateCreated.IsZero() ||
+			time.Since(p.DateCreated) >= inProcessHoldLimit {
+			continue
+		}
+		switch p.Status {
+		case "pending", "in_process", "authorized":
+		default:
+			continue
+		}
+		if err := s.holdExpiries.ExtendHold(ctx, b.ID, b.ComplexID, inProcessHoldStep, s.cfg.PaymentExpiry); err != nil {
+			s.logger.Error("cron_release_expired_payments: could not extend the hold of a booking whose payment is in process",
+				"error", err, "booking_id", b.ID, "mp_payment_id", p.ID)
+			return false
+		}
+		s.logger.Info("cron_release_expired_payments: payment in process, hold extended",
+			"booking_id", b.ID, "mp_payment_id", p.ID, "status", p.Status)
+		return true
+	}
+	return false
 }
 
 // paymentAlreadyRecorded reports whether the booking's ledger already holds a
@@ -293,7 +329,19 @@ type HoldExpiryStore interface {
 	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
 	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
 	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
+	// ExtendHold keeps a still pending, unpaid booking's hold live for
+	// liveFor more, given its payment window.
+	ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error
 }
+
+const (
+	// inProcessHoldLimit bounds how long after a payment attempt started its
+	// "in process" status keeps the court held (S8).
+	inProcessHoldLimit = time.Hour
+	// inProcessHoldStep is how much longer each sweep keeps such a hold: a
+	// little over the sweep's 5 minute cadence, so it never lapses between runs.
+	inProcessHoldStep = 6 * time.Minute
+)
 
 const (
 	// expiredHoldLookback is how long after its expiry a booking is still

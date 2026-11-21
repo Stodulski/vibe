@@ -396,6 +396,8 @@ type Payment struct {
 	FeeDetails                []FeeDetail    `json:"fee_details"`
 	Metadata                  map[string]any `json:"metadata"`
 	ExternalReference         string         `json:"external_reference"`
+	// DateCreated is when the payment attempt was started; zero when absent.
+	DateCreated time.Time `json:"date_created"`
 	// CollectorID is the MercadoPago user id of the seller who received the money.
 	// It must be checked against the complex's own MP user id: external_reference
 	// alone does not prove the payment was collected by the right seller.

@@ -514,6 +514,7 @@ type BookingHoldExpiryManager interface {
 	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
 	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
 	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
+	ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error
 }
 
 // BookingStore composes every booking-related store capability.
