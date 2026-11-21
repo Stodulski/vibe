@@ -185,6 +185,12 @@ type Notifier interface {
 	BookingConfirmed(c notifications.BookingConfirmation) error
 	DepositRefunded(r notifications.Refund) error
 	OwnerBookingRefunded(r notifications.OwnerBookingRefund)
+	// OwnerDuplicatePaymentRefunded tells the owner a client's second payment
+	// on a live booking went back on its own.
+	OwnerDuplicatePaymentRefunded(r notifications.OwnerDuplicatePaymentRefund)
+	// RefundOwedByVenue tells the client and the owner that money is owed back
+	// by hand, once nothing automatic can return it.
+	RefundOwedByVenue(r notifications.RefundOwed)
 }
 
 // SlotFreedNotifier hears about a slot that a refund put back on sale when it

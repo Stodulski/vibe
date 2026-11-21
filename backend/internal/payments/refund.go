@@ -356,10 +356,18 @@ func (s *Service) processRefundedPaymentFromBooking(ctx context.Context, booking
 // money alone, leaving them to show up for a game that no longer existed. It is
 // one email rather than two so one event does not reach the client twice.
 func (s *Service) sendRefundNotification(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string, cancelled bool) {
+	s.sendRefundNotificationWithReason(ctx, booking, refundCentavos, refundID, cancelled, "")
+}
+
+// sendRefundNotificationWithReason is sendRefundNotification with the sentence
+// saying why the money came back (refund_notices.go), for the refunds the
+// webhook issues on its own: the client did not ask for them.
+func (s *Service) sendRefundNotificationWithReason(ctx context.Context, booking *bookingstore.Booking, refundCentavos int, refundID string, cancelled bool, reason string) {
 	ref, ok := s.refundNotice(ctx, booking, refundCentavos, refundID)
 	if !ok {
 		return
 	}
+	ref.Reason = reason
 	if cancelled {
 		ref.Cancelled = true
 		ref.Date = booking.Date.Format("02/01")
@@ -434,7 +442,14 @@ func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim p
 	}
 
 	if manualOwed := s.manualOwedForBooking(ctx, booking.ID); manualOwed > 0 {
+		before := booking.RefundStatus
 		s.markManualBalanceOwed(ctx, booking)
+		// Told only when this call is what left the cash owed: the write
+		// committed and moved the booking to 'partial'. Only the cash balance
+		// is announced; the automatic half is still the retry job's.
+		if before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
+			s.announceRefundOwedByHand(ctx, booking, manualOwed, claim.AttemptID)
+		}
 	}
 }
 
