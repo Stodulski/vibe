@@ -555,6 +555,24 @@ func (m *mockComplexStore) ListComplexesNeedingMPRefresh(ctx context.Context) ([
 	return nil, nil
 }
 
+// MPRefreshFailureNotified answers that no episode was told, so a refused
+// refresh in a test queues its notice.
+func (m *mockComplexStore) MPRefreshFailureNotified(context.Context, uuid.UUID, string) (bool, error) {
+	return false, nil
+}
+
+func (m *mockComplexStore) RecordMPRefreshFailureNotice(context.Context, uuid.UUID, string) error {
+	return nil
+}
+
+func (m *mockComplexStore) ComplexOwnerAndName(context.Context, uuid.UUID) (uuid.UUID, string, error) {
+	return uuid.Nil, "", data.ErrRecordNotFound
+}
+
+func (m *mockComplexStore) ListUnflaggedExpiredInstagramConnections(context.Context, time.Time, int) ([]complexstore.ExpiredInstagramConnection, error) {
+	return nil, nil
+}
+
 func (m *mockComplexStore) SlugExists(ctx context.Context, slug string) (bool, error) {
 	if m.SlugExistsFn != nil {
 		return m.SlugExistsFn(ctx, slug)

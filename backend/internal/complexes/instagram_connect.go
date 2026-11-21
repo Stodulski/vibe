@@ -119,6 +119,11 @@ type InstagramDeps struct {
 	Audit    Recorder
 	Respond  *httpx.Responder
 	Logger   *slog.Logger
+	// Notify emails the owner when a connection needs reconnecting; Notices
+	// names the owner and lists the expired connections. Nil Notify or Notices
+	// sends nothing.
+	Notify  InstagramNotifier
+	Notices InstagramNoticeStore
 }
 
 // Instagram serves the connection routes and runs the token refresh.
@@ -130,6 +135,8 @@ type Instagram struct {
 	audit    Recorder
 	respond  *httpx.Responder
 	logger   *slog.Logger
+	notify   InstagramNotifier
+	notices  InstagramNoticeStore
 	cfg      InstagramConfig
 }
 
@@ -140,7 +147,7 @@ func NewInstagram(deps InstagramDeps, cfg InstagramConfig) *Instagram {
 	}
 	return &Instagram{
 		api: deps.API, store: deps.Store, stories: deps.Stories, attempts: deps.Attempts, audit: deps.Audit,
-		respond: deps.Respond, logger: deps.Logger, cfg: cfg,
+		respond: deps.Respond, logger: deps.Logger, notify: deps.Notify, notices: deps.Notices, cfg: cfg,
 	}
 }
 
@@ -456,11 +463,14 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 		return out
 	}
 	now := ig.cfg.Now()
+	out.Expired = ig.flagExpired(ctx, now)
+	// Whatever the one-by-one pass above did not reach (no notice store, or
+	// more than one batch) is flagged in bulk, without a notice.
 	expired, err := ig.store.MarkExpiredInstagramConnections(ctx, now)
 	if err != nil {
 		ig.logger.Error("instagram refresh: could not mark expired connections", "error", err)
 	}
-	out.Expired = int(expired)
+	out.Expired += int(expired)
 
 	due, unreadable, err := ig.store.ListInstagramTokensDueForRefresh(ctx, now, now.Add(instagramRefreshWindow), now.Add(-instagramRefreshMinAge), instagramRefreshBatch)
 	if err != nil {
@@ -479,8 +489,12 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 			// access. Say so now rather than reporting connected until the
 			// token runs out. Any other refusal (throttling, a 4xx about
 			// something else) is not proof of that and is retried below.
-			if _, markErr := ig.store.MarkInstagramNeedsReconnect(ctx, d.ComplexID, d.ExpiresAt); markErr != nil {
+			flagged, markErr := ig.store.MarkInstagramNeedsReconnect(ctx, d.ComplexID, d.ExpiresAt)
+			if markErr != nil {
 				ig.logger.Error("instagram refresh: could not flag a revoked token", "complex_id", d.ComplexID, "error", markErr)
+			}
+			if flagged {
+				instagramReconnectNotice(ctx, ig.notify, ig.notices, ig.logger, d.ComplexID, d.ExpiresAt)
 			}
 			out.Revoked++
 			ig.logger.Warn("instagram refresh: Meta refused the refresh; the owner must reconnect", "complex_id", d.ComplexID, "error", err)
@@ -505,6 +519,34 @@ func (ig *Instagram) RefreshTokens(ctx context.Context) InstagramRefreshOutcome 
 		out.Refreshed++
 	}
 	return out
+}
+
+// flagExpired flags, one by one, the connections whose token ran out, and
+// tells each owner whose connection this run flagged. Each flag matches the
+// expiry it was listed with, so a reconnect that landed in between is left
+// alone. It returns how many it flagged.
+func (ig *Instagram) flagExpired(ctx context.Context, now time.Time) int {
+	if ig.notices == nil {
+		return 0
+	}
+	expired, err := ig.notices.ListUnflaggedExpiredInstagramConnections(ctx, now, instagramRefreshBatch)
+	if err != nil {
+		ig.logger.Error("instagram refresh: could not list expired connections", "error", err)
+		return 0
+	}
+	flaggedCount := 0
+	for _, e := range expired {
+		flagged, err := ig.store.MarkInstagramNeedsReconnect(ctx, e.ComplexID, e.ExpiresAt)
+		if err != nil {
+			ig.logger.Error("instagram refresh: could not flag an expired connection", "complex_id", e.ComplexID, "error", err)
+			continue
+		}
+		if flagged {
+			flaggedCount++
+			instagramReconnectNotice(ctx, ig.notify, ig.notices, ig.logger, e.ComplexID, e.ExpiresAt)
+		}
+	}
+	return flaggedCount
 }
 
 // newInstagramState is the complex id, a dot, and 32 random bytes. The id only

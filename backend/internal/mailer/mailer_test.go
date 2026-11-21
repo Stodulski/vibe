@@ -391,6 +391,13 @@ func captureSent(t *testing.T) []string {
 				"https://app.vibe.test/kit", "https://vibe.test/unsub", "https://vibe.test/baja")
 		},
 		func() error { return m.SendOwnerNewBooking(ctx, to, complex, court, "Ana Perez", date, hours) },
+		func() error { return m.SendPasswordChanged(ctx, to, "Ana") },
+		func() error { return m.SendEmailChanged(ctx, to, "Ana", "ana@new.example") },
+		func() error { return m.SendAccountDeleted(ctx, to, "Ana") },
+		func() error { return m.SendOwnerMPConnected(ctx, to, complex) },
+		func() error { return m.SendOwnerMPDisconnected(ctx, to, complex) },
+		func() error { return m.SendOwnerMPRefreshFailed(ctx, to, complex) },
+		func() error { return m.SendOwnerInstagramReconnect(ctx, to, complex) },
 		func() error { return m.SendEmailVerification(ctx, to, "Ana", "https://vibe.test/verify?t=1") },
 		func() error { return m.SendPasswordReset(ctx, to, "Ana", "https://vibe.test/reset?t=2") },
 		func() error {

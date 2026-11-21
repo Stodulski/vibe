@@ -131,6 +131,10 @@ type InstagramStoriesDeps struct {
 	// explicit timeout.
 	Images *http.Client
 	Logger *slog.Logger
+	// Notify emails the owner when a refused token flags the connection;
+	// Owners names that owner. Nil Notify or Owners sends nothing.
+	Notify InstagramNotifier
+	Owners ComplexOwnerReader
 }
 
 // InstagramStories queues and publishes complexes' stories.
@@ -139,6 +143,8 @@ type InstagramStories struct {
 	store  InstagramStoryStore
 	images *http.Client
 	logger *slog.Logger
+	notify InstagramNotifier
+	owners ComplexOwnerReader
 	cfg    InstagramStoriesConfig
 }
 
@@ -156,7 +162,10 @@ func NewInstagramStories(deps InstagramStoriesDeps, cfg InstagramStoriesConfig) 
 	if deps.Images == nil {
 		deps.Images = &http.Client{Timeout: storyImageTimeout}
 	}
-	return &InstagramStories{api: deps.API, store: deps.Store, images: deps.Images, logger: deps.Logger, cfg: cfg}
+	return &InstagramStories{
+		api: deps.API, store: deps.Store, images: deps.Images, logger: deps.Logger,
+		notify: deps.Notify, owners: deps.Owners, cfg: cfg,
+	}
 }
 
 // SlotCancelled queues the story of a slot a cancellation freed, when the
@@ -563,7 +572,9 @@ func (s *InstagramStories) failed(ctx context.Context, st *complexstore.QueuedSt
 		defer cancel()
 		if markErr := s.store.MarkStoryAccountNeedsReconnect(markCtx, st.ComplexID, acct.ExpiresAt); markErr != nil {
 			s.logger.Error("instagram stories: could not flag the connection for reconnect", "complex_id", st.ComplexID, "error", markErr)
+			return state
 		}
+		s.tellReconnect(markCtx, st.ComplexID, acct.ExpiresAt)
 		return state
 	}
 	retryable := code == instagram.CodeMediaNotReady || code == instagram.CodeResourceMissing ||
@@ -637,4 +648,24 @@ func sameDay(day, t time.Time) bool {
 	v := t.In(timezone.Argentina)
 	y, m, d := day.Date()
 	return y == v.Year() && m == v.Month() && d == v.Day()
+}
+
+// tellReconnect tells the owner to reconnect when the connection is now
+// flagged for the token that failed. The flag only matches that token, so a
+// connection renewed in the meantime reads unflagged, or with another expiry,
+// and nobody is told. A second story failing on the same token reaches here
+// with the same episode, which the queue's dedup key makes one email.
+func (s *InstagramStories) tellReconnect(ctx context.Context, complexID uuid.UUID, failedExpiresAt time.Time) {
+	if s.notify == nil || s.owners == nil {
+		return
+	}
+	acct, err := s.store.StoryAccount(ctx, complexID)
+	if err != nil {
+		s.logger.Warn("instagram stories: could not read the connection to tell its owner", "complex_id", complexID, "error", err)
+		return
+	}
+	if !acct.NeedsReconnect || !acct.ExpiresAt.Equal(failedExpiresAt) {
+		return
+	}
+	instagramReconnectNotice(ctx, s.notify, s.owners, s.logger, complexID, failedExpiresAt)
 }

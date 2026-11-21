@@ -93,6 +93,12 @@ type Dependencies struct {
 	// Pages hears about each committed change to a complex's public page. Nil
 	// publishes nothing.
 	Pages PageIndexer
+	// Notify emails the owner when MercadoPago is connected, disconnected, or
+	// stops renewing the connection; RefreshNotices remembers which refusal
+	// the owner was told about. Nil Notify sends nothing; nil RefreshNotices
+	// sends no refresh-failure notice.
+	Notify         MPNotifier
+	RefreshNotices MPRefreshNoticeStore
 }
 
 // TokenRefresher renews a seller's MercadoPago OAuth credentials.
@@ -132,6 +138,8 @@ type Service struct {
 	logger   *slog.Logger
 	run      func(func())
 	pages    PageIndexer
+	notify   MPNotifier
+	notices  MPRefreshNoticeStore
 	cfg      Config
 
 	// refreshLockPoll and refreshLockWait pace and bound the wait for another
@@ -161,6 +169,8 @@ func NewService(deps Dependencies, cfg Config) *Service {
 		logger:   deps.Logger,
 		run:      deps.Run,
 		pages:    deps.Pages,
+		notify:   deps.Notify,
+		notices:  deps.RefreshNotices,
 		cfg:      cfg,
 
 		refreshLockPoll: mpRefreshLockPoll,
@@ -787,6 +797,7 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 	}
 
 	s.record(complexID, actor, "mp_connect", &complexID, nil, nil)
+	s.mpConnected(ctx, complexID)
 
 	return mpUserID, nil
 }
@@ -902,6 +913,7 @@ func (s *Service) DisconnectMercadoPago(ctx context.Context, complexID uuid.UUID
 	}
 
 	s.record(complexID, actor, "mp_disconnect", &complexID, nil, nil)
+	s.mpDisconnected(ctx, complexID)
 	return nil
 }
 

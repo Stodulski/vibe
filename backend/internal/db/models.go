@@ -720,6 +720,12 @@ type JobLock struct {
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 }
 
+type MpRefreshFailureNotice struct {
+	ComplexID  pgtype.UUID        `json:"complex_id"`
+	Episode    string             `json:"episode"`
+	NotifiedAt pgtype.Timestamptz `json:"notified_at"`
+}
+
 type OpenPlayEvent struct {
 	ID              pgtype.UUID        `json:"id"`
 	ComplexID       pgtype.UUID        `json:"complex_id"`
