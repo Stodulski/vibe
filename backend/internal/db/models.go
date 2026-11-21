@@ -644,6 +644,7 @@ type FailedRefund struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 	ResolvedAt   pgtype.Timestamptz `json:"resolved_at"`
+	Cause        pgtype.Text        `json:"cause"`
 }
 
 type InstagramConnection struct {

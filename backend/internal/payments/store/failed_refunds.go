@@ -145,6 +145,9 @@ type FailedRefund struct {
 	CreatedAt      time.Time  `json:"created_at"`
 	UpdatedAt      time.Time  `json:"updated_at"`
 	ResolvedAt     *time.Time `json:"resolved_at,omitempty"`
+	// Cause is why the refund was made when nobody asked for it, written by the
+	// claim; empty for a cancellation's refund and for rows older than it.
+	Cause RefundCause `json:"cause,omitempty"`
 }
 
 // FailedRefunds implements FailedRefundStore against PostgreSQL.
@@ -199,7 +202,8 @@ func (m *FailedRefunds) GetPendingDue(ctx context.Context) ([]*FailedRefund, err
 		       COALESCE(mp_payment_id, ''), COALESCE(error_message, ''),
 		       retry_count, max_retries, next_retry_at, status,
 		       created_at, updated_at, resolved_at,
-		       (SELECT p.registration_id FROM payments p WHERE p.id = failed_refunds.payment_id)
+		       (SELECT p.registration_id FROM payments p WHERE p.id = failed_refunds.payment_id),
+		       COALESCE(cause, '')
 		FROM failed_refunds
 		WHERE next_retry_at <= NOW()
 		  AND (status IN ('pending', 'exhausted')
@@ -377,7 +381,7 @@ func scanFailedRefunds(rows pgx.Rows) ([]*FailedRefund, error) {
 			&fr.ID, &fr.PaymentID, &bookingID, &fr.ComplexID,
 			&fr.Amount, &fr.MPPaymentID, &fr.ErrorMessage,
 			&fr.RetryCount, &fr.MaxRetries, &fr.NextRetryAt, &fr.Status,
-			&fr.CreatedAt, &fr.UpdatedAt, &fr.ResolvedAt, &fr.RegistrationID,
+			&fr.CreatedAt, &fr.UpdatedAt, &fr.ResolvedAt, &fr.RegistrationID, &fr.Cause,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("scan failed refund: %w", err)

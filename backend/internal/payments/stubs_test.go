@@ -311,6 +311,24 @@ func (s *stubPayments) InsertAndClaimRefund(ctx context.Context, p *paymentstore
 	return s.ClaimRefund(ctx, p.ID)
 }
 
+// InsertAndClaimRefundWithCause and ClaimRefundWithCause carry the cause onto
+// the claim, as the real store does when it writes the attempt row.
+func (s *stubPayments) InsertAndClaimRefundWithCause(ctx context.Context, p *paymentstore.Payment, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	claim, err := s.InsertAndClaimRefund(ctx, p)
+	if claim != nil {
+		claim.Cause = cause
+	}
+	return claim, err
+}
+
+func (s *stubPayments) ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	claim, err := s.ClaimRefund(ctx, paymentID)
+	if claim != nil {
+		claim.Cause = cause
+	}
+	return claim, err
+}
+
 func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*paymentstore.RefundClaim, error) {
 	if s.claimErr != nil {
 		return nil, s.claimErr

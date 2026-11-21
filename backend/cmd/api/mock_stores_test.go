@@ -1239,6 +1239,16 @@ func (m *mockPaymentStore) InsertAndClaimRefund(ctx context.Context, payment *pa
 	return nil, data.ErrRecordNotFound
 }
 
+// The cause variants answer like the plain claims: a mock with no claim set
+// still refuses.
+func (m *mockPaymentStore) ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, _ paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	return m.ClaimRefund(ctx, paymentID)
+}
+
+func (m *mockPaymentStore) InsertAndClaimRefundWithCause(ctx context.Context, payment *paymentstore.Payment, _ paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	return m.InsertAndClaimRefund(ctx, payment)
+}
+
 func (m *mockPaymentStore) RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (int, error) {
 	if m.RecordRefundSuccessFn != nil {
 		return m.RecordRefundSuccessFn(ctx, claim, manualOwedCentavos)

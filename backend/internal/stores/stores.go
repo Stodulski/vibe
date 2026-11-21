@@ -591,6 +591,10 @@ type PaymentRefunder interface {
 	// InsertAndClaimRefund records a new payment and claims its refund in one
 	// transaction; see payments.RefundStore.
 	InsertAndClaimRefund(ctx context.Context, payment *paymentstore.Payment) (*paymentstore.RefundClaim, error)
+	// ClaimRefundWithCause and InsertAndClaimRefundWithCause store why the
+	// webhook refunded on its own with the attempt; see payments.RefundStore.
+	ClaimRefundWithCause(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
+	InsertAndClaimRefundWithCause(ctx context.Context, payment *paymentstore.Payment, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error)
 	// manualOwedCentavos is the booking's still-outstanding cash/transfer
 	// balance; see the identical parameter on payments.PaymentStore.
 	RecordRefundSuccess(ctx context.Context, claim paymentstore.RefundClaim, manualOwedCentavos int) (refundTotal int, err error)

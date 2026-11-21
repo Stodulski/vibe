@@ -59,8 +59,8 @@ func TestAPartialPanelRefundIsToldToTheParticipant(t *testing.T) {
 	}
 	got := notifier.refunded[0]
 	if got.Email != "ana@example.com" || got.RegistrationID != reg.ID.String() || got.RefundedTotal != 300_000 ||
-		got.Amount != "$2.000" {
-		t.Errorf("refund notice = %+v; want the 2.000 moved this time, keyed on the 3.000 total", got)
+		got.Amount != "$2.000" || got.MPPaymentID != "mp-123" {
+		t.Errorf("refund notice = %+v; want the 2.000 moved this time, keyed on mp-123 and the 3.000 total", got)
 	}
 	if len(notifier.cancelled) != 0 {
 		t.Error("the spot is kept: no cancellation notice")

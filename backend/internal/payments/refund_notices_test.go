@@ -194,6 +194,42 @@ func TestAnExhaustedRefundTellsTheOwnerAndTheClientWhatIsOwedByHand(t *testing.T
 	}
 }
 
+// A confirmed booking paid at the counter in cash that receives a second,
+// MercadoPago payment whose refund runs out of retries owes nobody anything by
+// hand: the cash is the valid payment of a booking that stands. Neither the
+// client nor the owner may be told the complex returns it.
+func TestAnExhaustedDuplicateRefundOnALiveBookingTellsNobodyCashIsOwed(t *testing.T) {
+	withCapturedSentryEvents(t)
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, _ := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusConfirmed
+	cash := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+		Amount: 150_000, Status: "deposit_paid", Method: "cash",
+	}
+	f.payments.byBooking = cash
+	f.payments.byBookingAll = []*paymentstore.Payment{cash}
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	readableNotice(f, booking)
+	f.provider.refundErr = errProvider
+	f.payments.exhausted = true
+	f.provider.payment = &mp.Payment{
+		ID: 123, Status: "approved", TransactionAmount: 1500,
+		CollectorID: 111111111, ExternalReference: booking.ID.String(),
+	}
+
+	_ = f.service.processPaymentWebhook(t.Context(), "mp-123")
+
+	if len(f.payments.recordedFailure) != 1 {
+		t.Fatalf("setup: the duplicate's refund must be claimed and exhausted; got %d failures", len(f.payments.recordedFailure))
+	}
+	if len(f.notify.owedByVenue) != 0 {
+		t.Errorf("the booking stands, nothing is owed by hand; got %+v", f.notify.owedByVenue)
+	}
+}
+
 // S5: an exhausted refund with no cash balance owed by hand tells nobody: the
 // retry job keeps working on the automatic half.
 func TestAnExhaustedRefundWithNothingOwedByHandTellsNobody(t *testing.T) {

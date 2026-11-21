@@ -208,11 +208,11 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 	s.logger.Error("mp webhook: the spot was gone while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID)
 	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION SPOT GONE (auto-refunding): mp_payment_id=%s registration_id=%s", mpPaymentID, reg.ID))
-	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID, paymentstore.RefundCauseRegistrationSpotGone)
 	if err == nil && outcome.Result == paymentstore.RefundIssued {
 		// The same notice the retry job sends when it finishes such a refund,
 		// keyed on the registration and the amount, so one refund is one email.
-		s.notifyRegistrationRefund(ctx, reg.ID, outcome.AmountCentavos)
+		s.notifyRegistrationRefund(ctx, reg.ID, mpPaymentID, outcome.AmountCentavos)
 	}
 	return err
 }
@@ -222,11 +222,11 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID, why string) error {
 	s.logger.Error("mp webhook: duplicate registration payment, refunding it",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID, "why", why)
-	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID, paymentstore.RefundCauseRegistrationExtraPayment)
 	if err == nil && outcome.Result == paymentstore.RefundIssued {
 		// The spot is kept: the person is told this payment came back. The row
 		// is new, so what it refunded is both this move and its running total.
-		s.notifyRegistrationPanelRefund(ctx, reg.ID, outcome.AmountCentavos, outcome.AmountCentavos)
+		s.notifyRegistrationPanelRefund(ctx, reg.ID, mpPaymentID, outcome.AmountCentavos, outcome.AmountCentavos)
 	}
 	return err
 }
@@ -243,13 +243,13 @@ func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *event
 // behalf of a refund nothing durable knows about. The error is returned so the
 // event is retried. The outcome says whether the money already moved, which is
 // when the caller may tell the person; a queued refund is told by the retry job.
-func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) (paymentstore.RefundOutcome, error) {
+func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) (paymentstore.RefundOutcome, error) {
 	paid := int(math.Round(mpPayment.TransactionAmount * 100))
 	fee := min(reg.ServiceFee, paid)
-	claim, err := s.refunds.InsertAndClaimRefund(ctx, &paymentstore.Payment{
+	claim, err := s.refunds.InsertAndClaimRefundWithCause(ctx, &paymentstore.Payment{
 		RegistrationID: &reg.ID, ComplexID: reg.ComplexID, Amount: paid - fee, ServiceFee: fee,
 		Method: "mercadopago", Status: "deposit_paid", MPPaymentID: &mpPaymentID, StatusDetail: statusDetailPtr(mpPayment.StatusDetail),
-	})
+	}, cause)
 	switch {
 	case err == nil:
 	case errors.Is(err, paymentstore.ErrAlreadyRefunded), errors.Is(err, paymentstore.ErrRefundInFlight):
@@ -357,8 +357,11 @@ func (s *Service) refundRegistrationPayment(ctx context.Context, p *paymentstore
 
 // notifyRegistrationRefund tells a person that a refund the retry job finished
 // is back, the second half of the cancellation notice that said it was on its
-// way.
-func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID, refundTotal int) {
+// way. A sign-up that is still confirmed was not cancelled: the refund was a
+// second payment on it, so the person is told that payment came back, with the
+// notice the immediate path sends (refundExtraRegistrationPayment); the row is
+// the extra payment's own, so what it refunded is both this move and its total.
+func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID, mpPaymentID string, refundTotal int) {
 	if s.registrationNotify == nil || !s.registrationPaymentsEnabled() {
 		return
 	}
@@ -375,6 +378,12 @@ func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID,
 	complex, err := s.complexes.GetByID(ctx, reg.ComplexID)
 	if err != nil {
 		s.logger.Error("refund-retry: failed to fetch the complex", "error", err, "registration_id", regID)
+		return
+	}
+	if reg.Status == eventstore.RegistrationConfirmed {
+		n := notice.Refunded(reg, ev, complex, s.cfg.PublicURL, refundTotal, refundTotal)
+		n.MPPaymentID = mpPaymentID
+		s.registrationNotify.EventRefunded(n)
 		return
 	}
 	byOwner := reg.CancelledBy != nil && *reg.CancelledBy == eventstore.CancelledByOwner
@@ -462,14 +471,14 @@ func (s *Service) recordRegistrationPanelRefund(ctx context.Context, payment *pa
 		Result:         string(paymentstore.RefundIssued),
 		Reason:         mpPayment.StatusDetail,
 	})
-	s.notifyRegistrationPanelRefund(ctx, *payment.RegistrationID, movedNow, payment.RefundAmount)
+	s.notifyRegistrationPanelRefund(ctx, *payment.RegistrationID, mpPaymentID, movedNow, payment.RefundAmount)
 	return nil
 }
 
 // notifyRegistrationPanelRefund tells a person part of their payment came back
 // from the owner's MercadoPago panel. It runs after the refund is recorded and
 // never fails it: a notice that cannot be built is logged.
-func (s *Service) notifyRegistrationPanelRefund(ctx context.Context, regID uuid.UUID, movedCentavos, refundedTotal int) {
+func (s *Service) notifyRegistrationPanelRefund(ctx context.Context, regID uuid.UUID, mpPaymentID string, movedCentavos, refundedTotal int) {
 	if s.registrationNotify == nil || movedCentavos <= 0 {
 		return
 	}
@@ -488,7 +497,11 @@ func (s *Service) notifyRegistrationPanelRefund(ctx context.Context, regID uuid.
 		s.logger.Error("mp webhook: cannot tell a participant of their panel refund, complex unreadable", "error", err, "registration_id", regID)
 		return
 	}
-	s.registrationNotify.EventRefunded(notice.Refunded(reg, ev, complex, s.cfg.PublicURL, movedCentavos, refundedTotal))
+	// The payment names the refund in the notice's key, so two payments of one
+	// sign-up refunded for the same amount are two notices.
+	n := notice.Refunded(reg, ev, complex, s.cfg.PublicURL, movedCentavos, refundedTotal)
+	n.MPPaymentID = mpPaymentID
+	s.registrationNotify.EventRefunded(n)
 }
 
 // collectedForASpotNeverGiven reports whether a collected payment row belongs to

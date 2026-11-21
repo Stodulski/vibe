@@ -446,8 +446,12 @@ func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim p
 		s.markManualBalanceOwed(ctx, booking)
 		// Told only when this call is what left the cash owed: the write
 		// committed and moved the booking to 'partial'. Only the cash balance
-		// is announced; the automatic half is still the retry job's.
-		if before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
+		// is announced; the automatic half is still the retry job's. Only a
+		// cancelled booking owes its cash back: on one that stands (a second
+		// payment's refund ran out) the cash is the valid payment of the
+		// booking, and ManualRefund refuses it anyway.
+		if booking.Status == bookingstore.BookingStatusCancelled &&
+			before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
 			s.announceRefundOwedByHand(ctx, booking, manualOwed, claim.AttemptID)
 		}
 	}
@@ -1422,10 +1426,13 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 
 // notifyRetriedRefund tells the client about a refund the retry job completed.
 // The amount is the total RecordRefundSuccess actually wrote, so the message
-// cannot disagree with the row.
+// cannot disagree with the row. The cause the claim stored on the attempt gives
+// the same reason, and the same owner notice, the immediate path gives; an
+// attempt with none (a cancellation's refund, or a row older than the column)
+// gets the plain notice.
 func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
 	if fr.RegistrationID != nil {
-		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, refundTotal)
+		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, fr.MPPaymentID, refundTotal)
 		return
 	}
 	booking, bErr := s.bookings.GetByID(ctx, fr.BookingID)
@@ -1433,7 +1440,7 @@ func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.Fail
 		s.logger.Error("refund-retry: failed to fetch booking", "error", bErr, "booking_id", fr.BookingID)
 		return
 	}
-	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(fr.MPPaymentID, refundTotal), false)
+	s.announceAutomaticRefund(ctx, booking, fr.MPPaymentID, refundTotal, fr.Cause)
 }
 
 // refundIntentGrace is how long a booking's refund-intent marker

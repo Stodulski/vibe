@@ -81,6 +81,21 @@ func TestEventRefundedIsOneNoticePerRefund(t *testing.T) {
 	}
 }
 
+// Two different extra payments of the same amount on one sign-up are two
+// refunds: each payment's refund is its own notice.
+func TestEventRefundedTellsEachPaymentsRefundApart(t *testing.T) {
+	s, q, _, _ := newTestService(t)
+	s.EventRefunded(EventRefund{Email: "ana@example.com", Amount: "$ 8.200", RegistrationID: "reg-1", MPPaymentID: "mp-1", RefundedTotal: 820000})
+	s.EventRefunded(EventRefund{Email: "ana@example.com", Amount: "$ 8.200", RegistrationID: "reg-1", MPPaymentID: "mp-2", RefundedTotal: 820000})
+	if len(q.tasks) != 2 || q.tasks[0].dedupKey == q.tasks[1].dedupKey {
+		t.Fatalf("two payments refunded must be two notices; got %+v", q.tasks)
+	}
+	s.EventRefunded(EventRefund{Email: "ana@example.com", Amount: "$ 8.200", RegistrationID: "reg-1", MPPaymentID: "mp-1", RefundedTotal: 820000})
+	if q.tasks[2].dedupKey != q.tasks[0].dedupKey {
+		t.Error("the same payment's refund told again must carry the same key")
+	}
+}
+
 func TestEventReminderReportsTheQueuesRefusal(t *testing.T) {
 	s, q, _, _ := newTestService(t)
 	if err := s.EventReminderDue(EventReminder{RegistrationID: "reg-1"}); err != nil || len(q.tasks) != 0 {
