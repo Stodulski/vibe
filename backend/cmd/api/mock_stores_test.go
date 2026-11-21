@@ -21,6 +21,7 @@ import (
 	productstore "github.com/stodulski/vibe-server/internal/products/store"
 	reportstore "github.com/stodulski/vibe-server/internal/reporting/store"
 	salestore "github.com/stodulski/vibe-server/internal/sales/store"
+	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
 
 // ---------------------------------------------------------------------------
@@ -1773,3 +1774,9 @@ func (m *mockEventStore) DueReminders(context.Context, time.Time) ([]eventstore.
 }
 
 func (m *mockEventStore) MarkReminded(context.Context, uuid.UUID) error { return nil }
+
+func (m *mockTournamentStore) DueMatchReminders(context.Context, time.Time) ([]tournamentstore.DueMatch, error) {
+	return nil, nil
+}
+
+func (m *mockTournamentStore) MarkMatchReminded(context.Context, uuid.UUID) error { return nil }

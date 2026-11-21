@@ -131,9 +131,11 @@ type application struct {
 	// event cancellation started.
 	openPlay        *openplay.Handler
 	openPlayService *openplay.Service
-	// tournaments serves the tournament routes.
-	tournaments *tournaments.Handler
-	scheduler   *scheduler.Scheduler
+	// tournaments serves the tournament routes; tournamentsService is held apart
+	// because the scheduler sends the two-hour match reminders.
+	tournaments        *tournaments.Handler
+	tournamentsService *tournaments.Service
+	scheduler          *scheduler.Scheduler
 	// social serves the content sync; socialPublisher publishes due posts.
 	social          *social.Handler
 	socialPublisher *social.Publisher

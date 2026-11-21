@@ -943,6 +943,10 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Realtime: events,
 		Audit:    auditor,
 		Logger:   d.logger,
+		// The players hear of the draw and of their own matches.
+		Complexes: complexesService,
+		Notify:    notify,
+		PublicURL: cfg.PublicBaseURL(),
 	})
 	openPlayService.SetTournaments(tournamentsService)
 	tournamentsHandler := tournaments.NewHandler(tournamentsService, respond, d.trustedProxies, signUpGate)
@@ -992,6 +996,7 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	app.bookingsService = bookingsService
 	app.openPlay = openPlayHandler
 	app.openPlayService = openPlayService
+	app.tournamentsService = tournamentsService
 	app.tournaments = tournamentsHandler
 	app.complexes = complexesHandler
 	app.complexesService = complexesService

@@ -774,11 +774,19 @@ type TournamentWriter interface {
 	PairHooks(payer, partner tournamentstore.Player) *eventstore.SignUpHooks
 }
 
+// MatchReminderManager finds the scheduled matches due their two-hour reminder
+// and marks them once it is queued.
+type MatchReminderManager interface {
+	DueMatchReminders(ctx context.Context, now time.Time) ([]tournamentstore.DueMatch, error)
+	MarkMatchReminded(ctx context.Context, matchID uuid.UUID) error
+}
+
 // TournamentsStore composes every tournaments capability: one concrete store
 // (internal/tournaments/store) satisfies all of them.
 type TournamentsStore interface {
 	TournamentReader
 	TournamentWriter
+	MatchReminderManager
 }
 
 // ---------------------------------------------------------------------------
