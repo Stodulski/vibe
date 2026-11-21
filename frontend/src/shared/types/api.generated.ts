@@ -576,6 +576,26 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/complexes/{id}/open-play-events/{eventID}/registrations/{registrationID}/withdraw': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw one participant from an open-play event
+     * @description The owner takes one person out of the event. Their spot ends as cancelled by the owner and whatever they paid is refunded in full through MercadoPago, service fee included, whatever the complex's cancellation window says; a refund MercadoPago cannot complete now stays queued and is retried. The person is told by email with the owner's cancellation notice; the owner is not. Refused with `400` once the event has started, and for a spot that is already over.
+     */
+    post: operations['eventsRegistrationWithdraw'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/complexes/{id}/bookings/{bookingID}': {
     parameters: {
       query?: never;
@@ -1040,6 +1060,94 @@ export interface paths {
     patch?: never;
     trace?: never;
   };
+  '/api/v1/complexes/{id}/instagram': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the complex's Instagram connection status
+     * @description Never carries the token. `connected` is true only while the stored token is usable (not expired and not marked); a connection whose token expired or could not be refreshed in time answers `connected: false` and `needs_reconnect: true`, with its username kept, and the owner connects again.
+     */
+    get: operations['complexesInstagramStatus'];
+    put?: never;
+    post?: never;
+    /**
+     * Disconnect the complex's Instagram account
+     * @description Deletes the stored connection and its token, and turns both story types off in the same statement, so connecting again publishes nothing until the owner turns them back on. Disconnecting a complex with no connection is not an error. The token is not revoked at Meta; the account owner can remove the app from their Instagram settings.
+     */
+    delete: operations['complexesDisconnectInstagram'];
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/instagram/connect': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Start connecting the complex's Instagram professional account
+     * @description Registers a single-use attempt for 15 minutes, sets an HttpOnly state cookie scoped to `/api/v1/instagram/callback` that binds the attempt to this browser, and answers the Instagram consent page URL the panel navigates to. Business Login for Instagram, scopes `instagram_business_basic,instagram_business_content_publish`. No request body.
+     */
+    post: operations['complexesConnectInstagram'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/instagram/stories': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Get the complex's Instagram story settings and latest stories
+     * @description A complex that never saved its settings answers the defaults: both story types off, daily time 10:00, freed cap 5. Connecting Instagram publishes nothing until the owner turns a story type on. `recent` is the latest 10 stories, newest first.
+     */
+    get: operations['complexesInstagramStories'];
+    /**
+     * Save the complex's Instagram story settings
+     * @description All four fields are required. The daily story goes out once per venue day at or after `daily_time`; turning it on at or after today's `daily_time` starts it the next venue day, and a later save while it stays on (a new `daily_time`) keeps that start. A freed story goes out when a confirmed booking is cancelled and its slot starts between 1 and 48 hours later, at most `freed_daily_cap` per venue day. Nothing is published from 23:00 to 08:00 venue time. Disconnecting Instagram turns both story types off.
+     */
+    put: operations['complexesUpdateInstagramStories'];
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/instagram/callback': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    /**
+     * Finish connecting a complex's Instagram account
+     * @description Meta's redirect target. Public, because the browser arrives from Instagram. The state must match the cookie set by the connect call and name an unspent attempt; the attempt, not the request, says which complex the connection is stored for, and the write is scoped to that complex. The code is exchanged for a long-lived token (60 days), stored sealed. Always answers 303 to the panel: `<FRONTEND_URL>/settings?tab=instagram&instagram=connected`, or `...&instagram=error&reason=` one of `expired` (state missing, not this browser's, unknown, expired or already spent; nothing stored), `denied` (consent not given), `failed` (Meta refused the exchange), `unavailable` (Meta unreachable, or the feature is off).
+     */
+    get: operations['complexesInstagramCallback'];
+    put?: never;
+    post?: never;
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
   '/api/v1/public/complexes/{slug}/waitlist': {
     parameters: {
       query?: never;
@@ -1054,6 +1162,26 @@ export interface paths {
      * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one day of the complex. Joining again for the same address and day answers the same `204`. The email is sent once, the first time a booking on that day is cancelled or expires. The daily cleanup drops entries whose day has passed.
      */
     post: operations['waitlistJoin'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/public/complexes/{slug}/waitlist/places': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Ask to be emailed when one place frees up in a full event, tournament category or court slot
+     * @description Public. Cross-tenant bypass reason `resolves`. Puts the email on the waitlist for one place of the complex: a spot of an open-play event (`open_play`, `event_id`), a pair's spot of a tournament category whose sign-up is still open (`tournament_category`, `category_id`), or one court slot (`slot`, `court_id`, `date`, `start_time`, `duration_minutes`). A slot wait can name `court_ids` instead of `court_id`: the address then waits for that hour on every court listed (the storefront sends every court taken at that hour), each emailed on its own as it frees; `422` names `start_time` if any of them is free now, and the per-address cap counts every court. Joining again for the same address and place while still waiting answers the same `204`; after the notice was sent, joining again waits again and is told again. Only a full place can be waited for: `422` names `event_id` / `category_id` / `start_time` when the place has a spot free now (book it instead), `start_time` when the slot is not on the court's grid for that date and duration or has already begun, and `email` when the address is already waiting for 20 places at the complex. Throttled under the same `hold` ceiling as the sign-ups. Every address waiting for a place is emailed once, all at the same time, within about a minute of a spot freeing (a cancellation, a refund or an unpaid hold that ran out); nothing is held for them, the first to pay keeps it. Nothing is sent once the event or slot has started. When Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`), the request must also carry a valid `turnstile_token`, as the open-play and tournament sign-ups do.
+     */
+    post: operations['waitlistJoinPlace'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1138,6 +1266,26 @@ export interface paths {
      * @description Refunds and tells every paid pair of the category as `tournamentsCancel` does, and releases the courts its scheduled matches held. The rest of the tournament goes on.
      */
     post: operations['tournamentsCategoryCancel'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/complexes/{id}/tournaments/{tournamentID}/categories/{categoryID}/pairs/{registrationID}/withdraw': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Withdraw one pair from a tournament category
+     * @description The owner takes one pair out of the category. Its spot ends as cancelled by the owner and whatever it paid is refunded in full, after the draw too; the payer is told by email with the owner's cancellation notice. After the draw the pair leaves the bracket as a pair that withdrew itself does: its matches become walkovers and its name stays on the bracket. Allowed while the tournament is not over; refused with `400` once its last day has passed (Argentina), for a cancelled category, and for a spot that is already over.
+     */
+    post: operations['tournamentsPairWithdraw'];
     delete?: never;
     options?: never;
     head?: never;
@@ -3384,7 +3532,7 @@ export interface components {
       /** Format: date-time */
       created_at: string;
     };
-    /** @description `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads. */
+    /** @description `status` is `open` (taking sign-ups while spots are left), `closed` (the draw exists, or the tournament's start date has begun in Argentina) or `cancelled`. `service_fee` and `total_price` (what a pair pays) are present on public reads. */
     TournamentCategory: {
       /** Format: uuid */
       id: string;
@@ -3477,8 +3625,10 @@ export interface components {
     TournamentOwnerPair: components['schemas']['TournamentPair'] & {
       payer: components['schemas']['TournamentOwnerPlayer'];
       partner: components['schemas']['TournamentOwnerPlayer'];
-      /** @description The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). */
+      /** @description The payer's spot, as an open-play participant's (`held`, `confirmed`, `cancelled`). `id` is what `tournamentsPairWithdraw` names the pair by. */
       registration: {
+        /** Format: uuid */
+        id: string;
         /** @enum {string} */
         status: 'held' | 'confirmed' | 'cancelled' | 'expired';
         price: number;
@@ -3610,6 +3760,11 @@ export interface components {
       matches: components['schemas']['TournamentMatch'][];
       complex_name: string;
       cancellation_hours: number;
+    };
+    RegistrationWithdrawal: {
+      /** Format: uuid */
+      registration_id: string;
+      refund: components['schemas']['RefundOutcome'];
     };
     TournamentRefunds: {
       /** Format: uuid */
@@ -4174,6 +4329,7 @@ export interface components {
     PathCity: string;
     BookingID: string;
     EventID: string;
+    RegistrationID: string;
     TournamentID: string;
     CategoryID: string;
     MatchID: string;
@@ -5718,6 +5874,45 @@ export interface operations {
       500: components['responses']['ServerError'];
     };
   };
+  eventsRegistrationWithdraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        eventID: components['parameters']['EventID'];
+        registrationID: components['parameters']['RegistrationID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The withdrawn participant and their refund. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RegistrationWithdrawal'];
+        };
+      };
+      /** @description The event has started, or the spot is already over. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
   bookingsGet: {
     parameters: {
       query?: never;
@@ -7192,6 +7387,273 @@ export interface operations {
       500: components['responses']['ServerError'];
     };
   };
+  complexesInstagramStatus: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Connection status. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @description False when INSTAGRAM_CONNECT_ENABLED is off, the Instagram app id or secret is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the signed-in owner's email is not on it: connect is then refused. */
+            enabled: boolean;
+            connected: boolean;
+            /** @description A connection exists but its token is no longer usable. */
+            needs_reconnect: boolean;
+            username: string | null;
+            /** @description As Meta reports it, uppercased (BUSINESS or MEDIA_CREATOR). */
+            account_type: string | null;
+            /** Format: date-time */
+            expires_at: string | null;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesDisconnectInstagram: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Disconnected. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** @example false */
+            connected: boolean;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  complexesConnectInstagram: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The consent page to send the owner to. */
+      200: {
+        headers: {
+          /** @description The state cookie, HttpOnly, SameSite=Lax, path /api/v1/instagram/callback. */
+          'Set-Cookie'?: string;
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            /** Format: uri */
+            authorize_url: string;
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The Instagram connection is not available: INSTAGRAM_CONNECT_ENABLED is off or the Instagram app id or secret is unset. Nothing was registered. */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesInstagramStories: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Settings and latest stories. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            settings: {
+              /** @description The daily story of the day's free hours. */
+              daily_enabled: boolean;
+              /**
+               * @description Venue time (America/Argentina/Buenos_Aires), HH:MM from 08:00 to 22:00.
+               * @example 10:00
+               */
+              daily_time: string;
+              /** @description A story for each booked slot a cancellation frees. */
+              freed_enabled: boolean;
+              /** @description Freed stories queued per venue day at most. */
+              freed_daily_cap: number;
+            };
+            recent: {
+              /** @enum {string} */
+              kind: 'daily' | 'freed';
+              /** @enum {string} */
+              status: 'pending' | 'published' | 'skipped' | 'failed';
+              /** Format: date-time */
+              scheduled_for: string;
+              /** Format: date-time */
+              published_at: string | null;
+              /** @description Why a story was skipped or failed, or what a pending one waits for. A skipped story carries one of these stable codes: `nothing_to_show` (nothing is free any more, or the freed slot was taken again), `disabled` (the owner turned this story type off), `account_unusable` (Instagram is not connected or needs a reconnect), `day_passed` (the story's venue day is over, or its container was created on an earlier venue day), `too_close` (the freed slot starts in less than an hour). A failed story carries a technical cause, free text with no token. A pending story's text is informational. */
+              reason: string | null;
+            }[];
+          };
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description Instagram is not offered to this owner: INSTAGRAM_CONNECT_ENABLED is off, the Instagram app id or secret is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the owner's email is not on it (the same rule as connect). */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesUpdateInstagramStories: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          daily_enabled?: boolean;
+          /** @example 10:00 */
+          daily_time?: string;
+          freed_enabled?: boolean;
+          freed_daily_cap?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description The saved settings. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            settings: {
+              /** @description The daily story of the day's free hours. */
+              daily_enabled: boolean;
+              /**
+               * @description Venue time (America/Argentina/Buenos_Aires), HH:MM from 08:00 to 22:00.
+               * @example 10:00
+               */
+              daily_time: string;
+              /** @description A story for each booked slot a cancellation frees. */
+              freed_enabled: boolean;
+              /** @description Freed stories queued per venue day at most. */
+              freed_daily_cap: number;
+            };
+          };
+        };
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description Instagram is not offered to this owner: INSTAGRAM_CONNECT_ENABLED is off, the Instagram app id or secret is unset, or INSTAGRAM_CONNECT_ALLOWED_EMAILS is set and the owner's email is not on it (the same rule as connect). */
+      501: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  complexesInstagramCallback: {
+    parameters: {
+      query?: {
+        code?: string;
+        state?: string;
+        error?: string;
+        error_reason?: string;
+        error_description?: string;
+      };
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Back to the panel's settings, with the outcome in the query string. */
+      303: {
+        headers: {
+          /** @description The panel settings URL carrying the outcome. */
+          Location?: string;
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+    };
+  };
   waitlistJoin: {
     parameters: {
       query?: never;
@@ -7232,6 +7694,83 @@ export interface operations {
         };
       };
       /** @description Unknown slug, or the complex is inactive. */
+      404: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+    };
+  };
+  waitlistJoinPlace: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        slug: components['parameters']['PathSlug'];
+      };
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          /** @description Trimmed and lowercased before it is stored. */
+          email: string;
+          /** @description Required only when Cloudflare Turnstile is configured and enforcement is on (`TURNSTILE_BOOKING_ENFORCE`). */
+          turnstile_token?: string;
+          /** @enum {string} */
+          kind: 'open_play' | 'tournament_category' | 'slot';
+          /**
+           * Format: uuid
+           * @description Required for `open_play`. A live open-play event of the complex that has not started.
+           */
+          event_id?: string;
+          /**
+           * Format: uuid
+           * @description Required for `tournament_category`. A category of the complex whose sign-up is open.
+           */
+          category_id?: string;
+          /**
+           * Format: uuid
+           * @description Required for `slot` unless `court_ids` is sent. An active court of the complex.
+           */
+          court_id?: string;
+          /** @description For `slot`, in place of `court_id`: every court to wait on at that hour. Each must be an active court of the complex, taken at that hour. */
+          court_ids?: string[];
+          /**
+           * Format: date
+           * @description Required for `slot`. The storefront day, `YYYY-MM-DD`, from today up to 365 days ahead.
+           */
+          date?: string;
+          /** @description Required for `slot`. The slot's start on the storefront grid, `HH:MM`. */
+          start_time?: string;
+          /** @description Required for `slot`. The slot's length in minutes. */
+          duration_minutes?: number;
+        };
+      };
+    };
+    responses: {
+      /** @description On the waitlist for that place. Empty body. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed JSON body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      /** @description Unknown slug or inactive complex, or the event, category or court is not the complex's or can no longer be waited for (cancelled, started, draw generated). */
       404: {
         headers: {
           [name: string]: unknown;
@@ -7512,6 +8051,46 @@ export interface operations {
       403: components['responses']['Forbidden'];
       404: components['responses']['NotFound'];
       422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  tournamentsPairWithdraw: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        /** @description Complex id. */
+        id: components['parameters']['PathID'];
+        tournamentID: components['parameters']['TournamentID'];
+        categoryID: components['parameters']['CategoryID'];
+        registrationID: components['parameters']['RegistrationID'];
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The withdrawn pair and its refund. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': components['schemas']['RegistrationWithdrawal'];
+        };
+      };
+      /** @description The tournament is over, the category is cancelled, or the spot is already over. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      401: components['responses']['Unauthorized'];
+      403: components['responses']['Forbidden'];
+      404: components['responses']['NotFound'];
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];
     };
@@ -8455,6 +9034,7 @@ export interface operations {
   courtsPublicAvailability: {
     parameters: {
       query: {
+        /** @description The grid day, in the venue's calendar. Yesterday is accepted, because a window that trades past midnight still sells its after-midnight hours today; any earlier day is refused with `422`. */
         date: string;
         /** @description Defaults to the platform's default slot duration. Must be one of the permitted durations. */
         duration?: number;
