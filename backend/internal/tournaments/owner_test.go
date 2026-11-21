@@ -10,9 +10,9 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events"
-	"github.com/stodulski/vibe-server/internal/timezone"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/tournaments/draw"
 	tournamentstore "github.com/stodulski/vibe-server/internal/tournaments/store"
 )
