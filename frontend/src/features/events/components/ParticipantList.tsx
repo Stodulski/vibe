@@ -1,3 +1,4 @@
+import { OverflowMenu } from '@/shared/components/common/OverflowMenu';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { PADEL_SPORT, playerTraitsLabel } from '@/shared/lib/traitLabels';
 import { cn, formatPrice } from '@/shared/lib/utils';
@@ -35,7 +36,15 @@ function cancelledBy(participant: OpenPlayParticipant): string | null {
   return null;
 }
 
-function ParticipantRow({ participant, sport }: { participant: OpenPlayParticipant; sport: string }) {
+function ParticipantRow({
+  participant,
+  sport,
+  onWithdraw,
+}: {
+  participant: OpenPlayParticipant;
+  sport: string;
+  onWithdraw?: (() => void) | undefined;
+}) {
   const key = participantStatusKey(participant);
   const traits = playerTraitsLabel({ ...participant, sport });
   const detail = [moneyLine(participant), cancelledBy(participant)].filter(Boolean).join(' · ');
@@ -56,18 +65,33 @@ function ParticipantRow({ participant, sport }: { participant: OpenPlayParticipa
         {traits && <p className="text-text-secondary mt-0.5 text-xs">{traits}</p>}
         {detail && <p className="text-text-tertiary mt-0.5 text-xs">{detail}</p>}
       </div>
-      <span className={cn('shrink-0 text-xs font-medium', STATUS_STYLES[key])}>{t.participant[key]}</span>
+      <div className="flex shrink-0 items-center gap-1.5">
+        <span className={cn('text-xs font-medium', STATUS_STYLES[key])}>{t.participant[key]}</span>
+        {onWithdraw && (
+          <OverflowMenu
+            label={t.withdraw.actions(`${participant.first_name} ${participant.last_name}`)}
+            items={[{ kind: 'action', key: 'withdraw', label: t.withdraw.action, onClick: onWithdraw }]}
+          />
+        )}
+      </div>
     </li>
   );
 }
 
-/** Everyone who held a spot, each with their own payment state. */
+/** Whether the spot is still live, so the owner can take the person out. */
+function withdrawable(participant: OpenPlayParticipant): boolean {
+  return participant.status === 'held' || participant.status === 'confirmed';
+}
+
+/** Everyone who held a spot, each with their own payment state; with onWithdraw, a live spot's menu lets the owner take the person out. */
 export function ParticipantList({
   participants,
   sport = PADEL_SPORT,
+  onWithdraw,
 }: {
   participants: OpenPlayParticipant[];
   sport?: string;
+  onWithdraw?: (participant: OpenPlayParticipant) => void;
 }) {
   if (participants.length === 0) {
     return <p className="text-text-tertiary text-sm">{t.detail.noParticipants}</p>;
@@ -75,7 +99,18 @@ export function ParticipantList({
   return (
     <ul aria-label={t.detail.participants}>
       {participants.map((participant) => (
-        <ParticipantRow key={participant.id} participant={participant} sport={sport} />
+        <ParticipantRow
+          key={participant.id}
+          participant={participant}
+          sport={sport}
+          onWithdraw={
+            onWithdraw && withdrawable(participant)
+              ? () => {
+                  onWithdraw(participant);
+                }
+              : undefined
+          }
+        />
       ))}
     </ul>
   );
