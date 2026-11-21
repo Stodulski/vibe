@@ -216,7 +216,7 @@ func newFlagSet(cfg *Config) *flag.FlagSet {
 
 	fs.DurationVar(&cfg.Booking.GracePeriod, "booking-grace-period", 15*time.Minute,
 		"Grace period for refund after booking creation (BOOKING_GRACE_PERIOD)")
-	fs.DurationVar(&cfg.Booking.PaymentExpiry, "booking-payment-expiry", 15*time.Minute,
+	fs.DurationVar(&cfg.Booking.PaymentExpiry, "booking-payment-expiry", 10*time.Minute,
 		"Time before unpaid booking is auto-cancelled (BOOKING_PAYMENT_EXPIRY)")
 	fs.DurationVar(&cfg.Booking.CancellationWindow, "booking-cancellation-window", 24*time.Hour,
 		"Default cancellation window before game start (BOOKING_CANCELLATION_WINDOW)")

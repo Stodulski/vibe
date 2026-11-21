@@ -171,7 +171,7 @@ RETURNING *;
 -- GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
 --
 -- payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
--- default 15 minutes — see internal/stores), passed as a parameter
+-- default 10 minutes — see internal/stores), passed as a parameter
 -- rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
 -- in internal/data/slotguard takes hold as an argument: this carve-out and
 -- the insert-time collision guard have to agree on the same number, or a

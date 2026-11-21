@@ -837,7 +837,7 @@ type TournamentsStore interface {
 // the default of the -booking-payment-expiry flag, and it exists so a zero Config
 // cannot be read as "no hold at all" — that would make every unpaid public
 // booking stale the instant it is created and stop it holding its slot.
-const defaultPaymentExpiry = 15 * time.Minute
+const defaultPaymentExpiry = 10 * time.Minute
 
 // Config is what the stores need from application configuration.
 //

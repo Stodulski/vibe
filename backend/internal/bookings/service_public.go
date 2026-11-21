@@ -207,7 +207,8 @@ func (s *Service) PublicBook(ctx context.Context, actor Actor, in PublicBookInpu
 
 	// Acquire a slot lock over the whole booking span to prevent the race
 	// condition where another user books the same slot while this user is
-	// completing the MP payment (~15 min window).
+	// completing the MP payment (the BOOKING_PAYMENT_EXPIRY window, 10 minutes
+	// by default).
 	//
 	// This used to be one lock per fixed-size chunk, one per consecutive slot
 	// the booking spanned. Now that a booking's length is chosen per request
