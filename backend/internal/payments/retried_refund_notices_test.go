@@ -143,3 +143,45 @@ func TestARetriedRefundWithNoCauseSendsThePlainNotice(t *testing.T) {
 		t.Error("no cause, no owner email")
 	}
 }
+
+// extraRegistrationPayment seeds a confirmed sign-up that a second payment,
+// mp-123, lands on.
+func extraRegistrationPayment(t *testing.T) (*fixture, *mp.Payment, *stubRegistrationNotifier, func() error) {
+	t.Helper()
+	f, reg, paid, notifier := registrationFixture(t)
+	confirmSpot(reg)
+	f.payments.byRegistration = []*paymentstore.Payment{checkoutRow(reg)}
+	f.payments.regConfirmErr = paymentstore.ErrRegistrationAlreadyPaid
+	run := func() error { return f.service.processRegistrationPayment(t.Context(), reg.ID, paid, "mp-123") }
+	return f, paid, notifier, run
+}
+
+// A second payment on a sign-up still confirmed, whose refund the retry job
+// finishes, is told as the payment that came back, with the notice the
+// immediate path sends, never as a cancellation of the spot.
+func TestARetriedExtraRegistrationPaymentRefundKeepsTheSpot(t *testing.T) {
+	withCapturedSentryEvents(t)
+	_, _, told, runImmediate := extraRegistrationPayment(t)
+	if err := runImmediate(); err != nil {
+		t.Fatal(err)
+	}
+	if len(told.refunded) != 1 {
+		t.Fatalf("setup: the immediate path tells the refund; got %+v", told.refunded)
+	}
+
+	retried, _, notifier, runQueued := extraRegistrationPayment(t)
+	retried.provider.refundErr = errProvider
+	_ = runQueued()
+	finishQueuedRefund(t, retried)
+
+	if len(notifier.cancelled) != 0 {
+		t.Errorf("the spot is kept: no cancellation notice; got %+v", notifier.cancelled)
+	}
+	if len(notifier.refunded) != 1 {
+		t.Fatalf("want the payment-came-back notice from the retry job; got %+v", notifier.refunded)
+	}
+	got, want := notifier.refunded[0], told.refunded[0]
+	if got.Amount != want.Amount || got.RefundedTotal != want.RefundedTotal || got.Email != want.Email {
+		t.Errorf("retry notice %+v must match the immediate one %+v", got, want)
+	}
+}

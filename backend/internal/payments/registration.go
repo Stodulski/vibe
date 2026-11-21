@@ -357,7 +357,10 @@ func (s *Service) refundRegistrationPayment(ctx context.Context, p *paymentstore
 
 // notifyRegistrationRefund tells a person that a refund the retry job finished
 // is back, the second half of the cancellation notice that said it was on its
-// way.
+// way. A sign-up that is still confirmed was not cancelled: the refund was a
+// second payment on it, so the person is told that payment came back, with the
+// notice the immediate path sends (refundExtraRegistrationPayment); the row is
+// the extra payment's own, so what it refunded is both this move and its total.
 func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID, refundTotal int) {
 	if s.registrationNotify == nil || !s.registrationPaymentsEnabled() {
 		return
@@ -375,6 +378,10 @@ func (s *Service) notifyRegistrationRefund(ctx context.Context, regID uuid.UUID,
 	complex, err := s.complexes.GetByID(ctx, reg.ComplexID)
 	if err != nil {
 		s.logger.Error("refund-retry: failed to fetch the complex", "error", err, "registration_id", regID)
+		return
+	}
+	if reg.Status == eventstore.RegistrationConfirmed {
+		s.registrationNotify.EventRefunded(notice.Refunded(reg, ev, complex, s.cfg.PublicURL, refundTotal, refundTotal))
 		return
 	}
 	byOwner := reg.CancelledBy != nil && *reg.CancelledBy == eventstore.CancelledByOwner
