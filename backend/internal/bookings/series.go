@@ -647,7 +647,7 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 		s.logger.Error("create series: the due first date was not booked, the job retries it",
 			"error", err, "series_id", ser.ID, "complex_id", complex.ID)
 	}
-	s.notifySeriesCreated(ctx, complex, ser, client)
+	s.notifySeriesCreated(ctx, complex, ser, client, result.Bookings)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return result, nil
 }
@@ -788,8 +788,9 @@ func (s *Service) SkipSeriesDate(ctx context.Context, complex *complexstore.Comp
 	})
 	// The date held its hours like a confirmed booking; they are on sale again.
 	startsAt := slots.At(timezone.Day(day), ser.StartTime)
-	s.slotReleased(ctx, complex, ser.CourtID, day, startsAt,
-		startsAt.Add(time.Duration(ser.DurationMinutes)*time.Minute), true)
+	endsAt := startsAt.Add(time.Duration(ser.DurationMinutes) * time.Minute)
+	s.slotReleased(ctx, complex, ser.CourtID, day, startsAt, endsAt, true)
+	s.notifySeriesDateSkipped(ctx, complex, ser, day, startsAt, endsAt)
 	s.realtime.PublishBookingChanged(complex.ID)
 	return skipped, nil
 }
