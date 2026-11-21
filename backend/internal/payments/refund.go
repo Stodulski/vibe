@@ -1428,7 +1428,7 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 // gets the plain notice.
 func (s *Service) notifyRetriedRefund(ctx context.Context, fr *paymentstore.FailedRefund, refundTotal int) {
 	if fr.RegistrationID != nil {
-		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, refundTotal)
+		s.notifyRegistrationRefund(ctx, *fr.RegistrationID, fr.MPPaymentID, refundTotal)
 		return
 	}
 	booking, bErr := s.bookings.GetByID(ctx, fr.BookingID)

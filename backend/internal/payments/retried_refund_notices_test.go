@@ -181,7 +181,8 @@ func TestARetriedExtraRegistrationPaymentRefundKeepsTheSpot(t *testing.T) {
 		t.Fatalf("want the payment-came-back notice from the retry job; got %+v", notifier.refunded)
 	}
 	got, want := notifier.refunded[0], told.refunded[0]
-	if got.Amount != want.Amount || got.RefundedTotal != want.RefundedTotal || got.Email != want.Email {
+	if got.Amount != want.Amount || got.RefundedTotal != want.RefundedTotal || got.Email != want.Email ||
+		got.MPPaymentID != "mp-123" || got.MPPaymentID != want.MPPaymentID {
 		t.Errorf("retry notice %+v must match the immediate one %+v", got, want)
 	}
 }

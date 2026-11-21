@@ -55,9 +55,12 @@ type EventRefund struct {
 	ComplexPhone string
 	OwnerID      string
 
-	// RegistrationID and RefundedTotal are the deduplication subject: each
-	// refund moves the payment's running total, so each is a notice of its own.
+	// RegistrationID, MPPaymentID and RefundedTotal are the deduplication
+	// subject: each refund moves its payment's running total, so each is a
+	// notice of its own, and two payments of one sign-up refunded for the same
+	// amount are two refunds.
 	RegistrationID string
+	MPPaymentID    string
 	RefundedTotal  int
 }
 
@@ -175,7 +178,10 @@ func (s *Service) EventRefunded(r EventRefund) {
 		return
 	}
 	subject := ""
-	if r.RegistrationID != "" {
+	switch {
+	case r.RegistrationID != "" && r.MPPaymentID != "":
+		subject = fmt.Sprintf("%s:%s:%d", r.RegistrationID, r.MPPaymentID, r.RefundedTotal)
+	case r.RegistrationID != "":
 		subject = fmt.Sprintf("%s:%d", r.RegistrationID, r.RefundedTotal)
 	}
 	s.queue.Enqueue(TaskEmailEventRefunded, eventRefundedEmail{
