@@ -13,7 +13,7 @@ import (
 )
 
 // MPRefreshFailureNotified reports whether the owner of complexID was already
-// emailed about this refresh-failure episode. See migration 043.
+// emailed about this refresh-failure episode. See migration 042.
 func (m *Store) MPRefreshFailureNotified(ctx context.Context, complexID uuid.UUID, episode string) (bool, error) {
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
