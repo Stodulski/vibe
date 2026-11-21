@@ -446,8 +446,12 @@ func (s *Service) leaveCashOwedAfterExhaustedRefund(ctx context.Context, claim p
 		s.markManualBalanceOwed(ctx, booking)
 		// Told only when this call is what left the cash owed: the write
 		// committed and moved the booking to 'partial'. Only the cash balance
-		// is announced; the automatic half is still the retry job's.
-		if before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
+		// is announced; the automatic half is still the retry job's. Only a
+		// cancelled booking owes its cash back: on one that stands (a second
+		// payment's refund ran out) the cash is the valid payment of the
+		// booking, and ManualRefund refuses it anyway.
+		if booking.Status == bookingstore.BookingStatusCancelled &&
+			before == bookingstore.RefundStatusNone && booking.RefundStatus == bookingstore.RefundStatusPartial {
 			s.announceRefundOwedByHand(ctx, booking, manualOwed, claim.AttemptID)
 		}
 	}
