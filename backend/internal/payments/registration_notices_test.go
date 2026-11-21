@@ -82,3 +82,63 @@ func TestAPanelRefundNotRecordedHereIsNotTold(t *testing.T) {
 		t.Errorf("refund notices = %+v, want none", notifier.refunded)
 	}
 }
+
+// A payment that lands after its spot is gone (the hold ran out and went to
+// someone else, or the registration was cancelled) is refunded on the spot, and
+// the person is told their sign-up did not hold and the money is back, with the
+// same notice the retry job sends when it finishes such a refund later.
+func TestARefundedPaymentForAGoneSpotIsToldToThePerson(t *testing.T) {
+	f, reg, paid, notifier := registrationFixture(t)
+	f.payments.byRegistration = []*paymentstore.Payment{checkoutRow(reg)}
+	f.payments.regConfirmErr = paymentstore.ErrRegistrationUnavailable
+
+	if err := f.service.processRegistrationPayment(t.Context(), reg.ID, paid, "mp-123"); err != nil {
+		t.Fatal(err)
+	}
+	if len(notifier.cancelled) != 1 {
+		t.Fatalf("cancellation notices = %+v, want one", notifier.cancelled)
+	}
+	got := notifier.cancelled[0]
+	if got.Email != "ana@example.com" || got.RegistrationID != reg.ID.String() || got.RefundAmount == "" {
+		t.Errorf("notice = %+v; want the person told, keyed on the registration, quoting the refund", got)
+	}
+	if len(notifier.refunded) != 0 || len(notifier.registered) != 0 {
+		t.Error("the spot is gone: no partial-refund or sign-up notice")
+	}
+}
+
+// A second payment on a registration already paid is returned while the spot
+// stays: the person is told that payment came back, and nothing about a
+// cancellation.
+func TestARefundedExtraPaymentIsToldToThePerson(t *testing.T) {
+	f, reg, paid, notifier := registrationFixture(t)
+	f.payments.byRegistration = []*paymentstore.Payment{checkoutRow(reg)}
+	f.payments.regConfirmErr = paymentstore.ErrRegistrationAlreadyPaid
+
+	if err := f.service.processRegistrationPayment(t.Context(), reg.ID, paid, "mp-123"); err != nil {
+		t.Fatal(err)
+	}
+	if len(notifier.refunded) != 1 {
+		t.Fatalf("refund notices = %+v, want one", notifier.refunded)
+	}
+	if got := notifier.refunded[0]; got.Email != "ana@example.com" || got.RegistrationID != reg.ID.String() || got.Amount == "" {
+		t.Errorf("refund notice = %+v", got)
+	}
+	if len(notifier.cancelled) != 0 {
+		t.Error("the spot is kept: no cancellation notice")
+	}
+}
+
+// A refund the provider did not take is still the retry job's: telling the
+// person now would say money is back that is not.
+func TestAnUnissuedAutoRefundOfARegistrationIsNotToldYet(t *testing.T) {
+	f, reg, paid, notifier := registrationFixture(t)
+	f.payments.byRegistration = []*paymentstore.Payment{checkoutRow(reg)}
+	f.payments.regConfirmErr = paymentstore.ErrRegistrationUnavailable
+	f.provider.refundErr = errProvider
+
+	_ = f.service.processRegistrationPayment(t.Context(), reg.ID, paid, "mp-123")
+	if len(notifier.cancelled)+len(notifier.refunded) != 0 {
+		t.Errorf("nothing is told before the money moves; got cancelled=%+v refunded=%+v", notifier.cancelled, notifier.refunded)
+	}
+}

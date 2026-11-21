@@ -208,7 +208,13 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 	s.logger.Error("mp webhook: the spot was gone while the payment was in flight, refusing to confirm and refunding",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID)
 	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION SPOT GONE (auto-refunding): mp_payment_id=%s registration_id=%s", mpPaymentID, reg.ID))
-	return s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	if err == nil && outcome.Result == paymentstore.RefundIssued {
+		// The same notice the retry job sends when it finishes such a refund,
+		// keyed on the registration and the amount, so one refund is one email.
+		s.notifyRegistrationRefund(ctx, reg.ID, outcome.AmountCentavos)
+	}
+	return err
 }
 
 // refundExtraRegistrationPayment sends back a second payment on a registration
@@ -216,7 +222,13 @@ func (s *Service) refundRegistrationWhoseSpotIsGone(ctx context.Context, reg *ev
 func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID, why string) error {
 	s.logger.Error("mp webhook: duplicate registration payment, refunding it",
 		"mp_payment_id", mpPaymentID, "registration_id", reg.ID, "why", why)
-	return s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	outcome, err := s.claimAndRefundRegistrationPayment(ctx, reg, mpPayment, mpPaymentID)
+	if err == nil && outcome.Result == paymentstore.RefundIssued {
+		// The spot is kept: the person is told this payment came back. The row
+		// is new, so what it refunded is both this move and its running total.
+		s.notifyRegistrationPanelRefund(ctx, reg.ID, outcome.AmountCentavos, outcome.AmountCentavos)
+	}
+	return err
 }
 
 // claimAndRefundRegistrationPayment records the payment a refund is about to be
@@ -229,8 +241,9 @@ func (s *Service) refundExtraRegistrationPayment(ctx context.Context, reg *event
 //
 // If recording fails the provider is never called: money must not move on
 // behalf of a refund nothing durable knows about. The error is returned so the
-// event is retried.
-func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) error {
+// event is retried. The outcome says whether the money already moved, which is
+// when the caller may tell the person; a queued refund is told by the retry job.
+func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *eventstore.Registration, mpPayment *mp.Payment, mpPaymentID string) (paymentstore.RefundOutcome, error) {
 	paid := int(math.Round(mpPayment.TransactionAmount * 100))
 	fee := min(reg.ServiceFee, paid)
 	claim, err := s.refunds.InsertAndClaimRefund(ctx, &paymentstore.Payment{
@@ -240,13 +253,12 @@ func (s *Service) claimAndRefundRegistrationPayment(ctx context.Context, reg *ev
 	switch {
 	case err == nil:
 	case errors.Is(err, paymentstore.ErrAlreadyRefunded), errors.Is(err, paymentstore.ErrRefundInFlight):
-		return nil
+		return paymentstore.RefundOutcome{Result: paymentstore.RefundNone}, nil
 	default:
 		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND NOT CLAIMED: mp_payment_id=%s registration_id=%s error=%v", mpPaymentID, reg.ID, err))
-		return fmt.Errorf("claim the refund for registration %s: %w", reg.ID, err)
+		return paymentstore.RefundOutcome{}, fmt.Errorf("claim the refund for registration %s: %w", reg.ID, err)
 	}
-	s.settleRegistrationClaim(ctx, claim)
-	return nil
+	return s.settleRegistrationClaim(ctx, claim), nil
 }
 
 // settleRegistrationClaim issues the refund a committed claim reserved and
