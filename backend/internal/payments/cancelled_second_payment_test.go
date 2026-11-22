@@ -1,11 +1,13 @@
 package payments
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
 )
@@ -88,6 +90,96 @@ func TestASecondPaymentOnACancelledBookingGetsItsOwnRefund(t *testing.T) {
 			if len(f.provider.refunds) != 1 || len(f.notify.refunds) != 1 {
 				t.Errorf("a replay must not refund or notify again; refunds %v, notices %d",
 					f.provider.refunds, len(f.notify.refunds))
+			}
+		})
+	}
+}
+
+// A second approved payment on a cancelled booking whose refund claim fails for
+// a moment (the database away) must leave nothing recorded, so MercadoPago's
+// redelivery of the event records and refunds it from the start. The row used
+// to be committed before the claim, so the redelivery stopped at "payment
+// already processed" and the second payment stayed captured for good.
+func TestASecondPaymentWhoseClaimFailsIsRefundedOnRedelivery(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+	booking.RefundStatus = bookingstore.RefundStatusFull
+	mpPayment.CollectorID = 111111111
+	mpPayment.ExternalReference = booking.ID.String()
+
+	fee := pricing.ServiceFee(booking.DepositAmount)
+	firstID := "mp-111"
+	first := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+		Amount: booking.DepositAmount, ServiceFee: fee, Method: "mercadopago",
+		Status: "refunded", RefundAmount: booking.DepositAmount + fee, MPPaymentID: &firstID,
+	}
+	f.payments.byBooking = first
+	f.payments.byBookingAll = []*paymentstore.Payment{first}
+	f.payments.claimAmount = booking.DepositAmount + fee
+	f.payments.claimErr = errors.New("connection reset")
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.provider.payment = mpPayment
+	readableNotice(f, booking)
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err == nil {
+		t.Fatal("a claim that failed for a moment must fail the event so it is redelivered")
+	}
+	if f.payments.byMPID != nil {
+		t.Fatalf("nothing may be recorded for the second payment while its refund is unclaimed; got %+v", f.payments.byMPID)
+	}
+
+	f.payments.claimErr = nil
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
+		t.Fatalf("the redelivery must refund the second payment; got %v", err)
+	}
+	if len(f.provider.refunds) != 1 {
+		t.Fatalf("want the second payment refunded once on redelivery; got %v", f.provider.refunds)
+	}
+}
+
+// The orphan sweep and every cancel path refund from the payment rows, not from
+// the booking's refund status: a cancelled booking already marked fully
+// refunded by its first payment still owes a second MercadoPago payment that
+// was recorded and never refunded, and AutoRefundIfPaid sends it back. It used
+// to stop at "the booking was already refunded" and clear the marker silently.
+func TestAutoRefundSendsBackAnUnrefundedRowOnABookingMarkedRefunded(t *testing.T) {
+	for _, status := range []bookingstore.RefundStatus{bookingstore.RefundStatusFull, bookingstore.RefundStatusPending} {
+		t.Run(string(status), func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			bookingID := uuid.New()
+			booking := &bookingstore.Booking{
+				ID: bookingID, ComplexID: complexID, ClientID: uuid.New(), CourtID: uuid.New(),
+				Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+				RefundStatus: status, Price: 500_000, DepositAmount: 150_000,
+			}
+			mpFirst, mpSecond := "mp-first", "mp-second"
+			first := &paymentstore.Payment{
+				ID: uuid.New(), BookingID: bookingID, ComplexID: complexID, Method: "mercadopago",
+				Amount: 150_000, Status: "refunded", RefundAmount: 150_000, MPPaymentID: &mpFirst,
+			}
+			second := &paymentstore.Payment{
+				ID: uuid.New(), BookingID: bookingID, ComplexID: complexID, Method: "mercadopago",
+				Amount: 150_000, Status: "deposit_paid", MPPaymentID: &mpSecond,
+			}
+			f.payments.byBookingAll = []*paymentstore.Payment{first, second}
+			f.payments.claimAmount = 150_000
+			f.provider.refundAmount = 1_500.00
+			f.complexes.complex = linkedComplex(complexID, "")
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, FirstName: "Ana"}
+
+			outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			if outcome.Result != paymentstore.RefundIssued {
+				t.Fatalf("the unrefunded second payment must be refunded; got %q (reason %q)", outcome.Result, outcome.Reason)
+			}
+			if len(f.payments.claimed) != 1 || f.payments.claimed[0] != second.ID {
+				t.Fatalf("only the second payment's row may be claimed; got %v", f.payments.claimed)
 			}
 		})
 	}

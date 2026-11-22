@@ -924,11 +924,11 @@ func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking)
 	// satisfy both a refund case and the never-paid default.
 	switch {
 	case booking.RefundStatus == bookingstore.RefundStatusFull:
-		return nil, 0, "", &paymentstore.RefundOutcome{Result: paymentstore.RefundAlreadyIssued, Reason: "the booking was already refunded"}
+		return s.unclaimedOnlineRows(ctx, booking, paymentstore.RefundOutcome{Result: paymentstore.RefundAlreadyIssued, Reason: "the booking was already refunded"})
 	case booking.RefundStatus == bookingstore.RefundStatusPending:
 		// A claim is already committed against this booking's payment, so the
 		// money is on its way and this call must not start a second one.
-		return nil, 0, "", &paymentstore.RefundOutcome{Result: paymentstore.RefundQueued, Reason: "a refund for this booking is already in flight"}
+		return s.unclaimedOnlineRows(ctx, booking, paymentstore.RefundOutcome{Result: paymentstore.RefundQueued, Reason: "a refund for this booking is already in flight"})
 	case booking.CollectionStatus != bookingstore.CollectionStatusUnpaid:
 		// Refundable — fall through. A partially refunded booking already has
 		// its MercadoPago-backed rows refunded; a re-sweep here re-derives the
@@ -987,6 +987,52 @@ func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking)
 	}
 
 	return auto, manualOwed, manualReason, nil
+}
+
+// unclaimedOnlineRows is refundable() for a booking whose refund status already
+// reads refunded or in flight. That status is the booking's, and a booking can
+// carry more than one MercadoPago payment: a second approved payment on a
+// cancelled booking is a row of its own, and the first payment's refund is what
+// set the status. Deciding from the status alone stopped at "already refunded"
+// while that second payment sat recorded and never refunded, and the orphan
+// sweep cleared its marker on the same answer.
+//
+// So the rows decide, for the rows the status does not cover. When another
+// MercadoPago row's refund is what the status records (a row refunded, partly
+// refunded or claimed), every MercadoPago row that still holds money
+// (paymentstore.ReceivedMoney) is returned to be refunded; claimable() still
+// refuses anything already back or claimed, under its lock. When no row's refund
+// stands behind the status, it was written by hand (a staff edit records a refund
+// made outside Vibe), and the status answers as stop: refunding the row then
+// would pay the client twice.
+//
+// A failed read answers with stop too: it is what this booking's status said
+// before any row was read, and the rows are read again on the next ask.
+func (s *Service) unclaimedOnlineRows(ctx context.Context, booking *bookingstore.Booking, stop paymentstore.RefundOutcome) ([]*paymentstore.Payment, int, string, *paymentstore.RefundOutcome) {
+	payments, err := s.payments.ListByBookingID(ctx, booking.ID)
+	if err != nil {
+		s.logger.Error("auto-refund: failed to fetch payments", "error", err, "booking_id", booking.ID)
+		return nil, 0, "", &stop
+	}
+	var auto []*paymentstore.Payment
+	statusEarned := false
+	for _, payment := range payments {
+		online := payment.MPPaymentID != nil && *payment.MPPaymentID != ""
+		if !online {
+			continue
+		}
+		if payment.RefundAmount > 0 || payment.Status == "refunded" || payment.Status == "refund_pending" {
+			statusEarned = true
+		}
+		owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
+		if paymentstore.ReceivedMoney(payment.Status) && payment.RefundAmount == 0 && owed > 0 {
+			auto = append(auto, payment)
+		}
+	}
+	if !statusEarned || len(auto) == 0 {
+		return nil, 0, "", &stop
+	}
+	return auto, 0, "", nil
 }
 
 // manualBalance answers how much of a booking's payments is owed by hand and

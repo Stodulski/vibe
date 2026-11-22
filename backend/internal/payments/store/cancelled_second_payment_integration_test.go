@@ -79,8 +79,12 @@ func TestASecondPaymentOnACancelledBookingIsClaimedOnItsOwnRow(t *testing.T) {
 			t.Errorf("row %s must read refunded in full; got status=%s refund=%d", *r.MPPaymentID, r.Status, r.RefundAmount)
 		}
 	}
-	if *rows[0].MPPaymentID != mpFirst {
-		t.Errorf("the first row must keep its own payment id; got %s", *rows[0].MPPaymentID)
+	// Found by row id, not by position: ListByBookingID orders by created_at,
+	// which does not have to tell two rows written moments apart.
+	for _, r := range rows {
+		if r.ID == first.ID && *r.MPPaymentID != mpFirst {
+			t.Errorf("the first row must keep its own payment id; got %s", *r.MPPaymentID)
+		}
 	}
 
 	again := &paymentstore.Payment{

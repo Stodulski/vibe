@@ -651,7 +651,15 @@ func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 // inserting a second left the first orphaned with the preference id on it while
 // GetByBookingID's ordering handed everything after it the new row.
 func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) error {
-	payment, err := s.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
+	existing, err := s.payments.GetByBookingID(ctx, booking.ID)
+	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+		return fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
+	}
+	if existing != nil && !paymentRowTakes(existing, mpPaymentID) {
+		return s.refundAnotherPaymentOnCancelledBooking(ctx, booking, mpPayment, mpPaymentID, cause)
+	}
+
+	payment, err := s.recordPaymentOwedARefund(ctx, booking, existing, mpPayment, mpPaymentID)
 	if err != nil {
 		s.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
 			"error", err,
@@ -671,6 +679,50 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
 	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+}
+
+// refundAnotherPaymentOnCancelledBooking refunds an approved payment that landed on
+// a cancelled booking whose payment row already belongs to another payment: one
+// that holds money, or whose money is refunded or on its way back.
+//
+// The row is new and is written together with its refund claim, in one
+// transaction, the way a duplicate payment on a settled booking is
+// (recordDuplicatePayment). Written apart, a claim that failed for a moment, or a
+// crash between the two commits, left a row that read as already processed: the
+// redelivered event stopped at "payment already processed", and the orphan sweep
+// found the booking already refunded by the first payment, so this money stayed
+// captured for good. Now either both are committed and the claim's attempt row
+// brings the money back, or neither is and the redelivery starts over.
+//
+// The booking is not written. It is cancelled and already reads the money the
+// first payment collected, so it needs no refund-intent marker, and the full
+// refund of this row settles its refund status the same way the first one did.
+func (s *Service) refundAnotherPaymentOnCancelledBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) error {
+	amount, serviceFee := splitPaidAmount(booking, mpPayment)
+	payment := &paymentstore.Payment{
+		BookingID:   booking.ID,
+		ComplexID:   booking.ComplexID,
+		Amount:      amount,
+		ServiceFee:  serviceFee,
+		Method:      "mercadopago",
+		Status:      string(collectedOnline(booking)),
+		MPPaymentID: &mpPaymentID,
+	}
+	claim, err := s.refunds.InsertAndClaimRefundWithCause(ctx, payment, cause)
+	if err != nil {
+		// The row and its claim are one write, so nothing was written and the
+		// retried event records and claims the payment from the start.
+		s.logger.Error("mp webhook: another approved payment on a cancelled booking could not be recorded and claimed, so it cannot be refunded yet",
+			"error", err,
+			"mp_payment_id", mpPaymentID,
+			"booking_id", booking.ID,
+		)
+		sentry.CaptureMessage(fmt.Sprintf("CANCELLED BOOKING PAID AGAIN NOT RECORDED (payment record or refund claim failed, money still held): mp_payment_id=%s booking_id=%s",
+			mpPaymentID, booking.ID))
+		return fmt.Errorf("record another payment on cancelled booking %s: %w", booking.ID, err)
+	}
+	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "cancelled")
+	return nil
 }
 
 // refundRecordedPayment claims, issues and records the refund of a cancelled booking's
@@ -757,7 +809,10 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 }
 
 // recordPaymentOwedARefund writes the payment behind a refund that is about to be
-// claimed, and returns the row the claim will reserve.
+// claimed, and returns the row the claim will reserve. existing is the booking's
+// payment row as the caller read it, nil when there is none; the caller has
+// already sent a payment that row cannot take to
+// refundAnotherPaymentOnCancelledBooking.
 //
 // The checkout row created when the booking was made is preferred: it already
 // carries the preference id and the amounts the client agreed to, and one booking
@@ -781,12 +836,7 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 // expressing as 'refund_pending' for precisely this reason. The two cancel
 // paths already write it the same way (internal/bookings), so the shape
 // SweepOrphanedRefundIntents recovers is identical whichever path produced it.
-func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
-	existing, err := s.payments.GetByBookingID(ctx, booking.ID)
-	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
-		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
-	}
-
+func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, existing *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
 	// The client's money is here and the booking is cancelled: what was
 	// collected is what an approved payment on this booking collects
 	// (collectedOnline), the whole price when the checkout charged it, so a
@@ -798,14 +848,6 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	booking.CollectionStatus = collected
 	now := time.Now()
 	booking.RefundIntentAt = &now
-
-	if existing != nil && !paymentRowTakes(existing, mpPaymentID) {
-		// The booking's row is another payment's, already refunded or owed
-		// a refund of its own. Reusing it overwrote that payment's id and
-		// left the claim refused as already refunded, so this payment's
-		// money stayed captured. It gets a row, and so a claim, of its own.
-		existing = nil
-	}
 
 	if existing != nil {
 		existing.Status = string(collected)

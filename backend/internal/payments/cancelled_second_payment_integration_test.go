@@ -60,3 +60,45 @@ func TestASecondPaymentOnACancelledBookingCommitsItsOwnClaim(t *testing.T) {
 		t.Errorf("the second payment's refund must be claimed and queued; got %q", second.Status)
 	}
 }
+
+// Against the real stores: a cancelled booking fully refunded by its first
+// MercadoPago payment that also carries a second payment recorded and never
+// refunded (the row a crash between the old write and its claim left behind)
+// gets that second payment claimed by AutoRefundIfPaid, the call the orphan
+// sweep makes. It used to stop at "the booking was already refunded".
+func TestAutoRefundClaimsAnUnrefundedSecondRowOnARefundedBooking(t *testing.T) {
+	f := newIntegrationFixture(t)
+	ctx := f.Scoped(t.Context())
+	created := f.CreateBooking(t, datatest.BookingOptions{
+		Status: "cancelled", CollectionStatus: bookingstore.CollectionStatusDepositPaid,
+	})
+
+	mpFirst := "mp-" + uuid.NewString()
+	first := f.CreatePayment(t, created.ID, 150_000, 7_500, &mpFirst)
+	firstClaim, err := f.Stores.Payments.ClaimRefund(ctx, first.ID)
+	if err != nil {
+		t.Fatalf("claiming the first refund: %v", err)
+	}
+	if _, err := f.Stores.Payments.RecordRefundSuccess(ctx, *firstClaim, 0); err != nil {
+		t.Fatalf("recording the first refund: %v", err)
+	}
+	mpSecond := "mp-" + uuid.NewString()
+	second := f.CreatePayment(t, created.ID, 150_000, 7_500, &mpSecond)
+
+	booking, err := f.Stores.Bookings.GetByID(ctx, created.ID)
+	if err != nil {
+		t.Fatalf("reading the booking: %v", err)
+	}
+	if booking.RefundStatus != bookingstore.RefundStatusFull {
+		t.Fatalf("precondition: the first refund marks the booking refunded; got %q", booking.RefundStatus)
+	}
+
+	f.service.AutoRefundIfPaid(ctx, booking)
+
+	if status, _ := f.ReadPaymentState(t, second.ID); status != "refund_pending" && status != "refunded" {
+		t.Fatalf("the second payment's refund must be claimed; its row reads %q", status)
+	}
+	if status, refunded := f.ReadPaymentState(t, first.ID); status != "refunded" || refunded != 157_500 {
+		t.Errorf("the first payment's row must stay refunded once; got %q, %d", status, refunded)
+	}
+}

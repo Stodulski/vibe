@@ -219,7 +219,7 @@ func TestAPaymentForACancelledBookingCommitsAMarkerTheSweepCanFind(t *testing.T)
 	// one. Calling the flow directly skips the middleware, so the test declares
 	// the same scope the route would have.
 	webhookCtx := data.ContextWithTenantBypass(ctx)
-	if _, err := f.service.recordPaymentOwedARefund(webhookCtx, booking, mpPayment, mpPaymentID); err != nil {
+	if _, err := f.service.recordPaymentOwedARefund(webhookCtx, booking, nil, mpPayment, mpPaymentID); err != nil {
 		t.Fatalf("recording the payment owed a refund: %v", err)
 	}
 
