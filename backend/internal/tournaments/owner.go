@@ -735,6 +735,8 @@ func (s *Service) conflictMessage(ctx context.Context, complexID uuid.UUID, c *e
 		return fmt.Sprintf("a fixed weekly booking (turno fijo) holds those hours on %s", court)
 	case eventstore.ConflictMatch:
 		return fmt.Sprintf("another tournament match already holds those hours on %s", court)
+	case eventstore.ConflictOnlineHold:
+		return httpx.OnlineHoldMessage(c.FreesAt)
 	default:
 		return fmt.Sprintf("an event already holds those hours on %s", court)
 	}

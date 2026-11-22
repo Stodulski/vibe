@@ -403,9 +403,11 @@ var csrfExemptRoutes = map[string]string{
 	"POST /api/v1/auth/confirm-email-change": "authenticated by the emailed token, not a session, " +
 		"the same posture as /auth/reset-password",
 
-	"POST /api/v1/book":        "public booking: clients book without an account, so no cookie is in play",
-	"POST /api/v1/book/cancel": "same flow, authenticated by the booking's own link token",
-	"POST /api/v1/book/holds":  "public booking: the slot hold is taken before the visitor has any account, so no cookie is in play",
+	"POST /api/v1/book":                  "public booking: clients book without an account, so no cookie is in play",
+	"POST /api/v1/book/cancel":           "same flow, authenticated by the booking's own link token",
+	"POST /api/v1/book/checkout/retry":   "same flow, authenticated by the booking's own link token",
+	"POST /api/v1/book/checkout/release": "same flow, authenticated by the booking's own link token",
+	"POST /api/v1/book/holds":            "public booking: the slot hold is taken before the visitor has any account, so no cookie is in play",
 	"POST /api/v1/book/holds/{token}/release": "same flow, authenticated by the hold's own token; " +
 		"called by navigator.sendBeacon, which cannot send a CSRF header",
 

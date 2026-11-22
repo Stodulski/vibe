@@ -2,6 +2,7 @@ import { ES_AR } from '@/shared/i18n/es_AR';
 import { CourtTimeGrid } from './booking-calendar/CourtTimeGrid';
 import { useBookingCalendarData } from './booking-calendar/useBookingCalendarData';
 import type { ReactNode } from 'react';
+import type { OnlineHold } from '../schemas/onlineHold.schema';
 import type {
   Booking,
   BlockedSlot,
@@ -16,6 +17,7 @@ const t = ES_AR;
 // A stable empty list: a fresh `[]` per render would defeat the grid's memoised columns.
 const NO_FIXED_BLOCKS: FixedBlock[] = [];
 const NO_EVENT_BLOCKS: CourtEventBlock[] = [];
+const NO_ONLINE_HOLDS: OnlineHold[] = [];
 
 interface BookingCalendarProps {
   bookings: Booking[];
@@ -24,6 +26,8 @@ interface BookingCalendarProps {
   fixedBlocks?: FixedBlock[] | undefined;
   /** Defaults to none: the hours open-play events ("canchas abiertas") hold. */
   eventBlocks?: CourtEventBlock[] | undefined;
+  /** Defaults to none: the hours visitors are booking online, drawn as taken but not clickable. */
+  onlineHolds?: OnlineHold[] | undefined;
   courts: CourtWithPrices[];
   date: string;
   schedules: Schedule[];
@@ -45,6 +49,7 @@ export function BookingCalendar({
   blockedSlots,
   fixedBlocks = NO_FIXED_BLOCKS,
   eventBlocks = NO_EVENT_BLOCKS,
+  onlineHolds = NO_ONLINE_HOLDS,
   courts,
   date,
   schedules,
@@ -71,6 +76,7 @@ export function BookingCalendar({
         blockedSlots={blockedSlots}
         fixedBlocks={fixedBlocks}
         eventBlocks={eventBlocks}
+        onlineHolds={onlineHolds}
         activeCourts={data.activeCourts}
         date={date}
         slots={data.slots}

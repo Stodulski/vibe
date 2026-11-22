@@ -18,3 +18,4 @@ export { useMatchBlocks } from './hooks/useMatchBlocks';
 export { isFixedBookingConflict } from './lib/fixedBookingConflict';
 export { isOpenPlayEventConflict } from './lib/openPlayEventConflict';
 export { isTournamentMatchConflict } from './lib/tournamentMatchConflict';
+export { onlineHoldMessage } from './lib/onlineHoldConflict';

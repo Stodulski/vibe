@@ -337,10 +337,14 @@ func (s *Service) openCheckout(ctx context.Context, req checkoutRequest) (Public
 		StartTime:      booking.StartTime,
 		Amount:         totalClientPays,
 		MarketplaceFee: serviceFee,
-		Caller:         req.seller,
+		// The same test the payment's processing settles it by
+		// (payments.collectedOnline): a deposit of the whole price is the
+		// booking's payment, and the payer is not told it is a seña.
+		FullPayment: booking.DepositAmount >= booking.Price,
+		Caller:      req.seller,
 		BackURLs: mp.BackURLs{
 			Success: booklink.Success(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
-			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug),
+			Failure: booklink.Failure(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
 			Pending: booklink.SuccessPending(s.cfg.PublicURL, complex.Slug, booking.LinkToken),
 		},
 		BackendURL:     s.cfg.BackendURL,
@@ -358,7 +362,7 @@ func (s *Service) openCheckout(ctx context.Context, req checkoutRequest) (Public
 			"booking_id", booking.ID,
 		)
 		// Cancel the booking so the slot is freed immediately instead of
-		// blocking it for 15 minutes until the expiration sweep runs.
+		// blocking it for the whole payment window until the expiration sweep runs.
 		//
 		// The client may have left while MercadoPago was refusing the checkout,
 		// and that cancels ctx. A cancelled context fails the write before it

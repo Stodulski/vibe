@@ -226,7 +226,7 @@ describe('ComplexPage slot hold before the challenge is solved', () => {
 
     await pickCourt();
 
-    expect(toast.info).toHaveBeenCalledWith(t.publicBooking.holdChallengePending);
+    expect(toast.info).toHaveBeenCalledWith(t.publicBooking.holdChallengePending, expect.anything());
     expect(bodies).toHaveLength(0);
     expect(assignSpy).not.toHaveBeenCalled();
 
@@ -274,7 +274,7 @@ describe('ComplexPage slot hold refusals', () => {
     await pickCourt();
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(t.publicBooking[key]);
+      expect(toast.error).toHaveBeenCalledWith(t.publicBooking[key], expect.anything());
     });
     expect(assignSpy).not.toHaveBeenCalled();
     expect(readConfirmDraft('test-club')).toBeNull();
@@ -326,3 +326,24 @@ function oldDraft() {
     cancellationHours: 24,
   };
 }
+
+describe('ComplexPage slot hold cooldown', () => {
+  it('shows the cooldown refusal in the words the server wrote, with when the hours free up', async () => {
+    const detail = 'Este horario se reservó hace poco desde esta conexión sin completar el pago. Vas a poder elegirlo de nuevo desde las 19:40.';
+    captureHolds(() =>
+      HttpResponse.json(
+        { type: 'https://vibe.com.ar/problems/hold-cooldown', title: '', status: 409, detail },
+        { status: 409 },
+      ),
+    );
+    await renderPage(TURNSTILE_CONFIG);
+    solveChallenge();
+
+    await pickCourt();
+
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(detail, expect.anything());
+    });
+    expect(assignSpy).not.toHaveBeenCalled();
+  });
+});

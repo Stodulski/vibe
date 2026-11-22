@@ -49,6 +49,54 @@ type stubStore struct {
 	due      []eventstore.DueReminder
 	dueAt    []time.Time
 	reminded []uuid.UUID
+	// checks are the open payment checks, in the order they were opened;
+	// deferred the ones pushed back until the test makes them due again.
+	checks   []*eventstore.PaymentCheck
+	deferred map[uuid.UUID]bool
+}
+
+// openCheck opens a payment check, as an expiry's write does.
+func (s *stubStore) openCheck(id, complexID, eventID uuid.UUID, notify bool) {
+	s.checks = append(s.checks, &eventstore.PaymentCheck{RegistrationID: id, ComplexID: complexID, EventID: eventID, Notify: notify})
+}
+
+// makeDue brings every deferred check's time, as the clock passing does.
+func (s *stubStore) makeDue() { s.deferred = nil }
+
+func (s *stubStore) DuePaymentChecks(_ context.Context, limit int) ([]eventstore.PaymentCheck, error) {
+	var out []eventstore.PaymentCheck
+	for _, c := range s.checks {
+		reg, ok := s.regs[c.RegistrationID]
+		if s.deferred[c.RegistrationID] || (ok && reg.Status != eventstore.RegistrationExpired) || len(out) == limit {
+			continue
+		}
+		out = append(out, *c)
+	}
+	return out, nil
+}
+
+func (s *stubStore) ClosePaymentCheck(_ context.Context, id uuid.UUID) (bool, error) {
+	for i, c := range s.checks {
+		if c.RegistrationID == id {
+			s.checks = slices.Delete(s.checks, i, i+1)
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+func (s *stubStore) DeferPaymentCheck(_ context.Context, id uuid.UUID) (int, error) {
+	for _, c := range s.checks {
+		if c.RegistrationID == id {
+			c.Failures++
+			if s.deferred == nil {
+				s.deferred = map[uuid.UUID]bool{}
+			}
+			s.deferred[id] = true
+			return c.Failures, nil
+		}
+	}
+	return 0, data.ErrRecordNotFound
 }
 
 func (s *stubStore) CreateEvent(_ context.Context, e *eventstore.Event, courtIDs []uuid.UUID) error {
@@ -161,8 +209,11 @@ func (s *stubStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold, erro
 		if reg, ok := s.regs[h.ID]; ok {
 			reg.Status = eventstore.RegistrationExpired
 		}
+		s.openCheck(h.ID, h.ComplexID, h.EventID, true)
 	}
-	return s.expired, nil
+	expired := s.expired
+	s.expired = nil
+	return expired, nil
 }
 
 func (s *stubStore) DueReminders(_ context.Context, now time.Time) ([]eventstore.DueReminder, error) {
@@ -233,6 +284,46 @@ func (s *stubPayments) RefundRegistration(_ context.Context, id uuid.UUID) payme
 type stubCheckout struct {
 	err   error
 	input []mp.CreatePreferenceInput
+	// found is what a payment search answers per reference, searchErr makes it
+	// fail, and searched records each search's reference and caller.
+	found     map[string][]mp.Payment
+	searchErr error
+	searched  []string
+	callers   []mp.Caller
+	// onSearch runs inside the search, for what happens meanwhile elsewhere.
+	onSearch func()
+}
+
+func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference string, caller mp.Caller) ([]mp.Payment, error) {
+	s.searched = append(s.searched, reference)
+	s.callers = append(s.callers, caller)
+	if s.onSearch != nil {
+		s.onSearch()
+	}
+	if s.searchErr != nil {
+		return nil, s.searchErr
+	}
+	return s.found[reference], nil
+}
+
+// stubReconciler stands in for the payments service: it records each payment
+// handed to it and, like the real processing on a spot with room, confirms the
+// registration the payment names (confirms), or fails as an unrecordable event.
+type stubReconciler struct {
+	err        error
+	reconciled []string
+	confirms   map[string]*eventstore.Registration
+}
+
+func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
+	s.reconciled = append(s.reconciled, mpPaymentID)
+	if s.err != nil {
+		return s.err
+	}
+	if reg, ok := s.confirms[mpPaymentID]; ok {
+		reg.Status = eventstore.RegistrationConfirmed
+	}
+	return nil
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, in mp.CreatePreferenceInput) (*mp.Preference, error) {
@@ -283,6 +374,7 @@ type fixture struct {
 	clients   *stubClients
 	payments  *stubPayments
 	checkout  *stubCheckout
+	reconcile *stubReconciler
 	notify    *stubNotifier
 	realtime  *stubRealtime
 	audit     *stubAudit
@@ -307,7 +399,7 @@ func newFixture(t *testing.T) *fixture {
 			{ID: uuid.New(), ComplexID: complexID, Name: "Cancha 2", IsActive: true},
 			{ID: uuid.New(), ComplexID: complexID, Name: "Cancha vieja", IsActive: false},
 		}},
-		clients: &stubClients{}, payments: &stubPayments{}, checkout: &stubCheckout{}, notify: &stubNotifier{},
+		clients: &stubClients{}, payments: &stubPayments{}, checkout: &stubCheckout{}, reconcile: &stubReconciler{}, notify: &stubNotifier{},
 		realtime: &stubRealtime{}, audit: &stubAudit{}, complex: complex, owner: uuid.New(),
 	}
 	f.store.event = &eventstore.Event{
@@ -317,7 +409,7 @@ func newFixture(t *testing.T) *fixture {
 	}
 	f.svc = NewService(Dependencies{
 		Store: f.store, Complexes: f.complexes, Courts: f.courts, Clients: f.clients, Payments: f.payments,
-		Checkout: f.checkout, Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
+		Checkout: f.checkout, Reconciler: f.reconcile, Notify: f.notify, Realtime: f.realtime, Audit: f.audit,
 		Logger: slog.New(slog.NewTextHandler(io.Discard, nil)),
 	}, Config{PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test", GracePeriod: 15 * time.Minute, PaymentExpiry: 15 * time.Minute, MaxHoldsPerIP: 3})
 	return f

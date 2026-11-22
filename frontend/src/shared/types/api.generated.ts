@@ -328,7 +328,7 @@ export interface paths {
     put?: never;
     /**
      * Hold a slot while the visitor fills in their details
-     * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429).
+     * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429 `hold-cap`, also answered by `POST /api/v1/book` without a hold token; its `detail` is a Spanish sentence for the visitor asking them to finish or let go of one).
      */
     post: operations['bookingsPublicHoldCreate'];
     delete?: never;
@@ -351,6 +351,46 @@ export interface paths {
      * @description Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases the hold if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
      */
     post: operations['bookingsPublicHoldRelease'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/checkout/retry': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Pay again on the checkout of a booking whose payment failed
+     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. While the booking is still a pending, unpaid storefront booking inside its payment window, answers its own MercadoPago checkout link again (the same preference: nothing is created or written) and when the window ends. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicCheckoutRetry'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/checkout/release': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Give back the slot of a booking whose payment failed
+     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. Closes the checkout and cancels the pending, unpaid storefront booking, so the slot is free again and no longer counts against the visitor's hold cap. No email is sent. MercadoPago is asked first: nothing is released while a payment on the booking is approved or in process, or while MercadoPago cannot be asked. Picking the same hours again gets only what is left of the address's hold budget on them. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicCheckoutRelease'];
     delete?: never;
     options?: never;
     head?: never;
@@ -1529,7 +1569,7 @@ export interface paths {
     };
     /**
      * The open-play events a visitor can still sign up for
-     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the holds still running; `0` means the sign-up is closed.
+     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the held ones (holds still running, and for up to fifteen minutes a hold that ran out while its payment is checked with MercadoPago); `0` means the sign-up is closed.
      */
     get: operations['eventsPublicList'];
     put?: never;
@@ -2572,6 +2612,23 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
   schemas: {
+    /** @description Hours a visitor is booking online: held from the storefront and not yet paid. Free again at `frees_at` if nobody pays. */
+    OnlineHold: {
+      /** Format: uuid */
+      court_id: string;
+      /**
+       * Format: date
+       * @description The day the hold starts on.
+       */
+      date: string;
+      /** @description HH:MM. */
+      start_time: string;
+      /** @description HH:MM; earlier than start_time when the hold runs past midnight. */
+      end_time: string;
+      duration_minutes: number;
+      /** Format: date-time */
+      frees_at: string;
+    };
     /** @description An RFC 9457 problem detail. Every 4xx/5xx response uses this shape (`Content-Type: application/problem+json`). The frontend switches on `type`; `title`/`detail` are for humans and may change wording. */
     Problem: {
       /**
@@ -3268,10 +3325,10 @@ export interface components {
       /** @enum {string} */
       reason: 'cancelled_by_owner' | 'overlap' | 'blocked' | 'closed_day' | 'no_price' | 'client_blocked' | 'missed';
       /**
-       * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+       * @description What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event, a tournament match, or a visitor booking the hours online right now (`online_hold`, frees up if they do not pay). Absent for any other reason.
        * @enum {string}
        */
-      held_by?: 'booking' | 'fixed' | 'event' | 'match';
+      held_by?: 'booking' | 'fixed' | 'event' | 'match' | 'online_hold';
       /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
       free_courts?: components['schemas']['BookingSeriesFreeCourt'][];
     };
@@ -3342,9 +3399,9 @@ export interface components {
       }[];
       /** @description Paid spots. */
       confirmed_count: number;
-      /** @description Spots held by people still paying. */
+      /** @description Spots held by people still paying, including a hold that ran out less than fifteen minutes ago while its payment is still being checked with MercadoPago. */
       held_count: number;
-      /** @description Capacity minus paid spots and running holds, never below zero. */
+      /** @description Capacity minus paid spots and held spots (held_count), never below zero. */
       spots_left: number;
       /** Format: date-time */
       created_at: string;
@@ -5095,7 +5152,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). */
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). Without one: `hold-cooldown` when this client address already spent its time on overlapping hours of the court (see POST /api/v1/book/holds). */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5179,7 +5236,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). */
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). `hold-cooldown` when this client address already held overlapping hours on the court, unpaid, for a whole payment window in all (time actually held, including after submitting the details), and stopped less than 10 minutes ago; its `detail` is a neutral Spanish sentence for the visitor saying from when they can pick them again. Picking hours again after letting a hold go gives the new hold only what is left of that window. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5213,6 +5270,126 @@ export interface operations {
       };
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicCheckoutRetry: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The checkout to pay on, and when it closes. */
+      200: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/json': {
+            checkout: {
+              mp_init_point: string;
+              /** Format: date-time */
+              expires_at: string;
+            };
+          };
+        };
+      };
+      /** @description Malformed body, or the complex has no MercadoPago connected. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description `conflict` when the booking can no longer be paid (its window ended, it was released, or its checkout link was closed); `booking-paid` when it is paid (found approved at MercadoPago and confirmed by its processing); `payment-in-process` while MercadoPago is still processing a payment on it, or while an approved payment is being confirmed. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      410: components['responses']['LinkExpired'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description The checkout link, or the booking's payments, could not be read from MercadoPago. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+    };
+  };
+  bookingsPublicCheckoutRelease: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    requestBody: {
+      content: {
+        'application/json': {
+          token: string;
+        };
+      };
+    };
+    responses: {
+      /** @description The slot is free (released now, or already). */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description Malformed body. */
+      400: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      404: components['responses']['NotFound'];
+      /** @description `booking-paid` when the booking is paid (recorded, or found approved at MercadoPago and confirmed by its processing); `payment-in-process` while MercadoPago is still processing a payment on it, or while an approved payment is being confirmed; `conflict` when it changed while it was being released or can no longer be released. The `detail` of the first two is a Spanish sentence for the visitor. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
+      410: components['responses']['LinkExpired'];
+      422: components['responses']['ValidationError'];
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+      /** @description MercadoPago could not be asked about the booking's payments; nothing was released. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
     };
   };
   bookingsPublicStatus: {
@@ -5376,6 +5553,8 @@ export interface operations {
           'application/json': {
             bookings: components['schemas']['Booking'][];
             metadata: components['schemas']['Metadata'];
+            /** @description The hours visitors are booking online on the day right now: storefront bookings inside their payment window, which are not in `bookings` and still hold their slot. Nothing that identifies the visitor. Always the whole day, whatever the page or filters. */
+            online_holds?: components['schemas']['OnlineHold'][];
           };
         };
       };

@@ -414,3 +414,88 @@ func TestTournamentsAreScopedToTheirComplex(t *testing.T) {
 		t.Errorf("the tournament must be untouched: %+v (%v)", got, err)
 	}
 }
+
+// L19 (7): a pair whose hold just ran out keeps its category spot while its
+// payment check is open, as CountOpenPlaySpotsTaken keeps it for sign-up: the
+// category list and the waitlist read the same count, so neither shows a spot
+// free that sign-up would refuse. A closed check frees it on both at once.
+func TestALapsedPairKeepsItsCategorySpotWhileItsPaymentCheckIsOpen(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 1, 3, 2)
+	reg, err := f.signUp(cat, 1, "203.0.113.7")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '1 minute' WHERE id = $1`, reg.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Stores.Events.ExpireHolds(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	spots := func() (held, left, waitlist int) {
+		t.Helper()
+		got, err := f.Stores.Tournaments.Category(f.ctx, tr.ID, cat.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, w, err := f.Stores.PlaceWaitlist.WaitlistableCategoryEvent(f.ctx, f.ComplexID, cat.ID, timezone.Now())
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got.HeldCount, got.SpotsLeft(), w
+	}
+
+	if _, err := f.signUp(cat, 2, "203.0.113.8"); !errors.Is(err, eventstore.ErrEventFull) {
+		t.Fatalf("sign-up keeps the lapsed pair's spot; got %v", err)
+	}
+	if held, left, w := spots(); held != 1 || left != 0 || w != 0 {
+		t.Fatalf("while the check is open: held %d, spots left %d, waitlist spots %d; want 1, 0, 0", held, left, w)
+	}
+
+	if _, err := f.Stores.Events.ClosePaymentCheck(f.ctx, reg.ID); err != nil {
+		t.Fatal(err)
+	}
+	if held, left, w := spots(); held != 0 || left != 1 || w != 1 {
+		t.Fatalf("with the check closed: held %d, spots left %d, waitlist spots %d; want 0, 1, 1", held, left, w)
+	}
+}
+
+// T12 (4): a lapsed pair's spot is kept for fifteen minutes while its payment
+// check is open, through MercadoPago's second answer (eight to eleven minutes
+// after the window): twelve minutes on, the category and the waitlist still
+// count it, as sign-up does.
+func TestALapsedPairKeepsItsCategorySpotUntilTheSecondPaymentAskLands(t *testing.T) {
+	f := newFixture(t)
+	tr, cat := f.tournament(t, tournamentstore.FormatElimination, 1, 3, 2)
+	reg, err := f.signUp(cat, 1, "203.0.113.9")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '1 minute' WHERE id = $1`, reg.ID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Stores.Events.ExpireHolds(f.ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '12 minutes' WHERE id = $1`, reg.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := f.signUp(cat, 2, "203.0.113.10"); !errors.Is(err, eventstore.ErrEventFull) {
+		t.Fatalf("sign-up keeps the lapsed pair's spot; got %v", err)
+	}
+	got, err := f.Stores.Tournaments.Category(f.ctx, tr.ID, cat.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, w, err := f.Stores.PlaceWaitlist.WaitlistableCategoryEvent(f.ctx, f.ComplexID, cat.ID, timezone.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.HeldCount != 1 || got.SpotsLeft() != 0 || w != 0 {
+		t.Fatalf("twelve minutes on: held %d, spots left %d, waitlist spots %d; want 1, 0, 0", got.HeldCount, got.SpotsLeft(), w)
+	}
+}

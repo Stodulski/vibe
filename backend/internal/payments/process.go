@@ -82,9 +82,19 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		return nil
 	}
 
-	// If the booking was already cancelled (e.g. cron expired it, or owner cancelled it),
+	// If the booking was already cancelled (e.g. the owner or the client cancelled it),
 	// issue an automatic refund instead of re-confirming.
-	if booking.Status == "cancelled" {
+	//
+	// A booking cancelled only because its payment window ran out is the
+	// exception (slot-hold gaps S5): this payment is the one it was waiting
+	// for, so it goes on to the confirmation below, which reopens it when its
+	// hours are still free and refunds it (slot taken) when they are not. One
+	// already refunded or owed a refund, or whose hours already began, does
+	// not read as cancelled by hold expiry (bookingstore.ReopenableByLatePaymentSQL)
+	// and is refunded here as any late payment. The store re-checks the same
+	// test under the booking's lock, so a stale read here can only lead to the
+	// refund, never to a wrong confirmation.
+	if booking.Status == "cancelled" && !booking.CancelledByHoldExpiry {
 		s.logger.Info("mp webhook: booking already cancelled, issuing automatic refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -138,6 +148,12 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			"booking_id", booking.ID,
 		)
 		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: amount mismatch mp_payment_id=%s booking_id=%s expected=%d actual=%d", mpPaymentID, booking.ID, expectedCentavos, actualCentavos))
+		// A booking the expiry cancelled is not left holding the money for a
+		// person to sort out, as a pending one is: nobody holds it, so the
+		// payment goes back as any late payment on a cancelled booking does.
+		if booking.Status == "cancelled" {
+			return s.refundCancelledBookingPayment(ctx, booking, mpPayment, mpPaymentID, paymentstore.RefundCauseLatePayment)
+		}
 		return nil
 	}
 
@@ -160,7 +176,7 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 		sentry.CaptureMessage(fmt.Sprintf("PRICE CHANGED during webhook: mp_payment_id=%s booking_id=%s original=%d new=%d", mpPaymentID, booking.ID, expectedCentavos, revalidatedExpected))
 	}
 
-	if booking.Status == "cancelled" {
+	if booking.Status == "cancelled" && !booking.CancelledByHoldExpiry {
 		s.logger.Info("mp webhook: booking was cancelled concurrently, issuing auto-refund",
 			"mp_payment_id", mpPaymentID,
 			"booking_id", booking.ID,
@@ -186,9 +202,19 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	// can name the payment it confirmed without either branch repeating it.
 	var settled *paymentstore.Payment
 
+	if existingPayment != nil && !paymentRowTakes(existingPayment, mpPaymentID) {
+		// The row already holds, or held, another MercadoPago payment's money:
+		// this payment is written as a row of its own, never over that one.
+		existingPayment = nil
+	}
+
 	if existingPayment != nil {
 		// The public booking flow already inserted this row at checkout; the
 		// webhook only fills in the MercadoPago payment id and settles the status.
+		// On a copy: a refused write leaves the row as it was read, and the
+		// refund path that follows decides from the row, not from this attempt.
+		row := *existingPayment
+		existingPayment = &row
 		existingPayment.Status = paymentStatus
 		existingPayment.MPPaymentID = &mpPaymentID
 		existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
@@ -205,6 +231,11 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			}
 			// The money is captured and the booking is still pending. Left as an
 			// error, the event is requeued and this write is attempted again.
+			// That includes paymentstore.ErrPaymentRowTaken: another approved
+			// payment settled the checkout row after it was read, and the
+			// retry finds the booking settled and refunds this one as a
+			// duplicate. Confirming it on a new row here would record a second
+			// payment with no refund behind it.
 			return fmt.Errorf("confirm payment %s: %w", mpPaymentID, err)
 		}
 		settled = existingPayment
@@ -625,7 +656,20 @@ func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 // inserting a second left the first orphaned with the preference id on it while
 // GetByBookingID's ordering handed everything after it the new row.
 func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) error {
-	payment, err := s.recordPaymentOwedARefund(ctx, booking, mpPayment, mpPaymentID)
+	existing, err := s.payments.GetByBookingID(ctx, booking.ID)
+	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
+		return fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
+	}
+	if existing != nil && !paymentRowTakes(existing, mpPaymentID) {
+		return s.refundAnotherPaymentOnCancelledBooking(ctx, booking, mpPayment, mpPaymentID, cause)
+	}
+
+	payment, err := s.recordPaymentOwedARefund(ctx, booking, existing, mpPayment, mpPaymentID)
+	if errors.Is(err, paymentstore.ErrPaymentRowTaken) {
+		// Another approved payment took the checkout row after it was read
+		// here, and nothing was written: this one gets a row of its own.
+		return s.refundAnotherPaymentOnCancelledBooking(ctx, booking, mpPayment, mpPaymentID, cause)
+	}
 	if err != nil {
 		s.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
 			"error", err,
@@ -645,6 +689,50 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
 
 	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+}
+
+// refundAnotherPaymentOnCancelledBooking refunds an approved payment that landed on
+// a cancelled booking whose payment row already belongs to another payment: one
+// that holds money, or whose money is refunded or on its way back.
+//
+// The row is new and is written together with its refund claim, in one
+// transaction, the way a duplicate payment on a settled booking is
+// (recordDuplicatePayment). Written apart, a claim that failed for a moment, or a
+// crash between the two commits, left a row that read as already processed: the
+// redelivered event stopped at "payment already processed", and the orphan sweep
+// found the booking already refunded by the first payment, so this money stayed
+// captured for good. Now either both are committed and the claim's attempt row
+// brings the money back, or neither is and the redelivery starts over.
+//
+// The booking is not written. It is cancelled and already reads the money the
+// first payment collected, so it needs no refund-intent marker, and the full
+// refund of this row settles its refund status the same way the first one did.
+func (s *Service) refundAnotherPaymentOnCancelledBooking(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string, cause paymentstore.RefundCause) error {
+	amount, serviceFee := splitPaidAmount(booking, mpPayment)
+	payment := &paymentstore.Payment{
+		BookingID:   booking.ID,
+		ComplexID:   booking.ComplexID,
+		Amount:      amount,
+		ServiceFee:  serviceFee,
+		Method:      "mercadopago",
+		Status:      string(collectedOnline(booking)),
+		MPPaymentID: &mpPaymentID,
+	}
+	claim, err := s.refunds.InsertAndClaimRefundWithCause(ctx, payment, cause)
+	if err != nil {
+		// The row and its claim are one write, so nothing was written and the
+		// retried event records and claims the payment from the start.
+		s.logger.Error("mp webhook: another approved payment on a cancelled booking could not be recorded and claimed, so it cannot be refunded yet",
+			"error", err,
+			"mp_payment_id", mpPaymentID,
+			"booking_id", booking.ID,
+		)
+		sentry.CaptureMessage(fmt.Sprintf("CANCELLED BOOKING PAID AGAIN NOT RECORDED (payment record or refund claim failed, money still held): mp_payment_id=%s booking_id=%s",
+			mpPaymentID, booking.ID))
+		return fmt.Errorf("record another payment on cancelled booking %s: %w", booking.ID, err)
+	}
+	s.settleRefundClaim(ctx, booking, claim, mpPaymentID, "cancelled")
+	return nil
 }
 
 // refundRecordedPayment claims, issues and records the refund of a cancelled booking's
@@ -731,13 +819,17 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 }
 
 // recordPaymentOwedARefund writes the payment behind a refund that is about to be
-// claimed, and returns the row the claim will reserve.
+// claimed, and returns the row the claim will reserve. existing is the booking's
+// payment row as the caller read it, nil when there is none; the caller has
+// already sent a payment that row cannot take to
+// refundAnotherPaymentOnCancelledBooking.
 //
 // The checkout row created when the booking was made is preferred: it already
 // carries the preference id and the amounts the client agreed to, and one booking
 // is meant to have one payment.
 //
-// The write commits 'deposit_paid' plus the refund-intent marker, and this is
+// The write commits what was collected (deposit_paid, or fully_paid for a
+// checkout that charged the whole price) plus the refund-intent marker, and this is
 // the whole of the difference from what it used to do. It used to commit
 // payment_status='refund_pending' here, before any claim existed — the exact
 // value refundable() (refund.go) reads as "a claim is already committed against
@@ -754,29 +846,29 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 // expressing as 'refund_pending' for precisely this reason. The two cancel
 // paths already write it the same way (internal/bookings), so the shape
 // SweepOrphanedRefundIntents recovers is identical whichever path produced it.
-func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
-	existing, err := s.payments.GetByBookingID(ctx, booking.ID)
-	if err != nil && !errors.Is(err, data.ErrRecordNotFound) {
-		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
-	}
-
-	// The client's money is here and the booking is cancelled, which is what
-	// collection_status 'deposit_paid' says and what claimable() needs to read
-	// to reserve it. The refund axis is left alone: recordPaymentOwedARefund
-	// records that money arrived, and the refund it owes is carried by
-	// refund_intent_at below, not by pre-declaring a refund that has not
-	// started.
-	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *bookingstore.Booking, existing *paymentstore.Payment, mpPayment *mp.Payment, mpPaymentID string) (*paymentstore.Payment, error) {
+	// The client's money is here and the booking is cancelled: what was
+	// collected is what an approved payment on this booking collects
+	// (collectedOnline), the whole price when the checkout charged it, so a
+	// refunded full payment does not read as a refunded seña. The refund axis
+	// is left alone: recordPaymentOwedARefund records that money arrived, and
+	// the refund it owes is carried by refund_intent_at below, not by
+	// pre-declaring a refund that has not started.
+	collected := collectedOnline(booking)
+	booking.CollectionStatus = collected
 	now := time.Now()
 	booking.RefundIntentAt = &now
 
 	if existing != nil {
-		existing.Status = "deposit_paid"
-		existing.MPPaymentID = &mpPaymentID
-		if err := s.ledger.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
+		// On a copy: a write the row refuses (paymentstore.ErrPaymentRowTaken)
+		// leaves the caller's read of it as it was.
+		row := *existing
+		row.Status = string(collected)
+		row.MPPaymentID = &mpPaymentID
+		if err := s.ledger.ConfirmWebhookPayment(ctx, &row, booking); err != nil {
 			return nil, err
 		}
-		return existing, nil
+		return &row, nil
 	}
 
 	// No checkout row: split what MercadoPago says the client paid rather than
@@ -789,13 +881,28 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		Amount:      amount,
 		ServiceFee:  serviceFee,
 		Method:      "mercadopago",
-		Status:      "deposit_paid",
+		Status:      string(collected),
 		MPPaymentID: &mpPaymentID,
 	}
 	if err := s.ledger.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
 		return nil, err
 	}
 	return payment, nil
+}
+
+// paymentRowTakes reports whether a booking's existing payment row may take an
+// approved MercadoPago payment: a checkout row no money has reached yet, or the
+// row already carrying this very payment. A row that holds money, or whose money is refunded or on its way back, belongs
+// to the payment that brought it, and every further payment gets its own row,
+// so each one is claimed, refunded and recorded on its own.
+func paymentRowTakes(p *paymentstore.Payment, mpPaymentID string) bool {
+	if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
+		return true
+	}
+	if paymentstore.ReceivedMoney(p.Status) || p.RefundAmount > 0 {
+		return false
+	}
+	return p.Status != "refunded" && p.Status != "refund_pending"
 }
 
 // collectorMatchesComplex reports whether the MercadoPago payment was collected by the

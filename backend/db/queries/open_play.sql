@@ -36,14 +36,18 @@ ORDER BY c.name, oc.court_id;
 -- name: ListOpenPlayEvents :many
 -- The events of one complex whose date is in the window, soonest first, with
 -- how many spots are taken: confirmed registrations plus the holds still
--- running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+-- running or kept for their payment check, the count capacity is checked
+-- against (CountOpenPlaySpotsTaken).
 -- include_cancelled is what the owner's list sets and the public one does not.
 -- The sign-up containers of tournament categories are not events a person lists.
 SELECT e.*,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
-         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+         WHERE r.event_id = e.id
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
+             OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                 AND r.held_until > NOW() - INTERVAL '15 minutes')))::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = sqlc.arg(complex_id)
   AND e.tournament_id IS NULL
@@ -60,20 +64,48 @@ WHERE id = $1 AND status = 'active'
 RETURNING *;
 
 -- name: CountOpenPlaySpotsTaken :one
--- The spots of an event that are not free: registrations paid for, and holds
--- still inside their window. except is the registration being decided about,
--- which never counts against itself (NULL excludes nothing).
+-- The spots of an event that are not free: registrations paid for, holds
+-- still inside their window, and holds whose window ended less than fifteen
+-- minutes ago while their payment check is still open (a held row the sweep
+-- has not closed yet, or an expired one whose check is due). The first ask is
+-- due three minutes after the expiry, and an empty first answer is asked again
+-- about five minutes later (MercadoPago's search lags an approval), so the
+-- check closes eight to eleven minutes after the window ended. Releasing the
+-- spot before that let someone else fill the event while a payment approved in
+-- the hold's last seconds was still to be found, and it was then refunded.
+-- Fifteen minutes bounds it whatever the check is doing, past its second
+-- answer; a check closed after its second empty answer frees the spot then.
+-- The grace is written out in every count that reads this rule (open_play.sql,
+-- tournaments.sql, place_waitlist.sql, eventstore fillCounts): change them
+-- together. An expiry by its own person signing up again
+-- (payment_check_notify false) does not count against them. except is the
+-- registration being decided about, which never counts against itself (NULL
+-- excludes nothing).
 SELECT count(*)::int FROM open_play_registrations
 WHERE event_id = sqlc.arg(event_id)
-  AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+  AND (status = 'confirmed'
+       OR (status = 'held' AND held_until > NOW() - INTERVAL '15 minutes')
+       OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
+           AND held_until > NOW() - INTERVAL '15 minutes'))
   AND (sqlc.narg('except')::uuid IS NULL OR id <> sqlc.narg('except')::uuid);
 
 -- name: ExpireOpenPlayHoldsOfPhone :exec
 -- Lets a person whose own earlier hold ran out sign up again: the one-live-
 -- spot-per-phone index would otherwise still count the stale row.
+-- The hold is still asked about (payment_check_due_at, three minutes on, as the
+-- sweep's expiry), silently: the person is signing up again, so no expiry
+-- notice follows. A hold of theirs the sweep already expired, whose check is
+-- still open, is made silent too, keeping its due time: the spot it was kept
+-- for (CountOpenPlaySpotsTaken) is not held against the person taking a new
+-- one.
 UPDATE open_play_registrations
-SET status = 'expired'
-WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
+SET status = 'expired',
+    payment_check_due_at = CASE WHEN status = 'held' THEN NOW() + INTERVAL '3 minutes'
+                                ELSE payment_check_due_at END,
+    payment_check_notify = false
+WHERE event_id = $1 AND phone = $2
+  AND ((status = 'held' AND held_until <= NOW())
+    OR (status = 'expired' AND payment_check_due_at IS NOT NULL));
 
 -- name: PhoneHoldsAnotherLiveSpot :one
 -- Whether the person of a registration (by phone) holds a live spot of the
@@ -174,10 +206,41 @@ RETURNING r.id, old.status AS previous_status;
 -- name: ExpireOpenPlayHolds :many
 -- The sweep: marks expired the holds nobody paid in time. They stopped counting
 -- against capacity the moment held_until passed; this only closes the rows.
+-- Every hold opened a MercadoPago checkout, so each is marked due a payment
+-- check in the same write: a payment whose webhook never arrived is still
+-- found, and the person is told the spot expired only once none was. The first
+-- check is due three minutes later, not at once: MercadoPago's search lags
+-- behind a payment approved in the hold's last seconds.
 UPDATE open_play_registrations
-SET status = 'expired'
+SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = true
 WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id;
+
+-- name: ListDueRegistrationPaymentChecks :many
+-- The expired holds whose checkout MercadoPago is due to be asked about, oldest
+-- first. Only an expired row is a candidate: a late payment that confirmed it
+-- meanwhile already answered the question.
+SELECT id, complex_id, event_id, payment_checks, payment_check_notify
+FROM open_play_registrations
+WHERE status = 'expired' AND payment_check_due_at <= NOW()
+ORDER BY payment_check_due_at
+LIMIT sqlc.arg(page_limit)::int;
+
+-- name: CloseRegistrationPaymentCheck :execrows
+-- MercadoPago answered, or the sweep gave up: the check is done. Zero rows means
+-- another run closed it first.
+UPDATE open_play_registrations
+SET payment_check_due_at = NULL
+WHERE id = $1 AND payment_check_due_at IS NOT NULL;
+
+-- name: DeferRegistrationPaymentCheck :one
+-- MercadoPago could not be asked: count the attempt and ask again later, five
+-- minutes more for every failed attempt, at most two hours apart.
+UPDATE open_play_registrations
+SET payment_checks = payment_checks + 1,
+    payment_check_due_at = NOW() + make_interval(mins => LEAST(5 * (payment_checks + 1), 120))
+WHERE id = $1 AND payment_check_due_at IS NOT NULL
+RETURNING payment_checks;
 
 -- name: ListOwnerCancelledRegistrationsStillPaid :many
 -- Cancelled registrations whose money is owed back and has not been sent, once

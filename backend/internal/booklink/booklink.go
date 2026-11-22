@@ -73,10 +73,14 @@ func EventFailure(publicURL, complexSlug string, eventID uuid.UUID) string {
 }
 
 // Failure builds the MercadoPago checkout preference's failure back_url. It
-// carries no credential: nothing on the far side of a failed payment can be
-// looked up by one.
-func Failure(publicURL, complexSlug string) string {
-	return fmt.Sprintf("%s/c/%s/book?error=payment_failed", publicURL, complexSlug)
+// carries the booking's credential, the same one Success carries: a rejected
+// payment leaves the booking pending and holding its slot, and the storefront
+// uses the credential to let the visitor pay again on the same checkout or let
+// the slot go (the book checkout retry and release routes). MercadoPago
+// already holds this token in the success URL, so passing it back on failure
+// tells no third party anything it did not have; no personal data is in it.
+func Failure(publicURL, complexSlug, credential string) string {
+	return fmt.Sprintf("%s/c/%s/book?error=payment_failed&%s=%s", publicURL, complexSlug, QueryParam, url.QueryEscape(credential))
 }
 
 // MapsQuery builds the dynamic suffix for a Google Maps search button — the

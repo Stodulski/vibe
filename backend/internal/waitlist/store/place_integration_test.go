@@ -135,9 +135,16 @@ func TestOnlyAWaitlistablePlaceIsFound(t *testing.T) {
 	}
 	register(t, f, future, "confirmed", time.Hour)
 	register(t, f, future, "held", time.Hour)
-	register(t, f, future, "held", -time.Minute)
-	if spots, _ := st.WaitlistableEvent(ctx, f.ComplexID, future, now); spots != 2 {
-		t.Errorf("confirmed and live holds count, an expired hold does not: want 2 left; got %d", spots)
+	// Inside the fifteen minutes a lapsed hold's spot is kept for its payment
+	// check (CountOpenPlaySpotsTaken): it still counts.
+	register(t, f, future, "held", -12*time.Minute)
+	if spots, _ := st.WaitlistableEvent(ctx, f.ComplexID, future, now); spots != 1 {
+		t.Errorf("a hold twelve minutes lapsed still counts: want 1 left; got %d", spots)
+	}
+	// Past the fifteen minutes it does not.
+	register(t, f, future, "held", -16*time.Minute)
+	if spots, _ := st.WaitlistableEvent(ctx, f.ComplexID, future, now); spots != 1 {
+		t.Errorf("confirmed and kept holds count, one past the grace does not: want 1 left; got %d", spots)
 	}
 	for name, id := range map[string]uuid.UUID{"started": past, "unknown": uuid.New()} {
 		if _, err := st.WaitlistableEvent(ctx, f.ComplexID, id, now); !errors.Is(err, data.ErrRecordNotFound) {
@@ -190,8 +197,14 @@ func TestClaimFreedEventsWaitsForAFreeSpotAndIsOneShot(t *testing.T) {
 		t.Fatalf("a full event frees nothing; got %d (%v)", len(got), err)
 	}
 
-	// The hold runs out: its spot is free though nobody swept it to 'expired'.
-	exec(t, f, `UPDATE open_play_registrations SET held_until = NOW() - interval '1 minute' WHERE id = $1`, held)
+	// Twelve minutes lapsed the spot is still kept for its payment check
+	// (CountOpenPlaySpotsTaken): nothing is freed.
+	exec(t, f, `UPDATE open_play_registrations SET held_until = NOW() - interval '12 minutes' WHERE id = $1`, held)
+	if got, err := st.ClaimFreedEvents(sweepCtx(), now, 100); err != nil || len(got) != 0 {
+		t.Fatalf("a hold inside its grace frees nothing; got %d (%v)", len(got), err)
+	}
+	// Past the fifteen minutes: free though nobody swept it to 'expired'.
+	exec(t, f, `UPDATE open_play_registrations SET held_until = NOW() - interval '16 minutes' WHERE id = $1`, held)
 	got, err := st.ClaimFreedEvents(sweepCtx(), now, 100)
 	if err != nil || len(got) != 2 {
 		t.Fatalf("want both waiting addresses claimed at once; got %d (%v)", len(got), err)
@@ -563,7 +576,9 @@ func TestToldEntriesWaitAgainWhenTheirEventIsFullAgain(t *testing.T) {
 		t.Fatalf("while the spot is still free nobody is re-armed; got %d (%v)", n, err)
 	}
 
-	register(t, f, eventID, "held", time.Hour)
+	// Full again by a hold that lapsed twelve minutes ago: its spot is kept
+	// for its payment check (CountOpenPlaySpotsTaken) as sign-up keeps it.
+	register(t, f, eventID, "held", -12*time.Minute)
 	if n, err := st.RearmFullEvents(sweepCtx(), timezone.Now()); err != nil || n != 5 {
 		t.Fatalf("want the five waiting again once the event is full; got %d (%v)", n, err)
 	}

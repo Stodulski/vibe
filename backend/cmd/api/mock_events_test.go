@@ -81,3 +81,15 @@ func (m *mockEventStore) ExpireHolds(context.Context) ([]eventstore.ExpiredHold,
 func (m *mockEventStore) OwnerCancelledStillPaid(context.Context, time.Duration, int) ([]eventstore.PendingRefund, error) {
 	return nil, nil
 }
+
+func (m *mockEventStore) DuePaymentChecks(context.Context, int) ([]eventstore.PaymentCheck, error) {
+	return nil, nil
+}
+
+func (m *mockEventStore) ClosePaymentCheck(context.Context, uuid.UUID) (bool, error) {
+	return false, nil
+}
+
+func (m *mockEventStore) DeferPaymentCheck(context.Context, uuid.UUID) (int, error) {
+	return 0, nil
+}

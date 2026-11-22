@@ -10,6 +10,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/slots"
 )
 
@@ -33,14 +34,16 @@ func TestServiceBlockSlot(t *testing.T) {
 	}
 
 	tests := []struct {
-		name      string
-		court     *courtstore.Court
-		getErr    error
-		booked    []bookingstore.BookedSpan
-		blockErr  error
-		start     string
-		end       string
-		wantErr   error
+		name     string
+		court    *courtstore.Court
+		getErr   error
+		booked   []bookingstore.BookedSpan
+		blockErr error
+		start    string
+		end      string
+		wantErr  error
+		// wantHold asks for an online hold refusal that is still ErrSlotHasBooking.
+		wantHold  bool
 		wantAudit bool
 	}{
 		{
@@ -65,12 +68,26 @@ func TestServiceBlockSlot(t *testing.T) {
 			wantErr: data.ErrRecordNotFound,
 		},
 		{
-			name:    "an overlapping booking refuses the block",
-			court:   ownCourt,
-			booked:  booked("10:30", "12:00"),
-			start:   "10:00",
-			end:     "11:00",
-			wantErr: courtstore.ErrSlotHasBooking,
+			// The storefront's booked spans include a visitor's live online
+			// hold, which the pre-check cannot tell from a booking: the store's
+			// guard, under the court-day lock, answers which one it is.
+			name:     "an overlapping booking refuses the block",
+			court:    ownCourt,
+			booked:   booked("10:30", "12:00"),
+			blockErr: courtstore.ErrSlotHasBooking,
+			start:    "10:00",
+			end:      "11:00",
+			wantErr:  courtstore.ErrSlotHasBooking,
+		},
+		{
+			name:     "an overlapping online hold refuses the block saying when it frees",
+			court:    ownCourt,
+			booked:   booked("10:30", "12:00"),
+			blockErr: &slotguard.OnlineHoldError{FreesAt: date, Err: courtstore.ErrSlotHasBooking},
+			start:    "10:00",
+			end:      "11:00",
+			wantErr:  courtstore.ErrSlotHasBooking,
+			wantHold: true,
 		},
 		{
 			name:   "an adjacent booking does not",
@@ -109,6 +126,10 @@ func TestServiceBlockSlot(t *testing.T) {
 			if tt.wantErr != nil {
 				if !errors.Is(err, tt.wantErr) {
 					t.Fatalf("got error %v, want %v", err, tt.wantErr)
+				}
+				var hold *slotguard.OnlineHoldError
+				if errors.As(err, &hold) != tt.wantHold {
+					t.Fatalf("got error %v; online hold refusal wanted: %v", err, tt.wantHold)
 				}
 				if store.insertedBlocked != nil {
 					t.Fatalf("a refused block still wrote a row")

@@ -33,6 +33,11 @@ var (
 	// because two counter collections can both pass the caller's check on an unlocked
 	// snapshot and only the second one, read after the first commits, is over the balance.
 	ErrAmountExceedsBalance = errors.New("payment amount exceeds the outstanding balance")
+	// ErrPaymentRowTaken is returned by ConfirmWebhookPayment when the row it was
+	// asked to write no longer takes the payment: another approved payment settled
+	// it after the caller read it unpaid. The row is that payment's, so the caller
+	// records this one on a row of its own.
+	ErrPaymentRowTaken = errors.New("payment row already taken by another payment")
 )
 
 // AmountExceedsBalanceError is ErrAmountExceedsBalance carrying the balance the locked

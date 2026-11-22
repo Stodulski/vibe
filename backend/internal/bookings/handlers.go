@@ -66,9 +66,19 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The day's online holds ride along on the day's read, so the grid can
+	// draw the hours a visitor is booking right now (which are not bookings
+	// the owner has, and so are not in the list above).
+	holds, err := h.svc.LiveHolds(r.Context(), complex.ID, date)
+	if err != nil {
+		h.respond.ServerError(w, r, err)
+		return
+	}
+
 	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"bookings": toGenBookings(bookings),
-		"metadata": toGenMetadata(metadata),
+		"bookings":     toGenBookings(bookings),
+		"metadata":     toGenMetadata(metadata),
+		"online_holds": toOnlineHolds(holds),
 	})
 }
 
@@ -157,12 +167,23 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	var validationErr *ValidationError
 	var conflictErr *ConflictError
 	var stateErr *StateError
+	var holdBlocked *bookingstore.HoldBlockedError
+	var cooldown *bookingstore.HoldCooldownError
 
 	if h.refuseSeriesConflicts(w, r, err) {
 		return
 	}
 
 	switch {
+	case errors.As(err, &cooldown):
+		// The visitor's own address spent its time on these hours: its own
+		// kind, so the storefront does not say somebody else holds them.
+		h.respond.Refuse(w, r, holdCooldownRefusal(cooldown.Until))
+	case errors.As(err, &holdBlocked):
+		// Still slot-unavailable, for every client switching on the kind; the
+		// detail tells the owner why a cell that looked free is not, and when
+		// it will be.
+		h.respond.Refuse(w, r, httpx.SlotUnavailable(httpx.OnlineHoldMessage(holdBlocked.FreesAt)))
 	case errors.As(err, &validationErr):
 		h.respond.FailedValidation(w, r, validationErr.Errors)
 	case errors.As(err, &fieldErr):

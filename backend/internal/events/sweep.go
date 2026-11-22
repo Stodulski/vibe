@@ -2,8 +2,14 @@ package events
 
 import (
 	"context"
+	"fmt"
+	"strconv"
 	"time"
 
+	"github.com/getsentry/sentry-go"
+	"github.com/google/uuid"
+
+	"github.com/stodulski/vibe-server/internal/checkout"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/events/notice"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
@@ -14,15 +20,34 @@ import (
 // sweep is sequential and a MercadoPago call takes seconds.
 const refundSweepBatch = 12
 
-// ExpireHolds closes the holds nobody paid in time. They stopped counting against
-// capacity the moment their window ended, so a sweep running late changes
-// nothing a visitor sees; this keeps the rows honest and the owner's dashboards
-// current. Called by the scheduler, under the tenant bypass.
+// paymentCheckBatch is how many expired holds one sweep asks MercadoPago about,
+// for the same reason.
+const paymentCheckBatch = 12
+
+// maxPaymentChecks is how many times the hold sweep tries to ask MercadoPago
+// about one expired registration before it gives up. The store spaces the
+// attempts five minutes more apart each time, at most two hours, so twenty
+// span about sixteen hours.
+const maxPaymentChecks = 20
+
+// ExpireHolds closes the holds nobody paid in time. Their spot stays counted
+// against capacity while their payment check is open, for at most fifteen
+// minutes after their window ended (CountOpenPlaySpotsTaken): past the check's
+// second answer, eight to eleven minutes on, so a payment approved in the
+// hold's last seconds is not refunded because someone else filled the event
+// before MercadoPago found it. Called by the scheduler, under the
+// tenant bypass.
+//
+// Every hold opened a MercadoPago checkout, so closing it marks it due a
+// payment check, and the person is told their spot expired only once
+// MercadoPago was asked and holds no approved payment for it
+// (checkExpiredPayments): a webhook that never arrived used to leave the money
+// captured on an expired registration, with no payment row, no refund and no
+// alert.
 func (s *Service) ExpireHolds(ctx context.Context) {
 	expired, err := s.store.ExpireHolds(ctx)
 	if err != nil {
 		s.logger.Error("event holds: failed to expire the holds that ran out", "error", err)
-		return
 	}
 	seen := map[string]bool{}
 	for _, hold := range expired {
@@ -34,30 +59,158 @@ func (s *Service) ExpireHolds(ctx context.Context) {
 	if len(expired) > 0 {
 		s.logger.Info("event holds: expired unpaid holds", "count", len(expired))
 	}
-	s.notifyExpired(ctx, expired)
+	s.checkExpiredPayments(ctx)
 }
 
-// notifyExpired tells each person whose hold ran out that their spot was
-// released, as an expired storefront booking is told (S10). Only a person who
-// left an email hears of it: there is no other channel. A notice that cannot be
-// built is logged; the holds are already closed either way.
-func (s *Service) notifyExpired(ctx context.Context, expired []eventstore.ExpiredHold) {
-	for _, hold := range expired {
-		reg, err := s.store.GetRegistration(ctx, hold.ID)
-		if err != nil {
-			s.logger.Error("event holds: cannot read an expired hold to notify it", "error", err, "registration_id", hold.ID)
-			continue
-		}
-		if reg.Email == nil || *reg.Email == "" {
-			continue
-		}
-		ev, complex, err := s.eventAndComplex(ctx, reg)
-		if err != nil {
-			s.logger.Error("event holds: cannot build the expiry notice", "error", err, "registration_id", hold.ID)
-			continue
-		}
-		s.notify.EventCancelled(notice.Expired(reg, ev, complex, s.cfg.PublicURL))
+// checkExpiredPayments asks MercadoPago about every expired hold whose payment
+// check is due, the ones this run closed and the ones earlier runs deferred.
+func (s *Service) checkExpiredPayments(ctx context.Context) {
+	due, err := s.store.DuePaymentChecks(ctx, paymentCheckBatch)
+	if err != nil {
+		s.logger.Error("event holds: failed to read the due payment checks", "error", err)
+		return
 	}
+	for _, check := range due {
+		s.checkPayment(ctx, check)
+	}
+}
+
+// checkPayment settles one expired hold's payment check. An approved payment of
+// its checkout is handed to the payment processing, which confirms the spot
+// while there is room and refunds it otherwise, and tells the person either
+// way. No approved payment closes the check and tells the person their spot
+// expired, when the check owes that notice — on the second answer, since a
+// first empty one is asked again a few minutes later (search lag). A MercadoPago that cannot be asked,
+// or a payment that cannot be handed over, defers the check to a later run,
+// told nothing, until maxPaymentChecks attempts failed.
+func (s *Service) checkPayment(ctx context.Context, check eventstore.PaymentCheck) {
+	approvedIDs, err := s.approvedPayments(ctx, check)
+	if err == nil && len(approvedIDs) > 0 {
+		err = s.handOver(ctx, check, approvedIDs)
+	}
+	if err != nil {
+		s.deferPaymentCheck(ctx, check, len(approvedIDs) > 0, err)
+		return
+	}
+	if len(approvedIDs) == 0 && check.Failures == 0 {
+		// The first answer, and it found nothing. MercadoPago's search lags
+		// behind a payment approved in the last seconds of the hold, so it is
+		// asked once more, a few minutes later, before the person is told the
+		// spot expired. Pushed back like a failed attempt, which it counts as:
+		// a later empty answer is trusted, as is one after a failed attempt,
+		// which already came minutes later.
+		if _, err := s.store.DeferPaymentCheck(ctx, check.RegistrationID); err != nil {
+			s.logger.Error("event holds: failed to defer a payment check for its second ask", "error", err, "registration_id", check.RegistrationID)
+		}
+		return
+	}
+	closed, err := s.store.ClosePaymentCheck(ctx, check.RegistrationID)
+	if err != nil {
+		// Still open: the next run asks again, and the processing a payment was
+		// handed to is idempotent.
+		s.logger.Error("event holds: failed to close a payment check", "error", err, "registration_id", check.RegistrationID)
+		return
+	}
+	if closed && len(approvedIDs) == 0 && check.Notify {
+		s.notifyExpired(ctx, check.RegistrationID)
+	}
+}
+
+// approvedPayments asks MercadoPago, as the seller whose checkout it was, for
+// the approved payments made against the registration's checkout, whose
+// reference is the registration's id (mp.CreatePreferenceInput.RegistrationID).
+func (s *Service) approvedPayments(ctx context.Context, check eventstore.PaymentCheck) ([]string, error) {
+	complex, err := s.complexes.GetByID(ctx, check.ComplexID)
+	if err != nil {
+		return nil, fmt.Errorf("read the complex: %w", err)
+	}
+	seller, err := checkout.Seller(complex)
+	if err != nil {
+		return nil, fmt.Errorf("the seller's credential: %w", err)
+	}
+	reference := check.RegistrationID.String()
+	found, err := s.checkout.SearchPaymentsByReference(ctx, reference, seller)
+	if err != nil {
+		return nil, fmt.Errorf("search the checkout's payments: %w", err)
+	}
+	var ids []string
+	for _, p := range found {
+		if p.Status == "approved" && p.ExternalReference == reference {
+			ids = append(ids, strconv.FormatInt(p.ID, 10))
+		}
+	}
+	return ids, nil
+}
+
+// handOver gives each approved payment to the payment processing, exactly as
+// its webhook would have been processed. The first that cannot be recorded
+// fails the hand-over, so the check is asked again; one already handed over is
+// a no-op the second time.
+func (s *Service) handOver(ctx context.Context, check eventstore.PaymentCheck, approvedIDs []string) error {
+	for _, id := range approvedIDs {
+		s.logger.Warn("event holds: approved payment found on an expired hold, processing it",
+			"registration_id", check.RegistrationID, "mp_payment_id", id)
+		if err := s.reconciler.ReconcileApprovedPayment(ctx, id); err != nil {
+			return fmt.Errorf("hand over payment %s: %w", id, err)
+		}
+	}
+	return nil
+}
+
+// deferPaymentCheck counts a failed attempt and asks again later, or gives up
+// once maxPaymentChecks attempts failed. Giving up on a payment seen approved
+// leaves it to a person and tells its payer nothing; giving up on a MercadoPago
+// that never answered tells the person their spot expired, which is all that
+// is known.
+func (s *Service) deferPaymentCheck(ctx context.Context, check eventstore.PaymentCheck, sawApproved bool, cause error) {
+	failures, err := s.store.DeferPaymentCheck(ctx, check.RegistrationID)
+	if err != nil {
+		s.logger.Error("event holds: failed to defer a payment check", "error", err, "cause", cause, "registration_id", check.RegistrationID)
+		return
+	}
+	if failures < maxPaymentChecks {
+		s.logger.Warn("event holds: payment check failed, asking again later",
+			"error", cause, "registration_id", check.RegistrationID, "failures", failures)
+		return
+	}
+	closed, err := s.store.ClosePaymentCheck(ctx, check.RegistrationID)
+	if err != nil {
+		s.logger.Error("event holds: failed to give up a payment check", "error", err, "registration_id", check.RegistrationID)
+		return
+	}
+	if !closed {
+		return
+	}
+	s.logger.Error("event holds: GAVE UP asking MercadoPago about an expired hold, manual review",
+		"error", cause, "registration_id", check.RegistrationID, "saw_approved_payment", sawApproved)
+	sentry.CaptureMessage(fmt.Sprintf("REGISTRATION PAYMENT CHECK GAVE UP (manual review): registration_id=%s saw_approved_payment=%t error=%v",
+		check.RegistrationID, sawApproved, cause))
+	if !sawApproved && check.Notify {
+		s.notifyExpired(ctx, check.RegistrationID)
+	}
+}
+
+// notifyExpired tells the person whose hold ran out that their spot was
+// released, as an expired storefront booking is told (S10). Only a person who
+// left an email hears of it: there is no other channel. The registration is
+// read again first: a late payment that confirmed it meanwhile wins, and the
+// person is not told a spot they paid for expired. A notice that cannot be
+// built is logged; the hold is already closed either way.
+func (s *Service) notifyExpired(ctx context.Context, regID uuid.UUID) {
+	reg, err := s.store.GetRegistration(ctx, regID)
+	if err != nil {
+		s.logger.Error("event holds: cannot read an expired hold to notify it", "error", err, "registration_id", regID)
+		return
+	}
+	if reg.Status != eventstore.RegistrationExpired || reg.Email == nil || *reg.Email == "" {
+		return
+	}
+	ev, complex, err := s.eventAndComplex(ctx, reg)
+	if err != nil {
+		s.logger.Error("event holds: cannot build the expiry notice", "error", err, "registration_id", regID)
+		return
+	}
+	s.notify.EventCancelled(notice.Expired(reg, ev, complex, s.cfg.PublicURL))
 }
 
 // eventAndComplex reads the event and the complex a registration's notice names.

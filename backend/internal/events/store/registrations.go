@@ -404,6 +404,7 @@ type ExpiredHold struct {
 // ExpireHolds marks expired the holds nobody paid in time and returns them. They
 // stopped counting against capacity the moment HeldUntil passed; this only
 // closes the rows, so the sweep running late changes nothing a visitor sees.
+// Each is marked due a payment check (DuePaymentChecks) in the same write.
 // Only the sweep calls it, under the tenant bypass.
 func (m *Store) ExpireHolds(ctx context.Context) ([]ExpiredHold, error) {
 	ctx, cancel := data.QueryContext(ctx)
@@ -418,6 +419,71 @@ func (m *Store) ExpireHolds(ctx context.Context) ([]ExpiredHold, error) {
 		out[i] = ExpiredHold{ID: data.PgToUUID(r.ID), ComplexID: data.PgToUUID(r.ComplexID), EventID: data.PgToUUID(r.EventID)}
 	}
 	return out, nil
+}
+
+// PaymentCheck is an expired hold whose checkout MercadoPago is due to be asked
+// about, and how many times asking it already failed.
+type PaymentCheck struct {
+	RegistrationID uuid.UUID
+	ComplexID      uuid.UUID
+	EventID        uuid.UUID
+	Failures       int
+	// Notify reports whether the person is told their spot expired when
+	// MercadoPago holds no payment for it: the sweep's expiry tells them, the
+	// one a new sign-up of the same phone made does not.
+	Notify bool
+}
+
+// DuePaymentChecks returns at most limit expired holds whose payment check is
+// due, oldest first. Only the sweep calls it, under the tenant bypass.
+func (m *Store) DuePaymentChecks(ctx context.Context, limit int) ([]PaymentCheck, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	//nolint:gosec // G115: a batch size chosen by the caller, far below int32 range.
+	rows, err := m.Q.ListDueRegistrationPaymentChecks(ctx, int32(limit))
+	if err != nil {
+		return nil, fmt.Errorf("events: list due payment checks: %w", err)
+	}
+	out := make([]PaymentCheck, len(rows))
+	for i, r := range rows {
+		out[i] = PaymentCheck{
+			RegistrationID: data.PgToUUID(r.ID), ComplexID: data.PgToUUID(r.ComplexID), EventID: data.PgToUUID(r.EventID),
+			Failures: int(r.PaymentChecks), Notify: r.PaymentCheckNotify,
+		}
+	}
+	return out, nil
+}
+
+// ClosePaymentCheck ends a registration's payment check: MercadoPago answered,
+// or the sweep gave up. It reports whether this call closed it, false when
+// another run already had, so whatever follows the close happens once.
+func (m *Store) ClosePaymentCheck(ctx context.Context, id uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	n, err := m.Q.CloseRegistrationPaymentCheck(ctx, data.UUIDToPg(id))
+	if err != nil {
+		return false, fmt.Errorf("events: close payment check: %w", err)
+	}
+	return n > 0, nil
+}
+
+// DeferPaymentCheck records a failed attempt to ask MercadoPago and pushes the
+// check back, longer each time. It returns the failures counted so far;
+// data.ErrRecordNotFound when the check was already closed.
+func (m *Store) DeferPaymentCheck(ctx context.Context, id uuid.UUID) (int, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	n, err := m.Q.DeferRegistrationPaymentCheck(ctx, data.UUIDToPg(id))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return 0, data.ErrRecordNotFound
+		}
+		return 0, fmt.Errorf("events: defer payment check: %w", err)
+	}
+	return int(n), nil
 }
 
 // PendingRefund is a cancelled registration whose money is owed back and has not

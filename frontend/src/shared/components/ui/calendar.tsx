@@ -1,5 +1,6 @@
 import * as React from 'react';
 import { DayPicker, getDefaultClassNames } from 'react-day-picker';
+import { es as dayPickerEs } from 'react-day-picker/locale';
 
 import { cn } from '@/shared/lib/utils';
 import { Button } from '@/shared/components/ui/button';
@@ -19,6 +20,7 @@ function Calendar({
   buttonVariant = 'ghost',
   formatters,
   components,
+  locale,
   ...props
 }: React.ComponentProps<typeof DayPicker> & {
   buttonVariant?: React.ComponentProps<typeof Button>['variant'];
@@ -31,8 +33,14 @@ function Calendar({
     showWeekNumber: props.showWeekNumber,
   });
 
+  // Callers pass date-fns' `es`, which has no DayPicker labels, so the day
+  // buttons and the month arrows were announced in English ("Today, ...").
+  // DayPicker's Spanish labels fill whatever the caller's locale leaves out.
+  const spanishLocale = { ...dayPickerEs, ...locale, labels: { ...dayPickerEs.labels, ...locale?.labels } };
+
   return (
     <DayPicker
+      locale={spanishLocale}
       showOutsideDays={showOutsideDays}
       className={cn(
         'group/calendar bg-popover p-3 [--cell-size:--spacing(8)] [[data-slot=card-content]_&]:bg-transparent [[data-slot=popover-content]_&]:bg-transparent',

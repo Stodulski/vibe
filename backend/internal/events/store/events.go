@@ -109,7 +109,9 @@ func LockCourt(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error {
 // checkCourtsFree asks, inside the transaction that holds the courts, whether
 // anything holds the event's hours on any of them, and names the first thing it
 // finds. The booking predicate is the canonical one (see bookingstore.SlotTaken):
-// released bookings and storefront holds past their window do not count.
+// released bookings and storefront holds past their window do not count, and a
+// storefront hold still inside its window (slotguard.LiveOnlineHold) is named
+// ConflictOnlineHold, last, so any real occupant of the hours wins.
 //
 // It is one query so every court is judged on the same snapshot; the reasons
 // are ordered so the most concrete answer wins when several things collide.
@@ -139,10 +141,12 @@ func CheckCourtsFree(
 		  FROM bookings b, candidate c
 		  WHERE b.court_id = ANY($1::uuid[]) AND b.span && c.span
 		    AND b.status NOT IN `+slotguard.ReleasedBookingStatuses+`
-		    AND NOT (
-		      b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL
-		      AND b.created_at < NOW() - make_interval(secs => $5)
-		    )
+		    AND NOT (b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL)
+		  UNION ALL
+		  SELECT b.court_id, 5, '`+ConflictOnlineHold+`'
+		  FROM bookings b, candidate c
+		  WHERE b.court_id = ANY($1::uuid[]) AND b.span && c.span
+		    AND `+fmt.Sprintf(slotguard.LiveOnlineHold, 5)+`
 		  UNION ALL
 		  SELECT s.court_id, 2, 'blocked'
 		  FROM blocked_slots s, candidate c
@@ -167,7 +171,17 @@ func CheckCourtsFree(
 	if err != nil {
 		return fmt.Errorf("events: check courts free: %w", err)
 	}
-	return &ConflictError{Reason: reason, CourtID: courtID}
+	conflict := &ConflictError{Reason: reason, CourtID: courtID}
+	if reason == ConflictOnlineHold {
+		// Nothing but visitors booking the hours online holds them: the owner
+		// is told when the last of those holds frees up if nobody pays.
+		freesAt, _, err := slotguard.LiveHoldFreesAt(ctx, tx, courtIDs, date, startTime, minutes, hold)
+		if err != nil {
+			return fmt.Errorf("events: check courts free: %w", err)
+		}
+		conflict.FreesAt = freesAt
+	}
+	return conflict
 }
 
 // GetEvent returns one event with its courts and spot counts, or
@@ -214,7 +228,10 @@ func (m *Store) fillCounts(ctx context.Context, e *Event) error {
 	var confirmed, held int
 	err := m.DB.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE status = 'confirmed')::int,
-		       count(*) FILTER (WHERE status = 'held' AND held_until > NOW())::int
+		       -- The held spots CountOpenPlaySpotsTaken counts (open_play.sql).
+		       count(*) FILTER (WHERE (status = 'held' AND held_until > NOW() - INTERVAL '15 minutes')
+		                           OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
+		                               AND held_until > NOW() - INTERVAL '15 minutes'))::int
 		FROM open_play_registrations WHERE event_id = $1`, data.UUIDToPg(e.ID)).Scan(&confirmed, &held)
 	if err != nil {
 		return fmt.Errorf("events: count spots: %w", err)

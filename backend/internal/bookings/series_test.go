@@ -1025,6 +1025,7 @@ func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
 		span(2, bookingstore.BookedSpan{Fixed: true}),
 		span(3, bookingstore.BookedSpan{Event: true}),
 		span(4, bookingstore.BookedSpan{Event: true, Match: true}),
+		span(5, bookingstore.BookedSpan{OnlineHold: true}),
 	)
 	w := f.create(t, first, "")
 	if w.Code != http.StatusConflict {
@@ -1043,10 +1044,29 @@ func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
 	for _, c := range problem.Conflicts {
 		got[c.Date] = c.HeldBy
 	}
-	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match"} {
+	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match", 5: "online_hold"} {
 		date := first.AddDate(0, 0, 7*week).Format(time.DateOnly)
 		if got[date] != want {
 			t.Errorf("week %d held_by = %q, want %q (all: %+v)", week, got[date], want, got)
 		}
+	}
+}
+
+// S3: a visitor's live online hold on one of the dates is not "a booking was
+// made": the owner is told, in Spanish, that the hours are being booked online
+// and when they free up, and the refusal keeps the slot-unavailable kind.
+func TestASeriesOverALiveOnlineHoldSaysWhenItFrees(t *testing.T) {
+	f := newSeriesFixture(t)
+	freesAt := time.Now().Add(8 * time.Minute)
+	f.series.insertErr = &bookingstore.HoldBlockedError{FreesAt: freesAt}
+
+	w := f.create(t, f.day(3), "")
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	body := w.Body.String()
+	if !strings.Contains(body, "slot-unavailable") || !strings.Contains(body, "se está reservando online") ||
+		!strings.Contains(body, freesAt.In(timezone.Argentina).Format("15:04")) {
+		t.Errorf("want the online-hold refusal naming when it frees; got %s", body)
 	}
 }

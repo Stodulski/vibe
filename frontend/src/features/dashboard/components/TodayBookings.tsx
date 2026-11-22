@@ -28,7 +28,7 @@ export const TodayBookings = memo(function TodayBookings({ bookings, complexId }
   const clientDetail = useDashboardClientDetail(complexId);
   // Defensive: the API (GetUpcomingToday) already only returns confirmed
   // bookings — a pending one is a client mid-checkout, self-resolving within
-  // 15 minutes (payment confirms it or it expires), never something the
+  // the payment window (payment confirms it or it expires), never something the
   // owner needs to act on. Filtering again here costs nothing and keeps this
   // component correct even if that guarantee ever changes upstream.
   const confirmedBookings = bookings.filter((b) => b.status === 'confirmed');

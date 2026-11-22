@@ -79,30 +79,117 @@ type Payments struct {
 // committed, so the SELECT that follows sees the real, current status instead
 // of a value that could still change out from under it. See H-15's comment on
 // InsertAndConfirmBooking's call site.
-func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, b *bookingstore.Booking) error {
+//
+// The one cancelled booking it lets through is a storefront booking cancelled
+// only because its payment window ran out (a booking_hold_expiries row, see
+// 044_booking_hold_expiries.sql), being confirmed by an online payment: the
+// payment it was waiting for arrived late, and like the same payment a minute
+// earlier it confirms the booking when its hours are still free
+// (guardSlotStillFree, which runs after this, decides that). reopen reports
+// it, and the caller deletes the expiry row in the same transaction. Only
+// while the booking is reopenable at all (bookingstore.ReopenableByLatePaymentSQL,
+// the reversal trigger's own conditions plus "not yet started"): anything else
+// is ErrBookingCancelled, which the webhook refunds, rather than the trigger's
+// raw 23514, which it retried forever. A counter payment never reopens one:
+// the owner's paths refuse a cancelled booking on their own.
+func (m *Payments) guardBookingConfirmable(ctx context.Context, tx pgx.Tx, p *Payment, b *bookingstore.Booking) (reopen bool, err error) {
 	if b.Status != "confirmed" {
-		return nil
+		return false, nil
 	}
 
 	var status string
-	err := tx.QueryRow(ctx, `SELECT status FROM bookings WHERE id = $1 FOR UPDATE`, data.UUIDToPg(b.ID)).Scan(&status)
+	var reopenable bool
+	err = tx.QueryRow(ctx, `
+		SELECT b.status, `+bookingstore.ReopenableByLatePaymentSQL("b")+`
+		FROM bookings b
+		WHERE b.id = $1
+		FOR UPDATE`, data.UUIDToPg(b.ID)).Scan(&status, &reopenable)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return data.ErrRecordNotFound
+			return false, data.ErrRecordNotFound
 		}
-		return fmt.Errorf("payments: guard booking confirmable: %w", err)
+		return false, fmt.Errorf("payments: guard booking confirmable: %w", err)
 	}
 	// H-23: cancelled is answered with its own sentinel. It is the only one of
 	// the three where the client's money must be sent back, and collapsing it
 	// into ErrBookingNotConfirmable is what routed a paid-but-cancelled booking
 	// past the webhook's refund branch. See ErrBookingCancelled.
 	if status == "cancelled" {
-		return bookingstore.ErrBookingCancelled
+		if reopenable && p.Method == "mercadopago" {
+			return true, nil
+		}
+		return false, bookingstore.ErrBookingCancelled
 	}
 	if status == "completed" || status == "no_show" {
-		return bookingstore.ErrBookingNotConfirmable
+		return false, bookingstore.ErrBookingNotConfirmable
 	}
+	return false, nil
+}
+
+// afterBookingWrite is what every payment write does once the booking row is
+// written, in the same transaction. A reopened booking's expiry row is
+// deleted: from here it is a live booking, and a later cancellation of it is
+// final like any other. Then the booking gets its client (attachClient).
+func afterBookingWrite(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingstore.Booking, reopen bool) error {
+	if reopen {
+		if err := qtx.DeleteBookingHoldExpiry(ctx, data.UUIDToPg(b.ID)); err != nil {
+			return fmt.Errorf("payments: close the hold expiry of reopened booking %s: %w", b.ID, err)
+		}
+	}
+	return attachClient(ctx, tx, qtx, b)
+}
+
+// prepareReopen readies a booking a late payment is reopening, before its row
+// is written and under the court-day lock both callers hold. Another
+// visitor's checkout on the same hours that is itself past its payment window
+// does not block them (SlotTaken's stale carve-out) but still counts for the
+// exclusion constraint, which the reopening write would hit as a raw 23P01
+// and the event requeue forever; it is released first, exactly as an insert
+// releases it (ReleaseStalePendingOverlaps, which also records it for the
+// sweep). And the expiry note goes: the booking is live again.
+func (m *Payments) prepareReopen(ctx context.Context, tx pgx.Tx, b *bookingstore.Booking) error {
+	if err := bookingstore.ReleaseStalePendingOverlaps(ctx, tx, b, m.PaymentExpiry); err != nil {
+		return fmt.Errorf("payments: release stale checkouts under reopened booking %s: %w", b.ID, err)
+	}
+	b.Notes = bookingstore.WithoutHoldExpiryNote(b.Notes)
 	return nil
+}
+
+// guardSlotAndReopen is guardSlotStillFree followed, for a booking being
+// reopened, by prepareReopen: both confirmation writes run the two together.
+func (m *Payments) guardSlotAndReopen(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingstore.Booking, reopen bool) error {
+	if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
+		return err
+	}
+	if !reopen {
+		return nil
+	}
+	return m.prepareReopen(ctx, tx, b)
+}
+
+// guardWebhookConfirmation runs confirmWebhookPayment's guards in
+// ConfirmInTx's lock order: the court day first, then the booking row
+// (guardBookingConfirmable), then the court row and the slot check
+// (guardSlotStillFree, whose court-day lock is re-entrant). The status guard
+// is what lets a booking cancelled only by hold expiry be reopened by its late
+// payment, and what answers any other cancellation with ErrBookingCancelled
+// (refunded by the caller) rather than the reversal trigger's raw error.
+func (m *Payments) guardWebhookConfirmation(ctx context.Context, tx pgx.Tx, qtx *db.Queries, p *Payment, b *bookingstore.Booking) (reopen bool, err error) {
+	if b.Status == "confirmed" {
+		if err := slotguard.LockCourtDay(ctx, tx, b.CourtID, b.Date); err != nil {
+			return false, err
+		}
+	}
+	reopen, err = m.guardBookingConfirmable(ctx, tx, p, b)
+	if err != nil {
+		return false, err
+	}
+	// Before anything is written: the slot this booking is about to claim has to
+	// still be free.
+	if err := m.guardSlotAndReopen(ctx, tx, qtx, b, reopen); err != nil {
+		return false, err
+	}
+	return reopen, nil
 }
 
 // guardAmountWithinBalance refuses a payment that would collect more than the booking
@@ -497,7 +584,8 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 		}
 	}
 
-	if err := m.guardBookingConfirmable(ctx, tx, b); err != nil {
+	reopen, err := m.guardBookingConfirmable(ctx, tx, p, b)
+	if err != nil {
 		return err
 	}
 
@@ -514,7 +602,7 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 	// still be free. The court-day lock it asks for is already held from above;
 	// pg_advisory_xact_lock is re-entrant within a transaction, so asking twice
 	// is free rather than a second wait.
-	if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
+	if err := m.guardSlotAndReopen(ctx, tx, qtx, b, reopen); err != nil {
 		return err
 	}
 
@@ -560,7 +648,7 @@ func (m *Payments) ConfirmInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, 
 		return fmt.Errorf("update booking: %w", err)
 	}
 
-	if err := attachClient(ctx, tx, qtx, b); err != nil {
+	if err := afterBookingWrite(ctx, tx, qtx, b, reopen); err != nil {
 		return err
 	}
 
@@ -583,6 +671,8 @@ func attachClient(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingsto
 
 // ConfirmWebhookPayment updates an existing payment and confirms the booking atomically in a transaction.
 // Used by the webhook handler to update the payment created during public booking.
+// The payment is written only while the row still takes it (TakePaymentRow);
+// otherwise nothing is written and ErrPaymentRowTaken is returned.
 //
 // Like InsertAndConfirmBooking, a confirmation runs under guardSlotStillFree and
 // is refused with ErrSlotUnavailable when the slot was taken meanwhile.
@@ -621,9 +711,10 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 	err := m.DB.RetryTx(ctx, data.DefaultTxAttempts, func(tx pgx.Tx, qtx *db.Queries) error {
 		*p, *b = pIn, bIn
 		written = false
-		// Before anything is written: the slot this booking is about to claim has to
-		// still be free.
-		if err := m.guardSlotStillFree(ctx, tx, qtx, b); err != nil {
+		// Before anything is written: the booking may still be confirmed, and
+		// the slot it is about to claim is still free.
+		reopen, err := m.guardWebhookConfirmation(ctx, tx, qtx, p, b)
+		if err != nil {
 			return err
 		}
 
@@ -656,7 +747,7 @@ func (m *Payments) confirmWebhookPayment(ctx context.Context, p *Payment, b *boo
 			return fmt.Errorf("update booking: %w", err)
 		}
 
-		if err := attachClient(ctx, tx, qtx, b); err != nil {
+		if err := afterBookingWrite(ctx, tx, qtx, b, reopen); err != nil {
 			return err
 		}
 
@@ -684,7 +775,11 @@ func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unle
 		}
 		return dbPayment.UpdatedAt, true, nil
 	}
-	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+	// Conditional (TakePaymentRow): the caller decided the row takes this
+	// payment from a read taken outside this transaction, and another approved
+	// payment may have settled the row since. The UPDATE re-checks the row
+	// after any lock it waited on, so only one of two such payments lands.
+	dbPayment, err := qtx.TakePaymentRow(ctx, db.TakePaymentRowParams{
 		Status:         db.PaymentStatus(p.Status),
 		MpPaymentID:    data.TextToPg(p.MPPaymentID),
 		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
@@ -694,6 +789,9 @@ func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unle
 		StatusDetail: data.TextToPg(p.StatusDetail),
 		ID:           data.UUIDToPg(p.ID),
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return pgtype.Timestamptz{}, false, ErrPaymentRowTaken
+	}
 	if err != nil {
 		return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
 	}

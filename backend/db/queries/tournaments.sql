@@ -59,7 +59,9 @@ SELECT * FROM tournament_categories WHERE id = $1 FOR UPDATE;
 -- name: ListTournamentCategories :many
 -- The categories of a tournament with what their sign-up container says: the
 -- capacity in pairs, the entry price per pair, whether it was cancelled, and how
--- many pairs are paid and held (the count capacity is checked against).
+-- many pairs are paid and held (the count capacity is checked against,
+-- CountOpenPlaySpotsTaken: held includes a lapsed hold kept for its open
+-- payment check).
 SELECT c.*,
        e.capacity AS capacity,
        e.price AS price,
@@ -68,7 +70,10 @@ SELECT c.*,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
-         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+         WHERE r.event_id = e.id
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
+             OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                 AND r.held_until > NOW() - INTERVAL '15 minutes')))::int AS held_count
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 JOIN tournaments t ON t.id = c.tournament_id
@@ -222,7 +227,11 @@ WHERE category_id = $1 AND status = 'completed' AND NOT bye;
 
 -- name: PairPlayersTaken :one
 -- Whether any of the phones is a player of a live pair of the category: the
--- payer of a paid or still-held sign-up, or its partner.
+-- payer of a paid or still-held sign-up, or its partner. A pair whose hold ran
+-- out does not count here even while its spot is kept for its payment check
+-- (CountOpenPlaySpotsTaken): its players may sign up again at once, and a late
+-- payment on the old pair is then refused (PairOfRegistrationPlayersTaken),
+-- like PhoneHoldsAnotherLiveSpot for events.
 SELECT EXISTS (
   SELECT 1 FROM tournament_pairs tp
   JOIN open_play_registrations r ON r.id = tp.registration_id

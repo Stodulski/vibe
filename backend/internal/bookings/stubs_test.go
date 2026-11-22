@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -82,6 +83,23 @@ type stubStore struct {
 	markSentErr    error
 	markedSent     []uuid.UUID
 	expiredPending []*bookingstore.CronBooking
+	// The hold-expiry record: holdExpired is every booking ExpireHold wrote,
+	// expiredToReconcile what ExpiredHoldsToReconcile reads from, and
+	// holdReconciled/holdFailures what the sweep wrote back about them.
+	holdExpired []uuid.UUID
+	// checkoutReleased is every booking CancelReleasedCheckout wrote: a
+	// visitor's release, recorded for one more MercadoPago ask but never as
+	// an expiry.
+	checkoutReleased []uuid.UUID
+	// holdExtended is every booking ExtendHold kept live.
+	holdExtended []uuid.UUID
+	// holdExtendedFor is how long each ExtendHold asked the hold kept for.
+	holdExtendedFor map[uuid.UUID]time.Duration
+	// lapsingSoon is what PaymentsLapsingSoon answers.
+	lapsingSoon        []*bookingstore.CronBooking
+	expiredToReconcile []*bookingstore.CronBooking
+	holdReconciled     []uuid.UUID
+	holdFailures       map[uuid.UUID]int
 	// unpaidHolds is what GetUnpaidPublicPendingEnriched answers, and
 	// unpaidHoldsAsked the complex each call asked about.
 	unpaidHolds      []*bookingstore.CronBooking
@@ -120,6 +138,10 @@ type stubStore struct {
 	publicIPs    []string
 	publicCaps   []int
 	publicCapErr error
+
+	// liveHolds is what LiveHolds answers; liveHoldDays the days it was asked.
+	liveHolds    []bookingstore.LiveHold
+	liveHoldDays []time.Time
 }
 
 // InsertHold with a nil tokenHash is the pre-hold POST /book insert: the real
@@ -164,6 +186,11 @@ func (s *stubStore) ConvertHold(_ context.Context, b *bookingstore.Booking, toke
 	if !bytes.Equal(tokenHash, s.heldHash) {
 		return bookingstore.ErrHoldNotFound
 	}
+	// The real ConvertHold leaves at least MinPaymentWindow to pay by moving
+	// created_at, against the fixture's 15-minute window.
+	if floor := time.Now().Add(bookingstore.MinPaymentWindow - 15*time.Minute); b.CreatedAt.Before(floor) {
+		b.CreatedAt = floor
+	}
 	b.LinkToken = "stub-converted-link-token"
 	s.converted = append(s.converted, b)
 	return nil
@@ -181,6 +208,13 @@ func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (bookingsto
 func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error) {
 	s.expiredHoldWindows = append(s.expiredHoldWindows, expiry)
 	return s.expiredHolds, nil
+}
+
+// LiveHolds answers liveHolds, whatever complex and day are asked about, and
+// records the days asked.
+func (s *stubStore) LiveHolds(_ context.Context, _ uuid.UUID, day time.Time) ([]bookingstore.LiveHold, error) {
+	s.liveHoldDays = append(s.liveHoldDays, day)
+	return s.liveHolds, nil
 }
 
 func (s *stubStore) DeleteComplexHolds(_ context.Context, complexID uuid.UUID) error {
@@ -428,6 +462,70 @@ func (s *stubStore) GetExpiredPendingEnriched(_ context.Context, expiry time.Dur
 		return nil, s.expiredErr
 	}
 	return s.expiredPending, nil
+}
+
+// ExpireHold is Update that also records the booking as cancelled by hold
+// expiry, the way the real transaction writes both rows.
+func (s *stubStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) error {
+	if err := s.Update(ctx, b); err != nil {
+		return err
+	}
+	s.holdExpired = append(s.holdExpired, b.ID)
+	return nil
+}
+
+// CancelReleasedCheckout is UpdateIfUnchanged that also records the booking
+// as released by its visitor, the way the real transaction writes both rows.
+func (s *stubStore) CancelReleasedCheckout(ctx context.Context, b *bookingstore.Booking) error {
+	if err := s.UpdateIfUnchanged(ctx, b); err != nil {
+		return err
+	}
+	s.checkoutReleased = append(s.checkoutReleased, b.ID)
+	return nil
+}
+
+// ExtendHold records the booking whose hold was kept live.
+func (s *stubStore) ExtendHold(_ context.Context, bookingID, _ uuid.UUID, liveFor, _ time.Duration) error {
+	s.holdExtended = append(s.holdExtended, bookingID)
+	if s.holdExtendedFor == nil {
+		s.holdExtendedFor = map[uuid.UUID]time.Duration{}
+	}
+	s.holdExtendedFor[bookingID] = liveFor
+	return nil
+}
+
+// PaymentsLapsingSoon answers lapsingSoon.
+func (s *stubStore) PaymentsLapsingSoon(_ context.Context, _, _, _ time.Duration, _ int) ([]*bookingstore.CronBooking, error) {
+	return s.lapsingSoon, nil
+}
+
+// ExpiredHoldsToReconcile answers expiredToReconcile minus the bookings
+// already marked reconciled or past the failure bound, as the query filters.
+func (s *stubStore) ExpiredHoldsToReconcile(_ context.Context, _ time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error) {
+	var out []*bookingstore.CronBooking
+	for _, b := range s.expiredToReconcile {
+		if slices.Contains(s.holdReconciled, b.ID) || s.holdFailures[b.ID] >= maxFailures {
+			continue
+		}
+		out = append(out, b)
+		if len(out) == limit {
+			break
+		}
+	}
+	return out, nil
+}
+
+func (s *stubStore) MarkHoldReconciled(_ context.Context, id uuid.UUID) error {
+	s.holdReconciled = append(s.holdReconciled, id)
+	return nil
+}
+
+func (s *stubStore) RecordHoldReconcileFailure(_ context.Context, id uuid.UUID) (int, error) {
+	if s.holdFailures == nil {
+		s.holdFailures = map[uuid.UUID]int{}
+	}
+	s.holdFailures[id]++
+	return s.holdFailures[id], nil
 }
 
 func (s *stubStore) GetUnpaidPublicPendingEnriched(_ context.Context, complexID uuid.UUID) ([]*bookingstore.CronBooking, error) {
@@ -893,6 +991,33 @@ type stubCheckout struct {
 	searchErr     error
 	searches      []string
 	searchCallers []mp.Caller
+	// readErr fails GetPreference; reads records the preference ids it was
+	// asked for and readCallers as whom.
+	readErr     error
+	reads       []string
+	readCallers []mp.Caller
+	// readClosed answers GetPreference with a link whose expiry has passed:
+	// the sweep, or a release, closed it.
+	readClosed bool
+	// calls is every UpdatePreferenceExpired ("close") and
+	// SearchPaymentsByReference ("search") in the order they were made.
+	calls []string
+}
+
+// GetPreference answers the link of the preference it is asked about, built
+// from its id, or fails with readErr.
+func (s *stubCheckout) GetPreference(_ context.Context, preferenceID string, caller mp.Caller) (*mp.Preference, error) {
+	s.reads = append(s.reads, preferenceID)
+	s.readCallers = append(s.readCallers, caller)
+	if s.readErr != nil {
+		return nil, s.readErr
+	}
+	pref := &mp.Preference{ID: preferenceID, InitPoint: "https://mp.test/checkout?pref_id=" + preferenceID}
+	if s.readClosed {
+		pref.Expires = true
+		pref.ExpirationDateTo = time.Now().Add(-time.Minute).Format(time.RFC3339)
+	}
+	return pref, nil
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {
@@ -916,6 +1041,7 @@ func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePrefer
 
 func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID string, caller mp.Caller) error {
 	s.attempts = append(s.attempts, expiryAttempt{preferenceID: preferenceID, caller: caller})
+	s.calls = append(s.calls, "close")
 	if s.expireErr != nil {
 		return s.expireErr
 	}
@@ -930,6 +1056,7 @@ func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID s
 // searchErr, and records every reference it was asked about and as whom.
 func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference string, caller mp.Caller) ([]mp.Payment, error) {
 	s.searches = append(s.searches, reference)
+	s.calls = append(s.calls, "search")
 	s.searchCallers = append(s.searchCallers, caller)
 	if s.searchErr != nil {
 		return nil, s.searchErr
@@ -941,10 +1068,17 @@ func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference st
 type stubReconciler struct {
 	err        error
 	reconciled []string
+	// processed, when set, is what the processing behind the hand-over does
+	// before it returns (confirm the booking, say); unset, the hand-over only
+	// records the payment for processing that has not happened yet.
+	processed func(mpPaymentID string)
 }
 
 func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
 	s.reconciled = append(s.reconciled, mpPaymentID)
+	if s.err == nil && s.processed != nil {
+		s.processed(mpPaymentID)
+	}
 	return s.err
 }
 
@@ -1165,6 +1299,7 @@ func newFixture(t *testing.T) *fixture {
 		Run:        func(fn func()) { fn() },
 		Waitlist:   f.waitlist,
 		FreedSlots: f.freedSlots,
+		Reconciler: f.reconciler,
 	}, Config{
 		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,
@@ -1173,6 +1308,7 @@ func newFixture(t *testing.T) *fixture {
 	})
 	f.handler = NewHandler(f.service, nil, false, httpx.NewResponder(logger), logger, httpx.TrustedProxies{})
 	f.store.payments = f.payments
+	f.service.SetHoldExpiries(f.store)
 	return f
 }
 

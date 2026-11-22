@@ -257,6 +257,16 @@ var ErrCheckoutStillOpen = errors.New("bookings: a checkout link could not be cl
 // when it may still be paid. Every failure is already logged and alerted here,
 // so the callers that cannot act on it go through expireCheckoutPreference.
 func (s *Service) closeCheckout(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) error {
+	return s.closeCheckoutReporting(ctx, booking, creds, true)
+}
+
+// closeCheckoutQuietly is closeCheckout without the Sentry alert, for a caller
+// that retries on its own and raises one alert when it gives up; it still logs.
+func (s *Service) closeCheckoutQuietly(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials) error {
+	return s.closeCheckoutReporting(ctx, booking, creds, false)
+}
+
+func (s *Service) closeCheckoutReporting(ctx context.Context, booking *bookingstore.Booking, creds sellerCredentials, alert bool) error {
 	// Detached from the caller's cancellation for the same reason
 	// releaseSlotLocks is: every call site hands this the request's own context,
 	// and a client who cancels and closes the tab cancelled it. The read below
@@ -287,8 +297,10 @@ func (s *Service) closeCheckout(ctx context.Context, booking *bookingstore.Booki
 		// party. Refuse, and say so loudly: the link is still live.
 		s.logger.Error("cancel: the seller credential could not be read, so the checkout link was left open",
 			"error", credErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
-		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION SKIPPED, CREDENTIAL UNREADABLE (client may still pay): complex_id=%s preference_id=%s",
-			booking.ComplexID, preferenceID))
+		if alert {
+			sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION SKIPPED, CREDENTIAL UNREADABLE (client may still pay): complex_id=%s preference_id=%s",
+				booking.ComplexID, preferenceID))
+		}
 		return ErrCheckoutStillOpen
 	}
 
@@ -302,8 +314,10 @@ func (s *Service) closeCheckout(ctx context.Context, booking *bookingstore.Booki
 	if retryErr := s.checkout.UpdatePreferenceExpired(ctx, preferenceID, caller); retryErr != nil {
 		s.logger.Error("cancel: retry failed to expire the MercadoPago preference",
 			"error", retryErr, "booking_id", booking.ID, "complex_id", booking.ComplexID, "preference_id", preferenceID)
-		sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION FAILED (client may still pay): complex_id=%s preference_id=%s",
-			booking.ComplexID, preferenceID))
+		if alert {
+			sentry.CaptureMessage(fmt.Sprintf("PREFERENCE EXPIRATION FAILED (client may still pay): complex_id=%s preference_id=%s",
+				booking.ComplexID, preferenceID))
+		}
 		return ErrCheckoutStillOpen
 	}
 	return nil

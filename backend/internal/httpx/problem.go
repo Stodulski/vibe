@@ -50,6 +50,24 @@ const (
 	// released, already converted or past its window), so the visitor has to
 	// pick a time again rather than retry.
 	KindHoldExpired Kind = "hold-expired"
+	// KindHoldCooldown is a 409 distinct from KindSlotUnavailable: the same
+	// address let a hold on these hours lapse unpaid moments ago, so the
+	// storefront shows when they can be picked again instead of "taken".
+	KindHoldCooldown Kind = "hold-cooldown"
+	// KindBookingPaid is a 409 distinct from the generic KindConflict: the
+	// storefront booking a visitor tried to pay again or let go is paid
+	// (recorded, or found approved at MercadoPago just now), so the page
+	// shows the booking instead of an error.
+	KindBookingPaid Kind = "booking-paid"
+	// KindPaymentInProcess is a 409 distinct from the generic KindConflict:
+	// MercadoPago is still processing a payment on the booking, so it can be
+	// neither paid again nor let go until it settles.
+	KindPaymentInProcess Kind = "payment-in-process"
+	// KindHoldCap is a 429 distinct from KindRateLimited: the address already
+	// holds as many storefront slots as it may at once, so the storefront asks
+	// the visitor to finish or let go of one instead of saying they tried too
+	// many times.
+	KindHoldCap Kind = "hold-cap"
 	// KindEventFull, KindEventClosed and KindAlreadyRegistered are 409s distinct
 	// from the generic KindConflict: the three reasons a public sign-up for an
 	// open-play event is refused, so the page can say which without parsing Detail.
@@ -159,6 +177,10 @@ var titles = map[Kind]string{
 	KindSlotUnavailable:      "Slot Unavailable",
 	KindStaleVersion:         "Stale Version",
 	KindHoldExpired:          "Hold Expired",
+	KindHoldCooldown:         "Hold Cooldown",
+	KindBookingPaid:          "Booking Paid",
+	KindPaymentInProcess:     "Payment In Process",
+	KindHoldCap:              "Hold Cap Reached",
 	KindEventFull:            "Event Full",
 	KindEventClosed:          "Event Closed",
 	KindAlreadyRegistered:    "Already Registered",

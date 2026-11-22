@@ -67,6 +67,10 @@ const (
 	ConflictFixed   = "fixed"
 	ConflictEvent   = "event"
 	ConflictMatch   = "match"
+	// ConflictOnlineHold is a visitor booking the hours online right now: a
+	// storefront hold still inside its payment window. It is reported only
+	// when nothing else holds the hours, and FreesAt says when it ends.
+	ConflictOnlineHold = "online_hold"
 )
 
 // ConflictError is returned by CreateEvent when something already holds the
@@ -76,6 +80,9 @@ type ConflictError struct {
 	Reason string
 	// CourtID is the first court found in conflict.
 	CourtID uuid.UUID
+	// FreesAt is, for ConflictOnlineHold, when the last overlapping online
+	// hold ends if nobody pays it.
+	FreesAt time.Time
 }
 
 func (e *ConflictError) Error() string {

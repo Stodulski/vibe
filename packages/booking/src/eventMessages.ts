@@ -1,5 +1,7 @@
 /** The copy of the open-play events (canchas abiertas) pages. Part of `BOOKING_MESSAGES.events`. */
 export const EVENT_MESSAGES = {
+  /** The tab title of an event's page. */
+  pageTitle: 'Cancha abierta',
   stepCourt: 'Cancha abierta',
   back: 'Volver',
   /** The ticket counts the courts of an entry beyond two instead of naming them. */

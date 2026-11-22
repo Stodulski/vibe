@@ -242,6 +242,13 @@ export const publicCancelBookingResponseSchema = z
  * `POST /book/holds` answers `201 {hold: {token, expires_at}}`. Read into the
  * camelCase `PublicHold` the storefront keeps in its confirm draft.
  */
+/** `POST /book/checkout/retry`: the checkout to pay on again, and when it closes. */
+export const checkoutRetryResponseSchema = z
+  .object({
+    checkout: z.object({ mp_init_point: z.string().min(1), expires_at: z.string() }),
+  })
+  .transform(({ checkout }) => ({ initPoint: checkout.mp_init_point, expiresAt: checkout.expires_at }));
+
 export const holdResponseSchema = z
   .object({
     hold: z.object({

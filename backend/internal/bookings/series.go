@@ -123,6 +123,9 @@ const (
 	HeldByFixed   = "fixed"
 	HeldByEvent   = "event"
 	HeldByMatch   = "match"
+	// HeldByOnlineHold is a visitor booking the hours online right now: it
+	// frees up if they do not pay.
+	HeldByOnlineHold = "online_hold"
 )
 
 // SeriesConflictsError refuses a series whose dates collide with something that
@@ -565,6 +568,8 @@ func heldBySpans(spans []bookingstore.BookedSpan, courtID uuid.UUID, startAt, en
 		return HeldByEvent
 	case sp.Fixed:
 		return HeldByFixed
+	case sp.OnlineHold:
+		return HeldByOnlineHold
 	}
 	return HeldByBooking
 }
@@ -628,6 +633,13 @@ func (s *Service) CreateSeries(ctx context.Context, complex *complexstore.Comple
 	}
 	skipped, exceptions := skippedAndExceptions(conflicts, moves)
 	if err := s.series.InsertSeriesWithBookings(ctx, ser, exceptions, moved); err != nil {
+		var holdBlocked *bookingstore.HoldBlockedError
+		if errors.As(err, &holdBlocked) {
+			// A visitor is booking one of the dates online right now: the
+			// owner is told so, and when it frees up (refuse), not that
+			// somebody booked it.
+			return nil, err
+		}
 		if errors.Is(err, bookingstore.ErrSlotUnavailable) || errors.Is(err, bookingstore.ErrDuplicateBooking) {
 			return nil, &ConflictError{Message: "a booking was made on one of the series' dates while it was being created, please try again"}
 		}

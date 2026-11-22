@@ -1,3 +1,4 @@
+import { onlineHoldMessage } from '@/features/courts';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { keepTogether } from '@/shared/lib/keepTogether';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
@@ -23,6 +24,8 @@ const REASONS: { match: RegExp; say: (court: string) => string }[] = [
  */
 export function scheduleConflictMessage(error: unknown): string | null {
   if (getHttpStatus(error) !== 409) return null;
+  const held = onlineHoldMessage(error);
+  if (held) return held;
   const detail = getHttpErrorMessage(error, '').trim();
   for (const { match, say } of REASONS) {
     const found = match.exec(detail);

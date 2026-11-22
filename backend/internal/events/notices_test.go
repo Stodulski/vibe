@@ -71,7 +71,7 @@ func TestAnExpiredHoldIsToldToThePersonWhoLeftAnEmail(t *testing.T) {
 		{ID: noEmail.ID, ComplexID: f.complex.ID, EventID: f.store.event.ID},
 	}
 
-	f.svc.ExpireHolds(t.Context())
+	f.sweepUntilAnswered(t)
 	if len(f.notify.cancelled) != 1 {
 		t.Fatalf("notices = %+v, want only the person with an email", f.notify.cancelled)
 	}

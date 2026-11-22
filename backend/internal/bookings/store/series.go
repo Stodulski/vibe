@@ -240,9 +240,17 @@ func lockCourtForSeries(ctx context.Context, tx pgx.Tx, courtID uuid.UUID) error
 // matches take the same court row lock for update before they write
 // (events/store CheckCourtsFree), and so does another series, so whichever
 // commits first is seen by the other's recheck.
+//
+// When nothing but a visitor's live online hold stands in the way
+// (slotguard.LiveOnlineHold), the refusal is a HoldBlockedError saying when the
+// last of them frees up, so the owner is told why and until when (S3) rather
+// than a generic refusal. It is still ErrSlotUnavailable to every caller.
 func recheckSeriesAgainstBookings(ctx context.Context, tx pgx.Tx, s *Series, hold time.Duration) error {
 	horizon := timezone.Today().AddDate(0, 0, MaxBookingHorizonDays)
-	var taken bool
+	var (
+		taken   bool
+		freesAt pgtype.Timestamptz
+	)
 	err := tx.QueryRow(ctx, `
 		WITH mine AS (
 			SELECT court_id, span
@@ -260,6 +268,7 @@ func recheckSeriesAgainstBookings(ctx context.Context, tx pgx.Tx, s *Series, hol
 			    AND b.created_by IS NULL
 			    AND b.created_at < NOW() - make_interval(secs => $5)
 			  )
+			  AND NOT (`+fmt.Sprintf(slotguard.LiveOnlineHold, 5)+`)
 		) OR EXISTS(
 			SELECT 1
 			FROM mine o
@@ -271,15 +280,24 @@ func recheckSeriesAgainstBookings(ctx context.Context, tx pgx.Tx, s *Series, hol
 			FROM mine o
 			JOIN court_event_occupancy(NULL, ARRAY[$1]::uuid[], $2::date - 1, $3::date + 1) e
 			  ON e.court_id = o.court_id AND e.span && o.span
+		),
+		(
+			SELECT MAX(b.created_at + make_interval(secs => $5))
+			FROM mine o
+			JOIN bookings b ON b.court_id = o.court_id AND b.span && o.span
+			WHERE `+fmt.Sprintf(slotguard.LiveOnlineHold, 5)+`
 		)`,
 		data.UUIDToPg(s.CourtID), data.DateToPg(s.StartsOn), data.DateToPg(horizon),
 		data.UUIDToPg(s.ID), hold.Seconds(),
-	).Scan(&taken)
+	).Scan(&taken, &freesAt)
 	if err != nil {
 		return fmt.Errorf("bookings: recheck series: %w", err)
 	}
 	if taken {
 		return ErrSlotUnavailable
+	}
+	if freesAt.Valid {
+		return &HoldBlockedError{FreesAt: freesAt.Time}
 	}
 	return nil
 }

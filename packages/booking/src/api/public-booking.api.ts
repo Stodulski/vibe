@@ -16,6 +16,7 @@ import {
 } from '../schemas/publicBooking.schema';
 import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/availability.schema';
 import { withSignal } from './client';
+import { createPublicCheckoutApi } from './public-checkout.api';
 import { createPublicEventsApi } from './public-events.api';
 import { createPublicTournamentsApi } from './public-tournaments.api';
 import { createPublicWaitlistApi } from './public-waitlist.api';
@@ -94,6 +95,7 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
         .json()
         .then(parseWith(publicCancelBookingResponseSchema, 'publicBookingApi.cancelBooking', report)),
 
+    ...createPublicCheckoutApi(client, report),
     ...createPublicEventsApi(client, report),
     ...createPublicTournamentsApi(client, report),
     ...createPublicWaitlistApi(client),

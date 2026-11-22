@@ -55,7 +55,7 @@ WHERE id = $2
   AND status IN ('pending', 'confirmed')
   AND collection_status = 'unpaid'
   AND lower(span) > $4::timestamptz
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
 `
 
 type CancelUnpaidSeriesOccurrenceParams struct {
@@ -106,12 +106,87 @@ func (q *Queries) CancelUnpaidSeriesOccurrence(ctx context.Context, arg CancelUn
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
+	)
+	return i, err
+}
+
+const deleteBookingHoldExpiry = `-- name: DeleteBookingHoldExpiry :exec
+DELETE FROM booking_hold_expiries
+WHERE booking_id = $1
+`
+
+// The booking was reopened by the payment it was waiting for, in the same
+// transaction: from here it is a live booking, and a later cancellation of it
+// is final like any other.
+func (q *Queries) DeleteBookingHoldExpiry(ctx context.Context, bookingID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, deleteBookingHoldExpiry, bookingID)
+	return err
+}
+
+const expireUnpaidBooking = `-- name: ExpireUnpaidBooking :one
+UPDATE bookings
+SET status = 'cancelled',
+    notes = $1
+WHERE id = $2
+  AND status = 'pending'
+  AND collection_status = 'unpaid'
+  AND created_at < NOW() - make_interval(secs => $3::float8)
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+`
+
+type ExpireUnpaidBookingParams struct {
+	Notes         pgtype.Text `json:"notes"`
+	ID            pgtype.UUID `json:"id"`
+	WindowSeconds float64     `json:"window_seconds"`
+}
+
+// The release sweep's cancellation of a storefront booking whose payment
+// window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
+// read taken before it asked MercadoPago, and a client cancellation or a
+// payment committed in between must not be overwritten into an expiry; nor
+// may a hold the keep_paying_holds job extended meanwhile (its payment is in
+// process: ExtendHold moved created_at forward), so the window must still have
+// ended. No row means the booking is no longer pending, unpaid and lapsed.
+func (q *Queries) ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBookingParams) (Booking, error) {
+	row := q.db.QueryRow(ctx, expireUnpaidBooking, arg.Notes, arg.ID, arg.WindowSeconds)
+	var i Booking
+	err := row.Scan(
+		&i.ID,
+		&i.ComplexID,
+		&i.CourtID,
+		&i.ClientID,
+		&i.Date,
+		&i.StartTime,
+		&i.DurationMinutes,
+		&i.Price,
+		&i.DepositAmount,
+		&i.Status,
+		&i.ReminderSent2h,
+		&i.Notes,
+		&i.CreatedBy,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.RefundIntentAt,
+		&i.Span,
+		&i.CollectionStatus,
+		&i.RefundStatus,
+		&i.ClientFirstName,
+		&i.ClientLastName,
+		&i.ClientPhone,
+		&i.ClientEmail,
+		&i.HoldTokenHash,
+		&i.HoldIp,
+		&i.SeriesID,
+		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }
 
 const getBookedSlots = `-- name: GetBookedSlots :many
-SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
+SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at,
+       (b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL)::bool AS online_hold
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
   AND b.span && tstzrange(lower(local_day($2::date)), upper(local_day($3::date)), '[)')
@@ -133,9 +208,10 @@ type GetBookedSlotsParams struct {
 }
 
 type GetBookedSlotsRow struct {
-	CourtID  pgtype.UUID        `json:"court_id"`
-	StartsAt pgtype.Timestamptz `json:"starts_at"`
-	EndsAt   pgtype.Timestamptz `json:"ends_at"`
+	CourtID    pgtype.UUID        `json:"court_id"`
+	StartsAt   pgtype.Timestamptz `json:"starts_at"`
+	EndsAt     pgtype.Timestamptz `json:"ends_at"`
+	OnlineHold bool               `json:"online_hold"`
 }
 
 // GetBookedSlots returns the hours already taken on the given courts and date.
@@ -170,12 +246,15 @@ type GetBookedSlotsRow struct {
 // GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
 //
 // payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
-// default 15 minutes — see internal/stores), passed as a parameter
+// default 10 minutes — see internal/stores), passed as a parameter
 // rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
 // in internal/data/slotguard takes hold as an argument: this carve-out and
 // the insert-time collision guard have to agree on the same number, or a
 // pending booking between the two configured values shows as free here and
 // taken there (or the reverse). Both now read Config.PaymentExpiry once.
+// online_hold marks a visitor booking the hours online right now: the stale
+// ones are filtered out below, so an unpaid storefront pending row that is
+// left is inside its window (slotguard.LiveOnlineHold).
 func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) ([]GetBookedSlotsRow, error) {
 	rows, err := q.db.Query(ctx, getBookedSlots,
 		arg.Column1,
@@ -190,7 +269,12 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 	var items []GetBookedSlotsRow
 	for rows.Next() {
 		var i GetBookedSlotsRow
-		if err := rows.Scan(&i.CourtID, &i.StartsAt, &i.EndsAt); err != nil {
+		if err := rows.Scan(
+			&i.CourtID,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.OnlineHold,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -202,7 +286,7 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 }
 
 const getBookingByID = `-- name: GetBookingByID :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -257,12 +341,13 @@ func (q *Queries) GetBookingByID(ctx context.Context, arg GetBookingByIDParams) 
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }
 
 const getBookingByIDForUpdate = `-- name: GetBookingByIDForUpdate :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -314,12 +399,13 @@ func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByI
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }
 
 const getBookingsByComplex = `-- name: GetBookingsByComplex :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
 WHERE complex_id = $1
   AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
@@ -385,6 +471,7 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 			&i.HoldIp,
 			&i.SeriesID,
 			&i.AttendedAt,
+			&i.HoldStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -397,7 +484,7 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 }
 
 const getBookingsByCourt = `-- name: GetBookingsByCourt :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
 WHERE court_id = $1
   AND date BETWEEN $2 AND $3
 ORDER BY date ASC, start_time ASC
@@ -446,6 +533,7 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 			&i.HoldIp,
 			&i.SeriesID,
 			&i.AttendedAt,
+			&i.HoldStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -458,7 +546,7 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 }
 
 const getBookingsForReminder2h = `-- name: GetBookingsForReminder2h :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
 WHERE booking_starts_at(date, start_time) > $1::timestamptz
   AND booking_starts_at(date, start_time) <= $1::timestamptz + INTERVAL '2 hours'
   AND status = 'confirmed'
@@ -517,6 +605,7 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 			&i.HoldIp,
 			&i.SeriesID,
 			&i.AttendedAt,
+			&i.HoldStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -529,7 +618,7 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 }
 
 const getNextBookingByClientPhone = `-- name: GetNextBookingByClientPhone :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings WHERE false LIMIT 1
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings WHERE false LIMIT 1
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -564,6 +653,7 @@ func (q *Queries) GetNextBookingByClientPhone(ctx context.Context) (Booking, err
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }
@@ -599,7 +689,7 @@ func (q *Queries) GetUnattachedBookingClientSnapshot(ctx context.Context, id pgt
 }
 
 const getUnconfirmedAfterReminder = `-- name: GetUnconfirmedAfterReminder :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at FROM bookings WHERE false
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings WHERE false
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -640,6 +730,7 @@ func (q *Queries) GetUnconfirmedAfterReminder(ctx context.Context) ([]Booking, e
 			&i.HoldIp,
 			&i.SeriesID,
 			&i.AttendedAt,
+			&i.HoldStartedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -660,7 +751,7 @@ INSERT INTO bookings (
     client_first_name, client_last_name, client_phone, client_email
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
 `
 
 type InsertBookingParams struct {
@@ -732,8 +823,62 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
+}
+
+const insertBookingCheckoutRelease = `-- name: InsertBookingCheckoutRelease :exec
+INSERT INTO booking_hold_expiries (booking_id, complex_id, cause, next_attempt_at)
+VALUES ($1, $2, 'released', NOW() + INTERVAL '5 minutes')
+ON CONFLICT (booking_id) DO NOTHING
+`
+
+type InsertBookingCheckoutReleaseParams struct {
+	BookingID pgtype.UUID `json:"booking_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// Records that a storefront booking was released by its visitor after a failed
+// payment (047_booking_hold_release_cause.sql): asked about with MercadoPago
+// once more by the release sweep, five minutes on (its payment search can lag
+// an approval), and never reopened by a late payment. Written in the
+// transaction that cancels it.
+func (q *Queries) InsertBookingCheckoutRelease(ctx context.Context, arg InsertBookingCheckoutReleaseParams) error {
+	_, err := q.db.Exec(ctx, insertBookingCheckoutRelease, arg.BookingID, arg.ComplexID)
+	return err
+}
+
+const insertBookingHoldExpiry = `-- name: InsertBookingHoldExpiry :exec
+INSERT INTO booking_hold_expiries (booking_id, complex_id)
+VALUES ($1, $2)
+ON CONFLICT (booking_id) DO NOTHING
+`
+
+type InsertBookingHoldExpiryParams struct {
+	BookingID pgtype.UUID `json:"booking_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// Records that a storefront booking was cancelled by hold expiry and nothing
+// else (044_booking_hold_expiries.sql). Written in the transaction that
+// cancels it; a second write for the same booking changes nothing.
+func (q *Queries) InsertBookingHoldExpiry(ctx context.Context, arg InsertBookingHoldExpiryParams) error {
+	_, err := q.db.Exec(ctx, insertBookingHoldExpiry, arg.BookingID, arg.ComplexID)
+	return err
+}
+
+const markBookingHoldReconciled = `-- name: MarkBookingHoldReconciled :exec
+UPDATE booking_hold_expiries
+SET reconciled_at = NOW()
+WHERE booking_id = $1
+`
+
+// The release sweep asked MercadoPago about this expired booking and handed
+// any approved payment over: it is not asked again.
+func (q *Queries) MarkBookingHoldReconciled(ctx context.Context, bookingID pgtype.UUID) error {
+	_, err := q.db.Exec(ctx, markBookingHoldReconciled, bookingID)
+	return err
 }
 
 const markBookingManualBalanceOwed = `-- name: MarkBookingManualBalanceOwed :execrows
@@ -766,6 +911,25 @@ func (q *Queries) MarkReminderSent2h(ctx context.Context, id pgtype.UUID) error 
 	return err
 }
 
+const recordBookingHoldReconcileFailure = `-- name: RecordBookingHoldReconcileFailure :one
+UPDATE booking_hold_expiries
+SET failed_attempts = failed_attempts + 1,
+    next_attempt_at = NOW() + make_interval(mins => LEAST(5 * (failed_attempts + 1), 120))
+WHERE booking_id = $1
+RETURNING failed_attempts
+`
+
+// MercadoPago could not be asked, or an approved payment could not be handed
+// over: counted, so the sweep gives up after a bounded number of attempts, and
+// asked again later, five minutes more for every failed attempt, at most two
+// hours apart (the backoff DeferRegistrationPaymentCheck uses).
+func (q *Queries) RecordBookingHoldReconcileFailure(ctx context.Context, bookingID pgtype.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, recordBookingHoldReconcileFailure, bookingID)
+	var failed_attempts int32
+	err := row.Scan(&failed_attempts)
+	return failed_attempts, err
+}
+
 const updateBooking = `-- name: UpdateBooking :one
 UPDATE bookings
 SET status = $2,
@@ -779,7 +943,7 @@ SET status = $2,
     -- correction drops it in the same write instead of tripping the CHECK.
     attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
 `
 
 type UpdateBookingParams struct {
@@ -835,6 +999,7 @@ func (q *Queries) UpdateBooking(ctx context.Context, arg UpdateBookingParams) (B
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }
@@ -853,7 +1018,7 @@ SET status = $2,
     attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
   AND updated_at = $8
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
 `
 
 type UpdateBookingIfUnchangedParams struct {
@@ -917,6 +1082,7 @@ func (q *Queries) UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookin
 		&i.HoldIp,
 		&i.SeriesID,
 		&i.AttendedAt,
+		&i.HoldStartedAt,
 	)
 	return i, err
 }

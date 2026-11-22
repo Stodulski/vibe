@@ -207,3 +207,45 @@ func TestSeriesOccurrencesAreScopedToTheTenantAndTheRange(t *testing.T) {
 		t.Errorf("another tenant must see none of them; got %d (%v)", len(got), err)
 	}
 }
+
+// S3: a series whose only obstacle is a visitor's live online hold is refused
+// with HoldBlockedError, saying when the hold frees up; it is still
+// ErrSlotUnavailable to every caller, and writes nothing.
+func TestInsertSeriesOverALiveOnlineHoldSaysWhenItFrees(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	start := seriesStart()
+
+	hold := f.NewBooking(datatest.BookingOptions{
+		Public: true, Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid,
+		StartTime: "18:00", EndTime: "19:30",
+	})
+	hold.ClientID = uuid.Nil
+	hold.Date = start.AddDate(0, 0, 14)
+	_, hash, err := bookingstore.NewHoldToken()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Stores.Bookings.InsertHold(ctx, hold, hash, "198.51.100.7", 3); err != nil {
+		t.Fatalf("InsertHold: %v", err)
+	}
+	var freesAt time.Time
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT created_at + interval '10 minutes' FROM bookings WHERE id = $1`, hold.ID).Scan(&freesAt); err != nil {
+		t.Fatal(err)
+	}
+
+	err = f.Stores.BookingSeries.InsertSeries(ctx, &bookingstore.Series{
+		ComplexID: f.ComplexID, CourtID: f.CourtID, ClientID: f.ClientID,
+		Weekday: int(start.Weekday()), StartTime: "18:00", DurationMinutes: 90,
+		StartsOn: start, Status: bookingstore.SeriesStatusActive, CreatedBy: f.UserID,
+	}, nil)
+	var blocked *bookingstore.HoldBlockedError
+	if !errors.As(err, &blocked) || !blocked.FreesAt.Equal(freesAt) || !errors.Is(err, bookingstore.ErrSlotUnavailable) {
+		t.Fatalf("want HoldBlockedError freeing at %v; got %v", freesAt, err)
+	}
+	var n int
+	if err := f.DB.QueryRow(context.Background(), `SELECT COUNT(*) FROM booking_series WHERE complex_id = $1`, f.ComplexID).Scan(&n); err != nil || n != 0 {
+		t.Fatalf("a refused series must leave no row; %d (%v)", n, err)
+	}
+}

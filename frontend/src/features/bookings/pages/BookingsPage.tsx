@@ -46,19 +46,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
       {/* A rule does what the strip's card used to: mark where picking a day
           ends and reading that day begins. Padding above it and margin below
           keep the same air on both sides of the line. */}
-      <div className={DATE_NAV_SECTION_CLASS}>
-        <DateNavStrip
-          selectedDate={state.selectedDate}
-          dateLabel={state.dateLabel}
-          isToday={state.isToday}
-          calendarOpen={state.calendarOpen}
-          onCalendarOpenChange={state.setCalendarOpen}
-          onDateSelect={state.setSelectedDate}
-          onPrevDay={state.handlePrevDay}
-          onNextDay={state.handleNextDay}
-          onGoToToday={state.handleGoToToday}
-        />
-      </div>
+      <DateNavSection state={state} />
 
       {/* Content */}
       <div>
@@ -73,6 +61,7 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
           blockedSlots={state.blockedSlots}
           fixedBlocks={state.fixedBlocks}
           eventBlocks={state.eventBlocks}
+          onlineHolds={state.onlineHolds}
           isPast={state.isPast}
           selectedDate={state.selectedDate}
           courts={state.courts}
@@ -89,6 +78,25 @@ function BookingsPageContent({ complexId }: { complexId: string }) {
       </div>
 
       <BookingsPageModals state={state} blockSlot={blockSlot} selectedComplexId={complexId} />
+    </div>
+  );
+}
+
+/** The day picker, ruled off from the day it shows. */
+function DateNavSection({ state }: { state: ReturnType<typeof useBookingsPage> }) {
+  return (
+    <div className={DATE_NAV_SECTION_CLASS}>
+      <DateNavStrip
+        selectedDate={state.selectedDate}
+        dateLabel={state.dateLabel}
+        isToday={state.isToday}
+        calendarOpen={state.calendarOpen}
+        onCalendarOpenChange={state.setCalendarOpen}
+        onDateSelect={state.setSelectedDate}
+        onPrevDay={state.handlePrevDay}
+        onNextDay={state.handleNextDay}
+        onGoToToday={state.handleGoToToday}
+      />
     </div>
   );
 }

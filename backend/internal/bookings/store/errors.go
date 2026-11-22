@@ -31,10 +31,13 @@ var (
 	//
 	// H-23. A public booking that goes unpaid past the payment expiry stops
 	// holding its slot, and the next InsertSafe to want those hours cancels it
-	// outright (ReleaseStalePendingOverlaps). That path deliberately does NOT
-	// expire the MercadoPago preference — its own comment says so — so a
-	// payment for the cancelled booking can still arrive, and when it does the
-	// money has to go back. The webhook refunds on ErrSlotUnavailable, and
+	// outright (ReleaseStalePendingOverlaps). That path does not expire the
+	// MercadoPago preference inline (the release sweep closes it on its next
+	// run), so a payment for the cancelled booking can still arrive. A booking
+	// cancelled only by hold expiry is reopened by it when its hours are still
+	// free (guardBookingConfirmable lets it through); any other cancelled
+	// booking answers this sentinel and its money goes back. The webhook
+	// refunds on ErrSlotUnavailable, and
 	// while guardBookingConfirmable answered every unconfirmable status with
 	// one sentinel, this case reached the generic branch instead: no refund,
 	// and the event requeued forever against a write that can never succeed.

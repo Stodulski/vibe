@@ -103,6 +103,8 @@ var crossTenantRoutes = map[string]string{ //nolint:gosec // G101: route pattern
 	"GET /api/v1/book/status":                                                                       "resolves: the booking link authenticates by token hash, which yields the booking",
 	"GET /api/v1/book/cancel-info":                                                                  "resolves: same token hash, same booking",
 	"POST /api/v1/book/cancel":                                                                      "resolves: same token hash, same booking",
+	"POST /api/v1/book/checkout/retry":                                                              "resolves: same token hash, same booking",
+	"POST /api/v1/book/checkout/release":                                                            "resolves: same token hash, same booking",
 	"POST /api/v1/book/holds": "resolves: the slot hold is handed a complex id and validates it, " +
 		"and counts the address's live holds across every complex",
 	"POST /api/v1/book/holds/{token}/release": "resolves: the hold token's hash yields the booking",

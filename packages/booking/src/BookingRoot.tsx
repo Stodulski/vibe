@@ -87,7 +87,9 @@ export function BookingRoot({
         <InitialSearchContext.Provider value={initialSearch}>
           <QueryClientProvider client={client}>
             {children}
-            {toaster && <Toaster position="bottom-right" richColors toastOptions={{ classNames: TOAST_CLASS_NAMES }} />}
+            {/* At the top: on a phone a bottom toast sat over "Reservar" and,
+                once touched, stayed there (sonner pauses while hovered). */}
+            {toaster && <Toaster position="top-center" richColors toastOptions={{ classNames: TOAST_CLASS_NAMES }} />}
           </QueryClientProvider>
         </InitialSearchContext.Provider>
       </PublicBookingApiContext.Provider>

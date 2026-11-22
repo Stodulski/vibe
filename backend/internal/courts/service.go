@@ -356,6 +356,11 @@ type BlockSlotInput struct {
 // the owner asked for. It runs outside any transaction, so a booking committing
 // after it passes is not its business — InsertBlockedSlot asks the same
 // question again under the court-day lock and answers the same sentinel.
+//
+// A plain booking is the one collision it leaves to the store: the storefront's
+// booked spans include a visitor's live online hold, which this read cannot
+// tell from a booking, and only the store's guard can say which it is and, for
+// a hold, when it frees up (S3).
 func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Actor, courtID uuid.UUID, in BlockSlotInput) (*courtstore.BlockedSlot, error) {
 	court, err := s.ownedCourt(ctx, complexID, courtID)
 	if err != nil {
@@ -384,7 +389,6 @@ func (s *Service) BlockSlot(ctx context.Context, complexID uuid.UUID, actor Acto
 			if b.Event {
 				return nil, courtstore.ErrSlotHeldByEvent
 			}
-			return nil, courtstore.ErrSlotHasBooking
 		}
 	}
 

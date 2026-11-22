@@ -312,6 +312,11 @@ type Dependencies struct {
 	// FreedSlots hears about every booked slot a cancellation puts back on
 	// sale (the complex's Instagram freed-slot story). Optional, like Waitlist.
 	FreedSlots FreedSlotListener
+	// Reconciler processes an approved payment found at MercadoPago, as its
+	// webhook would have, when a visitor retries or releases a checkout whose
+	// notification never arrived (RetryCheckout, ReleaseCheckout). Nil leaves
+	// such a payment to the expiry sweep.
+	Reconciler PaymentReconciler
 }
 
 // Actor is who a change is attributed to, as the handler read it off the
@@ -348,10 +353,15 @@ var refusals = httpx.Refusals{
 	ErrSlotTaken:               httpx.SlotUnavailable(slotTakenMessage),
 	ErrHoldExpired:             httpx.HoldExpired(holdExpiredMessage),
 	ErrHoldMismatch:            httpx.Conflict(holdMismatchMessage),
-	ErrTooManyHolds:            httpx.TooManyRequests(tooManyHoldsMessage),
+	ErrTooManyHolds:            httpx.HoldCap(tooManyHoldsMessage),
 	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
 	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
+	ErrCheckoutPaid:            httpx.BookingPaid(checkoutPaidMessage),
+	ErrPaymentInProcess:        httpx.PaymentInProcess(paymentInProcessMessage),
+	ErrPaymentConfirming:       httpx.PaymentInProcess(paymentConfirmingMessage),
+	ErrPaymentUnverifiable:     httpx.Unavailable(paymentUnverifiableMessage),
+	ErrCheckoutStillOpen:       httpx.Unavailable(checkoutStillOpenMessage),
 	ErrVenueGone:               httpx.Gone(venueGoneMessage),
 	ErrLinkExpired:             httpx.Gone(linkExpiredMessage),
 	// H-15 / R4: ConfirmPayment's status check runs against a read taken

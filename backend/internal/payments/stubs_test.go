@@ -341,6 +341,13 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*pay
 			return nil, paymentstore.ErrRefundInFlight
 		}
 	}
+	// The real claim refuses a row whose money is already back (claimable in
+	// internal/payments/store/refunds.go): a claim against a refunded row is
+	// what left a second payment on a cancelled booking captured.
+	if p := s.paymentFor(paymentID); p != nil && (p.Status == "refunded" ||
+		(p.Amount+p.ServiceFee > 0 && p.RefundAmount >= p.Amount+p.ServiceFee)) {
+		return nil, paymentstore.ErrAlreadyRefunded
+	}
 	s.claimed = append(s.claimed, paymentID)
 
 	amount := s.claimAmount

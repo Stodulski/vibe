@@ -200,7 +200,7 @@ func (s *Service) BookingCancelled(c Cancellation) error {
 			Date: c.Date, StartTime: c.StartTime,
 			RefundLine: c.RefundLine, RefundAmount: c.RefundAmount, BookURL: c.BookURL,
 			clientContact: clientContact{ComplexPhone: c.ComplexPhone, OwnerID: c.OwnerID},
-		}, dedup(TaskEmailBookingCancelled, c.Email, c.BookingID)); qerr != nil {
+		}, dedup(TaskEmailBookingCancelled, c.Email, cancellationSubject(c))); qerr != nil {
 			err = fmt.Errorf("queue booking cancelled email: %w", qerr)
 		}
 	}
@@ -214,6 +214,21 @@ func (s *Service) BookingCancelled(c Cancellation) error {
 		}, dedup(TaskEmailOwnerBookingCancelled, c.OwnerID, c.BookingID))
 	}
 	return err
+}
+
+// cancellationSubject is what a client's cancellation notice is about, for its
+// deduplication key. An expiry notice gets its own subject: a booking cancelled
+// by its lapsed payment window can be reopened by a late payment and then
+// cancelled for real within the queue's retention, and sharing the booking's
+// key would drop that second, real notice as a redelivery of the first.
+func cancellationSubject(c Cancellation) string {
+	if c.BookingID == "" {
+		return ""
+	}
+	if c.Source == SourceExpiredUnpaid {
+		return c.BookingID + ":expired"
+	}
+	return c.BookingID
 }
 
 // OwnerBookingRefunded tells the complex owner that a refund MercadoPago issued

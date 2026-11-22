@@ -203,3 +203,24 @@ describe('BookSuccessPage retry navigation', () => {
     expect(replaceSpy).toHaveBeenCalledWith('/c/club-norte');
   });
 });
+
+describe('BookSuccessPage tab title', () => {
+  it('names the payment under review, not a confirmed booking, while Mercado Pago reviews it', async () => {
+    document.title = 'Reserva confirmada - Vibe';
+    await renderPage('/c/club-norte/book/success?token=t2&status=pending');
+    expect(document.title).toBe('Pago en revisión - Vibe');
+  });
+
+  it('names the confirmed booking once the status says so', async () => {
+    document.title = '';
+    vi.mocked(useBookingStatus).mockReturnValueOnce({
+      data: { status: 'confirmed', collection_status: 'deposit_paid' },
+      isLoading: false,
+      isError: false,
+      timedOut: false,
+      refetch: vi.fn(),
+    } as unknown as ReturnType<typeof useBookingStatus>);
+    await renderPage('/c/club-norte/book/success', { token: 't1' });
+    expect(document.title).toBe('Reserva confirmada - Vibe');
+  });
+});

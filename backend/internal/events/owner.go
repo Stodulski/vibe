@@ -14,6 +14,7 @@ import (
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/httpx"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/slots"
 	"github.com/stodulski/vibe-server/internal/sports"
@@ -265,6 +266,8 @@ func conflictMessage(c *eventstore.ConflictError, names map[uuid.UUID]string) st
 		return fmt.Sprintf("a fixed weekly booking (turno fijo) holds those hours on %s", court)
 	case eventstore.ConflictMatch:
 		return fmt.Sprintf("a tournament match already holds those hours on %s", court)
+	case eventstore.ConflictOnlineHold:
+		return httpx.OnlineHoldMessage(c.FreesAt)
 	default:
 		return fmt.Sprintf("another event already holds those hours on %s", court)
 	}

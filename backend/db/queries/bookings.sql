@@ -171,13 +171,17 @@ RETURNING *;
 -- GetBookedSlotsByCourtIDs can hand both to every caller as one answer.
 --
 -- payment_expiry_seconds is the configured payment hold (Config.PaymentExpiry,
--- default 15 minutes — see internal/stores), passed as a parameter
+-- default 10 minutes — see internal/stores), passed as a parameter
 -- rather than baked in as INTERVAL '15 minutes' for the same reason slotTaken
 -- in internal/data/slotguard takes hold as an argument: this carve-out and
 -- the insert-time collision guard have to agree on the same number, or a
 -- pending booking between the two configured values shows as free here and
 -- taken there (or the reverse). Both now read Config.PaymentExpiry once.
-SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
+-- online_hold marks a visitor booking the hours online right now: the stale
+-- ones are filtered out below, so an unpaid storefront pending row that is
+-- left is inside its window (slotguard.LiveOnlineHold).
+SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at,
+       (b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL)::bool AS online_hold
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
   AND b.span && tstzrange(lower(local_day(sqlc.arg(day_from)::date)), upper(local_day(sqlc.arg(day_to)::date)), '[)')
@@ -251,3 +255,63 @@ WHERE id = sqlc.arg(id)
   AND collection_status = 'unpaid'
   AND lower(span) > sqlc.arg(now)::timestamptz
 RETURNING *;
+
+-- name: ExpireUnpaidBooking :one
+-- The release sweep's cancellation of a storefront booking whose payment
+-- window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
+-- read taken before it asked MercadoPago, and a client cancellation or a
+-- payment committed in between must not be overwritten into an expiry; nor
+-- may a hold the keep_paying_holds job extended meanwhile (its payment is in
+-- process: ExtendHold moved created_at forward), so the window must still have
+-- ended. No row means the booking is no longer pending, unpaid and lapsed.
+UPDATE bookings
+SET status = 'cancelled',
+    notes = sqlc.arg(notes)
+WHERE id = sqlc.arg(id)
+  AND status = 'pending'
+  AND collection_status = 'unpaid'
+  AND created_at < NOW() - make_interval(secs => sqlc.arg(window_seconds)::float8)
+RETURNING *;
+
+-- name: InsertBookingHoldExpiry :exec
+-- Records that a storefront booking was cancelled by hold expiry and nothing
+-- else (044_booking_hold_expiries.sql). Written in the transaction that
+-- cancels it; a second write for the same booking changes nothing.
+INSERT INTO booking_hold_expiries (booking_id, complex_id)
+VALUES ($1, $2)
+ON CONFLICT (booking_id) DO NOTHING;
+
+-- name: InsertBookingCheckoutRelease :exec
+-- Records that a storefront booking was released by its visitor after a failed
+-- payment (047_booking_hold_release_cause.sql): asked about with MercadoPago
+-- once more by the release sweep, five minutes on (its payment search can lag
+-- an approval), and never reopened by a late payment. Written in the
+-- transaction that cancels it.
+INSERT INTO booking_hold_expiries (booking_id, complex_id, cause, next_attempt_at)
+VALUES ($1, $2, 'released', NOW() + INTERVAL '5 minutes')
+ON CONFLICT (booking_id) DO NOTHING;
+
+-- name: MarkBookingHoldReconciled :exec
+-- The release sweep asked MercadoPago about this expired booking and handed
+-- any approved payment over: it is not asked again.
+UPDATE booking_hold_expiries
+SET reconciled_at = NOW()
+WHERE booking_id = $1;
+
+-- name: RecordBookingHoldReconcileFailure :one
+-- MercadoPago could not be asked, or an approved payment could not be handed
+-- over: counted, so the sweep gives up after a bounded number of attempts, and
+-- asked again later, five minutes more for every failed attempt, at most two
+-- hours apart (the backoff DeferRegistrationPaymentCheck uses).
+UPDATE booking_hold_expiries
+SET failed_attempts = failed_attempts + 1,
+    next_attempt_at = NOW() + make_interval(mins => LEAST(5 * (failed_attempts + 1), 120))
+WHERE booking_id = $1
+RETURNING failed_attempts;
+
+-- name: DeleteBookingHoldExpiry :exec
+-- The booking was reopened by the payment it was waiting for, in the same
+-- transaction: from here it is a live booking, and a later cancellation of it
+-- is final like any other.
+DELETE FROM booking_hold_expiries
+WHERE booking_id = $1;

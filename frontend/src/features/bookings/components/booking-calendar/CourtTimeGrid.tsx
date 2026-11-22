@@ -13,6 +13,7 @@ import { GUTTER_CLASS, HEADER_HEIGHT_PX } from './gridLayout';
 import type { CSSProperties, ReactNode, RefObject } from 'react';
 import type { Booking, BlockedSlot, CourtWithPrices, CourtEventBlock, FixedBlock } from '@/shared/types/api.types';
 import type { CreateBookingPrefill } from './types';
+import type { OnlineHold } from '../../schemas/onlineHold.schema';
 
 /**
  * Vertical time grid: the whole day runs top-to-bottom in a left gutter, and
@@ -31,6 +32,7 @@ interface CourtTimeGridProps {
   blockedSlots: BlockedSlot[];
   fixedBlocks: FixedBlock[];
   eventBlocks: CourtEventBlock[];
+  onlineHolds: OnlineHold[];
   activeCourts: CourtWithPrices[];
   date: string;
   slots: string[];
@@ -101,6 +103,7 @@ export function CourtTimeGrid({
   blockedSlots,
   fixedBlocks,
   eventBlocks,
+  onlineHolds,
   activeCourts,
   date,
   slots,
@@ -110,7 +113,7 @@ export function CourtTimeGrid({
   onSelectFixedBlock,
   onSelectEventBlock,
 }: CourtTimeGridProps) {
-  const columns = useGridColumns({ activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks });
+  const columns = useGridColumns({ activeCourts, bookings, blockedSlots, fixedBlocks, eventBlocks, onlineHolds });
   const nowMin = getNowMinutesInBuenosAires(date);
   const { ref, trackRef, frameRef } = useColumnScroller();
   const { dragging, dragHandlers } = useDragScroll(ref);
@@ -154,6 +157,7 @@ export function CourtTimeGrid({
             blockedSlots={blockedSlots}
             fixedBlocks={fixedBlocks}
             eventBlocks={eventBlocks}
+            onlineHolds={onlineHolds}
             slots={slots}
             nowMin={nowMin}
             onSelectBooking={onSelectBooking}

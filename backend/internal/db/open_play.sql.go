@@ -93,7 +93,7 @@ UPDATE open_play_registrations
 SET status = 'cancelled', cancelled_at = NOW(), cancelled_by = $1,
     refund_intent_at = CASE WHEN $2::bool THEN NOW() END
 WHERE id = $3 AND status IN ('held', 'confirmed')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at, payment_check_due_at, payment_checks, payment_check_notify
 `
 
 type CancelOpenPlayRegistrationParams struct {
@@ -131,15 +131,34 @@ func (q *Queries) CancelOpenPlayRegistration(ctx context.Context, arg CancelOpen
 		&i.PlayerLevel,
 		&i.RefundIntentAt,
 		&i.ReminderSentAt,
+		&i.PaymentCheckDueAt,
+		&i.PaymentChecks,
+		&i.PaymentCheckNotify,
 	)
 	return i, err
+}
+
+const closeRegistrationPaymentCheck = `-- name: CloseRegistrationPaymentCheck :execrows
+UPDATE open_play_registrations
+SET payment_check_due_at = NULL
+WHERE id = $1 AND payment_check_due_at IS NOT NULL
+`
+
+// MercadoPago answered, or the sweep gave up: the check is done. Zero rows means
+// another run closed it first.
+func (q *Queries) CloseRegistrationPaymentCheck(ctx context.Context, id pgtype.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, closeRegistrationPaymentCheck, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const confirmOpenPlayRegistration = `-- name: ConfirmOpenPlayRegistration :one
 UPDATE open_play_registrations
 SET status = 'confirmed', confirmed_at = NOW()
 WHERE id = $1 AND status IN ('held', 'expired')
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at, payment_check_due_at, payment_checks, payment_check_notify
 `
 
 // A hold that ran out and was swept can still be confirmed by a payment that
@@ -171,6 +190,9 @@ func (q *Queries) ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUI
 		&i.PlayerLevel,
 		&i.RefundIntentAt,
 		&i.ReminderSentAt,
+		&i.PaymentCheckDueAt,
+		&i.PaymentChecks,
+		&i.PaymentCheckNotify,
 	)
 	return i, err
 }
@@ -178,7 +200,10 @@ func (q *Queries) ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUI
 const countOpenPlaySpotsTaken = `-- name: CountOpenPlaySpotsTaken :one
 SELECT count(*)::int FROM open_play_registrations
 WHERE event_id = $1
-  AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+  AND (status = 'confirmed'
+       OR (status = 'held' AND held_until > NOW() - INTERVAL '15 minutes')
+       OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
+           AND held_until > NOW() - INTERVAL '15 minutes'))
   AND ($2::uuid IS NULL OR id <> $2::uuid)
 `
 
@@ -187,9 +212,23 @@ type CountOpenPlaySpotsTakenParams struct {
 	Except  pgtype.UUID `json:"except"`
 }
 
-// The spots of an event that are not free: registrations paid for, and holds
-// still inside their window. except is the registration being decided about,
-// which never counts against itself (NULL excludes nothing).
+// The spots of an event that are not free: registrations paid for, holds
+// still inside their window, and holds whose window ended less than fifteen
+// minutes ago while their payment check is still open (a held row the sweep
+// has not closed yet, or an expired one whose check is due). The first ask is
+// due three minutes after the expiry, and an empty first answer is asked again
+// about five minutes later (MercadoPago's search lags an approval), so the
+// check closes eight to eleven minutes after the window ended. Releasing the
+// spot before that let someone else fill the event while a payment approved in
+// the hold's last seconds was still to be found, and it was then refunded.
+// Fifteen minutes bounds it whatever the check is doing, past its second
+// answer; a check closed after its second empty answer frees the spot then.
+// The grace is written out in every count that reads this rule (open_play.sql,
+// tournaments.sql, place_waitlist.sql, eventstore fillCounts): change them
+// together. An expiry by its own person signing up again
+// (payment_check_notify false) does not count against them. except is the
+// registration being decided about, which never counts against itself (NULL
+// excludes nothing).
 func (q *Queries) CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlaySpotsTakenParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countOpenPlaySpotsTaken, arg.EventID, arg.Except)
 	var column_1 int32
@@ -197,9 +236,26 @@ func (q *Queries) CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlay
 	return column_1, err
 }
 
+const deferRegistrationPaymentCheck = `-- name: DeferRegistrationPaymentCheck :one
+UPDATE open_play_registrations
+SET payment_checks = payment_checks + 1,
+    payment_check_due_at = NOW() + make_interval(mins => LEAST(5 * (payment_checks + 1), 120))
+WHERE id = $1 AND payment_check_due_at IS NOT NULL
+RETURNING payment_checks
+`
+
+// MercadoPago could not be asked: count the attempt and ask again later, five
+// minutes more for every failed attempt, at most two hours apart.
+func (q *Queries) DeferRegistrationPaymentCheck(ctx context.Context, id pgtype.UUID) (int16, error) {
+	row := q.db.QueryRow(ctx, deferRegistrationPaymentCheck, id)
+	var payment_checks int16
+	err := row.Scan(&payment_checks)
+	return payment_checks, err
+}
+
 const expireOpenPlayHolds = `-- name: ExpireOpenPlayHolds :many
 UPDATE open_play_registrations
-SET status = 'expired'
+SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = true
 WHERE status = 'held' AND held_until <= NOW()
 RETURNING id, complex_id, event_id
 `
@@ -212,6 +268,11 @@ type ExpireOpenPlayHoldsRow struct {
 
 // The sweep: marks expired the holds nobody paid in time. They stopped counting
 // against capacity the moment held_until passed; this only closes the rows.
+// Every hold opened a MercadoPago checkout, so each is marked due a payment
+// check in the same write: a payment whose webhook never arrived is still
+// found, and the person is told the spot expired only once none was. The first
+// check is due three minutes later, not at once: MercadoPago's search lags
+// behind a payment approved in the hold's last seconds.
 func (q *Queries) ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHoldsRow, error) {
 	rows, err := q.db.Query(ctx, expireOpenPlayHolds)
 	if err != nil {
@@ -234,8 +295,13 @@ func (q *Queries) ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHold
 
 const expireOpenPlayHoldsOfPhone = `-- name: ExpireOpenPlayHoldsOfPhone :exec
 UPDATE open_play_registrations
-SET status = 'expired'
-WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW()
+SET status = 'expired',
+    payment_check_due_at = CASE WHEN status = 'held' THEN NOW() + INTERVAL '3 minutes'
+                                ELSE payment_check_due_at END,
+    payment_check_notify = false
+WHERE event_id = $1 AND phone = $2
+  AND ((status = 'held' AND held_until <= NOW())
+    OR (status = 'expired' AND payment_check_due_at IS NOT NULL))
 `
 
 type ExpireOpenPlayHoldsOfPhoneParams struct {
@@ -245,6 +311,12 @@ type ExpireOpenPlayHoldsOfPhoneParams struct {
 
 // Lets a person whose own earlier hold ran out sign up again: the one-live-
 // spot-per-phone index would otherwise still count the stale row.
+// The hold is still asked about (payment_check_due_at, three minutes on, as the
+// sweep's expiry), silently: the person is signing up again, so no expiry
+// notice follows. A hold of theirs the sweep already expired, whose check is
+// still open, is made silent too, keeping its due time: the spot it was kept
+// for (CountOpenPlaySpotsTaken) is not held against the person taking a new
+// one.
 func (q *Queries) ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error {
 	_, err := q.db.Exec(ctx, expireOpenPlayHoldsOfPhone, arg.EventID, arg.Phone)
 	return err
@@ -293,7 +365,7 @@ func (q *Queries) GetOpenPlayEvent(ctx context.Context, arg GetOpenPlayEventPara
 }
 
 const getOpenPlayRegistration = `-- name: GetOpenPlayRegistration :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at, payment_check_due_at, payment_checks, payment_check_notify FROM open_play_registrations
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -330,12 +402,15 @@ func (q *Queries) GetOpenPlayRegistration(ctx context.Context, arg GetOpenPlayRe
 		&i.PlayerLevel,
 		&i.RefundIntentAt,
 		&i.ReminderSentAt,
+		&i.PaymentCheckDueAt,
+		&i.PaymentChecks,
+		&i.PaymentCheckNotify,
 	)
 	return i, err
 }
 
 const getOpenPlayRegistrationByTokenHash = `-- name: GetOpenPlayRegistrationByTokenHash :one
-SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at FROM open_play_registrations
+SELECT id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at, payment_check_due_at, payment_checks, payment_check_notify FROM open_play_registrations
 WHERE access_token_hash = $1
 `
 
@@ -365,6 +440,9 @@ func (q *Queries) GetOpenPlayRegistrationByTokenHash(ctx context.Context, access
 		&i.PlayerLevel,
 		&i.RefundIntentAt,
 		&i.ReminderSentAt,
+		&i.PaymentCheckDueAt,
+		&i.PaymentChecks,
+		&i.PaymentCheckNotify,
 	)
 	return i, err
 }
@@ -464,7 +542,7 @@ VALUES (
     $10, $11,
     $12::text, $13::int
 )
-RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at
+RETURNING id, event_id, complex_id, first_name, last_name, phone, email, status, price, service_fee, held_until, access_token_hash, hold_ip, confirmed_at, cancelled_at, cancelled_by, created_at, updated_at, player_gender, player_level, refund_intent_at, reminder_sent_at, payment_check_due_at, payment_checks, payment_check_notify
 `
 
 type InsertOpenPlayRegistrationParams struct {
@@ -525,8 +603,56 @@ func (q *Queries) InsertOpenPlayRegistration(ctx context.Context, arg InsertOpen
 		&i.PlayerLevel,
 		&i.RefundIntentAt,
 		&i.ReminderSentAt,
+		&i.PaymentCheckDueAt,
+		&i.PaymentChecks,
+		&i.PaymentCheckNotify,
 	)
 	return i, err
+}
+
+const listDueRegistrationPaymentChecks = `-- name: ListDueRegistrationPaymentChecks :many
+SELECT id, complex_id, event_id, payment_checks, payment_check_notify
+FROM open_play_registrations
+WHERE status = 'expired' AND payment_check_due_at <= NOW()
+ORDER BY payment_check_due_at
+LIMIT $1::int
+`
+
+type ListDueRegistrationPaymentChecksRow struct {
+	ID                 pgtype.UUID `json:"id"`
+	ComplexID          pgtype.UUID `json:"complex_id"`
+	EventID            pgtype.UUID `json:"event_id"`
+	PaymentChecks      int16       `json:"payment_checks"`
+	PaymentCheckNotify bool        `json:"payment_check_notify"`
+}
+
+// The expired holds whose checkout MercadoPago is due to be asked about, oldest
+// first. Only an expired row is a candidate: a late payment that confirmed it
+// meanwhile already answered the question.
+func (q *Queries) ListDueRegistrationPaymentChecks(ctx context.Context, pageLimit int32) ([]ListDueRegistrationPaymentChecksRow, error) {
+	rows, err := q.db.Query(ctx, listDueRegistrationPaymentChecks, pageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDueRegistrationPaymentChecksRow
+	for rows.Next() {
+		var i ListDueRegistrationPaymentChecksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ComplexID,
+			&i.EventID,
+			&i.PaymentChecks,
+			&i.PaymentCheckNotify,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listOpenPlayEventCourts = `-- name: ListOpenPlayEventCourts :many
@@ -576,7 +702,10 @@ SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_min
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
-         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+         WHERE r.event_id = e.id
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
+             OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                 AND r.held_until > NOW() - INTERVAL '15 minutes')))::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = $1
   AND e.tournament_id IS NULL
@@ -621,7 +750,8 @@ type ListOpenPlayEventsRow struct {
 
 // The events of one complex whose date is in the window, soonest first, with
 // how many spots are taken: confirmed registrations plus the holds still
-// running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+// running or kept for their payment check, the count capacity is checked
+// against (CountOpenPlaySpotsTaken).
 // include_cancelled is what the owner's list sets and the public one does not.
 // The sign-up containers of tournament categories are not events a person lists.
 func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error) {
@@ -674,7 +804,7 @@ func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEvents
 }
 
 const listOpenPlayRegistrations = `-- name: ListOpenPlayRegistrations :many
-SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at, r.player_gender, r.player_level, r.refund_intent_at, r.reminder_sent_at,
+SELECT r.id, r.event_id, r.complex_id, r.first_name, r.last_name, r.phone, r.email, r.status, r.price, r.service_fee, r.held_until, r.access_token_hash, r.hold_ip, r.confirmed_at, r.cancelled_at, r.cancelled_by, r.created_at, r.updated_at, r.player_gender, r.player_level, r.refund_intent_at, r.reminder_sent_at, r.payment_check_due_at, r.payment_checks, r.payment_check_notify,
        p.id AS payment_id,
        COALESCE(p.status::text, '')::text AS payment_status,
        COALESCE(p.amount, 0)::int AS payment_amount,
@@ -721,6 +851,9 @@ type ListOpenPlayRegistrationsRow struct {
 	PlayerLevel         pgtype.Int4        `json:"player_level"`
 	RefundIntentAt      pgtype.Timestamptz `json:"refund_intent_at"`
 	ReminderSentAt      pgtype.Timestamptz `json:"reminder_sent_at"`
+	PaymentCheckDueAt   pgtype.Timestamptz `json:"payment_check_due_at"`
+	PaymentChecks       int16              `json:"payment_checks"`
+	PaymentCheckNotify  bool               `json:"payment_check_notify"`
 	PaymentID           pgtype.UUID        `json:"payment_id"`
 	PaymentStatus       string             `json:"payment_status"`
 	PaymentAmount       int32              `json:"payment_amount"`
@@ -765,6 +898,9 @@ func (q *Queries) ListOpenPlayRegistrations(ctx context.Context, arg ListOpenPla
 			&i.PlayerLevel,
 			&i.RefundIntentAt,
 			&i.ReminderSentAt,
+			&i.PaymentCheckDueAt,
+			&i.PaymentChecks,
+			&i.PaymentCheckNotify,
 			&i.PaymentID,
 			&i.PaymentStatus,
 			&i.PaymentAmount,

@@ -7,5 +7,6 @@ export { BookingCalendar } from './components/BookingCalendar';
 export { CreateBookingModal } from './components/CreateBookingModal';
 
 export { useBookings } from './hooks/useBookings';
+export { useOnlineHolds } from './hooks/useOnlineHolds';
 export { useBookingModals } from './hooks/useBookingModals';
 export { useBookingActions } from './hooks/useBookingActions';

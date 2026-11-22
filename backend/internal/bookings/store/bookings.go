@@ -233,6 +233,14 @@ type Booking struct {
 	// (bookings_attended_only_completed, db/migrations/031_booking_attendance.sql),
 	// so a completed booking without it reads "Turno finalizado".
 	AttendedAt *time.Time `json:"attended_at"`
+	// CancelledByHoldExpiry reports a booking cancelled only because its
+	// payment window ran out (a booking_hold_expiries row, see
+	// hold_expiry.go) that a late payment may still reopen: never paid, owing
+	// no refund, not yet started (ReopenableByLatePaymentSQL). GetByID reads
+	// it; every other read leaves it false. The payment confirmation reads it
+	// to reopen such a booking when a late payment finds its hours still
+	// free, instead of refunding it.
+	CancelledByHoldExpiry bool `json:"-"`
 
 	// Enrichment fields populated by JOINs in GetByComplex/GetByID.
 	CourtName   string `json:"court_name"`
@@ -271,6 +279,10 @@ type BookedSpan struct {
 	// tournament match rather than an open-play event: the owner is told to
 	// unschedule the match instead.
 	Match bool
+	// OnlineHold is true for hours a visitor is booking online right now: an
+	// unpaid storefront booking still inside its payment window. As taken as a
+	// booking, but the owner is told it may free up.
+	OnlineHold bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's
@@ -534,6 +546,18 @@ func (m *Store) insertSafe(ctx context.Context, tx pgx.Tx, b *Booking, hold hold
 		return err
 	}
 	if hasCollision {
+		// An owner refused by a visitor's live online hold is told so, and
+		// when it frees: the hold is not on their calendar as a booking, and a
+		// bare "unavailable" for a cell that looked free read as a fault.
+		if b.CreatedBy != nil {
+			freesAt, held, err := liveHoldFreesAt(ctx, tx, b, m.PaymentExpiry)
+			if err != nil {
+				return err
+			}
+			if held {
+				return &HoldBlockedError{FreesAt: freesAt}
+			}
+		}
 		return ErrSlotUnavailable
 	}
 
@@ -660,13 +684,15 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 
 	var b db.Booking
 	var courtName, clientName, clientPhone string
+	var cancelledByHoldExpiry bool
 	err := m.DB.QueryRow(ctx, `
 		SELECT `+BookingColumns+`,
 		       b.refund_intent_at, b.series_id, b.attended_at,
 		       COALESCE(co.name, '') AS court_name,
 		       COALESCE(cl.first_name || ' ' || cl.last_name, b.client_first_name || ' ' || b.client_last_name, '') AS client_name,
 		       COALESCE(cl.phone, b.client_phone, '') AS client_phone,
-		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email
+		       b.client_first_name, b.client_last_name, b.client_phone, b.client_email,
+		       `+ReopenableByLatePaymentSQL("b")+` AS cancelled_by_hold_expiry
 		FROM bookings b
 		LEFT JOIN courts co ON co.id = b.court_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -686,6 +712,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		&b.RefundIntentAt, &b.SeriesID, &b.AttendedAt,
 		&courtName, &clientName, &clientPhone,
 		&b.ClientFirstName, &b.ClientLastName, &b.ClientPhone, &b.ClientEmail,
+		&cancelledByHoldExpiry,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -694,6 +721,7 @@ func (m *Store) GetByID(ctx context.Context, id uuid.UUID) (*Booking, error) {
 		return nil, fmt.Errorf("bookings: get by id: %w", err)
 	}
 	booking := BookingFromDB(b)
+	booking.CancelledByHoldExpiry = cancelledByHoldExpiry
 	booking.CourtName = courtName
 	booking.ClientName = clientName
 	booking.ClientPhone = clientPhone
@@ -940,9 +968,10 @@ func (m *Store) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, fr
 	result := make([]BookedSpan, len(dbSlots))
 	for i, s := range dbSlots {
 		result[i] = BookedSpan{
-			CourtID:  data.PgToUUID(s.CourtID),
-			StartsAt: s.StartsAt.Time,
-			EndsAt:   s.EndsAt.Time,
+			CourtID:    data.PgToUUID(s.CourtID),
+			StartsAt:   s.StartsAt.Time,
+			EndsAt:     s.EndsAt.Time,
+			OnlineHold: s.OnlineHold,
 		}
 	}
 
@@ -1317,6 +1346,11 @@ type CronBooking struct {
 	mpRefreshToken    *string
 	mpRefreshTokenErr error
 	CancellationHours int
+	// ReleasedByClient reports a booking its visitor released after a failed
+	// payment rather than one whose hold expired. Only ExpiredHoldsToReconcile
+	// sets it: such a booking is asked about again but never reopened, and its
+	// visitor, who chose to release it, is not told it expired.
+	ReleasedByClient bool
 }
 
 // GetForReminder2hEnriched returns confirmed bookings starting within the next 2 hours that have
@@ -1433,54 +1467,65 @@ func (m *Store) getUnpaidPublicPendingEnriched(ctx context.Context, extra string
 func scanCronBookings(rows pgx.Rows, keys *crypto.Keyring) ([]*CronBooking, error) {
 	result := make([]*CronBooking, 0, 32)
 	for rows.Next() {
-		var b db.Booking
-		var clientPhone, clientEmail, complexName, courtName string
-		var complexSlug, complexAddress, complexCity string
-		var latitude, longitude pgtype.Float8
-		var mpAccessToken, mpRefreshToken pgtype.Text
-		var cancellationHours int32
-		var complexPhone string
-		var complexOwnerID pgtype.UUID
-		err := rows.Scan(
-			&b.ID, &b.ComplexID, &b.CourtID, &b.ClientID,
-			&b.Span,
-			&b.Date, &b.StartTime, &b.DurationMinutes,
-			&b.Price, &b.DepositAmount, &b.Status,
-			&b.CollectionStatus, &b.RefundStatus,
-			&b.ReminderSent2h,
-			&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
-			&clientPhone, &clientEmail, &complexName, &courtName,
-			&complexSlug, &complexAddress, &complexCity, &latitude, &longitude,
-			&mpAccessToken, &mpRefreshToken, &cancellationHours,
-			&complexPhone, &complexOwnerID,
-		)
+		cb, err := scanCronBooking(rows, keys)
 		if err != nil {
-			return nil, fmt.Errorf("bookings: scan cron booking row: %w", err)
+			return nil, err
 		}
-		booking := BookingFromDB(b)
-		cb := &CronBooking{
-			Booking:           *booking,
-			ClientPhone:       clientPhone,
-			ClientEmail:       clientEmail,
-			ComplexName:       complexName,
-			CourtName:         courtName,
-			ComplexSlug:       complexSlug,
-			ComplexAddress:    complexAddress,
-			ComplexCity:       complexCity,
-			ComplexLatitude:   data.PgToFloat8Ptr(latitude),
-			ComplexLongitude:  data.PgToFloat8Ptr(longitude),
-			CancellationHours: int(cancellationHours),
-			ComplexPhone:      complexPhone,
-			ComplexOwnerID:    data.PgToUUID(complexOwnerID),
-		}
-		cb.mpAccessToken, cb.mpAccessTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.AccessTokenColumn, data.PgToTextPtr(mpAccessToken))
-		cb.mpRefreshToken, cb.mpRefreshTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.RefreshTokenColumn, data.PgToTextPtr(mpRefreshToken))
 		result = append(result, cb)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("bookings: scan cron bookings: %w", err)
 	}
 	return result, nil
+}
+
+// scanCronBooking scans the current row of an enriched cron read, then extra:
+// the columns a read selects after the enrichment ones, in order.
+func scanCronBooking(rows pgx.Rows, keys *crypto.Keyring, extra ...any) (*CronBooking, error) {
+	var b db.Booking
+	var clientPhone, clientEmail, complexName, courtName string
+	var complexSlug, complexAddress, complexCity string
+	var latitude, longitude pgtype.Float8
+	var mpAccessToken, mpRefreshToken pgtype.Text
+	var cancellationHours int32
+	var complexPhone string
+	var complexOwnerID pgtype.UUID
+	dest := []any{
+		&b.ID, &b.ComplexID, &b.CourtID, &b.ClientID,
+		&b.Span,
+		&b.Date, &b.StartTime, &b.DurationMinutes,
+		&b.Price, &b.DepositAmount, &b.Status,
+		&b.CollectionStatus, &b.RefundStatus,
+		&b.ReminderSent2h,
+		&b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
+		&clientPhone, &clientEmail, &complexName, &courtName,
+		&complexSlug, &complexAddress, &complexCity, &latitude, &longitude,
+		&mpAccessToken, &mpRefreshToken, &cancellationHours,
+		&complexPhone, &complexOwnerID,
+	}
+	err := rows.Scan(append(dest, extra...)...)
+	if err != nil {
+		return nil, fmt.Errorf("bookings: scan cron booking row: %w", err)
+	}
+	booking := BookingFromDB(b)
+	cb := &CronBooking{
+		Booking:           *booking,
+		ClientPhone:       clientPhone,
+		ClientEmail:       clientEmail,
+		ComplexName:       complexName,
+		CourtName:         courtName,
+		ComplexSlug:       complexSlug,
+		ComplexAddress:    complexAddress,
+		ComplexCity:       complexCity,
+		ComplexLatitude:   data.PgToFloat8Ptr(latitude),
+		ComplexLongitude:  data.PgToFloat8Ptr(longitude),
+		CancellationHours: int(cancellationHours),
+		ComplexPhone:      complexPhone,
+		ComplexOwnerID:    data.PgToUUID(complexOwnerID),
+	}
+	cb.mpAccessToken, cb.mpAccessTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.AccessTokenColumn, data.PgToTextPtr(mpAccessToken))
+	cb.mpRefreshToken, cb.mpRefreshTokenErr = mpcred.Open(keys, booking.ComplexID, mpcred.RefreshTokenColumn, data.PgToTextPtr(mpRefreshToken))
+	return cb, nil
 }
 
 // CompletePastBookings marks confirmed bookings that have finished as completed.

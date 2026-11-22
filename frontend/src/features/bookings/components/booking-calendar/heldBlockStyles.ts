@@ -16,4 +16,6 @@ export const HELD_BLOCK_STYLES = {
   event: 'bg-info-border border-info-icon',
   /** A scheduled tournament match: the data teal, never a status colour. */
   match: 'bg-chart-accent/50 border-chart-accent',
+  /** Hours a visitor is booking online: grey, a cell not free and not anybody's booking yet. */
+  online: 'bg-bg-elevated border-text-tertiary',
 } as const;

@@ -505,9 +505,25 @@ type BookingHoldManager interface {
 	DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) error
 }
 
+// BookingHoldExpiryManager is the record of storefront bookings cancelled only
+// because their payment window ran out (bookingstore hold_expiry.go): written
+// by the release sweep's expiry, read back so each one is asked about with
+// MercadoPago once. A visitor's release is recorded there too
+// (CancelReleasedCheckout), asked about once more but never reopened.
+type BookingHoldExpiryManager interface {
+	ExpireHold(ctx context.Context, booking *bookingstore.Booking) error
+	CancelReleasedCheckout(ctx context.Context, booking *bookingstore.Booking) error
+	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
+	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
+	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
+	ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error
+	PaymentsLapsingSoon(ctx context.Context, window, ahead, lookback time.Duration, limit int) ([]*bookingstore.CronBooking, error)
+}
+
 // BookingStore composes every booking-related store capability.
 type BookingStore interface {
 	BookingHoldManager
+	BookingHoldExpiryManager
 	BookingCreator
 	BookingReader
 	BookingUpdater
@@ -741,6 +757,12 @@ type RegistrationStore interface {
 	CancelByOwner(ctx context.Context, id uuid.UUID) (*eventstore.ParticipantCancel, error)
 	ExpireHolds(ctx context.Context) ([]eventstore.ExpiredHold, error)
 	OwnerCancelledStillPaid(ctx context.Context, grace time.Duration, limit int) ([]eventstore.PendingRefund, error)
+	// DuePaymentChecks, ClosePaymentCheck and DeferPaymentCheck are the expired
+	// holds MercadoPago is still to be asked about, before anyone is told the
+	// spot expired.
+	DuePaymentChecks(ctx context.Context, limit int) ([]eventstore.PaymentCheck, error)
+	ClosePaymentCheck(ctx context.Context, id uuid.UUID) (bool, error)
+	DeferPaymentCheck(ctx context.Context, id uuid.UUID) (int, error)
 }
 
 // RegistrationReminderManager finds the paid spots due their day-before
@@ -819,7 +841,7 @@ type TournamentsStore interface {
 // the default of the -booking-payment-expiry flag, and it exists so a zero Config
 // cannot be read as "no hold at all" — that would make every unpaid public
 // booking stale the instant it is created and stop it holding its slot.
-const defaultPaymentExpiry = 15 * time.Minute
+const defaultPaymentExpiry = 10 * time.Minute
 
 // Config is what the stores need from application configuration.
 //

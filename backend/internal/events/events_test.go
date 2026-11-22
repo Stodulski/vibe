@@ -105,6 +105,20 @@ func TestCreateAnswersWhatHoldsTheHoursAndWhere(t *testing.T) {
 	}
 }
 
+// S3: when a visitor is booking the hours online right now the owner is told
+// so, in Spanish, and when the hold frees up.
+func TestCreateOverAnOnlineHoldSaysWhenItFrees(t *testing.T) {
+	f := newFixture(t)
+	freesAt := time.Date(2026, time.December, 3, 21, 47, 0, 0, time.UTC) // 18:47 in Buenos Aires
+	f.store.createErr = &eventstore.ConflictError{Reason: eventstore.ConflictOnlineHold, CourtID: f.courts.courts[0].ID, FreesAt: freesAt}
+	_, err := f.svc.Create(t.Context(), f.complex, f.ownerActor(), validInput())
+	want := "Este horario se está reservando online. Si no se paga, se libera a las 18:47."
+	var conflict *ConflictError
+	if !errors.As(err, &conflict) || conflict.Message != want {
+		t.Fatalf("err = %v; want conflict %q", err, want)
+	}
+}
+
 func TestCreateNeedsAnAuthenticatedOwner(t *testing.T) {
 	f := newFixture(t)
 	if _, err := f.svc.Create(t.Context(), f.complex, Actor{}, validInput()); !errors.Is(err, ErrNoActor) {

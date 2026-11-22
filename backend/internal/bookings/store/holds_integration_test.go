@@ -122,7 +122,10 @@ func slotsEnd(start string) string {
 	return t.Add(90 * time.Minute).Format("15:04")
 }
 
-func TestReleaseDeletesAnUntouchedHoldAndIsIdempotent(t *testing.T) {
+// A released hold is cancelled rather than deleted: it stays, through its
+// cooldown, as the record that its address already spent part of a window on
+// those hours (HoldCooldown). It holds nothing.
+func TestReleaseCancelsAnUntouchedHoldAndIsIdempotent(t *testing.T) {
 	f := datatest.Isolated(t)
 	hold := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, hold)
@@ -134,8 +137,8 @@ func TestReleaseDeletesAnUntouchedHoldAndIsIdempotent(t *testing.T) {
 	if freed.Day.Format(time.DateOnly) != hold.Date.Format(time.DateOnly) || freed.ComplexSlug == "" || freed.ComplexName == "" {
 		t.Errorf("want the freed slot's day and venue for the waitlist; got %+v (hold on %v)", freed, hold.Date)
 	}
-	if bookingExists(t, f, hold.ID) {
-		t.Error("a released untouched hold must be gone")
+	if status, _, _ := f.ReadBookingState(t, hold.ID); status != "cancelled" {
+		t.Errorf("a released untouched hold must be cancelled; got %q", status)
 	}
 	if contains(bookedStarts(t, f, hold.Date), "18:00") {
 		t.Error("a released hold must free its slot")
@@ -368,11 +371,37 @@ func TestConvertRacesConvertAndRelease(t *testing.T) {
 				t.Error("a converted booking must survive the release")
 			}
 		case errors.Is(convertErr, bookingstore.ErrHoldNotFound) && released:
-			if bookingExists(t, f, hold.ID) {
-				t.Error("a released hold must be gone")
+			if status, _, _ := f.ReadBookingState(t, hold.ID); status != "cancelled" {
+				t.Errorf("a released hold must be cancelled; got %q", status)
 			}
 		default:
 			t.Fatalf("want exactly one of convert/release to win; convert=%v released=%v", convertErr, released)
 		}
 	})
+}
+
+// A visitor's live hold is told apart from a real booking in the booked spans
+// the fixed-booking pre-check reads, so the owner sees "Reservando online"
+// instead of "Reserva" on that date.
+func TestBookedSpansMarkALiveOnlineHold(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	hold := newHold(f, "18:00", "19:30")
+	takeHold(t, f, hold)
+	booking := f.NewBooking(datatest.BookingOptions{StartTime: "20:00", EndTime: "21:00", Status: "confirmed"})
+	if err := f.Stores.Bookings.InsertSafe(ctx, booking); err != nil {
+		t.Fatalf("InsertSafe: %v", err)
+	}
+
+	spans, err := f.Stores.Bookings.BookedSpansBetween(ctx, []uuid.UUID{hold.CourtID}, hold.Date, hold.Date.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("BookedSpansBetween: %v", err)
+	}
+	marked := map[bool]int{}
+	for _, sp := range spans {
+		marked[sp.OnlineHold]++
+	}
+	if marked[true] != 1 || marked[false] != 1 {
+		t.Errorf("want one online hold and one real booking; got %+v", spans)
+	}
 }

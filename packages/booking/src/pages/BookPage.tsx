@@ -9,7 +9,7 @@ import { navigateTo, useQueryParams } from '../lib/navigation';
  * Nothing in this app navigates here, which is why this file once carried a
  * comment saying it was no longer needed — and it nearly got deleted on the
  * strength of it. The caller is on the server: `booklink.Failure` builds the
- * checkout preference's failure back_url as `/c/{slug}/book?error=payment_failed`
+ * checkout preference's failure back_url as `/c/{slug}/book?error=payment_failed&token=…`
  * (backend, `internal/booklink/booklink.go`), so every rejected card
  * lands on this route. Deleting it turns the worst moment of the flow into a
  * 404.
@@ -32,7 +32,7 @@ export default function BookPage({ slug }: { slug: string }) {
   }, [paymentFailed, slug]);
 
   if (paymentFailed) {
-    return <PaymentFailedScreen slug={slug} />;
+    return <PaymentFailedScreen slug={slug} token={searchParams.get('token') ?? undefined} />;
   }
 
   return null;

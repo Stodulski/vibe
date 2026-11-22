@@ -11,6 +11,7 @@ import (
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	"github.com/stodulski/vibe-server/internal/slots"
@@ -500,6 +501,13 @@ func (h *Handler) BlockSlot(w http.ResponseWriter, r *http.Request) {
 		CreatedBy: user.ID,
 	})
 	if err != nil {
+		var held *slotguard.OnlineHoldError
+		if errors.As(err, &held) {
+			// Still the table's 409 for the booked hours; the detail tells the
+			// owner a visitor is booking them online, and when they free up.
+			h.respond.DomainErrorWith(w, r, err, httpx.OnlineHoldMessage(held.FreesAt))
+			return
+		}
 		h.respond.DomainError(w, r, err)
 		return
 	}

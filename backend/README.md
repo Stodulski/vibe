@@ -301,7 +301,7 @@ The four bounds `http.Server` places on one connection. `0` disables any of them
 | `LEADS_ABANDONED_WEBHOOK_URL` | Google Apps Script webhook URL for abandoned-registration email capture. | Optional | `""` |
 | `LEADS_ABANDONED_WEBHOOK_TOKEN` | Shared token the abandoned-registration webhook expects. | Optional | `""` |
 | `BOOKING_GRACE_PERIOD` | Grace period for refund after booking creation. | Optional | `15m` |
-| `BOOKING_PAYMENT_EXPIRY` | Time before an unpaid booking is auto-cancelled. | Optional | `15m` |
+| `BOOKING_PAYMENT_EXPIRY` | Time before an unpaid booking is auto-cancelled. Submitting details guarantees at least 10 minutes to pay; a payment MercadoPago is still processing keeps the hold up to an hour. | Optional | `10m` |
 | `BOOKING_CANCELLATION_WINDOW` | Default cancellation window before game start. | Optional | `24h` |
 | `BOOKING_SLOT_LOCK_TTL` | TTL for slot locks during payment. Must be `>= BOOKING_PAYMENT_EXPIRY`, checked at boot. | Optional | `15m` |
 | `BOOKING_LINK_TOKEN_BUFFER` | Extra time past a booking's end during which its access link stays valid. | Optional | `24h` |

@@ -893,6 +893,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Run:          app.background,
 		Waitlist:     waitlistService,
 		FreedSlots:   instagramStories,
+		// A retried or released checkout found approved at MercadoPago is
+		// processed as its webhook would have been.
+		Reconciler: paymentsService,
 	}, bookings.Config{
 		PublicURL:       cfg.PublicBaseURL(),
 		BackendURL:      cfg.BackendURL,
@@ -908,6 +911,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 	// first, and that lives in the bookings domain, built only here — after the
 	// complexes service. Closed the same way as SetCourts, before any request.
 	complexesService.SetHoldReleaser(bookingsService)
+	// The release sweep records the bookings it expires and asks MercadoPago
+	// about them once more later (bookings.Service.SetHoldExpiries).
+	bookingsService.SetHoldExpiries(d.models.Bookings)
 	// The Turnstile client is passed to the handler, not the service: the check
 	// is computed over the request, which never reaches the service. It only
 	// gates POST /book when the operator set TURNSTILE_BOOKING_ENFORCE and the
@@ -929,10 +935,14 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Clients:   clientsService,
 		Payments:  paymentsService,
 		Checkout:  mpClient,
-		Notify:    notify,
-		Realtime:  events,
-		Audit:     auditor,
-		Logger:    d.logger,
+		// The hold sweep asks MercadoPago before it tells a person their spot
+		// expired, and hands an approved payment no webhook delivered to the
+		// payments service, which processes it as the webhook would have.
+		Reconciler: paymentsService,
+		Notify:     notify,
+		Realtime:   events,
+		Audit:      auditor,
+		Logger:     d.logger,
 	}, openplay.Config{
 		PublicURL:     cfg.PublicBaseURL(),
 		BackendURL:    cfg.BackendURL,

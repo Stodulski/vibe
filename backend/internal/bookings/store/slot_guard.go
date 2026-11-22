@@ -26,26 +26,42 @@ import (
 // rather than only in the query; see InsertSafe for why the two must agree.
 // The caller must hold lockCourtDay for that court and date.
 //
-// The note is the one the release cron writes, so a cancelled row reads the
-// same whichever path got there first. The cron's other work — expiring the
-// MercadoPago preference and emailing the visitor — does not happen here; a
-// payment that arrives anyway is refused by guardSlotStillFree and refunded.
+// The note is HoldExpiryNote, the one the release cron writes, so a cancelled
+// row reads the same whichever path got there first. Every released booking that went past
+// the hold stage (no hold token, so it may carry a checkout link) is also
+// recorded in booking_hold_expiries in the same statement, as the cron's own
+// expiry does (Store.ExpireHold). The cron's other work — closing the
+// MercadoPago checkout link, asking MercadoPago whether it was paid, emailing
+// the visitor — does not happen here, inside a visitor's booking transaction:
+// the record hands it to the release sweep, which closes the link and asks
+// MercadoPago on its next run (bookings.Service.ReconcileExpiredHolds), so an
+// approved payment whose webhook never arrived is still found and processed,
+// and tells the visitor their booking expired once no payment was found.
+// A payment that does reach the confirmation path is refunded with
+// RefundCauseSlotTaken when these hours went to b, and reopens the booking
+// when they are still free.
 func ReleaseStalePendingOverlaps(ctx context.Context, tx pgx.Tx, b *Booking, hold time.Duration) error {
 	_, err := tx.Exec(ctx, `
-		UPDATE bookings
-		SET status = 'cancelled',
-		    notes  = COALESCE(notes || ' | ', '') || 'Cancelado automáticamente: tiempo de pago expirado'
-		WHERE court_id = $1
-		  AND span && tstzrange(
-		        booking_starts_at($2, $3),
-		        booking_starts_at($2, $3) + make_interval(mins => $4),
-		        '[)')
-		  AND status = 'pending'
-		  AND collection_status = 'unpaid'
-		  AND created_by IS NULL
-		  AND created_at < NOW() - make_interval(secs => $5)`,
+		WITH released AS (
+			UPDATE bookings
+			SET status = 'cancelled',
+			    notes  = COALESCE(notes || ' | ', '') || $6::text
+			WHERE court_id = $1
+			  AND span && tstzrange(
+			        booking_starts_at($2, $3),
+			        booking_starts_at($2, $3) + make_interval(mins => $4),
+			        '[)')
+			  AND status = 'pending'
+			  AND collection_status = 'unpaid'
+			  AND created_by IS NULL
+			  AND created_at < NOW() - make_interval(secs => $5)
+			RETURNING id, complex_id, hold_token_hash
+		)
+		INSERT INTO booking_hold_expiries (booking_id, complex_id)
+		SELECT id, complex_id FROM released WHERE hold_token_hash IS NULL
+		ON CONFLICT (booking_id) DO NOTHING`,
 		data.UUIDToPg(b.CourtID), data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
-		b.DurationMinutes, hold.Seconds(),
+		b.DurationMinutes, hold.Seconds(), HoldExpiryNote,
 	)
 	if err != nil {
 		return fmt.Errorf("release stale pending bookings: %w", err)

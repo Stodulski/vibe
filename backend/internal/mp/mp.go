@@ -352,6 +352,10 @@ type CreatePreferenceInput struct {
 	Date           string
 	StartTime      string
 	Amount         int // total amount client pays in centavos (deposit + service fee)
+	// FullPayment says the booking's checkout charges its whole price rather
+	// than a deposit, so the item is described as the booking's payment and
+	// not as a seña. Ignored for a registration, whose copy is its own.
+	FullPayment    bool
 	MarketplaceFee int // service fee in centavos retained by marketplace
 	// Caller is the seller the preference is created for, and it decides who
 	// gets paid: MercadoPago settles into whichever account authorized the
@@ -376,6 +380,24 @@ type CreatePreferenceInput struct {
 type Preference struct {
 	ID        string `json:"id"`
 	InitPoint string `json:"init_point"`
+	// Expires and ExpirationDateTo are the link's own expiry, as read back:
+	// ExpirePreference closes a link by moving ExpirationDateTo into the past.
+	Expires          bool   `json:"expires"`
+	ExpirationDateTo string `json:"expiration_date_to"`
+}
+
+// ClosedAt reports whether the link no longer takes payments at now: it
+// expires, and its expiry has passed. An expiry MercadoPago wrote in a form
+// that does not parse answers false, leaving MercadoPago to refuse the payment.
+func (p *Preference) ClosedAt(now time.Time) bool {
+	if !p.Expires || p.ExpirationDateTo == "" {
+		return false
+	}
+	to, err := time.Parse(time.RFC3339, p.ExpirationDateTo)
+	if err != nil {
+		return false
+	}
+	return !now.Before(to)
 }
 
 // FeeDetail represents a single fee entry from a MercadoPago payment.
@@ -396,6 +418,8 @@ type Payment struct {
 	FeeDetails                []FeeDetail    `json:"fee_details"`
 	Metadata                  map[string]any `json:"metadata"`
 	ExternalReference         string         `json:"external_reference"`
+	// DateCreated is when the payment attempt was started; zero when absent.
+	DateCreated time.Time `json:"date_created"`
 	// CollectorID is the MercadoPago user id of the seller who received the money.
 	// It must be checked against the complex's own MP user id: external_reference
 	// alone does not prove the payment was collected by the right seller.
@@ -435,10 +459,14 @@ func (in CreatePreferenceInput) checkoutIdentity() (reference string, metadata m
 			in.Title, in.Description
 	}
 	dateDisplay := titleDate(in.Date)
+	what := "Seña para reserva"
+	if in.FullPayment {
+		what = "Pago de la reserva"
+	}
 	return in.BookingID.String(),
 		map[string]string{"booking_id": in.BookingID.String(), "booking_date": in.Date},
 		fmt.Sprintf("%s - %s - %s %s hs", in.ComplexName, in.CourtName, dateDisplay, in.StartTime),
-		fmt.Sprintf("Seña para reserva en %s. %s, %s a las %s hs.", in.ComplexName, in.CourtName, dateDisplay, in.StartTime)
+		fmt.Sprintf("%s en %s. %s, %s a las %s hs.", what, in.ComplexName, in.CourtName, dateDisplay, in.StartTime)
 }
 
 // CreatePreference creates a MercadoPago checkout preference.
@@ -607,6 +635,45 @@ func (c *MPClient) UpdatePreferenceExpired(ctx context.Context, preferenceID str
 	}
 
 	return nil
+}
+
+// GetPreference reads back a checkout preference the seller created, for its
+// payment link (init_point). A visitor whose card was rejected pays again on
+// the same link while it is still open: a preference takes any number of
+// attempts until its expiration, and reusing it keeps one checkout per
+// booking for the webhook, the expiry sweep and the reconciliation to reason
+// about. Like CreatePreference it is only ever made as the seller.
+func (c *MPClient) GetPreference(ctx context.Context, preferenceID string, caller Caller) (*Preference, error) {
+	if caller.platform {
+		return nil, ErrPlatformCannotSell
+	}
+	token, err := c.bearer(caller)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, c.baseURL+"/checkout/preferences/"+url.PathEscape(preferenceID), nil)
+	if err != nil {
+		return nil, fmt.Errorf("mp: failed to create preference read request: %w", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := c.doRequest(req)
+	if err != nil {
+		return nil, fmt.Errorf("mp: preference read request failed: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+
+	if resp.StatusCode != http.StatusOK {
+		respBody, _ := io.ReadAll(resp.Body) //nolint:errcheck // the status is the error; a truncated body only makes it less legible
+		return nil, &APIError{StatusCode: resp.StatusCode, Body: string(respBody)}
+	}
+
+	var pref Preference
+	if err := json.NewDecoder(resp.Body).Decode(&pref); err != nil {
+		return nil, fmt.Errorf("mp: failed to decode preference: %w", err)
+	}
+	return &pref, nil
 }
 
 // GetPayment fetches a payment from MercadoPago by ID.
