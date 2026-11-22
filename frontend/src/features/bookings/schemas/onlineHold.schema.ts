@@ -4,7 +4,7 @@ import { z } from 'zod';
  * Hours a visitor is booking online, as `GET /complexes/{id}/bookings` carries
  * them in `online_holds`: where and when, and when they free up if nobody pays.
  */
-export const onlineHoldSchema = z.object({
+const onlineHoldSchema = z.object({
   court_id: z.string(),
   date: z.string(),
   start_time: z.string(),

@@ -412,7 +412,7 @@ test('a rejected payment is final: it never turns approved, and paying again mak
   const checkoutURL = page.url();
   const bookingId = await referenceOfPreference(preferenceId);
   await page.getByRole('button', { name: MP_FAKE_CHECKOUT.reject }).click();
-  await expect(page).toHaveURL(new RegExp(`${world.slug}/book/failure`), { timeout: 15_000 });
+  await expect(page).toHaveURL(new RegExp(`/c/${world.slug}/book\\?error=payment_failed`), { timeout: 15_000 });
   const rejected = await paymentOfPreference(preferenceId);
   expect(rejected.status).toBe('rejected');
 

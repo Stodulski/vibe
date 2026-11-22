@@ -18,7 +18,7 @@ export function useBookingsPage(complexId: string) {
   const { selectedDate } = dateNav;
 
   const { data: bookings = [], isLoading, isError, refetch } = useBookings(complexId, selectedDate);
-  const { data: onlineHolds = [] } = useOnlineHolds(complexId, selectedDate);
+  const { data: onlineHolds } = useOnlineHolds(complexId, selectedDate);
   const { data: blockedSlots = [] } = useBlockedSlots(complexId, selectedDate, selectedDate);
   const { data: fixedBlocks = [] } = useFixedBlocks(complexId, selectedDate, selectedDate);
   const { data: openPlayBlocks = [] } = useEventBlocks(complexId, selectedDate, selectedDate);
