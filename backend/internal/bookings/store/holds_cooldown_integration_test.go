@@ -16,7 +16,7 @@ import (
 
 // window is the payment window every store in the integration fixture runs on
 // (stores.defaultPaymentExpiry).
-const window = 15 * time.Minute
+const window = 10 * time.Minute
 
 // readCreatedAt is the created_at the database holds for a booking: the
 // instant every "is this hold still live" predicate counts its window from.
@@ -104,7 +104,7 @@ func TestRetakingAReleasedHoldKeepsItsClock(t *testing.T) {
 	f := datatest.Isolated(t)
 	first := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, first)
-	f.BackdateBookingCreatedAt(t, first.ID, 10*time.Minute)
+	f.BackdateBookingCreatedAt(t, first.ID, window/2)
 	started := readCreatedAt(t, f, first.ID)
 
 	if _, released, err := f.Stores.Bookings.ReleaseHold(context.Background(), hash); err != nil || !released {
@@ -178,9 +178,14 @@ func TestConvertingLateLeavesTheMinimumPaymentWindow(t *testing.T) {
 	}
 }
 
-// S7, previous behavior: a hold converted with more than the minimum left keeps
-// its own clock.
+// S7 with a window longer than the minimum (BOOKING_PAYMENT_EXPIRY set above
+// MinPaymentWindow): a hold converted with more than the minimum left keeps
+// its own clock. With the default window the minimum equals it, so every
+// conversion starts a full minimum (TestConvertingLateLeavesTheMinimumPaymentWindow).
 func TestConvertingEarlyKeepsTheHoldsClock(t *testing.T) {
+	if window <= bookingstore.MinPaymentWindow {
+		t.Skipf("window %v is not longer than the minimum %v: no early conversion exists", window, bookingstore.MinPaymentWindow)
+	}
 	f := datatest.Isolated(t)
 	hold := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, hold)
