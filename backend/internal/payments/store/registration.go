@@ -126,6 +126,22 @@ func (m *Payments) registrationConfirmable(ctx context.Context, tx pgx.Tx, qtx *
 	if err := playersFree(ctx, qtx, event, reg); err != nil {
 		return err
 	}
+	// A hold still inside its window already reserves this spot: it was
+	// counted when it signed up, and every other sign-up since was counted
+	// with it. Counting it again as if it were a new sign-up refunded an
+	// on-time payer whenever the event sat at its edge with a lapsed hold kept
+	// for its payment check (CountOpenPlaySpotsTaken). Only a payment after its
+	// hold ran out competes for a spot. The database's clock decides, as it
+	// does for the count.
+	if reg.Status == "held" {
+		var live bool
+		if err := tx.QueryRow(ctx, `SELECT held_until > NOW() FROM open_play_registrations WHERE id = $1`, reg.ID).Scan(&live); err != nil {
+			return fmt.Errorf("read the registration's hold: %w", err)
+		}
+		if live {
+			return nil
+		}
+	}
 	taken, err := qtx.CountOpenPlaySpotsTaken(ctx, db.CountOpenPlaySpotsTakenParams{
 		EventID: event.ID, Except: reg.ID,
 	})

@@ -12,6 +12,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
@@ -193,5 +194,58 @@ func TestALapsedHoldKeepsItsSpotUntilTheSecondPaymentAskLands(t *testing.T) {
 	}
 	if err := pay(f, slow, "mp-second-ask"); err != nil {
 		t.Fatalf("the payment the second ask finds confirms the spot: %v", err)
+	}
+}
+
+// fullByALapsedHold is an event of capacity one holding two registrations: a
+// hold whose window ended a minute ago with its payment check open, which the
+// spot count keeps (CountOpenPlaySpotsTaken), and onTime, a hold of someone
+// else signed up while the event had room (at a deploy that widened the
+// count, or before the owner lowered the capacity).
+func fullByALapsedHold(t *testing.T, f *datatest.Fixture) (onTime *eventstore.Registration) {
+	t.Helper()
+	ev := eventWithCapacity(t, f, 2)
+	lapsed, err := signUp(f, ev, "+5491100000051")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if onTime, err = signUp(f, ev, "+5491100000052"); err != nil {
+		t.Fatal(err)
+	}
+	lapseRecently(t, f, lapsed.ID)
+	if _, err := f.DB.Exec(context.Background(), `UPDATE open_play_events SET capacity = 1 WHERE id = $1`, ev.ID); err != nil {
+		t.Fatal(err)
+	}
+	return onTime
+}
+
+// T12 (5): a registration that pays inside its own hold already has its spot
+// reserved by that hold. Counting it against the event as if it were a new
+// sign-up refunded an on-time payer whenever a lapsed hold was kept for its
+// payment check at the capacity edge.
+func TestAPaymentInsideItsOwnHoldConfirmsWhateverTheCount(t *testing.T) {
+	f := datatest.Isolated(t)
+	onTime := fullByALapsedHold(t, f)
+
+	if err := pay(f, onTime, "mp-on-time"); err != nil {
+		t.Fatalf("a payment inside its own hold confirms: %v", err)
+	}
+	if got, _ := f.Stores.Events.GetRegistration(f.Scoped(context.Background()), onTime.ID); got.Status != eventstore.RegistrationConfirmed {
+		t.Fatalf("status = %s, want confirmed", got.Status)
+	}
+}
+
+// Previous behavior: a payment after its own hold ran out is checked against
+// the count, and refused when the event is full.
+func TestAPaymentAfterItsOwnHoldRanOutIsCheckedAgainstTheCount(t *testing.T) {
+	f := datatest.Isolated(t)
+	late := fullByALapsedHold(t, f)
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '1 second' WHERE id = $1`, late.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := pay(f, late, "mp-late"); !errors.Is(err, paymentstore.ErrRegistrationUnavailable) {
+		t.Fatalf("want ErrRegistrationUnavailable (refunded); got %v", err)
 	}
 }
