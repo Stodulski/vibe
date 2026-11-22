@@ -37,6 +37,9 @@ func TestTakeHoldRefusedByTheCooldown(t *testing.T) {
 	if problemKind(body) != string(KindHoldCooldown) {
 		t.Errorf("want kind %q; got %q", KindHoldCooldown, problemKind(body))
 	}
+	if title, _ := body["title"].(string); title == "" {
+		t.Error("a Problem must carry a title; the cooldown refusal had none")
+	}
 	detail, _ := body["detail"].(string)
 	if !strings.Contains(detail, clock(until)) || !strings.Contains(detail, "elegir otro horario") {
 		t.Errorf("want a Spanish detail naming %s; got %q", clock(until), detail)

@@ -325,7 +325,7 @@ func (h *Handler) ReleaseHold(w http.ResponseWriter, r *http.Request, token stri
 
 // KindHoldCooldown is the Problem kind of a hold refused by the cooldown, so
 // the storefront can tell it from somebody else holding the slot.
-const KindHoldCooldown httpx.Kind = "hold-cooldown"
+const KindHoldCooldown = httpx.KindHoldCooldown
 
 // holdCooldownRefusal is the 409 for a hold refused by the cooldown. Its detail
 // is written for the visitor, who reads it as it is: when the hours can be

@@ -50,6 +50,10 @@ const (
 	// released, already converted or past its window), so the visitor has to
 	// pick a time again rather than retry.
 	KindHoldExpired Kind = "hold-expired"
+	// KindHoldCooldown is a 409 distinct from KindSlotUnavailable: the same
+	// address let a hold on these hours lapse unpaid moments ago, so the
+	// storefront shows when they can be picked again instead of "taken".
+	KindHoldCooldown Kind = "hold-cooldown"
 	// KindEventFull, KindEventClosed and KindAlreadyRegistered are 409s distinct
 	// from the generic KindConflict: the three reasons a public sign-up for an
 	// open-play event is refused, so the page can say which without parsing Detail.
@@ -159,6 +163,7 @@ var titles = map[Kind]string{
 	KindSlotUnavailable:      "Slot Unavailable",
 	KindStaleVersion:         "Stale Version",
 	KindHoldExpired:          "Hold Expired",
+	KindHoldCooldown:         "Hold Cooldown",
 	KindEventFull:            "Event Full",
 	KindEventClosed:          "Event Closed",
 	KindAlreadyRegistered:    "Already Registered",
