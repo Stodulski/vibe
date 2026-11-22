@@ -200,7 +200,10 @@ func (q *Queries) ConfirmOpenPlayRegistration(ctx context.Context, id pgtype.UUI
 const countOpenPlaySpotsTaken = `-- name: CountOpenPlaySpotsTaken :one
 SELECT count(*)::int FROM open_play_registrations
 WHERE event_id = $1
-  AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+  AND (status = 'confirmed'
+       OR (status = 'held' AND held_until > NOW() - INTERVAL '10 minutes')
+       OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
+           AND held_until > NOW() - INTERVAL '10 minutes'))
   AND ($2::uuid IS NULL OR id <> $2::uuid)
 `
 
@@ -209,9 +212,18 @@ type CountOpenPlaySpotsTakenParams struct {
 	Except  pgtype.UUID `json:"except"`
 }
 
-// The spots of an event that are not free: registrations paid for, and holds
-// still inside their window. except is the registration being decided about,
-// which never counts against itself (NULL excludes nothing).
+// The spots of an event that are not free: registrations paid for, holds
+// still inside their window, and holds whose window ended less than ten
+// minutes ago while their payment check is still open (a held row the sweep
+// has not closed yet, or an expired one whose check is due). The first check
+// is due three minutes after the expiry: releasing the spot at once let
+// someone else fill the event before MercadoPago was asked, and a payment
+// approved in the hold's last seconds was then refunded. Ten minutes bounds
+// it whatever the check is doing; a closed check (no payment found) frees the
+// spot at once. An expiry by its own person signing up again
+// (payment_check_notify false) does not count against them. except is the
+// registration being decided about, which never counts against itself (NULL
+// excludes nothing).
 func (q *Queries) CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlaySpotsTakenParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countOpenPlaySpotsTaken, arg.EventID, arg.Except)
 	var column_1 int32
@@ -278,8 +290,13 @@ func (q *Queries) ExpireOpenPlayHolds(ctx context.Context) ([]ExpireOpenPlayHold
 
 const expireOpenPlayHoldsOfPhone = `-- name: ExpireOpenPlayHoldsOfPhone :exec
 UPDATE open_play_registrations
-SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = false
-WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW()
+SET status = 'expired',
+    payment_check_due_at = CASE WHEN status = 'held' THEN NOW() + INTERVAL '3 minutes'
+                                ELSE payment_check_due_at END,
+    payment_check_notify = false
+WHERE event_id = $1 AND phone = $2
+  AND ((status = 'held' AND held_until <= NOW())
+    OR (status = 'expired' AND payment_check_due_at IS NOT NULL))
 `
 
 type ExpireOpenPlayHoldsOfPhoneParams struct {
@@ -291,7 +308,10 @@ type ExpireOpenPlayHoldsOfPhoneParams struct {
 // spot-per-phone index would otherwise still count the stale row.
 // The hold is still asked about (payment_check_due_at, three minutes on, as the
 // sweep's expiry), silently: the person is signing up again, so no expiry
-// notice follows.
+// notice follows. A hold of theirs the sweep already expired, whose check is
+// still open, is made silent too, keeping its due time: the spot it was kept
+// for (CountOpenPlaySpotsTaken) is not held against the person taking a new
+// one.
 func (q *Queries) ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error {
 	_, err := q.db.Exec(ctx, expireOpenPlayHoldsOfPhone, arg.EventID, arg.Phone)
 	return err
@@ -677,7 +697,10 @@ SELECT e.id, e.complex_id, e.name, e.sport, e.date, e.start_time, e.duration_min
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
-         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+         WHERE r.event_id = e.id
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+             OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                 AND r.held_until > NOW() - INTERVAL '10 minutes')))::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = $1
   AND e.tournament_id IS NULL
@@ -722,7 +745,8 @@ type ListOpenPlayEventsRow struct {
 
 // The events of one complex whose date is in the window, soonest first, with
 // how many spots are taken: confirmed registrations plus the holds still
-// running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+// running or kept for their payment check, the count capacity is checked
+// against (CountOpenPlaySpotsTaken).
 // include_cancelled is what the owner's list sets and the public one does not.
 // The sign-up containers of tournament categories are not events a person lists.
 func (q *Queries) ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error) {

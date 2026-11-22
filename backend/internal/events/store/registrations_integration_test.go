@@ -43,6 +43,16 @@ func expireHold(t *testing.T, f *datatest.Fixture, regID uuid.UUID) {
 	}
 }
 
+// expireHoldPastGrace makes a hold's window end eleven minutes ago: past the
+// ten minutes its spot is kept for its payment check (CountOpenPlaySpotsTaken).
+func expireHoldPastGrace(t *testing.T, f *datatest.Fixture, regID uuid.UUID) {
+	t.Helper()
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '11 minutes' WHERE id = $1`, regID); err != nil {
+		t.Fatal(err)
+	}
+}
+
 // pay writes the checkout row sign-up leaves and settles an approved payment
 // against the registration, as the webhook does.
 func pay(f *datatest.Fixture, reg *eventstore.Registration, mpID string) error {
@@ -137,7 +147,7 @@ func TestAHoldThatRanOutCannotBeConfirmedOverSomeoneWhoTookTheSpot(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expireHold(t, f, slow.ID)
+	expireHoldPastGrace(t, f, slow.ID)
 
 	taker, err := signUp(f, ev, "+5491100000002")
 	if err != nil {
@@ -156,8 +166,9 @@ func TestAHoldThatRanOutCannotBeConfirmedOverSomeoneWhoTookTheSpot(t *testing.T)
 	}
 }
 
-// A hold that ran out frees its spot for the next person, is closed by the
-// sweep, and still confirms when its payment arrives while the event has room.
+// A hold that ran out frees its spot for the next person (once the grace its
+// payment check keeps it for is over), is closed by the sweep, and still
+// confirms when its payment arrives while the event has room.
 func TestAnUnpaidHoldReleasesItsSpotWhenItsWindowEnds(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := f.Scoped(context.Background())
@@ -170,10 +181,10 @@ func TestAnUnpaidHoldReleasesItsSpotWhenItsWindowEnds(t *testing.T) {
 	if _, err := signUp(f, ev, "+5491100000002"); !errors.Is(err, eventstore.ErrEventFull) {
 		t.Fatalf("while the hold runs the event is full; got %v", err)
 	}
-	expireHold(t, f, held.ID)
+	expireHoldPastGrace(t, f, held.ID)
 
 	if got, _ := f.Stores.Events.GetEvent(ctx, ev.ID); got.SpotsLeft() != 1 || got.HeldCount != 0 {
-		t.Fatalf("a hold past its window stops counting at once: %+v", got)
+		t.Fatalf("a hold ten minutes past its window stops counting: %+v", got)
 	}
 	swept, err := f.Stores.Events.ExpireHolds(ctx)
 	if err != nil || len(swept) != 1 || swept[0].ID != held.ID {

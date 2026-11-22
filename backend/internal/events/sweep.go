@@ -30,10 +30,12 @@ const paymentCheckBatch = 12
 // span about sixteen hours.
 const maxPaymentChecks = 20
 
-// ExpireHolds closes the holds nobody paid in time. They stopped counting against
-// capacity the moment their window ended, so a sweep running late changes
-// nothing a visitor sees; this keeps the rows honest and the owner's dashboards
-// current. Called by the scheduler, under the tenant bypass.
+// ExpireHolds closes the holds nobody paid in time. Their spot stays counted
+// against capacity while their payment check is open, for at most ten minutes
+// after their window ended (CountOpenPlaySpotsTaken), so a payment approved in
+// the hold's last seconds is not refunded because someone else filled the
+// event before MercadoPago was asked. Called by the scheduler, under the
+// tenant bypass.
 //
 // Every hold opened a MercadoPago checkout, so closing it marks it due a
 // payment check, and the person is told their spot expired only once

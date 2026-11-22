@@ -36,14 +36,18 @@ ORDER BY c.name, oc.court_id;
 -- name: ListOpenPlayEvents :many
 -- The events of one complex whose date is in the window, soonest first, with
 -- how many spots are taken: confirmed registrations plus the holds still
--- running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+-- running or kept for their payment check, the count capacity is checked
+-- against (CountOpenPlaySpotsTaken).
 -- include_cancelled is what the owner's list sets and the public one does not.
 -- The sign-up containers of tournament categories are not events a person lists.
 SELECT e.*,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
-         WHERE r.event_id = e.id AND r.status = 'held' AND r.held_until > NOW())::int AS held_count
+         WHERE r.event_id = e.id
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+             OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                 AND r.held_until > NOW() - INTERVAL '10 minutes')))::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = sqlc.arg(complex_id)
   AND e.tournament_id IS NULL
@@ -60,12 +64,24 @@ WHERE id = $1 AND status = 'active'
 RETURNING *;
 
 -- name: CountOpenPlaySpotsTaken :one
--- The spots of an event that are not free: registrations paid for, and holds
--- still inside their window. except is the registration being decided about,
--- which never counts against itself (NULL excludes nothing).
+-- The spots of an event that are not free: registrations paid for, holds
+-- still inside their window, and holds whose window ended less than ten
+-- minutes ago while their payment check is still open (a held row the sweep
+-- has not closed yet, or an expired one whose check is due). The first check
+-- is due three minutes after the expiry: releasing the spot at once let
+-- someone else fill the event before MercadoPago was asked, and a payment
+-- approved in the hold's last seconds was then refunded. Ten minutes bounds
+-- it whatever the check is doing; a closed check (no payment found) frees the
+-- spot at once. An expiry by its own person signing up again
+-- (payment_check_notify false) does not count against them. except is the
+-- registration being decided about, which never counts against itself (NULL
+-- excludes nothing).
 SELECT count(*)::int FROM open_play_registrations
 WHERE event_id = sqlc.arg(event_id)
-  AND (status = 'confirmed' OR (status = 'held' AND held_until > NOW()))
+  AND (status = 'confirmed'
+       OR (status = 'held' AND held_until > NOW() - INTERVAL '10 minutes')
+       OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
+           AND held_until > NOW() - INTERVAL '10 minutes'))
   AND (sqlc.narg('except')::uuid IS NULL OR id <> sqlc.narg('except')::uuid);
 
 -- name: ExpireOpenPlayHoldsOfPhone :exec
@@ -73,10 +89,18 @@ WHERE event_id = sqlc.arg(event_id)
 -- spot-per-phone index would otherwise still count the stale row.
 -- The hold is still asked about (payment_check_due_at, three minutes on, as the
 -- sweep's expiry), silently: the person is signing up again, so no expiry
--- notice follows.
+-- notice follows. A hold of theirs the sweep already expired, whose check is
+-- still open, is made silent too, keeping its due time: the spot it was kept
+-- for (CountOpenPlaySpotsTaken) is not held against the person taking a new
+-- one.
 UPDATE open_play_registrations
-SET status = 'expired', payment_check_due_at = NOW() + INTERVAL '3 minutes', payment_check_notify = false
-WHERE event_id = $1 AND phone = $2 AND status = 'held' AND held_until <= NOW();
+SET status = 'expired',
+    payment_check_due_at = CASE WHEN status = 'held' THEN NOW() + INTERVAL '3 minutes'
+                                ELSE payment_check_due_at END,
+    payment_check_notify = false
+WHERE event_id = $1 AND phone = $2
+  AND ((status = 'held' AND held_until <= NOW())
+    OR (status = 'expired' AND payment_check_due_at IS NOT NULL));
 
 -- name: PhoneHoldsAnotherLiveSpot :one
 -- Whether the person of a registration (by phone) holds a live spot of the

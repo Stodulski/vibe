@@ -3811,7 +3811,7 @@ type OpenPlayEvent struct {
 	DurationMinutes int                `json:"duration_minutes"`
 	EndTime         string             `json:"end_time"`
 
-	// HeldCount Spots held by people still paying.
+	// HeldCount Spots held by people still paying, including a hold that ran out less than ten minutes ago while its payment is still being checked with MercadoPago.
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
 
@@ -3829,7 +3829,7 @@ type OpenPlayEvent struct {
 	Price int                `json:"price"`
 	Sport OpenPlayEventSport `json:"sport"`
 
-	// SpotsLeft Capacity minus paid spots and running holds, never below zero.
+	// SpotsLeft Capacity minus paid spots and held spots (held_count), never below zero.
 	SpotsLeft int                 `json:"spots_left"`
 	StartTime string              `json:"start_time"`
 	Status    OpenPlayEventStatus `json:"status"`

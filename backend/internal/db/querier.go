@@ -116,9 +116,18 @@ type Querier interface {
 	// Matches of a category that were played (a bye is not a result).
 	CountCategoryResults(ctx context.Context, categoryID pgtype.UUID) (int32, error)
 	CountInstagramStoriesQueuedOnDay(ctx context.Context, arg CountInstagramStoriesQueuedOnDayParams) (int32, error)
-	// The spots of an event that are not free: registrations paid for, and holds
-	// still inside their window. except is the registration being decided about,
-	// which never counts against itself (NULL excludes nothing).
+	// The spots of an event that are not free: registrations paid for, holds
+	// still inside their window, and holds whose window ended less than ten
+	// minutes ago while their payment check is still open (a held row the sweep
+	// has not closed yet, or an expired one whose check is due). The first check
+	// is due three minutes after the expiry: releasing the spot at once let
+	// someone else fill the event before MercadoPago was asked, and a payment
+	// approved in the hold's last seconds was then refunded. Ten minutes bounds
+	// it whatever the check is doing; a closed check (no payment found) frees the
+	// spot at once. An expiry by its own person signing up again
+	// (payment_check_notify false) does not count against them. except is the
+	// registration being decided about, which never counts against itself (NULL
+	// excludes nothing).
 	CountOpenPlaySpotsTaken(ctx context.Context, arg CountOpenPlaySpotsTakenParams) (int32, error)
 	// The balance lines a sale's checkout collected. A void refuses while any exist.
 	CountSaleBookingPayments(ctx context.Context, arg CountSaleBookingPaymentsParams) (int64, error)
@@ -172,7 +181,10 @@ type Querier interface {
 	// spot-per-phone index would otherwise still count the stale row.
 	// The hold is still asked about (payment_check_due_at, three minutes on, as the
 	// sweep's expiry), silently: the person is signing up again, so no expiry
-	// notice follows.
+	// notice follows. A hold of theirs the sweep already expired, whose check is
+	// still open, is made silent too, keeping its due time: the spot it was kept
+	// for (CountOpenPlaySpotsTaken) is not held against the person taking a new
+	// one.
 	ExpireOpenPlayHoldsOfPhone(ctx context.Context, arg ExpireOpenPlayHoldsOfPhoneParams) error
 	// The release sweep's cancellation of a storefront booking whose payment
 	// window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
@@ -588,7 +600,8 @@ type Querier interface {
 	ListOpenPlayEventCourts(ctx context.Context, eventID pgtype.UUID) ([]ListOpenPlayEventCourtsRow, error)
 	// The events of one complex whose date is in the window, soonest first, with
 	// how many spots are taken: confirmed registrations plus the holds still
-	// running, the count capacity is checked against (CountOpenPlaySpotsTaken).
+	// running or kept for their payment check, the count capacity is checked
+	// against (CountOpenPlaySpotsTaken).
 	// include_cancelled is what the owner's list sets and the public one does not.
 	// The sign-up containers of tournament categories are not events a person lists.
 	ListOpenPlayEvents(ctx context.Context, arg ListOpenPlayEventsParams) ([]ListOpenPlayEventsRow, error)
