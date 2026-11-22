@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/stodulski/vibe-server/internal/bookings"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/scheduler"
@@ -49,6 +50,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("threads_token_maintenance", 24*time.Hour, app.cronThreadsMaintenance),
 		job("threads_keyword_digest", time.Hour, app.cronThreadsKeywordDigest),
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
+		job("keep_paying_holds", bookings.KeepPayingHoldsEvery, app.cronKeepPayingHolds),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
 		job("retry_refunds", 2*time.Minute, app.paymentsService.RetryFailedRefunds),
@@ -171,6 +173,13 @@ func (app *application) cronReminder2h(ctx context.Context) {
 // payments service, which records and processes it as its webhook would have.
 func (app *application) cronReleaseExpiredPayments(ctx context.Context) {
 	app.bookingsService.ReleaseExpiredPayments(ctx, app.paymentsService)
+}
+
+// cronKeepPayingHolds extends the hold of a storefront booking about to lapse
+// while its payment is in process, and processes an approved payment whose
+// notification was lost before the hold lapses (bookings.Service.KeepPayingHolds).
+func (app *application) cronKeepPayingHolds(ctx context.Context) {
+	app.bookingsService.KeepPayingHolds(ctx, app.paymentsService)
 }
 
 // cronCleanExpiredTokens deletes expired refresh, verification and pending

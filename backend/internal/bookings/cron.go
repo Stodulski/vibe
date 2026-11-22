@@ -268,8 +268,10 @@ func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.Cro
 // processing a payment on it (S8, slot-hold gaps). The window exists so nobody
 // blocks a court without meaning to buy; a visitor whose payment is in process
 // is buying. Keeping the row pending is not enough, because every reader frees
-// the hours by the clock, so the hold itself is extended, one sweep at a time,
-// for at most inProcessHoldLimit after the attempt started. An attempt without
+// the hours by the clock, so the hold itself is extended, inProcessHoldStep
+// from now at a time, for at most inProcessHoldLimit after the attempt
+// started. KeepPayingHolds runs it before the window ends; the expiry sweep
+// runs it for one that ended before anybody asked. An attempt without
 // a start time, or past the bound, extends nothing and the booking expires as
 // before; a later approval is still reconciled by reconcileExpiredHolds.
 func (s *Service) extendWhilePaymentInProcess(ctx context.Context, b *bookingstore.CronBooking, found []mp.Payment) bool {
@@ -287,11 +289,11 @@ func (s *Service) extendWhilePaymentInProcess(ctx context.Context, b *bookingsto
 			continue
 		}
 		if err := s.holdExpiries.ExtendHold(ctx, b.ID, b.ComplexID, inProcessHoldStep, s.cfg.PaymentExpiry); err != nil {
-			s.logger.Error("cron_release_expired_payments: could not extend the hold of a booking whose payment is in process",
+			s.logger.Error("payment in process: could not extend the hold",
 				"error", err, "booking_id", b.ID, "mp_payment_id", p.ID)
 			return false
 		}
-		s.logger.Info("cron_release_expired_payments: payment in process, hold extended",
+		s.logger.Info("payment in process: hold extended",
 			"booking_id", b.ID, "mp_payment_id", p.ID, "status", p.Status)
 		return true
 	}
@@ -332,16 +334,102 @@ type HoldExpiryStore interface {
 	// ExtendHold keeps a still pending, unpaid booking's hold live for
 	// liveFor more, given its payment window.
 	ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error
+	// PaymentsLapsingSoon reads the storefront bookings with a checkout whose
+	// window ends within ahead or ended less than lookback ago.
+	PaymentsLapsingSoon(ctx context.Context, window, ahead, lookback time.Duration, limit int) ([]*bookingstore.CronBooking, error)
 }
+
+// KeepPayingHoldsEvery is how often KeepPayingHolds runs (cmd/api schedules
+// it with this value). The look-ahead and the extension below are sized on it.
+const KeepPayingHoldsEvery = time.Minute
 
 const (
 	// inProcessHoldLimit bounds how long after a payment attempt started its
 	// "in process" status keeps the court held (S8).
 	inProcessHoldLimit = time.Hour
-	// inProcessHoldStep is how much longer each sweep keeps such a hold: a
-	// little over the sweep's 5 minute cadence, so it never lapses between runs.
-	inProcessHoldStep = 6 * time.Minute
+	// inProcessLookAhead is how far ahead of its window's end a booking is
+	// asked about: more than one run, so a booking that would lapse before
+	// the next run is asked about on this one.
+	inProcessLookAhead = 2 * KeepPayingHoldsEvery
+	// inProcessHoldStep is how long from now each extension keeps such a
+	// hold: past the run after next, so one late or missed run still finds it
+	// held, and the run before it lapses asks about it again (it is inside
+	// the look-ahead by then).
+	inProcessHoldStep = inProcessLookAhead + KeepPayingHoldsEvery
+	// lapsingSoonBatch bounds the MercadoPago calls one look-ahead run makes.
+	lapsingSoonBatch = 50
 )
+
+// KeepPayingHolds keeps a storefront booking's hours taken while its payment
+// is in process (S8, slot-hold gaps): "los 15 minutos es para que no bloqueen
+// las cancha sin ganas de comprar, se deberia de extender en caso de que la
+// compra este en proceso".
+//
+// Every reader frees a booking's hours by the clock, the moment its window
+// ends, and ReleaseExpiredPayments only sees a booking once that has happened
+// — up to a whole run of that sweep later. In between, the hours read as free,
+// another visitor's hold cancels the booking inline, and the person paying is
+// refunded. So this runs every KeepPayingHoldsEvery and looks ahead: each
+// booking with a checkout whose window ends within inProcessLookAhead (or
+// ended without the expiry sweep having run yet) is asked about. A payment in
+// process extends its hold (extendWhilePaymentInProcess); an approved one
+// whose notification was lost is processed now. Nothing here expires a
+// booking or closes its checkout: one nobody is paying lapses on time, and
+// ReleaseExpiredPayments expires it as before.
+func (s *Service) KeepPayingHolds(ctx context.Context, reconciler PaymentReconciler) {
+	if s.holdExpiries == nil {
+		return
+	}
+	candidates, err := s.holdExpiries.PaymentsLapsingSoon(ctx, s.cfg.PaymentExpiry, inProcessLookAhead, reconcileGiveUp, lapsingSoonBatch)
+	if err != nil {
+		s.logger.Error("cron_keep_paying_holds: failed to read bookings about to lapse", "error", err)
+		return
+	}
+	extended := 0
+	for _, b := range candidates {
+		caller, err := expiryCaller(b)
+		if err != nil {
+			continue
+		}
+		found, err := s.checkout.SearchPaymentsByReference(ctx, b.ID.String(), caller)
+		if err != nil {
+			s.logger.Warn("cron_keep_paying_holds: MercadoPago could not be asked; left to the expiry sweep",
+				"error", err, "booking_id", b.ID)
+			continue
+		}
+		if s.processApprovedEarly(ctx, b, found, reconciler) {
+			continue
+		}
+		if s.extendWhilePaymentInProcess(ctx, b, found) {
+			extended++
+		}
+	}
+	if len(candidates) > 0 {
+		s.logger.Info("cron_keep_paying_holds: completed", "candidates", len(candidates), "extended", extended)
+	}
+}
+
+// processApprovedEarly hands an approved payment on b, not yet recorded, to
+// reconciler, and reports whether there was one: the booking is being paid
+// for, and its processing confirms it.
+func (s *Service) processApprovedEarly(ctx context.Context, b *bookingstore.CronBooking, found []mp.Payment, reconciler PaymentReconciler) bool {
+	approved := false
+	for _, p := range found {
+		if p.Status != "approved" || p.ExternalReference != b.ID.String() {
+			continue
+		}
+		approved = true
+		mpPaymentID := strconv.FormatInt(p.ID, 10)
+		if reconciler == nil || s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+			continue
+		}
+		if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
+			s.logger.Error("cron_keep_paying_holds: an approved payment could not be recorded; left to the expiry sweep",
+				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		}
+	}
+	return approved
+}
 
 const (
 	// expiredHoldLookback is how long after its expiry a booking is still

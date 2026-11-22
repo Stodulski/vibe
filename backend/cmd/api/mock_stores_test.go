@@ -927,6 +927,10 @@ func (m *mockBookingStore) ExtendHold(context.Context, uuid.UUID, uuid.UUID, tim
 	return nil
 }
 
+func (m *mockBookingStore) PaymentsLapsingSoon(context.Context, time.Duration, time.Duration, time.Duration, int) ([]*bookingstore.CronBooking, error) {
+	return nil, nil
+}
+
 func (m *mockBookingStore) RecordHoldReconcileFailure(context.Context, uuid.UUID) (int, error) {
 	return 0, nil
 }

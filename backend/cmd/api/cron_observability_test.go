@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stodulski/vibe-server/internal/bookings"
 	"github.com/stodulski/vibe-server/internal/health"
 	"github.com/stodulski/vibe-server/internal/jobs"
 	"github.com/stodulski/vibe-server/internal/scheduler"
@@ -414,4 +415,19 @@ type brokenLocks struct{}
 
 func (brokenLocks) TryAdvisory(context.Context, string) (bool, func(), error) {
 	return false, func() {}, errors.New("connection refused")
+}
+
+// S8: the in-process look-ahead only keeps a paying visitor's hold if it runs
+// at the cadence its look-ahead and extension are sized on.
+func TestTheKeepPayingHoldsSweepIsScheduledAtItsCadence(t *testing.T) {
+	f := newCronFixture(t)
+	for _, j := range f.app.cronJobs() {
+		if j.Name == "keep_paying_holds" {
+			if j.Every != bookings.KeepPayingHoldsEvery {
+				t.Errorf("want keep_paying_holds every %v; got %v", bookings.KeepPayingHoldsEvery, j.Every)
+			}
+			return
+		}
+	}
+	t.Fatal("want keep_paying_holds registered")
 }

@@ -286,3 +286,92 @@ func TestExtendHoldKeepsTheHoursTaken(t *testing.T) {
 		t.Errorf("a cancelled booking must not be extended; got %v", err)
 	}
 }
+
+// S8: ExtendHold never moves created_at into the future. With a window shorter
+// than the extension asked for, the hold is kept for the whole window from now
+// instead: a created_at in the future would sort, age and expire wrongly
+// everywhere it is read.
+func TestExtendHoldNeverMovesTheHoldIntoTheFuture(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	stale := newStaleBooking(t, f)
+	withCheckout(t, f, stale)
+
+	if err := f.Stores.Bookings.ExtendHold(ctx, stale.ID, stale.ComplexID, 6*time.Minute, 2*time.Minute); err != nil {
+		t.Fatalf("ExtendHold: %v", err)
+	}
+	var future bool
+	if err := f.DB.QueryRow(context.Background(),
+		`SELECT created_at > NOW() FROM bookings WHERE id = $1`, stale.ID).Scan(&future); err != nil {
+		t.Fatalf("reading created_at: %v", err)
+	}
+	if future {
+		t.Error("created_at must never be set in the future")
+	}
+	if err := f.Stores.Bookings.InsertSafe(ctx, f.NewBooking(overlappingBookingOptions())); !errors.Is(err, bookingstore.ErrSlotUnavailable) {
+		t.Errorf("the clamped extension must still keep the hours taken; got %v", err)
+	}
+}
+
+// S8: the sweep looks ahead at the storefront bookings with a checkout whose
+// window ends before its next run, so a payment in process is extended before
+// the hours read as free. One already lapsed and still pending is read too
+// (the sweep that expires it may not have run yet); one with no checkout, an
+// untouched hold, a paid booking and one with time to spare are not.
+func TestPaymentsLapsingSoonReadsCheckoutsAboutToLapse(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+
+	insert := func(start, end string) *bookingstore.Booking {
+		b := f.NewBooking(datatest.BookingOptions{
+			StartTime: start, EndTime: end, Status: "pending",
+			CollectionStatus: bookingstore.CollectionStatusUnpaid, RefundStatus: bookingstore.RefundStatusNone, Public: true,
+		})
+		if err := f.Stores.Bookings.InsertSafe(ctx, b); err != nil {
+			t.Fatalf("insert %s: %v", start, err)
+		}
+		return b
+	}
+	soon := insert("08:00", "09:00")
+	withCheckout(t, f, soon)
+	f.BackdateBookingCreatedAt(t, soon.ID, window-time.Minute)
+
+	lapsed := insert("10:00", "11:00")
+	withCheckout(t, f, lapsed)
+	f.BackdateBookingCreatedAt(t, lapsed.ID, window+time.Minute)
+
+	spare := insert("12:00", "13:00")
+	withCheckout(t, f, spare)
+	f.BackdateBookingCreatedAt(t, spare.ID, time.Minute)
+
+	noCheckout := insert("14:00", "15:00")
+	f.BackdateBookingCreatedAt(t, noCheckout.ID, window-time.Minute)
+
+	untouched := newHold(f, "16:00", "17:00")
+	takeHold(t, f, untouched)
+	f.BackdateBookingCreatedAt(t, untouched.ID, window-time.Minute)
+
+	paid := insert("18:00", "19:00")
+	withCheckout(t, f, paid)
+	f.BackdateBookingCreatedAt(t, paid.ID, window-time.Minute)
+	if _, err := f.DB.Exec(context.Background(), `UPDATE bookings SET status = 'confirmed', collection_status = 'deposit_paid' WHERE id = $1`, paid.ID); err != nil {
+		t.Fatalf("paying: %v", err)
+	}
+
+	got, err := f.Stores.Bookings.PaymentsLapsingSoon(ctx, window, 2*time.Minute, time.Hour, 50)
+	if err != nil {
+		t.Fatalf("PaymentsLapsingSoon: %v", err)
+	}
+	ids := map[uuid.UUID]bool{}
+	for _, b := range got {
+		ids[b.ID] = true
+	}
+	if !ids[soon.ID] || !ids[lapsed.ID] || len(ids) != 2 {
+		t.Errorf("want only the booking about to lapse and the lapsed one; got %v (soon %v, lapsed %v)", ids, soon.ID, lapsed.ID)
+	}
+	// Reading is all it does: nothing is expired or moved.
+	b, err := f.Stores.Bookings.GetByID(ctx, soon.ID)
+	if err != nil || b.Status != "pending" {
+		t.Errorf("reading must not touch the booking; got %v, %v", b, err)
+	}
+}

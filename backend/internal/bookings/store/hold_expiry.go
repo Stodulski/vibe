@@ -134,8 +134,10 @@ func (m *Store) RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.U
 // ExtendHold keeps a storefront booking's hold live for liveFor more while its
 // payment is in process (S8). Every reader decides a hold has lapsed from
 // created_at plus the payment window, so the hold is extended by moving
-// created_at forward to now + liveFor - window, never backwards. Only a booking
-// still pending and unpaid is touched; any other is left as it is and
+// created_at forward to now + liveFor - window, never backwards and never past
+// now: with a window shorter than liveFor the hold is kept for one whole
+// window from now, and the next sweep extends it again. Only a booking still
+// pending and unpaid is touched; any other is left as it is and
 // ErrEditConflict returned.
 func (m *Store) ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, liveFor, window time.Duration) error {
 	ctx, cancel := data.TxContext(ctx)
@@ -147,8 +149,8 @@ func (m *Store) ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, 
 	return m.DB.WithTx(ctx, func(tx pgx.Tx, _ *db.Queries) error {
 		tag, err := tx.Exec(ctx, `
 			UPDATE bookings
-			SET created_at = GREATEST(created_at,
-			        NOW() + make_interval(secs => $2::float8) - make_interval(secs => $3::float8))
+			SET created_at = GREATEST(created_at, LEAST(NOW(),
+			        NOW() + make_interval(secs => $2::float8) - make_interval(secs => $3::float8)))
 			WHERE id = $1
 			  AND status = 'pending'
 			  AND collection_status = 'unpaid'
@@ -162,6 +164,24 @@ func (m *Store) ExtendHold(ctx context.Context, bookingID, complexID uuid.UUID, 
 		}
 		return nil
 	})
+}
+
+// PaymentsLapsingSoon returns up to limit storefront bookings past the hold
+// stage, still pending and unpaid, with a checkout row carrying a MercadoPago
+// preference, whose payment window ends within ahead from now or ended less
+// than lookback ago, soonest first, enriched like GetExpiredPendingEnriched.
+//
+// It is what the in-process sweep asks MercadoPago about (S8): a payment in
+// process on one of them extends its hold before the hours read as free.
+// Nothing is written. Only bookings with a checkout are returned, so the
+// MercadoPago calls stay bounded to the people who reached it.
+func (m *Store) PaymentsLapsingSoon(ctx context.Context, window, ahead, lookback time.Duration, limit int) ([]*CronBooking, error) {
+	return m.getUnpaidPublicPendingEnriched(ctx, fmt.Sprintf(`b.created_at + make_interval(secs => %[1]f) < NOW() + make_interval(secs => %[2]f)
+		  AND b.created_at + make_interval(secs => %[1]f) > NOW() - make_interval(secs => %[3]f)
+		  AND EXISTS (SELECT 1 FROM payments p
+		              WHERE p.booking_id = b.id AND p.mp_preference_id IS NOT NULL AND p.mp_preference_id <> '')
+		ORDER BY b.created_at
+		LIMIT $1`, window.Seconds(), ahead.Seconds(), lookback.Seconds()), limit)
 }
 
 // ReopenableByLatePaymentSQL is the SQL test, over the bookings row aliased

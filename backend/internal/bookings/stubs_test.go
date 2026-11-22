@@ -88,7 +88,11 @@ type stubStore struct {
 	// holdReconciled/holdFailures what the sweep wrote back about them.
 	holdExpired []uuid.UUID
 	// holdExtended is every booking ExtendHold kept live.
-	holdExtended       []uuid.UUID
+	holdExtended []uuid.UUID
+	// holdExtendedFor is how long each ExtendHold asked the hold kept for.
+	holdExtendedFor map[uuid.UUID]time.Duration
+	// lapsingSoon is what PaymentsLapsingSoon answers.
+	lapsingSoon        []*bookingstore.CronBooking
 	expiredToReconcile []*bookingstore.CronBooking
 	holdReconciled     []uuid.UUID
 	holdFailures       map[uuid.UUID]int
@@ -467,9 +471,18 @@ func (s *stubStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) err
 }
 
 // ExtendHold records the booking whose hold was kept live.
-func (s *stubStore) ExtendHold(_ context.Context, bookingID, _ uuid.UUID, _, _ time.Duration) error {
+func (s *stubStore) ExtendHold(_ context.Context, bookingID, _ uuid.UUID, liveFor, _ time.Duration) error {
 	s.holdExtended = append(s.holdExtended, bookingID)
+	if s.holdExtendedFor == nil {
+		s.holdExtendedFor = map[uuid.UUID]time.Duration{}
+	}
+	s.holdExtendedFor[bookingID] = liveFor
 	return nil
+}
+
+// PaymentsLapsingSoon answers lapsingSoon.
+func (s *stubStore) PaymentsLapsingSoon(_ context.Context, _, _, _ time.Duration, _ int) ([]*bookingstore.CronBooking, error) {
+	return s.lapsingSoon, nil
 }
 
 // ExpiredHoldsToReconcile answers expiredToReconcile minus the bookings
