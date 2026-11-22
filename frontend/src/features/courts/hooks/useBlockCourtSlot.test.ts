@@ -115,3 +115,27 @@ describe('useBlockCourtSlot — slots held by an event or a match', () => {
     expect(toast.error).toHaveBeenCalledWith(expected);
   });
 });
+
+describe('useBlockCourtSlot — a visitor booking the slot online', () => {
+  afterEach(async () => {
+    const { courtsApi } = await import('../api/courts.api');
+    vi.mocked(courtsApi.blockSlot).mockReset();
+  });
+
+  it('shows the Spanish sentence when a visitor is booking the slot online, with when it frees up', async () => {
+    const { courtsApi } = await import('../api/courts.api');
+    const detail = 'Este horario se está reservando online. Si no se paga, se libera a las 18:47.';
+    vi.mocked(courtsApi.blockSlot).mockRejectedValueOnce(
+      await makeConsumedHttpError(409, { title: 'Conflict', detail }),
+    );
+
+    const { useBlockCourtSlot } = await import('./useBlockCourtSlot');
+    const { result } = renderHook(() => useBlockCourtSlot('c1'), { wrapper: createQueryWrapper() });
+    result.current.mutate({ courtId: 'ct1', data: { date: '2026-03-18', start_time: '10:00', end_time: '11:00' } });
+
+    await waitFor(() => {
+      expect(result.current.isError).toBe(true);
+    });
+    expect(toast.error).toHaveBeenCalledWith(detail);
+  });
+});

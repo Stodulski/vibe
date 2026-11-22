@@ -271,6 +271,16 @@ func TestSchedulingConflictsAreNamedAndValidated(t *testing.T) {
 		}
 	}
 
+	// S3: a visitor booking the hours online right now is named as such, in
+	// Spanish, with when the hold frees up.
+	freesAt := time.Date(2026, time.December, 3, 21, 47, 0, 0, time.UTC) // 18:47 in Buenos Aires
+	f.store.scheduleErr = &eventstore.ConflictError{Reason: eventstore.ConflictOnlineHold, CourtID: f.court.ID, FreesAt: freesAt}
+	_, err = f.svc.Schedule(t.Context(), f.complex, f.actor(), tid, matchID, in)
+	var held *ConflictError
+	if want := "Este horario se está reservando online. Si no se paga, se libera a las 18:47."; !errors.As(err, &held) || held.Message != want {
+		t.Errorf("online hold: %v; want %q", err, want)
+	}
+
 	f.store.scheduleErr = nil
 	for name, bad := range map[string]ScheduleInput{
 		"time":     {CourtID: f.court.ID, Date: day(3), StartTime: "25:00"},

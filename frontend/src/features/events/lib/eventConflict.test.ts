@@ -25,6 +25,11 @@ describe('eventConflictMessage', () => {
     expect(message).toBe(t.event(keepTogether('Cancha Central 1')));
   });
 
+  it('shows the server sentence when a visitor is booking the hours online, with when they free up', async () => {
+    const detail = 'Este horario se está reservando online. Si no se paga, se libera a las 18:47.';
+    expect(eventConflictMessage(await conflict(detail))).toBe(detail);
+  });
+
   it('answers a general line for a 409 reason it does not know, never the server English', async () => {
     expect(eventConflictMessage(await conflict('something new'))).toBe(t.unknown);
   });

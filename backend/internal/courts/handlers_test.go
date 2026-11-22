@@ -17,6 +17,7 @@ import (
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	courtstore "github.com/stodulski/vibe-server/internal/courts/store"
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/httpx"
 )
 
@@ -475,10 +476,13 @@ func TestBlockSlotRejectsAPastDate(t *testing.T) {
 	}
 }
 
-// A block must not be able to erase a slot somebody already booked.
+// A block must not be able to erase a slot somebody already booked. The
+// storefront's booked spans cannot tell a booking from a visitor's live online
+// hold, so the store's guard under the court-day lock decides (see
+// TestBlockOverALiveBookingIsRefused); the stub answers as it does.
 func TestBlockSlotRefusesToOverlapABooking(t *testing.T) {
 	complexID, courtID := uuid.New(), uuid.New()
-	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}}
+	store := &stubStore{court: &courtstore.Court{ID: courtID, ComplexID: complexID}, blockErr: courtstore.ErrSlotHasBooking}
 	day := mustParseDate(t, futureDate())
 	bookings := &stubBookings{booked: []bookingstore.BookedSpan{{
 		StartsAt: slots.At(day, "18:00"), EndsAt: slots.At(day, "19:30"),
@@ -490,8 +494,8 @@ func TestBlockSlotRefusesToOverlapABooking(t *testing.T) {
 		map[string]string{"courtID": courtID.String()},
 		`{"date":"`+futureDate()+`","start_time":"18:30","end_time":"20:00"}`))
 
-	if w.Code != http.StatusConflict {
-		t.Errorf("want 409; got %d (%s)", w.Code, w.Body.String())
+	if w.Code != http.StatusConflict || !strings.Contains(w.Body.String(), blockedSlotHasBookingMessage) {
+		t.Errorf("want 409 saying the hours are booked; got %d (%s)", w.Code, w.Body.String())
 	}
 	if store.insertedBlocked != nil {
 		t.Error("a slot overlapping a booking must not be blocked")
@@ -563,6 +567,41 @@ func TestBlockSlotReportsARangeARaceSold(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), blockedSlotHasBookingMessage) {
 		t.Errorf("the refusal must say the hours are booked, not that they are already blocked; got %s", w.Body.String())
+	}
+}
+
+// S3: a block refused by a visitor's live online hold answers the same 409
+// conflict, and the detail tells the owner, in Spanish, when the hold frees up.
+func TestBlockSlotOverAnOnlineHoldSaysWhenItFrees(t *testing.T) {
+	complexID, courtID := uuid.New(), uuid.New()
+	freesAt := time.Date(2026, time.December, 3, 21, 47, 0, 0, time.UTC) // 18:47 in Buenos Aires
+	store := &stubStore{
+		court:    &courtstore.Court{ID: courtID, ComplexID: complexID},
+		blockErr: &slotguard.OnlineHoldError{FreesAt: freesAt, Err: courtstore.ErrSlotHasBooking},
+	}
+
+	h, _ := newTestHandler(store, &stubBookings{}, &stubComplexes{})
+	w := httptest.NewRecorder()
+	h.BlockSlot(w, ownerRequest(t, http.MethodPost, "/", complexID,
+		map[string]string{"courtID": courtID.String()},
+		`{"date":"`+futureDate()+`","start_time":"18:00","end_time":"19:30"}`))
+
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409; got %d (%s)", w.Code, w.Body.String())
+	}
+	var problem struct {
+		Type   string `json:"type"`
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &problem); err != nil {
+		t.Fatalf("decoding the problem: %v", err)
+	}
+	want := "Este horario se está reservando online. Si no se paga, se libera a las 18:47."
+	if problem.Detail != want {
+		t.Errorf("detail = %q, want %q", problem.Detail, want)
+	}
+	if !strings.HasSuffix(problem.Type, "/conflict") {
+		t.Errorf("the Problem kind must stay conflict; got %q", problem.Type)
 	}
 }
 

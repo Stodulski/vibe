@@ -300,19 +300,39 @@ func ComplexHasBookingsOtherThanUnpaidHolds(ctx context.Context, q rowQuerier, c
 // owner must not be refused a block by hours the storefront is already
 // offering as free, and the storefront's definition of free is this one.
 func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration) (bool, error) {
+	return spanTaken(ctx, tx, courtID, span, hold, staleOnlineHoldFilter)
+}
+
+// staleOnlineHoldFilter leaves out of spanTaken's bookings the storefront holds
+// whose payment window ran out: the carve-out SlotTaken applies.
+const staleOnlineHoldFilter = `
+			  AND NOT (
+			    b.status = 'pending'
+			    AND b.collection_status = 'unpaid'
+			    AND b.created_by IS NULL
+			    AND b.created_at < NOW() - make_interval(secs => $3)
+			  )`
+
+// SpanTakenOtherThanOnlineHolds is SpanTaken without the storefront holds
+// still inside their payment window (LiveOnlineHold): whether anything but a
+// visitor booking the hours online right now holds the stretch. A writer
+// refused by SpanTaken asks it to tell the owner which of the two stopped them.
+// The caller holds the same locks SpanTaken needs.
+func SpanTakenOtherThanOnlineHolds(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration) (bool, error) {
+	return spanTaken(ctx, tx, courtID, span, hold,
+		staleOnlineHoldFilter+"\n\t\t\t  AND NOT ("+fmt.Sprintf(LiveOnlineHold, 3)+")")
+}
+
+// spanTaken is SpanTaken's query with bookingFilter deciding which unpaid
+// storefront bookings it leaves out. $3 is the payment window in seconds.
+func spanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], hold time.Duration, bookingFilter string) (bool, error) {
 	var taken bool
 	err := tx.QueryRow(ctx, `
 		SELECT EXISTS(
-			SELECT 1 FROM bookings
-			WHERE court_id = $1
-			  AND span && $2::tstzrange
-			  AND status NOT IN `+ReleasedBookingStatuses+`
-			  AND NOT (
-			    status = 'pending'
-			    AND collection_status = 'unpaid'
-			    AND created_by IS NULL
-			    AND created_at < NOW() - make_interval(secs => $3)
-			  )
+			SELECT 1 FROM bookings b
+			WHERE b.court_id = $1
+			  AND b.span && $2::tstzrange
+			  AND b.status NOT IN `+ReleasedBookingStatuses+bookingFilter+`
 		)
 		-- Hours a fixed weekly series is holding count as booked: the owner may not
 		-- block them either. The span is asked from the day before because an
@@ -341,4 +361,77 @@ func SpanTaken(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Ra
 		return false, fmt.Errorf("check bookings: %w", err)
 	}
 	return taken, nil
+}
+
+// LiveOnlineHold is the SQL predicate, over the bookings row aliased b, for a
+// storefront booking still inside its payment window: a hold, converted or not,
+// whose payment has not arrived. Its one placeholder is the positional
+// parameter number (fmt verb %d) carrying the window in seconds.
+//
+// It is the exact complement, among unpaid visitor pending bookings, of the
+// stale-pending carve-out SlotTaken and SpanTaken apply: what they do not
+// cancel out, this is. A live hold therefore refuses an owner's write like any
+// booking does; this predicate is how that refusal tells the owner why.
+const LiveOnlineHold = `b.status = 'pending'
+	  AND b.collection_status = 'unpaid'
+	  AND b.created_by IS NULL
+	  AND b.created_at >= NOW() - make_interval(secs => $%d)`
+
+// OnlineHoldError refuses an owner's write over hours a visitor is booking
+// online right now. FreesAt is when the visitor's window ends if they do not
+// pay. Err is the refusal the domain gave before it could say why (its own
+// "those hours are taken" sentinel), so errors.Is keeps answering as before.
+type OnlineHoldError struct {
+	FreesAt time.Time
+	Err     error
+}
+
+func (e *OnlineHoldError) Error() string {
+	return "the hours are being booked online until " + e.FreesAt.UTC().Format(time.RFC3339)
+}
+
+func (e *OnlineHoldError) Unwrap() error { return e.Err }
+
+// liveHoldFreesAtQuery asks for the latest end of the live online holds on the
+// courts $1 that overlap the span expression substituted for %[1]s; $2 is the
+// window in seconds.
+const liveHoldFreesAtQuery = `
+		SELECT MAX(b.created_at + make_interval(secs => $2))
+		FROM bookings b
+		WHERE b.court_id = ANY($1::uuid[])
+		  AND b.span && %[1]s
+		  AND `
+
+// LiveHoldFreesAt reports when the last of the live online holds overlapping
+// [booking_starts_at(date, startTime), +minutes) on any of the courts frees
+// up, and whether there is one. The span is built in SQL exactly the way
+// SlotTaken and the events guard build theirs. Callers ask it under the
+// court-day lock (or the courts' row locks), so the answer cannot change under
+// them.
+func LiveHoldFreesAt(
+	ctx context.Context, q rowQuerier, courtIDs []uuid.UUID, date time.Time, startTime string, minutes int, window time.Duration,
+) (time.Time, bool, error) {
+	span := `tstzrange(
+		        booking_starts_at($3::date, $4::time),
+		        booking_starts_at($3::date, $4::time) + make_interval(mins => $5),
+		        '[)')`
+	return liveHoldFreesAt(ctx, q, span, data.UUIDSliceToPg(courtIDs), window.Seconds(),
+		data.DateToPg(date), data.TimeStrToPg(startTime), minutes)
+}
+
+// LiveHoldFreesAtSpan is LiveHoldFreesAt for a caller that already holds the
+// span the database generated, such as the blocked-slot write.
+func LiveHoldFreesAtSpan(
+	ctx context.Context, q rowQuerier, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz], window time.Duration,
+) (time.Time, bool, error) {
+	return liveHoldFreesAt(ctx, q, `$3::tstzrange`, data.UUIDSliceToPg([]uuid.UUID{courtID}), window.Seconds(), span)
+}
+
+func liveHoldFreesAt(ctx context.Context, q rowQuerier, spanSQL string, args ...any) (time.Time, bool, error) {
+	var freesAt pgtype.Timestamptz
+	err := q.QueryRow(ctx, fmt.Sprintf(liveHoldFreesAtQuery, spanSQL)+fmt.Sprintf(LiveOnlineHold, 2), args...).Scan(&freesAt)
+	if err != nil {
+		return time.Time{}, false, fmt.Errorf("check live online holds: %w", err)
+	}
+	return freesAt.Time, freesAt.Valid, nil
 }

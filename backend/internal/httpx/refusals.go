@@ -4,8 +4,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // This file is the one place in the tree that decides which status a refused
@@ -71,6 +73,15 @@ func Conflict(message any) Refusal { return Refusal{http.StatusConflict, KindCon
 // switch on it without parsing Detail.
 func DuplicateBooking(message any) Refusal {
 	return Refusal{http.StatusConflict, KindDuplicateBooking, message}
+}
+
+// OnlineHoldMessage is what an owner is told when the hours they asked for are
+// held by a visitor booking them online right now: why a cell that looked free
+// is not, and when it frees up if nobody pays. The owner's app shows a
+// refusal's detail as it is, so the sentence is in the owner's language.
+func OnlineHoldMessage(freesAt time.Time) string {
+	return fmt.Sprintf("Este horario se está reservando online. Si no se paga, se libera a las %s.",
+		freesAt.In(timezone.Argentina).Format("15:04"))
 }
 
 // SlotUnavailable refuses a write against a court slot that cannot be booked

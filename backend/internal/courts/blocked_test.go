@@ -166,7 +166,7 @@ func TestBlockChangesAnnounceTheComplexOnTheRealtimeHub(t *testing.T) {
 		StartsAt: slots.At(date, "10:30"),
 		EndsAt:   slots.At(date, "11:30"),
 	}}}
-	svc = NewService(&stubStore{court: court}, booked, &stubComplexes{}, &stubRecorder{}, nil, WithRealtime(refused))
+	svc = NewService(&stubStore{court: court, blockErr: courtstore.ErrSlotHasBooking}, booked, &stubComplexes{}, &stubRecorder{}, nil, WithRealtime(refused))
 	if _, err := svc.BlockSlot(t.Context(), complexID, Actor{}, courtID, input); err == nil {
 		t.Fatal("a block overlapping a booking must be refused")
 	}

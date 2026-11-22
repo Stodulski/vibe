@@ -594,7 +594,9 @@ func (m *Store) ReplacePrices(ctx context.Context, courtID uuid.UUID, prices []*
 
 // InsertBlockedSlot creates a new blocked slot inside a transaction, returning
 // ErrSlotAlreadyBlocked if it overlaps an existing blocked slot on the same
-// court, and ErrSlotHasBooking if a live booking already holds those hours.
+// court, and ErrSlotHasBooking if a live booking already holds those hours —
+// as a *slotguard.OnlineHoldError wrapping it when the only thing holding them
+// is a visitor booking them online right now.
 //
 // Both refusals are decided inside the transaction, under the same court-day
 // advisory lock bookingstore.Store.InsertSafe takes. Only the first of them could
@@ -693,9 +695,32 @@ func (m *Store) insertBlockedSlot(
 		return err
 	}
 	if booked {
-		return ErrSlotHasBooking
+		return m.refuseBooked(ctx, tx, s.CourtID, span)
 	}
 	return nil
+}
+
+// refuseBooked is the refusal for a block whose hours something holds. When the
+// only thing holding them is a visitor booking them online right now, the owner
+// is told so and when the hold frees up (S3): the hold is not on their calendar
+// as a booking, and a bare "overlaps a booking" for a cell that looked free
+// read as a fault. Anything else answers ErrSlotHasBooking as it always has.
+func (m *Store) refuseBooked(ctx context.Context, tx pgx.Tx, courtID uuid.UUID, span pgtype.Range[pgtype.Timestamptz]) error {
+	freesAt, held, err := slotguard.LiveHoldFreesAtSpan(ctx, tx, courtID, span, m.PaymentExpiry)
+	if err != nil {
+		return err
+	}
+	if !held {
+		return ErrSlotHasBooking
+	}
+	other, err := slotguard.SpanTakenOtherThanOnlineHolds(ctx, tx, courtID, span, m.PaymentExpiry)
+	if err != nil {
+		return err
+	}
+	if other {
+		return ErrSlotHasBooking
+	}
+	return &slotguard.OnlineHoldError{FreesAt: freesAt, Err: ErrSlotHasBooking}
 }
 
 // isOverlapRefusal reports whether err is an EXCLUDE constraint refusing a row

@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/data/slotguard"
 	"github.com/stodulski/vibe-server/internal/db"
 )
 
@@ -404,13 +405,9 @@ func (e *HoldBlockedError) Error() string {
 func (e *HoldBlockedError) Unwrap() error { return ErrSlotUnavailable }
 
 // liveOnlineHold is the SQL predicate, over the bookings row aliased b, for a
-// storefront booking still inside its payment window: a hold, converted or not,
-// whose payment has not arrived. It is the same carve-out SlotTaken applies,
-// from the other side: what it does not cancel out, this is.
-const liveOnlineHold = `b.status = 'pending'
-	  AND b.collection_status = 'unpaid'
-	  AND b.created_by IS NULL
-	  AND b.created_at >= NOW() - make_interval(secs => $%d)`
+// storefront booking still inside its payment window (slotguard.LiveOnlineHold,
+// shared with every other owner write a live hold refuses).
+const liveOnlineHold = slotguard.LiveOnlineHold
 
 // LiveHold is one stretch of a court a visitor is booking online: what the
 // owner's grid draws, and nothing that names the visitor (no address, no
@@ -469,23 +466,7 @@ func (m *Store) LiveHolds(ctx context.Context, complexID uuid.UUID, day time.Tim
 // the hours b wants on its court frees up, and whether there is one. The
 // caller holds the court-day lock, so the answer cannot change under it.
 func liveHoldFreesAt(ctx context.Context, tx pgx.Tx, b *Booking, window time.Duration) (time.Time, bool, error) {
-	var freesAt pgtype.Timestamptz
-	err := tx.QueryRow(ctx, `
-		SELECT MAX(b.created_at + make_interval(secs => $5))
-		FROM bookings b
-		WHERE b.court_id = $1
-		  AND b.span && tstzrange(
-		        booking_starts_at($2, $3),
-		        booking_starts_at($2, $3) + make_interval(mins => $4),
-		        '[)')
-		  AND `+fmt.Sprintf(liveOnlineHold, 5),
-		data.UUIDToPg(b.CourtID), data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
-		b.DurationMinutes, window.Seconds(),
-	).Scan(&freesAt)
-	if err != nil {
-		return time.Time{}, false, fmt.Errorf("check live online holds: %w", err)
-	}
-	return freesAt.Time, freesAt.Valid, nil
+	return slotguard.LiveHoldFreesAt(ctx, tx, []uuid.UUID{b.CourtID}, b.Date, b.StartTime, b.DurationMinutes, window)
 }
 
 // ownHoldClock answers, for a new hold on b's hours from ip, the window the
