@@ -952,3 +952,29 @@ func TestGetPreference(t *testing.T) {
 		}
 	})
 }
+
+// A preference read back says whether its link still takes payments: the
+// failure page must not hand back a link the expiry sweep already closed.
+func TestPreferenceClosedAt(t *testing.T) {
+	now := time.Date(2026, 11, 21, 21, 0, 0, 0, time.UTC)
+	for _, tc := range []struct {
+		name string
+		body string
+		want bool
+	}{
+		{"closed by ExpirePreference", `{"id":"p","expires":true,"expiration_date_to":"2026-11-21T17:59:00.000-03:00"}`, true},
+		{"still open", `{"id":"p","expires":true,"expiration_date_to":"2026-11-21T18:05:00.000-03:00"}`, false},
+		{"never expires", `{"id":"p","expires":false,"expiration_date_to":"2026-11-21T17:59:00.000-03:00"}`, false},
+		{"no expiry", `{"id":"p"}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var p Preference
+			if err := json.Unmarshal([]byte(tc.body), &p); err != nil {
+				t.Fatalf("decode: %v", err)
+			}
+			if got := p.ClosedAt(now); got != tc.want {
+				t.Errorf("ClosedAt = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

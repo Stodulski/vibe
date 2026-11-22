@@ -893,6 +893,9 @@ func newApplication(cfg config.Config, d deps) (*application, error) {
 		Run:          app.background,
 		Waitlist:     waitlistService,
 		FreedSlots:   instagramStories,
+		// A retried or released checkout found approved at MercadoPago is
+		// processed as its webhook would have been.
+		Reconciler: paymentsService,
 	}, bookings.Config{
 		PublicURL:       cfg.PublicBaseURL(),
 		BackendURL:      cfg.BackendURL,

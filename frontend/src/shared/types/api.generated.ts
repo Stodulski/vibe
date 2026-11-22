@@ -388,7 +388,7 @@ export interface paths {
     put?: never;
     /**
      * Give back the slot of a booking whose payment failed
-     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. Closes the checkout and cancels the pending, unpaid storefront booking, so the slot is free again and no longer counts against the visitor's hold cap. No email is sent. Picking the same hours again continues the window the booking had. Cross-tenant bypass reason `resolves`.
+     * @description Public, authenticated by the booking's link token, which MercadoPago's failure redirect carries. Closes the checkout and cancels the pending, unpaid storefront booking, so the slot is free again and no longer counts against the visitor's hold cap. No email is sent. MercadoPago is asked first: nothing is released while a payment on the booking is approved or in process, or while MercadoPago cannot be asked. Picking the same hours again gets only what is left of the address's hold budget on them. Cross-tenant bypass reason `resolves`.
      */
     post: operations['bookingsPublicCheckoutRelease'];
     delete?: never;
@@ -5312,7 +5312,7 @@ export interface operations {
         };
       };
       404: components['responses']['NotFound'];
-      /** @description The booking can no longer be paid (its window ended, it was released, or it was paid). */
+      /** @description `conflict` when the booking can no longer be paid (its window ended, it was released, or its checkout link was closed); `booking-paid` when it is paid (found approved at MercadoPago and processed now); `payment-in-process` while MercadoPago is still processing a payment on it. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5325,7 +5325,7 @@ export interface operations {
       422: components['responses']['ValidationError'];
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];
-      /** @description The checkout link could not be read from MercadoPago. */
+      /** @description The checkout link, or the booking's payments, could not be read from MercadoPago. */
       503: {
         headers: {
           [name: string]: unknown;
@@ -5368,7 +5368,7 @@ export interface operations {
         };
       };
       404: components['responses']['NotFound'];
-      /** @description The booking was paid after all, or changed while it was being released. */
+      /** @description `booking-paid` when the booking is paid (recorded, or found approved at MercadoPago and processed now); `payment-in-process` while MercadoPago is still processing a payment on it; `conflict` when it changed while it was being released or can no longer be released. The `detail` of the first two is a Spanish sentence for the visitor. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5381,6 +5381,15 @@ export interface operations {
       422: components['responses']['ValidationError'];
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];
+      /** @description MercadoPago could not be asked about the booking's payments; nothing was released. */
+      503: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
+      };
     };
   };
   bookingsPublicStatus: {

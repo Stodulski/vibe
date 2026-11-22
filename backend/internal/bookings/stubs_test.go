@@ -982,6 +982,9 @@ type stubCheckout struct {
 	readErr     error
 	reads       []string
 	readCallers []mp.Caller
+	// readClosed answers GetPreference with a link whose expiry has passed:
+	// the sweep, or a release, closed it.
+	readClosed bool
 }
 
 // GetPreference answers the link of the preference it is asked about, built
@@ -992,7 +995,12 @@ func (s *stubCheckout) GetPreference(_ context.Context, preferenceID string, cal
 	if s.readErr != nil {
 		return nil, s.readErr
 	}
-	return &mp.Preference{ID: preferenceID, InitPoint: "https://mp.test/checkout?pref_id=" + preferenceID}, nil
+	pref := &mp.Preference{ID: preferenceID, InitPoint: "https://mp.test/checkout?pref_id=" + preferenceID}
+	if s.readClosed {
+		pref.Expires = true
+		pref.ExpirationDateTo = time.Now().Add(-time.Minute).Format(time.RFC3339)
+	}
+	return pref, nil
 }
 
 func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePreferenceInput) (*mp.Preference, error) {
@@ -1265,6 +1273,7 @@ func newFixture(t *testing.T) *fixture {
 		Run:        func(fn func()) { fn() },
 		Waitlist:   f.waitlist,
 		FreedSlots: f.freedSlots,
+		Reconciler: f.reconciler,
 	}, Config{
 		PublicURL: "https://vibe.test", BackendURL: "https://api.vibe.test",
 		Environment: "test", GracePeriod: 15 * time.Minute,

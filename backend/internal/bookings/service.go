@@ -62,6 +62,7 @@ type Service struct {
 	run          func(func())
 	waitlist     SlotFreedNotifier
 	freedSlots   FreedSlotListener
+	reconciler   PaymentReconciler
 	// holdExpiries records the bookings the release sweep expires and reads
 	// back the ones to ask MercadoPago about; see SetHoldExpiries.
 	holdExpiries HoldExpiryStore
@@ -101,6 +102,7 @@ func NewService(d Dependencies, cfg Config) *Service {
 		run:          d.Run,
 		waitlist:     d.Waitlist,
 		freedSlots:   d.FreedSlots,
+		reconciler:   d.Reconciler,
 		now:          time.Now,
 	}
 }

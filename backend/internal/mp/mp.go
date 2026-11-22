@@ -376,6 +376,24 @@ type CreatePreferenceInput struct {
 type Preference struct {
 	ID        string `json:"id"`
 	InitPoint string `json:"init_point"`
+	// Expires and ExpirationDateTo are the link's own expiry, as read back:
+	// ExpirePreference closes a link by moving ExpirationDateTo into the past.
+	Expires          bool   `json:"expires"`
+	ExpirationDateTo string `json:"expiration_date_to"`
+}
+
+// ClosedAt reports whether the link no longer takes payments at now: it
+// expires, and its expiry has passed. An expiry MercadoPago wrote in a form
+// that does not parse answers false, leaving MercadoPago to refuse the payment.
+func (p *Preference) ClosedAt(now time.Time) bool {
+	if !p.Expires || p.ExpirationDateTo == "" {
+		return false
+	}
+	to, err := time.Parse(time.RFC3339, p.ExpirationDateTo)
+	if err != nil {
+		return false
+	}
+	return !now.Before(to)
 }
 
 // FeeDetail represents a single fee entry from a MercadoPago payment.

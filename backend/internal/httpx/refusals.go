@@ -91,6 +91,19 @@ func SlotUnavailable(message any) Refusal {
 	return Refusal{http.StatusConflict, KindSlotUnavailable, message}
 }
 
+// BookingPaid refuses letting go of, or paying again for, a storefront
+// booking that is paid: 409, its own kind so the storefront shows the booking.
+func BookingPaid(message any) Refusal {
+	return Refusal{http.StatusConflict, KindBookingPaid, message}
+}
+
+// PaymentInProcess refuses paying again for, or letting go of, a storefront
+// booking whose payment MercadoPago is still processing: 409, its own kind so
+// the storefront can tell the visitor to wait.
+func PaymentInProcess(message any) Refusal {
+	return Refusal{http.StatusConflict, KindPaymentInProcess, message}
+}
+
 // HoldExpired refuses a booking whose slot hold is gone: 409, its own kind so
 // the storefront can send the visitor back to pick a time.
 func HoldExpired(message any) Refusal {
