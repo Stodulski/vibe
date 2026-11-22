@@ -32,6 +32,7 @@ func cronCandidate(status bookingstore.BookingStatus) *bookingstore.CronBooking 
 	b.DurationMinutes = 60
 	b.Status = status
 	b.CollectionStatus = bookingstore.CollectionStatusUnpaid
+	b.RefundStatus = bookingstore.RefundStatusNone
 	return b
 }
 

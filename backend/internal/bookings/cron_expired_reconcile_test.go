@@ -307,6 +307,25 @@ func TestAnExpiredBookingIsNotToldWhileAPaymentMayStillSettleIt(t *testing.T) {
 		},
 		"unreachable": func(f *fixture, _ *bookingstore.CronBooking) { f.checkout.searchErr = errors.New("down") },
 		"no email":    func(_ *fixture, b *bookingstore.CronBooking) { b.ClientEmail = "" },
+		// T12 (2): a late payment already refunded (its webhook arrived,
+		// the booking could not be reopened) is no longer "approved" at
+		// MercadoPago, yet the client paid and was refunded: "no hay pagos a
+		// devolver" would be false.
+		"refunded": func(f *fixture, b *bookingstore.CronBooking) {
+			f.checkout.searchResults = []mp.Payment{{ID: 46, Status: "refunded", ExternalReference: b.ID.String()}}
+		},
+		"charged back": func(f *fixture, b *bookingstore.CronBooking) {
+			f.checkout.searchResults = []mp.Payment{{ID: 47, Status: "charged_back", ExternalReference: b.ID.String()}}
+		},
+		// The booking is no longer unpaid: money moved on it.
+		"no longer unpaid": func(_ *fixture, b *bookingstore.CronBooking) {
+			b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+		},
+		"refund owed": func(_ *fixture, b *bookingstore.CronBooking) {
+			b.RefundStatus = bookingstore.RefundStatusPending
+		},
+		// T12 (2): the visitor released it on screen; it did not expire.
+		"released by its visitor": func(_ *fixture, b *bookingstore.CronBooking) { b.ReleasedByClient = true },
 	}
 	for name, setup := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -340,5 +359,28 @@ func TestTheExpirySweepWritesTheReadableExpiryNote(t *testing.T) {
 	}
 	if rest := bookingstore.WithoutHoldExpiryNote(&note); rest != nil {
 		t.Errorf("a reopened booking must lose the whole note; %q is left", *rest)
+	}
+}
+
+// T12 (1): a booking its visitor released is asked about once more, like an
+// expiry: an approved payment the release's single search missed is handed
+// to the processing (which refunds it: a release is not reopenable), and the
+// booking is not asked about again.
+func TestTheExpirySweepAsksAgainAboutAReleasedCheckout(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	candidate.ReleasedByClient = true
+	f.checkout.searchResults = []mp.Payment{{ID: 48, Status: "approved", ExternalReference: candidate.ID.String()}}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if !slices.Equal(f.reconciler.reconciled, []string{"48"}) {
+		t.Fatalf("want the approved payment handed over; got %v", f.reconciler.reconciled)
+	}
+	if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+		t.Errorf("want the release marked reconciled; got %v", f.store.holdReconciled)
+	}
+	if len(f.notify.cancelled) != 0 {
+		t.Errorf("want no expiry notice for a released booking; got %+v", f.notify.cancelled)
 	}
 }

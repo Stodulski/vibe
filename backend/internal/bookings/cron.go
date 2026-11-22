@@ -526,7 +526,8 @@ func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentR
 
 // reconcileExpiredHold closes b's checkout link and asks MercadoPago about its
 // payments, handing every approved one not yet recorded to reconciler. When
-// none was approved or is in flight, the client is told the booking expired
+// none was ever approved and none is in flight, and the booking is still an
+// unpaid expiry (expiredUnpaid), the client is told it expired
 // (queueExpiredNotice).
 func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) expiredHoldOutcome {
 	// Closed before asking, so nothing can be approved after the answer. The
@@ -548,7 +549,9 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 	}
 
 	outcome := expiredHoldSettled
-	approved := false
+	// moneyMoved: a payment was approved on the checkout, whether it still
+	// is or was refunded or charged back since.
+	moneyMoved := false
 	for _, p := range found {
 		if p.ExternalReference != b.ID.String() {
 			continue
@@ -559,8 +562,11 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 				outcome = expiredHoldInFlight
 			}
 			continue
+		case "refunded", "charged_back":
+			moneyMoved = true
+			continue
 		case "approved":
-			approved = true
+			moneyMoved = true
 		default:
 			continue
 		}
@@ -576,13 +582,22 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 			outcome = expiredHoldFailed
 		}
 	}
-	// Nothing was paid and nothing is in flight: the booking stays cancelled,
-	// and its client is told so. An approved payment is the processing's to
-	// tell (a reopened booking, or a refund).
-	if outcome == expiredHoldSettled && !approved {
+	if outcome == expiredHoldSettled && !moneyMoved && expiredUnpaid(b) {
 		s.queueExpiredNotice(b)
 	}
 	return outcome
+}
+
+// expiredUnpaid reports whether b may be told "your booking expired, there is
+// no payment to give back" once MercadoPago holds no payment for it: its hold
+// expired (a booking its visitor released was let go on screen, by choice)
+// and, as read by this run, nothing was collected on it and no refund is owed.
+// An approved, refunded or charged-back payment is the processing's to tell
+// (a reopened booking, or a refund), never this notice.
+func expiredUnpaid(b *bookingstore.CronBooking) bool {
+	return !b.ReleasedByClient &&
+		b.CollectionStatus == bookingstore.CollectionStatusUnpaid &&
+		b.RefundStatus == bookingstore.RefundStatusNone
 }
 
 // releaseExpiredHolds deletes the slot holds nobody converted within the
