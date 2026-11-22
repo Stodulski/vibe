@@ -99,6 +99,7 @@ func expiredBooking(t *testing.T, f *datatest.Fixture, start, end string, checko
 	if checkout {
 		withCheckout(t, f, b)
 	}
+	f.BackdateBookingCreatedAt(t, b.ID, staleAge)
 	b.Status = "cancelled"
 	if err := f.Stores.Bookings.ExpireHold(f.Scoped(context.Background()), b); err != nil {
 		t.Fatalf("ExpireHold: %v", err)
@@ -373,5 +374,42 @@ func TestPaymentsLapsingSoonReadsCheckoutsAboutToLapse(t *testing.T) {
 	b, err := f.Stores.Bookings.GetByID(ctx, soon.ID)
 	if err != nil || b.Status != "pending" {
 		t.Errorf("reading must not touch the booking; got %v, %v", b, err)
+	}
+}
+
+// L18: the sweep decides from a read taken before it asked MercadoPago, and
+// the one-minute keep_paying_holds job may extend the hold in between (its
+// payment is in process). The expiry write is refused for a booking whose
+// window no longer ended, so an extended hold is not cancelled under the
+// person paying; one whose window did end is expired as before.
+func TestExpireHoldLeavesAHoldExtendedSinceItWasRead(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	stale := newStaleBooking(t, f)
+	withCheckout(t, f, stale)
+
+	if err := f.Stores.Bookings.ExtendHold(ctx, stale.ID, stale.ComplexID, 3*time.Minute, 10*time.Minute); err != nil {
+		t.Fatalf("ExtendHold: %v", err)
+	}
+	stale.Status = "cancelled"
+	note := "Cancelado automáticamente: tiempo de pago expirado"
+	stale.Notes = &note
+
+	if err := f.Stores.Bookings.ExpireHold(ctx, stale); !errors.Is(err, data.ErrEditConflict) {
+		t.Fatalf("want an extended hold refused with ErrEditConflict; got %v", err)
+	}
+	if status, _, _ := f.ReadBookingState(t, stale.ID); status != "pending" {
+		t.Errorf("want the extended hold still pending; got %s", status)
+	}
+	if reconcileIDs(t, f)[stale.ID] {
+		t.Error("a hold that was not expired must not be recorded as expired")
+	}
+
+	f.BackdateBookingCreatedAt(t, stale.ID, staleAge)
+	if err := f.Stores.Bookings.ExpireHold(ctx, stale); err != nil {
+		t.Fatalf("a hold whose window ended must expire: %v", err)
+	}
+	if status, _, _ := f.ReadBookingState(t, stale.ID); status != "cancelled" {
+		t.Errorf("want the lapsed hold cancelled; got %s", status)
 	}
 }

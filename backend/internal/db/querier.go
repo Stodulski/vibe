@@ -177,8 +177,10 @@ type Querier interface {
 	// The release sweep's cancellation of a storefront booking whose payment
 	// window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
 	// read taken before it asked MercadoPago, and a client cancellation or a
-	// payment committed in between must not be overwritten into an expiry. No row
-	// means the booking is no longer pending and unpaid.
+	// payment committed in between must not be overwritten into an expiry; nor
+	// may a hold the keep_paying_holds job extended meanwhile (its payment is in
+	// process: ExtendHold moved created_at forward), so the window must still have
+	// ended. No row means the booking is no longer pending, unpaid and lapsed.
 	ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBookingParams) (Booking, error)
 	GetAuditLogByComplex(ctx context.Context, arg GetAuditLogByComplexParams) ([]AuditLog, error)
 	// One balance-only checkout of this complex, read as a list entry. No row means

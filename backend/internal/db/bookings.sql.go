@@ -127,25 +127,29 @@ func (q *Queries) DeleteBookingHoldExpiry(ctx context.Context, bookingID pgtype.
 const expireUnpaidBooking = `-- name: ExpireUnpaidBooking :one
 UPDATE bookings
 SET status = 'cancelled',
-    notes = $2
-WHERE id = $1
+    notes = $1
+WHERE id = $2
   AND status = 'pending'
   AND collection_status = 'unpaid'
+  AND created_at < NOW() - make_interval(secs => $3::float8)
 RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
 `
 
 type ExpireUnpaidBookingParams struct {
-	ID    pgtype.UUID `json:"id"`
-	Notes pgtype.Text `json:"notes"`
+	Notes         pgtype.Text `json:"notes"`
+	ID            pgtype.UUID `json:"id"`
+	WindowSeconds float64     `json:"window_seconds"`
 }
 
 // The release sweep's cancellation of a storefront booking whose payment
 // window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
 // read taken before it asked MercadoPago, and a client cancellation or a
-// payment committed in between must not be overwritten into an expiry. No row
-// means the booking is no longer pending and unpaid.
+// payment committed in between must not be overwritten into an expiry; nor
+// may a hold the keep_paying_holds job extended meanwhile (its payment is in
+// process: ExtendHold moved created_at forward), so the window must still have
+// ended. No row means the booking is no longer pending, unpaid and lapsed.
 func (q *Queries) ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBookingParams) (Booking, error) {
-	row := q.db.QueryRow(ctx, expireUnpaidBooking, arg.ID, arg.Notes)
+	row := q.db.QueryRow(ctx, expireUnpaidBooking, arg.Notes, arg.ID, arg.WindowSeconds)
 	var i Booking
 	err := row.Scan(
 		&i.ID,

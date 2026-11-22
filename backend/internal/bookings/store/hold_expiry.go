@@ -30,10 +30,12 @@ import (
 // cancelled without the record would never be asked about again, nor reopened
 // by its late payment.
 //
-// Only while the booking is still pending and unpaid: b was read before the
-// sweep asked MercadoPago, and a client cancellation or a payment committed
-// since must not be turned into an expiry (a reopenable booking, or a paid one
-// cancelled). Such a booking is left as it is and ErrEditConflict returned.
+// Only while the booking is still pending and unpaid and its window (the
+// store's PaymentExpiry) has ended: b was read before the sweep asked
+// MercadoPago, and a client cancellation or a payment committed since must not
+// be turned into an expiry (a reopenable booking, or a paid one cancelled),
+// nor a hold ExtendHold kept live since (its payment is in process). Such a
+// booking is left as it is and ErrEditConflict returned.
 func (m *Store) ExpireHold(ctx context.Context, b *Booking) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
@@ -44,8 +46,9 @@ func (m *Store) ExpireHold(ctx context.Context, b *Booking) error {
 
 	return m.DB.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
 		dbBooking, err := q.ExpireUnpaidBooking(ctx, db.ExpireUnpaidBookingParams{
-			ID:    data.UUIDToPg(b.ID),
-			Notes: data.TextToPg(b.Notes),
+			ID:            data.UUIDToPg(b.ID),
+			Notes:         data.TextToPg(b.Notes),
+			WindowSeconds: m.PaymentExpiry.Seconds(),
 		})
 		if err != nil {
 			if errors.Is(err, pgx.ErrNoRows) {

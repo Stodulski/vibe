@@ -260,14 +260,17 @@ RETURNING *;
 -- The release sweep's cancellation of a storefront booking whose payment
 -- window ran out. Conditional, unlike UpdateBooking: the sweep decides from a
 -- read taken before it asked MercadoPago, and a client cancellation or a
--- payment committed in between must not be overwritten into an expiry. No row
--- means the booking is no longer pending and unpaid.
+-- payment committed in between must not be overwritten into an expiry; nor
+-- may a hold the keep_paying_holds job extended meanwhile (its payment is in
+-- process: ExtendHold moved created_at forward), so the window must still have
+-- ended. No row means the booking is no longer pending, unpaid and lapsed.
 UPDATE bookings
 SET status = 'cancelled',
-    notes = $2
-WHERE id = $1
+    notes = sqlc.arg(notes)
+WHERE id = sqlc.arg(id)
   AND status = 'pending'
   AND collection_status = 'unpaid'
+  AND created_at < NOW() - make_interval(secs => sqlc.arg(window_seconds)::float8)
 RETURNING *;
 
 -- name: InsertBookingHoldExpiry :exec
