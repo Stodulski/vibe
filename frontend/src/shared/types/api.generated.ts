@@ -328,7 +328,7 @@ export interface paths {
     put?: never;
     /**
      * Hold a slot while the visitor fills in their details
-     * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429).
+     * @description Public. Rate limited under its own `hold` ceiling (1 request per 20 seconds, burst 3, the same numbers as `POST /api/v1/book`) in addition to the general ceiling. Cross-tenant bypass reason `resolves`. Holds the slot as a pending booking that names nobody yet, for the payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned token converts it, and the hold ends by itself at `expires_at`. Refused with the same answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address (429 `hold-cap`, also answered by `POST /api/v1/book` without a hold token; its `detail` is a Spanish sentence for the visitor asking them to finish or let go of one).
      */
     post: operations['bookingsPublicHoldCreate'];
     delete?: never;
@@ -1569,7 +1569,7 @@ export interface paths {
     };
     /**
      * The open-play events a visitor can still sign up for
-     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the holds still running; `0` means the sign-up is closed.
+     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the held ones (holds still running, and for up to ten minutes a hold that ran out while its payment is checked with MercadoPago); `0` means the sign-up is closed.
      */
     get: operations['eventsPublicList'];
     put?: never;
@@ -3399,9 +3399,9 @@ export interface components {
       }[];
       /** @description Paid spots. */
       confirmed_count: number;
-      /** @description Spots held by people still paying. */
+      /** @description Spots held by people still paying, including a hold that ran out less than ten minutes ago while its payment is still being checked with MercadoPago. */
       held_count: number;
-      /** @description Capacity minus paid spots and running holds, never below zero. */
+      /** @description Capacity minus paid spots and held spots (held_count), never below zero. */
       spots_left: number;
       /** Format: date-time */
       created_at: string;
