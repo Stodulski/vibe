@@ -1,6 +1,7 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { BookingConfirmed } from '../components/BookingConfirmed';
 import { resolveBookingStatusView } from '../components/booking-confirmed/statusView';
+import { statusViewTitle } from '../components/booking-confirmed/statusTitle';
 import { readStoredBookingInfo } from '../lib/storedBookingInfo';
 import { useBookingStatus } from '../hooks/useBookingStatus';
 import { publicComplexPath } from '../lib/publicPaths';
@@ -48,6 +49,13 @@ export default function BookSuccessPage({ slug }: { slug: string }) {
     linkExpired,
     linkNotFound,
   });
+
+  // The server can only guess the title; the tab follows the screen once the
+  // status is known.
+  const title = statusViewTitle(view, bookingStatus?.collection_status);
+  useEffect(() => {
+    document.title = `${title} - Vibe`;
+  }, [title]);
 
   function handleRetry() {
     navigateTo(publicComplexPath(slug), { replace: true });

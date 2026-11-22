@@ -7,6 +7,7 @@ import { readStoredBookingInfo } from '../../lib/storedBookingInfo';
 import { whatsappChatHref } from '../../lib/whatsapp';
 import { keepTogether } from '../../lib/keepTogether';
 import { useFailedCheckout } from './useFailedCheckout';
+import { failedSlotPath } from './failedSlotPath';
 
 const t = BOOKING_MESSAGES;
 
@@ -28,7 +29,9 @@ const t = BOOKING_MESSAGES;
  * redirect carries the booking's link token (`booklink.Failure`), the page
  * offers paying again on that same checkout, or giving the slot back before
  * picking another time, so the visitor is never locked out by their own
- * booking. Without the token (an older link) it only links back to the complex.
+ * booking. Without the token (an older link) it only links back to the hours of
+ * that day. "Volver al complejo" is always there, so the way out never depends
+ * on an action failing first.
  */
 export function PaymentFailedScreen({ slug, token }: { slug: string; token?: string | undefined }) {
   const booking = readStoredBookingInfo();
@@ -63,7 +66,7 @@ export function PaymentFailedScreen({ slug, token }: { slug: string; token?: str
           <FailedCheckoutActions slug={slug} token={token} />
         ) : (
           <Button asChild size="lg" className="min-h-12">
-            <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedChooseAnother}</a>
+            <a href={failedSlotPath(slug, booking)}>{t.publicBooking.paymentFailedChooseAnother}</a>
           </Button>
         )}
         {booking && whatsAppHref && (
@@ -90,7 +93,7 @@ export function PaymentFailedScreen({ slug, token }: { slug: string; token?: str
 
 /** Pay again on the same checkout, or give the slot back and pick another time. */
 function FailedCheckoutActions({ slug, token }: { slug: string; token: string }) {
-  const { gone, inProcess, failed, stuck, busy, retry, release } = useFailedCheckout(slug, token);
+  const { gone, inProcess, failed, busy, retry, release } = useFailedCheckout(slug, token);
 
   return (
     <>
@@ -117,11 +120,9 @@ function FailedCheckoutActions({ slug, token }: { slug: string; token: string })
       <Button size="lg" variant={gone ? 'default' : 'outline'} className="min-h-12" disabled={busy} onClick={release}>
         {t.publicBooking.paymentFailedChooseAnother}
       </Button>
-      {stuck && (
-        <Button asChild variant="ghost" className="min-h-12">
-          <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedBackToComplex}</a>
-        </Button>
-      )}
+      <Button asChild variant="ghost" className="min-h-12">
+        <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedBackToComplex}</a>
+      </Button>
     </>
   );
 }

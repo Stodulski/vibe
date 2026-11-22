@@ -22,7 +22,7 @@ Astro.response.headers.set('Cache-Control', 'private, no-store');
 const config = storefrontBookingConfig(PUBLIC_API_URL);
 ---
 <StorefrontLayout
-  title={`${BOOKING_MESSAGES.events.sectionTitle} - Vibe`}
+  title={`${BOOKING_MESSAGES.events.pageTitle} - Vibe`}
   description={DEFAULT_DESCRIPTION}
   robots={storefrontRobots(Astro.url.pathname)}
   homeHref={`/c/${encodeURIComponent(slug)}`}

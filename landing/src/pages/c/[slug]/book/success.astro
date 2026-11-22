@@ -16,9 +16,13 @@ export const prerender = false;
 const slug = Astro.params.slug ?? '';
 Astro.response.headers.set('Cache-Control', 'private, no-store');
 const config = storefrontBookingConfig(PUBLIC_API_URL);
+// Mercado Pago comes back with `status=pending` while it reviews the payment;
+// the page swaps the title for the screen's own once the status is known.
+const t = BOOKING_MESSAGES.publicBooking;
+const title = Astro.url.searchParams.get('status') === 'pending' ? t.paymentUnderReview : t.bookingSuccess;
 ---
 <StorefrontLayout
-  title={`${BOOKING_MESSAGES.publicBooking.bookingSuccess} - Vibe`}
+  title={`${title} - Vibe`}
   description={DEFAULT_DESCRIPTION}
   robots={storefrontRobots(Astro.url.pathname)}
   homeHref={`/c/${encodeURIComponent(slug)}`}

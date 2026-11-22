@@ -4,6 +4,7 @@ import { StatusHero } from '@vibe/ui';
 import { BOOKING_MESSAGES } from '../../messages';
 import type { CollectionStatus } from '../../api/types';
 import type { BookingInfo } from './types';
+import { wasRejectedPayment } from './statusTitle';
 
 const t = BOOKING_MESSAGES;
 
@@ -11,22 +12,6 @@ interface CancelledStateProps {
   bookingInfo: BookingInfo | null;
   collectionStatus: CollectionStatus | undefined;
   onRetry: () => void;
-}
-
-/**
- * A rejected payment never leaves money collected — `processRejectedPayment`
- * (`internal/payments/process.go`) cancels the booking but leaves the payment
- * columns exactly as they started, because the payments enum has no "rejected"
- * value of its own. So `"unpaid"` here is the one shape an actual card decline
- * can leave; `deposit_paid` or `fully_paid` means a payment WAS collected and
- * is being reversed, which is a cancellation, not a decline — a different
- * message with a different tone.
- *
- * It reads the collection axis alone, and that is the whole question: a refund
- * under way is by definition money that arrived, so it can never be a decline.
- */
-function wasRejectedPayment(collectionStatus: CollectionStatus | undefined): boolean {
-  return collectionStatus === undefined || collectionStatus === 'unpaid';
 }
 
 export function CancelledState({ bookingInfo, collectionStatus, onRetry }: CancelledStateProps) {

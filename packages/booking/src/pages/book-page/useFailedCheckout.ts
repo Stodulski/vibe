@@ -6,6 +6,8 @@ import { getProblem } from '../../lib/ApiError';
 import { navigateTo } from '../../lib/navigation';
 import { publicComplexPath } from '../../lib/publicPaths';
 import { BOOKING_MESSAGES } from '../../messages';
+import { readStoredBookingInfo } from '../../lib/storedBookingInfo';
+import { failedSlotPath } from './failedSlotPath';
 
 /** The 409 kind the checkout routes answer when the booking is paid. */
 const BOOKING_PAID_KIND = 'booking-paid';
@@ -27,7 +29,8 @@ function conflictKind(error: unknown): string | undefined {
  * while MercadoPago is still processing a payment: neither action can go
  * ahead until it settles. Only a booking the server calls paid (`booking-paid`)
  * goes to the booking's own page; any other refused or failed release leaves
- * `stuck` set, and the page links back to the complex.
+ * `failed` set. A release that went through lands on the hours of the day the
+ * failed slot was on.
  */
 export function useFailedCheckout(slug: string, token: string) {
   const api = usePublicBookingApi();
@@ -63,7 +66,7 @@ export function useFailedCheckout(slug: string, token: string) {
   const release = useMutation({
     mutationFn: () => api.releaseCheckout(token),
     onSuccess: () => {
-      navigateTo(publicComplexPath(slug));
+      navigateTo(failedSlotPath(slug, readStoredBookingInfo()));
     },
     onError: (error) => {
       handledConflict(error);
@@ -81,7 +84,6 @@ export function useFailedCheckout(slug: string, token: string) {
     gone,
     inProcess,
     failed,
-    stuck,
     busy: retry.isPending || release.isPending,
     retry: () => {
       setInProcess(null);

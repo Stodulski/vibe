@@ -20,6 +20,13 @@ export const HOLD_EXPIRED_KIND = 'hold-expired';
 export const HOLD_COOLDOWN_KIND = 'hold-cooldown';
 
 /**
+ * The problem kind `POST /book/holds` answers with (429) when this address
+ * already holds as many slots as it may at once. Its `detail` is a Spanish
+ * sentence for the visitor; a plain 429 is the request rate limit instead.
+ */
+export const HOLD_CAP_KIND = 'hold-cap';
+
+/**
  * The text a 409 should show, chosen by the problem+json `kind` the backend
  * minted it with (`internal/httpx/problem.go`).
  *
@@ -75,7 +82,11 @@ export function holdRefusalCopy(error: unknown): string {
       if (problem?.kind === HOLD_COOLDOWN_KIND) return problem.detail ?? t.publicBooking.holdCooldown;
       return conflictCopy(problem?.kind);
     }
-    if (status === 429) return t.publicBooking.holdRateLimited;
+    if (status === 429) {
+      const problem = getProblem(error);
+      if (problem?.kind === HOLD_CAP_KIND) return problem.detail ?? t.publicBooking.holdCap;
+      return t.publicBooking.holdRateLimited;
+    }
     if (status === 422) {
       const copy = turnstileCopy(error);
       if (copy) return copy;

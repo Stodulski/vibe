@@ -226,7 +226,7 @@ describe('ComplexPage slot hold before the challenge is solved', () => {
 
     await pickCourt();
 
-    expect(toast.info).toHaveBeenCalledWith(t.publicBooking.holdChallengePending);
+    expect(toast.info).toHaveBeenCalledWith(t.publicBooking.holdChallengePending, expect.anything());
     expect(bodies).toHaveLength(0);
     expect(assignSpy).not.toHaveBeenCalled();
 
@@ -274,7 +274,7 @@ describe('ComplexPage slot hold refusals', () => {
     await pickCourt();
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(t.publicBooking[key]);
+      expect(toast.error).toHaveBeenCalledWith(t.publicBooking[key], expect.anything());
     });
     expect(assignSpy).not.toHaveBeenCalled();
     expect(readConfirmDraft('test-club')).toBeNull();
@@ -342,7 +342,7 @@ describe('ComplexPage slot hold cooldown', () => {
     await pickCourt();
 
     await waitFor(() => {
-      expect(toast.error).toHaveBeenCalledWith(detail);
+      expect(toast.error).toHaveBeenCalledWith(detail, expect.anything());
     });
     expect(assignSpy).not.toHaveBeenCalled();
   });

@@ -17,6 +17,11 @@ import type { HoldChallenge } from './useHoldChallenge';
 
 const t = BOOKING_MESSAGES;
 
+// One toast per kind: a second tap that meets the same answer replaces the
+// toast on screen instead of stacking an identical one under it.
+const REFUSAL_TOAST = { id: 'hold-refusal' };
+const CHALLENGE_TOAST = { id: 'hold-challenge' };
+
 /** The body of `POST /book/holds`, with the token and the previous hold when there are any. */
 function holdRequest(slotInfo: BookingSlotInfo, token?: string, previous?: string): PublicHoldRequest {
   return {
@@ -79,6 +84,8 @@ export function useHandleContinue(
   const queryClient = useQueryClient();
   // A second tap while the first hold is on its way would spend a token and
   // take a second hold. A ref, not `isPending`: two taps can land in one render.
+  // It stays set after a hold is taken: the page is leaving for confirm, and a
+  // tap on "Reservar" meanwhile is the same intent, not a second hold.
   const inFlight = useRef(false);
 
   function takeHoldAndContinue(selection: SelectedSlot) {
@@ -94,14 +101,14 @@ export function useHandleContinue(
         navigateTo(`${publicComplexPath(pageSlug)}/book/confirm`);
       },
       onError: (error) => {
-        toast.error(holdRefusalCopy(error));
+        inFlight.current = false;
+        toast.error(holdRefusalCopy(error), REFUSAL_TOAST);
         // Somebody else has the slot: the grid on screen is out of date.
         if (error instanceof HTTPError && getProblem(error)?.kind === 'slot-unavailable') {
           void queryClient.invalidateQueries({ queryKey: ['availability', pageSlug] });
         }
       },
       onSettled: () => {
-        inFlight.current = false;
         // A Turnstile token is single use: the server spent it on this hold.
         challenge.reset();
       },
@@ -114,7 +121,7 @@ export function useHandleContinue(
     if (!complex || !selection || !mpConnected || inFlight.current) return;
     if (challenge.required && !challenge.token) {
       continueOnceSolved(selection);
-      toast.info(t.publicBooking.holdChallengePending);
+      toast.info(t.publicBooking.holdChallengePending, CHALLENGE_TOAST);
       return;
     }
     takeHoldAndContinue(selection);
