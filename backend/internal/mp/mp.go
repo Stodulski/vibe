@@ -352,6 +352,10 @@ type CreatePreferenceInput struct {
 	Date           string
 	StartTime      string
 	Amount         int // total amount client pays in centavos (deposit + service fee)
+	// FullPayment says the booking's checkout charges its whole price rather
+	// than a deposit, so the item is described as the booking's payment and
+	// not as a seña. Ignored for a registration, whose copy is its own.
+	FullPayment    bool
 	MarketplaceFee int // service fee in centavos retained by marketplace
 	// Caller is the seller the preference is created for, and it decides who
 	// gets paid: MercadoPago settles into whichever account authorized the
@@ -455,10 +459,14 @@ func (in CreatePreferenceInput) checkoutIdentity() (reference string, metadata m
 			in.Title, in.Description
 	}
 	dateDisplay := titleDate(in.Date)
+	what := "Seña para reserva"
+	if in.FullPayment {
+		what = "Pago de la reserva"
+	}
 	return in.BookingID.String(),
 		map[string]string{"booking_id": in.BookingID.String(), "booking_date": in.Date},
 		fmt.Sprintf("%s - %s - %s %s hs", in.ComplexName, in.CourtName, dateDisplay, in.StartTime),
-		fmt.Sprintf("Seña para reserva en %s. %s, %s a las %s hs.", in.ComplexName, in.CourtName, dateDisplay, in.StartTime)
+		fmt.Sprintf("%s en %s. %s, %s a las %s hs.", what, in.ComplexName, in.CourtName, dateDisplay, in.StartTime)
 }
 
 // CreatePreference creates a MercadoPago checkout preference.

@@ -978,3 +978,39 @@ func TestPreferenceClosedAt(t *testing.T) {
 		})
 	}
 }
+
+// L19: the payer reads what they are paying for. A checkout that charges the
+// whole price is the booking's payment, not a seña.
+func TestCreatePreferenceNamesAFullPaymentAsThePayment(t *testing.T) {
+	var captured map[string]any
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&captured); err != nil {
+			t.Errorf("decoding request body: %v", err)
+		}
+		w.WriteHeader(http.StatusCreated)
+		if err := json.NewEncoder(w).Encode(Preference{ID: "pref-1"}); err != nil {
+			t.Errorf("Encode: %v", err)
+		}
+	}))
+	defer ts.Close()
+
+	client := NewMPClient("marketplace-token", "secret", "app", "client", nil)
+	client.baseURL = ts.URL
+
+	input := CreatePreferenceInput{
+		BookingID: uuid.New(), ComplexName: "Acme", CourtName: "Cancha 1",
+		Date: "2025-06-15", StartTime: "18:00", Amount: 10000, FullPayment: true,
+		Caller: mustSeller(t, "seller-token"), BackendURL: "https://api.vibe.test",
+	}
+	if _, err := client.CreatePreference(t.Context(), input); err != nil {
+		t.Fatalf("CreatePreference: %v", err)
+	}
+	items, _ := captured["items"].([]any)
+	if len(items) != 1 {
+		t.Fatalf("captured request has no single item: %v", captured["items"])
+	}
+	item, _ := items[0].(map[string]any)
+	if want := "Pago de la reserva en Acme. Cancha 1, 15 jun a las 18:00 hs."; item["description"] != want {
+		t.Errorf("description = %q, want %q", item["description"], want)
+	}
+}
