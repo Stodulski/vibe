@@ -279,6 +279,10 @@ type BookedSpan struct {
 	// tournament match rather than an open-play event: the owner is told to
 	// unschedule the match instead.
 	Match bool
+	// OnlineHold is true for hours a visitor is booking online right now: an
+	// unpaid storefront booking still inside its payment window. As taken as a
+	// booking, but the owner is told it may free up.
+	OnlineHold bool
 }
 
 // MaxBookingHorizonDays bounds how far into the future a booking or a court's
@@ -964,9 +968,10 @@ func (m *Store) BookedSpansBetween(ctx context.Context, courtIDs []uuid.UUID, fr
 	result := make([]BookedSpan, len(dbSlots))
 	for i, s := range dbSlots {
 		result[i] = BookedSpan{
-			CourtID:  data.PgToUUID(s.CourtID),
-			StartsAt: s.StartsAt.Time,
-			EndsAt:   s.EndsAt.Time,
+			CourtID:    data.PgToUUID(s.CourtID),
+			StartsAt:   s.StartsAt.Time,
+			EndsAt:     s.EndsAt.Time,
+			OnlineHold: s.OnlineHold,
 		}
 	}
 

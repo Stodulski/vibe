@@ -181,7 +181,8 @@ func (q *Queries) ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBooki
 }
 
 const getBookedSlots = `-- name: GetBookedSlots :many
-SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
+SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at,
+       (b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL)::bool AS online_hold
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
   AND b.span && tstzrange(lower(local_day($2::date)), upper(local_day($3::date)), '[)')
@@ -203,9 +204,10 @@ type GetBookedSlotsParams struct {
 }
 
 type GetBookedSlotsRow struct {
-	CourtID  pgtype.UUID        `json:"court_id"`
-	StartsAt pgtype.Timestamptz `json:"starts_at"`
-	EndsAt   pgtype.Timestamptz `json:"ends_at"`
+	CourtID    pgtype.UUID        `json:"court_id"`
+	StartsAt   pgtype.Timestamptz `json:"starts_at"`
+	EndsAt     pgtype.Timestamptz `json:"ends_at"`
+	OnlineHold bool               `json:"online_hold"`
 }
 
 // GetBookedSlots returns the hours already taken on the given courts and date.
@@ -246,6 +248,9 @@ type GetBookedSlotsRow struct {
 // the insert-time collision guard have to agree on the same number, or a
 // pending booking between the two configured values shows as free here and
 // taken there (or the reverse). Both now read Config.PaymentExpiry once.
+// online_hold marks a visitor booking the hours online right now: the stale
+// ones are filtered out below, so an unpaid storefront pending row that is
+// left is inside its window (slotguard.LiveOnlineHold).
 func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) ([]GetBookedSlotsRow, error) {
 	rows, err := q.db.Query(ctx, getBookedSlots,
 		arg.Column1,
@@ -260,7 +265,12 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 	var items []GetBookedSlotsRow
 	for rows.Next() {
 		var i GetBookedSlotsRow
-		if err := rows.Scan(&i.CourtID, &i.StartsAt, &i.EndsAt); err != nil {
+		if err := rows.Scan(
+			&i.CourtID,
+			&i.StartsAt,
+			&i.EndsAt,
+			&i.OnlineHold,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -214,3 +214,14 @@ describe('SeriesConflictsPanel, a long list', () => {
     expect(within(list).getAllByRole('listitem')).toHaveLength(8);
   });
 });
+
+describe('SeriesConflictsPanel — a date held by a visitor booking online', () => {
+  it('tags it as being booked online, not as a booking', () => {
+    renderPanel({
+      conflicts: [{ date: '2026-12-07', reason: 'overlap', held_by: 'online_hold', free_courts: [] }],
+    });
+
+    expect(screen.getByText(t.conflictTags.online_hold)).toBeInTheDocument();
+    expect(screen.queryByText(t.conflictTags.booking)).not.toBeInTheDocument();
+  });
+});

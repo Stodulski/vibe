@@ -189,6 +189,7 @@ export const bookings = {
       fixed: 'Otro turno fijo',
       event: 'Evento',
       match: 'Partido de torneo',
+      online_hold: 'Reservando online',
       overlap: 'Ocupada',
       blocked: 'Bloqueo',
       cancelled_by_owner: 'Liberada',

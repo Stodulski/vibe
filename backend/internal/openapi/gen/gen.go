@@ -126,10 +126,11 @@ func (e BookingSeriesStatus) Valid() bool {
 
 // Defines values for BookingSeriesConflictHeldBy.
 const (
-	BookingSeriesConflictHeldByBooking BookingSeriesConflictHeldBy = "booking"
-	BookingSeriesConflictHeldByEvent   BookingSeriesConflictHeldBy = "event"
-	BookingSeriesConflictHeldByFixed   BookingSeriesConflictHeldBy = "fixed"
-	BookingSeriesConflictHeldByMatch   BookingSeriesConflictHeldBy = "match"
+	BookingSeriesConflictHeldByBooking    BookingSeriesConflictHeldBy = "booking"
+	BookingSeriesConflictHeldByEvent      BookingSeriesConflictHeldBy = "event"
+	BookingSeriesConflictHeldByFixed      BookingSeriesConflictHeldBy = "fixed"
+	BookingSeriesConflictHeldByMatch      BookingSeriesConflictHeldBy = "match"
+	BookingSeriesConflictHeldByOnlineHold BookingSeriesConflictHeldBy = "online_hold"
 )
 
 // Valid indicates whether the value is a known member of the BookingSeriesConflictHeldBy enum.
@@ -142,6 +143,8 @@ func (e BookingSeriesConflictHeldBy) Valid() bool {
 	case BookingSeriesConflictHeldByFixed:
 		return true
 	case BookingSeriesConflictHeldByMatch:
+		return true
+	case BookingSeriesConflictHeldByOnlineHold:
 		return true
 	default:
 		return false
@@ -3278,12 +3281,12 @@ type BookingSeriesConflict struct {
 	// FreeCourts Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`.
 	FreeCourts *[]BookingSeriesFreeCourt `json:"free_courts,omitempty"`
 
-	// HeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+	// HeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event, a tournament match, or a visitor booking the hours online right now (`online_hold`, frees up if they do not pay). Absent for any other reason.
 	HeldBy *BookingSeriesConflictHeldBy `json:"held_by,omitempty"`
 	Reason BookingSeriesConflictReason  `json:"reason"`
 }
 
-// BookingSeriesConflictHeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event or a tournament match. Absent for any other reason.
+// BookingSeriesConflictHeldBy What holds the date when `reason` is `overlap`: a booking, another fixed weekly booking, an open-play event, a tournament match, or a visitor booking the hours online right now (`online_hold`, frees up if they do not pay). Absent for any other reason.
 type BookingSeriesConflictHeldBy string
 
 // BookingSeriesConflictReason defines model for BookingSeriesConflict.Reason.

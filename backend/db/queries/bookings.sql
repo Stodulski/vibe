@@ -177,7 +177,11 @@ RETURNING *;
 -- the insert-time collision guard have to agree on the same number, or a
 -- pending booking between the two configured values shows as free here and
 -- taken there (or the reverse). Both now read Config.PaymentExpiry once.
-SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at
+-- online_hold marks a visitor booking the hours online right now: the stale
+-- ones are filtered out below, so an unpaid storefront pending row that is
+-- left is inside its window (slotguard.LiveOnlineHold).
+SELECT b.court_id, lower(b.span)::timestamptz AS starts_at, upper(b.span)::timestamptz AS ends_at,
+       (b.status = 'pending' AND b.collection_status = 'unpaid' AND b.created_by IS NULL)::bool AS online_hold
 FROM bookings b
 WHERE b.court_id = ANY($1::uuid[])
   AND b.span && tstzrange(lower(local_day(sqlc.arg(day_from)::date)), upper(local_day(sqlc.arg(day_to)::date)), '[)')

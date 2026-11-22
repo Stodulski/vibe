@@ -379,3 +379,29 @@ func TestConvertRacesConvertAndRelease(t *testing.T) {
 		}
 	})
 }
+
+// A visitor's live hold is told apart from a real booking in the booked spans
+// the fixed-booking pre-check reads, so the owner sees "Reservando online"
+// instead of "Reserva" on that date.
+func TestBookedSpansMarkALiveOnlineHold(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	hold := newHold(f, "18:00", "19:30")
+	takeHold(t, f, hold)
+	booking := f.NewBooking(datatest.BookingOptions{StartTime: "20:00", EndTime: "21:00", Status: "confirmed"})
+	if err := f.Stores.Bookings.InsertSafe(ctx, booking); err != nil {
+		t.Fatalf("InsertSafe: %v", err)
+	}
+
+	spans, err := f.Stores.Bookings.BookedSpansBetween(ctx, []uuid.UUID{hold.CourtID}, hold.Date, hold.Date.AddDate(0, 0, 1))
+	if err != nil {
+		t.Fatalf("BookedSpansBetween: %v", err)
+	}
+	marked := map[bool]int{}
+	for _, sp := range spans {
+		marked[sp.OnlineHold]++
+	}
+	if marked[true] != 1 || marked[false] != 1 {
+		t.Errorf("want one online hold and one real booking; got %+v", spans)
+	}
+}

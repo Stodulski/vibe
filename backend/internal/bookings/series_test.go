@@ -1025,6 +1025,7 @@ func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
 		span(2, bookingstore.BookedSpan{Fixed: true}),
 		span(3, bookingstore.BookedSpan{Event: true}),
 		span(4, bookingstore.BookedSpan{Event: true, Match: true}),
+		span(5, bookingstore.BookedSpan{OnlineHold: true}),
 	)
 	w := f.create(t, first, "")
 	if w.Code != http.StatusConflict {
@@ -1043,7 +1044,7 @@ func TestSeriesConflictsSayWhatHoldsEachDate(t *testing.T) {
 	for _, c := range problem.Conflicts {
 		got[c.Date] = c.HeldBy
 	}
-	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match"} {
+	for week, want := range map[int]string{1: "booking", 2: "fixed", 3: "event", 4: "match", 5: "online_hold"} {
 		date := first.AddDate(0, 0, 7*week).Format(time.DateOnly)
 		if got[date] != want {
 			t.Errorf("week %d held_by = %q, want %q (all: %+v)", week, got[date], want, got)

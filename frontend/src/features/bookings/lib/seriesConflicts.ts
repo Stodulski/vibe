@@ -11,7 +11,13 @@ const REASONS = new Set<BookingSeriesConflict['reason']>([
   'missed',
 ]);
 
-const HELD_BY = new Set<NonNullable<BookingSeriesConflict['held_by']>>(['booking', 'fixed', 'event', 'match']);
+const HELD_BY = new Set<NonNullable<BookingSeriesConflict['held_by']>>([
+  'booking',
+  'fixed',
+  'event',
+  'match',
+  'online_hold',
+]);
 
 function isFreeCourt(value: unknown): value is BookingSeriesFreeCourt {
   if (typeof value !== 'object' || value === null) return false;

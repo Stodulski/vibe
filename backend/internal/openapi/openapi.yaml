@@ -7600,10 +7600,11 @@ components:
           enum: [cancelled_by_owner, overlap, blocked, closed_day, no_price, client_blocked, missed]
         held_by:
           type: string
-          enum: [booking, fixed, event, match]
+          enum: [booking, fixed, event, match, online_hold]
           description: >-
             What holds the date when `reason` is `overlap`: a booking, another fixed weekly
-            booking, an open-play event or a tournament match. Absent for any other reason.
+            booking, an open-play event, a tournament match, or a visitor booking the hours
+            online right now (`online_hold`, frees up if they do not pay). Absent for any other reason.
         free_courts:
           type: array
           description: >-

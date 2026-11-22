@@ -123,6 +123,9 @@ const (
 	HeldByFixed   = "fixed"
 	HeldByEvent   = "event"
 	HeldByMatch   = "match"
+	// HeldByOnlineHold is a visitor booking the hours online right now: it
+	// frees up if they do not pay.
+	HeldByOnlineHold = "online_hold"
 )
 
 // SeriesConflictsError refuses a series whose dates collide with something that
@@ -565,6 +568,8 @@ func heldBySpans(spans []bookingstore.BookedSpan, courtID uuid.UUID, startAt, en
 		return HeldByEvent
 	case sp.Fixed:
 		return HeldByFixed
+	case sp.OnlineHold:
+		return HeldByOnlineHold
 	}
 	return HeldByBooking
 }

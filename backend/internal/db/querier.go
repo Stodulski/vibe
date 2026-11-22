@@ -224,6 +224,9 @@ type Querier interface {
 	// the insert-time collision guard have to agree on the same number, or a
 	// pending booking between the two configured values shows as free here and
 	// taken there (or the reverse). Both now read Config.PaymentExpiry once.
+	// online_hold marks a visitor booking the hours online right now: the stale
+	// ones are filtered out below, so an unpaid storefront pending row that is
+	// left is inside its window (slotguard.LiveOnlineHold).
 	GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) ([]GetBookedSlotsRow, error)
 	//
 	// The tenant predicate is the explicit half of the isolation the row-level
