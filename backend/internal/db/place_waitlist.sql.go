@@ -120,7 +120,10 @@ WITH freed AS (
       AND e.capacity > (
           SELECT count(*) FROM open_play_registrations r
           WHERE r.event_id = e.id
-            AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW())))
+            AND (r.status = 'confirmed'
+                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                 OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                     AND r.held_until > NOW() - INTERVAL '10 minutes')))
     ORDER BY w.created_at
     LIMIT $3::int
     FOR UPDATE OF w SKIP LOCKED
@@ -160,8 +163,9 @@ type ClaimFreedOpenPlayWaitlistRow struct {
 
 // Claims, in one statement, every entry still waiting for an event that has a
 // free spot now and has not started, and returns what the email needs. A spot
-// is free when capacity exceeds the confirmed registrations plus the holds still
-// inside their window (the CountOpenPlaySpotsTaken rule). A tournament's
+// is free when capacity exceeds the spots CountOpenPlaySpotsTaken counts (paid,
+// held, or kept for a lapsed hold's open payment check), so nobody is told of a
+// spot sign-up would refuse. A tournament's
 // category is only waited for while its sign-up is open (no draw yet). SKIP
 // LOCKED and the notified_at IS NULL guard make the claim one-shot even with two
 // sweeps running at once.
@@ -248,7 +252,10 @@ const getWaitlistableCategoryEvent = `-- name: GetWaitlistableCategoryEvent :one
 SELECT e.id, (e.capacity - (
            SELECT count(*) FROM open_play_registrations r
            WHERE r.event_id = e.id
-             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+             AND (r.status = 'confirmed'
+                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                  OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                      AND r.held_until > NOW() - INTERVAL '10 minutes'))))::int AS spots_left
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 WHERE c.id = $1::uuid
@@ -310,7 +317,10 @@ const getWaitlistableOpenPlayEvent = `-- name: GetWaitlistableOpenPlayEvent :one
 SELECT e.id, (e.capacity - (
            SELECT count(*) FROM open_play_registrations r
            WHERE r.event_id = e.id
-             AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW()))))::int AS spots_left
+             AND (r.status = 'confirmed'
+                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                  OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                      AND r.held_until > NOW() - INTERVAL '10 minutes'))))::int AS spots_left
 FROM open_play_events e
 WHERE e.id = $1::uuid
   AND e.complex_id = $2::uuid
@@ -334,7 +344,9 @@ type GetWaitlistableOpenPlayEventRow struct {
 // An open-play event a person can wait for: live, of this complex, not a
 // tournament's sign-up container, and not started yet (now_* is the product's
 // wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
-// the confirmed registrations and the holds still inside their window.
+// the confirmed registrations, the holds still inside their window, and the
+// holds that ran out less than ten minutes ago while their payment check is
+// open (open_play.sql says why).
 func (q *Queries) GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (GetWaitlistableOpenPlayEventRow, error) {
 	row := q.db.QueryRow(ctx, getWaitlistableOpenPlayEvent,
 		arg.EventID,
@@ -477,7 +489,10 @@ WHERE w.id IN (
       AND e.capacity <= (
           SELECT count(*) FROM open_play_registrations r
           WHERE r.event_id = e.id
-            AND (r.status = 'confirmed' OR (r.status = 'held' AND r.held_until > NOW())))
+            AND (r.status = 'confirmed'
+                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                 OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
+                     AND r.held_until > NOW() - INTERVAL '10 minutes')))
       AND NOT EXISTS (
           SELECT 1 FROM place_waitlist_entries y
           WHERE y.kind = 'open_play' AND y.notified_at IS NULL

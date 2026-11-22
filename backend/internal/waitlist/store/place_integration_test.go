@@ -135,7 +135,9 @@ func TestOnlyAWaitlistablePlaceIsFound(t *testing.T) {
 	}
 	register(t, f, future, "confirmed", time.Hour)
 	register(t, f, future, "held", time.Hour)
-	register(t, f, future, "held", -time.Minute)
+	// Past the ten minutes a lapsed hold's spot is kept for its payment check
+	// (CountOpenPlaySpotsTaken).
+	register(t, f, future, "held", -11*time.Minute)
 	if spots, _ := st.WaitlistableEvent(ctx, f.ComplexID, future, now); spots != 2 {
 		t.Errorf("confirmed and live holds count, an expired hold does not: want 2 left; got %d", spots)
 	}
@@ -190,8 +192,9 @@ func TestClaimFreedEventsWaitsForAFreeSpotAndIsOneShot(t *testing.T) {
 		t.Fatalf("a full event frees nothing; got %d (%v)", len(got), err)
 	}
 
-	// The hold runs out: its spot is free though nobody swept it to 'expired'.
-	exec(t, f, `UPDATE open_play_registrations SET held_until = NOW() - interval '1 minute' WHERE id = $1`, held)
+	// The hold runs out past the ten minutes its spot is kept for its payment
+	// check (CountOpenPlaySpotsTaken): free though nobody swept it to 'expired'.
+	exec(t, f, `UPDATE open_play_registrations SET held_until = NOW() - interval '11 minutes' WHERE id = $1`, held)
 	got, err := st.ClaimFreedEvents(sweepCtx(), now, 100)
 	if err != nil || len(got) != 2 {
 		t.Fatalf("want both waiting addresses claimed at once; got %d (%v)", len(got), err)

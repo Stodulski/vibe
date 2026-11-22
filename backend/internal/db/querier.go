@@ -79,8 +79,9 @@ type Querier interface {
 	ClaimFreeSlotEntries(ctx context.Context, arg ClaimFreeSlotEntriesParams) ([]ClaimFreeSlotEntriesRow, error)
 	// Claims, in one statement, every entry still waiting for an event that has a
 	// free spot now and has not started, and returns what the email needs. A spot
-	// is free when capacity exceeds the confirmed registrations plus the holds still
-	// inside their window (the CountOpenPlaySpotsTaken rule). A tournament's
+	// is free when capacity exceeds the spots CountOpenPlaySpotsTaken counts (paid,
+	// held, or kept for a lapsed hold's open payment check), so nobody is told of a
+	// spot sign-up would refuse. A tournament's
 	// category is only waited for while its sign-up is open (no draw yet). SKIP
 	// LOCKED and the notified_at IS NULL guard make the claim one-shot even with two
 	// sweeps running at once.
@@ -443,7 +444,9 @@ type Querier interface {
 	// An open-play event a person can wait for: live, of this complex, not a
 	// tournament's sign-up container, and not started yet (now_* is the product's
 	// wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
-	// the confirmed registrations and the holds still inside their window.
+	// the confirmed registrations, the holds still inside their window, and the
+	// holds that ran out less than ten minutes ago while their payment check is
+	// open (open_play.sql says why).
 	GetWaitlistableOpenPlayEvent(ctx context.Context, arg GetWaitlistableOpenPlayEventParams) (GetWaitlistableOpenPlayEventRow, error)
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
@@ -671,7 +674,9 @@ type Querier interface {
 	ListStockMovementsByProduct(ctx context.Context, arg ListStockMovementsByProductParams) ([]StockMovement, error)
 	// The categories of a tournament with what their sign-up container says: the
 	// capacity in pairs, the entry price per pair, whether it was cancelled, and how
-	// many pairs are paid and held (the count capacity is checked against).
+	// many pairs are paid and held (the count capacity is checked against,
+	// CountOpenPlaySpotsTaken: held includes a lapsed hold kept for its open
+	// payment check).
 	ListTournamentCategories(ctx context.Context, tournamentID pgtype.UUID) ([]ListTournamentCategoriesRow, error)
 	ListTournamentGroups(ctx context.Context, categoryID pgtype.UUID) ([]TournamentGroup, error)
 	ListTournamentGroupsByTournament(ctx context.Context, tournamentID pgtype.UUID) ([]TournamentGroup, error)
@@ -766,7 +771,11 @@ type Querier interface {
 	// its players signed up again in another pair meanwhile.
 	PairOfRegistrationPlayersTaken(ctx context.Context, registrationID pgtype.UUID) (bool, error)
 	// Whether any of the phones is a player of a live pair of the category: the
-	// payer of a paid or still-held sign-up, or its partner.
+	// payer of a paid or still-held sign-up, or its partner. A pair whose hold ran
+	// out does not count here even while its spot is kept for its payment check
+	// (CountOpenPlaySpotsTaken): its players may sign up again at once, and a late
+	// payment on the old pair is then refused (PairOfRegistrationPlayersTaken),
+	// like PhoneHoldsAnotherLiveSpot for events.
 	PairPlayersTaken(ctx context.Context, arg PairPlayersTakenParams) (bool, error)
 	// Whether the person of a registration (by phone) holds a live spot of the
 	// event other than that registration: paid, or a hold still inside its window.

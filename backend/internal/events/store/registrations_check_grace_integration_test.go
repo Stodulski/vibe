@@ -9,8 +9,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/data/datatest"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
+	"github.com/stodulski/vibe-server/internal/timezone"
 )
 
 // lapseRecently makes a hold's window end a minute ago and runs the sweep, so
@@ -105,5 +107,49 @@ func TestThePersonOfARecentlyExpiredHoldCanSignUpAgain(t *testing.T) {
 
 	if _, err := signUp(f, ev, "+5491100000037"); err != nil {
 		t.Fatalf("the same person signs up again: %v", err)
+	}
+}
+
+// The place waitlist reads the same count as sign-up: an event kept full by a
+// lapsed hold whose payment check is open is full to the waitlist too (it
+// re-arms who was told about a spot, and tells nobody a spot is free), and a
+// closed check frees the spot for it at once.
+func TestThePlaceWaitlistKeepsARecentlyExpiredHoldsSpotWhileItsCheckIsOpen(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	sweep := data.ContextWithTenantBypass(context.Background())
+	now := timezone.Now()
+	ev := eventWithCapacity(t, f, 1)
+	if err := f.Stores.PlaceWaitlist.InsertEvent(ctx, f.ComplexID, ev.ID, "ana@example.com"); err != nil {
+		t.Fatal(err)
+	}
+	if got, err := f.Stores.PlaceWaitlist.ClaimFreedEvents(sweep, now, 100); err != nil || len(got) != 1 {
+		t.Fatalf("an empty event tells its waiting address; got %d (%v)", len(got), err)
+	}
+
+	slow, err := signUp(f, ev, "+5491100000038")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lapseRecently(t, f, slow.ID)
+
+	if spots, err := f.Stores.PlaceWaitlist.WaitlistableEvent(ctx, f.ComplexID, ev.ID, now); err != nil || spots != 0 {
+		t.Fatalf("while the check is open the waitlist sees no spot; got %d (%v)", spots, err)
+	}
+	if n, err := f.Stores.PlaceWaitlist.RearmFullEvents(sweep, now); err != nil || n != 1 {
+		t.Fatalf("the event is full again, so the told address waits again; re-armed %d (%v)", n, err)
+	}
+	if got, err := f.Stores.PlaceWaitlist.ClaimFreedEvents(sweep, now, 100); err != nil || len(got) != 0 {
+		t.Fatalf("nobody is told of a spot sign-up would refuse; claimed %d (%v)", len(got), err)
+	}
+
+	if _, err := f.Stores.Events.ClosePaymentCheck(ctx, slow.ID); err != nil {
+		t.Fatal(err)
+	}
+	if spots, err := f.Stores.PlaceWaitlist.WaitlistableEvent(ctx, f.ComplexID, ev.ID, now); err != nil || spots != 1 {
+		t.Fatalf("with the check closed the spot is free; got %d (%v)", spots, err)
+	}
+	if got, err := f.Stores.PlaceWaitlist.ClaimFreedEvents(sweep, now, 100); err != nil || len(got) != 1 {
+		t.Fatalf("the freed spot reaches the waiting address; claimed %d (%v)", len(got), err)
 	}
 }
