@@ -17,7 +17,8 @@ import (
 
 // This file holds the booking_hold_expiries record (044_booking_hold_expiries.sql):
 // which storefront bookings were cancelled only because their payment window
-// ran out. Two paths write it, both in the write that cancels the booking —
+// ran out, and (047) which were released by their visitor after a failed
+// payment (CancelReleasedCheckout), asked about again but never reopened. Two paths write it, both in the write that cancels the booking —
 // ExpireHold below for the release sweep, and ReleaseStalePendingOverlaps for
 // a new booking landing on stale hours — and two read it: the release sweep,
 // which asks MercadoPago about each one once (ExpiredHoldsToReconcile), and
@@ -70,8 +71,58 @@ func (m *Store) ExpireHold(ctx context.Context, b *Booking) error {
 	})
 }
 
+// CancelReleasedCheckout cancels b — the caller has moved it to 'cancelled'
+// with the release note — and records it as released by its visitor, in one
+// transaction. It is UpdateIfUnchanged for a visitor's release after a failed
+// payment (bookings.Service.ReleaseCheckout): the release asks MercadoPago
+// once, and its payment search can lag an approval, so the record has the
+// release sweep ask once more five minutes on. The record's cause is
+// 'released' (047_booking_hold_release_cause.sql), which no reopening reader
+// accepts: a late payment found then is refunded, as on any booking its
+// client cancelled.
+//
+// Only while the row still carries the updated_at b was read with; otherwise
+// nothing is written and ErrEditConflict returned.
+func (m *Store) CancelReleasedCheckout(ctx context.Context, b *Booking) error {
+	ctx, cancel := data.TxContext(ctx)
+	defer cancel()
+
+	if err := data.AssertTenant(ctx, b.ComplexID); err != nil {
+		return err
+	}
+	return m.DB.WithTx(ctx, func(_ pgx.Tx, q *db.Queries) error {
+		dbBooking, err := q.UpdateBookingIfUnchanged(ctx, db.UpdateBookingIfUnchangedParams{
+			ID:               data.UUIDToPg(b.ID),
+			Status:           db.BookingStatus(b.Status),
+			CollectionStatus: string(b.CollectionStatus),
+			RefundStatus:     string(b.RefundStatus),
+			Notes:            data.TextToPg(b.Notes),
+			//nolint:gosec // G115: DepositAmount is bounded like Price (see UpdateIfUnchanged).
+			DepositAmount:     int32(b.DepositAmount),
+			RefundIntentAt:    data.TimePtrToPg(b.RefundIntentAt),
+			ExpectedUpdatedAt: data.TimeToPg(b.UpdatedAt),
+		})
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) {
+				return data.ErrEditConflict
+			}
+			return err
+		}
+		if err := q.InsertBookingCheckoutRelease(ctx, db.InsertBookingCheckoutReleaseParams{
+			BookingID: data.UUIDToPg(b.ID),
+			ComplexID: data.UUIDToPg(b.ComplexID),
+		}); err != nil {
+			return fmt.Errorf("bookings: record checkout release: %w", err)
+		}
+		b.UpdatedAt = data.PgToTime(dbBooking.UpdatedAt)
+		b.ClientSnapshot = snapshotFromDB(dbBooking)
+		b.ContactEmail = dbBooking.ClientEmail.String
+		return nil
+	})
+}
+
 // ExpiredHoldsToReconcile returns up to limit bookings cancelled by hold
-// expiry within the last lookback that the release sweep has not yet asked
+// expiry, or released by their visitor (ReleasedByClient), within the last lookback that the release sweep has not yet asked
 // MercadoPago about, has failed on fewer than maxFailures times and whose
 // next attempt is due (RecordHoldReconcileFailure backs it off), oldest
 // first, enriched like GetExpiredPendingEnriched (the seller credential is
@@ -92,7 +143,8 @@ func (m *Store) ExpiredHoldsToReconcile(ctx context.Context, lookback time.Durat
 		       COALESCE(cl.phone, b.client_phone, ''), COALESCE(NULLIF(b.client_email, ''), cl.email, ''), cx.name, co.name,
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
-		       cx.phone, cx.owner_id
+		       cx.phone, cx.owner_id,
+		       e.cause = 'released'
 		FROM booking_hold_expiries e
 		JOIN bookings b ON b.id = e.booking_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -109,7 +161,20 @@ func (m *Store) ExpiredHoldsToReconcile(ctx context.Context, lookback time.Durat
 		return nil, err
 	}
 	defer rows.Close()
-	return scanCronBookings(rows, m.Keys)
+	result := make([]*CronBooking, 0, limit)
+	for rows.Next() {
+		var released bool
+		cb, err := scanCronBooking(rows, m.Keys, &released)
+		if err != nil {
+			return nil, err
+		}
+		cb.ReleasedByClient = released
+		result = append(result, cb)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("bookings: scan expired holds: %w", err)
+	}
+	return result, nil
 }
 
 // MarkHoldReconciled records that MercadoPago was asked about the booking's
@@ -189,7 +254,8 @@ func (m *Store) PaymentsLapsingSoon(ctx context.Context, window, ahead, lookback
 
 // ReopenableByLatePaymentSQL is the SQL test, over the bookings row aliased
 // alias, for a booking a late online payment may reopen (S5): cancelled only
-// by hold expiry (a booking_hold_expiries row), never paid, owing no refund
+// by hold expiry (a booking_hold_expiries row whose cause is 'expired', not a
+// visitor's release), never paid, owing no refund
 // and not yet started. The first four are exactly what the reversal trigger
 // of 044_booking_hold_expiries.sql lets through; a reader looser than the
 // trigger sent a payment the trigger then refused (a second payment on an
@@ -205,7 +271,7 @@ func ReopenableByLatePaymentSQL(alias string) string {
 		AND %[1]s.refund_status = 'none'
 		AND %[1]s.refund_intent_at IS NULL
 		AND booking_starts_at(%[1]s.date, %[1]s.start_time) > NOW()
-		AND EXISTS (SELECT 1 FROM booking_hold_expiries e WHERE e.booking_id = %[1]s.id))`, alias)
+		AND EXISTS (SELECT 1 FROM booking_hold_expiries e WHERE e.booking_id = %[1]s.id AND e.cause = 'expired'))`, alias)
 }
 
 // HoldExpiryNote is the note both expiry paths append to a booking they

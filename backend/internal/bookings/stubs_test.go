@@ -87,6 +87,10 @@ type stubStore struct {
 	// expiredToReconcile what ExpiredHoldsToReconcile reads from, and
 	// holdReconciled/holdFailures what the sweep wrote back about them.
 	holdExpired []uuid.UUID
+	// checkoutReleased is every booking CancelReleasedCheckout wrote: a
+	// visitor's release, recorded for one more MercadoPago ask but never as
+	// an expiry.
+	checkoutReleased []uuid.UUID
 	// holdExtended is every booking ExtendHold kept live.
 	holdExtended []uuid.UUID
 	// holdExtendedFor is how long each ExtendHold asked the hold kept for.
@@ -467,6 +471,16 @@ func (s *stubStore) ExpireHold(ctx context.Context, b *bookingstore.Booking) err
 		return err
 	}
 	s.holdExpired = append(s.holdExpired, b.ID)
+	return nil
+}
+
+// CancelReleasedCheckout is UpdateIfUnchanged that also records the booking
+// as released by its visitor, the way the real transaction writes both rows.
+func (s *stubStore) CancelReleasedCheckout(ctx context.Context, b *bookingstore.Booking) error {
+	if err := s.UpdateIfUnchanged(ctx, b); err != nil {
+		return err
+	}
+	s.checkoutReleased = append(s.checkoutReleased, b.ID)
 	return nil
 }
 

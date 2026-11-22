@@ -520,8 +520,7 @@ type publicRelease struct {
 // The checkout link is closed first, and nothing is let go while it will not
 // close (ErrCheckoutStillOpen, a 503 the visitor retries): asking MercadoPago
 // before closing it left a moment in which a payment could be approved after
-// the answer and then, with its notification lost, never be found, since a
-// released booking carries no expiry record for the sweep to ask about again.
+// the answer and then, with its notification lost, never be found.
 // Then MercadoPago is asked (settleCheckoutPayments): a paid booking (recorded,
 // or approved with its notification lost) is ErrCheckoutPaid, one with a
 // payment in process ErrPaymentInProcess, and when MercadoPago cannot be asked
@@ -566,7 +565,17 @@ func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string
 		note = *booking.Notes + " | " + note
 	}
 	booking.Notes = &note
-	if err := s.store.UpdateIfUnchanged(ctx, booking); err != nil {
+	// Recorded with the cancellation (CancelReleasedCheckout), so the expiry
+	// sweep asks MercadoPago once more a while later: its payment search can
+	// lag an approval, and a payment approved just before the link closed,
+	// whose notification is lost, would otherwise never be found. The record
+	// is a release, never an expiry, so that late payment is refunded rather
+	// than reopening the booking, as on any booking its client cancelled.
+	write := s.store.UpdateIfUnchanged
+	if s.holdExpiries != nil {
+		write = s.holdExpiries.CancelReleasedCheckout
+	}
+	if err := write(ctx, booking); err != nil {
 		if errors.Is(err, data.ErrEditConflict) {
 			return s.releaseRaceOutcome(ctx, booking.ID)
 		}

@@ -451,6 +451,12 @@ type Querier interface {
 	IncrementNoShowCount(ctx context.Context, id pgtype.UUID) error
 	InsertAuditLog(ctx context.Context, arg InsertAuditLogParams) (AuditLog, error)
 	InsertBooking(ctx context.Context, arg InsertBookingParams) (Booking, error)
+	// Records that a storefront booking was released by its visitor after a failed
+	// payment (047_booking_hold_release_cause.sql): asked about with MercadoPago
+	// once more by the release sweep, five minutes on (its payment search can lag
+	// an approval), and never reopened by a late payment. Written in the
+	// transaction that cancels it.
+	InsertBookingCheckoutRelease(ctx context.Context, arg InsertBookingCheckoutReleaseParams) error
 	// Records that a storefront booking was cancelled by hold expiry and nothing
 	// else (044_booking_hold_expiries.sql). Written in the transaction that
 	// cancels it; a second write for the same booking changes nothing.

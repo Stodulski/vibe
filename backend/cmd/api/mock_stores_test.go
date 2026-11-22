@@ -917,6 +917,12 @@ func (m *mockBookingStore) ExpireHold(ctx context.Context, b *bookingstore.Booki
 	return m.Update(ctx, b)
 }
 
+// CancelReleasedCheckout is a visitor's release: the same booking write as
+// UpdateIfUnchanged (plus the release record, which this mock does not keep).
+func (m *mockBookingStore) CancelReleasedCheckout(ctx context.Context, b *bookingstore.Booking) error {
+	return m.UpdateIfUnchanged(ctx, b)
+}
+
 func (m *mockBookingStore) ExpiredHoldsToReconcile(context.Context, time.Duration, int, int) ([]*bookingstore.CronBooking, error) {
 	return nil, nil
 }

@@ -281,6 +281,16 @@ INSERT INTO booking_hold_expiries (booking_id, complex_id)
 VALUES ($1, $2)
 ON CONFLICT (booking_id) DO NOTHING;
 
+-- name: InsertBookingCheckoutRelease :exec
+-- Records that a storefront booking was released by its visitor after a failed
+-- payment (047_booking_hold_release_cause.sql): asked about with MercadoPago
+-- once more by the release sweep, five minutes on (its payment search can lag
+-- an approval), and never reopened by a late payment. Written in the
+-- transaction that cancels it.
+INSERT INTO booking_hold_expiries (booking_id, complex_id, cause, next_attempt_at)
+VALUES ($1, $2, 'released', NOW() + INTERVAL '5 minutes')
+ON CONFLICT (booking_id) DO NOTHING;
+
 -- name: MarkBookingHoldReconciled :exec
 -- The release sweep asked MercadoPago about this expired booking and handed
 -- any approved payment over: it is not asked again.

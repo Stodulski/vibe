@@ -413,3 +413,113 @@ func TestExpireHoldLeavesAHoldExtendedSinceItWasRead(t *testing.T) {
 		t.Errorf("want the lapsed hold cancelled; got %s", status)
 	}
 }
+
+// releasedCheckout is a storefront booking whose visitor let it go after a
+// failed payment (CancelReleasedCheckout), with its checkout row.
+func releasedCheckout(t *testing.T, f *datatest.Fixture) *bookingstore.Booking {
+	t.Helper()
+	ctx := f.Scoped(context.Background())
+	b := f.CreateBooking(t, datatest.BookingOptions{
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true,
+		StartTime: "16:00", EndTime: "17:00",
+	})
+	withCheckout(t, f, b)
+	read, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	read.Status = "cancelled"
+	if err := f.Stores.Bookings.CancelReleasedCheckout(ctx, read); err != nil {
+		t.Fatalf("CancelReleasedCheckout: %v", err)
+	}
+	return read
+}
+
+// T12 (1): a visitor's release is recorded for the sweep to ask MercadoPago
+// once more, a while later (its payment search can lag an approval), flagged
+// as a release; and it is never a booking a late payment may reopen: neither
+// the readers (CancelledByHoldExpiry) nor the reversal trigger take it for an
+// expiry.
+func TestAReleasedCheckoutIsAskedAboutAgainButNeverReopened(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	b := releasedCheckout(t, f)
+
+	got, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	if got.Status != "cancelled" || got.CancelledByHoldExpiry {
+		t.Fatalf("want the booking cancelled and not reopenable; got status=%q reopenable=%v", got.Status, got.CancelledByHoldExpiry)
+	}
+	if reconcileIDs(t, f)[b.ID] {
+		t.Error("a release is asked about later, not on the very next run")
+	}
+
+	makeDue(t, f, b.ID)
+	list, err := f.Stores.Bookings.ExpiredHoldsToReconcile(ctx, 48*time.Hour, 50, 3)
+	if err != nil {
+		t.Fatalf("ExpiredHoldsToReconcile: %v", err)
+	}
+	var found *bookingstore.CronBooking
+	for _, c := range list {
+		if c.ID == b.ID {
+			found = c
+		}
+	}
+	if found == nil || !found.ReleasedByClient {
+		t.Fatalf("want the release returned to the sweep, flagged as released by its client; got %+v", found)
+	}
+
+	_, err = f.DB.Exec(ctx,
+		`UPDATE bookings SET status = 'confirmed', collection_status = 'deposit_paid' WHERE id = $1`, b.ID)
+	if err == nil {
+		t.Fatal("the reversal trigger must refuse to reopen a booking its visitor released")
+	}
+}
+
+// Previous behavior: an expiry is still returned unflagged, reopenable.
+func TestAnExpiredHoldIsNotFlaggedAsReleased(t *testing.T) {
+	f := datatest.Isolated(t)
+	b := expiredBooking(t, f, "08:00", "09:00", true)
+
+	list, err := f.Stores.Bookings.ExpiredHoldsToReconcile(f.Scoped(context.Background()), 48*time.Hour, 50, 3)
+	if err != nil {
+		t.Fatalf("ExpiredHoldsToReconcile: %v", err)
+	}
+	if len(list) != 1 || list[0].ID != b.ID || list[0].ReleasedByClient {
+		t.Fatalf("want the expiry returned, not flagged as released; got %+v", list)
+	}
+	got, err := f.Stores.Bookings.GetByID(f.Scoped(context.Background()), b.ID)
+	if err != nil || !got.CancelledByHoldExpiry {
+		t.Fatalf("want the expiry still reopenable; got %+v, %v", got, err)
+	}
+}
+
+// A release that lost a race to another write changes nothing: no record,
+// ErrEditConflict.
+func TestCancelReleasedCheckoutLeavesABookingThatChangedSinceItWasRead(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	b := f.CreateBooking(t, datatest.BookingOptions{
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true,
+	})
+	read, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	// A snapshot older than the row: the fixture's one transaction keeps
+	// NOW(), so another write would not move updated_at.
+	read.UpdatedAt = read.UpdatedAt.Add(-time.Second)
+	read.Status = "cancelled"
+	if err := f.Stores.Bookings.CancelReleasedCheckout(ctx, read); !errors.Is(err, data.ErrEditConflict) {
+		t.Fatalf("want ErrEditConflict; got %v", err)
+	}
+	var n int
+	if err := f.DB.QueryRow(ctx, `SELECT count(*) FROM booking_hold_expiries WHERE booking_id = $1`, b.ID).Scan(&n); err != nil || n != 0 {
+		t.Errorf("want no record for a release that did not happen; got %d, %v", n, err)
+	}
+	if status, _, _ := f.ReadBookingState(t, b.ID); status != "pending" {
+		t.Errorf("want the booking left pending; got %s", status)
+	}
+}

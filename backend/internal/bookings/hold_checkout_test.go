@@ -251,6 +251,32 @@ func TestReleaseCheckoutGivesTheSlotBack(t *testing.T) {
 	}
 }
 
+// T12 (1): MercadoPago's payment search can lag an approval, and a release
+// asks it once. The release is recorded with the cancellation, so the expiry
+// sweep asks once more later and a payment its webhook never delivered is
+// still found; it is recorded as a release, never as an expiry, so that late
+// payment is refunded rather than reopening the booking.
+func TestReleaseCheckoutRecordsTheReleaseForASecondAsk(t *testing.T) {
+	f := newFixture(t)
+	b := failedCheckout(f, 5)
+
+	w := httptest.NewRecorder()
+	f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !slices.Equal(f.store.checkoutReleased, []uuid.UUID{b.ID}) {
+		t.Errorf("want the release recorded with the cancellation; got %v", f.store.checkoutReleased)
+	}
+	if len(f.store.holdExpired) != 0 {
+		t.Errorf("a visitor's release is not an expiry a late payment may reopen; got %v", f.store.holdExpired)
+	}
+	if len(f.store.updated) != 1 || f.store.updated[0].Status != "cancelled" {
+		t.Errorf("want the booking cancelled once; got %+v", f.store.updated)
+	}
+}
+
 // S4: a release of a booking that was paid after all is refused and changes
 // nothing; one already released is a no-op.
 func TestReleaseCheckoutLeavesPaidAndReleasedBookingsAlone(t *testing.T) {

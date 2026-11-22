@@ -828,6 +828,27 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 	return i, err
 }
 
+const insertBookingCheckoutRelease = `-- name: InsertBookingCheckoutRelease :exec
+INSERT INTO booking_hold_expiries (booking_id, complex_id, cause, next_attempt_at)
+VALUES ($1, $2, 'released', NOW() + INTERVAL '5 minutes')
+ON CONFLICT (booking_id) DO NOTHING
+`
+
+type InsertBookingCheckoutReleaseParams struct {
+	BookingID pgtype.UUID `json:"booking_id"`
+	ComplexID pgtype.UUID `json:"complex_id"`
+}
+
+// Records that a storefront booking was released by its visitor after a failed
+// payment (047_booking_hold_release_cause.sql): asked about with MercadoPago
+// once more by the release sweep, five minutes on (its payment search can lag
+// an approval), and never reopened by a late payment. Written in the
+// transaction that cancels it.
+func (q *Queries) InsertBookingCheckoutRelease(ctx context.Context, arg InsertBookingCheckoutReleaseParams) error {
+	_, err := q.db.Exec(ctx, insertBookingCheckoutRelease, arg.BookingID, arg.ComplexID)
+	return err
+}
+
 const insertBookingHoldExpiry = `-- name: InsertBookingHoldExpiry :exec
 INSERT INTO booking_hold_expiries (booking_id, complex_id)
 VALUES ($1, $2)

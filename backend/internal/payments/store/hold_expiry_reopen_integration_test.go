@@ -331,3 +331,38 @@ func TestAReopenedBookingLosesTheExpiryNote(t *testing.T) {
 		})
 	}
 }
+
+// T12 (1): a booking its visitor released is a client cancellation: a late
+// payment found by the sweep's second ask is refunded (ErrBookingCancelled),
+// never confirmed, even into free hours.
+func TestALatePaymentDoesNotReopenABookingItsVisitorReleased(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	b := f.CreateBooking(t, datatest.BookingOptions{
+		Status: "pending", CollectionStatus: bookingstore.CollectionStatusUnpaid, Public: true,
+	})
+	preferenceID := "pref-released-" + b.ID.String()
+	checkout := &paymentstore.Payment{
+		BookingID: b.ID, ComplexID: f.ComplexID, Amount: b.DepositAmount, ServiceFee: 10_500,
+		Method: "mercadopago", Status: "unpaid", MPPreferenceID: &preferenceID,
+	}
+	if err := f.Stores.Payments.Insert(ctx, checkout); err != nil {
+		t.Fatalf("creating the checkout row: %v", err)
+	}
+	read, err := f.Stores.Bookings.GetByID(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	read.Status = "cancelled"
+	if err := f.Stores.Bookings.CancelReleasedCheckout(ctx, read); err != nil {
+		t.Fatalf("CancelReleasedCheckout: %v", err)
+	}
+	confirmedByLatePayment(read, checkout)
+
+	if err := f.Stores.Payments.ConfirmWebhookPayment(ctx, checkout, read); !errors.Is(err, bookingstore.ErrBookingCancelled) {
+		t.Fatalf("want ErrBookingCancelled (refunded); got %v", err)
+	}
+	if status, _, _ := f.ReadBookingState(t, b.ID); status != "cancelled" {
+		t.Errorf("want the booking still cancelled; got %s", status)
+	}
+}

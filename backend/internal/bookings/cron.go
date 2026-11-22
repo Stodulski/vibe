@@ -327,6 +327,10 @@ type HoldExpiryStore interface {
 	// ExpireHold writes the cancelled booking and records it as expired, in
 	// one transaction.
 	ExpireHold(ctx context.Context, b *bookingstore.Booking) error
+	// CancelReleasedCheckout writes a visitor's release of a booking it read
+	// and records it to be asked about once more, never reopened, in one
+	// transaction; a booking that changed since it was read is ErrEditConflict.
+	CancelReleasedCheckout(ctx context.Context, b *bookingstore.Booking) error
 	ExpiredHoldsToReconcile(ctx context.Context, lookback time.Duration, limit, maxFailures int) ([]*bookingstore.CronBooking, error)
 	MarkHoldReconciled(ctx context.Context, bookingID uuid.UUID) error
 	RecordHoldReconcileFailure(ctx context.Context, bookingID uuid.UUID) (int, error)
