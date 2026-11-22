@@ -20,6 +20,13 @@ import { readJson, sendError, sendJson } from './http.ts';
 import type { Route } from './http.ts';
 import type { PaymentStatus } from './store.ts';
 
+/**
+ * Statuses a payment never leaves. Under binary_mode a rejected payment stays
+ * rejected, and so does one cancelled (expired unpaid): another card is a new
+ * payment, with a new id, never the old one turning approved.
+ */
+const FINAL_STATUSES: ReadonlySet<PaymentStatus> = new Set(['rejected', 'cancelled']);
+
 async function setPaymentStatus(req: IncomingMessage, res: ServerResponse, id: number): Promise<void> {
   const payment = state.payments.get(id);
   if (!payment) {
@@ -29,6 +36,10 @@ async function setPaymentStatus(req: IncomingMessage, res: ServerResponse, id: n
   const status = (await readJson(req)).status;
   if (typeof status !== 'string' || !Object.hasOwn(STATUS_DETAIL, status)) {
     sendError(res, 400, `unknown status "${String(status)}"`);
+    return;
+  }
+  if (FINAL_STATUSES.has(payment.status) && status !== payment.status) {
+    sendError(res, 409, `payment ${String(id)} is ${payment.status}, which is final: pay again for a new payment`);
     return;
   }
   const pref = state.preferences.get(payment.preference_id);

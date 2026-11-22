@@ -160,7 +160,7 @@ export const mpFake = {
     return (await this.refunds()).filter((r) => r.payment_id === paymentId);
   },
 
-  /** Flips a payment's status (e.g. a pending one to approved) and re-sends its webhook. */
+  /** Flips a payment's status (e.g. a pending one to approved) and re-sends its webhook. A rejected or cancelled payment is final: 409. */
   setPaymentStatus: (paymentId: number, status: string) =>
     call<{ payment: FakePayment }>('POST', `/__fake/payments/${String(paymentId)}/status`, { status }),
 };

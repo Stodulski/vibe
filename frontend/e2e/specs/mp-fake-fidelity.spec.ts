@@ -406,6 +406,32 @@ test('a pending payment approved after a second, approved one is refunded in ful
   expect(recordedPayment(pending.id)?.status).toBe('refunded');
 });
 
+test('a rejected payment is final: it never turns approved, and paying again makes a new payment', async ({ page }) => {
+  test.slow();
+  const preferenceId = await bookStorefrontUpToCheckout(page, world.slug, newClient('Rechazo'));
+  const checkoutURL = page.url();
+  const bookingId = await referenceOfPreference(preferenceId);
+  await page.getByRole('button', { name: MP_FAKE_CHECKOUT.reject }).click();
+  await expect(page).toHaveURL(new RegExp(`${world.slug}/book/failure`), { timeout: 15_000 });
+  const rejected = await paymentOfPreference(preferenceId);
+  expect(rejected.status).toBe('rejected');
+
+  // Under binary_mode Mercado Pago never approves a rejected payment later.
+  await expect(mpFake.setPaymentStatus(rejected.id, 'approved')).rejects.toThrow(/HTTP 409/);
+  expect((await paymentOfPreference(preferenceId)).status).toBe('rejected');
+
+  // Another card on the same open link is a new payment, which confirms the booking.
+  await page.goto(checkoutURL);
+  await page.getByRole('button', { name: MP_FAKE_CHECKOUT.approve }).click();
+  await expect(page).toHaveURL(new RegExp(`${world.slug}/book/success`), { timeout: 15_000 });
+  const payments = await mpFake.paymentsOfPreference(preferenceId);
+  expect(payments.map((p) => [p.id === rejected.id, p.status])).toEqual([
+    [true, 'rejected'],
+    [false, 'approved'],
+  ]);
+  await waitForBookingStatus(world, bookingId, 'confirmed');
+});
+
 // Last on purpose: it fails against the backend today (reported, odd/tasks/mp-fake-e2e.md T5),
 // and a failure in serial mode skips every test after it.
 test('a partial refund made from the Mercado Pago panel is recorded, and the booking is not refunded whole', async ({
