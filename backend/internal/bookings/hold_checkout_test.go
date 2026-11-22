@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/mp"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -358,7 +359,7 @@ func TestRetryCheckoutAsksMercadoPagoFirst(t *testing.T) {
 // S4, finding 4: a release asks MercadoPago before it cancels anything. An
 // approved payment whose notice was lost is processed and the booking kept; a
 // payment in process keeps it too; and when MercadoPago cannot be asked the
-// booking is not released blind.
+// booking is not released blind. The link is closed first in every case (L18).
 func TestReleaseCheckoutAsksMercadoPagoFirst(t *testing.T) {
 	cases := []struct {
 		name       string
@@ -388,8 +389,11 @@ func TestReleaseCheckoutAsksMercadoPagoFirst(t *testing.T) {
 			if w.Code != tc.status || problemKind(decode(t, w)) != string(tc.kind) {
 				t.Fatalf("want %d %s; got %d (%s)", tc.status, tc.kind, w.Code, w.Body.String())
 			}
-			if len(f.store.updated) != 0 || len(f.checkout.expired) != 0 || len(f.realtime.published) != 0 {
-				t.Errorf("nothing may be released; updated=%d closed=%v published=%d", len(f.store.updated), f.checkout.expired, len(f.realtime.published))
+			if len(f.store.updated) != 0 || len(f.realtime.published) != 0 {
+				t.Errorf("nothing may be released; updated=%d published=%d", len(f.store.updated), len(f.realtime.published))
+			}
+			if !slices.Equal(f.checkout.expired, []string{"pref-77"}) {
+				t.Errorf("the link is closed before MercadoPago is asked, whatever it answers; closed %v", f.checkout.expired)
 			}
 			if !slices.Equal(f.reconciler.reconciled, tc.reconciled) {
 				t.Errorf("reconciled %v, want %v", f.reconciler.reconciled, tc.reconciled)
@@ -414,5 +418,151 @@ func TestReleaseCheckoutSaysPaidOnlyOfAPaidBooking(t *testing.T) {
 
 	if w.Code != http.StatusConflict || problemKind(decode(t, w)) == string(httpx.KindBookingPaid) {
 		t.Fatalf("want a 409 that does not say paid; got %d (%s)", w.Code, w.Body.String())
+	}
+}
+
+// L18 major: a release closes the checkout link before it asks MercadoPago,
+// so no payment can be approved between the answer and the cancellation, and
+// only then cancels the booking.
+func TestReleaseCheckoutClosesTheLinkBeforeAskingMercadoPago(t *testing.T) {
+	f := newFixture(t)
+	b := failedCheckout(f, 5)
+
+	w := httptest.NewRecorder()
+	f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("want 204; got %d (%s)", w.Code, w.Body.String())
+	}
+	if !slices.Equal(f.checkout.calls, []string{"close", "search"}) {
+		t.Errorf("want the link closed, then MercadoPago asked; got %v", f.checkout.calls)
+	}
+	if len(f.store.updated) != 1 || f.store.updated[0].ID != b.ID || f.store.updated[0].Status != "cancelled" {
+		t.Errorf("want the booking cancelled after both; got %+v", f.store.updated)
+	}
+}
+
+// L18 major: a link that will not close is not released over. The visitor is
+// told to try again (503), MercadoPago is not asked and the booking keeps its
+// slot: cancelling it would leave a payable link on a booking that is gone.
+func TestReleaseCheckoutRefusesWhenTheLinkWillNotClose(t *testing.T) {
+	f := newFixture(t)
+	failedCheckout(f, 5)
+	f.checkout.expireErr = errors.New("mercadopago refused")
+
+	w := httptest.NewRecorder()
+	f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusServiceUnavailable || problemKind(decode(t, w)) != string(httpx.KindUnavailable) {
+		t.Fatalf("want 503 %s; got %d (%s)", httpx.KindUnavailable, w.Code, w.Body.String())
+	}
+	if len(f.store.updated) != 0 || len(f.realtime.published) != 0 || len(f.waitlist.freed) != 0 {
+		t.Errorf("nothing may be released; updated=%d published=%d freed=%d", len(f.store.updated), len(f.realtime.published), len(f.waitlist.freed))
+	}
+	if len(f.checkout.searches) != 0 {
+		t.Errorf("MercadoPago is asked only once the link is closed; searched %v", f.checkout.searches)
+	}
+}
+
+// L18 major: the cancellation is conditional, and when the booking changed
+// since it was read the answer comes from what it is now, never a bare
+// conflict over a booking whose link was just closed.
+func TestReleaseCheckoutAnswersFromTheCurrentBookingOnARace(t *testing.T) {
+	cases := []struct {
+		name   string
+		now    func(b *bookingstore.Booking)
+		status int
+		kind   httpx.Kind
+	}{
+		{name: "paid meanwhile", now: func(b *bookingstore.Booking) {
+			b.Status, b.CollectionStatus = "confirmed", bookingstore.CollectionStatusDepositPaid
+		}, status: http.StatusConflict, kind: httpx.KindBookingPaid},
+		{name: "released meanwhile", now: func(b *bookingstore.Booking) { b.Status = "cancelled" }, status: http.StatusNoContent},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			f := newFixture(t)
+			b := failedCheckout(f, 5)
+			current := *b
+			tc.now(&current)
+			f.store.booking = &current
+			f.store.updateErrFor = func(*bookingstore.Booking) error { return data.ErrEditConflict }
+
+			w := httptest.NewRecorder()
+			f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+			if w.Code != tc.status {
+				t.Fatalf("want %d; got %d (%s)", tc.status, w.Code, w.Body.String())
+			}
+			if tc.kind != "" && problemKind(decode(t, w)) != string(tc.kind) {
+				t.Errorf("want kind %s; got %s", tc.kind, w.Body.String())
+			}
+			if len(f.realtime.published) != 0 || len(f.waitlist.freed) != 0 || len(f.audit.entries) != 0 {
+				t.Errorf("a release that did not write frees nothing; published=%d freed=%d audit=%d",
+					len(f.realtime.published), len(f.waitlist.freed), len(f.audit.entries))
+			}
+		})
+	}
+}
+
+// L18 minor: every approved payment on the checkout is handed over, one the
+// ledger already holds is not replayed, and "paid" is said only once the
+// processing took them; a hand-over that failed is a retry-later, not paid.
+func TestSettlingACheckoutHandsOverEveryApprovedPayment(t *testing.T) {
+	t.Run("two approved, one already recorded", func(t *testing.T) {
+		f := newFixture(t)
+		b := failedCheckout(f, 5)
+		recorded := "91"
+		f.payments.ledger = []*paymentstore.Payment{{BookingID: b.ID, Status: "deposit_paid", MPPaymentID: &recorded}}
+		f.checkout.searchResults = []mp.Payment{
+			{ID: 91, Status: "approved", ExternalReference: b.ID.String()},
+			{ID: 92, Status: "approved", ExternalReference: b.ID.String()},
+			{ID: 93, Status: "approved", ExternalReference: b.ID.String()},
+		}
+
+		w := httptest.NewRecorder()
+		f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+		if w.Code != http.StatusConflict || problemKind(decode(t, w)) != string(httpx.KindBookingPaid) {
+			t.Fatalf("want 409 %s; got %d (%s)", httpx.KindBookingPaid, w.Code, w.Body.String())
+		}
+		if !slices.Equal(f.reconciler.reconciled, []string{"92", "93"}) {
+			t.Errorf("want every approved payment not yet recorded handed over; got %v", f.reconciler.reconciled)
+		}
+	})
+	t.Run("the hand-over failed", func(t *testing.T) {
+		f := newFixture(t)
+		b := failedCheckout(f, 5)
+		f.reconciler.err = errors.New("database down")
+		f.checkout.searchResults = []mp.Payment{{ID: 94, Status: "approved", ExternalReference: b.ID.String()}}
+
+		w := httptest.NewRecorder()
+		f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+		if w.Code != http.StatusServiceUnavailable || problemKind(decode(t, w)) != string(httpx.KindUnavailable) {
+			t.Fatalf("want 503 %s; got %d (%s)", httpx.KindUnavailable, w.Code, w.Body.String())
+		}
+		if len(f.checkout.reads) != 0 {
+			t.Errorf("no checkout link is handed back over an approved payment; reads %v", f.checkout.reads)
+		}
+	})
+}
+
+// L18 minor: a retry on a booking that is paid already sends the visitor to
+// it (booking-paid), rather than saying it can no longer be paid.
+func TestRetryCheckoutOnAPaidBookingSaysPaid(t *testing.T) {
+	f := newFixture(t)
+	b := failedCheckout(f, 5)
+	b.Status = "confirmed"
+	b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+
+	w := httptest.NewRecorder()
+	f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+
+	if w.Code != http.StatusConflict || problemKind(decode(t, w)) != string(httpx.KindBookingPaid) {
+		t.Fatalf("want 409 %s; got %d (%s)", httpx.KindBookingPaid, w.Code, w.Body.String())
+	}
+	if len(f.checkout.reads) != 0 || len(f.checkout.searches) != 0 {
+		t.Errorf("a paid booking needs no MercadoPago call; reads %v searches %v", f.checkout.reads, f.checkout.searches)
 	}
 }

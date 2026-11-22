@@ -176,3 +176,26 @@ func TestKeepPayingHoldsDoesNothingWhenMercadoPagoCannotBeAsked(t *testing.T) {
 			f.store.holdExtended, f.store.updated, f.reconciler.reconciled)
 	}
 }
+
+// L18 minor: the look-ahead processes an approved payment only while the hold
+// is live. Once the window ended, the expiry sweep owns the booking: it
+// replays the payment within reconcileGiveUp and raises the one alert when it
+// gives up. Replaying it here too, every minute, wrote an inbox row (and the
+// processing's alert) per minute for a payment the processing keeps declining.
+func TestKeepPayingHoldsLeavesALapsedApprovedPaymentToTheExpirySweep(t *testing.T) {
+	f := newFixture(t)
+	candidate := lapsingCheckout(f, -2*time.Minute)
+	f.checkout.searchResults = []mp.Payment{
+		{ID: 65, Status: "approved", ExternalReference: candidate.ID.String()},
+		{ID: 66, Status: "in_process", ExternalReference: candidate.ID.String(), DateCreated: time.Now().Add(-time.Minute)},
+	}
+
+	f.service.KeepPayingHolds(t.Context(), f.reconciler)
+
+	if len(f.reconciler.reconciled) != 0 {
+		t.Errorf("a lapsed booking's approved payment is the expiry sweep's to replay; got %v", f.reconciler.reconciled)
+	}
+	if len(f.store.holdExtended) != 0 {
+		t.Errorf("an approved payment is no reason to extend the hold; got %v", f.store.holdExtended)
+	}
+}

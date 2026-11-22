@@ -350,6 +350,9 @@ const (
 	checkoutPaidMessage        = "La reserva ya está pagada."
 	paymentInProcessMessage    = "Mercado Pago todavía está procesando tu pago. Esperá unos minutos: si se aprueba, te llega la confirmación por email."
 	paymentUnverifiableMessage = "No pudimos confirmar con Mercado Pago el estado de tu pago. Probá de nuevo en unos minutos."
+	// checkoutStillOpenMessage is the detail of ErrCheckoutStillOpen when a
+	// release could not close the checkout link: the slot stays held.
+	checkoutStillOpenMessage = "No pudimos cerrar el enlace de pago, así que el horario sigue reservado. Probá de nuevo en unos minutos."
 )
 
 // checkoutNotReleasableMessage is the 409 detail for a release of a booking
@@ -388,36 +391,51 @@ func unpaidStorefrontBooking(b *bookingstore.Booking) bool {
 
 // settleCheckoutPayments asks MercadoPago, as seller, for the payments made on
 // b's checkout before the visitor pays again or lets it go, and answers nil
-// only when none is approved or in process. An approved one is handed to the
-// reconciler (the processing its webhook runs) and is ErrCheckoutPaid; one
-// still pending, in process or authorized is ErrPaymentInProcess; MercadoPago
-// unreachable is ErrPaymentUnverifiable.
+// only when none is approved or in process. Every approved payment the ledger
+// does not hold yet is handed to the reconciler (the processing its webhook
+// runs), as the expiry sweep does; once all were taken the answer is
+// ErrCheckoutPaid. A hand-over that failed, or no reconciler to hand it to, is
+// ErrPaymentUnverifiable: the visitor tries again later rather than being told
+// the booking is paid when nothing recorded it. One still pending, in process
+// or authorized is ErrPaymentInProcess; MercadoPago unreachable is
+// ErrPaymentUnverifiable.
 func (s *Service) settleCheckoutPayments(ctx context.Context, b *bookingstore.Booking, seller mp.Caller) error {
 	found, err := s.checkout.SearchPaymentsByReference(ctx, b.ID.String(), seller)
 	if err != nil {
 		s.logger.Error("checkout: MercadoPago could not be asked about the booking's payments", "error", err, "booking_id", b.ID)
 		return ErrPaymentUnverifiable
 	}
-	inProcess := false
+	inProcess, approved, handOverFailed := false, false, false
 	for _, p := range found {
 		if p.ExternalReference != b.ID.String() {
 			continue
 		}
 		switch p.Status {
 		case "approved":
+			approved = true
 			mpPaymentID := strconv.FormatInt(p.ID, 10)
-			if s.reconciler != nil {
-				if err := s.reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
-					s.logger.Error("checkout: an approved payment could not be recorded; the expiry sweep retries it",
-						"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
-				}
+			if s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+				continue
 			}
-			return ErrCheckoutPaid
+			if s.reconciler == nil {
+				handOverFailed = true
+				continue
+			}
+			if err := s.reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
+				s.logger.Error("checkout: an approved payment could not be recorded; the expiry sweep retries it",
+					"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
+				handOverFailed = true
+			}
 		case "pending", "in_process", "authorized":
 			inProcess = true
 		}
 	}
-	if inProcess {
+	switch {
+	case handOverFailed:
+		return ErrPaymentUnverifiable
+	case approved:
+		return ErrCheckoutPaid
+	case inProcess:
 		return ErrPaymentInProcess
 	}
 	return nil
@@ -442,6 +460,11 @@ func (s *Service) RetryCheckout(ctx context.Context, token string) (CheckoutRetr
 	booking, complex, err := s.ResolveLink(ctx, token)
 	if err != nil {
 		return CheckoutRetry{}, err
+	}
+	// Paid already (the webhook won the race with the failure page): the
+	// storefront goes to the booking rather than saying it cannot be paid.
+	if booking.Status != "cancelled" && booking.CollectionStatus != bookingstore.CollectionStatusUnpaid {
+		return CheckoutRetry{}, ErrCheckoutPaid
 	}
 	expiresAt := booking.CreatedAt.Add(s.cfg.PaymentExpiry)
 	if booking.Status != "pending" || !unpaidStorefrontBooking(booking) || !time.Now().Before(expiresAt) {
@@ -490,11 +513,18 @@ type publicRelease struct {
 // out is a no-op. No email is sent: the visitor is on the page that asked for
 // it, and the owner never had this booking (slotguard.UnpaidPublicBooking).
 //
-// Nothing is let go before MercadoPago is asked (settleCheckoutPayments): a
-// paid booking (recorded, or approved with its notification lost) is
-// ErrCheckoutPaid, one with a payment in process ErrPaymentInProcess, and
-// when MercadoPago cannot be asked the booking is kept (ErrPaymentUnverifiable)
-// rather than cancelled over a payment nobody would then find.
+// The checkout link is closed first, and nothing is let go while it will not
+// close (ErrCheckoutStillOpen, a 503 the visitor retries): asking MercadoPago
+// before closing it left a moment in which a payment could be approved after
+// the answer and then, with its notification lost, never be found, since a
+// released booking carries no expiry record for the sweep to ask about again.
+// Then MercadoPago is asked (settleCheckoutPayments): a paid booking (recorded,
+// or approved with its notification lost) is ErrCheckoutPaid, one with a
+// payment in process ErrPaymentInProcess, and when MercadoPago cannot be asked
+// the booking is kept (ErrPaymentUnverifiable) rather than cancelled over a
+// payment nobody would then find. Only then is it cancelled, conditionally: a
+// booking that changed since it was read is answered from what it is now
+// (releaseRaceOutcome).
 //
 // A released booking no longer counts against the visitor's per-address cap
 // (only pending ones do). Picking the same hours again gets only what is left
@@ -517,14 +547,14 @@ func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string
 	if err != nil {
 		return err
 	}
+	// Quietly: the visitor is told to try again and the booking keeps its slot,
+	// so a link that will not close is no money at risk to alert about.
+	if err := s.closeCheckoutQuietly(ctx, booking, complex); err != nil {
+		return ErrCheckoutStillOpen
+	}
 	if err := s.settleCheckoutPayments(ctx, booking, seller); err != nil {
 		return err
 	}
-
-	// Closed first, so the visitor cannot pay while the booking is cancelled.
-	// A link that would not close is alerted inside; a payment that lands on
-	// it anyway is the late payment the confirmation path already handles.
-	s.expireCheckoutPreference(ctx, booking, complex)
 
 	booking.Status = "cancelled"
 	note := "Liberado por el cliente tras un pago rechazado"
@@ -534,7 +564,7 @@ func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string
 	booking.Notes = &note
 	if err := s.store.UpdateIfUnchanged(ctx, booking); err != nil {
 		if errors.Is(err, data.ErrEditConflict) {
-			return &ConflictError{Message: publicCancelRaceMessage}
+			return s.releaseRaceOutcome(ctx, booking.ID)
 		}
 		return err
 	}
@@ -546,6 +576,24 @@ func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string
 		ComplexID: complex.ID, ComplexName: complex.Name, ComplexSlug: complex.Slug, Day: booking.Date,
 	})
 	return nil
+}
+
+// releaseRaceOutcome answers a release whose conditional cancellation found the
+// booking changed since it was read, from the booking as it is now: released
+// or expired meanwhile is the no-op a second release is, paid meanwhile is
+// ErrCheckoutPaid, and anything else the conflict it always was.
+func (s *Service) releaseRaceOutcome(ctx context.Context, bookingID uuid.UUID) error {
+	current, err := s.store.GetByID(ctx, bookingID)
+	if err != nil {
+		return err
+	}
+	switch {
+	case current.Status == "cancelled":
+		return nil
+	case current.CollectionStatus != bookingstore.CollectionStatusUnpaid:
+		return ErrCheckoutPaid
+	}
+	return &ConflictError{Message: publicCancelRaceMessage}
 }
 
 // readCheckoutToken decodes the {"token": "..."} body the two checkout routes
@@ -593,8 +641,8 @@ func (h *Handler) RetryCheckout(w http.ResponseWriter, r *http.Request) {
 // ReleaseCheckout handles POST /api/v1/book/checkout/release: the failure
 // page's "Elegir otro horario". 204 when the slot is free (released now, or
 // already); 409 booking-paid when the booking is paid, payment-in-process
-// while MercadoPago is processing a payment on it; 503 when MercadoPago could
-// not be asked.
+// while MercadoPago is processing a payment on it; 503 when the checkout link
+// would not close or MercadoPago could not be asked.
 func (h *Handler) ReleaseCheckout(w http.ResponseWriter, r *http.Request) {
 	token, ok := h.readCheckoutToken(w, r)
 	if !ok {

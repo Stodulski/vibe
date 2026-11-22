@@ -360,6 +360,7 @@ var refusals = httpx.Refusals{
 	ErrCheckoutPaid:            httpx.BookingPaid(checkoutPaidMessage),
 	ErrPaymentInProcess:        httpx.PaymentInProcess(paymentInProcessMessage),
 	ErrPaymentUnverifiable:     httpx.Unavailable(paymentUnverifiableMessage),
+	ErrCheckoutStillOpen:       httpx.Unavailable(checkoutStillOpenMessage),
 	ErrVenueGone:               httpx.Gone(venueGoneMessage),
 	ErrLinkExpired:             httpx.Gone(linkExpiredMessage),
 	// H-15 / R4: ConfirmPayment's status check runs against a read taken

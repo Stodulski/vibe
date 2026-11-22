@@ -985,6 +985,9 @@ type stubCheckout struct {
 	// readClosed answers GetPreference with a link whose expiry has passed:
 	// the sweep, or a release, closed it.
 	readClosed bool
+	// calls is every UpdatePreferenceExpired ("close") and
+	// SearchPaymentsByReference ("search") in the order they were made.
+	calls []string
 }
 
 // GetPreference answers the link of the preference it is asked about, built
@@ -1024,6 +1027,7 @@ func (s *stubCheckout) CreatePreference(_ context.Context, input mp.CreatePrefer
 
 func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID string, caller mp.Caller) error {
 	s.attempts = append(s.attempts, expiryAttempt{preferenceID: preferenceID, caller: caller})
+	s.calls = append(s.calls, "close")
 	if s.expireErr != nil {
 		return s.expireErr
 	}
@@ -1038,6 +1042,7 @@ func (s *stubCheckout) UpdatePreferenceExpired(_ context.Context, preferenceID s
 // searchErr, and records every reference it was asked about and as whom.
 func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference string, caller mp.Caller) ([]mp.Payment, error) {
 	s.searches = append(s.searches, reference)
+	s.calls = append(s.calls, "search")
 	s.searchCallers = append(s.searchCallers, caller)
 	if s.searchErr != nil {
 		return nil, s.searchErr

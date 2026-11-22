@@ -412,7 +412,15 @@ func (s *Service) KeepPayingHolds(ctx context.Context, reconciler PaymentReconci
 // processApprovedEarly hands an approved payment on b, not yet recorded, to
 // reconciler, and reports whether there was one: the booking is being paid
 // for, and its processing confirms it.
+//
+// Only while b's window has not ended. Past it the expiry sweep owns the
+// booking (reconcileBeforeExpiry): it replays the payment within
+// reconcileGiveUp and raises one alert when it gives up. This job runs every
+// minute, so replaying here too repeated a payment the processing declines
+// (a collector or amount mismatch) sixty times an hour, each one another inbox
+// row and alert. The answer is still true, so such a booking is not extended.
 func (s *Service) processApprovedEarly(ctx context.Context, b *bookingstore.CronBooking, found []mp.Payment, reconciler PaymentReconciler) bool {
+	live := time.Now().Before(b.CreatedAt.Add(s.cfg.PaymentExpiry))
 	approved := false
 	for _, p := range found {
 		if p.Status != "approved" || p.ExternalReference != b.ID.String() {
@@ -420,7 +428,7 @@ func (s *Service) processApprovedEarly(ctx context.Context, b *bookingstore.Cron
 		}
 		approved = true
 		mpPaymentID := strconv.FormatInt(p.ID, 10)
-		if reconciler == nil || s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+		if !live || reconciler == nil || s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
 			continue
 		}
 		if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
