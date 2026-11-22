@@ -36,6 +36,24 @@ SET status = $1,
 WHERE id = $6
 RETURNING *;
 
+-- name: TakePaymentRow :one
+-- UpdatePayment for an approved MercadoPago payment written onto a booking's
+-- existing row, only while that row still takes it: a checkout no money has
+-- reached (unpaid, nothing refunded; a rejected attempt's id may be on it), or
+-- the row already carrying this very payment. The webhook decided from a read
+-- taken before it wrote, and a second approved payment that settled the row
+-- meanwhile owns it from then on: the write is refused (no row) instead of
+-- replacing that payment's id.
+UPDATE payments
+SET status = $1,
+    mp_payment_id = $2,
+    mp_preference_id = $3,
+    refund_amount = $4,
+    status_detail = $5
+WHERE id = $6
+  AND ((status = 'unpaid' AND refund_amount = 0) OR mp_payment_id = $2)
+RETURNING *;
+
 -- name: RecordPaymentRejection :execrows
 -- A rejected checkout attempt's MercadoPago id and decline reason, written
 -- only onto a row that is still unpaid. The webhook read the row before it

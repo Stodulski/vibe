@@ -379,6 +379,65 @@ func (q *Queries) RecordPaymentRejection(ctx context.Context, arg RecordPaymentR
 	return result.RowsAffected(), nil
 }
 
+const takePaymentRow = `-- name: TakePaymentRow :one
+UPDATE payments
+SET status = $1,
+    mp_payment_id = $2,
+    mp_preference_id = $3,
+    refund_amount = $4,
+    status_detail = $5
+WHERE id = $6
+  AND ((status = 'unpaid' AND refund_amount = 0) OR mp_payment_id = $2)
+RETURNING id, booking_id, complex_id, amount, service_fee, method, status, mp_payment_id, mp_preference_id, refund_amount, created_at, updated_at, status_detail, manual_refund_amount, manual_refunded_at, registration_id
+`
+
+type TakePaymentRowParams struct {
+	Status         PaymentStatus `json:"status"`
+	MpPaymentID    pgtype.Text   `json:"mp_payment_id"`
+	MpPreferenceID pgtype.Text   `json:"mp_preference_id"`
+	RefundAmount   int32         `json:"refund_amount"`
+	StatusDetail   pgtype.Text   `json:"status_detail"`
+	ID             pgtype.UUID   `json:"id"`
+}
+
+// UpdatePayment for an approved MercadoPago payment written onto a booking's
+// existing row, only while that row still takes it: a checkout no money has
+// reached (unpaid, nothing refunded; a rejected attempt's id may be on it), or
+// the row already carrying this very payment. The webhook decided from a read
+// taken before it wrote, and a second approved payment that settled the row
+// meanwhile owns it from then on: the write is refused (no row) instead of
+// replacing that payment's id.
+func (q *Queries) TakePaymentRow(ctx context.Context, arg TakePaymentRowParams) (Payment, error) {
+	row := q.db.QueryRow(ctx, takePaymentRow,
+		arg.Status,
+		arg.MpPaymentID,
+		arg.MpPreferenceID,
+		arg.RefundAmount,
+		arg.StatusDetail,
+		arg.ID,
+	)
+	var i Payment
+	err := row.Scan(
+		&i.ID,
+		&i.BookingID,
+		&i.ComplexID,
+		&i.Amount,
+		&i.ServiceFee,
+		&i.Method,
+		&i.Status,
+		&i.MpPaymentID,
+		&i.MpPreferenceID,
+		&i.RefundAmount,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.StatusDetail,
+		&i.ManualRefundAmount,
+		&i.ManualRefundedAt,
+		&i.RegistrationID,
+	)
+	return i, err
+}
+
 const updatePayment = `-- name: UpdatePayment :one
 UPDATE payments
 SET status = $1,

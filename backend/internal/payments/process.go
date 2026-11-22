@@ -231,6 +231,11 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 			}
 			// The money is captured and the booking is still pending. Left as an
 			// error, the event is requeued and this write is attempted again.
+			// That includes paymentstore.ErrPaymentRowTaken: another approved
+			// payment settled the checkout row after it was read, and the
+			// retry finds the booking settled and refunds this one as a
+			// duplicate. Confirming it on a new row here would record a second
+			// payment with no refund behind it.
 			return fmt.Errorf("confirm payment %s: %w", mpPaymentID, err)
 		}
 		settled = existingPayment
@@ -660,6 +665,11 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	}
 
 	payment, err := s.recordPaymentOwedARefund(ctx, booking, existing, mpPayment, mpPaymentID)
+	if errors.Is(err, paymentstore.ErrPaymentRowTaken) {
+		// Another approved payment took the checkout row after it was read
+		// here, and nothing was written: this one gets a row of its own.
+		return s.refundAnotherPaymentOnCancelledBooking(ctx, booking, mpPayment, mpPaymentID, cause)
+	}
 	if err != nil {
 		s.logger.Error("mp webhook: failed to record the payment owed a refund, provider not called",
 			"error", err,
@@ -850,12 +860,15 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	booking.RefundIntentAt = &now
 
 	if existing != nil {
-		existing.Status = string(collected)
-		existing.MPPaymentID = &mpPaymentID
-		if err := s.ledger.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
+		// On a copy: a write the row refuses (paymentstore.ErrPaymentRowTaken)
+		// leaves the caller's read of it as it was.
+		row := *existing
+		row.Status = string(collected)
+		row.MPPaymentID = &mpPaymentID
+		if err := s.ledger.ConfirmWebhookPayment(ctx, &row, booking); err != nil {
 			return nil, err
 		}
-		return existing, nil
+		return &row, nil
 	}
 
 	// No checkout row: split what MercadoPago says the client paid rather than

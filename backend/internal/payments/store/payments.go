@@ -671,6 +671,8 @@ func attachClient(ctx context.Context, tx pgx.Tx, qtx *db.Queries, b *bookingsto
 
 // ConfirmWebhookPayment updates an existing payment and confirms the booking atomically in a transaction.
 // Used by the webhook handler to update the payment created during public booking.
+// The payment is written only while the row still takes it (TakePaymentRow);
+// otherwise nothing is written and ErrPaymentRowTaken is returned.
 //
 // Like InsertAndConfirmBooking, a confirmation runs under guardSlotStillFree and
 // is refused with ErrSlotUnavailable when the slot was taken meanwhile.
@@ -773,7 +775,11 @@ func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unle
 		}
 		return dbPayment.UpdatedAt, true, nil
 	}
-	dbPayment, err := qtx.UpdatePayment(ctx, db.UpdatePaymentParams{
+	// Conditional (TakePaymentRow): the caller decided the row takes this
+	// payment from a read taken outside this transaction, and another approved
+	// payment may have settled the row since. The UPDATE re-checks the row
+	// after any lock it waited on, so only one of two such payments lands.
+	dbPayment, err := qtx.TakePaymentRow(ctx, db.TakePaymentRowParams{
 		Status:         db.PaymentStatus(p.Status),
 		MpPaymentID:    data.TextToPg(p.MPPaymentID),
 		MpPreferenceID: data.TextToPg(p.MPPreferenceID),
@@ -783,6 +789,9 @@ func updateWebhookPayment(ctx context.Context, qtx *db.Queries, p *Payment, unle
 		StatusDetail: data.TextToPg(p.StatusDetail),
 		ID:           data.UUIDToPg(p.ID),
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return pgtype.Timestamptz{}, false, ErrPaymentRowTaken
+	}
 	if err != nil {
 		return pgtype.Timestamptz{}, false, fmt.Errorf("update payment: %w", err)
 	}

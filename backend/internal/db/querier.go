@@ -859,6 +859,14 @@ type Querier interface {
 	// this query's rows, not a WHERE clause here, because the summary needs the
 	// other methods' rows too).
 	SumCashMovementsBySession(ctx context.Context, arg SumCashMovementsBySessionParams) ([]SumCashMovementsBySessionRow, error)
+	// UpdatePayment for an approved MercadoPago payment written onto a booking's
+	// existing row, only while that row still takes it: a checkout no money has
+	// reached (unpaid, nothing refunded; a rejected attempt's id may be on it), or
+	// the row already carrying this very payment. The webhook decided from a read
+	// taken before it wrote, and a second approved payment that settled the row
+	// meanwhile owns it from then on: the write is refused (no row) instead of
+	// replacing that payment's id.
+	TakePaymentRow(ctx context.Context, arg TakePaymentRowParams) (Payment, error)
 	// The WHERE clause is the throttle: an owner's activity is written at most once
 	// an hour, however many requests they make. Callers ignore a zero row count.
 	TouchOwnerLastActive(ctx context.Context, id pgtype.UUID) (int64, error)

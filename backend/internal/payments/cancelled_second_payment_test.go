@@ -184,3 +184,75 @@ func TestAutoRefundSendsBackAnUnrefundedRowOnABookingMarkedRefunded(t *testing.T
 		})
 	}
 }
+
+// Two approved payments read a cancelled booking's untouched checkout row at
+// once. The one whose write the row refuses (another payment took it after the
+// read) is recorded on a row of its own, with its refund claimed in the same
+// write, and refunded; the row the other payment took is not written over.
+func TestAPaymentRefusedTheCheckoutRowIsRefundedOnARowOfItsOwn(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	mpPayment.CollectorID = 111111111
+	mpPayment.ExternalReference = booking.ID.String()
+
+	fee := pricing.ServiceFee(booking.DepositAmount)
+	preference := "pref-1"
+	checkout := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+		Amount: booking.DepositAmount, ServiceFee: fee, Method: "mercadopago",
+		Status: "unpaid", MPPreferenceID: &preference,
+	}
+	f.payments.byBooking = checkout
+	f.payments.byBookingAll = []*paymentstore.Payment{checkout}
+	f.payments.confirmErr = paymentstore.ErrPaymentRowTaken
+	f.payments.claimAmount = booking.DepositAmount + fee
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.provider.payment = mpPayment
+	readableNotice(f, booking)
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
+		t.Fatalf("a payment refused the checkout row must still be refunded; got %v", err)
+	}
+	if len(f.payments.insertedRows) != 1 || f.payments.insertedRows[0].ID == checkout.ID {
+		t.Fatalf("want the payment recorded on a row of its own; got %+v", f.payments.insertedRows)
+	}
+	if len(f.provider.refunds) != 1 {
+		t.Errorf("want the payment refunded once; got %v", f.provider.refunds)
+	}
+}
+
+// On a pending booking, an approved payment refused the checkout row (another
+// payment settled it after the read) is not confirmed on a new row: the event
+// is failed and retried, and the retry finds the booking settled and refunds it
+// as a duplicate. Confirming it on a new row would record a second payment on
+// the booking with no refund behind it.
+func TestAPaymentRefusedTheCheckoutRowOfAPendingBookingIsRetried(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, mpPayment := pendingBooking(complexID)
+	mpPayment.CollectorID = 111111111
+	mpPayment.ExternalReference = booking.ID.String()
+
+	preference := "pref-1"
+	checkout := &paymentstore.Payment{
+		ID: uuid.New(), BookingID: booking.ID, ComplexID: complexID,
+		Amount: booking.DepositAmount, ServiceFee: pricing.ServiceFee(booking.DepositAmount),
+		Method: "mercadopago", Status: "unpaid", MPPreferenceID: &preference,
+	}
+	f.payments.byBooking = checkout
+	f.payments.confirmErr = paymentstore.ErrPaymentRowTaken
+	f.complexes.complex = linkedComplex(complexID, "111111111")
+	f.bookings.booking = booking
+	f.provider.payment = mpPayment
+
+	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err == nil {
+		t.Fatal("the event must fail so it is retried against the settled booking")
+	}
+	if len(f.payments.insertedRows) != 0 || len(f.provider.refunds) != 0 {
+		t.Errorf("nothing may be recorded or refunded on this attempt; rows %+v, refunds %v",
+			f.payments.insertedRows, f.provider.refunds)
+	}
+}
