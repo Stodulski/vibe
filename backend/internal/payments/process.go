@@ -753,7 +753,8 @@ func (s *Service) settleRefundClaim(ctx context.Context, booking *bookingstore.B
 // carries the preference id and the amounts the client agreed to, and one booking
 // is meant to have one payment.
 //
-// The write commits 'deposit_paid' plus the refund-intent marker, and this is
+// The write commits what was collected (deposit_paid, or fully_paid for a
+// checkout that charged the whole price) plus the refund-intent marker, and this is
 // the whole of the difference from what it used to do. It used to commit
 // payment_status='refund_pending' here, before any claim existed — the exact
 // value refundable() (refund.go) reads as "a claim is already committed against
@@ -776,18 +777,20 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		return nil, fmt.Errorf("look up the payment for booking %s: %w", booking.ID, err)
 	}
 
-	// The client's money is here and the booking is cancelled, which is what
-	// collection_status 'deposit_paid' says and what claimable() needs to read
-	// to reserve it. The refund axis is left alone: recordPaymentOwedARefund
-	// records that money arrived, and the refund it owes is carried by
-	// refund_intent_at below, not by pre-declaring a refund that has not
-	// started.
-	booking.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+	// The client's money is here and the booking is cancelled: what was
+	// collected is what an approved payment on this booking collects
+	// (collectedOnline), the whole price when the checkout charged it, so a
+	// refunded full payment does not read as a refunded seña. The refund axis
+	// is left alone: recordPaymentOwedARefund records that money arrived, and
+	// the refund it owes is carried by refund_intent_at below, not by
+	// pre-declaring a refund that has not started.
+	collected := collectedOnline(booking)
+	booking.CollectionStatus = collected
 	now := time.Now()
 	booking.RefundIntentAt = &now
 
 	if existing != nil {
-		existing.Status = "deposit_paid"
+		existing.Status = string(collected)
 		existing.MPPaymentID = &mpPaymentID
 		if err := s.ledger.ConfirmWebhookPayment(ctx, existing, booking); err != nil {
 			return nil, err
@@ -805,7 +808,7 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		Amount:      amount,
 		ServiceFee:  serviceFee,
 		Method:      "mercadopago",
-		Status:      "deposit_paid",
+		Status:      string(collected),
 		MPPaymentID: &mpPaymentID,
 	}
 	if err := s.ledger.InsertAndConfirmBooking(ctx, payment, booking); err != nil {
