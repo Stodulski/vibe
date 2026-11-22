@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- one serial story against one seller of its own at the fake, provisioned once */
 import { test, expect, request as apiRequest } from '@playwright/test';
 import { provisionWorld, type EventsWorld } from '../helpers/events-fixtures';
 import { connectOwnFakeSeller, waitForOnlineBooking } from '../helpers/public-booking-fixtures';
@@ -63,6 +64,44 @@ async function fakeCall(method: string, path: string, token: string | null, body
   return res.status;
 }
 
+/** A fake API answer: its status and JSON body, cast by the caller to the shape the backend decodes. */
+interface Answer<T> {
+  status: number;
+  body: T;
+}
+
+/** A fake API call whose answer the test reads. */
+async function fakeJson(method: string, path: string, token: string, body?: unknown): Promise<Answer<unknown>> {
+  const res = await fetch(`${MP_FAKE_URL}${path}`, {
+    method,
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  return { status: res.status, body: await res.json() };
+}
+
+/** The fields of a searched payment the backend reads (mp.Payment). */
+interface SearchedPayment {
+  id: number;
+  status: string;
+  status_detail: string;
+  transaction_amount: number;
+  transaction_amount_refunded: number;
+  external_reference: string;
+  date_created: string;
+  collector_id: number;
+  metadata: Record<string, unknown>;
+}
+
+/** A preference as read back (mp.Preference). */
+interface ReadPreference {
+  id: string;
+  init_point: string;
+  collector_id: number;
+  expires?: boolean;
+  expiration_date_to?: string;
+}
+
 /** The backend's Mercado Pago calls made after `since` (ms). */
 async function requestsSince(since: number): Promise<FakeRequest[]> {
   return (await mpFake.requests()).filter((r) => Date.parse(r.date_created) >= since);
@@ -113,6 +152,94 @@ test('the fake refuses a missing, unknown or wrong party token the way Mercado P
       refresh_token: seller.refresh_token,
     }),
   ).toBe(401);
+});
+
+test("a payment search by reference answers the seller's own payments, newest first, as the backend reads them", async () => {
+  const reference = `fidelity-search-${String(Date.now())}`;
+  const older = await mpFake.seedPayment({
+    transaction_amount: 1000,
+    external_reference: reference,
+    collector_id: seller.collector_id,
+    metadata: { booking_id: reference },
+  });
+  const newer = await mpFake.seedPayment({
+    transaction_amount: 2500.5,
+    external_reference: reference,
+    collector_id: seller.collector_id,
+  });
+  // Same reference, collected by another seller: not this seller's money.
+  const foreign = await mpFake.seedPayment({ transaction_amount: 700, external_reference: reference });
+  // This seller's, under another reference.
+  await mpFake.seedPayment({
+    transaction_amount: 900,
+    external_reference: `${reference}-other`,
+    collector_id: seller.collector_id,
+  });
+
+  // The query mp.SearchPaymentsByReference sends.
+  const path = `/v1/payments/search?${new URLSearchParams({
+    external_reference: reference,
+    sort: 'date_created',
+    criteria: 'desc',
+    limit: '50',
+  }).toString()}`;
+  const mine = (await fakeJson('GET', path, seller.access_token)) as Answer<{
+    paging: { total: number };
+    results: SearchedPayment[];
+  }>;
+  expect(mine.status).toBe(200);
+  expect(mine.body.paging.total).toBe(2);
+  expect(mine.body.results.map((p) => p.id)).toEqual([newer.id, older.id]);
+  const [first, second] = mine.body.results;
+  expect(first).toMatchObject({
+    status: 'approved',
+    status_detail: 'accredited',
+    transaction_amount: 2500.5,
+    transaction_amount_refunded: 0,
+    external_reference: reference,
+    collector_id: seller.collector_id,
+  });
+  expect(Number.isNaN(Date.parse(first?.date_created ?? ''))).toBe(false);
+  expect(second?.metadata).toEqual({ booking_id: reference });
+
+  // Another seller sees only what it collected; the platform sees all three.
+  const theirs = (await fakeJson('GET', path, MP_FAKE_SEED_SELLER.access_token)) as Answer<{
+    results: SearchedPayment[];
+  }>;
+  expect(theirs.body.results.map((p) => p.id)).toEqual([foreign.id]);
+  const platform = (await fakeJson('GET', path, MP_FAKE_PLATFORM_TOKEN)) as Answer<{ results: SearchedPayment[] }>;
+  expect(platform.body.results.map((p) => p.id)).toEqual([foreign.id, newer.id, older.id]);
+  expect(await fakeCall('GET', path, null)).toBe(401);
+});
+
+test('a preference reads back only to its collector, and a closed one reads back as closed', async () => {
+  const created = (await fakeJson('POST', '/checkout/preferences', seller.access_token, {
+    items: [{ title: 'Reserva', quantity: 1, unit_price: 1000 }],
+    external_reference: `fidelity-pref-${String(Date.now())}`,
+  })) as Answer<ReadPreference>;
+  expect(created.status).toBe(201);
+  const path = `/checkout/preferences/${created.body.id}`;
+
+  const open = (await fakeJson('GET', path, seller.access_token)) as Answer<ReadPreference>;
+  expect(open.status).toBe(200);
+  expect(open.body).toMatchObject({
+    id: created.body.id,
+    init_point: created.body.init_point,
+    collector_id: seller.collector_id,
+  });
+  expect(open.body.expires ?? false).toBe(false);
+
+  expect(await fakeCall('GET', path, MP_FAKE_SEED_SELLER.access_token)).toBe(403);
+  expect(await fakeCall('GET', path, MP_FAKE_PLATFORM_TOKEN)).toBe(403);
+  expect(await fakeCall('GET', path, null)).toBe(401);
+
+  // Closed the way mp.UpdatePreferenceExpired closes it: expiry moved into the past.
+  const closedAt = new Date(Date.now() - 60_000).toISOString();
+  expect(await fakeCall('PUT', path, seller.access_token, { expires: true, expiration_date_to: closedAt })).toBe(200);
+  const closed = (await fakeJson('GET', path, seller.access_token)) as Answer<ReadPreference>;
+  expect(closed.status).toBe(200);
+  expect(closed.body.expires).toBe(true);
+  expect(Date.parse(closed.body.expiration_date_to ?? '')).toBeLessThan(Date.now());
 });
 
 test('an expired seller token is refreshed through OAuth and the checkout is created on the retry', async ({
