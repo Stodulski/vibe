@@ -857,7 +857,8 @@ paths:
         payment window (`BOOKING_PAYMENT_EXPIRY`) from now; `POST /api/v1/book` with the returned
         token converts it, and the hold ends by itself at `expires_at`. Refused with the same
         answers as `POST /api/v1/book` for the slot. At most 3 live holds per client address
-        (429).
+        (429 `hold-cap`, also answered by `POST /api/v1/book` without a hold token; its `detail`
+        is a Spanish sentence for the visitor asking them to finish or let go of one).
       security: []
       responses:
         "201":

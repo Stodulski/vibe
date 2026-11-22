@@ -63,6 +63,11 @@ const (
 	// MercadoPago is still processing a payment on the booking, so it can be
 	// neither paid again nor let go until it settles.
 	KindPaymentInProcess Kind = "payment-in-process"
+	// KindHoldCap is a 429 distinct from KindRateLimited: the address already
+	// holds as many storefront slots as it may at once, so the storefront asks
+	// the visitor to finish or let go of one instead of saying they tried too
+	// many times.
+	KindHoldCap Kind = "hold-cap"
 	// KindEventFull, KindEventClosed and KindAlreadyRegistered are 409s distinct
 	// from the generic KindConflict: the three reasons a public sign-up for an
 	// open-play event is refused, so the page can say which without parsing Detail.
@@ -175,6 +180,7 @@ var titles = map[Kind]string{
 	KindHoldCooldown:         "Hold Cooldown",
 	KindBookingPaid:          "Booking Paid",
 	KindPaymentInProcess:     "Payment In Process",
+	KindHoldCap:              "Hold Cap Reached",
 	KindEventFull:            "Event Full",
 	KindEventClosed:          "Event Closed",
 	KindAlreadyRegistered:    "Already Registered",

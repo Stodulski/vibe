@@ -70,12 +70,16 @@ var ErrHoldMismatch = errors.New("bookings: the request does not match its slot 
 // ErrTooManyHolds reports an address already holding maxActiveHoldsPerIP slots.
 var ErrTooManyHolds = errors.New("bookings: too many slots held from this address")
 
-// holdExpiredMessage and holdMismatchMessage are the 409 details.
+// holdExpiredMessage and holdMismatchMessage are the 409 details;
+// tooManyHoldsMessage is the hold-cap 429's, shown to the visitor as it is
+// (maxActiveHoldsPerIP).
 const (
 	holdExpiredMessage  = "the slot hold has expired, please choose a time again"
 	holdMismatchMessage = "the booking does not match the held slot"
-	tooManyHoldsMessage = "too many slots held from this address, release one or wait for it to expire"
 )
+
+var tooManyHoldsMessage = fmt.Sprintf(
+	"Ya tenés %d horarios reservándose desde esta conexión. Terminá o soltá uno para elegir otro.", maxActiveHoldsPerIP)
 
 // HoldInput is a validated request to hold a slot from the public page.
 type HoldInput struct {

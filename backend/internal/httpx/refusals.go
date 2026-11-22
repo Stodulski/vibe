@@ -154,6 +154,13 @@ func TooManyRequests(message any) Refusal {
 	return Refusal{http.StatusTooManyRequests, KindRateLimited, message}
 }
 
+// HoldCap refuses a storefront hold from an address that already holds as
+// many slots as it may at once: 429, its own kind so the storefront asks the
+// visitor to finish or let go of one rather than saying they retried too much.
+func HoldCap(message any) Refusal {
+	return Refusal{http.StatusTooManyRequests, KindHoldCap, message}
+}
+
 // NotImplemented refuses a feature this deployment is not configured for: 501.
 func NotImplemented(message any) Refusal {
 	return Refusal{http.StatusNotImplemented, KindUnavailable, message}

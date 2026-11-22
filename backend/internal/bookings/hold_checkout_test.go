@@ -566,3 +566,41 @@ func TestRetryCheckoutOnAPaidBookingSaysPaid(t *testing.T) {
 		t.Errorf("a paid booking needs no MercadoPago call; reads %v searches %v", f.checkout.reads, f.checkout.searches)
 	}
 }
+
+// L19 (3): an address already holding its share of slots is refused with its
+// own kind, hold-cap, still 429, and a Spanish detail that says what to do.
+// The generic rate-limited kind made the storefront say "Hiciste muchos
+// intentos seguidos", which is not what happened.
+func TestTheAddressHoldCapAnswersItsOwnKind(t *testing.T) {
+	for name, call := range map[string]func(f *fixture, complexID, courtID uuid.UUID, w *httptest.ResponseRecorder){
+		"a hold": func(f *fixture, complexID, courtID uuid.UUID, w *httptest.ResponseRecorder) {
+			f.store.holdErr = bookingstore.ErrHoldLimit
+			f.handler.TakeHold(w, publicRequest(t, http.MethodPost, "/", holdBody(complexID, courtID, "")))
+		},
+		"a booking without a hold": func(f *fixture, complexID, courtID uuid.UUID, w *httptest.ResponseRecorder) {
+			f.store.publicCapErr = bookingstore.ErrHoldLimit
+			f.handler.PublicBook(w, publicRequest(t, http.MethodPost, "/", publicBookBody(complexID, courtID, 90)))
+		},
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID, courtID := preparePublicBooking(f)
+			w := httptest.NewRecorder()
+			call(f, complexID, courtID, w)
+
+			if w.Code != http.StatusTooManyRequests {
+				t.Fatalf("want 429; got %d (%s)", w.Code, w.Body.String())
+			}
+			body := decode(t, w)
+			if problemKind(body) != string(httpx.KindHoldCap) {
+				t.Errorf("want kind %q; got %q", httpx.KindHoldCap, problemKind(body))
+			}
+			if title, _ := body["title"].(string); title == "" {
+				t.Error("a Problem must carry a title; the hold-cap refusal had none")
+			}
+			if detail, _ := body["detail"].(string); !strings.Contains(detail, "desde esta conexión") {
+				t.Errorf("want the Spanish detail; got %q", detail)
+			}
+		})
+	}
+}

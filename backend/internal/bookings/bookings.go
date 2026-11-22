@@ -353,7 +353,7 @@ var refusals = httpx.Refusals{
 	ErrSlotTaken:               httpx.SlotUnavailable(slotTakenMessage),
 	ErrHoldExpired:             httpx.HoldExpired(holdExpiredMessage),
 	ErrHoldMismatch:            httpx.Conflict(holdMismatchMessage),
-	ErrTooManyHolds:            httpx.TooManyRequests(tooManyHoldsMessage),
+	ErrTooManyHolds:            httpx.HoldCap(tooManyHoldsMessage),
 	ErrClientBlocked:           httpx.Forbidden("your account is blocked, contact the complex for more information"),
 	ErrMercadoPagoNotConnected: httpx.BadRequest("the complex does not have MercadoPago connected, contact the complex"),
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
