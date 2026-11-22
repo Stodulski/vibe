@@ -1569,7 +1569,7 @@ export interface paths {
     };
     /**
      * The open-play events a visitor can still sign up for
-     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the held ones (holds still running, and for up to ten minutes a hold that ran out while its payment is checked with MercadoPago); `0` means the sign-up is closed.
+     * @description Public. Cross-tenant bypass reason `resolves`. Active events that have not begun, soonest first, for the complex's public page. `spots_left` is capacity minus the paid spots and the held ones (holds still running, and for up to fifteen minutes a hold that ran out while its payment is checked with MercadoPago); `0` means the sign-up is closed.
      */
     get: operations['eventsPublicList'];
     put?: never;
@@ -3399,7 +3399,7 @@ export interface components {
       }[];
       /** @description Paid spots. */
       confirmed_count: number;
-      /** @description Spots held by people still paying, including a hold that ran out less than ten minutes ago while its payment is still being checked with MercadoPago. */
+      /** @description Spots held by people still paying, including a hold that ran out less than fifteen minutes ago while its payment is still being checked with MercadoPago. */
       held_count: number;
       /** @description Capacity minus paid spots and held spots (held_count), never below zero. */
       spots_left: number;
@@ -5312,7 +5312,7 @@ export interface operations {
         };
       };
       404: components['responses']['NotFound'];
-      /** @description `conflict` when the booking can no longer be paid (its window ended, it was released, or its checkout link was closed); `booking-paid` when it is paid (found approved at MercadoPago and processed now); `payment-in-process` while MercadoPago is still processing a payment on it. */
+      /** @description `conflict` when the booking can no longer be paid (its window ended, it was released, or its checkout link was closed); `booking-paid` when it is paid (found approved at MercadoPago and confirmed by its processing); `payment-in-process` while MercadoPago is still processing a payment on it, or while an approved payment is being confirmed. */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5368,7 +5368,7 @@ export interface operations {
         };
       };
       404: components['responses']['NotFound'];
-      /** @description `booking-paid` when the booking is paid (recorded, or found approved at MercadoPago and processed now); `payment-in-process` while MercadoPago is still processing a payment on it; `conflict` when it changed while it was being released or can no longer be released. The `detail` of the first two is a Spanish sentence for the visitor. */
+      /** @description `booking-paid` when the booking is paid (recorded, or found approved at MercadoPago and confirmed by its processing); `payment-in-process` while MercadoPago is still processing a payment on it, or while an approved payment is being confirmed; `conflict` when it changed while it was being released or can no longer be released. The `detail` of the first two is a Spanish sentence for the visitor. */
       409: {
         headers: {
           [name: string]: unknown;
