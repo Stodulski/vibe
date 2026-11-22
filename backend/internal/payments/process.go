@@ -202,9 +202,19 @@ func (s *Service) processApprovedPayment(ctx context.Context, booking *bookingst
 	// can name the payment it confirmed without either branch repeating it.
 	var settled *paymentstore.Payment
 
+	if existingPayment != nil && !paymentRowTakes(existingPayment, mpPaymentID) {
+		// The row already holds, or held, another MercadoPago payment's money:
+		// this payment is written as a row of its own, never over that one.
+		existingPayment = nil
+	}
+
 	if existingPayment != nil {
 		// The public booking flow already inserted this row at checkout; the
 		// webhook only fills in the MercadoPago payment id and settles the status.
+		// On a copy: a refused write leaves the row as it was read, and the
+		// refund path that follows decides from the row, not from this attempt.
+		row := *existingPayment
+		existingPayment = &row
 		existingPayment.Status = paymentStatus
 		existingPayment.MPPaymentID = &mpPaymentID
 		existingPayment.StatusDetail = statusDetailPtr(mpPayment.StatusDetail)
@@ -789,6 +799,14 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 	now := time.Now()
 	booking.RefundIntentAt = &now
 
+	if existing != nil && !paymentRowTakes(existing, mpPaymentID) {
+		// The booking's row is another payment's, already refunded or owed
+		// a refund of its own. Reusing it overwrote that payment's id and
+		// left the claim refused as already refunded, so this payment's
+		// money stayed captured. It gets a row, and so a claim, of its own.
+		existing = nil
+	}
+
 	if existing != nil {
 		existing.Status = string(collected)
 		existing.MPPaymentID = &mpPaymentID
@@ -815,6 +833,21 @@ func (s *Service) recordPaymentOwedARefund(ctx context.Context, booking *booking
 		return nil, err
 	}
 	return payment, nil
+}
+
+// paymentRowTakes reports whether a booking's existing payment row may take an
+// approved MercadoPago payment: a checkout row no money has reached yet, or the
+// row already carrying this very payment. A row that holds money, or whose money is refunded or on its way back, belongs
+// to the payment that brought it, and every further payment gets its own row,
+// so each one is claimed, refunded and recorded on its own.
+func paymentRowTakes(p *paymentstore.Payment, mpPaymentID string) bool {
+	if p.MPPaymentID != nil && *p.MPPaymentID == mpPaymentID {
+		return true
+	}
+	if paymentstore.ReceivedMoney(p.Status) || p.RefundAmount > 0 {
+		return false
+	}
+	return p.Status != "refunded" && p.Status != "refund_pending"
 }
 
 // collectorMatchesComplex reports whether the MercadoPago payment was collected by the

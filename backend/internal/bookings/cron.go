@@ -580,6 +580,17 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 			s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking could not be handed over",
 				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
 			outcome = expiredHoldFailed
+			continue
+		}
+		// The hand-over records the event; its processing may still have
+		// failed (a refund claim refused, the database away) and left the
+		// payment unrecorded. Marking the booking reconciled then would stop
+		// every further ask while that money stays captured, so it counts as
+		// a failed attempt: asked again, and alerted at the bound.
+		if !s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
+			s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking was handed over but is still unrecorded; asked again",
+				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+			outcome = expiredHoldFailed
 		}
 	}
 	if outcome == expiredHoldSettled && !moneyMoved && expiredUnpaid(b) {

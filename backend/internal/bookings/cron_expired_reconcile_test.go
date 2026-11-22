@@ -30,6 +30,19 @@ func expiredWithCheckout(f *fixture) *bookingstore.CronBooking {
 	return candidate
 }
 
+// processingRecords makes the processing behind the hand-over record each
+// payment it is handed against candidate, as the webhook's processing does
+// once it confirms or refunds it.
+func processingRecords(f *fixture, candidate *bookingstore.CronBooking) {
+	f.reconciler.processed = func(mpPaymentID string) {
+		id := mpPaymentID
+		f.payments.ledger = append(f.payments.ledger, &paymentstore.Payment{
+			BookingID: candidate.ID, ComplexID: candidate.ComplexID,
+			Status: "refunded", MPPaymentID: &id,
+		})
+	}
+}
+
 // S1: the sweep's own expiry is recorded as one, so it is asked about again
 // later and a late payment can reopen it.
 func TestTheExpirySweepRecordsTheBookingsItExpires(t *testing.T) {
@@ -76,6 +89,7 @@ func TestTheExpirySweepReconcilesAnExpiredBookingThatWasPaid(t *testing.T) {
 		{ID: 41, Status: "rejected", ExternalReference: candidate.ID.String()},
 		{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()},
 	}
+	processingRecords(f, candidate)
 
 	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
@@ -242,6 +256,7 @@ func TestAnExpiredBookingWithNoPaymentRowIsAskedAboutOnce(t *testing.T) {
 		candidate := expiredWithCheckout(f)
 		f.payments.payment = nil
 		f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+		processingRecords(f, candidate)
 
 		f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
@@ -371,6 +386,7 @@ func TestTheExpirySweepAsksAgainAboutAReleasedCheckout(t *testing.T) {
 	candidate := expiredWithCheckout(f)
 	candidate.ReleasedByClient = true
 	f.checkout.searchResults = []mp.Payment{{ID: 48, Status: "approved", ExternalReference: candidate.ID.String()}}
+	processingRecords(f, candidate)
 
 	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
 
@@ -382,5 +398,53 @@ func TestTheExpirySweepAsksAgainAboutAReleasedCheckout(t *testing.T) {
 	}
 	if len(f.notify.cancelled) != 0 {
 		t.Errorf("want no expiry notice for a released booking; got %+v", f.notify.cancelled)
+	}
+}
+
+// A cancelled booking paid twice: the sweep hands both approved payments over,
+// and while one of them is still neither recorded nor refunded the booking is
+// not marked reconciled. It is counted as a failed attempt instead, so it is
+// asked about again and alerts at the bound, rather than leaving that money
+// captured with only a log line.
+func TestTheExpirySweepKeepsAskingWhileAnApprovedPaymentIsUnrecorded(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	f.checkout.searchResults = []mp.Payment{
+		{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()},
+		{ID: 43, Status: "approved", ExternalReference: candidate.ID.String()},
+	}
+	recordOnly := map[string]bool{"42": true}
+	f.reconciler.processed = func(mpPaymentID string) {
+		if !recordOnly[mpPaymentID] {
+			return
+		}
+		id := mpPaymentID
+		f.payments.ledger = append(f.payments.ledger, &paymentstore.Payment{
+			BookingID: candidate.ID, ComplexID: candidate.ComplexID,
+			Status: "refunded", MPPaymentID: &id,
+		})
+	}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if !slices.Equal(f.reconciler.reconciled, []string{"42", "43"}) {
+		t.Fatalf("want both approved payments handed over; got %v", f.reconciler.reconciled)
+	}
+	if len(f.store.holdReconciled) != 0 {
+		t.Fatalf("payment 43 is neither recorded nor refunded, so the booking must not be marked reconciled; got %v",
+			f.store.holdReconciled)
+	}
+	if f.store.holdFailures[candidate.ID] != 1 {
+		t.Errorf("want the attempt counted as failed, so it is retried and alerts at the bound; got %v", f.store.holdFailures)
+	}
+
+	recordOnly["43"] = true
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if !slices.Equal(f.reconciler.reconciled, []string{"42", "43", "43"}) {
+		t.Errorf("want only the unrecorded payment handed over again; got %v", f.reconciler.reconciled)
+	}
+	if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+		t.Errorf("once every approved payment is recorded the booking is reconciled; got %v", f.store.holdReconciled)
 	}
 }
