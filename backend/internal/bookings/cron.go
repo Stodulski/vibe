@@ -23,6 +23,7 @@ import (
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
 	"github.com/stodulski/vibe-server/internal/notifications"
+	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/waitlist"
 )
@@ -315,6 +316,42 @@ func (s *Service) paymentAlreadyRecorded(ctx context.Context, bookingID uuid.UUI
 	return false
 }
 
+// expiredPaymentState reports what an expired booking's ledger says about the
+// approved payment mpPaymentID. recorded is whether a row carries it with any
+// status but unpaid. settled is whether nothing more is owed to that payment
+// from the reconciliation: its row is refunded or its refund claimed
+// (refunded, refund_pending), or it collected money on a booking it reopened,
+// which is no longer cancelled. A row recorded as collected on a booking still
+// cancelled is money owed back with no refund in motion, and is not settled.
+// An unreadable ledger or booking answers not settled, so the booking is asked
+// about again.
+func (s *Service) expiredPaymentState(ctx context.Context, bookingID uuid.UUID, mpPaymentID string) (recorded, settled bool) {
+	rows, err := s.payments.ListByBookingID(ctx, bookingID)
+	if err != nil {
+		return false, false
+	}
+	var row *paymentstore.Payment
+	for _, r := range rows {
+		if r.MPPaymentID != nil && *r.MPPaymentID == mpPaymentID && r.Status != "unpaid" {
+			row = r
+			break
+		}
+	}
+	if row == nil {
+		return false, false
+	}
+	if row.Status == "refunded" || row.Status == "refund_pending" {
+		return true, true
+	}
+	current, err := s.store.GetByID(ctx, bookingID)
+	if err != nil {
+		s.logger.Error("cron_release_expired_payments: an expired booking could not be read back after its payment was recorded",
+			"error", err, "booking_id", bookingID, "mp_payment_id", mpPaymentID)
+		return true, false
+	}
+	return true, current.Status != bookingstore.BookingStatusCancelled
+}
+
 // withinReconcileGrace reports whether b's payment window closed less than
 // reconcileGiveUp ago.
 func (s *Service) withinReconcileGrace(b *bookingstore.CronBooking) bool {
@@ -570,26 +607,7 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 		default:
 			continue
 		}
-		mpPaymentID := strconv.FormatInt(p.ID, 10)
-		if s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
-			continue
-		}
-		s.logger.Warn("cron_release_expired_payments: an expired booking was paid and never processed, reconciling it",
-			"booking_id", b.ID, "mp_payment_id", mpPaymentID)
-		if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
-			s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking could not be handed over",
-				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
-			outcome = expiredHoldFailed
-			continue
-		}
-		// The hand-over records the event; its processing may still have
-		// failed (a refund claim refused, the database away) and left the
-		// payment unrecorded. Marking the booking reconciled then would stop
-		// every further ask while that money stays captured, so it counts as
-		// a failed attempt: asked again, and alerted at the bound.
-		if !s.paymentAlreadyRecorded(ctx, b.ID, mpPaymentID) {
-			s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking was handed over but is still unrecorded; asked again",
-				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		if !s.reconcileExpiredPayment(ctx, b, strconv.FormatInt(p.ID, 10), reconciler) {
 			outcome = expiredHoldFailed
 		}
 	}
@@ -597,6 +615,46 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 		s.queueExpiredNotice(b)
 	}
 	return outcome
+}
+
+// reconcileExpiredPayment hands the approved payment mpPaymentID on the expired
+// booking b to reconciler unless the ledger already records it, and reports
+// whether it is settled (expiredPaymentState): false counts the run as a failed
+// attempt, asked again and alerted at the bound.
+func (s *Service) reconcileExpiredPayment(ctx context.Context, b *bookingstore.CronBooking, mpPaymentID string, reconciler PaymentReconciler) bool {
+	recorded, settled := s.expiredPaymentState(ctx, b.ID, mpPaymentID)
+	if settled {
+		return true
+	}
+	if recorded {
+		// Recorded, yet the booking is cancelled and its refund is not in
+		// motion. Handing it over again is a no-op ("payment already
+		// processed"), so nothing here can move it: it counts as a failed
+		// attempt and alerts at the bound for a person.
+		s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking is recorded but neither refunded nor claimed; asked again",
+			"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		return false
+	}
+	s.logger.Warn("cron_release_expired_payments: an expired booking was paid and never processed, reconciling it",
+		"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+	if err := reconciler.ReconcileApprovedPayment(ctx, mpPaymentID); err != nil {
+		s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking could not be handed over",
+			"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		return false
+	}
+	// The hand-over records the event; its processing may still have failed
+	// (a refund claim refused, the database away) and left the payment
+	// unrecorded, or recorded on a booking still cancelled with its refund
+	// neither claimed nor issued. Marking the booking reconciled then would
+	// stop every further ask while that money stays captured. Only a payment
+	// that reopened the booking, or whose refund is claimed or issued,
+	// settles it.
+	if _, settled := s.expiredPaymentState(ctx, b.ID, mpPaymentID); !settled {
+		s.logger.Error("cron_release_expired_payments: an approved payment on an expired booking was handed over but is neither settling the booking nor being refunded; asked again",
+			"booking_id", b.ID, "mp_payment_id", mpPaymentID)
+		return false
+	}
+	return true
 }
 
 // expiredUnpaid reports whether b may be told "your booking expired, there is

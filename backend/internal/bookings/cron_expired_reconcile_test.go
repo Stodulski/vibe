@@ -188,6 +188,10 @@ func TestTheExpirySweepDoesNotReplayAPaymentOnAnExpiredBooking(t *testing.T) {
 	f.payments.ledger = []*paymentstore.Payment{{
 		BookingID: candidate.ID, MPPaymentID: &recorded, Status: "deposit_paid",
 	}}
+	// Recorded as collected: the late payment reopened the booking.
+	reopened := candidate.Booking
+	reopened.Status = bookingstore.BookingStatusConfirmed
+	f.store.booking = &reopened
 	f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
 
 	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
@@ -446,5 +450,64 @@ func TestTheExpirySweepKeepsAskingWhileAnApprovedPaymentIsUnrecorded(t *testing.
 	}
 	if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
 		t.Errorf("once every approved payment is recorded the booking is reconciled; got %v", f.store.holdReconciled)
+	}
+}
+
+// An approved payment on an expired booking that the processing recorded but
+// whose refund is not in motion (the booking still cancelled, the row neither
+// claimed nor refunded) leaves the booking unreconciled on every run: each run
+// counts a failed attempt, so it alerts at the bound. It used to be marked
+// reconciled the moment the row existed, which stopped every further ask while
+// the money stayed captured.
+func TestTheExpirySweepDoesNotReconcileARecordedPaymentWhoseRefundIsNotInMotion(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	still := candidate.Booking
+	f.store.booking = &still
+	f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+	f.reconciler.processed = func(mpPaymentID string) {
+		id := mpPaymentID
+		f.payments.ledger = append(f.payments.ledger, &paymentstore.Payment{
+			BookingID: candidate.ID, ComplexID: candidate.ComplexID,
+			Status: "deposit_paid", MPPaymentID: &id,
+		})
+	}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if len(f.store.holdReconciled) != 0 {
+		t.Fatalf("a recorded payment on a cancelled booking whose refund is not in motion must not be reconciled; got %v",
+			f.store.holdReconciled)
+	}
+	if f.store.holdFailures[candidate.ID] != 2 {
+		t.Errorf("want each run counted as a failed attempt, so it alerts at the bound; got %v", f.store.holdFailures)
+	}
+	if !slices.Equal(f.reconciler.reconciled, []string{"42"}) {
+		t.Errorf("a recorded payment is not handed over again; got %v", f.reconciler.reconciled)
+	}
+}
+
+// A late payment that reopened the expired booking leaves it live with the
+// payment recorded as collected: that booking is reconciled.
+func TestTheExpirySweepReconcilesALatePaymentThatReopenedTheBooking(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	reopened := candidate.Booking
+	reopened.Status = bookingstore.BookingStatusConfirmed
+	f.checkout.searchResults = []mp.Payment{{ID: 42, Status: "approved", ExternalReference: candidate.ID.String()}}
+	f.reconciler.processed = func(mpPaymentID string) {
+		id := mpPaymentID
+		f.payments.ledger = append(f.payments.ledger, &paymentstore.Payment{
+			BookingID: candidate.ID, ComplexID: candidate.ComplexID,
+			Status: "deposit_paid", MPPaymentID: &id,
+		})
+		f.store.booking = &reopened
+	}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+		t.Errorf("want the reopened booking marked reconciled; got %v", f.store.holdReconciled)
 	}
 }
