@@ -10,4 +10,6 @@ export const HOLD_MESSAGES = {
   paymentFailedRetry: 'Reintentar el pago',
   paymentFailedRetryGone: 'Esta reserva ya no se puede pagar. Elegí un horario de nuevo.',
   paymentFailedActionError: 'No pudimos completar la acción. Probá de nuevo.',
+  paymentFailedInProcess: 'Mercado Pago todavía está procesando tu pago. Esperá unos minutos antes de volver a intentar.',
+  paymentFailedBackToComplex: 'Volver al complejo',
 } as const;

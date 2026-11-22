@@ -90,13 +90,18 @@ export function PaymentFailedScreen({ slug, token }: { slug: string; token?: str
 
 /** Pay again on the same checkout, or give the slot back and pick another time. */
 function FailedCheckoutActions({ slug, token }: { slug: string; token: string }) {
-  const { gone, failed, busy, retry, release } = useFailedCheckout(slug, token);
+  const { gone, inProcess, failed, stuck, busy, retry, release } = useFailedCheckout(slug, token);
 
   return (
     <>
       {gone && (
         <p role="alert" className="text-text-secondary text-sm">
           {t.publicBooking.paymentFailedRetryGone}
+        </p>
+      )}
+      {inProcess && (
+        <p role="alert" className="text-text-secondary text-sm">
+          {inProcess}
         </p>
       )}
       {failed && (
@@ -112,6 +117,11 @@ function FailedCheckoutActions({ slug, token }: { slug: string; token: string })
       <Button size="lg" variant={gone ? 'default' : 'outline'} className="min-h-12" disabled={busy} onClick={release}>
         {t.publicBooking.paymentFailedChooseAnother}
       </Button>
+      {stuck && (
+        <Button asChild variant="ghost" className="min-h-12">
+          <a href={publicComplexPath(slug)}>{t.publicBooking.paymentFailedBackToComplex}</a>
+        </Button>
+      )}
     </>
   );
 }
