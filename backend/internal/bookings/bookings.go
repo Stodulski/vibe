@@ -359,6 +359,7 @@ var refusals = httpx.Refusals{
 	ErrCheckoutUnavailable:     httpx.Unavailable("no se pudo crear el enlace de pago, intente nuevamente"),
 	ErrCheckoutPaid:            httpx.BookingPaid(checkoutPaidMessage),
 	ErrPaymentInProcess:        httpx.PaymentInProcess(paymentInProcessMessage),
+	ErrPaymentConfirming:       httpx.PaymentInProcess(paymentConfirmingMessage),
 	ErrPaymentUnverifiable:     httpx.Unavailable(paymentUnverifiableMessage),
 	ErrCheckoutStillOpen:       httpx.Unavailable(checkoutStillOpenMessage),
 	ErrVenueGone:               httpx.Gone(venueGoneMessage),

@@ -165,6 +165,7 @@ func failedCheckout(f *fixture, minutesAgo int) *bookingstore.Booking {
 	b.CreatedAt = time.Now().Add(-time.Duration(minutesAgo) * time.Minute)
 	b.ClientSnapshot = &bookingstore.ClientSnapshot{FirstName: "Ana", LastName: "Perez", Phone: "+5491100000077", Email: "ana@example.com"}
 	f.linkResolver.booking = b
+	f.store.booking = b
 	f.linkResolver.validToken = "link-token"
 	pref := "pref-77"
 	f.payments.payment = &paymentstore.Payment{BookingID: b.ID, ComplexID: complexID, Method: "mercadopago", Status: "unpaid", MPPreferenceID: &pref}
@@ -172,6 +173,16 @@ func failedCheckout(f *fixture, minutesAgo int) *bookingstore.Booking {
 }
 
 const checkoutBody = `{"token":"link-token"}`
+
+// confirmedOnHandOver has the processing behind the reconciler confirm b as
+// a hand-over returns, the way the webhook's processing does when it runs
+// inline and wins.
+func confirmedOnHandOver(f *fixture, b *bookingstore.Booking) {
+	f.reconciler.processed = func(string) {
+		b.Status = "confirmed"
+		b.CollectionStatus = bookingstore.CollectionStatusDepositPaid
+	}
+}
 
 // S4: a visitor whose card was rejected pays again on the same checkout while
 // the window lasts.
@@ -369,6 +380,7 @@ func TestRetryCheckoutAsksMercadoPagoFirst(t *testing.T) {
 		f := newFixture(t)
 		b := failedCheckout(f, 5)
 		f.checkout.searchResults = []mp.Payment{{ID: 72, Status: "approved", ExternalReference: b.ID.String()}}
+		confirmedOnHandOver(f, b)
 
 		w := httptest.NewRecorder()
 		f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
@@ -408,6 +420,7 @@ func TestReleaseCheckoutAsksMercadoPagoFirst(t *testing.T) {
 			}
 			f.checkout.searchResults = tc.found
 			f.checkout.searchErr = tc.searchErr
+			confirmedOnHandOver(f, b)
 
 			w := httptest.NewRecorder()
 			f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
@@ -545,6 +558,7 @@ func TestSettlingACheckoutHandsOverEveryApprovedPayment(t *testing.T) {
 			{ID: 92, Status: "approved", ExternalReference: b.ID.String()},
 			{ID: 93, Status: "approved", ExternalReference: b.ID.String()},
 		}
+		confirmedOnHandOver(f, b)
 
 		w := httptest.NewRecorder()
 		f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
@@ -626,6 +640,61 @@ func TestTheAddressHoldCapAnswersItsOwnKind(t *testing.T) {
 			}
 			if detail, _ := body["detail"].(string); !strings.Contains(detail, "desde esta conexión") {
 				t.Errorf("want the Spanish detail; got %q", detail)
+			}
+		})
+	}
+}
+
+// T12 (3): handing an approved payment over records it for processing; it
+// does not mean the booking is paid yet. The release and the retry answer
+// booking-paid only once the booking reads paid, and payment-in-process,
+// saying the payment is being confirmed, while it is still pending.
+func TestAnApprovedPaymentIsCalledPaidOnlyOnceTheBookingIs(t *testing.T) {
+	routes := map[string]func(f *fixture, w *httptest.ResponseRecorder){
+		"release": func(f *fixture, w *httptest.ResponseRecorder) {
+			f.handler.ReleaseCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+		},
+		"retry": func(f *fixture, w *httptest.ResponseRecorder) {
+			f.handler.RetryCheckout(w, publicRequest(t, http.MethodPost, "/", checkoutBody))
+		},
+	}
+	for route, call := range routes {
+		t.Run(route+": still being confirmed", func(t *testing.T) {
+			f := newFixture(t)
+			b := failedCheckout(f, 5)
+			f.checkout.searchResults = []mp.Payment{{ID: 95, Status: "approved", ExternalReference: b.ID.String()}}
+
+			w := httptest.NewRecorder()
+			call(f, w)
+
+			body := decode(t, w)
+			if w.Code != http.StatusConflict || problemKind(body) != string(httpx.KindPaymentInProcess) {
+				t.Fatalf("want 409 %s; got %d (%s)", httpx.KindPaymentInProcess, w.Code, w.Body.String())
+			}
+			if body["detail"] != paymentConfirmingMessage {
+				t.Errorf("want the being-confirmed detail; got %v", body["detail"])
+			}
+			if !slices.Equal(f.reconciler.reconciled, []string{"95"}) {
+				t.Errorf("want the payment handed over; got %v", f.reconciler.reconciled)
+			}
+			if len(f.store.updated) != 0 || len(f.checkout.reads) != 0 {
+				t.Errorf("nothing released nor handed back; updated=%d reads=%v", len(f.store.updated), f.checkout.reads)
+			}
+		})
+		t.Run(route+": confirmed by the processing", func(t *testing.T) {
+			f := newFixture(t)
+			b := failedCheckout(f, 5)
+			f.checkout.searchResults = []mp.Payment{{ID: 96, Status: "approved", ExternalReference: b.ID.String()}}
+			confirmedOnHandOver(f, b)
+
+			w := httptest.NewRecorder()
+			call(f, w)
+
+			if w.Code != http.StatusConflict || problemKind(decode(t, w)) != string(httpx.KindBookingPaid) {
+				t.Fatalf("want 409 %s; got %d (%s)", httpx.KindBookingPaid, w.Code, w.Body.String())
+			}
+			if len(f.store.updated) != 0 {
+				t.Errorf("a paid booking is not released; updated=%d", len(f.store.updated))
 			}
 		})
 	}

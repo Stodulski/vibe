@@ -1068,10 +1068,17 @@ func (s *stubCheckout) SearchPaymentsByReference(_ context.Context, reference st
 type stubReconciler struct {
 	err        error
 	reconciled []string
+	// processed, when set, is what the processing behind the hand-over does
+	// before it returns (confirm the booking, say); unset, the hand-over only
+	// records the payment for processing that has not happened yet.
+	processed func(mpPaymentID string)
 }
 
 func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
 	s.reconciled = append(s.reconciled, mpPaymentID)
+	if s.err == nil && s.processed != nil {
+		s.processed(mpPaymentID)
+	}
 	return s.err
 }
 

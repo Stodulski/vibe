@@ -985,8 +985,8 @@ paths:
           description: >-
             `conflict` when the booking can no longer be paid (its window ended, it was released, or
             its checkout link was closed); `booking-paid` when it is paid (found approved at
-            MercadoPago and processed now); `payment-in-process` while MercadoPago is still
-            processing a payment on it.
+            MercadoPago and confirmed by its processing); `payment-in-process` while MercadoPago is
+            still processing a payment on it, or while an approved payment is being confirmed.
           content:
             application/problem+json:
               schema: {$ref: "#/components/schemas/Problem"}
@@ -1034,8 +1034,8 @@ paths:
         "409":
           description: >-
             `booking-paid` when the booking is paid (recorded, or found approved at MercadoPago and
-            processed now); `payment-in-process` while MercadoPago is still processing a payment on
-            it; `conflict` when it changed while it was being released or can no longer be released.
+            confirmed by its processing); `payment-in-process` while MercadoPago is still processing
+            a payment on it, or while an approved payment is being confirmed; `conflict` when it changed while it was being released or can no longer be released.
             The `detail` of the first two is a Spanish sentence for the visitor.
           content:
             application/problem+json:
