@@ -43,12 +43,12 @@ func expireHold(t *testing.T, f *datatest.Fixture, regID uuid.UUID) {
 	}
 }
 
-// expireHoldPastGrace makes a hold's window end eleven minutes ago: past the
-// ten minutes its spot is kept for its payment check (CountOpenPlaySpotsTaken).
+// expireHoldPastGrace makes a hold's window end sixteen minutes ago: past the
+// fifteen minutes its spot is kept for its payment check (CountOpenPlaySpotsTaken).
 func expireHoldPastGrace(t *testing.T, f *datatest.Fixture, regID uuid.UUID) {
 	t.Helper()
 	if _, err := f.DB.Exec(context.Background(),
-		`UPDATE open_play_registrations SET held_until = NOW() - interval '11 minutes' WHERE id = $1`, regID); err != nil {
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '16 minutes' WHERE id = $1`, regID); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -184,7 +184,7 @@ func TestAnUnpaidHoldReleasesItsSpotWhenItsWindowEnds(t *testing.T) {
 	expireHoldPastGrace(t, f, held.ID)
 
 	if got, _ := f.Stores.Events.GetEvent(ctx, ev.ID); got.SpotsLeft() != 1 || got.HeldCount != 0 {
-		t.Fatalf("a hold ten minutes past its window stops counting: %+v", got)
+		t.Fatalf("a hold fifteen minutes past its window stops counting: %+v", got)
 	}
 	swept, err := f.Stores.Events.ExpireHolds(ctx)
 	if err != nil || len(swept) != 1 || swept[0].ID != held.ID {

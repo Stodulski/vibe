@@ -3811,7 +3811,7 @@ type OpenPlayEvent struct {
 	DurationMinutes int                `json:"duration_minutes"`
 	EndTime         string             `json:"end_time"`
 
-	// HeldCount Spots held by people still paying, including a hold that ran out less than ten minutes ago while its payment is still being checked with MercadoPago.
+	// HeldCount Spots held by people still paying, including a hold that ran out less than fifteen minutes ago while its payment is still being checked with MercadoPago.
 	HeldCount int                `json:"held_count"`
 	Id        openapi_types.UUID `json:"id"`
 

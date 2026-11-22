@@ -71,9 +71,9 @@ SELECT c.*,
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id
-           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
              OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                 AND r.held_until > NOW() - INTERVAL '10 minutes')))::int AS held_count
+                 AND r.held_until > NOW() - INTERVAL '15 minutes')))::int AS held_count
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 JOIN tournaments t ON t.id = c.tournament_id

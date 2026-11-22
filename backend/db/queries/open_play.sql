@@ -45,9 +45,9 @@ SELECT e.*,
          WHERE r.event_id = e.id AND r.status = 'confirmed')::int AS confirmed_count,
        (SELECT count(*) FROM open_play_registrations r
          WHERE r.event_id = e.id
-           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+           AND ((r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
              OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                 AND r.held_until > NOW() - INTERVAL '10 minutes')))::int AS held_count
+                 AND r.held_until > NOW() - INTERVAL '15 minutes')))::int AS held_count
 FROM open_play_events e
 WHERE e.complex_id = sqlc.arg(complex_id)
   AND e.tournament_id IS NULL
@@ -65,23 +65,28 @@ RETURNING *;
 
 -- name: CountOpenPlaySpotsTaken :one
 -- The spots of an event that are not free: registrations paid for, holds
--- still inside their window, and holds whose window ended less than ten
+-- still inside their window, and holds whose window ended less than fifteen
 -- minutes ago while their payment check is still open (a held row the sweep
--- has not closed yet, or an expired one whose check is due). The first check
--- is due three minutes after the expiry: releasing the spot at once let
--- someone else fill the event before MercadoPago was asked, and a payment
--- approved in the hold's last seconds was then refunded. Ten minutes bounds
--- it whatever the check is doing; a closed check (no payment found) frees the
--- spot at once. An expiry by its own person signing up again
+-- has not closed yet, or an expired one whose check is due). The first ask is
+-- due three minutes after the expiry, and an empty first answer is asked again
+-- about five minutes later (MercadoPago's search lags an approval), so the
+-- check closes eight to eleven minutes after the window ended. Releasing the
+-- spot before that let someone else fill the event while a payment approved in
+-- the hold's last seconds was still to be found, and it was then refunded.
+-- Fifteen minutes bounds it whatever the check is doing, past its second
+-- answer; a check closed after its second empty answer frees the spot then.
+-- The grace is written out in every count that reads this rule (open_play.sql,
+-- tournaments.sql, place_waitlist.sql, eventstore fillCounts): change them
+-- together. An expiry by its own person signing up again
 -- (payment_check_notify false) does not count against them. except is the
 -- registration being decided about, which never counts against itself (NULL
 -- excludes nothing).
 SELECT count(*)::int FROM open_play_registrations
 WHERE event_id = sqlc.arg(event_id)
   AND (status = 'confirmed'
-       OR (status = 'held' AND held_until > NOW() - INTERVAL '10 minutes')
+       OR (status = 'held' AND held_until > NOW() - INTERVAL '15 minutes')
        OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
-           AND held_until > NOW() - INTERVAL '10 minutes'))
+           AND held_until > NOW() - INTERVAL '15 minutes'))
   AND (sqlc.narg('except')::uuid IS NULL OR id <> sqlc.narg('except')::uuid);
 
 -- name: ExpireOpenPlayHoldsOfPhone :exec

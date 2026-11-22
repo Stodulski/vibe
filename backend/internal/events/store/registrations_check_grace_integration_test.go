@@ -29,7 +29,7 @@ func lapseRecently(t *testing.T, f *datatest.Fixture, regID uuid.UUID) {
 }
 
 // L19 (7): the spot of a hold that just ran out stays counted while its
-// payment check is open, for at most ten minutes after its window ended. The
+// payment check is open, for at most fifteen minutes after its window ended. The
 // first check is due three minutes after the expiry; releasing the spot at
 // once let someone else fill the event in that gap, and a payment approved in
 // the hold's last seconds was then refunded instead of confirmed.
@@ -57,8 +57,9 @@ func TestARecentlyExpiredHoldKeepsItsSpotWhileItsPaymentCheckIsOpen(t *testing.T
 	}
 }
 
-// The spot is let go as soon as the check closes (MercadoPago holds no
-// payment), or ten minutes after the window ended whatever the check is doing.
+// The spot is let go as soon as the check closes (MercadoPago's second answer
+// holds no payment), or fifteen minutes after the window ended whatever the
+// check is doing.
 func TestAnExpiredHoldFreesItsSpotOnceTheCheckClosesOrTheGraceEnds(t *testing.T) {
 	t.Run("the check closed", func(t *testing.T) {
 		f := datatest.Isolated(t)
@@ -84,11 +85,11 @@ func TestAnExpiredHoldFreesItsSpotOnceTheCheckClosesOrTheGraceEnds(t *testing.T)
 		}
 		lapseRecently(t, f, slow.ID)
 		if _, err := f.DB.Exec(context.Background(),
-			`UPDATE open_play_registrations SET held_until = NOW() - interval '11 minutes' WHERE id = $1`, slow.ID); err != nil {
+			`UPDATE open_play_registrations SET held_until = NOW() - interval '16 minutes' WHERE id = $1`, slow.ID); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := signUp(f, ev, "+5491100000036"); err != nil {
-			t.Fatalf("ten minutes after the window the spot is free, check open or not: %v", err)
+			t.Fatalf("fifteen minutes after the window the spot is free, check open or not: %v", err)
 		}
 	})
 }
@@ -151,5 +152,46 @@ func TestThePlaceWaitlistKeepsARecentlyExpiredHoldsSpotWhileItsCheckIsOpen(t *te
 	}
 	if got, err := f.Stores.PlaceWaitlist.ClaimFreedEvents(sweep, now, 100); err != nil || len(got) != 1 {
 		t.Fatalf("the freed spot reaches the waiting address; claimed %d (%v)", len(got), err)
+	}
+}
+
+// T12 (4): the check asks MercadoPago twice, three minutes after the expiry
+// and again about five minutes after an empty first answer (search lag), so
+// its second answer lands eight to eleven minutes after the window ended. A
+// ten-minute grace freed the spot about when that answer arrived, and a
+// payment it found was refunded because someone else had filled the event.
+// Twelve minutes after the window, with the check still open, the spot is
+// still taken on every read: sign-up, the event, and the owner's list.
+func TestALapsedHoldKeepsItsSpotUntilTheSecondPaymentAskLands(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	ev := eventWithCapacity(t, f, 1)
+	slow, err := signUp(f, ev, "+5491100000041")
+	if err != nil {
+		t.Fatal(err)
+	}
+	lapseRecently(t, f, slow.ID)
+	if _, err := f.DB.Exec(context.Background(),
+		`UPDATE open_play_registrations SET held_until = NOW() - interval '12 minutes' WHERE id = $1`, slow.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := signUp(f, ev, "+5491100000042"); !errors.Is(err, eventstore.ErrEventFull) {
+		t.Fatalf("twelve minutes after the window, check open, the spot is taken; got %v", err)
+	}
+	if got, _ := f.Stores.Events.GetEvent(ctx, ev.ID); got.SpotsLeft() != 0 || got.HeldCount != 1 {
+		t.Errorf("the event shows the spot held; held %d, spots left %d", got.HeldCount, got.SpotsLeft())
+	}
+	list, err := f.Stores.Events.ListEvents(ctx, f.ComplexID, ev.Date.AddDate(0, 0, -1), ev.Date.AddDate(0, 0, 1), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, e := range list {
+		if e.ID == ev.ID && e.HeldCount != 1 {
+			t.Errorf("the owner's list shows the spot held; held %d", e.HeldCount)
+		}
+	}
+	if err := pay(f, slow, "mp-second-ask"); err != nil {
+		t.Fatalf("the payment the second ask finds confirms the spot: %v", err)
 	}
 }

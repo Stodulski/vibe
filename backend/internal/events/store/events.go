@@ -229,9 +229,9 @@ func (m *Store) fillCounts(ctx context.Context, e *Event) error {
 	err := m.DB.QueryRow(ctx, `
 		SELECT count(*) FILTER (WHERE status = 'confirmed')::int,
 		       -- The held spots CountOpenPlaySpotsTaken counts (open_play.sql).
-		       count(*) FILTER (WHERE (status = 'held' AND held_until > NOW() - INTERVAL '10 minutes')
+		       count(*) FILTER (WHERE (status = 'held' AND held_until > NOW() - INTERVAL '15 minutes')
 		                           OR (status = 'expired' AND payment_check_notify AND payment_check_due_at IS NOT NULL
-		                               AND held_until > NOW() - INTERVAL '10 minutes'))::int
+		                               AND held_until > NOW() - INTERVAL '15 minutes'))::int
 		FROM open_play_registrations WHERE event_id = $1`, data.UUIDToPg(e.ID)).Scan(&confirmed, &held)
 	if err != nil {
 		return fmt.Errorf("events: count spots: %w", err)

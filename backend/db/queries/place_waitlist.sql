@@ -16,15 +16,15 @@ ON CONFLICT DO NOTHING;
 -- tournament's sign-up container, and not started yet (now_* is the product's
 -- wall-clock). spots_left is the CountOpenPlaySpotsTaken rule: capacity minus
 -- the confirmed registrations, the holds still inside their window, and the
--- holds that ran out less than ten minutes ago while their payment check is
+-- holds that ran out less than fifteen minutes ago while their payment check is
 -- open (open_play.sql says why).
 SELECT e.id, (e.capacity - (
            SELECT count(*) FROM open_play_registrations r
            WHERE r.event_id = e.id
              AND (r.status = 'confirmed'
-                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
                   OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                      AND r.held_until > NOW() - INTERVAL '10 minutes'))))::int AS spots_left
+                      AND r.held_until > NOW() - INTERVAL '15 minutes'))))::int AS spots_left
 FROM open_play_events e
 WHERE e.id = sqlc.arg(event_id)::uuid
   AND e.complex_id = sqlc.arg(complex_id)::uuid
@@ -40,9 +40,9 @@ SELECT e.id, (e.capacity - (
            SELECT count(*) FROM open_play_registrations r
            WHERE r.event_id = e.id
              AND (r.status = 'confirmed'
-                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                  OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
                   OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                      AND r.held_until > NOW() - INTERVAL '10 minutes'))))::int AS spots_left
+                      AND r.held_until > NOW() - INTERVAL '15 minutes'))))::int AS spots_left
 FROM tournament_categories c
 JOIN open_play_events e ON e.id = c.event_id
 WHERE c.id = sqlc.arg(category_id)::uuid
@@ -85,9 +85,9 @@ WITH freed AS (
           SELECT count(*) FROM open_play_registrations r
           WHERE r.event_id = e.id
             AND (r.status = 'confirmed'
-                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
                  OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                     AND r.held_until > NOW() - INTERVAL '10 minutes')))
+                     AND r.held_until > NOW() - INTERVAL '15 minutes')))
     ORDER BY w.created_at
     LIMIT sqlc.arg(batch_limit)::int
     FOR UPDATE OF w SKIP LOCKED
@@ -226,9 +226,9 @@ WHERE w.id IN (
           SELECT count(*) FROM open_play_registrations r
           WHERE r.event_id = e.id
             AND (r.status = 'confirmed'
-                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '10 minutes')
+                 OR (r.status = 'held' AND r.held_until > NOW() - INTERVAL '15 minutes')
                  OR (r.status = 'expired' AND r.payment_check_notify AND r.payment_check_due_at IS NOT NULL
-                     AND r.held_until > NOW() - INTERVAL '10 minutes')))
+                     AND r.held_until > NOW() - INTERVAL '15 minutes')))
       AND NOT EXISTS (
           SELECT 1 FROM place_waitlist_entries y
           WHERE y.kind = 'open_play' AND y.notified_at IS NULL
