@@ -11,6 +11,7 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 )
 
@@ -269,4 +270,75 @@ func TestAnExpiredBookingWithNoPaymentRowIsAskedAboutOnce(t *testing.T) {
 			t.Errorf("want the booking marked reconciled; got %v", f.store.holdReconciled)
 		}
 	})
+}
+
+// L19: a booking the inline release cancelled (another visitor's booking took
+// its stale hours, inside that visitor's request) is told it expired, as one
+// the sweep expired is, once MercadoPago holds no payment for it. The notice
+// is the sweep's own expiry notice, so its deduplication key (":expired")
+// makes it a no-op for a booking the sweep already told when it expired it.
+func TestAnExpiredBookingIsToldOnceMercadoPagoHoldsNoPayment(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	f.checkout.searchResults = []mp.Payment{{ID: 43, Status: "rejected", ExternalReference: candidate.ID.String()}}
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if len(f.notify.cancelled) != 1 {
+		t.Fatalf("want one expiry notice; got %d", len(f.notify.cancelled))
+	}
+	got := f.notify.cancelled[0]
+	if got.Source != notifications.SourceExpiredUnpaid || got.BookingID != candidate.ID.String() ||
+		got.Email != candidate.ClientEmail || got.RefundLine != notifications.ExpiredUnpaidRefundLine || got.OwnerID != "" {
+		t.Errorf("want the sweep's expiry notice to the client, never the owner; got %+v", got)
+	}
+}
+
+// No expiry notice while a payment may still confirm or refund the booking:
+// an approved payment is the processing's to tell, and one in flight is
+// asked about again; nor for a booking nobody can be written to.
+func TestAnExpiredBookingIsNotToldWhileAPaymentMayStillSettleIt(t *testing.T) {
+	cases := map[string]func(*fixture, *bookingstore.CronBooking){
+		"approved": func(f *fixture, b *bookingstore.CronBooking) {
+			f.checkout.searchResults = []mp.Payment{{ID: 44, Status: "approved", ExternalReference: b.ID.String()}}
+		},
+		"in process": func(f *fixture, b *bookingstore.CronBooking) {
+			f.checkout.searchResults = []mp.Payment{{ID: 45, Status: "in_process", ExternalReference: b.ID.String()}}
+		},
+		"unreachable": func(f *fixture, _ *bookingstore.CronBooking) { f.checkout.searchErr = errors.New("down") },
+		"no email":    func(_ *fixture, b *bookingstore.CronBooking) { b.ClientEmail = "" },
+	}
+	for name, setup := range cases {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			setup(f, expiredWithCheckout(f))
+
+			f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+			if len(f.notify.cancelled) != 0 {
+				t.Errorf("want no expiry notice; got %+v", f.notify.cancelled)
+			}
+		})
+	}
+}
+
+// L19: the expiry note is what the owner reads on the cancelled booking. It
+// is the inline release's own note, with no raw Go duration ("(10m0s)") in
+// it, and a late payment that reopens the booking takes it off entirely.
+func TestTheExpirySweepWritesTheReadableExpiryNote(t *testing.T) {
+	f := newFixture(t)
+	expiringCheckout(f, time.Minute)
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if len(f.store.updated) != 1 || f.store.updated[0].Notes == nil {
+		t.Fatalf("want the booking expired with a note; got %+v", f.store.updated)
+	}
+	note := *f.store.updated[0].Notes
+	if note != bookingstore.HoldExpiryNote {
+		t.Errorf("note = %q, want %q", note, bookingstore.HoldExpiryNote)
+	}
+	if rest := bookingstore.WithoutHoldExpiryNote(&note); rest != nil {
+		t.Errorf("a reopened booking must lose the whole note; %q is left", *rest)
+	}
 }

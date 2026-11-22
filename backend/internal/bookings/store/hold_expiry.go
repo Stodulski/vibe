@@ -208,8 +208,14 @@ func ReopenableByLatePaymentSQL(alias string) string {
 		AND EXISTS (SELECT 1 FROM booking_hold_expiries e WHERE e.booking_id = %[1]s.id))`, alias)
 }
 
-// holdExpiryNote matches the note both expiry paths append: the release
-// sweep's carries the window in parentheses, the inline release's does not.
+// HoldExpiryNote is the note both expiry paths append to a booking they
+// cancel: the release sweep (bookings.Service) and the inline release
+// (ReleaseStalePendingOverlaps).
+const HoldExpiryNote = "Cancelado automáticamente: tiempo de pago expirado"
+
+// holdExpiryNote matches HoldExpiryNote, and the form the release sweep wrote
+// before 2026-11-21, which carried the window as a raw Go duration in
+// parentheses ("(10m0s)"): bookings cancelled then still carry it.
 var holdExpiryNote = regexp.MustCompile(`(?:\s*\|\s*)?Cancelado automáticamente: tiempo de pago expirado(?: \([^)]*\))?`)
 
 // WithoutHoldExpiryNote returns notes with the hold-expiry note taken off, or

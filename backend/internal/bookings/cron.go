@@ -156,8 +156,7 @@ func (s *Service) ReleaseExpiredPayments(ctx context.Context, reconciler Payment
 			continue
 		}
 
-		note := fmt.Sprintf("Cancelado automáticamente: tiempo de pago expirado (%v)", s.cfg.PaymentExpiry)
-		if err := s.cancelUnpaidHold(ctx, b, note, true); err != nil {
+		if err := s.cancelUnpaidHold(ctx, b, bookingstore.HoldExpiryNote, true); err != nil {
 			if errors.Is(err, data.ErrEditConflict) {
 				// Cancelled by its client or paid since it was read: left as
 				// it is, and nobody is told it expired.
@@ -522,7 +521,9 @@ func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentR
 }
 
 // reconcileExpiredHold closes b's checkout link and asks MercadoPago about its
-// payments, handing every approved one not yet recorded to reconciler.
+// payments, handing every approved one not yet recorded to reconciler. When
+// none was approved or is in flight, the client is told the booking expired
+// (queueExpiredNotice).
 func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) expiredHoldOutcome {
 	// Closed before asking, so nothing can be approved after the answer. The
 	// inline release left it open; the sweep's own expiry already closed it,
@@ -543,6 +544,7 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 	}
 
 	outcome := expiredHoldSettled
+	approved := false
 	for _, p := range found {
 		if p.ExternalReference != b.ID.String() {
 			continue
@@ -554,6 +556,7 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 			}
 			continue
 		case "approved":
+			approved = true
 		default:
 			continue
 		}
@@ -568,6 +571,12 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 				"error", err, "booking_id", b.ID, "mp_payment_id", mpPaymentID)
 			outcome = expiredHoldFailed
 		}
+	}
+	// Nothing was paid and nothing is in flight: the booking stays cancelled,
+	// and its client is told so. An approved payment is the processing's to
+	// tell (a reopened booking, or a refund).
+	if outcome == expiredHoldSettled && !approved {
+		s.queueExpiredNotice(b)
 	}
 	return outcome
 }
@@ -688,11 +697,23 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		ComplexID: b.ComplexID, ComplexName: b.ComplexName, ComplexSlug: b.ComplexSlug, Day: b.Date,
 	})
 
+	s.queueExpiredNotice(b)
+	return nil
+}
+
+// queueExpiredNotice tells the client of a storefront booking that went away
+// unpaid why it did. Its deduplication key carries the ":expired" subject
+// (notifications.cancellationSubject), so queueing it again for the same
+// booking is a no-op: the sweep's own expiry queues it when it cancels, and
+// reconcileExpiredHold queues it for every recorded expiry once MercadoPago
+// holds no payment, which is how a booking the inline release cancelled
+// inside another visitor's request is told at all.
+func (s *Service) queueExpiredNotice(b *bookingstore.CronBooking) {
 	// A booking with no email has nobody to tell. The sweeps read no untouched
 	// slot hold, so this is a guard rather than a path: such a booking is still
 	// released, quietly, instead of queueing a notice with no address.
 	if b.ClientEmail == "" {
-		return nil
+		return
 	}
 
 	if err := s.notify.BookingCancelled(notifications.Cancellation{
@@ -721,7 +742,6 @@ func (s *Service) cancelUnpaidHold(ctx context.Context, b *bookingstore.CronBook
 		s.logger.Error("cron_release_expired_payments: the cancellation notice was not queued",
 			"error", err, "booking_id", b.ID)
 	}
-	return nil
 }
 
 // CompletePastBookings marks confirmed bookings whose hours have passed as
