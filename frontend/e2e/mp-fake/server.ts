@@ -1,8 +1,9 @@
 /**
  * A fake Mercado Pago for the E2E suite.
  *
- * It answers exactly the calls `backend/internal/mp/mp.go` makes (preferences,
- * payments, refunds, OAuth), serves a checkout page at each preference's
+ * It answers exactly the calls `backend/internal/mp/mp.go` makes (preferences
+ * created, read back and closed; payments read and searched by reference;
+ * refunds; OAuth), serves a checkout page at each preference's
  * `init_point` where the browser picks the outcome, delivers the signed webhook
  * the backend verifies, and redirects to the preference's `back_urls`. A small
  * control API under `/__fake/` lets specs read and steer its state.
@@ -21,7 +22,8 @@
  *
  * Every API call is authenticated like Mercado Pago's (see ./auth.ts):
  * preferences and refunds take the collecting seller's token, a payment is read
- * by the platform or its collector, anything else is 401/403. A preference past
+ * by the platform or its collector, a payment search shows a seller only what
+ * it collected (the platform everything), anything else is 401/403. A preference past
  * its expiration_date_to cannot be paid, and every refund is followed by a
  * signed payment.updated webhook.
  *
@@ -44,37 +46,17 @@ import {
   sendWebhook,
   state,
 } from './store.ts';
-import { authenticate, describeBearer, grant } from './auth.ts';
-import type { Party } from './auth.ts';
+import { describeBearer, grant } from './auth.ts';
+import { authorize, forbid, isCollector, preferenceView } from './access.ts';
 import { CONTROL_ROUTES } from './control.ts';
+import { getPayment, getPreference, searchPayments } from './reads.ts';
 import { escapeHtml, readBody, readJson, sendError, sendJson } from './http.ts';
 import type { Route } from './http.ts';
-import type { Json, Payment, Preference } from './store.ts';
+import type { Payment, Preference } from './store.ts';
 
 // --- Mercado Pago API ------------------------------------------------------
-
-// Mercado Pago's own refusals: 401 when the token is missing, unknown or
-// expired, 403 when a valid token belongs to a party that may not act on the
-// resource (the platform creating a seller's preference, another seller
-// refunding a payment it did not collect).
-
-/** The caller's party, or the 401 already answered. */
-function authorize(req: IncomingMessage, res: ServerResponse): Party | null {
-  const auth = authenticate(req);
-  if (!auth.ok) {
-    sendJson(res, 401, { message: auth.reason, error: 'unauthorized', status: 401, cause: [] });
-    return null;
-  }
-  return auth.party;
-}
-
-function forbid(res: ServerResponse, message: string): void {
-  sendJson(res, 403, { message, error: 'forbidden', status: 403, cause: [] });
-}
-
-function isCollector(party: Party, collectorId: number): boolean {
-  return party.kind === 'seller' && party.collectorId === collectorId;
-}
+// Who may call what is ./access.ts; the reads (payments, payment search,
+// preference read-back) are ./reads.ts.
 
 async function createPreference(req: IncomingMessage, res: ServerResponse): Promise<void> {
   const party = authorize(req, res);
@@ -110,17 +92,6 @@ async function createPreference(req: IncomingMessage, res: ServerResponse): Prom
   sendJson(res, 201, preferenceView(pref));
 }
 
-function preferenceView(pref: Preference): Json {
-  return {
-    ...pref.body,
-    id: pref.id,
-    init_point: pref.init_point,
-    sandbox_init_point: pref.sandbox_init_point,
-    collector_id: pref.collector_id,
-    date_created: pref.date_created,
-  };
-}
-
 async function updatePreference(req: IncomingMessage, res: ServerResponse, id: string): Promise<void> {
   const party = authorize(req, res);
   if (!party) return;
@@ -135,22 +106,6 @@ async function updatePreference(req: IncomingMessage, res: ServerResponse, id: s
   }
   pref.body = { ...pref.body, ...(await readJson(req)) };
   sendJson(res, 200, preferenceView(pref));
-}
-
-function getPayment(req: IncomingMessage, res: ServerResponse, id: number): void {
-  const party = authorize(req, res);
-  if (!party) return;
-  const payment = state.payments.get(id);
-  if (!payment) {
-    sendError(res, 404, `payment ${String(id)} not found`);
-    return;
-  }
-  // The platform reads every payment made under its application; a seller only its own.
-  if (party.kind !== 'platform' && !isCollector(party, payment.collector_id)) {
-    forbid(res, `payment ${String(id)} belongs to another collector`);
-    return;
-  }
-  sendJson(res, 200, payment);
 }
 
 async function refundPayment(req: IncomingMessage, res: ServerResponse, id: number): Promise<void> {
@@ -302,6 +257,20 @@ async function checkoutSubmit(req: IncomingMessage, res: ServerResponse, id: str
 const ROUTES: Route[] = [
   ['POST', /^\/checkout\/preferences$/, createPreference],
   ['PUT', /^\/checkout\/preferences\/([^/]+)$/, updatePreference],
+  [
+    'GET',
+    /^\/checkout\/preferences\/([^/]+)$/,
+    (req, res, id) => {
+      getPreference(req, res, id);
+    },
+  ],
+  [
+    'GET',
+    /^\/v1\/payments\/search$/,
+    (req, res) => {
+      searchPayments(req, res);
+    },
+  ],
   [
     'GET',
     /^\/v1\/payments\/(\d+)$/,
