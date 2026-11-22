@@ -117,3 +117,79 @@ describe('useHandleContinue: one intent, one hold', () => {
     expect(ids[0]).toBeDefined();
   });
 });
+
+const COOLDOWN = 'Vas a poder elegirlo de nuevo desde las 19:40.';
+
+function refuseWithCooldown() {
+  return countHolds(() =>
+    HttpResponse.json(
+      { type: 'https://vibe.com.ar/problems/hold-cooldown', title: '', status: 409, detail: COOLDOWN },
+      { status: 409 },
+    ),
+  );
+}
+
+/** Renders the hook behind a challenge whose token the test swaps, as the page's widget does. */
+function renderWithToken(token: string | undefined) {
+  const reset = () => undefined;
+  const challenge = (value: string | undefined): HoldChallenge => ({ required: true, token: value, reset });
+  const view = renderHook(
+    ({ current }: { current: HoldChallenge }) =>
+      useHandleContinue('test-club', complex, true, selection, '2030-01-01', current),
+    { wrapper: createBookingWrapper(), initialProps: { current: challenge(token) } },
+  );
+  return {
+    tap: () => {
+      act(() => {
+        view.result.current(selection);
+      });
+    },
+    setToken: (value: string | undefined) => {
+      view.rerender({ current: challenge(value) });
+    },
+  };
+}
+
+describe('useHandleContinue: a refusal stays the answer for a quick second tap', () => {
+  it('shows the same refusal again and sends no second hold', async () => {
+    const count = refuseWithCooldown();
+    const page = renderWithToken('tok-1');
+
+    page.tap();
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledWith(COOLDOWN, expect.anything());
+    });
+    // The refused hold spent the token; "Reservar" is tapped before and after the fresh one arrives.
+    page.setToken(undefined);
+    page.tap();
+    page.setToken('tok-2');
+    page.tap();
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(count.holds).toBe(1);
+    expect(toast.info).not.toHaveBeenCalled();
+    const refusals = vi.mocked(toast.error).mock.calls;
+    expect(refusals.map((call) => call[0])).toEqual([COOLDOWN, COOLDOWN, COOLDOWN]);
+    expect(new Set(refusals.map((call) => call[1]?.id)).size).toBe(1);
+  });
+
+  it('sends a deliberate retry made a little later', async () => {
+    const count = refuseWithCooldown();
+    const page = renderWithToken('tok-1');
+    page.tap();
+    await waitFor(() => {
+      expect(toast.error).toHaveBeenCalledTimes(1);
+    });
+    page.setToken('tok-2');
+
+    const clock = vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 10_000);
+    try {
+      page.tap();
+      await waitFor(() => {
+        expect(count.holds).toBe(2);
+      });
+    } finally {
+      clock.mockRestore();
+    }
+  });
+});

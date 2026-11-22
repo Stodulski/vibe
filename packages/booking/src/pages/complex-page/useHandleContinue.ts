@@ -22,6 +22,40 @@ const t = BOOKING_MESSAGES;
 const REFUSAL_TOAST = { id: 'hold-refusal' };
 const CHALLENGE_TOAST = { id: 'hold-challenge' };
 
+// How long a refused slot keeps its answer: a second tap on it inside this
+// window is the same intent, so the refusal stays on screen and nothing is
+// sent. Past it, a tap is a deliberate retry and goes to the server again.
+const REPEAT_TAP_WINDOW_MS = 3000;
+
+/** The slot a hold asks for, as one comparable key. */
+function slotKey(slotInfo: BookingSlotInfo): string {
+  return [slotInfo.courtId, slotInfo.date, slotInfo.startTime, slotInfo.durationMinutes].join('|');
+}
+
+/**
+ * The last refusal the server gave for a slot, so a quick second tap on the
+ * same slot shows it again instead of sending another hold. That second hold
+ * met the rate limit, or waited for a fresh challenge token, and its answer
+ * replaced the real reason on screen. Only a 4xx is remembered: it will not
+ * change in seconds, while a 5xx or a dropped connection may.
+ */
+function useRecentRefusal() {
+  const last = useRef<{ key: string; at: number; message: string } | null>(null);
+  return {
+    remember(key: string, error: unknown, message: string) {
+      const refused = error instanceof HTTPError && error.response.status < 500;
+      last.current = refused ? { key, at: Date.now(), message } : null;
+    },
+    /** Shows the refusal again and reports true when `key` was refused a moment ago. */
+    repeat(key: string): boolean {
+      const refusal = last.current;
+      if (refusal?.key !== key || Date.now() - refusal.at >= REPEAT_TAP_WINDOW_MS) return false;
+      toast.error(refusal.message, REFUSAL_TOAST);
+      return true;
+    },
+  };
+}
+
 /** The body of `POST /book/holds`, with the token and the previous hold when there are any. */
 function holdRequest(slotInfo: BookingSlotInfo, token?: string, previous?: string): PublicHoldRequest {
   return {
@@ -87,6 +121,7 @@ export function useHandleContinue(
   // It stays set after a hold is taken: the page is leaving for confirm, and a
   // tap on "Reservar" meanwhile is the same intent, not a second hold.
   const inFlight = useRef(false);
+  const recentRefusal = useRecentRefusal();
 
   function takeHoldAndContinue(selection: SelectedSlot) {
     if (!complex) return;
@@ -102,7 +137,9 @@ export function useHandleContinue(
       },
       onError: (error) => {
         inFlight.current = false;
-        toast.error(holdRefusalCopy(error), REFUSAL_TOAST);
+        const message = holdRefusalCopy(error);
+        recentRefusal.remember(slotKey(slotInfo), error, message);
+        toast.error(message, REFUSAL_TOAST);
         // Somebody else has the slot: the grid on screen is out of date.
         if (error instanceof HTTPError && getProblem(error)?.kind === 'slot-unavailable') {
           void queryClient.invalidateQueries({ queryKey: ['availability', pageSlug] });
@@ -119,6 +156,7 @@ export function useHandleContinue(
 
   return function handleContinue(selection: SelectedSlot | null = selectedSlot) {
     if (!complex || !selection || !mpConnected || inFlight.current) return;
+    if (recentRefusal.repeat(slotKey(buildConfirmState(complex, selection, dateStr)))) return;
     if (challenge.required && !challenge.token) {
       continueOnceSolved(selection);
       toast.info(t.publicBooking.holdChallengePending, CHALLENGE_TOAST);
