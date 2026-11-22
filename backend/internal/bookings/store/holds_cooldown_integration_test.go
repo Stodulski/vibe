@@ -37,8 +37,22 @@ func takeHoldFrom(f *datatest.Fixture, b *bookingstore.Booking, ip string) error
 	return f.Stores.Bookings.InsertHold(f.Scoped(context.Background()), b, hash, ip, 3)
 }
 
-// S2: a hold that ran out unconverted cannot be taken again by the same
-// address for HoldCooldown, whichever sweep (or none yet) noticed it ran out.
+// ageHold moves a storefront booking back in time by age: both the instant
+// it started holding (hold_started_at) and the one its window counts from
+// (created_at). The fixture runs in one transaction, so NOW() never moves.
+func ageHold(t *testing.T, f *datatest.Fixture, id uuid.UUID, age time.Duration) {
+	t.Helper()
+	if _, err := f.DB.Exec(context.Background(), `
+		UPDATE bookings SET created_at = NOW() - make_interval(secs => $2),
+		                    hold_started_at = NOW() - make_interval(secs => $2)
+		WHERE id = $1`, id, age.Seconds()); err != nil {
+		t.Fatalf("ageing booking %s: %v", id, err)
+	}
+}
+
+// S2: an address that held hours for a whole window without paying waits
+// HoldCooldown from when it stopped, whichever sweep (or none yet) noticed the
+// lapse. Other hours, and other addresses, are not affected.
 func TestALapsedHoldCannotBeRetakenByTheSameAddressDuringTheCooldown(t *testing.T) {
 	for _, swept := range []bool{false, true} {
 		name := "before the sweep ran"
@@ -49,7 +63,7 @@ func TestALapsedHoldCannotBeRetakenByTheSameAddressDuringTheCooldown(t *testing.
 			f := datatest.Isolated(t)
 			hold := newHold(f, "18:00", "19:30")
 			takeHold(t, f, hold)
-			f.BackdateBookingCreatedAt(t, hold.ID, window+time.Minute)
+			ageHold(t, f, hold.ID, window+time.Minute)
 			lapsedAt := readCreatedAt(t, f, hold.ID).Add(window)
 			if swept {
 				if _, err := f.Stores.Bookings.DeleteExpiredHolds(f.Scoped(context.Background()), window); err != nil {
@@ -57,7 +71,6 @@ func TestALapsedHoldCannotBeRetakenByTheSameAddressDuringTheCooldown(t *testing.
 				}
 			}
 
-			// Overlapping hours on the same court, same address: refused, and told when.
 			err := takeHoldFrom(f, newHold(f, "18:30", "20:00"), holdIP)
 			var cooldown *bookingstore.HoldCooldownError
 			if !errors.As(err, &cooldown) {
@@ -67,11 +80,9 @@ func TestALapsedHoldCannotBeRetakenByTheSameAddressDuringTheCooldown(t *testing.
 				t.Errorf("Until = %v, want the lapse plus the cooldown (%v)", cooldown.Until, want)
 			}
 
-			// Other hours on the same court, from the same address: a fresh hold.
 			if err := takeHoldFrom(f, newHold(f, "20:00", "21:30"), holdIP); err != nil {
 				t.Errorf("hours the lapsed hold did not cover must not be refused: %v", err)
 			}
-			// The same hours from another address: unaffected.
 			if err := takeHoldFrom(f, newHold(f, "18:00", "19:30"), "203.0.113.77"); err != nil {
 				t.Errorf("another address must not inherit the cooldown: %v", err)
 			}
@@ -85,7 +96,7 @@ func TestTheCooldownEnds(t *testing.T) {
 	f := datatest.Isolated(t)
 	hold := newHold(f, "18:00", "19:30")
 	takeHold(t, f, hold)
-	f.BackdateBookingCreatedAt(t, hold.ID, window+bookingstore.HoldCooldown+time.Minute)
+	ageHold(t, f, hold.ID, window+bookingstore.HoldCooldown+time.Minute)
 
 	again := newHold(f, "18:00", "19:30")
 	if err := takeHoldFrom(f, again, holdIP); err != nil {
@@ -97,15 +108,13 @@ func TestTheCooldownEnds(t *testing.T) {
 }
 
 // S2: letting a hold go and picking overlapping hours again ("Cambiar
-// horario") is allowed, but the clock does not start over: the new hold ends
-// when the released one would have. Releasing and retaking cannot hold a slot
-// for longer than one window.
-func TestRetakingAReleasedHoldKeepsItsClock(t *testing.T) {
+// horario") spends only the time it was actually held: the new hold gets the
+// rest of the window, and every reader agrees on when it ends.
+func TestRetakingAReleasedHoldGetsTheRestOfTheWindow(t *testing.T) {
 	f := datatest.Isolated(t)
 	first := newHold(f, "18:00", "19:30")
 	hash := takeHold(t, f, first)
-	f.BackdateBookingCreatedAt(t, first.ID, window/2)
-	started := readCreatedAt(t, f, first.ID)
+	ageHold(t, f, first.ID, 4*time.Minute)
 
 	if _, released, err := f.Stores.Bookings.ReleaseHold(context.Background(), hash); err != nil || !released {
 		t.Fatalf("ReleaseHold = %v, %v", released, err)
@@ -115,17 +124,113 @@ func TestRetakingAReleasedHoldKeepsItsClock(t *testing.T) {
 	if err := takeHoldFrom(f, again, holdIP); err != nil {
 		t.Fatalf("the visitor's own released hours must be pickable again: %v", err)
 	}
-	if !again.CreatedAt.Equal(started) || !readCreatedAt(t, f, again.ID).Equal(started) {
-		t.Errorf("the retaken hold must keep the released one's clock (%v); got %v in memory, %v stored",
-			started, again.CreatedAt, readCreatedAt(t, f, again.ID))
+	left := time.Until(readCreatedAt(t, f, again.ID).Add(window))
+	if want := window - 4*time.Minute; (left - want).Abs() > 5*time.Second {
+		t.Errorf("want about %v left (the window minus the four minutes held); got %v", want, left)
+	}
+	if !again.CreatedAt.Equal(readCreatedAt(t, f, again.ID)) {
+		t.Errorf("the hold handed back (%v) must end when the stored one does (%v)", again.CreatedAt, readCreatedAt(t, f, again.ID))
+	}
+}
+
+// S2: a converted booking's time spends the budget too. Hold, submit the
+// details (a fresh payment window), let it go just before it ends, and the
+// same hours are refused rather than held again: the cycle could otherwise
+// keep a slot off sale indefinitely.
+func TestTimeHeldAfterConvertingSpendsTheBudget(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	hold := newHold(f, "18:00", "19:30")
+	hash := takeHold(t, f, hold)
+	withContact(hold)
+	if err := f.Stores.Bookings.ConvertHold(ctx, hold, hash); err != nil {
+		t.Fatalf("ConvertHold: %v", err)
+	}
+	// Nine minutes as a hold before the details, nine and a half since.
+	if _, err := f.DB.Exec(context.Background(), `
+		UPDATE bookings SET hold_started_at = NOW() - interval '18 minutes 30 seconds',
+		                    created_at = NOW() - interval '9 minutes 30 seconds',
+		                    status = 'cancelled'
+		WHERE id = $1`, hold.ID); err != nil {
+		t.Fatalf("releasing the converted booking: %v", err)
 	}
 
-	// A window that is already over by the time the hours are retaken is a lapse.
-	f.BackdateBookingCreatedAt(t, again.ID, window+time.Second)
 	err := takeHoldFrom(f, newHold(f, "18:00", "19:30"), holdIP)
 	var cooldown *bookingstore.HoldCooldownError
 	if !errors.As(err, &cooldown) {
-		t.Fatalf("a slot held for its whole window must cool down; got %v", err)
+		t.Fatalf("want HoldCooldownError after a window and more held; got %v", err)
+	}
+	if want := time.Now().Add(bookingstore.HoldCooldown); cooldown.Until.Sub(want).Abs() > time.Minute {
+		t.Errorf("want the cooldown counted from the release (%v); got %v", want, cooldown.Until)
+	}
+}
+
+// S2, finding 1: POST /book without a hold token is held to the same budget.
+// It used to skip it, so the same address could hold the hours again the
+// moment its hold lapsed.
+func TestABookingWithoutAHoldTokenIsHeldToTheBudget(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	hold := newHold(f, "18:00", "19:30")
+	takeHold(t, f, hold)
+	ageHold(t, f, hold.ID, window+time.Minute)
+
+	direct := newHold(f, "18:00", "19:30")
+	withContact(direct)
+	err := f.Stores.Bookings.InsertHold(ctx, direct, nil, holdIP, 3)
+	var cooldown *bookingstore.HoldCooldownError
+	if !errors.As(err, &cooldown) {
+		t.Fatalf("want HoldCooldownError for the token-less booking; got %v", err)
+	}
+}
+
+// S2: a token-less booking with budget left is taken with the whole window to
+// pay, as a converted hold is, and its time counts against the next hold.
+func TestABookingWithoutAHoldTokenGetsTheWholeWindowAndSpendsIt(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := f.Scoped(context.Background())
+	hold := newHold(f, "18:00", "19:30")
+	hash := takeHold(t, f, hold)
+	ageHold(t, f, hold.ID, 5*time.Minute)
+	if _, released, err := f.Stores.Bookings.ReleaseHold(context.Background(), hash); err != nil || !released {
+		t.Fatalf("ReleaseHold = %v, %v", released, err)
+	}
+
+	direct := newHold(f, "18:00", "19:30")
+	withContact(direct)
+	if err := f.Stores.Bookings.InsertHold(ctx, direct, nil, holdIP, 3); err != nil {
+		t.Fatalf("a token-less booking with budget left must be taken: %v", err)
+	}
+	if left := time.Until(readCreatedAt(t, f, direct.ID).Add(window)); left < window-time.Minute {
+		t.Errorf("a token-less booking gets the whole window to pay; %v left", left)
+	}
+
+	// Its window runs out unpaid: five minutes held before, ten since.
+	ageHold(t, f, direct.ID, window+time.Second)
+	err := takeHoldFrom(f, newHold(f, "18:00", "19:30"), holdIP)
+	var cooldown *bookingstore.HoldCooldownError
+	if !errors.As(err, &cooldown) {
+		t.Fatalf("the token-less booking's time must spend the budget; got %v", err)
+	}
+}
+
+// S2, previous behavior: a paid booking on the same hours from the same
+// address never spends the budget.
+func TestAPaidBookingDoesNotSpendTheBudget(t *testing.T) {
+	f := datatest.Isolated(t)
+	paid := newHold(f, "18:00", "19:30")
+	withContact(paid)
+	if err := f.Stores.Bookings.InsertHold(f.Scoped(context.Background()), paid, nil, holdIP, 3); err != nil {
+		t.Fatalf("InsertHold: %v", err)
+	}
+	ageHold(t, f, paid.ID, window+time.Minute)
+	if _, err := f.DB.Exec(context.Background(), `
+		UPDATE bookings SET status = 'cancelled', collection_status = 'deposit_paid' WHERE id = $1`, paid.ID); err != nil {
+		t.Fatalf("paying: %v", err)
+	}
+
+	if err := takeHoldFrom(f, newHold(f, "18:00", "19:30"), holdIP); err != nil {
+		t.Errorf("a paid booking must not spend the address's budget: %v", err)
 	}
 }
 

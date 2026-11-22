@@ -4,7 +4,7 @@
  * payment was rejected. Spread into `BOOKING_MESSAGES.publicBooking`.
  */
 export const HOLD_MESSAGES = {
-  holdCooldown: 'Reservaste este horario hace poco y no se completó el pago. Probá en unos minutos o elegí otro horario.',
+  holdCooldown: 'Este horario se reservó hace poco desde esta conexión sin completar el pago. Probá en unos minutos o elegí otro horario.',
   paymentFailedHeldDescription:
     'No se cobró nada. Tu turno sigue guardado unos minutos: podés reintentar el pago o liberarlo y elegir otro horario.',
   paymentFailedRetry: 'Reintentar el pago',

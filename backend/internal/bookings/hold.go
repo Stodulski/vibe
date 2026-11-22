@@ -13,10 +13,11 @@
 //
 // Three rules sit on top of that window (slot-hold-gaps, 2026-11-21), all kept
 // in created_at so every reader still agrees:
-//   - An address that held hours for a whole window without paying waits
-//     bookingstore.HoldCooldown before holding them again; letting a hold go
-//     and picking the hours again continues its clock instead of restarting
-//     it (bookingstore.Store.InsertHold).
+//   - An address may hold the same hours for one window in all, counting the
+//     time each of its holds and unpaid bookings actually held them: letting
+//     a hold go and picking the hours again gets only what is left, and once
+//     it is spent the address waits bookingstore.HoldCooldown
+//     (bookingstore.Store.InsertHold).
 //   - Submitting the details leaves at least bookingstore.MinPaymentWindow to
 //     pay (bookingstore.Store.ConvertHold).
 //   - A visitor whose payment failed can pay again on the same checkout, or let
@@ -296,11 +297,6 @@ func (h *Handler) TakeHold(w http.ResponseWriter, r *http.Request) {
 		Replaces: input.Replaces,
 	})
 	if err != nil {
-		var cooldown *bookingstore.HoldCooldownError
-		if errors.As(err, &cooldown) {
-			h.respond.Refuse(w, r, holdCooldownRefusal(cooldown.Until))
-			return
-		}
 		h.refuse(w, r, err)
 		return
 	}
@@ -327,12 +323,15 @@ func (h *Handler) ReleaseHold(w http.ResponseWriter, r *http.Request, token stri
 // the storefront can tell it from somebody else holding the slot.
 const KindHoldCooldown = httpx.KindHoldCooldown
 
-// holdCooldownRefusal is the 409 for a hold refused by the cooldown. Its detail
-// is written for the visitor, who reads it as it is: when the hours can be
-// picked again, on the venue's clock.
+// holdCooldownRefusal is the 409 for a hold, or a booking without one, refused
+// by the address's spent budget. Its detail is written for the visitor, who
+// reads it as it is: when the hours can be picked again, on the venue's clock.
+// It says "from this connection" and blames nobody: behind a shared address
+// (mobile carriers, a club's wifi) the time may have been spent by someone
+// else.
 func holdCooldownRefusal(until time.Time) httpx.Refusal {
 	refusal := httpx.Conflict(fmt.Sprintf(
-		"Reservaste este horario hace poco y no se completó el pago. Vas a poder elegirlo de nuevo desde las %s, o podés elegir otro horario.",
+		"Este horario se reservó hace poco desde esta conexión sin completar el pago. Vas a poder elegirlo de nuevo desde las %s, o podés elegir otro horario.",
 		until.In(timezone.Argentina).Format("15:04")))
 	refusal.Kind = KindHoldCooldown
 	return refusal
@@ -420,8 +419,8 @@ type publicRelease struct {
 // booking (slotguard.UnpaidPublicBooking).
 //
 // A released booking no longer counts against the visitor's per-address cap
-// (only pending ones do). Picking the same hours again continues the window
-// it had rather than starting a new one (bookingstore.Store.InsertHold).
+// (only pending ones do). Picking the same hours again gets only what is left
+// of the address's budget on them (bookingstore.Store.InsertHold).
 func (s *Service) ReleaseCheckout(ctx context.Context, actor Actor, token string) error {
 	booking, complex, err := s.ResolveLink(ctx, token)
 	if err != nil {

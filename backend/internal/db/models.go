@@ -433,6 +433,7 @@ type Booking struct {
 	HoldIp           pgtype.Text                      `json:"hold_ip"`
 	SeriesID         pgtype.UUID                      `json:"series_id"`
 	AttendedAt       pgtype.Timestamptz               `json:"attended_at"`
+	HoldStartedAt    pgtype.Timestamptz               `json:"hold_started_at"`
 }
 
 type BookingHoldExpiry struct {

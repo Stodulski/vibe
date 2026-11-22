@@ -5152,7 +5152,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). */
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, or a slot-lock conflict. With `hold_token`: the request does not match the hold (`conflict`), or the hold is gone (`hold-expired`). Without one: `hold-cooldown` when this client address already spent its time on overlapping hours of the court (see POST /api/v1/book/holds). */
       409: {
         headers: {
           [name: string]: unknown;
@@ -5236,7 +5236,7 @@ export interface operations {
           'application/problem+json': components['schemas']['Problem'];
         };
       };
-      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). `hold-cooldown` when this client address held overlapping hours on the court for a whole payment window without paying, less than 10 minutes ago; its `detail` is a Spanish sentence for the visitor saying from when they can pick them again. Picking hours again after letting a hold go continues that hold's window instead of starting a new one. */
+      /** @description Past date, outside opening hours, off the price grid, blocked, unpriced, beyond the booking horizon, or already held or booked (`slot-unavailable`). `hold-cooldown` when this client address already held overlapping hours on the court, unpaid, for a whole payment window in all (time actually held, including after submitting the details), and stopped less than 10 minutes ago; its `detail` is a neutral Spanish sentence for the visitor saying from when they can pick them again. Picking hours again after letting a hold go gives the new hold only what is left of that window. */
       409: {
         headers: {
           [name: string]: unknown;

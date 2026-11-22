@@ -169,12 +169,17 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 	var conflictErr *ConflictError
 	var stateErr *StateError
 	var holdBlocked *bookingstore.HoldBlockedError
+	var cooldown *bookingstore.HoldCooldownError
 
 	if h.refuseSeriesConflicts(w, r, err) {
 		return
 	}
 
 	switch {
+	case errors.As(err, &cooldown):
+		// The visitor's own address spent its time on these hours: its own
+		// kind, so the storefront does not say somebody else holds them.
+		h.respond.Refuse(w, r, holdCooldownRefusal(cooldown.Until))
 	case errors.As(err, &holdBlocked):
 		// Still slot-unavailable, for every client switching on the kind; the
 		// detail tells the owner why a cell that looked free is not, and when

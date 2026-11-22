@@ -89,6 +89,12 @@ func HashHoldToken(plaintext string) []byte {
 // next. Payment attaches the client and clears the address
 // (AttachBookingClient), and the expiry window ends the rest.
 //
+// The address also has a budget on the hours (S2, holdBudgetFor): one window
+// of time actually held, in all, across its recent storefront bookings on
+// overlapping hours of the court. A hold gets what is left of it; a spent
+// budget is HoldCooldownError. hold_started_at records when this row started
+// holding, since created_at is moved to place its window.
+//
 // The per-address cap is counted and enforced in the same transaction, under
 // a transaction-scoped advisory lock on the address, so two requests from one
 // address cannot both see room for one more. That lock is always taken before
@@ -123,35 +129,38 @@ func (m *Store) InsertHold(ctx context.Context, b *Booking, tokenHash []byte, ip
 			return ErrHoldLimit
 		}
 
-		// The cooldown (S2) applies to holds: the storefront always holds before
-		// it books, and a booking without a hold names a visitor already.
-		var (
-			started time.Time
-			resumes bool
-		)
-		if tokenHash != nil {
-			var running, found bool
-			var until time.Time
-			started, running, found, until, err = ownHoldClock(ctx, tx, b, ip, m.PaymentExpiry)
-			if err != nil {
-				return err
-			}
-			if found && !running {
-				return &HoldCooldownError{Until: until}
-			}
-			resumes = found
+		// The budget (S2) applies to every storefront booking from an address,
+		// with a hold token or without one: POST /book without a token used to
+		// skip it and hold the same hours again straight after a lapse.
+		budget, err := holdBudgetFor(ctx, tx, b, ip, m.PaymentExpiry)
+		if err != nil {
+			return err
+		}
+		if budget.refused {
+			return &HoldCooldownError{Until: budget.until}
 		}
 
 		if err := m.insertSafe(ctx, tx, b, holdTag{tokenHash: tokenHash, ip: &ip}); err != nil {
 			return err
 		}
-		if resumes {
-			if _, err := tx.Exec(ctx, `UPDATE bookings SET created_at = $2 WHERE id = $1`,
-				data.UUIDToPg(b.ID), data.TimeToPg(started)); err != nil {
-				return fmt.Errorf("continue the address's earlier hold: %w", err)
-			}
-			b.CreatedAt = started
+		// A hold gets what is left of the budget: its window is moved back by
+		// the time already spent, so every reader of created_at ends it then.
+		// A booking without a hold names a visitor going straight to pay, and
+		// gets the whole window as a converted hold does (MinPaymentWindow);
+		// the time it holds still counts against the next hold.
+		spent := time.Duration(0)
+		if tokenHash != nil {
+			spent = m.PaymentExpiry - budget.remaining
 		}
+		var createdAt pgtype.Timestamptz
+		if err := tx.QueryRow(ctx, `
+			UPDATE bookings SET hold_started_at = NOW(), created_at = NOW() - make_interval(secs => $2)
+			WHERE id = $1
+			RETURNING created_at`,
+			data.UUIDToPg(b.ID), spent.Seconds()).Scan(&createdAt); err != nil {
+			return fmt.Errorf("start the hold's clock: %w", err)
+		}
+		b.CreatedAt = data.PgToTime(createdAt)
 		return nil
 	})
 }
@@ -260,8 +269,8 @@ func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) e
 //
 // The hold is cancelled, not deleted, and stays until its cooldown is over
 // (DeleteExpiredHolds removes it then): it is the record that this address
-// already spent part of a window on these hours, which a hold taken on them
-// again continues rather than restarting (ownHoldClock). An untouched hold
+// already spent part of its budget on these hours, which a hold taken on them
+// again only gets the rest of (holdBudgetFor). An untouched hold
 // names nobody, took no money and was never shown to the owner
 // (slotguard.UnpaidPublicBooking), and no audit entry is written for one.
 func (m *Store) ReleaseHold(ctx context.Context, tokenHash []byte) (ReleasedHold, bool, error) {
@@ -307,7 +316,7 @@ type ReleasedHold struct {
 // caller can tell the grids and the waitlist.
 //
 // A hold that ran out is cancelled first and kept through HoldCooldown, as the
-// record ownHoldClock reads; an untouched hold older than expiry plus the
+// record holdBudgetFor reads; an untouched hold older than expiry plus the
 // cooldown is deleted, whatever its status. One that was still pending when it
 // is deleted (the sweep was not running) is reported as freed too.
 func (m *Store) DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([]ReleasedHold, error) {
@@ -374,9 +383,10 @@ func (m *Store) DeleteComplexHolds(ctx context.Context, complexID uuid.UUID) err
 }
 
 // HoldCooldown is how long an address waits before it may hold court hours
-// again after its own hold on them ran out unpaid. Without it a hold needs
-// nothing but an address, and one address could keep a slot off sale for ever
-// by taking it again each time its window ended.
+// again once it has held them, unpaid, for a whole window in all (budgetFrom).
+// Without it a hold needs nothing but an address, and one address could keep
+// a slot off sale for ever by taking it again each time its window ended. A
+// pause this long between holds also starts the address's count afresh.
 const HoldCooldown = 10 * time.Minute
 
 // MinPaymentWindow is the least time a visitor has to pay once they submit
@@ -384,9 +394,10 @@ const HoldCooldown = 10 * time.Minute
 // (ConvertHold), so nobody is sent to a MercadoPago checkout about to close.
 const MinPaymentWindow = 10 * time.Minute
 
-// HoldCooldownError refuses a hold on hours the same address held, unpaid,
-// for a whole window that ended less than HoldCooldown ago. Until is when the
-// address may hold them again.
+// HoldCooldownError refuses a hold, or a storefront booking without one, on
+// hours the same address already held, unpaid, for a whole window in all, and
+// stopped holding less than HoldCooldown ago. Until is when the address may
+// hold them again.
 type HoldCooldownError struct{ Until time.Time }
 
 func (e *HoldCooldownError) Error() string {
@@ -469,28 +480,84 @@ func liveHoldFreesAt(ctx context.Context, tx pgx.Tx, b *Booking, window time.Dur
 	return slotguard.LiveHoldFreesAt(ctx, tx, []uuid.UUID{b.CourtID}, b.Date, b.StartTime, b.DurationMinutes, window)
 }
 
-// ownHoldClock answers, for a new hold on b's hours from ip, the window the
-// same address already spent on them: the earliest start among its own unpaid
-// storefront bookings on that court overlapping those hours whose window ended
-// (ran out, or was let go) less than HoldCooldown ago.
+// minHoldBudget is the least a hold may be given: less is no time to type
+// anything, and the address waits out the cooldown instead.
+const minHoldBudget = time.Minute
+
+// holdBudgetLookback bounds how far back the budget reads an address's
+// storefront bookings. Only a run of them with less than a cooldown between
+// each matters (holdBudget), and converted bookings are kept for ever.
+const holdBudgetLookback = 2 * time.Hour
+
+// heldSpan is the time one storefront booking actually held its hours: from
+// when it started holding to when it stopped (released, cancelled, or its
+// window, extensions included, ended), or now while it still holds.
+type heldSpan struct{ start, end time.Time }
+
+// holdBudget is what an address may still hold of some court hours.
+type holdBudget struct {
+	// remaining is how much of one window the address may still hold them.
+	remaining time.Duration
+	// refused reports a spent budget; until is when the address may hold
+	// them again.
+	refused bool
+	until   time.Time
+}
+
+// budgetFrom works out an address's budget on some hours at now, from the
+// spans its own storefront bookings held them, earliest start first.
 //
-// found is false when there is none, and the new hold starts a window of its
-// own. Otherwise, while that earliest window has not run out (live), the new
-// hold continues it — letting a slot go and picking it again does not restart
-// the clock — and once it has, the address waits until cooldownUntil.
+// An address may hold the same hours for one window in all. Spans follow on
+// from each other while less than HoldCooldown separates one's end from the
+// next one's start; a longer pause starts the count afresh. Once the count
+// reaches a window (less than minHoldBudget left), the address waits
+// HoldCooldown from the moment it stopped holding; after that it holds them
+// afresh. Releasing and retaking therefore spends only what is left, a slot
+// cannot be held for longer than a window by letting it go and picking it
+// again, and a converted booking's time, which may run past a window
+// (MinPaymentWindow), spends the budget like any other.
+func budgetFrom(spans []heldSpan, now time.Time, window time.Duration) holdBudget {
+	var (
+		used    time.Duration
+		lastEnd time.Time
+	)
+	for _, sp := range spans {
+		if !lastEnd.IsZero() && sp.start.Sub(lastEnd) >= HoldCooldown {
+			used = 0
+		}
+		if d := sp.end.Sub(sp.start); d > 0 {
+			used += d
+		}
+		if sp.end.After(lastEnd) {
+			lastEnd = sp.end
+		}
+	}
+	if lastEnd.IsZero() || now.Sub(lastEnd) >= HoldCooldown {
+		return holdBudget{remaining: window}
+	}
+	remaining := window - used
+	if remaining < minHoldBudget {
+		return holdBudget{refused: true, until: lastEnd.Add(HoldCooldown)}
+	}
+	return holdBudget{remaining: remaining}
+}
+
+// holdBudgetFor reads the spans ip's own unpaid storefront bookings held b's
+// hours on its court (overlapping them) within holdBudgetLookback, and works
+// out its budget (budgetFrom) at the database's now. A booking that was paid
+// is never counted: payment attaches a client and clears its address.
 //
-// A booking that was paid is never counted: payment clears its address.
-func ownHoldClock(ctx context.Context, tx pgx.Tx, b *Booking, ip string, window time.Duration) (started time.Time, live, found bool, cooldownUntil time.Time, err error) {
-	var startedAt, until pgtype.Timestamptz
-	err = tx.QueryRow(ctx, `
-		SELECT MIN(x.created_at), COALESCE(MIN(x.created_at) + make_interval(secs => $6) > NOW(), false),
-		       MAX(x.ended_at) + make_interval(secs => $7)
+// A span starts at hold_started_at (created_at for a row written before that
+// column) and ends at the earliest of now, the end of its window (created_at
+// plus window, so a conversion or an in-process extension counts), and, for a
+// cancelled booking, when it was cancelled (updated_at).
+func holdBudgetFor(ctx context.Context, tx pgx.Tx, b *Booking, ip string, window time.Duration) (holdBudget, error) {
+	rows, err := tx.Query(ctx, `
+		SELECT x.started, x.ended, NOW()
 		FROM (
-			SELECT b.created_at,
-			       CASE WHEN b.status = 'cancelled'
-			            THEN LEAST(b.updated_at, b.created_at + make_interval(secs => $6))
-			            ELSE b.created_at + make_interval(secs => $6)
-			       END AS ended_at
+			SELECT COALESCE(b.hold_started_at, b.created_at) AS started,
+			       LEAST(NOW(), b.created_at + make_interval(secs => $6),
+			             CASE WHEN b.status = 'cancelled' THEN b.updated_at END) AS ended
 			FROM bookings b
 			WHERE b.hold_ip = $1
 			  AND b.court_id = $2
@@ -501,15 +568,30 @@ func ownHoldClock(ctx context.Context, tx pgx.Tx, b *Booking, ip string, window 
 			  AND b.created_by IS NULL
 			  AND b.collection_status = 'unpaid'
 			  AND b.client_id IS NULL
-			  AND (b.status = 'cancelled'
-			       OR (b.status = 'pending' AND b.created_at + make_interval(secs => $6) <= NOW()))
+			  AND b.status IN ('pending', 'cancelled')
 		) x
-		WHERE x.ended_at > NOW() - make_interval(secs => $7)`,
+		WHERE x.ended > NOW() - make_interval(secs => $7)
+		ORDER BY x.started`,
 		ip, data.UUIDToPg(b.CourtID), data.DateToPg(b.Date), data.TimeStrToPg(b.StartTime),
-		b.DurationMinutes, window.Seconds(), HoldCooldown.Seconds(),
-	).Scan(&startedAt, &live, &until)
+		b.DurationMinutes, window.Seconds(), holdBudgetLookback.Seconds(),
+	)
 	if err != nil {
-		return time.Time{}, false, false, time.Time{}, fmt.Errorf("read the address's earlier holds: %w", err)
+		return holdBudget{}, fmt.Errorf("read the address's earlier holds: %w", err)
 	}
-	return startedAt.Time, live, startedAt.Valid, until.Time, nil
+	var (
+		spans []heldSpan
+		now   time.Time
+	)
+	for rows.Next() {
+		var sp heldSpan
+		if err := rows.Scan(&sp.start, &sp.end, &now); err != nil {
+			rows.Close()
+			return holdBudget{}, fmt.Errorf("scan the address's earlier hold: %w", err)
+		}
+		spans = append(spans, sp)
+	}
+	if err := rows.Err(); err != nil {
+		return holdBudget{}, fmt.Errorf("read the address's earlier holds: %w", err)
+	}
+	return budgetFrom(spans, now, window), nil
 }

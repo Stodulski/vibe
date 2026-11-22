@@ -329,7 +329,7 @@ function oldDraft() {
 
 describe('ComplexPage slot hold cooldown', () => {
   it('shows the cooldown refusal in the words the server wrote, with when the hours free up', async () => {
-    const detail = 'Reservaste este horario hace poco y no se completó el pago. Vas a poder elegirlo de nuevo desde las 19:40.';
+    const detail = 'Este horario se reservó hace poco desde esta conexión sin completar el pago. Vas a poder elegirlo de nuevo desde las 19:40.';
     captureHolds(() =>
       HttpResponse.json(
         { type: 'https://vibe.com.ar/problems/hold-cooldown', title: '', status: 409, detail },
