@@ -12,7 +12,6 @@ import (
 	"github.com/stodulski/vibe-server/internal/httpx"
 	"github.com/stodulski/vibe-server/internal/openapi/gen"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
-	"github.com/stodulski/vibe-server/internal/timezone"
 	"github.com/stodulski/vibe-server/internal/validator"
 )
 
@@ -184,7 +183,7 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 		// Still slot-unavailable, for every client switching on the kind; the
 		// detail tells the owner why a cell that looked free is not, and when
 		// it will be.
-		h.respond.Refuse(w, r, httpx.SlotUnavailable(holdBlockedMessage(holdBlocked.FreesAt)))
+		h.respond.Refuse(w, r, httpx.SlotUnavailable(httpx.OnlineHoldMessage(holdBlocked.FreesAt)))
 	case errors.As(err, &validationErr):
 		h.respond.FailedValidation(w, r, validationErr.Errors)
 	case errors.As(err, &fieldErr):
@@ -211,13 +210,6 @@ func (h *Handler) refuse(w http.ResponseWriter, r *http.Request, err error) {
 // slotTakenMessage is what both booking write paths tell a client whose chosen
 // hours somebody else now holds.
 const slotTakenMessage = "the selected time slot is no longer available, please choose another"
-
-// holdBlockedMessage is what an owner is told when a visitor's live online
-// hold is what stands in the way: the owner's app shows the detail as it is.
-func holdBlockedMessage(freesAt time.Time) string {
-	return fmt.Sprintf("Este horario se está reservando online. Si no se paga, se libera a las %s.",
-		freesAt.In(timezone.Argentina).Format("15:04"))
-}
 
 // toGenBooking maps a store booking onto the generated wire type (HTTP-08): a
 // handler must never serialize bookingstore.Booking directly, because that
