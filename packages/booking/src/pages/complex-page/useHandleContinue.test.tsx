@@ -120,7 +120,35 @@ describe('useHandleContinue: one intent, one hold', () => {
   });
 });
 
-describe('useHandleContinue: on any client clock', () => {
+describe('useHandleContinue: back from confirm, on any client clock', () => {
+  it('takes a new hold once the page is back from the confirm page through the back/forward cache', async () => {
+    const count = countHolds(() =>
+      HttpResponse.json({ hold: { token: 'hold-new', expires_at: '2030-01-01T12:15:00Z' } }, { status: 201 }),
+    );
+    const { result } = renderContinue();
+    act(() => {
+      result.current(selection);
+    });
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // The browser's back: this document is shown again as it was left.
+    const restore = new Event('pageshow') as PageTransitionEvent;
+    Object.defineProperty(restore, 'persisted', { value: true });
+    act(() => {
+      window.dispatchEvent(restore);
+    });
+    act(() => {
+      result.current(selection);
+    });
+
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(count.holds).toBe(2);
+  });
+
   it('parks a hold that never runs past the hold window on this client clock', async () => {
     // The client clock is a minute behind the server: the server's expiry reads as 11 minutes away.
     countHolds(() =>

@@ -94,6 +94,13 @@ function firePagehide() {
   window.dispatchEvent(new Event('pagehide'));
 }
 
+/** The browser restoring this document from the back/forward cache. */
+function fireRestore() {
+  const event = new Event('pageshow') as PageTransitionEvent;
+  Object.defineProperty(event, 'persisted', { value: true });
+  window.dispatchEvent(event);
+}
+
 describe('BookConfirmPage hold guard', () => {
   it('redirects to the complex page when the draft carries no hold', async () => {
     await renderPage(SLOT);
@@ -215,5 +222,66 @@ describe('BookConfirmPage hold release', () => {
     } finally {
       Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
     }
+  });
+});
+
+describe('BookConfirmPage restored from the back/forward cache', () => {
+  it('shows the countdown of the hold now in the draft, not the one it was opened with', async () => {
+    await renderHeld(5 * 60);
+    expect(screen.getByRole('timer')).toHaveTextContent(/^0[45]:\d\d$/);
+    // The visitor went back, the page released its hold, and a new slot was held.
+    firePagehide();
+    window.sessionStorage.setItem(
+      confirmDraftKey('club-norte'),
+      JSON.stringify({ ...SLOT, startTime: '18:00', holdToken: 'hold-new', holdExpiresAt: inSeconds(9 * 60 + 30) }),
+    );
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(screen.getByRole('timer')).toHaveTextContent(/^09:(29|30)$/);
+    });
+    expect(replaceSpy).not.toHaveBeenCalled();
+    // Leaving again gives back the new hold, never the released one.
+    beacon.mockClear();
+    firePagehide();
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(beacon).toHaveBeenCalledWith('http://localhost/api/v1/book/holds/hold-new/release');
+  });
+
+  it('books with the hold now in the draft', async () => {
+    createBooking.mockResolvedValue({
+      booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
+      token: 'tok-1',
+    });
+    const user = userEvent.setup();
+    await renderHeld();
+    firePagehide();
+    window.sessionStorage.setItem(
+      confirmDraftKey('club-norte'),
+      JSON.stringify({ ...SLOT, holdToken: 'hold-new', holdExpiresAt: inSeconds(9 * 60) }),
+    );
+    fireRestore();
+    await waitFor(() => {
+      expect(screen.getByRole('timer')).toHaveTextContent(/^0(8:59|9:00)$/);
+    });
+
+    await fillAndPay(user);
+
+    await waitFor(() => {
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+    expect(createBooking.mock.calls[0]?.[0]).toMatchObject({ hold_token: 'hold-new' });
+  });
+
+  it('sends the visitor to the hours when the hold it showed was released and no other is held', async () => {
+    await renderHeld();
+    firePagehide();
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(replaceSpy).toHaveBeenCalledWith(HOURS_URL);
+    });
   });
 });
