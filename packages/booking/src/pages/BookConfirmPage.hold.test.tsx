@@ -285,3 +285,61 @@ describe('BookConfirmPage restored from the back/forward cache', () => {
     });
   });
 });
+
+describe('BookConfirmPage back from MercadoPago', () => {
+  const originalLocation = window.location;
+  let location: { href: string; replace: ReturnType<typeof vi.fn>; assign: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    location = { href: '', replace: vi.fn(), assign: vi.fn() };
+    Object.defineProperty(window, 'location', { configurable: true, value: location });
+    createBooking.mockResolvedValue({
+      booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
+      token: 'link-1',
+      mp_init_point: 'https://mp.com/checkout/b1',
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+  });
+
+  async function payOnMercadoPago() {
+    const user = userEvent.setup();
+    await renderHeld();
+    await fillAndPay(user);
+    await waitFor(() => {
+      expect(location.href).toBe('https://mp.com/checkout/b1');
+    });
+    expect(screen.getByText(t.publicBooking.redirectingToMP)).toBeInTheDocument();
+  }
+
+  it('shows the booking outcome when the page is restored from the back/forward cache', async () => {
+    await payOnMercadoPago();
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(location.replace).toHaveBeenCalledWith('/c/club-norte/book/success?token=link-1');
+    });
+    // The page did not mistake the converted hold for a released one.
+    expect(location.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the booking outcome when the visitor returns from the MercadoPago app to this tab', async () => {
+    await payOnMercadoPago();
+
+    setVisibility('hidden');
+    expect(location.replace).not.toHaveBeenCalled();
+    setVisibility('visible');
+
+    await waitFor(() => {
+      expect(location.replace).toHaveBeenCalledWith('/c/club-norte/book/success?token=link-1');
+    });
+  });
+});
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: state });
+  document.dispatchEvent(new Event('visibilitychange'));
+}

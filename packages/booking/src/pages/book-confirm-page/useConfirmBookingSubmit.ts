@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { usePublicBooking } from '../../hooks/usePublicBooking';
 import { BOOKING_INFO_KEY } from '../../lib/storedBookingInfo';
 import type { PublicBookingFormData } from '../../schemas/public-booking.schema';
@@ -17,13 +17,55 @@ export interface ConfirmHoldEvents {
   onConverted: () => void;
 }
 
+/**
+ * Where a visitor sent to MercadoPago lands when this page shows again.
+ *
+ * MercadoPago sends the browser to the success page by itself (the back_urls,
+ * backend/internal/booklink). This page shows again instead when the visitor
+ * returns another way: the browser's back restores it from the back/forward
+ * cache, or MercadoPago's app took the payment and the visitor switched back to
+ * this tab, which never left. Either way it would sit on "Abriendo Mercado
+ * Pago..." for good, so it moves to the success page with the booking's
+ * credential, which reads the booking's real state: confirmed, still being
+ * processed, or not paid.
+ */
+function useReturnFromCheckout(slug: string | undefined, checkoutToken: string | null) {
+  useEffect(() => {
+    if (checkoutToken === null) return;
+    const outcome = `${publicComplexPath(String(slug))}/book/success?token=${encodeURIComponent(checkoutToken)}`;
+    let hidden = false;
+    let done = false;
+    const showOutcome = () => {
+      if (done) return;
+      done = true;
+      navigateTo(outcome, { replace: true });
+    };
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) showOutcome();
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'hidden') hidden = true;
+      else if (hidden) showOutcome();
+    };
+    window.addEventListener('pageshow', onPageShow);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+    };
+  }, [slug, checkoutToken]);
+}
+
 export function useConfirmBookingSubmit(
   slug: string | undefined,
   slotInfo: ConfirmDraft,
   hold: ConfirmHoldEvents,
 ) {
 
-  const [redirecting, setRedirecting] = useState(false);
+  // The booking's credential once the browser was sent to MercadoPago.
+  const [checkoutToken, setCheckoutToken] = useState<string | null>(null);
+  const redirecting = checkoutToken !== null;
+  useReturnFromCheckout(slug, checkoutToken);
   const [paymentLinkError, setPaymentLinkError] = useState(false);
   // Kept so "Reintentar" can resubmit exactly what the person already typed —
   // the whole point of the persistent error is that their data is not lost.
@@ -61,7 +103,7 @@ export function useConfirmBookingSubmit(
           // A result left by an earlier booking must not answer for this one
           // when MercadoPago brings the browser back.
           clearBookingResult(String(slug));
-          setRedirecting(true);
+          setCheckoutToken(data.token);
           window.location.href = data.mp_init_point;
         } else {
           saveBookingResult(String(slug), { token: data.token, bookingInfo });
