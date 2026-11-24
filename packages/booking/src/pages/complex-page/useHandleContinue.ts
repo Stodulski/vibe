@@ -12,6 +12,7 @@ import { getProblem } from '../../lib/ApiError';
 import { holdRefusalCopy } from '../../lib/bookingRefusals';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useTakeHold } from '../../hooks/useTakeHold';
+import { clientHoldDeadline } from '../book-confirm-page/holdTime';
 import { buildConfirmState } from './buildConfirmState';
 import type { HoldChallenge } from './useHoldChallenge';
 
@@ -91,6 +92,29 @@ function useContinueOnceSolved(token: string | undefined, takeHoldAndContinue: (
 }
 
 /**
+ * Set while a hold is on its way. A second tap meanwhile would spend a token
+ * and take a second hold. A ref, not `isPending`: two taps can land in one
+ * render. It stays set after a hold is taken: the page is leaving for confirm,
+ * and a tap on "Reservar" meanwhile is the same intent, not a second hold.
+ * Until the browser shows the page again from its back/forward cache: the
+ * visitor came back from confirm, which gave that hold back, and the next tap
+ * is a new choice. Left set, every tap on the restored page did nothing.
+ */
+function useInFlightHold() {
+  const inFlightRef = useRef(false);
+  useEffect(() => {
+    const onPageShow = (event: PageTransitionEvent) => {
+      if (event.persisted) inFlightRef.current = false;
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => {
+      window.removeEventListener('pageshow', onPageShow);
+    };
+  }, []);
+  return inFlightRef;
+}
+
+/**
  * Holds the slot, then off to the confirm page with it.
  *
  * The selection can be handed in directly. Choosing a court continues in the
@@ -116,11 +140,7 @@ export function useHandleContinue(
 ) {
   const takeHold = useTakeHold();
   const queryClient = useQueryClient();
-  // A second tap while the first hold is on its way would spend a token and
-  // take a second hold. A ref, not `isPending`: two taps can land in one render.
-  // It stays set after a hold is taken: the page is leaving for confirm, and a
-  // tap on "Reservar" meanwhile is the same intent, not a second hold.
-  const inFlight = useRef(false);
+  const inFlightRef = useInFlightHold();
   const recentRefusal = useRecentRefusal();
 
   function takeHoldAndContinue(selection: SelectedSlot) {
@@ -129,14 +149,18 @@ export function useHandleContinue(
     const slotInfo = buildConfirmState(complex, selection, dateStr);
     const previous = readConfirmDraft(pageSlug)?.holdToken;
 
-    inFlight.current = true;
+    inFlightRef.current = true;
     takeHold.mutate(holdRequest(slotInfo, challenge.token, previous), {
       onSuccess: (hold) => {
-        saveConfirmDraft(pageSlug, { ...slotInfo, holdToken: hold.token, holdExpiresAt: hold.expiresAt });
+        saveConfirmDraft(pageSlug, {
+          ...slotInfo,
+          holdToken: hold.token,
+          holdExpiresAt: clientHoldDeadline(hold.expiresAt),
+        });
         navigateTo(`${publicComplexPath(pageSlug)}/book/confirm`);
       },
       onError: (error) => {
-        inFlight.current = false;
+        inFlightRef.current = false;
         const message = holdRefusalCopy(error);
         recentRefusal.remember(slotKey(slotInfo), error, message);
         toast.error(message, REFUSAL_TOAST);
@@ -155,7 +179,7 @@ export function useHandleContinue(
   const continueOnceSolved = useContinueOnceSolved(challenge.token, takeHoldAndContinue);
 
   return function handleContinue(selection: SelectedSlot | null = selectedSlot) {
-    if (!complex || !selection || !mpConnected || inFlight.current) return;
+    if (!complex || !selection || !mpConnected || inFlightRef.current) return;
     if (recentRefusal.repeat(slotKey(buildConfirmState(complex, selection, dateStr)))) return;
     if (challenge.required && !challenge.token) {
       continueOnceSolved(selection);

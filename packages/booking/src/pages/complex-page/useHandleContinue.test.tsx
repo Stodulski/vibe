@@ -7,6 +7,7 @@ import { createBookingWrapper, setBookingUrl } from '../../test/booking';
 import type { PublicComplex } from '../../api/types';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import { useHandleContinue } from './useHandleContinue';
+import { readConfirmDraft } from '../../lib/handoff';
 import type { HoldChallenge } from './useHoldChallenge';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -116,6 +117,59 @@ describe('useHandleContinue: one intent, one hold', () => {
     const ids = vi.mocked(toast.info).mock.calls.map((call) => call[1]?.id);
     expect(new Set(ids).size).toBe(1);
     expect(ids[0]).toBeDefined();
+  });
+});
+
+describe('useHandleContinue: back from confirm, on any client clock', () => {
+  it('takes a new hold once the page is back from the confirm page through the back/forward cache', async () => {
+    const count = countHolds(() =>
+      HttpResponse.json({ hold: { token: 'hold-new', expires_at: '2030-01-01T12:15:00Z' } }, { status: 201 }),
+    );
+    const { result } = renderContinue();
+    act(() => {
+      result.current(selection);
+    });
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // The browser's back: this document is shown again as it was left.
+    const restore = new Event('pageshow') as PageTransitionEvent;
+    Object.defineProperty(restore, 'persisted', { value: true });
+    act(() => {
+      window.dispatchEvent(restore);
+    });
+    act(() => {
+      result.current(selection);
+    });
+
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(2);
+    });
+    expect(count.holds).toBe(2);
+  });
+
+  it('parks a hold that never runs past the hold window on this client clock', async () => {
+    // The client clock is a minute behind the server: the server's expiry reads as 11 minutes away.
+    countHolds(() =>
+      HttpResponse.json(
+        { hold: { token: 'hold-new', expires_at: new Date(Date.now() + 11 * 60_000).toISOString() } },
+        { status: 201 },
+      ),
+    );
+    const { result } = renderContinue();
+    act(() => {
+      result.current(selection);
+    });
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    const draft = readConfirmDraft('test-club');
+    expect(draft?.holdToken).toBe('hold-new');
+    const left = Date.parse(draft?.holdExpiresAt ?? '') - Date.now();
+    expect(left).toBeLessThanOrEqual(10 * 60_000);
+    expect(left).toBeGreaterThan(9 * 60_000);
   });
 });
 

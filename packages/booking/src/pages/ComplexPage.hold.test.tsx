@@ -64,7 +64,8 @@ const BASE_CONFIG: BookingConfig = {
 };
 const TURNSTILE_CONFIG: BookingConfig = { ...BASE_CONFIG, turnstileSiteKey: 'test-site-key' };
 
-const EXPIRES_AT = '2030-01-01T12:15:00.000Z';
+// Inside the hold window from now, so the draft keeps the server's instant as is.
+const EXPIRES_AT = new Date(Date.now() + 9 * 60_000).toISOString();
 
 function complexData(): PublicComplexResponse {
   return {

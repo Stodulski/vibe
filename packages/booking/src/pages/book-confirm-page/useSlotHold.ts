@@ -4,7 +4,7 @@ import { HOURS_ANCHOR } from '../../components/CourtSelector';
 import { releaseHold } from '../../lib/holdRelease';
 import { navigateTo } from '../../lib/navigation';
 import { publicComplexPath } from '../../lib/publicPaths';
-import { clearConfirmDraft, saveHoldExpiredNotice, type ConfirmDraft } from '../../lib/handoff';
+import { clearConfirmDraft, readConfirmDraft, saveHoldExpiredNotice, type ConfirmDraft } from '../../lib/handoff';
 
 /**
  * Where "Cambiar horario" and an expired hold land: the hours of the complex
@@ -27,13 +27,20 @@ export function hoursPath(slug: string, draft: ConfirmDraft): string {
  * does not show a hold that no longer exists. Two exits keep the hold: the
  * booking that converted it (the redirect to MercadoPago must find it still
  * there), and its own expiry, which has nothing left to release.
+ *
+ * A page the browser shows again from its back/forward cache comes back as it
+ * was left, hold and countdown included, so it asks the draft which hold is
+ * current: another one (held on the complex page meanwhile) replaces the page's
+ * through `onDraftReplaced`; none, or the one this page already gave back,
+ * sends the visitor to the hours. A converted hold is the submit's to follow.
  */
-export function useSlotHold(slug: string, draft: ConfirmDraft) {
+export function useSlotHold(slug: string, draft: ConfirmDraft, onDraftReplaced: (draft: ConfirmDraft) => void) {
   const { apiBaseUrl } = useBookingConfig();
   // Set once the hold has been dealt with: released, converted or expired.
   // From then on the page leaving must not touch it.
   const settled = useRef(false);
   const releasedOnHide = useRef(false);
+  const converted = useRef(false);
   const hours = hoursPath(slug, draft);
 
   const release = useCallback(() => {
@@ -49,10 +56,15 @@ export function useSlotHold(slug: string, draft: ConfirmDraft) {
       releasedOnHide.current = true;
       release();
     };
-    // Restored from the back/forward cache after `pagehide` released the
-    // hold: the form on screen has nothing left to book, so back to the hours.
+    // Restored from the back/forward cache: the hold on screen may be gone.
     const onPageShow = (event: PageTransitionEvent) => {
-      if (event.persisted && releasedOnHide.current) navigateTo(hours, { replace: true });
+      if (!event.persisted || converted.current) return;
+      const current = readConfirmDraft(slug);
+      if (current && current.holdToken !== draft.holdToken) {
+        onDraftReplaced(current);
+      } else if (!current || releasedOnHide.current) {
+        navigateTo(hours, { replace: true });
+      }
     };
     window.addEventListener('pagehide', onPageHide);
     window.addEventListener('pageshow', onPageShow);
@@ -60,7 +72,7 @@ export function useSlotHold(slug: string, draft: ConfirmDraft) {
       window.removeEventListener('pagehide', onPageHide);
       window.removeEventListener('pageshow', onPageShow);
     };
-  }, [release, hours]);
+  }, [release, hours, slug, draft.holdToken, onDraftReplaced]);
 
   /** "Cambiar horario": the slot goes back, the visitor goes to the hours. */
   const changeTime = useCallback(() => {
@@ -79,6 +91,7 @@ export function useSlotHold(slug: string, draft: ConfirmDraft) {
   /** The booking converted the hold. Leaving now, MercadoPago included, keeps it. */
   const markConverted = useCallback(() => {
     settled.current = true;
+    converted.current = true;
   }, []);
 
   return { changeTime, expire, markConverted };

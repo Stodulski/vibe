@@ -77,7 +77,7 @@ async function renderPage(draft: unknown) {
   return renderBooking(<Page slug="club-norte" />, { config: CONFIG });
 }
 
-async function renderHeld(expiresInSeconds = 15 * 60) {
+async function renderHeld(expiresInSeconds = 9 * 60) {
   await renderPage({ ...SLOT, holdToken: 'hold-abc', holdExpiresAt: inSeconds(expiresInSeconds) });
   await screen.findByText('Cancha 1');
 }
@@ -94,6 +94,13 @@ function firePagehide() {
   window.dispatchEvent(new Event('pagehide'));
 }
 
+/** The browser restoring this document from the back/forward cache. */
+function fireRestore() {
+  const event = new Event('pageshow') as PageTransitionEvent;
+  Object.defineProperty(event, 'persisted', { value: true });
+  window.dispatchEvent(event);
+}
+
 describe('BookConfirmPage hold guard', () => {
   it('redirects to the complex page when the draft carries no hold', async () => {
     await renderPage(SLOT);
@@ -106,11 +113,11 @@ describe('BookConfirmPage hold guard', () => {
 
 describe('BookConfirmPage countdown', () => {
   it('shows the time left on the hold, from the server expiry', async () => {
-    await renderHeld(10 * 60 + 5);
+    await renderHeld(9 * 60 + 5);
 
     // Only the time is on screen; the sentence is the timer's accessible name.
     const timer = screen.getByRole('timer', { name: t.publicBooking.holdCountdownLabel });
-    expect(timer).toHaveTextContent(/^10:05$/);
+    expect(timer).toHaveTextContent(/^09:0[45]$/);
   });
 
   it('tells the visitor the hold expired and sends them back to the hours when the time is up', async () => {
@@ -217,3 +224,122 @@ describe('BookConfirmPage hold release', () => {
     }
   });
 });
+
+describe('BookConfirmPage restored from the back/forward cache', () => {
+  it('shows the countdown of the hold now in the draft, not the one it was opened with', async () => {
+    await renderHeld(5 * 60);
+    expect(screen.getByRole('timer')).toHaveTextContent(/^0[45]:\d\d$/);
+    // The visitor went back, the page released its hold, and a new slot was held.
+    firePagehide();
+    window.sessionStorage.setItem(
+      confirmDraftKey('club-norte'),
+      JSON.stringify({ ...SLOT, startTime: '18:00', holdToken: 'hold-new', holdExpiresAt: inSeconds(9 * 60 + 30) }),
+    );
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(screen.getByRole('timer')).toHaveTextContent(/^09:(29|30)$/);
+    });
+    expect(replaceSpy).not.toHaveBeenCalled();
+    // Leaving again gives back the new hold, never the released one.
+    beacon.mockClear();
+    firePagehide();
+    expect(beacon).toHaveBeenCalledTimes(1);
+    expect(beacon).toHaveBeenCalledWith('http://localhost/api/v1/book/holds/hold-new/release');
+  });
+
+  it('books with the hold now in the draft', async () => {
+    createBooking.mockResolvedValue({
+      booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
+      token: 'tok-1',
+    });
+    const user = userEvent.setup();
+    await renderHeld();
+    firePagehide();
+    window.sessionStorage.setItem(
+      confirmDraftKey('club-norte'),
+      JSON.stringify({ ...SLOT, holdToken: 'hold-new', holdExpiresAt: inSeconds(9 * 60) }),
+    );
+    fireRestore();
+    await waitFor(() => {
+      expect(screen.getByRole('timer')).toHaveTextContent(/^0(8:59|9:00)$/);
+    });
+
+    await fillAndPay(user);
+
+    await waitFor(() => {
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+    expect(createBooking.mock.calls[0]?.[0]).toMatchObject({ hold_token: 'hold-new' });
+  });
+
+  it('sends the visitor to the hours when the hold it showed was released and no other is held', async () => {
+    await renderHeld();
+    firePagehide();
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(replaceSpy).toHaveBeenCalledWith(HOURS_URL);
+    });
+  });
+});
+
+describe('BookConfirmPage back from MercadoPago', () => {
+  const originalLocation = window.location;
+  let location: { href: string; replace: ReturnType<typeof vi.fn>; assign: ReturnType<typeof vi.fn> };
+
+  beforeEach(() => {
+    location = { href: '', replace: vi.fn(), assign: vi.fn() };
+    Object.defineProperty(window, 'location', { configurable: true, value: location });
+    createBooking.mockResolvedValue({
+      booking: { status: 'pending', collection_status: 'unpaid', refund_status: 'none' },
+      token: 'link-1',
+      mp_init_point: 'https://mp.com/checkout/b1',
+    });
+  });
+
+  afterEach(() => {
+    Object.defineProperty(window, 'location', { configurable: true, value: originalLocation });
+  });
+
+  async function payOnMercadoPago() {
+    const user = userEvent.setup();
+    await renderHeld();
+    await fillAndPay(user);
+    await waitFor(() => {
+      expect(location.href).toBe('https://mp.com/checkout/b1');
+    });
+    expect(screen.getByText(t.publicBooking.redirectingToMP)).toBeInTheDocument();
+  }
+
+  it('shows the booking outcome when the page is restored from the back/forward cache', async () => {
+    await payOnMercadoPago();
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(location.replace).toHaveBeenCalledWith('/c/club-norte/book/success?token=link-1');
+    });
+    // The page did not mistake the converted hold for a released one.
+    expect(location.replace).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows the booking outcome when the visitor returns from the MercadoPago app to this tab', async () => {
+    await payOnMercadoPago();
+
+    setVisibility('hidden');
+    expect(location.replace).not.toHaveBeenCalled();
+    setVisibility('visible');
+
+    await waitFor(() => {
+      expect(location.replace).toHaveBeenCalledWith('/c/club-norte/book/success?token=link-1');
+    });
+  });
+});
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: state });
+  document.dispatchEvent(new Event('visibilitychange'));
+}

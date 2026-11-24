@@ -5,7 +5,7 @@ import { formatRemaining, secondsUntil, thresholdMessage } from './holdTime';
 const t = BOOKING_MESSAGES;
 
 interface HoldCountdownProps {
-  /** The hold's `expires_at` from the server. The count is never a client-side 15:00. */
+  /** When the hold ends, from the server's `expires_at`. The count never shows more than the hold window. */
   expiresAt: string;
   /** Called once, when the time is up (at once when it already was). */
   onExpire: () => void;

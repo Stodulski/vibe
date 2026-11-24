@@ -38,7 +38,7 @@ const mockSlotInfo: BookingSlotInfo = {
 
 /** The draft the complex page leaves after taking a hold on the slot. */
 function heldDraft(slot: Partial<BookingSlotInfo> = mockSlotInfo) {
-  return { ...slot, holdToken: 'hold-1', holdExpiresAt: new Date(Date.now() + 15 * 60_000).toISOString() };
+  return { ...slot, holdToken: 'hold-1', holdExpiresAt: new Date(Date.now() + 9 * 60_000).toISOString() };
 }
 
 let replaceSpy: MockInstance<Location['replace']> | undefined;

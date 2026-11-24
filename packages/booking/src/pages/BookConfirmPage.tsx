@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { BookingForm } from '../components/BookingForm';
 import { BookingSummaryCard } from '../components/booking-form/BookingSummaryCard';
 import { computeBookingPricing } from '../components/booking-form/pricing';
@@ -18,10 +18,12 @@ const t = BOOKING_MESSAGES;
 
 export default function BookConfirmPage({ slug }: { slug: string }) {
   // The draft is the slot the person chose on the complex page and the hold
-  // taken on it, parked in sessionStorage for this slug. It is read once, when
-  // the page mounts. A missing or invalid draft, or one without a hold (a
-  // direct visit, a stale tab), sends the person back to the complex page.
-  const draft = useMemo(() => readConfirmDraft(slug), [slug]);
+  // taken on it, parked in sessionStorage for this slug. It is read when the
+  // page mounts, and again when the browser shows this page from its
+  // back/forward cache (`useSlotHold`), since another slot may have been held
+  // meanwhile. A missing or invalid draft, or one without a hold (a direct
+  // visit, a stale tab), sends the person back to the complex page.
+  const [draft, setDraft] = useState(() => readConfirmDraft(slug));
 
   useEffect(() => {
     if (!draft) {
@@ -33,16 +35,19 @@ export default function BookConfirmPage({ slug }: { slug: string }) {
     return null;
   }
 
-  return <BookConfirmPageContent slug={slug} draft={draft} />;
+  // Keyed by the hold: a draft that holds another slot starts the page over,
+  // countdown, form and the life of the hold included.
+  return <BookConfirmPageContent key={draft.holdToken} slug={slug} draft={draft} onDraftReplaced={setDraft} />;
 }
 
 interface BookConfirmPageContentProps {
   slug: string;
   draft: ConfirmDraft;
+  onDraftReplaced: (draft: ConfirmDraft) => void;
 }
 
-function BookConfirmPageContent({ slug, draft }: BookConfirmPageContentProps) {
-  const hold = useSlotHold(slug, draft);
+function BookConfirmPageContent({ slug, draft, onDraftReplaced }: BookConfirmPageContentProps) {
+  const hold = useSlotHold(slug, draft, onDraftReplaced);
   const { handleSubmit, isLoading, redirecting, paymentLinkError, retry } = useConfirmBookingSubmit(slug, draft, {
     onExpired: hold.expire,
     onConverted: hold.markConverted,
