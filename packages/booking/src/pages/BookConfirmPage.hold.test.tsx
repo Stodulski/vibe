@@ -77,7 +77,7 @@ async function renderPage(draft: unknown) {
   return renderBooking(<Page slug="club-norte" />, { config: CONFIG });
 }
 
-async function renderHeld(expiresInSeconds = 15 * 60) {
+async function renderHeld(expiresInSeconds = 9 * 60) {
   await renderPage({ ...SLOT, holdToken: 'hold-abc', holdExpiresAt: inSeconds(expiresInSeconds) });
   await screen.findByText('Cancha 1');
 }
@@ -106,11 +106,11 @@ describe('BookConfirmPage hold guard', () => {
 
 describe('BookConfirmPage countdown', () => {
   it('shows the time left on the hold, from the server expiry', async () => {
-    await renderHeld(10 * 60 + 5);
+    await renderHeld(9 * 60 + 5);
 
     // Only the time is on screen; the sentence is the timer's accessible name.
     const timer = screen.getByRole('timer', { name: t.publicBooking.holdCountdownLabel });
-    expect(timer).toHaveTextContent(/^10:05$/);
+    expect(timer).toHaveTextContent(/^09:0[45]$/);
   });
 
   it('tells the visitor the hold expired and sends them back to the hours when the time is up', async () => {

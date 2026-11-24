@@ -12,6 +12,7 @@ import { getProblem } from '../../lib/ApiError';
 import { holdRefusalCopy } from '../../lib/bookingRefusals';
 import { BOOKING_MESSAGES } from '../../messages';
 import { useTakeHold } from '../../hooks/useTakeHold';
+import { clientHoldDeadline } from '../book-confirm-page/holdTime';
 import { buildConfirmState } from './buildConfirmState';
 import type { HoldChallenge } from './useHoldChallenge';
 
@@ -132,7 +133,11 @@ export function useHandleContinue(
     inFlight.current = true;
     takeHold.mutate(holdRequest(slotInfo, challenge.token, previous), {
       onSuccess: (hold) => {
-        saveConfirmDraft(pageSlug, { ...slotInfo, holdToken: hold.token, holdExpiresAt: hold.expiresAt });
+        saveConfirmDraft(pageSlug, {
+          ...slotInfo,
+          holdToken: hold.token,
+          holdExpiresAt: clientHoldDeadline(hold.expiresAt),
+        });
         navigateTo(`${publicComplexPath(pageSlug)}/book/confirm`);
       },
       onError: (error) => {

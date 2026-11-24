@@ -27,7 +27,7 @@ export type BookingResult = z.infer<typeof bookingResultSchema>;
  */
 const confirmDraftSchema = bookingSlotInfoSchema.extend({
   holdToken: z.string().min(1),
-  /** The server's `expires_at`, an RFC 3339 instant. */
+  /** The hold's end on this client's clock, an RFC 3339 instant (`clientHoldDeadline`). */
   holdExpiresAt: z.string().refine((value) => !Number.isNaN(Date.parse(value))),
 });
 

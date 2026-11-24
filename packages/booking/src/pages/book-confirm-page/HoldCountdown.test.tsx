@@ -58,6 +58,12 @@ describe('HoldCountdown', () => {
     expect(onExpire).toHaveBeenCalledTimes(1);
   });
 
+  it('never shows more than the hold window, even when the client clock runs behind the server', () => {
+    // A client clock half a second behind the server: the expiry reads as 600.5 s away.
+    render(<HoldCountdown expiresAt={at(600.5)} onExpire={vi.fn()} />);
+    expect(screen.getByRole('timer')).toHaveTextContent('10:00');
+  });
+
   it('expires at once when the hold is already over', () => {
     const onExpire = vi.fn();
     render(<HoldCountdown expiresAt={at(-30)} onExpire={onExpire} />);

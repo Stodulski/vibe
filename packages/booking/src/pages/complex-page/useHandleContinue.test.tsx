@@ -7,6 +7,7 @@ import { createBookingWrapper, setBookingUrl } from '../../test/booking';
 import type { PublicComplex } from '../../api/types';
 import type { SelectedSlot } from '../../components/CourtSelector';
 import { useHandleContinue } from './useHandleContinue';
+import { readConfirmDraft } from '../../lib/handoff';
 import type { HoldChallenge } from './useHoldChallenge';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn(), info: vi.fn() } }));
@@ -116,6 +117,31 @@ describe('useHandleContinue: one intent, one hold', () => {
     const ids = vi.mocked(toast.info).mock.calls.map((call) => call[1]?.id);
     expect(new Set(ids).size).toBe(1);
     expect(ids[0]).toBeDefined();
+  });
+});
+
+describe('useHandleContinue: on any client clock', () => {
+  it('parks a hold that never runs past the hold window on this client clock', async () => {
+    // The client clock is a minute behind the server: the server's expiry reads as 11 minutes away.
+    countHolds(() =>
+      HttpResponse.json(
+        { hold: { token: 'hold-new', expires_at: new Date(Date.now() + 11 * 60_000).toISOString() } },
+        { status: 201 },
+      ),
+    );
+    const { result } = renderContinue();
+    act(() => {
+      result.current(selection);
+    });
+    await waitFor(() => {
+      expect(assignSpy).toHaveBeenCalledTimes(1);
+    });
+
+    const draft = readConfirmDraft('test-club');
+    expect(draft?.holdToken).toBe('hold-new');
+    const left = Date.parse(draft?.holdExpiresAt ?? '') - Date.now();
+    expect(left).toBeLessThanOrEqual(10 * 60_000);
+    expect(left).toBeGreaterThan(9 * 60_000);
   });
 });
 
