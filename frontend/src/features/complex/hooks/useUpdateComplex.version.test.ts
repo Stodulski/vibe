@@ -23,6 +23,7 @@ async function renderUpdateComplex(complexId: string) {
   queryClient.setQueryData(queryKeys.complexes.detail(complexId), {
     complex: makeComplex({ id: complexId, version: 3 }),
   });
+  queryClient.setQueryData(queryKeys.complexes.all, { complexes: [makeComplex({ id: complexId, version: 3 })] });
   const wrapper = ({ children }: { children: ReactNode }) =>
     createElement(QueryClientProvider, { client: queryClient }, children);
 
@@ -36,7 +37,9 @@ afterEach(() => {
 });
 
 describe('useUpdateComplex — optimistic concurrency', () => {
-  it('sends the version already in cache on the PUT body', async () => {
+  // The version itself is chosen by the form (`useComplexForm.version.test.tsx`):
+  // only it knows which copy is on screen.
+  it('sends the version it is given on the PUT body', async () => {
     let receivedBody: unknown;
     server.use(
       http.put('*/complexes/:complexId', async ({ request }) => {
@@ -46,7 +49,7 @@ describe('useUpdateComplex — optimistic concurrency', () => {
     );
 
     const { result } = await renderUpdateComplex('c1');
-    result.current.mutate({ name: 'Club Nuevo' });
+    result.current.mutate({ version: 3, name: 'Club Nuevo' });
 
     await waitFor(() => {
       expect(result.current.isSuccess).toBe(true);
@@ -78,6 +81,8 @@ describe('useUpdateComplex — optimistic concurrency', () => {
 
     expect(toast.error).toHaveBeenCalledWith(ES_AR.common.versionConflict);
     expect(queryClient.getQueryState(queryKeys.complexes.detail('c1'))?.isInvalidated).toBe(true);
+    // The list is the copy settings and onboarding fill their form from.
+    expect(queryClient.getQueryState(queryKeys.complexes.all)?.isInvalidated).toBe(true);
   });
 
   // A generic 409 (a duplicate slug, say) is not this — it must keep the
