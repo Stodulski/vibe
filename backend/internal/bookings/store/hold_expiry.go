@@ -144,7 +144,7 @@ func (m *Store) ExpiredHoldsToReconcile(ctx context.Context, lookback time.Durat
 		       cx.slug, cx.address, cx.city, cx.latitude, cx.longitude,
 		       cx.mp_access_token, cx.mp_refresh_token, cx.cancellation_hours,
 		       cx.phone, cx.owner_id,
-		       e.cause = 'released'
+		       e.cause = 'released', e.failed_attempts
 		FROM booking_hold_expiries e
 		JOIN bookings b ON b.id = e.booking_id
 		LEFT JOIN clients cl ON cl.id = b.client_id
@@ -164,11 +164,13 @@ func (m *Store) ExpiredHoldsToReconcile(ctx context.Context, lookback time.Durat
 	result := make([]*CronBooking, 0, limit)
 	for rows.Next() {
 		var released bool
-		cb, err := scanCronBooking(rows, m.Keys, &released)
+		var failures int32
+		cb, err := scanCronBooking(rows, m.Keys, &released, &failures)
 		if err != nil {
 			return nil, err
 		}
 		cb.ReleasedByClient = released
+		cb.HoldReconcileFailures = int(failures)
 		result = append(result, cb)
 	}
 	if err := rows.Err(); err != nil {

@@ -1357,6 +1357,11 @@ type CronBooking struct {
 	// sets it: such a booking is asked about again but never reopened, and its
 	// visitor, who chose to release it, is not told it expired.
 	ReleasedByClient bool
+	// HoldReconcileFailures is how many runs of the expired-hold
+	// reconciliation have already failed to settle the booking. Only
+	// ExpiredHoldsToReconcile sets it: a first empty answer from MercadoPago
+	// is asked again before it is trusted (search lag).
+	HoldReconcileFailures int
 }
 
 // GetForReminder2hEnriched returns confirmed bookings starting within the next 2 hours that have
