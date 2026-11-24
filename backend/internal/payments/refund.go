@@ -599,6 +599,12 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 
 	auto, manualOwed, manualReason, stop := s.refundable(ctx, booking)
 	if stop != nil {
+		if stop.Reason == paymentRowsUnread && s.standRefundIntentAgain(ctx, booking.ID) {
+			// The rows behind a refund already under way could not be read, so
+			// whether another payment is still owed is unknown. The sweep reads
+			// them again; every read that fails alerts.
+			run.retrying = true
+		}
 		return *stop
 	}
 
@@ -691,7 +697,7 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 			// hand instead, so a claim that keeps failing alerts rather than
 			// being retried in silence.
 			s.logger.Error("auto-refund: failed to claim the refund", "error", err, "booking_id", booking.ID, "payment_id", payment.ID)
-			if !run.fromSweep {
+			if !run.fromSweep && !claimFailsForGood(err) {
 				// retryFailedClaims stands the marker up once every row is
 				// done: a later row's committed claim clears it.
 				return paymentstore.RefundOutcome{
@@ -746,10 +752,21 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 }
 
 // The reasons a failed claim answers with: retried by the sweep, or owed by hand.
+// paymentRowsUnread is the reason unclaimedOnlineRows gives when it cannot read
+// a booking's rows.
 const (
+	paymentRowsUnread = "the booking's refund is under way, but its payment rows could not be read to look for another payment still owed"
+
 	claimRetriedBySweep = "the refund could not be claimed for a moment, and the sweep retries it"
 	claimNotQueued      = "the refund could not be claimed, so nothing was queued"
 )
+
+// claimFailsForGood reports whether a claim failed in a way no retry can fix:
+// the payment row is gone, or it carries no MercadoPago id to refund against.
+// Such a refund is owed by hand at once rather than after a sweep fails it again.
+func claimFailsForGood(err error) bool {
+	return errors.Is(err, data.ErrRecordNotFound) || errors.Is(err, paymentstore.ErrNoMercadoPagoID)
+}
 
 // retryFailedClaims stands the refund-intent marker up again for the rows whose
 // claim failed for a moment, once every row of the call is done. Doing it per
@@ -1103,12 +1120,17 @@ func (s *Service) refundable(ctx context.Context, booking *bookingstore.Booking)
 // made outside Vibe), and the status answers as stop: refunding the row then
 // would pay the client twice.
 //
-// A failed read answers with stop too: it is what this booking's status said
-// before any row was read, and the rows are read again on the next ask.
+// A failed read answers with stop too, what this booking's status said before
+// any row was read, with its reason saying the rows went unread. The rows are
+// read again on the next ask, and autoRefundIfPaid keeps the refund-intent
+// marker standing so there is a next ask: clearing it here left a second
+// payment nobody would ever come back for.
 func (s *Service) unclaimedOnlineRows(ctx context.Context, booking *bookingstore.Booking, stop paymentstore.RefundOutcome) ([]*paymentstore.Payment, int, string, *paymentstore.RefundOutcome) {
 	payments, err := s.payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
 		s.logger.Error("auto-refund: failed to fetch payments", "error", err, "booking_id", booking.ID)
+		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND ROWS UNREAD (refund intent kept for the sweep): booking_id=%s error=%v", booking.ID, err))
+		stop.Reason = paymentRowsUnread
 		return nil, 0, "", &stop
 	}
 	var auto []*paymentstore.Payment

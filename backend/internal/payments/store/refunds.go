@@ -268,7 +268,7 @@ func claimable(locked db.Payment) (mpPaymentID string, remaining int, err error)
 	if !locked.MpPaymentID.Valid || locked.MpPaymentID.String == "" {
 		// Recording an attempt nobody can execute would put a permanently
 		// unworkable row in the retry queue.
-		return "", 0, fmt.Errorf("payment %s carries no mercadopago id to refund against", data.PgToUUID(locked.ID))
+		return "", 0, fmt.Errorf("payment %s: %w", data.PgToUUID(locked.ID), ErrNoMercadoPagoID)
 	}
 	return locked.MpPaymentID.String, remaining, nil
 }

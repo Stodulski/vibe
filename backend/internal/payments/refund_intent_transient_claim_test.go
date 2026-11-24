@@ -7,6 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/stodulski/vibe-server/internal/data"
+	"github.com/stodulski/vibe-server/internal/mp"
+
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
@@ -165,5 +168,85 @@ func TestTheSweepsOwnFailedClaimIsOwedByHand(t *testing.T) {
 	}
 	if len(f.refundIntents.cleared) != 1 {
 		t.Errorf("the marker must be cleared once the refund is owed by hand; cleared %v", f.refundIntents.cleared)
+	}
+}
+
+// A claim that fails for good (the payment row is gone, or carries no
+// MercadoPago id) cannot be fixed by a retry. Marking it for the sweep only
+// delayed the alert by one sweep; it is owed by hand at once.
+func TestACancellationWhoseClaimFailsForGoodIsOwedByHandAtOnce(t *testing.T) {
+	for name, claimErr := range map[string]error{
+		"the payment row is gone":           data.ErrRecordNotFound,
+		"the payment has no MercadoPago id": paymentstore.ErrNoMercadoPagoID,
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = bookingstore.BookingStatusCancelled
+			f.payments.byBooking = payment
+			f.complexes.complex = linkedComplex(complexID, "")
+
+			f.payments.claimErr = claimErr
+			got := f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			if got.Result != paymentstore.RefundManual {
+				t.Errorf("a claim no retry can fix must be owed by hand; got %+v", got)
+			}
+			if len(f.refundIntents.marked) != 0 {
+				t.Errorf("nothing must be marked for a sweep that would fail the same way; marked %v", f.refundIntents.marked)
+			}
+		})
+	}
+}
+
+// The webhook's refund of a payment on a cancelled booking keeps its marker
+// for a claim that failed for a moment. One that failed for good is already
+// alerted, and keeping the marker would only make the sweep fail it again.
+func TestALatePaymentWhoseClaimFailsForGoodDropsItsMarker(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, payment := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
+	f.payments.byBooking = payment
+	f.payments.claimErr = paymentstore.ErrNoMercadoPagoID
+
+	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
+	if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123", paymentstore.RefundCauseLatePayment); err != nil {
+		t.Errorf("a claim no retry can fix must not fail the event for a redelivery; got %v", err)
+	}
+	if len(f.refundIntents.cleared) != 1 {
+		t.Errorf("the marker must be cleared; cleared %v", f.refundIntents.cleared)
+	}
+	if len(f.refundIntents.causes) != 0 {
+		t.Errorf("no cause is kept for a refund the sweep will not retry; got %v", f.refundIntents.causes)
+	}
+}
+
+// When the sweep finishes a refund already under way, it reads the booking's
+// rows to find another payment still owed. A read that failed answered "in
+// flight" and the marker was cleared with no alert: that second payment was
+// never looked for again. The marker has to stand for the next sweep.
+func TestTheSweepKeepsTheMarkerWhenThePaymentRowsCannotBeRead(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, payment := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	booking.RefundStatus = bookingstore.RefundStatusPending
+	f.payments.byBooking = payment
+	f.payments.listErr = errors.New("connection reset")
+	f.complexes.complex = linkedComplex(complexID, "")
+
+	standing := time.Now().Add(-refundIntentGrace)
+	booking.RefundIntentAt = &standing
+	f.refundIntents.orphans = []*bookingstore.Booking{booking}
+	f.service.SweepOrphanedRefundIntents(t.Context())
+
+	if len(f.refundIntents.cleared) != 0 {
+		t.Errorf("the marker must not be cleared while the rows behind it are unread; cleared %v", f.refundIntents.cleared)
+	}
+	if len(f.refundIntents.marked) != 1 {
+		t.Errorf("the marker must stand for the next sweep; marked %v", f.refundIntents.marked)
 	}
 }

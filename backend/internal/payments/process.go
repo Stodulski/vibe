@@ -781,6 +781,11 @@ func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingsto
 			// Another claim owns this refund, or it is already back. Not ours to retry.
 			return nil
 		}
+		if claimFailsForGood(err) {
+			// No retry can claim it: the alert above is what brings a person to
+			// it, and keeping the marker would only fail the sweep the same way.
+			return nil
+		}
 		return fmt.Errorf("claim the refund for cancelled booking %s: %w", booking.ID, err)
 	}
 	// The claim committed and already cleared the marker in its own transaction.
