@@ -1,4 +1,4 @@
-import { useFieldArray } from 'react-hook-form';
+import { useFieldArray, useWatch } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AlertCircle } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
@@ -13,6 +13,7 @@ import { useAppForm, submitHandler } from '@/shared/lib/form';
 import { DAYS } from './schedule-config/days';
 import { ScheduleDayRow } from './schedule-config/ScheduleDayRow';
 import { ScheduleConfigSkeleton } from './schedule-config/ScheduleConfigSkeleton';
+import { PriceCoverageWarning } from './schedule-config/PriceCoverageWarning';
 import type { Schedule } from '@/shared/types/api.types';
 
 const t = ES_AR;
@@ -93,6 +94,7 @@ function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: 
   const blocker = useUnsavedChangesBlocker(isDirty);
 
   const { fields } = useFieldArray({ control, name: 'schedules' });
+  const week = useWatch({ control, name: 'schedules' });
 
   const onSubmit = (data: UpdateSchedulesDto) => {
     // The saved week is the new baseline: without it the form stays dirty and
@@ -118,6 +120,8 @@ function ScheduleForm({ complexId, schedules }: { complexId: string; schedules: 
           <ScheduleDayRow key={field.id} index={index} control={control} setValue={setValue} />
         ))}
       </div>
+
+      <PriceCoverageWarning complexId={complexId} schedule={week} />
 
       <SectionFooter submitLabel={t.common.save} pending={updateSchedules.isPending} align="start" />
       <UnsavedChangesDialog blocker={blocker} />
