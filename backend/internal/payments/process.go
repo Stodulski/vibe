@@ -13,8 +13,10 @@ import (
 
 	bookingstore "github.com/stodulski/vibe-server/internal/bookings/store"
 	"github.com/stodulski/vibe-server/internal/booklink"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mp"
+	"github.com/stodulski/vibe-server/internal/mpcred"
 	"github.com/stodulski/vibe-server/internal/notifications"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
 	"github.com/stodulski/vibe-server/internal/pricing"
@@ -961,19 +963,27 @@ func (s *Service) collectorMatches(ctx context.Context, complexID uuid.UUID, sub
 		return false, fmt.Errorf("verify the collector of payment %s: %w", mpPaymentID, err)
 	}
 
-	if complex.MPUserID == nil || *complex.MPUserID == "" || mpPayment.CollectorID == 0 {
+	collector := mpPayment.CollectorID
+	if collector == 0 && complex.MPUserID != nil && *complex.MPUserID != "" {
+		collector, err = s.collectorAsSeller(ctx, complex, mpPaymentID)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	if complex.MPUserID == nil || *complex.MPUserID == "" || collector == 0 {
 		s.logger.Error("mp webhook: cannot verify collector - missing MercadoPago identity",
 			"mp_payment_id", mpPaymentID,
 			subjectKey, subjectID,
 			"complex_id", complexID,
 			"complex_has_mp_user_id", complex.MPUserID != nil && *complex.MPUserID != "",
-			"collector_id", mpPayment.CollectorID,
+			"collector_id", collector,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d", mpPaymentID, subjectKey, subjectID, complexID, mpPayment.CollectorID))
+		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d", mpPaymentID, subjectKey, subjectID, complexID, collector))
 		return false, nil
 	}
 
-	collectorID := strconv.FormatInt(mpPayment.CollectorID, 10)
+	collectorID := strconv.FormatInt(collector, 10)
 	if collectorID != *complex.MPUserID {
 		s.logger.Error("mp webhook: FRAUD ALERT - collector mismatch",
 			"mp_payment_id", mpPaymentID,
@@ -987,6 +997,47 @@ func (s *Service) collectorMatches(ctx context.Context, complexID uuid.UUID, sub
 	}
 
 	return true, nil
+}
+
+// collectorAsSeller reads the payment again as the complex's own seller account
+// and returns the collector that read names, or 0 when it proves nothing.
+//
+// MercadoPago answered the platform's read of a payment a venue collected with
+// no collector_id (2026-11-23), and the check refused a genuine payment. The
+// collecting account's read names it. It returns 0, a final refusal, when the
+// venue never connected MercadoPago, when MercadoPago says the payment does not
+// exist for that account (403/404: the money went elsewhere), or when the read
+// names no collector. Everything else is returned as an error so the recorded
+// event is retried rather than a genuine payment refused for good: a credential
+// that will not decrypt (our key, not the venue), an expired token, MercadoPago
+// failing, or an answer for some other payment.
+func (s *Service) collectorAsSeller(ctx context.Context, complex *complexstore.Complex, mpPaymentID string) (int64, error) {
+	token, err := complex.SellerAccessToken()
+	if errors.Is(err, mpcred.ErrMPNotConnected) {
+		s.logger.Warn("mp webhook: no seller credential to read the payment's collector with",
+			"mp_payment_id", mpPaymentID, "complex_id", complex.ID)
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read the seller credential of complex %s to verify payment %s: %w", complex.ID, mpPaymentID, err)
+	}
+	seller, err := mp.AsSeller(token)
+	if err != nil {
+		return 0, fmt.Errorf("name complex %s as the seller to verify payment %s: %w", complex.ID, mpPaymentID, err)
+	}
+	payment, err := s.provider.GetPayment(ctx, mpPaymentID, seller)
+	if mp.IsNotFoundOrForbidden(err) {
+		s.logger.Error("mp webhook: the venue's own account cannot see the payment",
+			"mp_payment_id", mpPaymentID, "complex_id", complex.ID, "error", err)
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("read payment %s as the seller to verify its collector: %w", mpPaymentID, err)
+	}
+	if payment == nil || strconv.FormatInt(payment.ID, 10) != mpPaymentID {
+		return 0, fmt.Errorf("read payment %s as the seller: MercadoPago answered for another payment", mpPaymentID)
+	}
+	return payment.CollectorID, nil
 }
 
 // processRejectedPayment records why a payment was rejected and leaves the booking
