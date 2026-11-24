@@ -72,6 +72,10 @@ const publicComplexSchema = exact<PublicComplex>(
       logo_url: nullableToAbsent(z.string()),
       cover_url: nullableToAbsent(z.string()),
       instagram: nullableToAbsent(z.string()),
+      // The owner's own words, shown on the page; absent when none is set.
+      description: nullableToAbsent(z.string()),
+      // The city hub the complex lists under (/canchas/<city_slug>); absent when it has none.
+      city_slug: nullableToAbsent(z.string()),
       deposit_percentage: z.number(),
       cancellation_hours: z.number(),
       latitude: nullableToAbsent(z.number()),

@@ -209,6 +209,7 @@ export const BOOKING_MESSAGES = {
   waitlist: WAITLIST_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
+    aboutSection: 'Sobre el complejo',
     amenities: {
       parking: 'Estacionamiento',
       changing_rooms: 'Vestuarios',

@@ -1,4 +1,5 @@
 import { type UseFormReturn } from 'react-hook-form';
+import { courtFactsLine } from '@vibe/booking/court-facts';
 import { FieldRequirement } from '@/shared/components/common/FieldRequirement';
 import { Checkbox } from '@/shared/components/ui/checkbox';
 import { Label } from '@/shared/components/ui/label';
@@ -10,7 +11,8 @@ const t = ES_AR.events.form;
 
 /**
  * Which courts the event holds: all of the complex's active ones by default,
- * or a chosen subset once "Todas las canchas" is turned off.
+ * or a chosen subset once "Todas las canchas" is turned off. Each court shows its
+ * roof, surface and lighting under its name, as players see them when they sign up.
  */
 export function EventCourtsField({
   form,
@@ -51,18 +53,14 @@ export function EventCourtsField({
       {!allCourts && (
         <div className="border-border-subtle grid grid-cols-1 gap-2.5 rounded-xl border p-3 sm:grid-cols-2">
           {activeCourts.map((court) => (
-            <div key={court.id} className="flex min-w-0 items-center gap-2.5">
-              <Checkbox
-                id={`event-court-${court.id}`}
-                checked={courtIds.includes(court.id)}
-                onCheckedChange={(checked) => {
-                  toggleCourt(court.id, checked === true);
-                }}
-              />
-              <Label htmlFor={`event-court-${court.id}`} className="min-w-0 truncate text-sm">
-                {court.name}
-              </Label>
-            </div>
+            <CourtOption
+              key={court.id}
+              court={court}
+              checked={courtIds.includes(court.id)}
+              onCheckedChange={(checked) => {
+                toggleCourt(court.id, checked);
+              }}
+            />
           ))}
         </div>
       )}
@@ -72,5 +70,42 @@ export function EventCourtsField({
         </p>
       )}
     </fieldset>
+  );
+}
+
+/** One court to tick: its name, and under it the roof, surface and lighting that describe the checkbox. */
+function CourtOption({
+  court,
+  checked,
+  onCheckedChange,
+}: {
+  court: CourtWithPrices;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  const facts = courtFactsLine(court);
+  const id = `event-court-${court.id}`;
+  return (
+    <div className="flex min-w-0 items-start gap-2.5">
+      <Checkbox
+        id={id}
+        className="mt-0.5"
+        aria-describedby={facts ? `${id}-facts` : undefined}
+        checked={checked}
+        onCheckedChange={(value) => {
+          onCheckedChange(value === true);
+        }}
+      />
+      <div className="min-w-0">
+        <Label htmlFor={id} className="block truncate text-sm">
+          {court.name}
+        </Label>
+        {facts && (
+          <p id={`${id}-facts`} className="text-text-tertiary truncate text-xs" title={facts}>
+            {facts}
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

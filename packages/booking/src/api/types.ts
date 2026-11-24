@@ -93,6 +93,8 @@ export interface PublicComplex {
   logo_url?: string;
   cover_url?: string;
   description?: string;
+  /** The city hub the complex lists under, /canchas/<city_slug>; absent when it has none. */
+  city_slug?: string;
   /** The bare Instagram handle, without the `@`. */
   instagram?: string;
   deposit_percentage: number;
