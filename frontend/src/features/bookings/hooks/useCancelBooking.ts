@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
+import { invalidateBookingSideEffects } from '@/shared/lib/bookingInvalidation';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage } from '@/shared/lib/utils';
 import type {
@@ -79,6 +80,7 @@ export function useCancelBooking(complexId: string, date: string) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.detail(bookingId),
       });
+      void invalidateBookingSideEffects(queryClient, complexId, ['cash', 'clients', 'series']);
     },
   });
 }

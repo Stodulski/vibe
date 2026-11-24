@@ -2,6 +2,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { bookingsApi } from '../api/bookings.api';
 import { queryKeys } from '@/shared/lib/queryKeys';
+import { invalidateBookingSideEffects } from '@/shared/lib/bookingInvalidation';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { getHttpErrorMessage, getHttpStatus } from '@/shared/lib/utils';
 import { isFixedBookingConflict, isOpenPlayEventConflict, isTournamentMatchConflict } from '@/features/courts';
@@ -21,6 +22,8 @@ export function useCreateBooking(complexId: string) {
       void queryClient.invalidateQueries({
         queryKey: queryKeys.bookings.byComplex(complexId),
       });
+      // A counter payment can come in the same call, and the client may be new.
+      void invalidateBookingSideEffects(queryClient, complexId, ['cash', 'clients']);
       toast.success(t.bookings.createSuccess);
     },
     onError: (error: unknown) => {

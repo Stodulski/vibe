@@ -7,17 +7,9 @@ import { server } from '@/test/msw/server';
 import { makeUser } from '@/test/factories';
 import { useRealtimeEvents } from './useRealtimeEvents';
 import { createQueryWrapper } from '@/test/test-utils';
-
-vi.mock('@/shared/lib/queryKeys', () => ({
-  queryKeys: {
-    bookings: { byComplex: (id: string) => ['bookings', id] },
-    dashboard: {
-      stats: (id: string) => ['dashboard', 'stats', id],
-      occupancy: (id: string) => ['dashboard', 'occupancy', id],
-      clients: (id: string) => ['dashboard', 'clients', id],
-    },
-  },
-}));
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { createElement, type ReactNode } from 'react';
+import { queryKeys } from '@/shared/lib/queryKeys';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn() } }));
 
@@ -143,7 +135,36 @@ describe('useRealtimeEvents', () => {
     expect(bookingChangedListeners).toBeDefined();
     expect(bookingChangedListeners?.length).toBe(1);
   });
+});
 
+describe('useRealtimeEvents — what a changed booking refreshes', () => {
+  // A booking changed elsewhere (a public booking paid, another tab's
+  // cancel) moves the same screens an own write does, not just the calendar.
+  it('refreshes Caja, Clientes and the series panel on booking_changed', () => {
+    const queryClient = new QueryClient();
+    const keys = [
+      queryKeys.cash.current('complex-1'),
+      queryKeys.cash.bookingsDue('complex-1'),
+      queryKeys.clients.detail('complex-1', 'cl1'),
+      queryKeys.bookings.series('complex-1', 's1'),
+    ];
+    for (const key of keys) queryClient.setQueryData(key, { seeded: true });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client: queryClient }, children);
+    renderHook(
+      () => {
+        useRealtimeEvents('complex-1');
+      },
+      { wrapper },
+    );
+
+    firstInstance().dispatchEvent('booking_changed');
+
+    for (const key of keys) expect(queryClient.getQueryState(key)?.isInvalidated, String(key)).toBe(true);
+  });
+});
+
+describe('useRealtimeEvents — teardown', () => {
   it('closes the EventSource on unmount', () => {
     const { unmount } = renderHook(
       () => {

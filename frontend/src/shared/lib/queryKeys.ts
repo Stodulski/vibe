@@ -25,13 +25,21 @@ export const queryKeys = {
   bookings: {
     all: ['bookings'] as const,
     byComplex: (complexId: string) => ['bookings', complexId] as const,
-    byDate: (complexId: string, date: string) => ['bookings', complexId, date] as const,
+    // `date` is cut to its yyyy-MM-dd: `Booking.date` can arrive as a full
+    // RFC 3339 timestamp (midnight UTC of the booking's calendar day, see the
+    // OpenAPI note), and a caller passing it through would build a key no
+    // calendar day reads. Its first ten characters ARE the day; converting the
+    // instant to Argentina time would move it to the evening before.
+    byDate: (complexId: string, date: string) => ['bookings', complexId, date.slice(0, 10)] as const,
     // 'detail' segment keeps this from colliding with `byComplex(id)`, which
     // shares the same `['bookings', <string>]` shape — without it,
     // invalidating one prefix-matches and clears the other's cache entries too.
     detail: (id: string) => ['bookings', 'detail', id] as const,
     // Same reasoning as 'detail': the literal segment keeps it off `byDate`'s shape.
     series: (complexId: string, seriesId: string) => ['bookings', 'series', complexId, seriesId] as const,
+    // Every `series` entry of the complex, for a write on one booking that
+    // does not know which series (if any) it belongs to.
+    seriesBase: (complexId: string) => ['bookings', 'series', complexId] as const,
   },
   // Open-play events ("canchas abiertas"). The literal segment after the complex
   // keeps list and detail keys off each other's shape, so invalidating the
