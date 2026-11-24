@@ -157,7 +157,6 @@ func TestUpdateMPCredentials_RefusesEmptyBeforeSealing(t *testing.T) {
 	}{
 		{"empty access token", "", "refresh", "user-1"},
 		{"empty refresh token", "access", "", "user-1"},
-		{"empty user id", "access", "refresh", ""},
 	}
 
 	for _, tt := range tests {

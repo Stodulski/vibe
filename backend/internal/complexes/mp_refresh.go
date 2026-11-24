@@ -138,11 +138,13 @@ func (s *Service) lockMPRefresh(ctx context.Context, complexID uuid.UUID) (func(
 	}
 }
 
-// refreshedMPUserID is the seller id to store with refreshed tokens. A refresh
-// answer without user_id decodes to 0, and storing "0" made every later
-// payment fail the collector check as a mismatch, so the venue's stored id is
-// kept instead and the answer is alerted on. The tokens themselves are still
-// stored: the old refresh token is already spent.
+// refreshedMPUserID is the seller id to store with refreshed tokens, "" to keep
+// the one stored (UpdateMPCredentials). A refresh answer without user_id
+// decodes to 0, and storing "0" made every later payment fail the collector
+// check as a mismatch, so it is never written: the stored id is kept and the
+// answer is alerted on. The tokens themselves are still stored, since the old
+// refresh token is already spent. A real id replaces whatever was stored,
+// which is how a "0" written before this check heals.
 func (s *Service) refreshedMPUserID(c *complexstore.Complex, userID int64) string {
 	if userID > 0 {
 		return strconv.FormatInt(userID, 10)
@@ -154,5 +156,5 @@ func (s *Service) refreshedMPUserID(c *complexstore.Complex, userID int64) strin
 	s.logger.Error("mp refresh: MercadoPago answered without user_id; keeping the stored seller id",
 		"complex_id", c.ID, "complex_name", c.Name, "stored_mp_user_id", stored)
 	sentry.CaptureMessage(fmt.Sprintf("MP OAuth refresh answered without user_id, kept stored seller id %q: complex=%s (%s)", stored, c.Name, c.ID))
-	return stored
+	return ""
 }

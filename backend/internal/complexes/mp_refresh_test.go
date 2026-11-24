@@ -80,7 +80,12 @@ func (c *credentialStore) UpdateMPCredentials(_ context.Context, _ uuid.UUID, ac
 	if c.updateErr != nil {
 		return c.updateErr
 	}
-	c.access, c.refresh, c.userID = access, refresh, userID
+	// An empty user id leaves the stored one as it is, as the store's
+	// COALESCE(NULLIF(...)) does.
+	c.access, c.refresh = access, refresh
+	if userID != "" {
+		c.userID = userID
+	}
 	c.writes++
 	return nil
 }
@@ -556,5 +561,48 @@ func TestARefreshWithoutAUserIDKeepsTheStoredSellerID(t *testing.T) {
 	}
 	if !alerted {
 		t.Errorf("a refresh without user_id must alert, naming the venue; captured %q", messages())
+	}
+}
+
+// A venue whose seller id was stored as "0" before connect and refresh refused
+// it heals on its next refresh that names the account.
+func TestARefreshWithAUserIDReplacesAStoredZero(t *testing.T) {
+	w := newRefreshWorld(t)
+	w.store.userID = "0"
+
+	if _, err := w.f.service.RefreshMPCredentials(t.Context(), w.id, "access-0"); err != nil {
+		t.Fatalf("RefreshMPCredentials: %v", err)
+	}
+	if w.store.userID != "42" {
+		t.Errorf("the refreshed user id must replace the stored \"0\"; got %q", w.store.userID)
+	}
+}
+
+// With no stored seller id and none in the refresh answer, the rotated tokens
+// are still stored: the old refresh token is already spent, and refusing the
+// write lost the connection. The id stays unknown and the venue is alerted on.
+func TestARefreshWithoutAUserIDAndNoneStoredStillStoresTheTokens(t *testing.T) {
+	for _, stored := range []string{"", "0"} {
+		w := newRefreshWorld(t)
+		w.store.userID = stored
+		w.mercado.noUserID = true
+		messages := sentryMessages(t)
+
+		if _, err := w.f.service.RefreshMPCredentials(t.Context(), w.id, "access-0"); err != nil {
+			t.Fatalf("stored %q: RefreshMPCredentials: %v", stored, err)
+		}
+		if access, refresh := w.store.tokens(); access != "access-1" || refresh != "refresh-1" {
+			t.Errorf("stored %q: the rotated tokens must be stored; got %q %q", stored, access, refresh)
+		}
+		if w.store.userID != stored {
+			t.Errorf("stored %q: no id may be invented; got %q", stored, w.store.userID)
+		}
+		var alerted bool
+		for _, m := range messages() {
+			alerted = alerted || (strings.Contains(m, "without user_id") && strings.Contains(m, w.id.String()))
+		}
+		if !alerted {
+			t.Errorf("stored %q: want an alert naming the venue; captured %q", stored, messages())
+		}
 	}
 }
