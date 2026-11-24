@@ -3,6 +3,7 @@ package payments
 import (
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -25,6 +26,7 @@ func standingRefundIntents(f *fixture) []*bookingstore.Booking {
 		return nil
 	}
 	orphan := *committed
+	orphan.RefundIntentCause = f.refundIntents.causes[orphan.ID]
 	return []*bookingstore.Booking{&orphan}
 }
 
@@ -81,6 +83,11 @@ func TestAFirstPaymentWhoseClaimFailsForAMomentIsStillRefunded(t *testing.T) {
 	if row := f.payments.byMPID; row == nil || row.Status != "refunded" {
 		t.Fatalf("the payment row must end refunded; got %+v", row)
 	}
+	// The sweep finished the refund the webhook started, so the client is told
+	// why the money came back, as the webhook would have told them.
+	if len(f.notify.refunds) != 1 || f.notify.refunds[0].Reason != latePaymentReason {
+		t.Errorf("the client must be told the payment came back because it arrived late; got %+v", f.notify.refunds)
+	}
 
 	// Neither a later redelivery nor a later sweep may send the money twice.
 	if err := f.service.processPaymentWebhook(t.Context(), "mp-123"); err != nil {
@@ -90,5 +97,73 @@ func TestAFirstPaymentWhoseClaimFailsForAMomentIsStillRefunded(t *testing.T) {
 	f.service.SweepOrphanedRefundIntents(t.Context())
 	if len(f.provider.refunds) != 1 {
 		t.Errorf("a refunded payment must never be refunded again; got %v", f.provider.refunds)
+	}
+}
+
+// A cancellation whose refund claim fails for a moment used to owe the money by
+// hand, with an alert, although nothing was wrong with the refund itself. The
+// marker the cancellation wrote is what brings the sweep back, so the claim is
+// retried there and the money goes back on its own, exactly once.
+func TestACancellationWhoseClaimFailsForAMomentIsRefundedByTheSweep(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, payment := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	f.payments.byBooking = payment
+	f.complexes.complex = linkedComplex(complexID, "")
+	readableNotice(f, booking)
+
+	f.payments.claimErr = errors.New("connection reset")
+	got := f.service.AutoRefundIfPaid(t.Context(), booking)
+	f.payments.claimErr = nil
+
+	if got.NeedsAHuman() {
+		t.Fatalf("a claim that failed for a moment must be retried, not owed by hand; got %+v", got)
+	}
+	if len(f.refundIntents.marked) != 1 || len(f.refundIntents.cleared) != 0 {
+		t.Fatalf("the marker must stand for the sweep; marked %v, cleared %v", f.refundIntents.marked, f.refundIntents.cleared)
+	}
+
+	standing := time.Now().Add(-refundIntentGrace)
+	orphan := *booking
+	orphan.RefundIntentAt = &standing
+	f.refundIntents.orphans = []*bookingstore.Booking{&orphan}
+	f.service.SweepOrphanedRefundIntents(t.Context())
+	f.refundIntents.orphans = nil
+	f.service.SweepOrphanedRefundIntents(t.Context())
+
+	if len(f.provider.refunds) != 1 {
+		t.Fatalf("the sweep must refund the payment exactly once; got %v", f.provider.refunds)
+	}
+	if len(f.payments.recordedSuccess) != 1 {
+		t.Fatalf("the refund must be recorded once; got %d", len(f.payments.recordedSuccess))
+	}
+	if len(f.notify.refunds) != 1 || f.notify.refunds[0].Reason != "" {
+		t.Errorf("a cancellation's refund is told plainly, once; got %+v", f.notify.refunds)
+	}
+}
+
+// The sweep's own claim failing is owed by hand rather than marked for another
+// sweep, so a claim that keeps failing raises an alert instead of being retried
+// in silence every few minutes.
+func TestTheSweepsOwnFailedClaimIsOwedByHand(t *testing.T) {
+	f := newFixture(t)
+	complexID := uuid.New()
+	booking, payment := paidBooking(complexID)
+	booking.Status = bookingstore.BookingStatusCancelled
+	f.payments.byBooking = payment
+	f.complexes.complex = linkedComplex(complexID, "")
+
+	f.payments.claimErr = errors.New("connection reset")
+	got := f.service.refundCancelledBooking(t.Context(), booking, true)
+
+	if got.Result != paymentstore.RefundManual {
+		t.Errorf("the sweep's failed claim must be owed by hand; got %+v", got)
+	}
+	if len(f.refundIntents.marked) != 0 {
+		t.Errorf("the sweep must not stand its own marker up again; marked %v", f.refundIntents.marked)
+	}
+	if len(f.refundIntents.cleared) != 1 {
+		t.Errorf("the marker must be cleared once the refund is owed by hand; cleared %v", f.refundIntents.cleared)
 	}
 }

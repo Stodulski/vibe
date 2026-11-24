@@ -699,7 +699,22 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	err = s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
 	keepMarker := committed || err != nil
 	s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &keepMarker)
+	if err != nil {
+		// The sweep claims this refund with the cause stored next to the
+		// marker, so the client is still told why the money came back.
+		s.keepRefundIntentCause(ctx, booking.ID, cause)
+	}
 	return err
+}
+
+// keepRefundIntentCause stores why the refund behind a standing marker is
+// owed. A write that fails costs only the reason line of the client's notice:
+// the sweep still refunds the money, as a cancellation.
+func (s *Service) keepRefundIntentCause(ctx context.Context, bookingID uuid.UUID, cause paymentstore.RefundCause) {
+	if err := s.refundIntents.SetRefundIntentCause(context.WithoutCancel(ctx), bookingID, string(cause)); err != nil {
+		s.logger.Error("mp webhook: failed to store why the refund is owed, the sweep refunds it as a cancellation",
+			"error", err, "booking_id", bookingID, "cause", cause)
+	}
 }
 
 // refundAnotherPaymentOnCancelledBooking refunds an approved payment that landed on

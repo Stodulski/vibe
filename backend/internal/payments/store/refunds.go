@@ -237,7 +237,7 @@ func claimInTx(ctx context.Context, tx pgx.Tx, qtx *db.Queries, paymentID uuid.U
 // still keep the marker-clear atomic with the claim it belongs to.
 func clearRefundIntent(ctx context.Context, tx pgx.Tx, bookingID uuid.UUID) error {
 	if _, err := tx.Exec(ctx,
-		`UPDATE bookings SET refund_intent_at = NULL WHERE id = $1`,
+		`UPDATE bookings SET refund_intent_at = NULL, refund_intent_cause = NULL WHERE id = $1`,
 		bookingID,
 	); err != nil {
 		return fmt.Errorf("clear refund intent marker: %w", err)

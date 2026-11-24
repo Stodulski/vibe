@@ -542,7 +542,15 @@ func (s *Service) announceRefundedCancellation(ctx context.Context, booking *boo
 // back is the caller's policy — it differs between the staff and public paths on
 // purpose — and this function only ever answers what it can actually do.
 func (s *Service) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
-	outcome := s.autoRefundIfPaid(ctx, booking)
+	return s.refundCancelledBooking(ctx, booking, false)
+}
+
+// refundCancelledBooking is AutoRefundIfPaid with who is asking. fromSweep is
+// the sweep finishing a refund whose marker stood past its grace: that refund
+// is claimed with the cause stored next to the marker, and a claim that fails
+// for it again is owed by hand rather than marked for yet another sweep.
+func (s *Service) refundCancelledBooking(ctx context.Context, booking *bookingstore.Booking, fromSweep bool) paymentstore.RefundOutcome {
+	outcome := s.autoRefundIfPaid(ctx, booking, fromSweep)
 
 	// One entry per call, written around the body rather than at each of its
 	// exits. There are more than a dozen of those, spread across four
@@ -576,11 +584,18 @@ func (s *Service) AutoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 // once, through owedManually, so the "MANUAL REFUND OWED" alert fires for the
 // whole of it rather than being lost behind whichever row GetByBookingID
 // used to prefer.
-func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking) paymentstore.RefundOutcome {
-	// A return not reached through a committed ClaimRefund leaves the
-	// refund-intent marker set; see clearRefundIntentUnlessClaimed.
-	committed := false
-	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
+func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Booking, fromSweep bool) paymentstore.RefundOutcome {
+	run := &refundRun{fromSweep: fromSweep}
+	if fromSweep {
+		run.cause = paymentstore.RefundCause(booking.RefundIntentCause)
+	}
+	// A return not reached through a committed ClaimRefund clears the
+	// refund-intent marker (clearRefundIntentUnlessClaimed), unless a claim
+	// that failed for a moment stood it up again for the sweep.
+	defer func() {
+		keep := run.committed || run.retrying
+		s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &keep)
+	}()
 
 	auto, manualOwed, manualReason, stop := s.refundable(ctx, booking)
 	if stop != nil {
@@ -603,7 +618,7 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 
 	rowOutcomes := make([]paymentstore.RefundOutcome, 0, len(auto))
 	for _, payment := range auto {
-		rowOutcomes = append(rowOutcomes, s.autoRefundOnePayment(ctx, booking, payment, manualOwed, &committed))
+		rowOutcomes = append(rowOutcomes, s.autoRefundOnePayment(ctx, booking, payment, manualOwed, run))
 	}
 	outcome := combineRefundOutcomes(rowOutcomes)
 
@@ -620,6 +635,21 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 	return outcome
 }
 
+// refundRun is what the rows of one AutoRefundIfPaid call share.
+type refundRun struct {
+	// cause is why the money is owed: empty for a cancellation, the cause
+	// stored next to the marker when the sweep finishes a refund.
+	cause paymentstore.RefundCause
+	// fromSweep is the sweep's own call; see refundCancelledBooking.
+	fromSweep bool
+	// committed is set once a ClaimRefund commits, which cleared the marker
+	// inside its own transaction.
+	committed bool
+	// retrying is set once a claim that failed for a moment stood the marker
+	// up again for the sweep.
+	retrying bool
+}
+
 // autoRefundOnePayment claims, issues and records a refund for one payment
 // row that refundable already identified as carrying a MercadoPago id with
 // money still owed on it. It is exactly the single-row logic
@@ -631,10 +661,10 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 // whole booking, passed through so RecordRefundSuccess can write
 // 'partial_refund' instead of clobbering it to 'refunded' when this row's
 // full refund still leaves money owed by hand.
-func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, committed *bool) paymentstore.RefundOutcome {
+func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstore.Booking, payment *paymentstore.Payment, manualOwed int, run *refundRun) paymentstore.RefundOutcome {
 	owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
 
-	claim, err := s.refunds.ClaimRefund(ctx, payment.ID)
+	claim, err := s.claimRefund(ctx, payment.ID, run.cause)
 	if err != nil {
 		switch {
 		case errors.Is(err, paymentstore.ErrAlreadyRefunded):
@@ -654,13 +684,25 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 			}
 		default:
 			// Nothing was reserved and nothing was queued, so no retry job will
-			// ever come back to this. It is owed by hand.
+			// ever come back to this. The marker is what brings the sweep back
+			// to it: stood up again from now, since an earlier row's claim may
+			// already have cleared it. The sweep's own failed claim is owed by
+			// hand instead, so a claim that keeps failing alerts rather than
+			// being retried in silence.
 			s.logger.Error("auto-refund: failed to claim the refund", "error", err, "booking_id", booking.ID, "payment_id", payment.ID)
+			if !run.fromSweep && s.standRefundIntentAgain(ctx, booking.ID) {
+				run.retrying = true
+				return paymentstore.RefundOutcome{
+					Result:         paymentstore.RefundQueued,
+					AmountCentavos: owed,
+					Reason:         "the refund could not be claimed for a moment, and the sweep retries it",
+				}
+			}
 			return s.owedManually(booking, owed, "the refund could not be claimed, so nothing was queued")
 		}
 	}
 	// The claim committed and already cleared the marker in its own transaction.
-	*committed = true
+	run.committed = true
 
 	settled, outcome := s.issueRefund(ctx, *claim)
 	if outcome != nil {
@@ -688,7 +730,8 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 		"booking_id", booking.ID, "mp_payment_id", settled.MPPaymentID, "amount", centavosToPesos(settled.RefundCentavos))
 	// The client is only told once the refund is recorded, and told the amount that
 	// was actually written rather than whatever the in-memory struct still holds.
-	s.sendRefundNotification(ctx, booking, refundTotal, refundKey(claim.MPPaymentID, refundTotal), false)
+	// A refund the sweep finished for a cause says why, as the webhook would have.
+	s.announceAutomaticRefund(ctx, booking, claim.MPPaymentID, refundTotal, run.cause)
 
 	// MercadoPago moved less than was claimed. The part that did move is back and
 	// the client has been told about it; the rest is owed with the attempt row
@@ -698,6 +741,28 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 			"mercadopago refunded less than was claimed, and the remainder has no queued attempt behind it")
 	}
 	return paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: refundTotal}
+}
+
+// claimRefund claims a payment's refund with the cause it is owed for; a
+// cancellation's, with no cause, is a plain ClaimRefund.
+func (s *Service) claimRefund(ctx context.Context, paymentID uuid.UUID, cause paymentstore.RefundCause) (*paymentstore.RefundClaim, error) {
+	if cause == paymentstore.RefundCauseNone {
+		return s.refunds.ClaimRefund(ctx, paymentID)
+	}
+	return s.refunds.ClaimRefundWithCause(ctx, paymentID, cause)
+}
+
+// standRefundIntentAgain stands a booking's refund-intent marker up again so
+// the sweep retries a refund whose claim failed for a moment, and reports
+// whether it did. A write that fails leaves nothing to come back for the
+// money, so the caller owes it by hand.
+func (s *Service) standRefundIntentAgain(ctx context.Context, bookingID uuid.UUID) bool {
+	if err := s.refundIntents.MarkRefundIntent(context.WithoutCancel(ctx), bookingID); err != nil {
+		s.logger.Error("auto-refund: failed to stand the refund intent marker up again",
+			"error", err, "booking_id", bookingID)
+		return false
+	}
+	return true
 }
 
 // clearRefundIntentUnlessClaimed is AutoRefundIfPaid's deferred cleanup: when
@@ -1540,7 +1605,7 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 		}
 		claimed++
 
-		outcome := s.AutoRefundIfPaid(ctx, b)
+		outcome := s.refundCancelledBooking(ctx, b, true)
 		s.logger.Info("refund-intent-sweep: processed orphan",
 			"booking_id", b.ID,
 			"result", outcome.Result,

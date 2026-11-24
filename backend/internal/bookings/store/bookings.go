@@ -206,6 +206,11 @@ type Booking struct {
 	// committed transaction. It is internal bookkeeping for the reconciliation
 	// sweep (refund-intent-durability spec), not a client-facing field.
 	RefundIntentAt *time.Time `json:"-"`
+	// RefundIntentCause is why the refund behind a standing marker is owed,
+	// empty for a cancellation. Only the webhook's refund of a payment that
+	// reached a cancelled booking writes it (SetRefundIntentCause), and every
+	// write that clears the marker clears it too. The sweep reads it.
+	RefundIntentCause string `json:"-"`
 	// LinkToken is the plaintext access token InsertSafe (or, for the
 	// webhook-confirmation path, internal/payments/process.go) just minted for
 	// this booking. In-memory only, set exactly once by the mint that produced
@@ -1022,30 +1027,31 @@ func (m *Store) MarkReminderSent2h(ctx context.Context, id uuid.UUID) error {
 // start and end instants the generated span carries.
 func BookingFromDB(b db.Booking) *Booking {
 	return &Booking{
-		ID:               data.PgToUUID(b.ID),
-		ComplexID:        data.PgToUUID(b.ComplexID),
-		CourtID:          data.PgToUUID(b.CourtID),
-		ClientID:         data.PgToUUID(b.ClientID),
-		StartsAt:         b.Span.Lower.Time.In(timezone.Argentina),
-		EndsAt:           b.Span.Upper.Time.In(timezone.Argentina),
-		Date:             data.PgToDate(b.Date),
-		StartTime:        data.PgToTimeStr(b.StartTime),
-		DurationMinutes:  int(b.DurationMinutes),
-		Price:            int(b.Price),
-		DepositAmount:    int(b.DepositAmount),
-		Status:           BookingStatus(b.Status),
-		CollectionStatus: CollectionStatus(b.CollectionStatus),
-		RefundStatus:     RefundStatus(b.RefundStatus),
-		ReminderSent2h:   b.ReminderSent2h,
-		Notes:            data.PgToTextPtr(b.Notes),
-		CreatedBy:        data.PgToUUIDPtr(b.CreatedBy),
-		CreatedAt:        data.PgToTime(b.CreatedAt),
-		UpdatedAt:        data.PgToTime(b.UpdatedAt),
-		RefundIntentAt:   data.PgToTimePtr(b.RefundIntentAt),
-		ClientSnapshot:   snapshotFromDB(b),
-		ContactEmail:     b.ClientEmail.String,
-		SeriesID:         data.PgToUUIDPtr(b.SeriesID),
-		AttendedAt:       data.PgToTimePtr(b.AttendedAt),
+		ID:                data.PgToUUID(b.ID),
+		ComplexID:         data.PgToUUID(b.ComplexID),
+		CourtID:           data.PgToUUID(b.CourtID),
+		ClientID:          data.PgToUUID(b.ClientID),
+		StartsAt:          b.Span.Lower.Time.In(timezone.Argentina),
+		EndsAt:            b.Span.Upper.Time.In(timezone.Argentina),
+		Date:              data.PgToDate(b.Date),
+		StartTime:         data.PgToTimeStr(b.StartTime),
+		DurationMinutes:   int(b.DurationMinutes),
+		Price:             int(b.Price),
+		DepositAmount:     int(b.DepositAmount),
+		Status:            BookingStatus(b.Status),
+		CollectionStatus:  CollectionStatus(b.CollectionStatus),
+		RefundStatus:      RefundStatus(b.RefundStatus),
+		ReminderSent2h:    b.ReminderSent2h,
+		Notes:             data.PgToTextPtr(b.Notes),
+		CreatedBy:         data.PgToUUIDPtr(b.CreatedBy),
+		CreatedAt:         data.PgToTime(b.CreatedAt),
+		UpdatedAt:         data.PgToTime(b.UpdatedAt),
+		RefundIntentAt:    data.PgToTimePtr(b.RefundIntentAt),
+		RefundIntentCause: b.RefundIntentCause.String,
+		ClientSnapshot:    snapshotFromDB(b),
+		ContactEmail:      b.ClientEmail.String,
+		SeriesID:          data.PgToUUIDPtr(b.SeriesID),
+		AttendedAt:        data.PgToTimePtr(b.AttendedAt),
 	}
 }
 

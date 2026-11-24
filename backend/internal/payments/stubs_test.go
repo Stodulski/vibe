@@ -682,9 +682,31 @@ type stubRefundIntents struct {
 	notFoundFor map[uuid.UUID]bool
 
 	clearErr error
+	// markErr refuses MarkRefundIntent, so a failed claim has nothing to stand
+	// the marker up again with.
+	markErr error
 
 	claimed []uuid.UUID
 	cleared []uuid.UUID
+	marked  []uuid.UUID
+	// causes is what SetRefundIntentCause stored, by booking.
+	causes map[uuid.UUID]string
+}
+
+func (s *stubRefundIntents) MarkRefundIntent(_ context.Context, id uuid.UUID) error {
+	if s.markErr != nil {
+		return s.markErr
+	}
+	s.marked = append(s.marked, id)
+	return nil
+}
+
+func (s *stubRefundIntents) SetRefundIntentCause(_ context.Context, id uuid.UUID, cause string) error {
+	if s.causes == nil {
+		s.causes = map[uuid.UUID]string{}
+	}
+	s.causes[id] = cause
+	return nil
 }
 
 func (s *stubRefundIntents) GetRefundIntentOrphans(context.Context, time.Duration, int) ([]*bookingstore.Booking, error) {

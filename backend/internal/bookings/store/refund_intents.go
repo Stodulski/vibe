@@ -42,7 +42,7 @@ func (m *Store) GetRefundIntentOrphans(ctx context.Context, olderThan time.Durat
 		       duration_minutes, price, deposit_amount, status,
 		       collection_status, refund_status,
 		       reminder_sent_2h, notes, created_by, created_at, updated_at,
-		       refund_intent_at
+		       refund_intent_at, refund_intent_cause
 		FROM bookings
 		WHERE refund_intent_at IS NOT NULL
 		  AND refund_intent_at < NOW() - $1::interval
@@ -64,7 +64,7 @@ func (m *Store) GetRefundIntentOrphans(ctx context.Context, olderThan time.Durat
 			&b.Price, &b.DepositAmount, &b.Status,
 			&b.CollectionStatus, &b.RefundStatus,
 			&b.ReminderSent2h, &b.Notes, &b.CreatedBy, &b.CreatedAt, &b.UpdatedAt,
-			&b.RefundIntentAt,
+			&b.RefundIntentAt, &b.RefundIntentCause,
 		); err != nil {
 			return nil, fmt.Errorf("scan refund intent orphan: %w", err)
 		}
@@ -124,11 +124,57 @@ func (m *Store) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
 	defer cancel()
 
 	_, err := m.DB.Exec(ctx,
-		`UPDATE bookings SET refund_intent_at = NULL WHERE id = $1`,
+		`UPDATE bookings SET refund_intent_at = NULL, refund_intent_cause = NULL WHERE id = $1`,
 		data.UUIDToPg(id),
 	)
 	if err != nil {
 		return fmt.Errorf("clear refund intent: %w", err)
+	}
+	return nil
+}
+
+// MarkRefundIntent stands a booking's refund-intent marker up again, from now,
+// so the sweep comes back to a refund whose claim failed for a moment. It is
+// what AutoRefundIfPaid writes instead of owing that refund by hand. The
+// cause is left as it was: a cancellation's is empty, and a refund the sweep
+// is retrying keeps the one it was owed for.
+func (m *Store) MarkRefundIntent(ctx context.Context, id uuid.UUID) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	tag, err := m.DB.Exec(ctx,
+		`UPDATE bookings SET refund_intent_at = NOW() WHERE id = $1`,
+		data.UUIDToPg(id),
+	)
+	if err != nil {
+		return fmt.Errorf("mark refund intent: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return data.ErrRecordNotFound
+	}
+	return nil
+}
+
+// SetRefundIntentCause writes why the refund behind a standing marker is
+// owed, so the sweep that finishes it claims it with that cause and the client
+// is told why the money came back. A booking whose marker is already gone
+// takes nothing: the cause belongs to the marker it stands next to.
+func (m *Store) SetRefundIntentCause(ctx context.Context, id uuid.UUID, cause string) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	tag, err := m.DB.Exec(ctx, `
+		UPDATE bookings
+		SET refund_intent_cause = NULLIF($2, '')
+		WHERE id = $1
+		  AND refund_intent_at IS NOT NULL`,
+		data.UUIDToPg(id), cause,
+	)
+	if err != nil {
+		return fmt.Errorf("set refund intent cause: %w", err)
+	}
+	if tag.RowsAffected() != 1 {
+		return data.ErrRecordNotFound
 	}
 	return nil
 }

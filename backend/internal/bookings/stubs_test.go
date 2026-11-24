@@ -435,6 +435,10 @@ func (s *stubStore) GetRefundIntentOrphans(context.Context, time.Duration, int) 
 func (s *stubStore) ClaimRefundIntent(context.Context, uuid.UUID, time.Time) error { return nil }
 
 func (s *stubStore) ClearRefundIntent(context.Context, uuid.UUID) error { return nil }
+func (s *stubStore) MarkRefundIntent(context.Context, uuid.UUID) error  { return nil }
+func (s *stubStore) SetRefundIntentCause(context.Context, uuid.UUID, string) error {
+	return nil
+}
 
 // GetForReminder2hEnriched and GetExpiredPendingEnriched answer with whatever
 // the test seeded, so the two sweeps can be driven end to end; reminderErr and

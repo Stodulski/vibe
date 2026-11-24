@@ -142,6 +142,76 @@ func TestARefundIntentMarkerIsRefusedOnAConfirmedBooking(t *testing.T) {
 	}
 }
 
+// The cause stored next to a standing marker is what the sweep reads to tell
+// the client why the money came back. It belongs to that marker alone: every
+// write that clears the marker drops it, so a later cancellation of the same
+// booking can never inherit a reason that was not its own.
+func TestARefundIntentCauseLivesAndDiesWithItsMarker(t *testing.T) {
+	f := datatest.Isolated(t)
+	ctx := context.Background()
+
+	withCause := func(start, end string) uuid.UUID {
+		t.Helper()
+		b := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: start, EndTime: end})
+		setRefundIntentAt(f, t, b.ID, time.Now().Add(-10*time.Minute))
+		if err := f.Stores.Bookings.SetRefundIntentCause(ctx, b.ID, "late_payment"); err != nil {
+			t.Fatalf("SetRefundIntentCause: %v", err)
+		}
+		return b.ID
+	}
+
+	swept := withCause("08:00", "09:00")
+	orphans, err := f.Stores.Bookings.GetRefundIntentOrphans(ctx, 5*time.Minute, 10)
+	if err != nil {
+		t.Fatalf("GetRefundIntentOrphans: %v", err)
+	}
+	if len(orphans) != 1 || orphans[0].ID != swept || orphans[0].RefundIntentCause != "late_payment" {
+		t.Fatalf("the sweep must read the cause next to the marker; got %+v", orphans)
+	}
+
+	claimed := withCause("10:00", "11:00")
+	mpPaymentID := "mp-" + uuid.NewString()
+	payment := f.CreatePayment(t, claimed, 150_000, 7_500, &mpPaymentID)
+	if _, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID); err != nil {
+		t.Fatalf("ClaimRefund: %v", err)
+	}
+
+	cleared := withCause("12:00", "13:00")
+	if err := f.Stores.Bookings.ClearRefundIntent(ctx, cleared); err != nil {
+		t.Fatalf("ClearRefundIntent: %v", err)
+	}
+
+	updated := withCause("14:00", "15:00")
+	booking, err := f.Stores.Bookings.GetByID(f.Scoped(ctx), updated)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	booking.RefundIntentAt = nil
+	if err := f.Stores.Bookings.Update(f.Scoped(ctx), booking); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	for name, id := range map[string]uuid.UUID{"ClaimRefund": claimed, "ClearRefundIntent": cleared, "Update": updated} {
+		var cause *string
+		if err := f.DB.QueryRow(ctx, `SELECT refund_intent_cause FROM bookings WHERE id = $1`, id).Scan(&cause); err != nil {
+			t.Fatalf("reading the cause: %v", err)
+		}
+		if cause != nil {
+			t.Errorf("%s cleared the marker but left its cause %q behind", name, *cause)
+		}
+	}
+
+	if err := f.Stores.Bookings.SetRefundIntentCause(ctx, cleared, "late_payment"); !errors.Is(err, data.ErrRecordNotFound) {
+		t.Errorf("a cause with no marker to stand next to must be refused; got %v", err)
+	}
+	if err := f.Stores.Bookings.MarkRefundIntent(ctx, cleared); err != nil {
+		t.Fatalf("MarkRefundIntent: %v", err)
+	}
+	if got := readRefundIntentAt(f, t, cleared); got == nil {
+		t.Error("MarkRefundIntent must stand the marker up again for the sweep")
+	}
+}
+
 // setRefundIntentAt writes a specific refund_intent_at value directly, bypassing
 // bookingstore.Store.Update so tests can pin the exact "seen" value ClaimRefundIntent's
 // compare-and-swap needs, and returns it for the caller to pass straight through.
