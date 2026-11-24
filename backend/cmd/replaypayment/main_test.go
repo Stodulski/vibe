@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -14,6 +15,15 @@ import (
 type fakeInbox struct {
 	inserted []*paymentstore.WebhookEvent
 	err      error
+	// stopped is every event StopReplay was asked to close; stops answers
+	// whether the store found a replay to close.
+	stopped []uuid.UUID
+	stops   bool
+}
+
+func (f *fakeInbox) StopReplay(_ context.Context, id uuid.UUID) (bool, error) {
+	f.stopped = append(f.stopped, id)
+	return f.stops, f.err
 }
 
 func (f *fakeInbox) Insert(_ context.Context, e *paymentstore.WebhookEvent) error {
@@ -72,5 +82,55 @@ func TestReplayReportsAFailedWrite(t *testing.T) {
 	inbox := &fakeInbox{err: errors.New("database unavailable")}
 	if _, err := replay(t.Context(), inbox, "123"); err == nil {
 		t.Error("a failed write must be an error")
+	}
+}
+
+// What the operator reads after a replay is the only guidance they get: the
+// event's "processed" status says the processing ran, not that the booking was
+// confirmed (a collector or amount refusal ends "processed" too), and a payment
+// id MercadoPago does not know would be retried forever, so the output names
+// the command that stops it.
+func TestReplayTellsTheOperatorWhatProcessedMeansAndHowToStopIt(t *testing.T) {
+	inbox := &fakeInbox{}
+	event, err := replay(t.Context(), inbox, "123")
+	if err != nil {
+		t.Fatalf("replay: %v", err)
+	}
+
+	var out strings.Builder
+	report(&out, event)
+
+	for _, want := range []string{
+		event.ID.String(),
+		"does not mean the payment was confirmed",
+		"Sentry",
+		"replaypayment -stop " + event.ID.String(),
+	} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("the report must say %q; got:\n%s", want, out.String())
+		}
+	}
+}
+
+// -stop closes a replay that keeps failing, and says so when there was none to
+// close; anything but an event id is refused before the database is touched.
+func TestStopClosesAReplayOrSaysThereWasNone(t *testing.T) {
+	id := uuid.New()
+
+	inbox := &fakeInbox{stops: true}
+	if err := stop(t.Context(), inbox, id.String()); err != nil {
+		t.Fatalf("stop: %v", err)
+	}
+	if len(inbox.stopped) != 1 || inbox.stopped[0] != id {
+		t.Errorf("want the event closed; got %v", inbox.stopped)
+	}
+
+	if err := stop(t.Context(), &fakeInbox{}, id.String()); err == nil {
+		t.Error("stopping an event that is not an open replay must be an error")
+	}
+
+	bad := &fakeInbox{stops: true}
+	if err := stop(t.Context(), bad, "191310158388"); err == nil || len(bad.stopped) != 0 {
+		t.Errorf("a payment id is not an event id; err %v, stopped %v", err, bad.stopped)
 	}
 }

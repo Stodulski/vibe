@@ -96,6 +96,30 @@ func ReplayCommand(mpPaymentID string) string {
 	return "railway run --service Backend go run ./cmd/replaypayment " + mpPaymentID
 }
 
+// StopReplay closes a replay event (ReplayEvent, action "payment.replayed")
+// that is still being retried, and reports whether there was one to close. A
+// replay of a payment id MercadoPago does not know fails on every attempt, and
+// an exhausted event is picked up again on the tail of its backoff (see
+// GetPendingDue), so without this it would be retried, and alerted on, for
+// ever. It only touches rows cmd/replaypayment wrote: a delivered webhook is
+// never closed by hand. The row is kept, with last_error saying who stopped it.
+func (m *WebhookEvents) StopReplay(ctx context.Context, id uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	tag, err := m.DB.Exec(ctx, `
+		UPDATE webhook_events
+		SET status = 'processed', processed_at = NOW(),
+		    last_error = 'replay stopped by an operator: ' || COALESCE(last_error, 'no error recorded')
+		WHERE id = $1
+		  AND payload->>'action' = 'payment.replayed'
+		  AND status <> 'processed'`, id)
+	if err != nil {
+		return false, fmt.Errorf("stop webhook replay: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // WebhookEvents implements WebhookEventStore against PostgreSQL.
 type WebhookEvents struct {
 	DB *data.DB

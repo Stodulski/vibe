@@ -20,6 +20,19 @@
 //
 //	railway run --service Backend go run ./cmd/replaypayment <mp-payment-id>
 //	go run ./cmd/replaypayment [-db-dsn=<dsn>] <mp-payment-id>
+//	go run ./cmd/replaypayment [-db-dsn=<dsn>] -stop <event-id>
+//
+// The event ending 'processed' means the processing ran, not that the booking
+// was confirmed: a collector or amount refusal ends 'processed' too, with its
+// own Sentry alert. The command says so, and the operator checks Sentry and the
+// booking or registration afterwards.
+//
+// A payment id MercadoPago does not know (a typo of the right number of digits)
+// fails every attempt, and an exhausted event is picked up again on the tail of
+// its backoff, so it would be retried for ever. -stop closes such a replay; it
+// only touches events this command wrote. Asking MercadoPago first would catch
+// the typo up front, but it would need the venue's credential, and this command
+// needs only the database by design.
 //
 // -db-dsn defaults to DATABASE_URL. The command needs only the database; it
 // never calls MercadoPago itself.
@@ -33,11 +46,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"os"
 	"regexp"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/stodulski/vibe-server/internal/data"
@@ -52,16 +67,19 @@ const runTimeout = 30 * time.Second
 // failing every retry, so it is refused before the database is touched.
 var paymentIDPattern = regexp.MustCompile(`^[0-9]+$`)
 
-// inbox is the one store call the command makes.
+// inbox is the store calls the command makes.
 type inbox interface {
 	Insert(ctx context.Context, e *paymentstore.WebhookEvent) error
+	StopReplay(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 func main() {
 	fs := flag.NewFlagSet("replaypayment", flag.ExitOnError)
 	dsn := fs.String("db-dsn", os.Getenv("DATABASE_URL"), "PostgreSQL DSN (defaults to DATABASE_URL)")
+	stopping := fs.Bool("stop", false, "close a replay that keeps failing; the argument is its event id")
 	fs.Usage = func() {
 		fmt.Fprintln(fs.Output(), "usage: replaypayment [-db-dsn=<dsn>] <mp-payment-id>")
+		fmt.Fprintln(fs.Output(), "       replaypayment [-db-dsn=<dsn>] -stop <event-id>")
 		fs.PrintDefaults()
 	}
 	if err := fs.Parse(os.Args[1:]); err != nil {
@@ -86,15 +104,54 @@ func main() {
 	}
 	defer pool.Close()
 
-	event, err := replay(ctx, &paymentstore.WebhookEvents{DB: data.NewDB(pool)}, fs.Arg(0))
+	store := &paymentstore.WebhookEvents{DB: data.NewDB(pool)}
+	if *stopping {
+		if err := stop(ctx, store, fs.Arg(0)); err != nil {
+			pool.Close()
+			cancel()
+			log.Fatalf("replaypayment: %v", err)
+		}
+		fmt.Printf("stopped replay %s; it will not be retried again\n", fs.Arg(0))
+		return
+	}
+	event, err := replay(ctx, store, fs.Arg(0))
 	if err != nil {
 		pool.Close()
 		cancel()
 		log.Fatalf("replaypayment: %v", err)
 	}
-	fmt.Printf("queued MercadoPago payment %s for processing as webhook event %s\n", event.ExternalID, event.ID)
-	fmt.Println("the API's webhook sweep works it within a few minutes; its outcome is the event's status and last_error:")
-	fmt.Printf("  SELECT status, retry_count, last_error FROM webhook_events WHERE id = '%s';\n", event.ID)
+	report(os.Stdout, event)
+}
+
+// report tells the operator what was queued and how to read what happens to
+// it. Its one non-obvious line is the most important: 'processed' is not
+// 'confirmed'.
+func report(w io.Writer, event *paymentstore.WebhookEvent) {
+	fmt.Fprintf(w, "queued MercadoPago payment %s for processing as webhook event %s\n", event.ExternalID, event.ID)
+	fmt.Fprintln(w, "the API's webhook sweep works it within a few minutes; its state is:")
+	fmt.Fprintf(w, "  SELECT status, retry_count, last_error FROM webhook_events WHERE id = '%s';\n", event.ID)
+	fmt.Fprintln(w, "status 'processed' means the processing ran; it does not mean the payment was confirmed.")
+	fmt.Fprintln(w, "a collector or amount refusal also ends 'processed': check Sentry for this payment id")
+	fmt.Fprintln(w, "(COLLECTOR UNVERIFIED, FRAUD ALERT) and look at the booking or registration it pays for.")
+	fmt.Fprintln(w, "if it keeps failing (last_error 404: MercadoPago does not know this payment id), stop it with:")
+	fmt.Fprintf(w, "  go run ./cmd/replaypayment -stop %s\n", event.ID)
+}
+
+// stop closes the replay event eventID names, refusing anything but an event
+// id and saying so when there was no open replay to close.
+func stop(ctx context.Context, store inbox, eventID string) error {
+	id, err := uuid.Parse(eventID)
+	if err != nil {
+		return fmt.Errorf("%q is not a webhook event id (the id the replay printed)", eventID)
+	}
+	stopped, err := store.StopReplay(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !stopped {
+		return fmt.Errorf("event %s is not an open replay: already processed or stopped, or not written by this command", id)
+	}
+	return nil
 }
 
 // replay records the inbox row that has the payment worker process
