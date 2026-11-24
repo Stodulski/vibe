@@ -105,6 +105,9 @@ SET status = $2,
     notes = $5,
     deposit_amount = $6,
     refund_intent_at = $7,
+    -- The cause belongs to the marker it stands next to: a write that clears
+    -- the marker drops it (048_booking_refund_intent_cause.sql).
+    refund_intent_cause = CASE WHEN $7::timestamptz IS NOT NULL THEN refund_intent_cause END,
     -- An attendance mark belongs to a completed booking only
     -- (bookings_attended_only_completed): the owner's completed -> no_show
     -- correction drops it in the same write instead of tripping the CHECK.
@@ -130,6 +133,9 @@ SET status = $2,
     notes = $5,
     deposit_amount = $6,
     refund_intent_at = $7,
+    -- The cause belongs to the marker it stands next to: a write that clears
+    -- the marker drops it (048_booking_refund_intent_cause.sql).
+    refund_intent_cause = CASE WHEN $7::timestamptz IS NOT NULL THEN refund_intent_cause END,
     -- An attendance mark belongs to a completed booking only
     -- (bookings_attended_only_completed): the owner's completed -> no_show
     -- correction drops it in the same write instead of tripping the CHECK.

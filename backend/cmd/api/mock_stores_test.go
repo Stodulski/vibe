@@ -1038,6 +1038,14 @@ func (m *mockBookingStore) ClearRefundIntent(ctx context.Context, id uuid.UUID) 
 	return nil
 }
 
+func (m *mockBookingStore) MarkRefundIntent(ctx context.Context, id uuid.UUID) error {
+	return nil
+}
+
+func (m *mockBookingStore) SetRefundIntentCause(ctx context.Context, id uuid.UUID, cause string) error {
+	return nil
+}
+
 // ---------------------------------------------------------------------------
 // mockBookingLinkTokenStore
 // ---------------------------------------------------------------------------

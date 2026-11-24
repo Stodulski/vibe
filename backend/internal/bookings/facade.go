@@ -37,6 +37,8 @@ type FacadeStore interface {
 	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
 	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
+	MarkRefundIntent(ctx context.Context, id uuid.UUID) error
+	SetRefundIntentCause(ctx context.Context, id uuid.UUID, cause string) error
 }
 
 // Facade is the cross-domain entry point into the booking domain: the one type
@@ -191,4 +193,14 @@ func (f *Facade) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.
 // booking. Exported for payments.
 func (f *Facade) ClearRefundIntent(ctx context.Context, id uuid.UUID) error {
 	return f.store.ClearRefundIntent(ctx, id)
+}
+
+// MarkRefundIntent stands a booking's refund-intent marker up again for the sweep.
+func (f *Facade) MarkRefundIntent(ctx context.Context, id uuid.UUID) error {
+	return f.store.MarkRefundIntent(ctx, id)
+}
+
+// SetRefundIntentCause stores why the refund behind a standing marker is owed.
+func (f *Facade) SetRefundIntentCause(ctx context.Context, id uuid.UUID, cause string) error {
+	return f.store.SetRefundIntentCause(ctx, id, cause)
 }

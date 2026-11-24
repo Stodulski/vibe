@@ -55,7 +55,7 @@ WHERE id = $2
   AND status IN ('pending', 'confirmed')
   AND collection_status = 'unpaid'
   AND lower(span) > $4::timestamptz
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause
 `
 
 type CancelUnpaidSeriesOccurrenceParams struct {
@@ -107,6 +107,7 @@ func (q *Queries) CancelUnpaidSeriesOccurrence(ctx context.Context, arg CancelUn
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
@@ -132,7 +133,7 @@ WHERE id = $2
   AND status = 'pending'
   AND collection_status = 'unpaid'
   AND created_at < NOW() - make_interval(secs => $3::float8)
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause
 `
 
 type ExpireUnpaidBookingParams struct {
@@ -180,6 +181,7 @@ func (q *Queries) ExpireUnpaidBooking(ctx context.Context, arg ExpireUnpaidBooki
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
@@ -286,7 +288,7 @@ func (q *Queries) GetBookedSlots(ctx context.Context, arg GetBookedSlotsParams) 
 }
 
 const getBookingByID = `-- name: GetBookingByID :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -342,12 +344,13 @@ func (q *Queries) GetBookingByID(ctx context.Context, arg GetBookingByIDParams) 
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
 
 const getBookingByIDForUpdate = `-- name: GetBookingByIDForUpdate :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE id = $1
   AND ($2::uuid IS NULL
        OR complex_id = $2::uuid)
@@ -400,12 +403,13 @@ func (q *Queries) GetBookingByIDForUpdate(ctx context.Context, arg GetBookingByI
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
 
 const getBookingsByComplex = `-- name: GetBookingsByComplex :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE complex_id = $1
   AND span && tstzrange(lower(local_day($2)), upper(local_day($3)), '[)')
   AND (date, id) > ($4, $5)
@@ -472,6 +476,7 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 			&i.SeriesID,
 			&i.AttendedAt,
 			&i.HoldStartedAt,
+			&i.RefundIntentCause,
 		); err != nil {
 			return nil, err
 		}
@@ -484,7 +489,7 @@ func (q *Queries) GetBookingsByComplex(ctx context.Context, arg GetBookingsByCom
 }
 
 const getBookingsByCourt = `-- name: GetBookingsByCourt :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE court_id = $1
   AND date BETWEEN $2 AND $3
 ORDER BY date ASC, start_time ASC
@@ -534,6 +539,7 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 			&i.SeriesID,
 			&i.AttendedAt,
 			&i.HoldStartedAt,
+			&i.RefundIntentCause,
 		); err != nil {
 			return nil, err
 		}
@@ -546,7 +552,7 @@ func (q *Queries) GetBookingsByCourt(ctx context.Context, arg GetBookingsByCourt
 }
 
 const getBookingsForReminder2h = `-- name: GetBookingsForReminder2h :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE booking_starts_at(date, start_time) > $1::timestamptz
   AND booking_starts_at(date, start_time) <= $1::timestamptz + INTERVAL '2 hours'
   AND status = 'confirmed'
@@ -606,6 +612,7 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 			&i.SeriesID,
 			&i.AttendedAt,
 			&i.HoldStartedAt,
+			&i.RefundIntentCause,
 		); err != nil {
 			return nil, err
 		}
@@ -618,7 +625,7 @@ func (q *Queries) GetBookingsForReminder2h(ctx context.Context, now pgtype.Times
 }
 
 const getNextBookingByClientPhone = `-- name: GetNextBookingByClientPhone :one
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings WHERE false LIMIT 1
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings WHERE false LIMIT 1
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -654,6 +661,7 @@ func (q *Queries) GetNextBookingByClientPhone(ctx context.Context) (Booking, err
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
@@ -689,7 +697,7 @@ func (q *Queries) GetUnattachedBookingClientSnapshot(ctx context.Context, id pgt
 }
 
 const getUnconfirmedAfterReminder = `-- name: GetUnconfirmedAfterReminder :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings WHERE false
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings WHERE false
 `
 
 // Kept for backwards compatibility with generated code. No longer used by business logic.
@@ -731,6 +739,7 @@ func (q *Queries) GetUnconfirmedAfterReminder(ctx context.Context) ([]Booking, e
 			&i.SeriesID,
 			&i.AttendedAt,
 			&i.HoldStartedAt,
+			&i.RefundIntentCause,
 		); err != nil {
 			return nil, err
 		}
@@ -751,7 +760,7 @@ INSERT INTO bookings (
     client_first_name, client_last_name, client_phone, client_email
 )
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause
 `
 
 type InsertBookingParams struct {
@@ -824,6 +833,7 @@ func (q *Queries) InsertBooking(ctx context.Context, arg InsertBookingParams) (B
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
@@ -938,12 +948,15 @@ SET status = $2,
     notes = $5,
     deposit_amount = $6,
     refund_intent_at = $7,
+    -- The cause belongs to the marker it stands next to: a write that clears
+    -- the marker drops it (048_booking_refund_intent_cause.sql).
+    refund_intent_cause = CASE WHEN $7::timestamptz IS NOT NULL THEN refund_intent_cause END,
     -- An attendance mark belongs to a completed booking only
     -- (bookings_attended_only_completed): the owner's completed -> no_show
     -- correction drops it in the same write instead of tripping the CHECK.
     attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause
 `
 
 type UpdateBookingParams struct {
@@ -1000,6 +1013,7 @@ func (q *Queries) UpdateBooking(ctx context.Context, arg UpdateBookingParams) (B
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }
@@ -1012,13 +1026,16 @@ SET status = $2,
     notes = $5,
     deposit_amount = $6,
     refund_intent_at = $7,
+    -- The cause belongs to the marker it stands next to: a write that clears
+    -- the marker drops it (048_booking_refund_intent_cause.sql).
+    refund_intent_cause = CASE WHEN $7::timestamptz IS NOT NULL THEN refund_intent_cause END,
     -- An attendance mark belongs to a completed booking only
     -- (bookings_attended_only_completed): the owner's completed -> no_show
     -- correction drops it in the same write instead of tripping the CHECK.
     attended_at = CASE WHEN $2 = 'completed'::booking_status THEN attended_at END
 WHERE id = $1
   AND updated_at = $8
-RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at
+RETURNING id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause
 `
 
 type UpdateBookingIfUnchangedParams struct {
@@ -1083,6 +1100,7 @@ func (q *Queries) UpdateBookingIfUnchanged(ctx context.Context, arg UpdateBookin
 		&i.SeriesID,
 		&i.AttendedAt,
 		&i.HoldStartedAt,
+		&i.RefundIntentCause,
 	)
 	return i, err
 }

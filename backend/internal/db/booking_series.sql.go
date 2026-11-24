@@ -161,7 +161,7 @@ func (q *Queries) InsertBookingSeries(ctx context.Context, arg InsertBookingSeri
 }
 
 const listBookingSeriesBookingsFrom = `-- name: ListBookingSeriesBookingsFrom :many
-SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at FROM bookings
+SELECT id, complex_id, court_id, client_id, date, start_time, duration_minutes, price, deposit_amount, status, reminder_sent_2h, notes, created_by, created_at, updated_at, refund_intent_at, span, collection_status, refund_status, client_first_name, client_last_name, client_phone, client_email, hold_token_hash, hold_ip, series_id, attended_at, hold_started_at, refund_intent_cause FROM bookings
 WHERE series_id = $1 AND date >= $2
 ORDER BY date, start_time
 `
@@ -209,6 +209,7 @@ func (q *Queries) ListBookingSeriesBookingsFrom(ctx context.Context, arg ListBoo
 			&i.SeriesID,
 			&i.AttendedAt,
 			&i.HoldStartedAt,
+			&i.RefundIntentCause,
 		); err != nil {
 			return nil, err
 		}

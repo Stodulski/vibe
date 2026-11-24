@@ -81,9 +81,17 @@ func TestAutoRefundNamesWhatBecameOfTheMoney(t *testing.T) {
 			want: paymentstore.RefundManual,
 		},
 		{
-			name: "the claim was refused by the database, so nothing is queued",
+			name: "the claim was refused by the database, so the sweep retries it",
 			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
 				f.payments.claimErr = errDatabase
+			},
+			want: paymentstore.RefundQueued,
+		},
+		{
+			name: "the claim and the marker for the sweep were both refused, so nothing comes back for it",
+			prepare: func(f *fixture, _ *bookingstore.Booking, _ *paymentstore.Payment) {
+				f.payments.claimErr = errDatabase
+				f.refundIntents.markErr = errDatabase
 			},
 			want: paymentstore.RefundManual,
 		},

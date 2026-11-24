@@ -115,6 +115,8 @@ type RefundIntentStore interface {
 	GetRefundIntentOrphans(ctx context.Context, olderThan time.Duration, limit int) ([]*bookingstore.Booking, error)
 	ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.Time) error
 	ClearRefundIntent(ctx context.Context, id uuid.UUID) error
+	MarkRefundIntent(ctx context.Context, id uuid.UUID) error
+	SetRefundIntentCause(ctx context.Context, id uuid.UUID, cause string) error
 }
 
 // LinkMinter mints a fresh access token for a booking. It is this module's
