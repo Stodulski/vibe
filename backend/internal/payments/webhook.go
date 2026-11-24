@@ -473,6 +473,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		if existingPayment.RegistrationID != nil {
 			return s.processRecordedRegistrationPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
+		if err := s.readRefundedTotalAsSeller(ctx, existingPayment.ComplexID, mpPayment, mpPaymentID); err != nil {
+			return err
+		}
 		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
 			refundedBeyondRecorded(existingPayment, mpPayment) {
 			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
@@ -540,6 +543,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		}
 		if !matches {
 			return nil
+		}
+		if err := s.readRefundedTotalAsSeller(ctx, booking.ComplexID, mpPayment, mpPaymentID); err != nil {
+			return err
 		}
 		return s.processRefundedPaymentFromBooking(ctx, booking, mpPayment, mpPaymentID)
 	case "in_process", "pending":

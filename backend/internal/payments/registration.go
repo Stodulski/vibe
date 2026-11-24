@@ -406,6 +406,11 @@ func (s *Service) processRecordedRegistrationPayment(ctx context.Context, paymen
 		}
 		return nil
 	}
+	// A partial refund the platform's read carries no figure for is read as the
+	// seller, as on the booking path (readRefundedTotalAsSeller).
+	if err := s.readRefundedTotalAsSeller(ctx, payment.ComplexID, mpPayment, mpPaymentID); err != nil {
+		return err
+	}
 	if refundedBeyondRecorded(payment, mpPayment) {
 		return s.recordRegistrationPanelRefund(ctx, payment, mpPayment, mpPaymentID)
 	}

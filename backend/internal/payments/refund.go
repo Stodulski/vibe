@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -1695,6 +1696,60 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 	}
 
 	s.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
+}
+
+// readRefundedTotalAsSeller fills in a payment's refunded total from the
+// venue's own read when the platform's read says money came back but carries
+// no figure for it.
+//
+// MercadoPago's read as the platform can leave transaction_amount_refunded
+// out, as it left collector_id out (2026-11-23, see collectorAsSeller). A
+// refunded payment with no figure was then taken as refunded whole, and an
+// approved one partially refunded from MercadoPago's panel was not seen as
+// refunded at all, so a later automatic refund claimed money already
+// returned. The collecting account's read carries the figure.
+//
+// It leaves the payment as it is when the platform already has a figure, when
+// nothing says money came back, when the venue never connected MercadoPago, or
+// when that account cannot see the payment (403/404): the callers' own
+// fallbacks then decide as before. Anything else is returned as an error so
+// the recorded event is retried rather than a refund decided on a missing
+// figure: a credential that will not decrypt, an expired token, MercadoPago
+// failing, or an answer for some other payment.
+func (s *Service) readRefundedTotalAsSeller(ctx context.Context, complexID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) error {
+	if mpPayment.TransactionAmountRefunded > 0 || !moneyCameBack(mpPayment) {
+		return nil
+	}
+	seller, err := s.sellerCredential(ctx, complexID)
+	if errors.Is(err, mpcred.ErrMPNotConnected) {
+		s.logger.Warn("mp webhook: no seller credential to read the payment's refunded total with",
+			"mp_payment_id", mpPaymentID, "complex_id", complexID)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read the seller credential of complex %s for the refunds of payment %s: %w", complexID, mpPaymentID, err)
+	}
+	payment, err := s.provider.GetPayment(ctx, mpPaymentID, seller)
+	if mp.IsNotFoundOrForbidden(err) {
+		s.logger.Error("mp webhook: the venue's own account cannot see the refunded payment",
+			"mp_payment_id", mpPaymentID, "complex_id", complexID, "error", err)
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("read payment %s as the seller for its refunded total: %w", mpPaymentID, err)
+	}
+	if payment == nil || strconv.FormatInt(payment.ID, 10) != mpPaymentID {
+		return fmt.Errorf("read payment %s as the seller: MercadoPago answered for another payment", mpPaymentID)
+	}
+	mpPayment.TransactionAmountRefunded = payment.TransactionAmountRefunded
+	return nil
+}
+
+// moneyCameBack reports whether MercadoPago says some of a payment went back
+// to the payer: refunded, charged back, or an approved payment refunded in part.
+func moneyCameBack(mpPayment *mp.Payment) bool {
+	return mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
+		mpPayment.StatusDetail == "partially_refunded"
 }
 
 // refundedTotalOf is MercadoPago's running total refunded on a payment, in

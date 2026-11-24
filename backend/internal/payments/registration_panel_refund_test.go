@@ -168,3 +168,24 @@ func TestAFullPanelRefundOnARegistrationIsStillOnlyAlerted(t *testing.T) {
 		t.Errorf("a full panel refund must only be alerted; updated=%+v entries=%d", f.payments.updated, len(f.audit.entries))
 	}
 }
+
+// A partial panel refund the platform's read carries no figure for is read as
+// the venue's own seller account, as on the booking path: without it the
+// refund was never recorded and a later refund of the spot claimed money
+// already returned.
+func TestAPartialPanelRefundThePlatformCannotSeeIsReadAsTheSeller(t *testing.T) {
+	f, reg, paid, _ := registrationFixture(t)
+	reg.Status = eventstore.RegistrationConfirmed
+	f.payments.byMPID = recordedRegistrationPayment(reg, "deposit_paid", 0)
+	f.complexes.complex = linkedComplex(reg.ComplexID, "111111111")
+	f.provider.payment = panelRefund(paid, 0)
+	f.provider.sellerPayment = &mp.Payment{ID: 123, Status: "approved", StatusDetail: "partially_refunded", TransactionAmountRefunded: 2000}
+
+	if err := f.service.processPaymentWebhook(t.Context(), "123"); err != nil {
+		t.Fatalf("recording a panel refund must not fail: %v", err)
+	}
+
+	if f.payments.updated == nil || f.payments.updated.RefundAmount != 200_000 {
+		t.Fatalf("want the payment to record the seller's 200_000 refunded; got %+v", f.payments.updated)
+	}
+}
