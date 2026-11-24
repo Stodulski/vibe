@@ -836,11 +836,23 @@ func (s *Service) issueRefund(ctx context.Context, claim paymentstore.RefundClai
 		outcome := s.refuseForCredential(ctx, claim, err)
 		return claim, &outcome
 	}
-	refund, err := s.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), seller)
+	refund, err := s.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), refundIdempotencyKey(claim), seller)
 	if err != nil {
 		return s.handleRefundRequestError(ctx, claim, seller, err)
 	}
 	return s.handleRefundResponse(ctx, claim, refund)
+}
+
+// refundIdempotencyKey is the key MercadoPago deduplicates a refund by: the
+// attempt row the claim committed, so each refund is its own and every retry
+// of the same attempt (the retry job rebuilds the claim from that row) is the
+// same one. Keying on the payment and the amount made two refunds of the same
+// sum on one payment indistinguishable.
+func refundIdempotencyKey(claim paymentstore.RefundClaim) string {
+	if claim.AttemptID == uuid.Nil {
+		return ""
+	}
+	return "refund-attempt-" + claim.AttemptID.String()
 }
 
 // handleRefundResponse decides success or failure from the refund MercadoPago
@@ -1517,9 +1529,9 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 			RefundCentavos: fr.Amount,
 		}
 
-		// Replaying a refund is safe: the idempotency key MercadoPago sees is derived
-		// from the payment id and the amount (see internal/mp/mp.go), so a refund this
-		// job already made returns the original rather than moving the money again.
+		// Replaying a refund is safe: the idempotency key MercadoPago sees is this
+		// attempt row's id (refundIdempotencyKey), so a refund this attempt already
+		// made returns the original rather than moving the money again.
 		settled, outcome := s.issueRefund(ctx, claim)
 		if outcome != nil {
 			// The provider refused again, or the seller credential did. The

@@ -182,7 +182,7 @@ type Locker interface {
 type Provider interface {
 	VerifyWebhookSignature(r *http.Request, dataID string) error
 	GetPayment(ctx context.Context, paymentID string, caller mp.Caller) (*mp.Payment, error)
-	RefundPayment(ctx context.Context, paymentID string, amount float64, caller mp.Caller) (*mp.Refund, error)
+	RefundPayment(ctx context.Context, paymentID string, amount float64, idempotencyKey string, caller mp.Caller) (*mp.Refund, error)
 }
 
 // Notifier tells the client what happened to their money.

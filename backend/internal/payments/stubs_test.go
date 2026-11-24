@@ -789,6 +789,8 @@ type stubProvider struct {
 
 	verified []string
 	refunds  []float64
+	// refundKeys is the idempotency key each RefundPayment call carried, in order.
+	refundKeys []string
 	// callers is who each provider call was made as, in order. mp.Caller is
 	// comparable, so a test says which party it expected by building the same
 	// one — mp.AsPlatform() or mustSeller — rather than by matching a token
@@ -829,8 +831,9 @@ func (s *stubProvider) GetPayment(_ context.Context, _ string, caller mp.Caller)
 	return s.payment, nil
 }
 
-func (s *stubProvider) RefundPayment(_ context.Context, _ string, amount float64, caller mp.Caller) (*mp.Refund, error) {
+func (s *stubProvider) RefundPayment(_ context.Context, _ string, amount float64, idempotencyKey string, caller mp.Caller) (*mp.Refund, error) {
 	s.callers = append(s.callers, caller)
+	s.refundKeys = append(s.refundKeys, idempotencyKey)
 	if s.refundErr != nil {
 		return nil, s.refundErr
 	}

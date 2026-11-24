@@ -83,6 +83,10 @@ var ErrNoSellerToken = errors.New("mp: no seller access token; say mp.AsPlatform
 // platform must never be allowed to make.
 var ErrPlatformCannotSell = errors.New("mp: a checkout preference must be created as the seller, not as the platform")
 
+// ErrRefundWithoutIdempotencyKey is RefundPayment refusing a refund that names
+// no attempt: MercadoPago could not tell its retry from a second refund.
+var ErrRefundWithoutIdempotencyKey = errors.New("mp: a refund must carry the idempotency key of its attempt")
+
 // Caller names which MercadoPago account a request is made as. Its zero value
 // names nobody and every method refuses it.
 //
@@ -835,7 +839,18 @@ func (p *Payment) flatten() {
 // will not load rather than letting the marketplace pay for a seller's refund.
 // AsPlatform stays representable because MercadoPago rejects it against a
 // seller's payment; the type is what keeps it from being chosen by accident.
-func (c *MPClient) RefundPayment(ctx context.Context, paymentID string, amount float64, caller Caller) (*Refund, error) {
+//
+// idempotencyKey names the one refund being made, and MercadoPago answers a
+// repeat of it with the refund it already made instead of moving money again.
+// It used to be derived from the payment and the amount, which collapsed two
+// legitimate refunds of the same sum on one payment into the first; a caller
+// now passes one key per refund attempt, the same on every retry of it. An
+// empty key is refused rather than sent: without one, a retried refund could
+// pay the client twice.
+func (c *MPClient) RefundPayment(ctx context.Context, paymentID string, amount float64, idempotencyKey string, caller Caller) (*Refund, error) {
+	if idempotencyKey == "" {
+		return nil, ErrRefundWithoutIdempotencyKey
+	}
 	token, err := c.bearer(caller)
 	if err != nil {
 		return nil, err
@@ -856,7 +871,7 @@ func (c *MPClient) RefundPayment(ctx context.Context, paymentID string, amount f
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("X-Idempotency-Key", paymentID+"-refund-"+fmt.Sprintf("%.2f", amount))
+	req.Header.Set("X-Idempotency-Key", idempotencyKey)
 
 	resp, err := c.doRequest(req)
 	if err != nil {
