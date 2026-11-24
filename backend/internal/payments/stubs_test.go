@@ -782,10 +782,12 @@ type stubProvider struct {
 	sellerPaymentErr error
 	refundErr        error
 	// refundAmount is what MercadoPago answers an accepted refund with, in
-	// pesos. Zero is the real client's zero value too — an accepted refund whose
-	// response carried no usable amount — so it stands for that case rather than
-	// for "nothing moved".
+	// pesos; zero answers with the amount asked for, as MercadoPago does.
 	refundAmount float64
+	// refundNoAmount and refundNoStatus make an accepted refund answer without
+	// that field, as a 2xx whose body did not carry it decodes.
+	refundNoAmount bool
+	refundNoStatus bool
 
 	verified []string
 	refunds  []float64
@@ -838,7 +840,17 @@ func (s *stubProvider) RefundPayment(_ context.Context, _ string, amount float64
 		return nil, s.refundErr
 	}
 	s.refunds = append(s.refunds, amount)
-	return &mp.Refund{Amount: s.refundAmount, Status: "approved"}, nil
+	refund := &mp.Refund{Amount: amount, Status: "approved"}
+	if s.refundAmount != 0 {
+		refund.Amount = s.refundAmount
+	}
+	if s.refundNoAmount {
+		refund.Amount = 0
+	}
+	if s.refundNoStatus {
+		refund.Status = ""
+	}
+	return refund, nil
 }
 
 type stubNotifier struct {
