@@ -697,6 +697,14 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	// clears it, exactly as AutoRefundIfPaid does.
 	committed := false
 	err = s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+	if err != nil && claimFailsForGood(err) {
+		// No retry can claim it, so neither the redelivery nor the sweep is
+		// asked to: the money is owed by hand, with its amount, from here.
+		owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
+		manual := s.owedManually(booking, owed, "the refund could not be claimed and no retry can claim it")
+		s.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, manual))
+		err = nil
+	}
 	keepMarker := committed || err != nil
 	s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &keepMarker)
 	if err != nil {
@@ -779,11 +787,6 @@ func (s *Service) refundRecordedPayment(ctx context.Context, booking *bookingsto
 		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND NOT CLAIMED: mp_payment_id=%s booking_id=%s error=%v", mpPaymentID, booking.ID, err))
 		if errors.Is(err, paymentstore.ErrAlreadyRefunded) || errors.Is(err, paymentstore.ErrRefundInFlight) {
 			// Another claim owns this refund, or it is already back. Not ours to retry.
-			return nil
-		}
-		if claimFailsForGood(err) {
-			// No retry can claim it: the alert above is what brings a person to
-			// it, and keeping the marker would only fail the sweep the same way.
 			return nil
 		}
 		return fmt.Errorf("claim the refund for cancelled booking %s: %w", booking.ID, err)

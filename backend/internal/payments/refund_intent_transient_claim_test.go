@@ -2,6 +2,7 @@ package payments
 
 import (
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -177,7 +178,7 @@ func TestTheSweepsOwnFailedClaimIsOwedByHand(t *testing.T) {
 func TestACancellationWhoseClaimFailsForGoodIsOwedByHandAtOnce(t *testing.T) {
 	for name, claimErr := range map[string]error{
 		"the payment row is gone":           data.ErrRecordNotFound,
-		"the payment has no MercadoPago id": paymentstore.ErrNoMercadoPagoID,
+		"the payment has no MercadoPago id": fmt.Errorf("payment x: %w", paymentstore.ErrNoMercadoPagoID),
 	} {
 		t.Run(name, func(t *testing.T) {
 			f := newFixture(t)
@@ -201,26 +202,39 @@ func TestACancellationWhoseClaimFailsForGoodIsOwedByHandAtOnce(t *testing.T) {
 }
 
 // The webhook's refund of a payment on a cancelled booking keeps its marker
-// for a claim that failed for a moment. One that failed for good is already
-// alerted, and keeping the marker would only make the sweep fail it again.
-func TestALatePaymentWhoseClaimFailsForGoodDropsItsMarker(t *testing.T) {
-	f := newFixture(t)
-	complexID := uuid.New()
-	booking, payment := paidBooking(complexID)
-	booking.Status = bookingstore.BookingStatusCancelled
-	booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
-	f.payments.byBooking = payment
-	f.payments.claimErr = paymentstore.ErrNoMercadoPagoID
+// for a claim that failed for a moment. One that failed for good is owed by
+// hand at once, with its amount on the trail: neither the redelivery nor the
+// sweep could ever claim it.
+func TestALatePaymentWhoseClaimFailsForGoodIsOwedByHand(t *testing.T) {
+	for name, claimErr := range map[string]error{
+		"the payment row is gone":           data.ErrRecordNotFound,
+		"the payment has no MercadoPago id": fmt.Errorf("payment x: %w", paymentstore.ErrNoMercadoPagoID),
+	} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = bookingstore.BookingStatusCancelled
+			booking.CollectionStatus = bookingstore.CollectionStatusUnpaid
+			f.payments.byBooking = payment
+			f.payments.claimErr = claimErr
 
-	mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
-	if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123", paymentstore.RefundCauseLatePayment); err != nil {
-		t.Errorf("a claim no retry can fix must not fail the event for a redelivery; got %v", err)
-	}
-	if len(f.refundIntents.cleared) != 1 {
-		t.Errorf("the marker must be cleared; cleared %v", f.refundIntents.cleared)
-	}
-	if len(f.refundIntents.causes) != 0 {
-		t.Errorf("no cause is kept for a refund the sweep will not retry; got %v", f.refundIntents.causes)
+			mpPayment := &mp.Payment{ID: 123, Status: "approved", TransactionAmount: 1_500.00}
+			if err := f.service.refundCancelledBookingPayment(t.Context(), booking, mpPayment, "mp-123", paymentstore.RefundCauseLatePayment); err != nil {
+				t.Errorf("a claim no retry can fix must not fail the event for a redelivery; got %v", err)
+			}
+			if len(f.refundIntents.cleared) != 1 || len(f.refundIntents.causes) != 0 {
+				t.Errorf("the marker must be cleared with no cause kept; cleared %v, causes %v", f.refundIntents.cleared, f.refundIntents.causes)
+			}
+			entries := f.audit.find("refund")
+			if len(entries) != 1 {
+				t.Fatalf("the money owed by hand must reach the trail once; got %d entries", len(entries))
+			}
+			got := value(t, entries[0])
+			if got["result"] != string(paymentstore.RefundManual) || got["amount_centavos"] == float64(0) {
+				t.Errorf("the trail must say the refund is owed by hand, with its amount; got %v", got)
+			}
+		})
 	}
 }
 
@@ -248,5 +262,33 @@ func TestTheSweepKeepsTheMarkerWhenThePaymentRowsCannotBeRead(t *testing.T) {
 	}
 	if len(f.refundIntents.marked) != 1 {
 		t.Errorf("the marker must stand for the next sweep; marked %v", f.refundIntents.marked)
+	}
+}
+
+// The same unread rows on a cancellation itself: the marker has to stand for
+// the sweep, and when it cannot be stood up the client is not left with
+// nothing behind it silently (the alert says so; see alertPaymentRowsUnread).
+func TestACancellationKeepsItsMarkerWhenThePaymentRowsCannotBeRead(t *testing.T) {
+	for name, markErr := range map[string]error{"the marker stands": nil, "the marker cannot be written": errors.New("connection reset")} {
+		t.Run(name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = bookingstore.BookingStatusCancelled
+			booking.RefundStatus = bookingstore.RefundStatusPending
+			f.payments.byBooking = payment
+			f.payments.listErr = errors.New("connection reset")
+			f.refundIntents.markErr = markErr
+
+			f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			kept := len(f.refundIntents.marked) == 1 && len(f.refundIntents.cleared) == 0
+			if markErr == nil && !kept {
+				t.Errorf("the marker must stand for the sweep; marked %v, cleared %v", f.refundIntents.marked, f.refundIntents.cleared)
+			}
+			if markErr != nil && len(f.refundIntents.cleared) != 1 {
+				t.Errorf("a marker that could not be stood up is cleared as before; cleared %v", f.refundIntents.cleared)
+			}
+		})
 	}
 }

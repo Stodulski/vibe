@@ -599,11 +599,12 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 
 	auto, manualOwed, manualReason, stop := s.refundable(ctx, booking)
 	if stop != nil {
-		if stop.Reason == paymentRowsUnread && s.standRefundIntentAgain(ctx, booking.ID) {
+		if stop.Reason == paymentRowsUnread {
 			// The rows behind a refund already under way could not be read, so
 			// whether another payment is still owed is unknown. The sweep reads
 			// them again; every read that fails alerts.
-			run.retrying = true
+			run.retrying = s.standRefundIntentAgain(ctx, booking.ID)
+			s.alertPaymentRowsUnread(booking.ID, run.retrying)
 		}
 		return *stop
 	}
@@ -766,6 +767,18 @@ const (
 // Such a refund is owed by hand at once rather than after a sweep fails it again.
 func claimFailsForGood(err error) bool {
 	return errors.Is(err, data.ErrRecordNotFound) || errors.Is(err, paymentstore.ErrNoMercadoPagoID)
+}
+
+// alertPaymentRowsUnread reports a booking whose payment rows could not be read
+// while its refund was under way, saying whether the sweep will read them again.
+// When the marker could not be stood up either, nothing comes back for them and
+// a person has to look.
+func (s *Service) alertPaymentRowsUnread(bookingID uuid.UUID, kept bool) {
+	if kept {
+		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND ROWS UNREAD (refund intent kept for the sweep): booking_id=%s", bookingID))
+		return
+	}
+	sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND ROWS UNREAD AND REFUND INTENT LOST (check the booking's payments by hand): booking_id=%s", bookingID))
 }
 
 // retryFailedClaims stands the refund-intent marker up again for the rows whose
@@ -1129,7 +1142,6 @@ func (s *Service) unclaimedOnlineRows(ctx context.Context, booking *bookingstore
 	payments, err := s.payments.ListByBookingID(ctx, booking.ID)
 	if err != nil {
 		s.logger.Error("auto-refund: failed to fetch payments", "error", err, "booking_id", booking.ID)
-		sentry.CaptureMessage(fmt.Sprintf("AUTO-REFUND ROWS UNREAD (refund intent kept for the sweep): booking_id=%s error=%v", booking.ID, err))
 		stop.Reason = paymentRowsUnread
 		return nil, 0, "", &stop
 	}
