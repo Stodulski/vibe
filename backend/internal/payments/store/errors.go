@@ -38,6 +38,9 @@ var (
 	// it after the caller read it unpaid. The row is that payment's, so the caller
 	// records this one on a row of its own.
 	ErrPaymentRowTaken = errors.New("payment row already taken by another payment")
+	// ErrNoMercadoPagoID is returned by a refund claim on a payment that carries no
+	// MercadoPago id: nothing can refund it automatically, now or on a retry.
+	ErrNoMercadoPagoID = errors.New("payment carries no mercadopago id to refund against")
 )
 
 // AmountExceedsBalanceError is ErrAmountExceedsBalance carrying the balance the locked

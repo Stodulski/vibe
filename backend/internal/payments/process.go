@@ -697,6 +697,14 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 	// clears it, exactly as AutoRefundIfPaid does.
 	committed := false
 	err = s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+	if err != nil && claimFailsForGood(err) {
+		// No retry can claim it, so neither the redelivery nor the sweep is
+		// asked to: the money is owed by hand, with its amount, from here.
+		owed := payment.Amount + payment.ServiceFee - payment.RefundAmount
+		manual := s.owedManually(booking, owed, "the refund could not be claimed and no retry can claim it")
+		s.record(booking.ComplexID, booking.ID, "refund", refundEvent(actorSystem, manual))
+		err = nil
+	}
 	keepMarker := committed || err != nil
 	s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &keepMarker)
 	if err != nil {
