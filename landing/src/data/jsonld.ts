@@ -252,7 +252,7 @@ export function tutorialJsonLd(t: Tutorial): string[] {
         position: i + 1,
         name: p.titulo,
         description: p.texto,
-        image: `https://vibe.com.ar${p.imagen.src}.webp`,
+        ...(p.imagen ? { image: `https://vibe.com.ar${p.imagen.src}.webp` } : {}),
       })),
     };
   }

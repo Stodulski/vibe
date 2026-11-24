@@ -97,28 +97,30 @@ const primerPaso = t.bloques.map(b => {
                           the image's ratio, never a box of another shape around it. */}
                       {/* The page shows the crop around the step's markers, at no more than its
                           own size so the labels stay readable; a tap opens the whole screen. */}
-                      <a class="tutorial-paso-ampliar" href={`${paso.imagen.src}.webp`}>
-                      <picture>
-                        {paso.imagen.recorte ? (
-                          <source type="image/webp" srcset={`${paso.imagen.recorte.src}.webp`} />
-                        ) : (
-                          <source
-                            type="image/webp"
-                            srcset={`${paso.imagen.src}-960.webp 960w, ${paso.imagen.src}.webp ${paso.imagen.width}w`}
-                            sizes="(max-width: 860px) calc(100vw - 32px), 772px"
+                      {paso.imagen && (
+                        <a class="tutorial-paso-ampliar" href={`${paso.imagen.src}.webp`}>
+                        <picture>
+                          {paso.imagen.recorte ? (
+                            <source type="image/webp" srcset={`${paso.imagen.recorte.src}.webp`} />
+                          ) : (
+                            <source
+                              type="image/webp"
+                              srcset={`${paso.imagen.src}-960.webp 960w, ${paso.imagen.src}.webp ${paso.imagen.width}w`}
+                              sizes="(max-width: 860px) calc(100vw - 32px), 772px"
+                            />
+                          )}
+                          <img
+                            class:list={['tutorial-paso-captura', paso.imagen.recorte && 'tutorial-paso-captura--recorte']}
+                            src={`${(paso.imagen.recorte ?? paso.imagen).src}.webp`}
+                            width={(paso.imagen.recorte ?? paso.imagen).width}
+                            height={(paso.imagen.recorte ?? paso.imagen).height}
+                            alt={paso.imagen.alt}
+                            loading="lazy"
+                            decoding="async"
                           />
-                        )}
-                        <img
-                          class:list={['tutorial-paso-captura', paso.imagen.recorte && 'tutorial-paso-captura--recorte']}
-                          src={`${(paso.imagen.recorte ?? paso.imagen).src}.webp`}
-                          width={(paso.imagen.recorte ?? paso.imagen).width}
-                          height={(paso.imagen.recorte ?? paso.imagen).height}
-                          alt={paso.imagen.alt}
-                          loading="lazy"
-                          decoding="async"
-                        />
-                      </picture>
-                      </a>
+                        </picture>
+                        </a>
+                      )}
                     </li>
                   ))}
                 </ol>

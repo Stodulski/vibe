@@ -57,7 +57,9 @@ const e = ejemplo();
 export type Paso = {
   titulo: string;
   texto: string;
-  imagen: {
+  /** Left out only while a step waits for a new capture: one that shows a screen as it no
+      longer is would teach the wrong thing, so the step goes text-only until it is recaptured. */
+  imagen?: {
     src: string;
     alt: string;
     width: number;

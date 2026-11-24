@@ -2,7 +2,7 @@
   "title": "Vibe",
   "description": "Gestioná tu complejo gratis: reservas con seña, turnos fijos, canchas abiertas, torneos, caja, bar y reportes en un solo panel.",
   "summary": "Vibe es el sistema de gestión gratis para complejos deportivos de Argentina. Tiene reservas con seña, turnos fijos, canchas abiertas, torneos, caja, bar y reportes. Sirve para canchas de pádel, tenis, fútbol, básquet, vóley, hockey y pickleball. Creás tu cuenta y podés recibir reservas el mismo día. Tus clientes reservan desde el celular, con la seña por Mercado Pago.",
-  "updated": "2026-11-20",
+  "updated": "2026-11-24",
   "pages": [
     {
       "title": "Sistema de gestión gratis para complejos deportivos | Vibe",
@@ -80,7 +80,7 @@
       "title": "Cómo agregar y editar canchas en tu complejo | Vibe",
       "url": "https://vibe.com.ar/tutoriales/agregar-y-editar-canchas",
       "md": "https://vibe.com.ar/tutoriales-agregar-y-editar-canchas.md",
-      "note": "Cómo agregar una cancha en Vibe con su nombre, deporte, tipo y descripción, editarla, desactivarla por un tiempo o eliminarla, y dónde cargar sus precios."
+      "note": "Cómo agregar una cancha en Vibe con su deporte, tipo, superficie e iluminación, editarla, desactivarla por un tiempo o eliminarla, y dónde cargar sus precios."
     },
     {
       "title": "Asistencia de cada turno en tu complejo | Vibe",

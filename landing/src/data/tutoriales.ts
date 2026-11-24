@@ -2876,13 +2876,13 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
     title: 'Cómo agregar, editar y desactivar canchas',
     seoTitle: 'Cómo agregar y editar canchas en tu complejo | Vibe',
     metaDescription:
-      'Cómo agregar una cancha en Vibe con su nombre, deporte, tipo y descripción, editarla, '
+      'Cómo agregar una cancha en Vibe con su deporte, tipo, superficie e iluminación, editarla, '
       + 'desactivarla por un tiempo o eliminarla, y dónde cargar sus precios.',
     excerpt: 'Cargás cada cancha con su deporte y su tipo, y después la editás, la desactivás o la eliminás.',
     datePublished: '2026-11-16',
     respuesta:
       'En Canchas tocás Agregar cancha y cargás el nombre, el deporte, el tipo de cancha y, si querés, '
-      + 'la superficie, la iluminación y una descripción para los jugadores. Al crearla se abren sus '
+      + 'la superficie y si tiene iluminación, que los jugadores ven al elegirla. Al crearla se abren sus '
       + 'precios, que cargás por día y por horario. Después la editás desde los tres puntos de su fila. '
       + 'Si una cancha queda fuera de uso por un tiempo, la desactivás: deja de aparecer en tu página y '
       + 'en la grilla, y sus reservas siguen vigentes. Si ya no la vas a usar, la eliminás.',
@@ -2922,15 +2922,9 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           {
             titulo: 'Sumá los detalles',
             texto:
-              'La superficie, la iluminación y la descripción son opcionales. La descripción la leen los '
-              + 'jugadores en tu página, y tiene hasta 200 caracteres.',
-            imagen: {
-              src: '/tutoriales/pasos/agregar-y-editar-canchas/03-superficie-luz-y-descripcion',
-              alt: 'Campos Superficie, Tiene iluminación y Descripción del formulario, marcados con el número 3.',
-              width: 1440,
-              height: 900,
-              recorte: { src: '/tutoriales/pasos/agregar-y-editar-canchas/zoom-03-superficie-luz-y-descripcion', width: 515, height: 259 },
-            },
+              'Elegí la superficie y marcá Tiene iluminación si la cancha tiene luz. Los dos son opcionales, '
+              + 'y los jugadores los ven debajo del nombre de la cancha junto con el tipo.',
+            // No capture until it is recaptured: the old one showed a description field the form no longer has.
           },
           {
             titulo: 'Tocá Crear',
@@ -3036,9 +3030,10 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
           + 'resto de la cancha sigue disponible.',
       },
       {
-        question: '¿Dónde ven los jugadores la descripción?',
+        question: '¿Dónde ven los jugadores la superficie y la iluminación?',
         answer:
-          'En tu página de reservas, junto al nombre de cada cancha, cuando eligen el horario.',
+          'En tu página de reservas, debajo del nombre de cada cancha y junto con si es techada, descubierta '
+          + 'o semi cubierta, cuando eligen la cancha.',
       },
     ],
     relacionados: ['precios-por-horario', 'grilla-de-reservas', 'configuracion-del-complejo'],
