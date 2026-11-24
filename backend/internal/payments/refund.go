@@ -844,6 +844,25 @@ func (s *Service) issueRefund(ctx context.Context, claim paymentstore.RefundClai
 	return s.handleRefundResponse(ctx, claim, seller, refund)
 }
 
+// retryRefund is issueRefund for the retry job, which first reads the payment
+// as the seller and settles the attempt without calling the refund endpoint
+// when the payment already shows its refund.
+//
+// The idempotency key alone does not cover a row queued before the key moved
+// from the payment and amount to the attempt (refundIdempotencyKey): a refund
+// MercadoPago made under the old key and this system never recorded would be
+// taken as a new refund under the new one whenever the payment still had room
+// for it (a row that understates what MercadoPago charged), and the client
+// would be paid twice. The read costs one call per retry, and a retry is rare.
+// A credential that will not load is left to issueRefund, which refuses it.
+func (s *Service) retryRefund(ctx context.Context, claim paymentstore.RefundClaim) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+	if seller, err := s.sellerCredential(ctx, claim.ComplexID); err == nil &&
+		s.refundShownOnPayment(ctx, claim, seller, "reading a queued refund before retrying it") {
+		return claim, nil
+	}
+	return s.issueRefund(ctx, claim)
+}
+
 // refundIdempotencyKey is the key MercadoPago deduplicates a refund by: the
 // attempt row the claim committed, so each refund is its own and every retry
 // of the same attempt (the retry job rebuilds the claim from that row) is the
@@ -1566,7 +1585,7 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 		// Replaying a refund is safe: the idempotency key MercadoPago sees is this
 		// attempt row's id (refundIdempotencyKey), so a refund this attempt already
 		// made returns the original rather than moving the money again.
-		settled, outcome := s.issueRefund(ctx, claim)
+		settled, outcome := s.retryRefund(ctx, claim)
 		if outcome != nil {
 			// The provider refused again, or the seller credential did. The
 			// row is either requeued with a longer backoff or exhausted, and
