@@ -242,4 +242,18 @@ describe('publicBookingApi — slot holds', () => {
     });
     expect(result).toEqual({ token: 'hold-1', expiresAt: '2030-01-01T12:15:00Z' });
   });
+  it('reclaimHold calls POST book/holds/:token/reclaim and returns the unchanged expiry', async () => {
+    let path = '';
+    server.use(
+      http.post('*/book/holds/:token/reclaim', ({ request }) => {
+        path = new URL(request.url).pathname;
+        return HttpResponse.json({ hold: { expires_at: '2030-01-01T12:15:00Z' } });
+      }),
+    );
+
+    const result = await publicBookingApi.reclaimHold('hold/1');
+
+    expect(path).toBe('/api/v1/book/holds/hold%2F1/reclaim');
+    expect(result).toEqual({ expiresAt: '2030-01-01T12:15:00Z' });
+  });
 });

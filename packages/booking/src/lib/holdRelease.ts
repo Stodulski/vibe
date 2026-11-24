@@ -1,16 +1,16 @@
 /**
- * Gives a slot hold back (`POST /book/holds/{token}/release`), best effort.
+ * The two ways the confirm page lets a slot hold go, best effort.
  *
- * It goes out as a beacon rather than through the ky client: every caller is
+ * Both go out as a beacon rather than through the ky client: every caller is
  * about to leave the page ("Cambiar horario", the browser's back, a closed
- * tab), and a beacon is the one request a browser promises to finish after the
- * document is gone. It carries no body, so it is a simple CORS request with no
- * preflight; the answer is always a `204` and nobody reads it. Where beacons do
- * not exist, a `keepalive` fetch does the same job. If both fail, the hold ends
- * on its own when it expires.
+ * tab, a reload), and a beacon is the one request a browser promises to finish
+ * after the document is gone. It carries no body, so it is a simple CORS
+ * request with no preflight; the answer is always a `204` and nobody reads it.
+ * Where beacons do not exist, a `keepalive` fetch does the same job. If both
+ * fail, the hold ends on its own when it expires.
  */
-export function releaseHold(apiBaseUrl: string, token: string): void {
-  const url = `${apiBaseUrl.replace(/\/+$/, '')}/book/holds/${encodeURIComponent(token)}/release`;
+function sendHoldBeacon(apiBaseUrl: string, token: string, action: 'release' | 'leave'): void {
+  const url = `${apiBaseUrl.replace(/\/+$/, '')}/book/holds/${encodeURIComponent(token)}/${action}`;
   try {
     if (typeof navigator !== 'undefined' && typeof navigator.sendBeacon === 'function' && navigator.sendBeacon(url)) {
       return;
@@ -19,4 +19,18 @@ export function releaseHold(apiBaseUrl: string, token: string): void {
   } catch {
     // Best effort: the hold expires by itself.
   }
+}
+
+/** Gives the hold back now (`POST /book/holds/{token}/release`): the visitor chose another time. */
+export function releaseHold(apiBaseUrl: string, token: string): void {
+  sendHoldBeacon(apiBaseUrl, token, 'release');
+}
+
+/**
+ * The page went away (`POST /book/holds/{token}/leave`): the server lets the
+ * hold go a minute later unless the page loads again and takes it back
+ * (`publicBookingApi.reclaimHold`), so a reload does not lose the slot.
+ */
+export function leaveHold(apiBaseUrl: string, token: string): void {
+  sendHoldBeacon(apiBaseUrl, token, 'leave');
 }

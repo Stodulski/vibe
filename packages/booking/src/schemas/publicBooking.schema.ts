@@ -14,6 +14,7 @@ import type {
   PublicComplex,
   PublicComplexResponse,
   PublicHold,
+  PublicHoldReclaim,
   RefundEnvelope,
   RefundMethod,
   RefundStatus,
@@ -256,6 +257,14 @@ export const checkoutRetryResponseSchema = z
     checkout: z.object({ mp_init_point: z.string().min(1), expires_at: z.string() }),
   })
   .transform(({ checkout }) => ({ initPoint: checkout.mp_init_point, expiresAt: checkout.expires_at }));
+
+export const holdReclaimResponseSchema = z
+  .object({
+    hold: z.object({
+      expires_at: z.string().refine((value) => !Number.isNaN(Date.parse(value)), 'expires_at must be an instant'),
+    }),
+  })
+  .transform(({ hold }): PublicHoldReclaim => ({ expiresAt: hold.expires_at }));
 
 export const holdResponseSchema = z
   .object({

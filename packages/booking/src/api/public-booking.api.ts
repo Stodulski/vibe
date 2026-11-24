@@ -2,7 +2,6 @@ import type { KyInstance } from 'ky';
 import type {
   PublicBookingRequest,
   PublicCancelBookingRequest,
-  PublicHoldRequest,
   WaitlistJoinRequest,
 } from './types';
 import { parseWith, type ErrorReporter } from '../lib/apiParse';
@@ -12,11 +11,11 @@ import {
   bookingStatusResponseSchema,
   cancelInfoResponseSchema,
   publicCancelBookingResponseSchema,
-  holdResponseSchema,
 } from '../schemas/publicBooking.schema';
 import { availabilityEnvelopeSchema, nextAvailableSchema } from '../schemas/availability.schema';
 import { withSignal } from './client';
 import { createPublicCheckoutApi } from './public-checkout.api';
+import { createPublicHoldsApi } from './public-holds.api';
 import { createPublicEventsApi } from './public-events.api';
 import { createPublicTournamentsApi } from './public-tournaments.api';
 import { createPublicWaitlistApi } from './public-waitlist.api';
@@ -57,17 +56,6 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
       client.post(`public/complexes/${slug}/waitlist`, { json: data }).then(() => undefined),
 
     /**
-     * Holds the slot the visitor picked until the returned `expiresAt`. Not
-     * idempotent: every call spends its Turnstile token, and `replaces`
-     * releases the previous hold first, so a retry is a new hold.
-     */
-    createHold: (data: PublicHoldRequest) =>
-      client
-        .post('book/holds', { json: data })
-        .json()
-        .then(parseWith(holdResponseSchema, 'publicBookingApi.createHold', report)),
-
-    /**
      * `idempotencyKey` makes a retried submit replay the first answer instead
      * of creating a second booking — see `useIdempotentMutation`.
      */
@@ -95,6 +83,7 @@ export function createPublicBookingApi(client: KyInstance, report?: ErrorReporte
         .json()
         .then(parseWith(publicCancelBookingResponseSchema, 'publicBookingApi.cancelBooking', report)),
 
+    ...createPublicHoldsApi(client, report),
     ...createPublicCheckoutApi(client, report),
     ...createPublicEventsApi(client, report),
     ...createPublicTournamentsApi(client, report),
