@@ -1733,8 +1733,10 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 // when that account cannot see the payment (403/404): the callers' own
 // fallbacks then decide as before. Anything else is returned as an error so
 // the recorded event is retried rather than a refund decided on a missing
-// figure: a credential that will not decrypt, an expired token, MercadoPago
-// failing, or an answer for some other payment.
+// figure — a credential that will not decrypt, an expired token, MercadoPago
+// failing, or an answer for some other payment — except that a credential or
+// read failure on a payment MercadoPago calls refunded is not: that one is
+// whole by definition (refundedTotalUnread).
 func (s *Service) readRefundedTotalAsSeller(ctx context.Context, complexID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) error {
 	if mpPayment.TransactionAmountRefunded > 0 || !moneyCameBack(mpPayment) {
 		return nil
@@ -1746,7 +1748,8 @@ func (s *Service) readRefundedTotalAsSeller(ctx context.Context, complexID uuid.
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("read the seller credential of complex %s for the refunds of payment %s: %w", complexID, mpPaymentID, err)
+		return s.refundedTotalUnread(mpPayment, mpPaymentID,
+			fmt.Errorf("read the seller credential of complex %s for the refunds of payment %s: %w", complexID, mpPaymentID, err))
 	}
 	payment, err := s.provider.GetPayment(ctx, mpPaymentID, seller)
 	if mp.IsNotFoundOrForbidden(err) {
@@ -1755,12 +1758,27 @@ func (s *Service) readRefundedTotalAsSeller(ctx context.Context, complexID uuid.
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("read payment %s as the seller for its refunded total: %w", mpPaymentID, err)
+		return s.refundedTotalUnread(mpPayment, mpPaymentID,
+			fmt.Errorf("read payment %s as the seller for its refunded total: %w", mpPaymentID, err))
 	}
 	if payment == nil || strconv.FormatInt(payment.ID, 10) != mpPaymentID {
 		return fmt.Errorf("read payment %s as the seller: MercadoPago answered for another payment", mpPaymentID)
 	}
 	mpPayment.TransactionAmountRefunded = payment.TransactionAmountRefunded
+	return nil
+}
+
+// refundedTotalUnread decides what a failed seller read of the refunded total
+// costs. A payment MercadoPago calls refunded is refunded whole by definition,
+// so its record does not wait on the figure: the payment is left as it is and
+// the callers' whole-amount fallback records it. A partial refund or a
+// chargeback has no such answer, and the error retries the event.
+func (s *Service) refundedTotalUnread(mpPayment *mp.Payment, mpPaymentID string, err error) error {
+	if mpPayment.Status != "refunded" {
+		return err
+	}
+	s.logger.Warn("mp webhook: the refunded total could not be read as the seller; a refunded payment is recorded whole",
+		"mp_payment_id", mpPaymentID, "error", err)
 	return nil
 }
 

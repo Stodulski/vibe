@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 
 	clientstore "github.com/stodulski/vibe-server/internal/clients/store"
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/mp"
 )
 
@@ -48,11 +49,35 @@ func TestARefundedTotalThePlatformCannotSeeIsReadAsTheSeller(t *testing.T) {
 			wantFull: true, wantRefund: 150_000,
 		},
 		{
-			name:        "MercadoPago fails the seller's read",
-			status:      "refunded",
+			// Refunded is whole by definition: a figure the seller's read
+			// cannot supply is not worth stalling the record of a refund on.
+			name:       "refunded, MercadoPago fails the seller's read",
+			status:     "refunded",
+			sellerErr:  errProvider,
+			wantFull:   true,
+			wantRefund: 150_000,
+		},
+		{
+			name:       "refunded, the venue's token has expired",
+			status:     "refunded",
+			sellerErr:  &mp.APIError{StatusCode: 401, Body: "invalid_token"},
+			wantFull:   true,
+			wantRefund: 150_000,
+		},
+		{
+			name:        "charged back, MercadoPago fails the seller's read",
+			status:      "charged_back",
 			sellerErr:   errProvider,
 			wantRetry:   true,
 			wantNoWrite: true,
+		},
+		{
+			name:         "partially refunded, MercadoPago fails the seller's read",
+			status:       "approved",
+			statusDetail: "partially_refunded",
+			sellerErr:    errProvider,
+			wantRetry:    true,
+			wantNoWrite:  true,
 		},
 		{
 			name:        "the seller's read answers for another payment",
@@ -127,5 +152,50 @@ func TestARefundedTotalThePlatformSeesIsNotReadAgain(t *testing.T) {
 	}
 	if calledAs(f.provider.callers, mustSeller(t, sellerTestToken)) {
 		t.Error("the seller must not be asked when the platform's read already carries the refunded total")
+	}
+}
+
+// A stored credential that will not decrypt cannot read the payment as the
+// seller. For a payment MercadoPago calls refunded the whole of it is back, so
+// it is recorded so; a partial refund still waits for a figure.
+func TestARefundedPaymentWithAnUnreadableCredentialIsRecordedWhole(t *testing.T) {
+	for _, tt := range []struct {
+		name, status, detail string
+		wantRetry            bool
+	}{
+		{name: "refunded", status: "refunded"},
+		{name: "partially refunded", status: "approved", detail: "partially_refunded", wantRetry: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			f.bookings.booking = booking
+			f.payments.byBooking = payment
+			f.payments.byMPID = payment
+			f.complexes.complex = complexstore.NewComplexWithUnreadableCredentialForTest(complexID)
+			f.clients.client = &clientstore.Client{ID: booking.ClientID}
+			f.provider.payment = &mp.Payment{ID: 123, Status: tt.status, StatusDetail: tt.detail, TransactionAmount: 1_500.00}
+			withCapturedSentryEvents(t)
+
+			err := f.service.processPaymentWebhook(t.Context(), "123")
+
+			if tt.wantRetry {
+				if err == nil {
+					t.Error("a partial refund with no readable figure must be retried")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("a refunded payment must be recorded; got %v", err)
+			}
+			written := f.payments.updated
+			if written == nil {
+				written = f.payments.confirmed
+			}
+			if written == nil || written.Status != "refunded" || written.RefundAmount != 150_000 {
+				t.Errorf("want the payment recorded refunded in whole; got %+v", written)
+			}
+		})
 	}
 }
