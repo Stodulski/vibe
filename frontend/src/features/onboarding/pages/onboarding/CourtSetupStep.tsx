@@ -5,9 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { CourtList } from './court-setup-step/CourtList';
 import { StepNavigation } from './court-setup-step/StepNavigation';
-import type { Court, CourtWithPrices } from '@/shared/types/api.types';
-
-type CourtLike = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'surface' | 'has_lighting'>;
+import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -19,7 +17,7 @@ interface MutationLike<TVariables> {
 
 interface CourtSetupStepProps {
   complexId: string;
-  courts: CourtLike[];
+  courts: CourtWithPrices[];
   hasCourts: boolean;
   deleteCourt: MutationLike<string>;
   onBack: () => void;
@@ -59,6 +57,7 @@ export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBa
               deleteCourt.mutate(courtId);
             }}
             removePending={deleteCourt.isPending}
+            onSetPrices={setPricingCourt}
           />
         )}
 
