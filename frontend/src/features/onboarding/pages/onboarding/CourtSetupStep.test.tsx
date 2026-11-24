@@ -60,7 +60,7 @@ describe('CourtSetupStep', () => {
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor' }]}
+        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
       />,
     );
 
@@ -107,7 +107,7 @@ describe('CourtSetupStep navigation', () => {
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor' }]}
+        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
       />,
     );
 
@@ -121,7 +121,7 @@ describe('CourtSetupStep navigation', () => {
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor' }]}
+        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
       />,
     );
     expect(screen.getByText('Cancha Test')).toBeInTheDocument();
@@ -132,9 +132,35 @@ describe('CourtSetupStep navigation', () => {
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor' }]}
+        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
       />,
     );
     expect(screen.getByRole('button', { name: 'Eliminar: Cancha Test' })).toBeInTheDocument();
+  });
+});
+
+describe('CourtSetupStep court list', () => {
+  // The courts page card says what each court is made of and whether it has
+  // lights; the onboarding list used to stop at sport and roof.
+  it('shows the surface and lighting of each court, as the courts page does', () => {
+    render(
+      <CourtSetupStep
+        {...baseProps}
+        hasCourts={true}
+        courts={[
+          {
+            id: '1',
+            name: 'Cancha 1',
+            sport: 'padel',
+            court_type: 'indoor',
+            surface: 'synthetic_grass',
+            has_lighting: true,
+          },
+          { id: '2', name: 'Cancha 2', sport: 'padel', court_type: 'outdoor', has_lighting: false },
+        ]}
+      />,
+    );
+    expect(screen.getByText('Césped sintético · Con iluminación')).toBeInTheDocument();
+    expect(screen.getAllByText(/Césped|iluminación/)).toHaveLength(1);
   });
 });
