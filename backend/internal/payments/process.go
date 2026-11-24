@@ -979,7 +979,11 @@ func (s *Service) collectorMatches(ctx context.Context, complexID uuid.UUID, sub
 			"complex_has_mp_user_id", complex.MPUserID != nil && *complex.MPUserID != "",
 			"collector_id", collector,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d", mpPaymentID, subjectKey, subjectID, complexID, collector))
+		// Refused for now, not for good: once the venue reconnects or
+		// MercadoPago names the collector again, the replay command processes
+		// the payment through this same check.
+		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d replay=%s",
+			mpPaymentID, subjectKey, subjectID, complexID, collector, paymentstore.ReplayCommand(mpPaymentID)))
 		return false, nil
 	}
 

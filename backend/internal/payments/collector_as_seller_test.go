@@ -2,6 +2,7 @@ package payments
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -118,8 +119,14 @@ func TestAPaymentWithNoCollectorForThePlatformIsCheckedAsTheSeller(t *testing.T)
 				t.Errorf("a verdict about the collector is final; got error %v", err)
 			}
 			if tt.wantAlert != "" {
-				if _, found := findMessage(sentryEvents.messages(), tt.wantAlert); !found {
+				msg, found := findMessage(sentryEvents.messages(), tt.wantAlert)
+				if !found {
 					t.Errorf("want Sentry alert %q; captured %q", tt.wantAlert, sentryEvents.messages())
+				}
+				// An unverified collector is refused until its cause is fixed;
+				// the alert says how to process the payment again then.
+				if strings.HasPrefix(tt.wantAlert, "COLLECTOR UNVERIFIED") && !strings.Contains(msg, "go run ./cmd/replaypayment 123") {
+					t.Errorf("the alert must carry the payment's replay command; got %q", msg)
 				}
 			}
 			if tt.credential == readable && !calledAs(f.provider.callers, mustSeller(t, sellerTestToken)) {
