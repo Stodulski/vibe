@@ -430,15 +430,19 @@ type FeeDetail struct {
 
 // Payment represents a MercadoPago payment fetched via the API.
 type Payment struct {
-	ID                        int64          `json:"id"`
-	Status                    string         `json:"status"`
-	StatusDetail              string         `json:"status_detail"`
-	TransactionAmount         float64        `json:"transaction_amount"`
-	TransactionAmountRefunded float64        `json:"transaction_amount_refunded"`
-	NetReceivedAmount         float64        `json:"net_received_amount"`
-	FeeDetails                []FeeDetail    `json:"fee_details"`
-	Metadata                  map[string]any `json:"metadata"`
-	ExternalReference         string         `json:"external_reference"`
+	ID                        int64   `json:"id"`
+	Status                    string  `json:"status"`
+	StatusDetail              string  `json:"status_detail"`
+	TransactionAmount         float64 `json:"transaction_amount"`
+	TransactionAmountRefunded float64 `json:"transaction_amount_refunded"`
+	// NetReceivedAmount is what the seller received after MercadoPago's fees.
+	// MercadoPago sends it inside transaction_details; GetPayment copies it here
+	// from there, and the top-level field is only read when that one is absent.
+	NetReceivedAmount  float64                    `json:"net_received_amount"`
+	TransactionDetails *PaymentTransactionDetails `json:"transaction_details,omitempty"`
+	FeeDetails         []FeeDetail                `json:"fee_details"`
+	Metadata           map[string]any             `json:"metadata"`
+	ExternalReference  string                     `json:"external_reference"`
 	// DateCreated is when the payment attempt was started; zero when absent.
 	DateCreated time.Time `json:"date_created"`
 	// CollectorID is the MercadoPago user id of the seller who received the money.
@@ -448,6 +452,11 @@ type Payment struct {
 	// Collector is the same seller as an object. GetPayment copies its id into
 	// CollectorID when collector_id itself is missing.
 	Collector *PaymentCollector `json:"collector,omitempty"`
+}
+
+// PaymentTransactionDetails is the transaction_details object of a payment.
+type PaymentTransactionDetails struct {
+	NetReceivedAmount float64 `json:"net_received_amount"`
 }
 
 // PaymentCollector is the collector object of a payment.
@@ -748,9 +757,7 @@ func (c *MPClient) GetPayment(ctx context.Context, paymentID string, caller Call
 	if err := json.NewDecoder(resp.Body).Decode(&payment); err != nil {
 		return nil, fmt.Errorf("mp: failed to decode payment response: %w", err)
 	}
-	if payment.CollectorID == 0 && payment.Collector != nil {
-		payment.CollectorID = payment.Collector.ID
-	}
+	payment.flatten()
 
 	return &payment, nil
 }
@@ -803,7 +810,22 @@ func (c *MPClient) SearchPaymentsByReference(ctx context.Context, reference stri
 	if err := json.NewDecoder(resp.Body).Decode(&page); err != nil {
 		return nil, fmt.Errorf("mp: failed to decode payment search response: %w", err)
 	}
+	for i := range page.Results {
+		page.Results[i].flatten()
+	}
 	return page.Results, nil
+}
+
+// flatten copies the figures MercadoPago nests inside objects onto the flat
+// fields every caller reads: the collector's id when collector_id itself is
+// missing, and the net received amount, which lives under transaction_details.
+func (p *Payment) flatten() {
+	if p.CollectorID == 0 && p.Collector != nil {
+		p.CollectorID = p.Collector.ID
+	}
+	if p.TransactionDetails != nil && p.TransactionDetails.NetReceivedAmount != 0 {
+		p.NetReceivedAmount = p.TransactionDetails.NetReceivedAmount
+	}
 }
 
 // RefundPayment creates a refund for a MercadoPago payment.
