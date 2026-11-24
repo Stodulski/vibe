@@ -360,7 +360,7 @@ const contenido: Omit<Tutorial, 'dateModified'>[] = [
         items: [
           'El nombre de la cancha y el deporte que se juega, desde Editar',
           'Si es techada, descubierta o semicubierta',
-          'La descripción que lee el cliente cuando elige dónde jugar',
+          'La superficie y la iluminación, que el cliente ve cuando elige dónde jugar',
           'Si la cancha está activa o deja de aparecer en las reservas',
         ],
       },
