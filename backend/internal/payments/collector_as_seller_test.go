@@ -90,6 +90,7 @@ func TestAPaymentWithNoCollectorForThePlatformIsCheckedAsTheSeller(t *testing.T)
 			f.courts.court = &courtstore.Court{ID: booking.CourtID, Name: "Court 1"}
 			complex := linkedComplex(complexID, "111111111")
 			switch tt.credential {
+			case readable:
 			case notConnected:
 				complex = complexstore.NewComplexForTest(complexID, nil, nil)
 			case unreadable:
