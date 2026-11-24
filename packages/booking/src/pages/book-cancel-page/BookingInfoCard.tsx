@@ -1,6 +1,6 @@
 import { BOOKING_MESSAGES } from '../../messages';
 import { formatDateFull, formatHourRange } from '@vibe/ui';
-import { COURT_TYPE_LABELS } from '../../components/court-selector/constants';
+import { courtFactParts } from '../../lib/courtFacts';
 import type { CancelInfoResponse } from '../../api/types';
 import { keepTogether } from '../../lib/keepTogether';
 
@@ -23,13 +23,11 @@ interface BookingInfoCardProps {
   money?: CancelMoneyBand | null;
 }
 
-// Sport and court type as their own lines under the court name, the same way
-// the confirmed booking's ticket and the court cards show them. Lines the
-// data lacks (an older API) are simply not rendered.
+// Sport, roof, surface and lighting as their own lines under the court name,
+// the same facts the court picker and the confirmed booking's ticket show.
+// Lines the data lacks (an older API) are simply not rendered.
 function courtLines(booking: CancelInfoBooking): string[] {
-  const sport = booking.sport && (SPORT_LABELS[booking.sport] ?? booking.sport);
-  const courtType = booking.court_type && (COURT_TYPE_LABELS[booking.court_type] ?? booking.court_type);
-  return [sport, courtType].filter((line): line is string => Boolean(line));
+  return [...(booking.sport ? [SPORT_LABELS[booking.sport] ?? booking.sport] : []), ...courtFactParts(booking)];
 }
 
 // The two instants arrived with the cancel-info extension; an older server
@@ -45,7 +43,7 @@ function timeRange(booking: CancelInfoBooking): string {
 
 // The booking being cancelled, in the same bands as the confirmed booking's
 // ticket so the person recognises what they saw confirmed: venue, day and
-// hours in large type, court with sport and type. Hairlines between bands and a
+// hours in large type, court with sport and its facts. Hairlines between bands and a
 // closing one under the last on phones; from sm the card border closes it.
 export function BookingInfoCard({ cancelInfo, money }: BookingInfoCardProps) {
   const { booking } = cancelInfo;

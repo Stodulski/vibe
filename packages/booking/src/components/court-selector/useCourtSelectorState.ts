@@ -29,6 +29,8 @@ export function useCourtSelectorState({ onSelect }: UseCourtSelectorStateParams)
         courtName: court.court_name,
         sport: court.sport,
         courtType: court.court_type,
+        ...(court.surface ? { surface: court.surface } : {}),
+        hasLighting: court.has_lighting,
         slot,
         durationMinutes: slot.duration_minutes,
         totalPrice: computeTotalPrice(slot),

@@ -283,6 +283,9 @@ export interface BookingStatusDetails {
   court_name?: string;
   sport?: Sport;
   court_type?: CourtType;
+  /** Absent when the owner has not said, and from a server that predates it. Open: a surface this build predates still renders. */
+  surface?: Open<CourtSurface>;
+  has_lighting?: boolean;
   date?: string;
   start_time?: string;
   starts_at?: string;
@@ -315,6 +318,9 @@ export interface CancelInfoBooking {
   complex_name: string;
   sport?: Sport;
   court_type?: CourtType;
+  /** Absent when the owner has not said, and from a server that predates it. Open: a surface this build predates still renders. */
+  surface?: Open<CourtSurface>;
+  has_lighting?: boolean;
   starts_at?: string;
   ends_at?: string;
   duration_minutes?: DurationMinutes;

@@ -1,6 +1,6 @@
 import { BOOKING_MESSAGES } from '../../messages';
 import { formatPrice, formatDateFull, formatHourRange } from '@vibe/ui';
-import { COURT_TYPE_LABELS } from '../court-selector/constants';
+import { courtFactParts } from '../../lib/courtFacts';
 import type { BookingInfo } from './types';
 import { TicketCourt, TicketStub } from '../ticket/TicketParts';
 import { keepTogether } from '../../lib/keepTogether';
@@ -12,12 +12,18 @@ interface BookingSummaryProps {
   bookingInfo: BookingInfo;
 }
 
-// The court's chips: sport and court type. Lines the data
-// lacks (an older API or a cache without sport/type) are simply not rendered.
+// The court's chips: sport, then roof, surface and lighting as the court picker
+// showed them. Facts the data lacks (an older API, or the copy cached before
+// payment, which has none of them) are simply not rendered.
 function courtLines(bookingInfo: BookingInfo): string[] {
-  const sport = bookingInfo.sport && (SPORT_LABELS[bookingInfo.sport] ?? bookingInfo.sport);
-  const courtType = bookingInfo.courtType && (COURT_TYPE_LABELS[bookingInfo.courtType] ?? bookingInfo.courtType);
-  return [sport, courtType].filter((line): line is string => Boolean(line));
+  return [
+    ...(bookingInfo.sport ? [SPORT_LABELS[bookingInfo.sport] ?? bookingInfo.sport] : []),
+    ...courtFactParts({
+      court_type: bookingInfo.courtType,
+      surface: bookingInfo.surface,
+      has_lighting: bookingInfo.hasLighting,
+    }),
+  ];
 }
 
 // The ticket's top half: date, a big time range, and what was booked. Name

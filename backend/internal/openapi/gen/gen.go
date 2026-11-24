@@ -985,6 +985,42 @@ func (e PublicBookingStatusSport) Valid() bool {
 	}
 }
 
+// Defines values for PublicBookingStatusSurface.
+const (
+	PublicBookingStatusSurfaceClay           PublicBookingStatusSurface = "clay"
+	PublicBookingStatusSurfaceConcrete       PublicBookingStatusSurface = "concrete"
+	PublicBookingStatusSurfaceNaturalGrass   PublicBookingStatusSurface = "natural_grass"
+	PublicBookingStatusSurfaceParquet        PublicBookingStatusSurface = "parquet"
+	PublicBookingStatusSurfaceRubber         PublicBookingStatusSurface = "rubber"
+	PublicBookingStatusSurfaceSand           PublicBookingStatusSurface = "sand"
+	PublicBookingStatusSurfaceSyntheticFloor PublicBookingStatusSurface = "synthetic_floor"
+	PublicBookingStatusSurfaceSyntheticGrass PublicBookingStatusSurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the PublicBookingStatusSurface enum.
+func (e PublicBookingStatusSurface) Valid() bool {
+	switch e {
+	case PublicBookingStatusSurfaceClay:
+		return true
+	case PublicBookingStatusSurfaceConcrete:
+		return true
+	case PublicBookingStatusSurfaceNaturalGrass:
+		return true
+	case PublicBookingStatusSurfaceParquet:
+		return true
+	case PublicBookingStatusSurfaceRubber:
+		return true
+	case PublicBookingStatusSurfaceSand:
+		return true
+	case PublicBookingStatusSurfaceSyntheticFloor:
+		return true
+	case PublicBookingStatusSurfaceSyntheticGrass:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PublicCancelInfoBookingCourtType.
 const (
 	PublicCancelInfoBookingCourtTypeIndoor      PublicCancelInfoBookingCourtType = "indoor"
@@ -1033,6 +1069,42 @@ func (e PublicCancelInfoBookingSport) Valid() bool {
 	case PublicCancelInfoBookingSportTennis:
 		return true
 	case PublicCancelInfoBookingSportVolleyball:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PublicCancelInfoBookingSurface.
+const (
+	PublicCancelInfoBookingSurfaceClay           PublicCancelInfoBookingSurface = "clay"
+	PublicCancelInfoBookingSurfaceConcrete       PublicCancelInfoBookingSurface = "concrete"
+	PublicCancelInfoBookingSurfaceNaturalGrass   PublicCancelInfoBookingSurface = "natural_grass"
+	PublicCancelInfoBookingSurfaceParquet        PublicCancelInfoBookingSurface = "parquet"
+	PublicCancelInfoBookingSurfaceRubber         PublicCancelInfoBookingSurface = "rubber"
+	PublicCancelInfoBookingSurfaceSand           PublicCancelInfoBookingSurface = "sand"
+	PublicCancelInfoBookingSurfaceSyntheticFloor PublicCancelInfoBookingSurface = "synthetic_floor"
+	PublicCancelInfoBookingSurfaceSyntheticGrass PublicCancelInfoBookingSurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the PublicCancelInfoBookingSurface enum.
+func (e PublicCancelInfoBookingSurface) Valid() bool {
+	switch e {
+	case PublicCancelInfoBookingSurfaceClay:
+		return true
+	case PublicCancelInfoBookingSurfaceConcrete:
+		return true
+	case PublicCancelInfoBookingSurfaceNaturalGrass:
+		return true
+	case PublicCancelInfoBookingSurfaceParquet:
+		return true
+	case PublicCancelInfoBookingSurfaceRubber:
+		return true
+	case PublicCancelInfoBookingSurfaceSand:
+		return true
+	case PublicCancelInfoBookingSurfaceSyntheticFloor:
+		return true
+	case PublicCancelInfoBookingSurfaceSyntheticGrass:
 		return true
 	default:
 		return false
@@ -4088,6 +4160,9 @@ type PublicBookingStatus struct {
 	DurationMinutes int       `json:"duration_minutes"`
 	EndsAt          time.Time `json:"ends_at"`
 
+	// HasLighting Whether the court has lights. Sent by every current server.
+	HasLighting *bool `json:"has_lighting,omitempty"`
+
 	// Price Centavos ARS.
 	Price int `json:"price"`
 
@@ -4103,6 +4178,9 @@ type PublicBookingStatus struct {
 	StartTime  string                   `json:"start_time"`
 	StartsAt   time.Time                `json:"starts_at"`
 	Status     BookingStatus            `json:"status"`
+
+	// Surface Playing surface; omitted when the owner has not said.
+	Surface *PublicBookingStatusSurface `json:"surface,omitempty"`
 }
 
 // PublicBookingStatusCourtType defines model for PublicBookingStatus.CourtType.
@@ -4110,6 +4188,9 @@ type PublicBookingStatusCourtType string
 
 // PublicBookingStatusSport defines model for PublicBookingStatus.Sport.
 type PublicBookingStatusSport string
+
+// PublicBookingStatusSurface Playing surface; omitted when the owner has not said.
+type PublicBookingStatusSurface string
 
 // PublicCancelInfo defines model for PublicCancelInfo.
 type PublicCancelInfo struct {
@@ -4121,10 +4202,16 @@ type PublicCancelInfo struct {
 		Date            openapi_types.Date               `json:"date"`
 		DurationMinutes int                              `json:"duration_minutes"`
 		EndsAt          time.Time                        `json:"ends_at"`
-		Sport           PublicCancelInfoBookingSport     `json:"sport"`
-		StartTime       string                           `json:"start_time"`
-		StartsAt        time.Time                        `json:"starts_at"`
-		Status          BookingStatus                    `json:"status"`
+
+		// HasLighting Whether the court has lights. Sent by every current server.
+		HasLighting *bool                        `json:"has_lighting,omitempty"`
+		Sport       PublicCancelInfoBookingSport `json:"sport"`
+		StartTime   string                       `json:"start_time"`
+		StartsAt    time.Time                    `json:"starts_at"`
+		Status      BookingStatus                `json:"status"`
+
+		// Surface Playing surface; omitted when the owner has not said.
+		Surface *PublicCancelInfoBookingSurface `json:"surface,omitempty"`
 	} `json:"booking"`
 	CanCancel         bool `json:"can_cancel"`
 	CanRefund         bool `json:"can_refund"`
@@ -4143,6 +4230,9 @@ type PublicCancelInfoBookingCourtType string
 
 // PublicCancelInfoBookingSport defines model for PublicCancelInfo.Booking.Sport.
 type PublicCancelInfoBookingSport string
+
+// PublicCancelInfoBookingSurface Playing surface; omitted when the owner has not said.
+type PublicCancelInfoBookingSurface string
 
 // PublicCancelInfoRefundMethod defines model for PublicCancelInfo.RefundMethod.
 type PublicCancelInfoRefundMethod string

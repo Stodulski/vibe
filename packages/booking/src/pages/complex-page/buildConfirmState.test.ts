@@ -24,6 +24,8 @@ const selectedSlot: SelectedSlot = {
   courtName: 'Cancha 1',
   sport: 'padel',
   courtType: 'indoor',
+  surface: 'synthetic_grass',
+  hasLighting: true,
   slot: {
     start_time: '10:00',
     end_time: '12:00',
@@ -48,6 +50,8 @@ describe('buildConfirmState', () => {
       courtName: 'Cancha 1',
       sport: 'padel',
       courtType: 'indoor',
+      surface: 'synthetic_grass',
+      hasLighting: true,
       date: '2026-03-20',
       startTime: '10:00',
       endTime: '12:00',

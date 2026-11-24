@@ -4021,6 +4021,14 @@ export interface components {
       sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
       /** @enum {string} */
       court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      /** @description Whether the court has lights. Sent by every current server. */
+      has_lighting?: boolean;
+      /**
+       * @description Playing surface; omitted when the owner has not said.
+       * @enum {string}
+       */
+      surface?:
+        'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
       /** Format: date */
       date: string;
       start_time: string;
@@ -4061,6 +4069,14 @@ export interface components {
         sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
         /** @enum {string} */
         court_type: 'indoor' | 'outdoor' | 'semi_covered';
+        /** @description Whether the court has lights. Sent by every current server. */
+        has_lighting?: boolean;
+        /**
+         * @description Playing surface; omitted when the owner has not said.
+         * @enum {string}
+         */
+        surface?:
+          'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
         complex_name: string;
         complex_address?: string;
       };

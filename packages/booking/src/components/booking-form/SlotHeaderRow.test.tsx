@@ -26,6 +26,17 @@ describe('SlotHeaderRow — sport and court type line', () => {
     expect(screen.getByText('Techada')).toBeInTheDocument();
   });
 
+  it('shows the surface and the lighting after the court type, like the court picker', () => {
+    render(
+      <SlotHeaderRow
+        slotInfo={{ ...baseSlotInfo, sport: 'padel', courtType: 'indoor', surface: 'clay', hasLighting: true }}
+      />,
+    );
+
+    expect(screen.getByText('Polvo de ladrillo')).toBeInTheDocument();
+    expect(screen.getByText('Con iluminación')).toBeInTheDocument();
+  });
+
   it('renders neither line when sport and court type are both absent', () => {
     render(<SlotHeaderRow slotInfo={baseSlotInfo} />);
 

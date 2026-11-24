@@ -5,11 +5,11 @@ import { toDisplayDate } from '@vibe/ui';
 import type { BookingSlotInfo } from './types';
 import { TicketCourt, TicketPriceRow, TicketStub } from '../ticket/TicketParts';
 import { keepTogether } from '../../lib/keepTogether';
+import { courtFactParts } from '../../lib/courtFacts';
 
 const t = BOOKING_MESSAGES;
 
 const SPORT_LABELS: Record<string, string> = t.courts.sportTypes;
-const COURT_TYPE_LABELS: Record<string, string> = t.courts.courtTypes;
 
 interface SlotHeaderRowProps {
   slotInfo: BookingSlotInfo;
@@ -20,16 +20,16 @@ interface SlotHeaderRowProps {
 /**
  * Everything that was chosen, before the money, in the same order and shape
  * as the confirmed booking's ticket so the two screens read as one: the
- * venue, the day, the hours in large type, then the court with its sport and
- * type as chips. The tear line follows, and the
- * turn's price opens the money rows.
+ * venue, the day, the hours in large type, then the court with its sport,
+ * roof, surface and lighting as chips, as the court picker showed them. The
+ * tear line follows, and the turn's price opens the money rows.
  */
 export function SlotHeaderRow({ slotInfo, bare = false }: SlotHeaderRowProps) {
   const dateObj = toDisplayDate(slotInfo.date);
   const courtTags = [
-    slotInfo.sport && (SPORT_LABELS[slotInfo.sport] ?? slotInfo.sport),
-    slotInfo.courtType && (COURT_TYPE_LABELS[slotInfo.courtType] ?? slotInfo.courtType),
-  ].filter((tag): tag is string => Boolean(tag));
+    ...(slotInfo.sport ? [SPORT_LABELS[slotInfo.sport] ?? slotInfo.sport] : []),
+    ...courtFactParts({ court_type: slotInfo.courtType, surface: slotInfo.surface, has_lighting: slotInfo.hasLighting }),
+  ];
 
   return (
     <>

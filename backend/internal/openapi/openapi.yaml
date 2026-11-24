@@ -8342,6 +8342,8 @@ components:
         court_name: {type: string}
         sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
         court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+        has_lighting: {type: boolean, description: Whether the court has lights. Sent by every current server.}
+        surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: Playing surface; omitted when the owner has not said.}
         date: {type: string, format: date}
         start_time: {type: string, pattern: "^([01]\\d|2[0-3]):[0-5]\\d$"}
         starts_at: {type: string, format: date-time}
@@ -8377,6 +8379,8 @@ components:
             court_name: {type: string}
             sport: {type: string, enum: [padel, tennis, soccer, basketball, volleyball, hockey, pickleball]}
             court_type: {type: string, enum: [indoor, outdoor, semi_covered]}
+            has_lighting: {type: boolean, description: Whether the court has lights. Sent by every current server.}
+            surface: {type: string, enum: [synthetic_grass, natural_grass, clay, concrete, parquet, synthetic_floor, sand, rubber], description: Playing surface; omitted when the owner has not said.}
             complex_name: {type: string}
             complex_address: {type: string}
         can_cancel: {type: boolean}
