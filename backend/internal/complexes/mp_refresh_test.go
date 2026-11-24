@@ -56,6 +56,7 @@ type credentialStore struct {
 	mu        sync.Mutex
 	access    string
 	refresh   string
+	userID    string
 	updateErr error
 	writes    int
 }
@@ -66,16 +67,20 @@ func (c *credentialStore) GetByID(_ context.Context, id uuid.UUID) (*complexstor
 	access, refresh := c.access, c.refresh
 	complex := complexstore.NewComplexForTest(id, &access, &refresh)
 	complex.Name = "Vibe"
+	if c.userID != "" {
+		userID := c.userID
+		complex.MPUserID = &userID
+	}
 	return complex, nil
 }
 
-func (c *credentialStore) UpdateMPCredentials(_ context.Context, _ uuid.UUID, access, refresh, _ string, _ int) error {
+func (c *credentialStore) UpdateMPCredentials(_ context.Context, _ uuid.UUID, access, refresh, userID string, _ int) error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.updateErr != nil {
 		return c.updateErr
 	}
-	c.access, c.refresh = access, refresh
+	c.access, c.refresh, c.userID = access, refresh, userID
 	c.writes++
 	return nil
 }
@@ -92,6 +97,8 @@ type rotatingMP struct {
 	store *credentialStore
 	delay time.Duration
 	err   error
+	// noUserID answers a refresh without user_id, which decodes to 0.
+	noUserID bool
 
 	mu     sync.Mutex
 	calls  int
@@ -119,12 +126,16 @@ func (m *rotatingMP) RefreshOAuthToken(_ context.Context, refreshToken string) (
 	if spent {
 		return nil, &mp.APIError{StatusCode: http.StatusBadRequest, Body: `{"error":"invalid_grant"}`}
 	}
-	return &mp.OAuthTokens{
+	tokens := &mp.OAuthTokens{
 		AccessToken:  fmt.Sprintf("access-%d", n),
 		RefreshToken: fmt.Sprintf("refresh-%d", n),
 		UserID:       42,
 		ExpiresIn:    3600,
-	}, nil
+	}
+	if m.noUserID {
+		tokens.UserID = 0
+	}
+	return tokens, nil
 }
 
 func (m *rotatingMP) callCount() int {
@@ -512,5 +523,38 @@ func TestTheSweepSkipsAVenueWithNoRefreshToken(t *testing.T) {
 	}
 	if got := messages(); len(got) != 0 {
 		t.Errorf("a skipped venue must not alert; captured %q", got)
+	}
+}
+
+// MercadoPago answering a refresh without user_id decoded to 0, and "0" was
+// stored as the venue's seller id: every later payment then failed the
+// collector check as a mismatch. The stored id is kept instead, with an alert;
+// the new tokens are still stored, since the old refresh token is spent.
+func TestARefreshWithoutAUserIDKeepsTheStoredSellerID(t *testing.T) {
+	w := newRefreshWorld(t)
+	w.store.userID = "111111111"
+	w.mercado.noUserID = true
+	messages := sentryMessages(t)
+
+	got, err := w.f.service.RefreshMPCredentials(t.Context(), w.id, "access-0")
+	if err != nil {
+		t.Fatalf("RefreshMPCredentials: %v", err)
+	}
+
+	if got != "access-1" {
+		t.Errorf("the new access token must be returned; got %q", got)
+	}
+	if access, refresh := w.store.tokens(); access != "access-1" || refresh != "refresh-1" {
+		t.Errorf("the new tokens must be stored; got %q %q", access, refresh)
+	}
+	if w.store.userID != "111111111" {
+		t.Errorf("the stored seller id must be kept; got %q", w.store.userID)
+	}
+	var alerted bool
+	for _, m := range messages() {
+		alerted = alerted || (strings.Contains(m, "without user_id") && strings.Contains(m, w.id.String()))
+	}
+	if !alerted {
+		t.Errorf("a refresh without user_id must alert, naming the venue; captured %q", messages())
 	}
 }
