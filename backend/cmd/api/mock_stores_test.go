@@ -904,6 +904,16 @@ func (m *mockBookingStore) ReleaseHold(context.Context, []byte) (bookingstore.Re
 	return bookingstore.ReleasedHold{}, false, nil
 }
 
+func (m *mockBookingStore) RequestHoldRelease(context.Context, []byte) error { return nil }
+
+func (m *mockBookingStore) ReclaimHold(context.Context, []byte) (time.Time, error) {
+	return time.Time{}, bookingstore.ErrHoldNotFound
+}
+
+func (m *mockBookingStore) ReleaseLeftHolds(context.Context, time.Duration) ([]bookingstore.ReleasedHold, error) {
+	return nil, nil
+}
+
 func (m *mockBookingStore) DeleteExpiredHolds(context.Context, time.Duration) ([]bookingstore.ReleasedHold, error) {
 	return nil, nil
 }

@@ -933,9 +933,11 @@ paths:
       operationId: bookingsPublicHoldRelease
       summary: Release a slot hold
       description: >-
-        Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases
-        the hold if it is still an untouched hold; a converted or paid booking is never touched.
-        Answers 204 whatever happened, so it says nothing about which tokens exist.
+        Public, and a POST so `navigator.sendBeacon` can call it. The visitor gives the hold back on
+        purpose ("Cambiar horario"): it is released at once if it is still an untouched hold; a
+        converted or paid booking is never touched. Answers 204 whatever happened, so it says
+        nothing about which tokens exist. Leaving the page uses
+        POST /api/v1/book/holds/{token}/leave instead.
         Cross-tenant bypass reason `resolves`.
       security: []
       parameters:
@@ -946,6 +948,72 @@ paths:
       responses:
         "204":
           description: Released, or there was nothing to release.
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/book/holds/{token}/leave:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicHoldLeave
+      summary: Release a slot hold a minute after the visitor left
+      description: >-
+        Public, and a POST so `navigator.sendBeacon` can call it when the confirm page goes away.
+        Records that the visitor left: the hold is released one minute later unless
+        POST /api/v1/book/holds/{token}/reclaim takes it back first, so a reload or a discarded
+        background tab does not lose the slot. A second call keeps the first one's instant.
+        Submitting the booking with the hold calls the release off too. Answers 204 whatever
+        happened, so it says nothing about which tokens exist.
+        Cross-tenant bypass reason `resolves`.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        "204":
+          description: Release scheduled, or there was nothing to release.
+        "429": {$ref: "#/components/responses/RateLimited"}
+        "500": {$ref: "#/components/responses/ServerError"}
+
+  /api/v1/book/holds/{token}/reclaim:
+    post:
+      tags: [bookings]
+      operationId: bookingsPublicHoldReclaim
+      summary: Take back a slot hold the visitor left
+      description: >-
+        Public, authenticated by the hold token alone, which is a bearer secret. The confirm page
+        loaded again: a release asked for by POST /api/v1/book/holds/{token}/leave is called off
+        and the hold is the visitor's again. It neither takes nor extends a hold: `expires_at` is
+        the same instant POST /api/v1/book/holds answered.
+        Cross-tenant bypass reason `resolves`.
+      security: []
+      parameters:
+        - name: token
+          in: path
+          required: true
+          schema: {type: string}
+      responses:
+        "200":
+          description: The hold is the visitor's again, ending when it always did.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [hold]
+                properties:
+                  hold:
+                    type: object
+                    required: [expires_at]
+                    properties:
+                      expires_at: {type: string, format: date-time}
+        "409":
+          description: >-
+            The hold is gone (`hold-expired`): released, run out, converted, or never existed. The
+            storefront sends the visitor back to pick a time.
+          content:
+            application/problem+json:
+              schema: {$ref: "#/components/schemas/Problem"}
         "429": {$ref: "#/components/responses/RateLimited"}
         "500": {$ref: "#/components/responses/ServerError"}
 

@@ -6990,6 +6990,12 @@ type ServerInterface interface {
 	// BookingsPublicHoldCreate Hold a slot while the visitor fills in their details
 	// (POST /api/v1/book/holds)
 	BookingsPublicHoldCreate(w http.ResponseWriter, r *http.Request)
+	// BookingsPublicHoldLeave Release a slot hold a minute after the visitor left
+	// (POST /api/v1/book/holds/{token}/leave)
+	BookingsPublicHoldLeave(w http.ResponseWriter, r *http.Request, token string)
+	// BookingsPublicHoldReclaim Take back a slot hold the visitor left
+	// (POST /api/v1/book/holds/{token}/reclaim)
+	BookingsPublicHoldReclaim(w http.ResponseWriter, r *http.Request, token string)
 	// BookingsPublicHoldRelease Release a slot hold
 	// (POST /api/v1/book/holds/{token}/release)
 	BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Request, token string)
@@ -7743,6 +7749,58 @@ func (siw *ServerInterfaceWrapper) BookingsPublicHoldCreate(w http.ResponseWrite
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.BookingsPublicHoldCreate(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicHoldLeave operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicHoldLeave(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", r.PathValue("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicHoldLeave(w, r, token)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BookingsPublicHoldReclaim operation middleware
+func (siw *ServerInterfaceWrapper) BookingsPublicHoldReclaim(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "token" -------------
+	var token string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "token", r.PathValue("token"), &token, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "token", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BookingsPublicHoldReclaim(w, r, token)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -12729,6 +12787,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book", wrapper.BookingsPublicCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds", wrapper.BookingsPublicHoldCreate)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/release", wrapper.BookingsPublicHoldRelease)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/leave", wrapper.BookingsPublicHoldLeave)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/holds/{token}/reclaim", wrapper.BookingsPublicHoldReclaim)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/checkout/retry", wrapper.BookingsPublicCheckoutRetry)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/book/checkout/release", wrapper.BookingsPublicCheckoutRelease)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/book/status", wrapper.BookingsPublicStatus)

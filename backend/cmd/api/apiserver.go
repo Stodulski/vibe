@@ -159,6 +159,18 @@ func (s *apiServer) BookingsPublicHoldRelease(w http.ResponseWriter, r *http.Req
 	s.app.bookings.ReleaseHold(w, r, token)
 }
 
+// BookingsPublicHoldLeave implements gen.ServerInterface for bookingsPublicHoldLeave
+// (POST /api/v1/book/holds/{token}/leave). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicHoldLeave(w http.ResponseWriter, r *http.Request, token string) {
+	s.app.bookings.LeaveHold(w, r, token)
+}
+
+// BookingsPublicHoldReclaim implements gen.ServerInterface for bookingsPublicHoldReclaim
+// (POST /api/v1/book/holds/{token}/reclaim). Guarded by routeGuards; see the type comment above.
+func (s *apiServer) BookingsPublicHoldReclaim(w http.ResponseWriter, r *http.Request, token string) {
+	s.app.bookings.ReclaimHold(w, r, token)
+}
+
 // BookingsPublicCheckoutRetry implements gen.ServerInterface for bookingsPublicCheckoutRetry
 // (POST /api/v1/book/checkout/retry). Guarded by routeGuards; see the type comment above.
 func (s *apiServer) BookingsPublicCheckoutRetry(w http.ResponseWriter, r *http.Request) {

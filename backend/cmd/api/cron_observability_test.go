@@ -431,3 +431,18 @@ func TestTheKeepPayingHoldsSweepIsScheduledAtItsCadence(t *testing.T) {
 	}
 	t.Fatal("want keep_paying_holds registered")
 }
+
+// The grace a visitor who left the confirm page has to come back (owner
+// decision 2026-11-24) only holds if the sweep that ends it runs at its cadence.
+func TestTheReleaseLeftHoldsSweepIsScheduledAtItsCadence(t *testing.T) {
+	f := newCronFixture(t)
+	for _, j := range f.app.cronJobs() {
+		if j.Name == "release_left_holds" {
+			if j.Every != bookings.ReleaseLeftHoldsEvery {
+				t.Errorf("want release_left_holds every %v; got %v", bookings.ReleaseLeftHoldsEvery, j.Every)
+			}
+			return
+		}
+	}
+	t.Fatal("want release_left_holds registered")
+}
