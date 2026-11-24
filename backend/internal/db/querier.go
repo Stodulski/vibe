@@ -480,7 +480,7 @@ type Querier interface {
 	InsertComplex(ctx context.Context, arg InsertComplexParams) (Complex, error)
 	// Every court query names its columns instead of using *: sqlc expands * into
 	// the column list at generation time, so a * silently binds the code to
-	// whatever columns existed then (034 dropped courts.description this way).
+	// whatever columns existed then (035 dropped courts.description this way).
 	InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error)
 	InsertCourtPrice(ctx context.Context, arg InsertCourtPriceParams) (CourtPrice, error)
 	// Idempotent: a second unsubscribe of the same address is a no-op.

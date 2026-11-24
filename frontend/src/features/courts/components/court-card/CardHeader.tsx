@@ -1,6 +1,6 @@
 import { Switch } from '@/shared/components/ui/switch';
 import { ES_AR } from '@/shared/i18n/es_AR';
-import { courtDetailsLine } from '../../lib/courtDetails';
+import { courtFactsLine } from '@vibe/booking/court-facts';
 import type { CourtWithPrices } from '@/shared/types/api.types';
 import { keepTogether } from '@/shared/lib/keepTogether';
 
@@ -13,7 +13,7 @@ interface CardHeaderProps {
 }
 
 export function CardHeader({ court, onToggleActive, isTogglePending }: CardHeaderProps) {
-  const details = courtDetailsLine(court);
+  const details = courtFactsLine({ surface: court.surface, has_lighting: court.has_lighting });
   return (
     <div className="flex items-start gap-3">
       <div className="min-w-0 flex-1">

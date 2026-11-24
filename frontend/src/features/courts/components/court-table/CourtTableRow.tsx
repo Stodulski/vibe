@@ -5,7 +5,7 @@ import { cn } from '@/shared/lib/utils';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { DeactivateCourtDialog } from '../court-card/DeactivateCourtDialog';
 import { useCourtRowActions } from '../court-card/useCourtRowActions';
-import { courtDetailsLine } from '../../lib/courtDetails';
+import { courtFactsLine } from '@vibe/booking/court-facts';
 import { CourtPriceCell } from './CourtPriceCell';
 import { CourtRowActionsMenu } from './CourtRowActionsMenu';
 import type { CourtWithPrices } from '@/shared/types/api.types';
@@ -86,7 +86,7 @@ export function CourtTableRow({ court, complexId, onEdit, onPrices }: CourtTable
 }
 
 function CourtNameCell({ court }: { court: CourtWithPrices }) {
-  const details = courtDetailsLine(court);
+  const details = courtFactsLine({ surface: court.surface, has_lighting: court.has_lighting });
   return (
     <TableCell className="max-w-56">
       <p className="text-text-primary truncate text-sm font-semibold" title={court.name}>

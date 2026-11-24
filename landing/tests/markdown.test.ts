@@ -191,9 +191,14 @@ const labels: ComplexLabels = {
   sport: (key) => ({ padel: 'Pádel', tennis: 'Tenis' })[key] ?? key,
   weekday: (key) => ({ monday: 'lunes', tuesday: 'martes', sunday: 'domingo' })[key] ?? key,
   amenity: (key) => ({ parking: 'Estacionamiento', bar: 'Bar' })[key] ?? key,
-  courtType: (key) => ({ indoor: 'Techada', outdoor: 'Descubierta' })[key] ?? key,
-  surface: (key) => ({ synthetic_grass: 'Césped sintético' })[key] ?? key,
-  lighting: 'Con iluminación',
+  // A stand-in for the booking package's courtFactParts (which node:test cannot import):
+  // the twin's job is to list what it returns, joined, and to drop a court that has none.
+  courtFacts: (court) =>
+    [
+      court.court_type && ({ indoor: 'Techada', outdoor: 'Descubierta' } as Record<string, string>)[court.court_type],
+      court.surface && ({ synthetic_grass: 'Césped sintético' } as Record<string, string>)[court.surface],
+      court.has_lighting && 'Con iluminación',
+    ].filter((part): part is string => Boolean(part)),
   price: (cents) => `$ ${cents / 100}`,
 };
 

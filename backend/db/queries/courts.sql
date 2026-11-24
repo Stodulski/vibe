@@ -1,7 +1,7 @@
 -- name: InsertCourt :one
 -- Every court query names its columns instead of using *: sqlc expands * into
 -- the column list at generation time, so a * silently binds the code to
--- whatever columns existed then (034 dropped courts.description this way).
+-- whatever columns existed then (035 dropped courts.description this way).
 INSERT INTO courts (complex_id, name, sport, court_type, has_lighting, surface)
 VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, complex_id, name, sport, court_type, is_active, deleted_at, created_at, updated_at, version, has_lighting, surface;
