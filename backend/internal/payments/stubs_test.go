@@ -775,7 +775,12 @@ type stubProvider struct {
 	signatureErr error
 	payment      *mp.Payment
 	paymentErr   error
-	refundErr    error
+	// sellerPayment and sellerPaymentErr, when either is set, are what a
+	// GetPayment made as a seller answers: MercadoPago shows the same payment
+	// differently to the platform and to the account that collected it.
+	sellerPayment    *mp.Payment
+	sellerPaymentErr error
+	refundErr        error
 	// refundAmount is what MercadoPago answers an accepted refund with, in
 	// pesos. Zero is the real client's zero value too — an accepted refund whose
 	// response carried no usable amount — so it stands for that case rather than
@@ -810,6 +815,9 @@ func (s *stubProvider) VerifyWebhookSignature(_ *http.Request, dataID string) er
 
 func (s *stubProvider) GetPayment(_ context.Context, _ string, caller mp.Caller) (*mp.Payment, error) {
 	s.callers = append(s.callers, caller)
+	if caller != mp.AsPlatform() && (s.sellerPayment != nil || s.sellerPaymentErr != nil) {
+		return s.sellerPayment, s.sellerPaymentErr
+	}
 	if s.paymentErr != nil {
 		return nil, s.paymentErr
 	}

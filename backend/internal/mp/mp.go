@@ -39,6 +39,27 @@ func IsUnauthorized(err error) bool {
 	return false
 }
 
+// IsNotFoundOrForbidden reports whether MercadoPago answered 403 or 404: the
+// resource does not exist for the account that asked, which no retry changes.
+func IsNotFoundOrForbidden(err error) bool {
+	var apiErr *APIError
+	if errors.As(err, &apiErr) {
+		return apiErr.StatusCode == http.StatusNotFound || apiErr.StatusCode == http.StatusForbidden
+	}
+	return false
+}
+
+// statusError keeps the message a caller logs and stores while letting
+// errors.As reach the APIError underneath. Stored failure messages are matched
+// by their text, so the text of an error that already had one stays the same.
+type statusError struct {
+	msg string
+	api *APIError
+}
+
+func (e *statusError) Error() string { return e.msg }
+func (e *statusError) Unwrap() error { return e.api }
+
 // ErrNoSellerToken is returned by AsSeller when handed an empty token, and by
 // every MPClient method handed the zero Caller that an ignored AsSeller error
 // leaves behind.
@@ -424,6 +445,14 @@ type Payment struct {
 	// It must be checked against the complex's own MP user id: external_reference
 	// alone does not prove the payment was collected by the right seller.
 	CollectorID int64 `json:"collector_id"`
+	// Collector is the same seller as an object. GetPayment copies its id into
+	// CollectorID when collector_id itself is missing.
+	Collector *PaymentCollector `json:"collector,omitempty"`
+}
+
+// PaymentCollector is the collector object of a payment.
+type PaymentCollector struct {
+	ID int64 `json:"id"`
 }
 
 // Refund represents a MercadoPago refund response.
@@ -709,12 +738,18 @@ func (c *MPClient) GetPayment(ctx context.Context, paymentID string, caller Call
 		if readErr != nil {
 			return nil, fmt.Errorf("mp: get payment failed with status %d (failed to read body: %w)", resp.StatusCode, readErr)
 		}
-		return nil, fmt.Errorf("mp: get payment failed with status %d: %s", resp.StatusCode, string(respBody))
+		return nil, &statusError{
+			msg: fmt.Sprintf("mp: get payment failed with status %d: %s", resp.StatusCode, string(respBody)),
+			api: &APIError{StatusCode: resp.StatusCode, Body: string(respBody)},
+		}
 	}
 
 	var payment Payment
 	if err := json.NewDecoder(resp.Body).Decode(&payment); err != nil {
 		return nil, fmt.Errorf("mp: failed to decode payment response: %w", err)
+	}
+	if payment.CollectorID == 0 && payment.Collector != nil {
+		payment.CollectorID = payment.Collector.ID
 	}
 
 	return &payment, nil
