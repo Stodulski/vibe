@@ -247,19 +247,9 @@ func (s *Service) DispatchRecordedEvent(event *paymentstore.WebhookEvent) {
 // no-op, a slot sold meanwhile is refunded. The error reports only that the
 // event could not be recorded; the processing's own outcome lives on its row.
 func (s *Service) ReconcileApprovedPayment(ctx context.Context, mpPaymentID string) error {
-	payload, err := json.Marshal(map[string]any{
-		"type":   "payment",
-		"action": "payment.reconciled",
-		"data":   map[string]string{"id": mpPaymentID},
-	})
+	event, err := paymentstore.ReplayEvent(mpPaymentID, "payment.reconciled")
 	if err != nil {
-		return fmt.Errorf("encode reconciled payment %s: %w", mpPaymentID, err)
-	}
-	event := &paymentstore.WebhookEvent{
-		Provider:   mercadoPagoProvider,
-		ExternalID: mpPaymentID,
-		EventType:  "payment",
-		Payload:    payload,
+		return err
 	}
 	if err := s.RecordWebhookEvent(ctx, event); err != nil {
 		return err
@@ -473,6 +463,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		if existingPayment.RegistrationID != nil {
 			return s.processRecordedRegistrationPayment(ctx, existingPayment, mpPayment, mpPaymentID)
 		}
+		if err := s.readRefundedTotalAsSeller(ctx, existingPayment.ComplexID, mpPayment, mpPaymentID); err != nil {
+			return err
+		}
 		if mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
 			refundedBeyondRecorded(existingPayment, mpPayment) {
 			return s.processRefundedPayment(ctx, existingPayment, mpPayment, mpPaymentID)
@@ -540,6 +533,9 @@ func (s *Service) processPaymentWebhook(ctx context.Context, mpPaymentID string)
 		}
 		if !matches {
 			return nil
+		}
+		if err := s.readRefundedTotalAsSeller(ctx, booking.ComplexID, mpPayment, mpPaymentID); err != nil {
+			return err
 		}
 		return s.processRefundedPaymentFromBooking(ctx, booking, mpPayment, mpPaymentID)
 	case "in_process", "pending":

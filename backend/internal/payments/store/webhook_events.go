@@ -61,6 +61,65 @@ type WebhookEvent struct {
 	UpdatedAt   time.Time       `json:"updated_at"`
 }
 
+// ReplayEvent builds the inbox row that has the payment worker process a
+// MercadoPago payment again, exactly as a delivered webhook is processed: the
+// payment is read back from MercadoPago, its collector and amount are checked,
+// and the booking or registration is confirmed, reopened or refunded. action
+// is only a label kept in the payload for forensics ("payment.reconciled" from
+// the sweeps, "payment.replayed" from cmd/replaypayment).
+//
+// It is how a payment the processing refused or gave up on is retried by hand
+// once its cause is fixed (a reconnected venue, a MercadoPago read that names
+// its collector again) without anyone writing SQL against payments or bookings.
+func ReplayEvent(mpPaymentID, action string) (*WebhookEvent, error) {
+	payload, err := json.Marshal(map[string]any{
+		"type":   "payment",
+		"action": action,
+		"data":   map[string]string{"id": mpPaymentID},
+	})
+	if err != nil {
+		return nil, fmt.Errorf("encode the replay of payment %s: %w", mpPaymentID, err)
+	}
+	return &WebhookEvent{
+		Provider:   "mercadopago",
+		ExternalID: mpPaymentID,
+		EventType:  "payment",
+		Payload:    payload,
+	}, nil
+}
+
+// ReplayCommand is the operator command that records ReplayEvent for a
+// payment, written into every alert where the automatic paths give up on one,
+// so whoever reads the alert can retry it without looking anything up. See
+// cmd/replaypayment.
+func ReplayCommand(mpPaymentID string) string {
+	return "railway run --service Backend go run ./cmd/replaypayment " + mpPaymentID
+}
+
+// StopReplay closes a replay event (ReplayEvent, action "payment.replayed")
+// that is still being retried, and reports whether there was one to close. A
+// replay of a payment id MercadoPago does not know fails on every attempt, and
+// an exhausted event is picked up again on the tail of its backoff (see
+// GetPendingDue), so without this it would be retried, and alerted on, for
+// ever. It only touches rows cmd/replaypayment wrote: a delivered webhook is
+// never closed by hand. The row is kept, with last_error saying who stopped it.
+func (m *WebhookEvents) StopReplay(ctx context.Context, id uuid.UUID) (bool, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	tag, err := m.DB.Exec(ctx, `
+		UPDATE webhook_events
+		SET status = 'processed', processed_at = NOW(),
+		    last_error = 'replay stopped by an operator: ' || COALESCE(last_error, 'no error recorded')
+		WHERE id = $1
+		  AND payload->>'action' = 'payment.replayed'
+		  AND status <> 'processed'`, id)
+	if err != nil {
+		return false, fmt.Errorf("stop webhook replay: %w", err)
+	}
+	return tag.RowsAffected() == 1, nil
+}
+
 // WebhookEvents implements WebhookEventStore against PostgreSQL.
 type WebhookEvents struct {
 	DB *data.DB

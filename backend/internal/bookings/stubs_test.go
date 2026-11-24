@@ -511,6 +511,7 @@ func (s *stubStore) ExpiredHoldsToReconcile(_ context.Context, _ time.Duration, 
 		if slices.Contains(s.holdReconciled, b.ID) || s.holdFailures[b.ID] >= maxFailures {
 			continue
 		}
+		b.HoldReconcileFailures = s.holdFailures[b.ID]
 		out = append(out, b)
 		if len(out) == limit {
 			break

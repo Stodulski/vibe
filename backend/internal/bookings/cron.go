@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -238,8 +239,8 @@ func (s *Service) reconcileBeforeExpiry(ctx context.Context, b *bookingstore.Cro
 		if !withinGrace {
 			s.logger.Error("cron_release_expired_payments: approved payment never confirmed the booking within the give-up window; booking expired, payment needs manual review",
 				"booking_id", b.ID, "mp_payment_id", mpPaymentID)
-			sentry.CaptureMessage(fmt.Sprintf("APPROVED PAYMENT NEVER CONFIRMED, BOOKING EXPIRED (manual review): booking_id=%s mp_payment_id=%s",
-				b.ID, mpPaymentID))
+			sentry.CaptureMessage(fmt.Sprintf("APPROVED PAYMENT NEVER CONFIRMED, BOOKING EXPIRED (manual review): booking_id=%s mp_payment_id=%s replay=%s",
+				b.ID, mpPaymentID, paymentstore.ReplayCommand(mpPaymentID)))
 			continue
 		}
 		approved = true
@@ -536,7 +537,8 @@ func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentR
 		return
 	}
 	for _, b := range expired {
-		switch s.reconcileExpiredHold(ctx, b, reconciler) {
+		outcome, unsettled := s.reconcileExpiredHold(ctx, b, reconciler)
+		switch outcome {
 		case expiredHoldSettled:
 			if err := s.holdExpiries.MarkHoldReconciled(ctx, b.ID); err != nil {
 				// Asked again next run; the processing is idempotent.
@@ -552,40 +554,66 @@ func (s *Service) reconcileExpiredHolds(ctx context.Context, reconciler PaymentR
 				continue
 			}
 			if failures >= expiredHoldMaxFailures {
+				replay := replayCommands(unsettled)
 				s.logger.Error("cron_release_expired_payments: an expired booking could not be reconciled with MercadoPago; giving up, needs manual review",
-					"booking_id", b.ID, "failures", failures)
-				sentry.CaptureMessage(fmt.Sprintf("EXPIRED BOOKING NOT RECONCILED WITH MERCADOPAGO (manual review): booking_id=%s failures=%d",
-					b.ID, failures))
+					"booking_id", b.ID, "failures", failures, "replay", replay)
+				sentry.CaptureMessage(fmt.Sprintf("EXPIRED BOOKING NOT RECONCILED WITH MERCADOPAGO (manual review): booking_id=%s failures=%d replay=%s",
+					b.ID, failures, replay))
 			}
 		}
 	}
 }
 
+// replayCommands is what a give-up alert carries for each approved payment it
+// leaves behind: the command that has the API process it again once its cause
+// is fixed (cmd/replaypayment). With none known, it says how to find them.
+func replayCommands(mpPaymentIDs []string) string {
+	if len(mpPaymentIDs) == 0 {
+		return "none known (search the booking id as external_reference in MercadoPago, then " +
+			paymentstore.ReplayCommand("<mp-payment-id>") + ")"
+	}
+	commands := make([]string, len(mpPaymentIDs))
+	for i, id := range mpPaymentIDs {
+		commands[i] = paymentstore.ReplayCommand(id)
+	}
+	return strings.Join(commands, " ; ")
+}
+
 // reconcileExpiredHold closes b's checkout link and asks MercadoPago about its
-// payments, handing every approved one not yet recorded to reconciler. When
-// none was ever approved and none is in flight, and the booking is still an
-// unpaid expiry (expiredUnpaid), the client is told it expired
-// (queueExpiredNotice).
-func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) expiredHoldOutcome {
+// payments, handing every approved one not yet recorded to reconciler, and
+// returns the approved payments it could not settle. When none was ever
+// approved and none is in flight, and the booking is still an unpaid expiry
+// (expiredUnpaid), the client is told it expired (queueExpiredNotice).
+//
+// "Nobody paid" is only concluded from an answer that can say so. MercadoPago's
+// search lags behind a payment approved in the last seconds of the hold, so a
+// first empty answer is asked again on a later run, as the events sweep does
+// (internal/events, checkPayment); it counts as a failed attempt, which is
+// what spaces the second ask out. And a venue with no seller credential is
+// searched as the platform, whose search does not answer for the seller's
+// payments: an empty answer there is never trusted, and the booking is asked
+// again until the sweep gives up and alerts.
+func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.CronBooking, reconciler PaymentReconciler) (expiredHoldOutcome, []string) {
 	// Closed before asking, so nothing can be approved after the answer. The
 	// inline release left it open; the sweep's own expiry already closed it,
 	// and closing it again changes nothing. Quietly: a failure here is retried
 	// every run, and reconcileExpiredHolds alerts once when it gives up.
 	if err := s.closeCheckoutQuietly(ctx, &b.Booking, b); err != nil {
-		return expiredHoldFailed
+		return expiredHoldFailed, nil
 	}
 	caller, err := expiryCaller(b)
 	if err != nil {
-		return expiredHoldFailed
+		return expiredHoldFailed, nil
 	}
 	found, err := s.checkout.SearchPaymentsByReference(ctx, b.ID.String(), caller)
 	if err != nil {
 		s.logger.Error("cron_release_expired_payments: MercadoPago could not be asked about an expired booking's checkout",
 			"error", err, "booking_id", b.ID)
-		return expiredHoldFailed
+		return expiredHoldFailed, nil
 	}
 
 	outcome := expiredHoldSettled
+	var unsettled []string
 	// moneyMoved: a payment was approved on the checkout, whether it still
 	// is or was refunded or charged back since.
 	moneyMoved := false
@@ -607,14 +635,38 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 		default:
 			continue
 		}
-		if !s.reconcileExpiredPayment(ctx, b, strconv.FormatInt(p.ID, 10), reconciler) {
+		mpPaymentID := strconv.FormatInt(p.ID, 10)
+		if !s.reconcileExpiredPayment(ctx, b, mpPaymentID, reconciler) {
 			outcome = expiredHoldFailed
+			unsettled = append(unsettled, mpPaymentID)
 		}
 	}
-	if outcome == expiredHoldSettled && !moneyMoved && expiredUnpaid(b) {
+	if outcome != expiredHoldSettled || moneyMoved {
+		return outcome, unsettled
+	}
+	return s.settleNobodyPaid(b, caller), nil
+}
+
+// settleNobodyPaid decides an expired booking MercadoPago's answer holds no
+// payment for, and tells its client it expired once that answer can be
+// trusted: not when it came from the platform's search, which does not answer
+// for the seller's payments, and not on the first ask, which is asked again
+// (search lag). Both of those count as a failed attempt.
+func (s *Service) settleNobodyPaid(b *bookingstore.CronBooking, caller mp.Caller) expiredHoldOutcome {
+	if caller == mp.AsPlatform() {
+		s.logger.Error("cron_release_expired_payments: an expired booking's venue has no seller credential, and the platform's empty search cannot prove nobody paid; asked again",
+			"booking_id", b.ID, "complex_id", b.ComplexID)
+		return expiredHoldFailed
+	}
+	if b.HoldReconcileFailures == 0 {
+		s.logger.Info("cron_release_expired_payments: MercadoPago holds no payment for an expired booking on the first ask; asking once more before trusting it",
+			"booking_id", b.ID)
+		return expiredHoldFailed
+	}
+	if expiredUnpaid(b) {
 		s.queueExpiredNotice(b)
 	}
-	return outcome
+	return expiredHoldSettled
 }
 
 // reconcileExpiredPayment hands the approved payment mpPaymentID on the expired

@@ -462,11 +462,17 @@ func (m *Store) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Sched
 
 // UpdateMPCredentials stores the complex's MercadoPago OAuth access token, refresh token and user ID.
 //
-// It refuses an empty accessToken, refreshToken or userID with
+// It refuses an empty accessToken or refreshToken with
 // mpcred.ErrMPCredentialEmpty before any sealing is attempted — the
 // CHECK (mp_access_token <> the empty string, etc.) is a floor under this refusal, not the
 // guard itself; nothing downstream may ever store an empty value that later
 // reads as "connected".
+//
+// An empty userID leaves mp_user_id as it is stored. A refresh answer without
+// user_id still rotated the refresh token, so refusing it, as this used to,
+// left the venue with a dead credential; storing an empty or invented id
+// would be worse. ConnectMPCredentials, which has to name the account, still
+// refuses an empty one.
 //
 // expiresIn is MercadoPago's own expires_in from the OAuth exchange/refresh
 // response, in seconds. It is stored as now()+expiresIn so
@@ -475,7 +481,7 @@ func (m *Store) GetSchedules(ctx context.Context, complexID uuid.UUID) ([]*Sched
 // cron tick. Zero (an OAuth response that carried no expires_in) stores NULL,
 // which ListComplexesNeedingMPRefresh also treats as due for a refresh.
 func (m *Store) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
-	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, userID, expiresIn)
+	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, expiresIn)
 	if err != nil {
 		return err
 	}
@@ -483,20 +489,24 @@ func (m *Store) UpdateMPCredentials(ctx context.Context, complexID uuid.UUID, ac
 	ctx, cancel := data.QueryContext(ctx)
 	defer cancel()
 
-	_, err = m.DB.Exec(ctx, writeMPCredentialsSQL,
+	_, err = m.DB.Exec(ctx, refreshMPCredentialsSQL,
 		sealedAccess, sealedRefresh, userID, expiresAt, data.UUIDToPg(complexID))
 	return err
 }
 
-// writeMPCredentialsSQL is the one statement that stores a seller's
-// credentials, shared by the plain refresh write and the guarded connect.
+// refreshMPCredentialsSQL is writeMPCredentialsSQL for a refresh, which may
+// not name the account: an empty user id keeps the stored one.
+const refreshMPCredentialsSQL = `UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = COALESCE(NULLIF($3, ''), mp_user_id), mp_token_expires_at = $4 WHERE id = $5`
+
+// writeMPCredentialsSQL is the statement the guarded connect stores a seller's
+// credentials with; a refresh uses refreshMPCredentialsSQL.
 const writeMPCredentialsSQL = `UPDATE complexes SET mp_access_token = $1, mp_refresh_token = $2, mp_user_id = $3, mp_token_expires_at = $4 WHERE id = $5`
 
 // sealMPCredentials validates and seals one credential set for storage. It
 // refuses an empty value before any sealing is attempted; see
 // UpdateMPCredentials for why that refusal sits above the CHECK.
-func (m *Store) sealMPCredentials(complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) (sealedAccess, sealedRefresh string, expiresAt pgtype.Timestamptz, err error) {
-	if accessToken == "" || refreshToken == "" || userID == "" {
+func (m *Store) sealMPCredentials(complexID uuid.UUID, accessToken, refreshToken string, expiresIn int) (sealedAccess, sealedRefresh string, expiresAt pgtype.Timestamptz, err error) {
+	if accessToken == "" || refreshToken == "" {
 		return "", "", expiresAt, mpcred.ErrMPCredentialEmpty
 	}
 
@@ -551,7 +561,10 @@ func lockMPUserID(ctx context.Context, tx pgx.Tx, complexID uuid.UUID) (string, 
 // The check and the write share one transaction holding the complex row, so a
 // concurrent connect or disconnect cannot interleave between them.
 func (m *Store) ConnectMPCredentials(ctx context.Context, complexID uuid.UUID, accessToken, refreshToken, userID string, expiresIn int) error {
-	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, userID, expiresIn)
+	if userID == "" {
+		return mpcred.ErrMPCredentialEmpty
+	}
+	sealedAccess, sealedRefresh, expiresAt, err := m.sealMPCredentials(complexID, accessToken, refreshToken, expiresIn)
 	if err != nil {
 		return err
 	}

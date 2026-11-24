@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,11 @@ var (
 	// ErrForeignObject reports that a URL names no object of this storage, or
 	// names one through a path this service never mints.
 	ErrForeignObject = errors.New("url does not belong to this storage")
+	// ErrMPConnectWithoutUserID reports that MercadoPago answered the connect
+	// exchange without naming the seller account (user_id). Storing it as "0"
+	// made every payment the venue took fail the collector check, so the
+	// connect is refused and the owner starts it again.
+	ErrMPConnectWithoutUserID = errors.New("mercadopago connected no seller account")
 )
 
 // Actor is who a change is attributed to, as the handler read it off the
@@ -786,7 +792,12 @@ func (s *Service) ConnectMercadoPago(ctx context.Context, complexID uuid.UUID, a
 		return "", fmt.Errorf("failed to connect MercadoPago: %w", err)
 	}
 
-	mpUserID := fmt.Sprintf("%d", tokens.UserID)
+	if tokens.UserID <= 0 {
+		s.logger.Error("mp connect: MercadoPago answered without user_id; nothing was stored", "complex_id", complexID)
+		sentry.CaptureMessage(fmt.Sprintf("MP OAuth connect answered without user_id, connect refused: complex=%s", complexID))
+		return "", ErrMPConnectWithoutUserID
+	}
+	mpUserID := strconv.FormatInt(tokens.UserID, 10)
 
 	err = s.credentials.ConnectMPCredentials(ctx, complexID, tokens.AccessToken, tokens.RefreshToken, mpUserID, tokens.ExpiresIn)
 	if err != nil {

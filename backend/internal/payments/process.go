@@ -963,40 +963,57 @@ func (s *Service) collectorMatches(ctx context.Context, complexID uuid.UUID, sub
 		return false, fmt.Errorf("verify the collector of payment %s: %w", mpPaymentID, err)
 	}
 
+	sellerID := knownSellerID(complex)
 	collector := mpPayment.CollectorID
-	if collector == 0 && complex.MPUserID != nil && *complex.MPUserID != "" {
+	if collector == 0 && sellerID != "" {
 		collector, err = s.collectorAsSeller(ctx, complex, mpPaymentID)
 		if err != nil {
 			return false, err
 		}
 	}
 
-	if complex.MPUserID == nil || *complex.MPUserID == "" || collector == 0 {
+	if sellerID == "" || collector == 0 {
 		s.logger.Error("mp webhook: cannot verify collector - missing MercadoPago identity",
 			"mp_payment_id", mpPaymentID,
 			subjectKey, subjectID,
 			"complex_id", complexID,
-			"complex_has_mp_user_id", complex.MPUserID != nil && *complex.MPUserID != "",
+			"complex_has_mp_user_id", sellerID != "",
 			"collector_id", collector,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d", mpPaymentID, subjectKey, subjectID, complexID, collector))
+		// Refused for now, not for good: once the venue reconnects or
+		// MercadoPago names the collector again, the replay command processes
+		// the payment through this same check.
+		sentry.CaptureMessage(fmt.Sprintf("COLLECTOR UNVERIFIED: missing MercadoPago identity mp_payment_id=%s %s=%s complex_id=%s collector_id=%d replay=%s",
+			mpPaymentID, subjectKey, subjectID, complexID, collector, paymentstore.ReplayCommand(mpPaymentID)))
 		return false, nil
 	}
 
 	collectorID := strconv.FormatInt(collector, 10)
-	if collectorID != *complex.MPUserID {
+	if collectorID != sellerID {
 		s.logger.Error("mp webhook: FRAUD ALERT - collector mismatch",
 			"mp_payment_id", mpPaymentID,
 			subjectKey, subjectID,
 			"complex_id", complexID,
-			"expected_collector_id", *complex.MPUserID,
+			"expected_collector_id", sellerID,
 			"actual_collector_id", collectorID,
 		)
-		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: collector mismatch mp_payment_id=%s %s=%s complex_id=%s expected=%s actual=%s", mpPaymentID, subjectKey, subjectID, complexID, *complex.MPUserID, collectorID))
+		sentry.CaptureMessage(fmt.Sprintf("FRAUD ALERT: collector mismatch mp_payment_id=%s %s=%s complex_id=%s expected=%s actual=%s", mpPaymentID, subjectKey, subjectID, complexID, sellerID, collectorID))
 		return false, nil
 	}
 
 	return true, nil
+}
+
+// knownSellerID is the venue's MercadoPago user id, or "" when none is known.
+// "0" is not an id: an OAuth answer with no user_id decoded to 0 and was stored
+// as "0" before connect and refresh refused it, and compared as an id it made
+// every payment the venue took read as a collector mismatch — a fraud alert for
+// the venue's own money. It is a missing identity, refused as one.
+func knownSellerID(complex *complexstore.Complex) string {
+	if complex.MPUserID == nil || *complex.MPUserID == "" || *complex.MPUserID == "0" {
+		return ""
+	}
+	return *complex.MPUserID
 }
 
 // collectorAsSeller reads the payment again as the complex's own seller account

@@ -333,7 +333,7 @@ func TestRefundPayment(t *testing.T) {
 		client := NewMPClient("token", "secret", "app", "client", nil)
 		client.baseURL = ts.URL
 
-		refund, err := client.RefundPayment(t.Context(), "999", 50.0, AsPlatform())
+		refund, err := client.RefundPayment(t.Context(), "999", 50.0, "attempt-1", AsPlatform())
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
 		}
@@ -354,7 +354,7 @@ func TestRefundPayment(t *testing.T) {
 		client := NewMPClient("token", "secret", "app", "client", nil)
 		client.baseURL = ts.URL
 
-		_, err := client.RefundPayment(t.Context(), "999", 50.0, AsPlatform())
+		_, err := client.RefundPayment(t.Context(), "999", 50.0, "attempt-1", AsPlatform())
 		if err == nil {
 			t.Error("expected error for 400 response")
 		}
@@ -464,7 +464,7 @@ func TestAnEmptySellerTokenNeverBecomesThePlatform(t *testing.T) {
 			return e
 		},
 		"RefundPayment": func() error {
-			_, e := client.RefundPayment(t.Context(), "999", 50.0, unnamed)
+			_, e := client.RefundPayment(t.Context(), "999", 50.0, "attempt-1", unnamed)
 			return e
 		},
 	}
@@ -514,12 +514,18 @@ func TestEachMethodSendsTheTokenItsCallerNames(t *testing.T) {
 			wantToken: platformToken,
 		},
 		"RefundPayment as the seller": {
-			call:      func(c *MPClient, caller Caller) error { _, e := c.RefundPayment(t.Context(), "9", 1, caller); return e },
+			call: func(c *MPClient, caller Caller) error {
+				_, e := c.RefundPayment(t.Context(), "9", 1, "attempt-1", caller)
+				return e
+			},
 			asSeller:  true,
 			wantToken: sellerToken,
 		},
 		"RefundPayment as the platform": {
-			call:      func(c *MPClient, caller Caller) error { _, e := c.RefundPayment(t.Context(), "9", 1, caller); return e },
+			call: func(c *MPClient, caller Caller) error {
+				_, e := c.RefundPayment(t.Context(), "9", 1, "attempt-1", caller)
+				return e
+			},
 			wantToken: platformToken,
 		},
 	}
@@ -625,8 +631,8 @@ func TestFallbackAsymmetryIsPreserved(t *testing.T) {
 		client := NewMPClient("platform-token", "secret", "app", "client", nil)
 		client.baseURL = ts.URL
 
-		if _, err := client.RefundPayment(t.Context(), "999", 50.0, AsPlatform()); err != nil {
-			t.Fatalf("RefundPayment(ctx, id, amount, AsPlatform()) must still succeed against the platform token; got %v", err)
+		if _, err := client.RefundPayment(t.Context(), "999", 50.0, "attempt-1", AsPlatform()); err != nil {
+			t.Fatalf("RefundPayment(ctx, id, amount, key, AsPlatform()) must still succeed against the platform token; got %v", err)
 		}
 	})
 }
@@ -1012,5 +1018,36 @@ func TestCreatePreferenceNamesAFullPaymentAsThePayment(t *testing.T) {
 	item, _ := items[0].(map[string]any)
 	if want := "Pago de la reserva en Acme. Cancha 1, 15 jun a las 18:00 hs."; item["description"] != want {
 		t.Errorf("description = %q, want %q", item["description"], want)
+	}
+}
+
+// The idempotency key MercadoPago deduplicates a refund by is the caller's
+// attempt, not the payment and the amount: two refunds of the same sum on one
+// payment are two refunds, and a refund with no attempt named is not sent.
+func TestRefundPaymentSendsTheAttemptsIdempotencyKey(t *testing.T) {
+	var keys []string
+	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		keys = append(keys, r.Header.Get("X-Idempotency-Key"))
+		w.WriteHeader(http.StatusCreated)
+		_, _ = w.Write([]byte(`{"id":1,"amount":50,"status":"approved"}`))
+	}))
+	defer ts.Close()
+	client := NewMPClient("token", "secret", "app", "client", nil)
+	client.baseURL = ts.URL
+
+	for _, key := range []string{"refund-attempt-a", "refund-attempt-b"} {
+		if _, err := client.RefundPayment(t.Context(), "999", 50.0, key, AsPlatform()); err != nil {
+			t.Fatalf("RefundPayment(%q): %v", key, err)
+		}
+	}
+	if len(keys) != 2 || keys[0] != "refund-attempt-a" || keys[1] != "refund-attempt-b" {
+		t.Errorf("each refund must carry its own attempt's key; MercadoPago saw %q", keys)
+	}
+
+	if _, err := client.RefundPayment(t.Context(), "999", 50.0, "", AsPlatform()); !errors.Is(err, ErrRefundWithoutIdempotencyKey) {
+		t.Errorf("a refund with no key must be refused; got %v", err)
+	}
+	if len(keys) != 2 {
+		t.Errorf("a refund with no key must never reach MercadoPago; it saw %d calls", len(keys))
 	}
 }

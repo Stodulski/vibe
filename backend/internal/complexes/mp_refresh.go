@@ -4,11 +4,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/getsentry/sentry-go"
 	"github.com/google/uuid"
 
+	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
 	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/mpcred"
 )
@@ -93,7 +95,7 @@ func (s *Service) RefreshMPCredentials(ctx context.Context, complexID uuid.UUID,
 	// caller's request: it is detached from its cancellation, still bounded.
 	persistCtx, cancel := data.DetachedQueryContext(ctx)
 	defer cancel()
-	mpUserID := fmt.Sprintf("%d", newTokens.UserID)
+	mpUserID := s.refreshedMPUserID(c, newTokens.UserID)
 	if err := s.credentials.UpdateMPCredentials(persistCtx, complexID, newTokens.AccessToken, newTokens.RefreshToken, mpUserID, newTokens.ExpiresIn); err != nil {
 		s.logger.Error("mp refresh: failed to persist refreshed credentials; the stored refresh token is now dead",
 			"error", err, "complex_id", complexID, "complex_name", c.Name)
@@ -134,4 +136,25 @@ func (s *Service) lockMPRefresh(ctx context.Context, complexID uuid.UUID) (func(
 		case <-poll.C:
 		}
 	}
+}
+
+// refreshedMPUserID is the seller id to store with refreshed tokens, "" to keep
+// the one stored (UpdateMPCredentials). A refresh answer without user_id
+// decodes to 0, and storing "0" made every later payment fail the collector
+// check as a mismatch, so it is never written: the stored id is kept and the
+// answer is alerted on. The tokens themselves are still stored, since the old
+// refresh token is already spent. A real id replaces whatever was stored,
+// which is how a "0" written before this check heals.
+func (s *Service) refreshedMPUserID(c *complexstore.Complex, userID int64) string {
+	if userID > 0 {
+		return strconv.FormatInt(userID, 10)
+	}
+	stored := ""
+	if c.MPUserID != nil {
+		stored = *c.MPUserID
+	}
+	s.logger.Error("mp refresh: MercadoPago answered without user_id; keeping the stored seller id",
+		"complex_id", c.ID, "complex_name", c.Name, "stored_mp_user_id", stored)
+	sentry.CaptureMessage(fmt.Sprintf("MP OAuth refresh answered without user_id, kept stored seller id %q: complex=%s (%s)", stored, c.Name, c.ID))
+	return ""
 }

@@ -72,6 +72,9 @@ type ClientReader interface {
 type Payments interface {
 	Insert(ctx context.Context, p *paymentstore.Payment) error
 	RefundRegistration(ctx context.Context, regID uuid.UUID) paymentstore.RefundOutcome
+	// GetByMPPaymentID reads the ledger row a MercadoPago payment was recorded
+	// as, data.ErrRecordNotFound when the processing recorded nothing for it.
+	GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error)
 }
 
 // Checkout is the MercadoPago side of a sign-up.

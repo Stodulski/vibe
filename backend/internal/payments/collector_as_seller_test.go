@@ -2,6 +2,7 @@ package payments
 
 import (
 	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -118,8 +119,14 @@ func TestAPaymentWithNoCollectorForThePlatformIsCheckedAsTheSeller(t *testing.T)
 				t.Errorf("a verdict about the collector is final; got error %v", err)
 			}
 			if tt.wantAlert != "" {
-				if _, found := findMessage(sentryEvents.messages(), tt.wantAlert); !found {
+				msg, found := findMessage(sentryEvents.messages(), tt.wantAlert)
+				if !found {
 					t.Errorf("want Sentry alert %q; captured %q", tt.wantAlert, sentryEvents.messages())
+				}
+				// An unverified collector is refused until its cause is fixed;
+				// the alert says how to process the payment again then.
+				if strings.HasPrefix(tt.wantAlert, "COLLECTOR UNVERIFIED") && !strings.Contains(msg, "go run ./cmd/replaypayment 123") {
+					t.Errorf("the alert must carry the payment's replay command; got %q", msg)
 				}
 			}
 			if tt.credential == readable && !calledAs(f.provider.callers, mustSeller(t, sellerTestToken)) {
@@ -170,3 +177,35 @@ const (
 	notConnected
 	unreadable
 )
+
+// A venue whose MercadoPago user id was stored as "0" (an OAuth answer with no
+// user_id, before S3) has no known identity. Compared as an id, every payment
+// it took read as a collector mismatch and raised a FRAUD alert. It is refused
+// as a missing identity instead, which names the replay command for once the
+// venue reconnects, and never alerts fraud.
+func TestAStoredZeroSellerIDIsAMissingIdentityNotFraud(t *testing.T) {
+	for _, platformCollector := range []int64{0, 111111111} {
+		sentryEvents := withCapturedSentryEvents(t)
+		f := newFixture(t)
+		complexID := uuid.New()
+		booking, mpPayment := pendingBooking(complexID)
+		mpPayment.CollectorID = platformCollector
+		f.bookings.booking = booking
+		f.complexes.complex = linkedComplex(complexID, "0")
+		f.provider.sellerPayment = &mp.Payment{ID: 123, Status: "approved", CollectorID: 111111111}
+
+		if err := f.service.processApprovedPayment(t.Context(), booking, mpPayment, "123"); err != nil {
+			t.Fatalf("a missing identity is a verdict, not an outage; got %v", err)
+		}
+
+		if f.payments.inserted != nil || booking.Status == "confirmed" {
+			t.Errorf("collector %d: an unverifiable payment must not confirm the booking", platformCollector)
+		}
+		if _, found := findMessage(sentryEvents.messages(), "FRAUD ALERT"); found {
+			t.Errorf("collector %d: a stored \"0\" must never read as fraud; captured %q", platformCollector, sentryEvents.messages())
+		}
+		if _, found := findMessage(sentryEvents.messages(), "COLLECTOR UNVERIFIED: missing MercadoPago identity"); !found {
+			t.Errorf("collector %d: want the missing-identity alert; captured %q", platformCollector, sentryEvents.messages())
+		}
+	}
+}

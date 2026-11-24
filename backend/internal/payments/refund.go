@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"strconv"
 	"strings"
 	"time"
 
@@ -836,11 +837,42 @@ func (s *Service) issueRefund(ctx context.Context, claim paymentstore.RefundClai
 		outcome := s.refuseForCredential(ctx, claim, err)
 		return claim, &outcome
 	}
-	refund, err := s.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), seller)
+	refund, err := s.provider.RefundPayment(ctx, claim.MPPaymentID, centavosToPesos(claim.RefundCentavos), refundIdempotencyKey(claim), seller)
 	if err != nil {
 		return s.handleRefundRequestError(ctx, claim, seller, err)
 	}
-	return s.handleRefundResponse(ctx, claim, refund)
+	return s.handleRefundResponse(ctx, claim, seller, refund)
+}
+
+// retryRefund is issueRefund for the retry job, which first reads the payment
+// as the seller and settles the attempt without calling the refund endpoint
+// when the payment already shows its refund.
+//
+// The idempotency key alone does not cover a row queued before the key moved
+// from the payment and amount to the attempt (refundIdempotencyKey): a refund
+// MercadoPago made under the old key and this system never recorded would be
+// taken as a new refund under the new one whenever the payment still had room
+// for it (a row that understates what MercadoPago charged), and the client
+// would be paid twice. The read costs one call per retry, and a retry is rare.
+// A credential that will not load is left to issueRefund, which refuses it.
+func (s *Service) retryRefund(ctx context.Context, claim paymentstore.RefundClaim) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+	if seller, err := s.sellerCredential(ctx, claim.ComplexID); err == nil &&
+		s.refundShownOnPayment(ctx, claim, seller, "reading a queued refund before retrying it") {
+		return claim, nil
+	}
+	return s.issueRefund(ctx, claim)
+}
+
+// refundIdempotencyKey is the key MercadoPago deduplicates a refund by: the
+// attempt row the claim committed, so each refund is its own and every retry
+// of the same attempt (the retry job rebuilds the claim from that row) is the
+// same one. Keying on the payment and the amount made two refunds of the same
+// sum on one payment indistinguishable.
+func refundIdempotencyKey(claim paymentstore.RefundClaim) string {
+	if claim.AttemptID == uuid.Nil {
+		return ""
+	}
+	return "refund-attempt-" + claim.AttemptID.String()
 }
 
 // handleRefundResponse decides success or failure from the refund MercadoPago
@@ -854,9 +886,17 @@ func (s *Service) issueRefund(ctx context.Context, claim paymentstore.RefundClai
 // 'cancelled' are MercadoPago explicitly declining to move the money despite
 // the 2xx, and recording those as success would tell a client their money is
 // coming back when it never left.
-func (s *Service) handleRefundResponse(ctx context.Context, claim paymentstore.RefundClaim, refund *mp.Refund) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+//
+// A 2xx that does not say what happened — no status, or no amount — is not an
+// approval either. It used to be read as an approved refund of the claimed
+// figure, and the client was told so. confirmRefundFromPayment decides it from
+// the payment instead.
+func (s *Service) handleRefundResponse(ctx context.Context, claim paymentstore.RefundClaim, seller mp.Caller, refund *mp.Refund) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+	if refund == nil || refund.Status == "" || (refund.Amount <= 0 && (refund.Status == "approved" || refund.Status == "in_process")) {
+		return s.confirmRefundFromPayment(ctx, claim, seller, refund)
+	}
 	switch refund.Status {
-	case "", "approved":
+	case "approved":
 		claim.RefundCentavos = s.reconcileRefundedAmount(claim, refund)
 		return claim, nil
 	case "in_process":
@@ -896,40 +936,67 @@ func (s *Service) handleRefundRequestError(ctx context.Context, claim paymentsto
 		return claim, &outcome
 	}
 
+	if !s.refundShownOnPayment(ctx, claim, seller, "a 4xx refund rejection") {
+		outcome := s.recordRefundFailure(ctx, claim, cause)
+		return claim, &outcome
+	}
+	// The claim keeps the amount it asked for. MercadoPago now shows at least that much
+	// moved on top of what was recorded, and that is all this refund may account for.
+	return claim, nil
+}
+
+// confirmRefundFromPayment settles a refund MercadoPago accepted without
+// saying what it did (no status, or no amount). The payment, read as the
+// seller that refunded it, is the answer: when it shows the claimed money
+// refunded on top of what the row already records, the refund is recorded
+// for the claimed figure; otherwise the attempt goes back to the retry queue.
+// Retrying cannot refund twice, because the retry carries the same attempt's
+// idempotency key and MercadoPago answers it with the refund it already made.
+func (s *Service) confirmRefundFromPayment(ctx context.Context, claim paymentstore.RefundClaim, seller mp.Caller, refund *mp.Refund) (paymentstore.RefundClaim, *paymentstore.RefundOutcome) {
+	status, amount := "", 0.0
+	if refund != nil {
+		status, amount = refund.Status, refund.Amount
+	}
+	if s.refundShownOnPayment(ctx, claim, seller, "an accepted refund that did not say it was made") {
+		return claim, nil
+	}
+	cause := fmt.Errorf("mp: refund accepted with status %q and amount %.2f, and the payment does not show it yet", status, amount)
+	outcome := s.recordRefundFailure(ctx, claim, cause)
+	return claim, &outcome
+}
+
+// refundShownOnPayment reads the payment as the seller and reports whether it
+// shows this claim's refund: MercadoPago reports the total refunded on the
+// payment, not what this claim moved, so the claim's share is that total less
+// what the row already records, and money recorded by an earlier refund is
+// never counted again as this one. Any failure to read either side answers
+// false, which sends the attempt back to the retry queue.
+func (s *Service) refundShownOnPayment(ctx context.Context, claim paymentstore.RefundClaim, seller mp.Caller, after string) bool {
 	payment, err := s.provider.GetPayment(ctx, claim.MPPaymentID, seller)
 	if err != nil {
-		s.logger.Error("refund: could not fetch the payment after a 4xx refund rejection",
+		s.logger.Error("refund: could not fetch the payment after "+after,
 			"error", err, "booking_id", claim.BookingID, "mp_payment_id", claim.MPPaymentID)
-		outcome := s.recordRefundFailure(ctx, claim, cause)
-		return claim, &outcome
+		return false
 	}
-
-	// MercadoPago reports the total refunded on the payment, not what this claim
-	// moved. The claim's share is that total less what the row already records, so
-	// money recorded by an earlier refund is never counted again as this one.
 	recorded, err := s.recordedRefundedCentavos(ctx, claim)
 	if err != nil {
-		s.logger.Error("refund: could not read the payment's recorded refunds after a 4xx refund rejection",
+		s.logger.Error("refund: could not read the payment's recorded refunds after "+after,
 			"error", err, "booking_id", claim.BookingID, "mp_payment_id", claim.MPPaymentID)
-		outcome := s.recordRefundFailure(ctx, claim, cause)
-		return claim, &outcome
+		return false
 	}
-	refundedCentavos := int(math.Round(payment.TransactionAmountRefunded * 100))
+	refundedCentavos := refundedTotalOf(payment)
 	if refundedCentavos-recorded < claim.RefundCentavos {
-		outcome := s.recordRefundFailure(ctx, claim, cause)
-		return claim, &outcome
+		return false
 	}
-
-	s.logger.Info("refund already present at provider, resolving without spending a retry",
+	s.logger.Info("refund present at provider, resolving without spending a retry",
+		"after", after,
 		"booking_id", claim.BookingID,
 		"mp_payment_id", claim.MPPaymentID,
 		"claimed_centavos", claim.RefundCentavos,
 		"refunded_centavos", refundedCentavos,
 		"recorded_centavos", recorded,
 	)
-	// The claim keeps the amount it asked for. MercadoPago now shows at least that much
-	// moved on top of what was recorded, and that is all this refund may account for.
-	return claim, nil
+	return true
 }
 
 // reconcileRefundedAmount answers how much money MercadoPago actually moved
@@ -945,12 +1012,10 @@ func (s *Service) handleRefundRequestError(ctx context.Context, claim paymentsto
 //
 // MercadoPago is the source of truth here and this returns its figure, because
 // it is the party that moved the money and this codebase is not. The one
-// exception is an accepted refund whose response carries no usable amount: a
-// zero there is the absence of an answer — an older API shape, a body that
-// decoded to the zero value — and not the assertion that nothing moved, so
-// treating it as one would record a refund of zero for money that did leave
-// the account. That case keeps the claimed figure, which is the only other
-// number in play.
+// exception is an accepted refund whose response carries no usable amount,
+// which never reaches here: handleRefundResponse confirms it against the
+// payment instead (confirmRefundFromPayment). The guard below only keeps a
+// zero from being recorded as a refund of nothing if a caller ever does.
 //
 // A disagreement is never silent. It means the payment row and MercadoPago
 // disagree about this payment, and whichever of the two is wrong, a person has
@@ -1517,10 +1582,10 @@ func (s *Service) RetryFailedRefunds(ctx context.Context) {
 			RefundCentavos: fr.Amount,
 		}
 
-		// Replaying a refund is safe: the idempotency key MercadoPago sees is derived
-		// from the payment id and the amount (see internal/mp/mp.go), so a refund this
-		// job already made returns the original rather than moving the money again.
-		settled, outcome := s.issueRefund(ctx, claim)
+		// Replaying a refund is safe: the idempotency key MercadoPago sees is this
+		// attempt row's id (refundIdempotencyKey), so a refund this attempt already
+		// made returns the original rather than moving the money again.
+		settled, outcome := s.retryRefund(ctx, claim)
 		if outcome != nil {
 			// The provider refused again, or the seller credential did. The
 			// row is either requeued with a longer backoff or exhausted, and
@@ -1650,6 +1715,78 @@ func (s *Service) SweepOrphanedRefundIntents(ctx context.Context) {
 	}
 
 	s.logger.Info("refund-intent-sweep: completed", "candidates", len(orphans), "claimed", claimed)
+}
+
+// readRefundedTotalAsSeller fills in a payment's refunded total from the
+// venue's own read when the platform's read says money came back but carries
+// no figure for it.
+//
+// MercadoPago's read as the platform can leave transaction_amount_refunded
+// out, as it left collector_id out (2026-11-23, see collectorAsSeller). A
+// refunded payment with no figure was then taken as refunded whole, and an
+// approved one partially refunded from MercadoPago's panel was not seen as
+// refunded at all, so a later automatic refund claimed money already
+// returned. The collecting account's read carries the figure.
+//
+// It leaves the payment as it is when the platform already has a figure, when
+// nothing says money came back, when the venue never connected MercadoPago, or
+// when that account cannot see the payment (403/404): the callers' own
+// fallbacks then decide as before. Anything else is returned as an error so
+// the recorded event is retried rather than a refund decided on a missing
+// figure — a credential that will not decrypt, an expired token, MercadoPago
+// failing, or an answer for some other payment — except that a credential or
+// read failure on a payment MercadoPago calls refunded is not: that one is
+// whole by definition (refundedTotalUnread).
+func (s *Service) readRefundedTotalAsSeller(ctx context.Context, complexID uuid.UUID, mpPayment *mp.Payment, mpPaymentID string) error {
+	if mpPayment.TransactionAmountRefunded > 0 || !moneyCameBack(mpPayment) {
+		return nil
+	}
+	seller, err := s.sellerCredential(ctx, complexID)
+	if errors.Is(err, mpcred.ErrMPNotConnected) {
+		s.logger.Warn("mp webhook: no seller credential to read the payment's refunded total with",
+			"mp_payment_id", mpPaymentID, "complex_id", complexID)
+		return nil
+	}
+	if err != nil {
+		return s.refundedTotalUnread(mpPayment, mpPaymentID,
+			fmt.Errorf("read the seller credential of complex %s for the refunds of payment %s: %w", complexID, mpPaymentID, err))
+	}
+	payment, err := s.provider.GetPayment(ctx, mpPaymentID, seller)
+	if mp.IsNotFoundOrForbidden(err) {
+		s.logger.Error("mp webhook: the venue's own account cannot see the refunded payment",
+			"mp_payment_id", mpPaymentID, "complex_id", complexID, "error", err)
+		return nil
+	}
+	if err != nil {
+		return s.refundedTotalUnread(mpPayment, mpPaymentID,
+			fmt.Errorf("read payment %s as the seller for its refunded total: %w", mpPaymentID, err))
+	}
+	if payment == nil || strconv.FormatInt(payment.ID, 10) != mpPaymentID {
+		return fmt.Errorf("read payment %s as the seller: MercadoPago answered for another payment", mpPaymentID)
+	}
+	mpPayment.TransactionAmountRefunded = payment.TransactionAmountRefunded
+	return nil
+}
+
+// refundedTotalUnread decides what a failed seller read of the refunded total
+// costs. A payment MercadoPago calls refunded is refunded whole by definition,
+// so its record does not wait on the figure: the payment is left as it is and
+// the callers' whole-amount fallback records it. A partial refund or a
+// chargeback has no such answer, and the error retries the event.
+func (s *Service) refundedTotalUnread(mpPayment *mp.Payment, mpPaymentID string, err error) error {
+	if mpPayment.Status != "refunded" {
+		return err
+	}
+	s.logger.Warn("mp webhook: the refunded total could not be read as the seller; a refunded payment is recorded whole",
+		"mp_payment_id", mpPaymentID, "error", err)
+	return nil
+}
+
+// moneyCameBack reports whether MercadoPago says some of a payment went back
+// to the payer: refunded, charged back, or an approved payment refunded in part.
+func moneyCameBack(mpPayment *mp.Payment) bool {
+	return mpPayment.Status == "refunded" || mpPayment.Status == "charged_back" ||
+		mpPayment.StatusDetail == "partially_refunded"
 }
 
 // refundedTotalOf is MercadoPago's running total refunded on a payment, in

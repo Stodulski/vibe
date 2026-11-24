@@ -162,5 +162,8 @@ func TestTheExpirySweepStopsKeepingAnApprovedPaymentPastTheGiveUpWindow(t *testi
 		if !ok || !strings.Contains(msg, candidate.ID.String()) || !strings.Contains(msg, "mp_payment_id=42") {
 			t.Errorf("want one alert naming the booking and the payment; got %v", captured.messages())
 		}
+		if !strings.Contains(msg, "go run ./cmd/replaypayment 42") {
+			t.Errorf("the alert must carry the command that replays the payment; got %q", msg)
+		}
 	})
 }

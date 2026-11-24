@@ -181,6 +181,8 @@ func refusals() httpx.Refusals {
 			"MercadoPago did not accept the authorization, start the connection again"),
 		mp.ErrOAuthUnavailable: httpx.BadGateway(
 			"MercadoPago is not available right now, try again in a moment"),
+		ErrMPConnectWithoutUserID: httpx.BadGateway(
+			"MercadoPago did not say which account was connected, start the connection again"),
 		ErrUnpaidHoldsNotReleased: httpx.BadGateway(
 			"a payment in progress could not be closed at MercadoPago, try again in a moment"),
 	}

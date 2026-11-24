@@ -85,41 +85,73 @@ func TestARefundRecordsWhatMercadoPagoMovedNotWhatWasClaimed(t *testing.T) {
 	}
 }
 
-// TestAnAcceptedRefundWithNoAmountKeepsTheClaimedFigure is the guard on the
-// test above.
-//
-// "Trust the provider" has an edge that would be worse than the defect it
-// fixes: MercadoPago's refund response decoded to its zero value — an older
-// API shape, a body that did not carry the field — is the absence of an
-// answer, not the assertion that nothing moved. Reading it as zero would
-// record a refund of nothing for money that has left the account, and leave
-// the payment reading as fully owing.
-//
-// Mutation: delete the `refund.Amount <= 0` arm of reconcileRefundedAmount's
-// guard and re-run — the recorded amount becomes 0 and this test fails.
-func TestAnAcceptedRefundWithNoAmountKeepsTheClaimedFigure(t *testing.T) {
-	f := newFixture(t)
-	complexID := uuid.New()
-	booking, payment := paidBooking(complexID)
-	booking.Status = "cancelled"
-	f.payments.byBooking = payment
-	f.payments.claimAmount = 150_000
-	f.complexes.complex = linkedComplex(complexID, "")
-	f.clients.client = &clientstore.Client{ID: booking.ClientID}
-	// Accepted, with no amount on the response.
-	f.provider.refundAmount = 0
-
-	outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
-
-	if len(f.payments.recordedSuccess) != 1 {
-		t.Fatalf("an accepted refund must be recorded exactly once; got %d", len(f.payments.recordedSuccess))
+// A 2xx from the refund endpoint that does not say the refund was made — no
+// status, or no amount — used to be recorded as an approved refund of the
+// claimed figure, and the client was told their money was back. Nothing in
+// that answer says so. The payment, read as the seller that refunded it, does:
+// when it shows the claimed money refunded on top of what was already
+// recorded, the refund is recorded as made; otherwise the attempt goes back to
+// the retry queue, whose next call carries the same idempotency key and so
+// cannot refund twice.
+func TestAnAcceptedRefundThatDoesNotSayItWasMadeIsCheckedAgainstThePayment(t *testing.T) {
+	tests := []struct {
+		name     string
+		noStatus bool
+		noAmount bool
+		refunded float64
+		wantMade bool
+	}{
+		{name: "no status, the payment shows it", noStatus: true, refunded: 1500.00, wantMade: true},
+		{name: "no status, the payment does not show it", noStatus: true, refunded: 0},
+		{name: "no amount, the payment shows it", noAmount: true, refunded: 1500.00, wantMade: true},
+		{name: "no amount, the payment does not show it", noAmount: true, refunded: 0},
+		{name: "no status and no amount, the payment shows part of it", noStatus: true, noAmount: true, refunded: 700.00},
 	}
-	if got := f.payments.recordedSuccess[0].RefundCentavos; got != 150_000 {
-		t.Errorf("a response carrying no amount is an absent answer, not a refund of zero — the claimed figure "+
-			"is the only other number in play; want 150000, got %d", got)
-	}
-	if outcome.Result != paymentstore.RefundIssued {
-		t.Errorf("nothing here is short, so this is an ordinary issued refund; got result=%q reason=%q", outcome.Result, outcome.Reason)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = "cancelled"
+			f.payments.byBooking = payment
+			f.payments.claimAmount = 150_000
+			f.complexes.complex = linkedComplex(complexID, "")
+			email := "ana@example.com"
+			f.clients.client = &clientstore.Client{ID: booking.ClientID, Email: &email}
+			f.provider.refundNoStatus, f.provider.refundNoAmount = tt.noStatus, tt.noAmount
+			f.provider.sellerPayment = &mp.Payment{ID: 123, Status: "approved", TransactionAmountRefunded: tt.refunded}
+			withCapturedSentryEvents(t)
+
+			outcome := f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			if !calledAs(f.provider.callers[1:], mustSeller(t, sellerTestToken)) {
+				t.Errorf("the payment must be read as the seller that made the refund; callers %v", f.provider.callers)
+			}
+			if !tt.wantMade {
+				if len(f.payments.recordedSuccess) != 0 {
+					t.Errorf("a refund nothing confirms must not be recorded as made; got %+v", f.payments.recordedSuccess)
+				}
+				if len(f.payments.recordedFailure) != 1 {
+					t.Errorf("it must go back to the retry queue once; got %d requeues", len(f.payments.recordedFailure))
+				}
+				if len(f.notify.refunds) != 0 {
+					t.Errorf("the client must not be told money is back that nothing confirms; got %d notices", len(f.notify.refunds))
+				}
+				if outcome.Result == paymentstore.RefundIssued {
+					t.Errorf("the outcome must not read as an issued refund; got %+v", outcome)
+				}
+				return
+			}
+			if len(f.payments.recordedSuccess) != 1 || f.payments.recordedSuccess[0].RefundCentavos != 150_000 {
+				t.Fatalf("a refund the payment confirms must be recorded once for the claimed figure; got %+v", f.payments.recordedSuccess)
+			}
+			if len(f.payments.recordedFailure) != 0 {
+				t.Errorf("a confirmed refund must not spend a retry; got %+v", f.payments.recordedFailure)
+			}
+			if outcome.Result != paymentstore.RefundIssued {
+				t.Errorf("want an issued refund; got result=%q reason=%q", outcome.Result, outcome.Reason)
+			}
+		})
 	}
 }
 
@@ -326,5 +358,41 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 	if len(f.refundIntents.cleared) != 0 {
 		t.Errorf("a committed claim clears the marker inside its own transaction, so clearing it again here is a "+
 			"second round trip that can only undo a marker another path has since set; got %v", f.refundIntents.cleared)
+	}
+}
+
+// The payment's refunded total counts every refund made on it, so the claim's
+// share is that total less what the row already records: with 500 recorded, a
+// total of 1000 shows only 500 for this claim of 1000, not the whole of it.
+func TestAnAcceptedRefundThatDoesNotSayItWasMadeCountsOnlyWhatIsNewOnThePayment(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		refunded float64
+		wantMade bool
+	}{
+		{name: "the total only covers the earlier refund and half of this one", refunded: 1_000},
+		{name: "the total covers the earlier refund and this one", refunded: 1_500, wantMade: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = "cancelled"
+			payment.RefundAmount = 50_000
+			f.payments.byBooking = payment
+			f.payments.claimAmount = 100_000
+			f.complexes.complex = linkedComplex(complexID, "")
+			f.clients.client = &clientstore.Client{ID: booking.ClientID}
+			f.provider.refundNoStatus = true
+			f.provider.sellerPayment = &mp.Payment{ID: 123, Status: "approved", TransactionAmountRefunded: tt.refunded}
+			withCapturedSentryEvents(t)
+
+			f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			if made := len(f.payments.recordedSuccess) == 1; made != tt.wantMade {
+				t.Errorf("recorded as made = %v, want %v (successes %+v, requeues %d)",
+					made, tt.wantMade, f.payments.recordedSuccess, len(f.payments.recordedFailure))
+			}
+		})
 	}
 }

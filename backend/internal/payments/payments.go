@@ -182,7 +182,7 @@ type Locker interface {
 type Provider interface {
 	VerifyWebhookSignature(r *http.Request, dataID string) error
 	GetPayment(ctx context.Context, paymentID string, caller mp.Caller) (*mp.Payment, error)
-	RefundPayment(ctx context.Context, paymentID string, amount float64, caller mp.Caller) (*mp.Refund, error)
+	RefundPayment(ctx context.Context, paymentID string, amount float64, idempotencyKey string, caller mp.Caller) (*mp.Refund, error)
 }
 
 // Notifier tells the client what happened to their money.
@@ -371,6 +371,13 @@ func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logge
 // bookings.PaymentStore interface that domain declares for itself. A method
 // that only proxies the store is deliberate: the point is that the entry point
 // into this domain is the service, so a rule added later lands in one place.
+
+// GetByMPPaymentID reads the ledger row a MercadoPago payment was recorded
+// as, data.ErrRecordNotFound when none was: what the events sweep checks after
+// handing a payment over, to tell a refused payment from a recorded one.
+func (s *Service) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error) {
+	return s.payments.GetByMPPaymentID(ctx, mpPaymentID)
+}
 
 // Insert records a payment. Exported for bookings, which creates the pending
 // MercadoPago row and the owner's cash/transfer rows.

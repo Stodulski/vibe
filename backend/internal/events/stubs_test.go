@@ -269,6 +269,16 @@ type stubPayments struct {
 	inserted []*paymentstore.Payment
 	refunded []uuid.UUID
 	outcome  paymentstore.RefundOutcome
+	// recorded is the ledger by MercadoPago payment id, as the processing a
+	// payment was handed to leaves it.
+	recorded map[string]*paymentstore.Payment
+}
+
+func (s *stubPayments) GetByMPPaymentID(_ context.Context, mpPaymentID string) (*paymentstore.Payment, error) {
+	if p, ok := s.recorded[mpPaymentID]; ok {
+		return p, nil
+	}
+	return nil, data.ErrRecordNotFound
 }
 
 func (s *stubPayments) Insert(_ context.Context, p *paymentstore.Payment) error {
@@ -313,6 +323,9 @@ type stubReconciler struct {
 	err        error
 	reconciled []string
 	confirms   map[string]*eventstore.Registration
+	// ledger is where a confirmed payment is recorded, as the real processing
+	// records the payment with the confirmation.
+	ledger *stubPayments
 }
 
 func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID string) error {
@@ -322,6 +335,13 @@ func (s *stubReconciler) ReconcileApprovedPayment(_ context.Context, mpPaymentID
 	}
 	if reg, ok := s.confirms[mpPaymentID]; ok {
 		reg.Status = eventstore.RegistrationConfirmed
+		if s.ledger != nil {
+			if s.ledger.recorded == nil {
+				s.ledger.recorded = map[string]*paymentstore.Payment{}
+			}
+			id := mpPaymentID
+			s.ledger.recorded[mpPaymentID] = &paymentstore.Payment{RegistrationID: &reg.ID, MPPaymentID: &id, Status: "deposit_paid"}
+		}
 	}
 	return nil
 }
@@ -402,6 +422,7 @@ func newFixture(t *testing.T) *fixture {
 		clients: &stubClients{}, payments: &stubPayments{}, checkout: &stubCheckout{}, reconcile: &stubReconciler{}, notify: &stubNotifier{},
 		realtime: &stubRealtime{}, audit: &stubAudit{}, complex: complex, owner: uuid.New(),
 	}
+	f.reconcile.ledger = f.payments
 	f.store.event = &eventstore.Event{
 		ID: uuid.New(), ComplexID: complexID, Name: "Canchas abiertas", Sport: "padel",
 		Date: time.Now().AddDate(0, 0, 3), StartTime: "19:00", DurationMinutes: 120,

@@ -2,6 +2,7 @@ package events
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/stodulski/vibe-server/internal/checkout"
 	complexstore "github.com/stodulski/vibe-server/internal/complexes/store"
+	"github.com/stodulski/vibe-server/internal/data"
 	"github.com/stodulski/vibe-server/internal/events/notice"
 	eventstore "github.com/stodulski/vibe-server/internal/events/store"
 	paymentstore "github.com/stodulski/vibe-server/internal/payments/store"
@@ -153,8 +155,35 @@ func (s *Service) handOver(ctx context.Context, check eventstore.PaymentCheck, a
 		if err := s.reconciler.ReconcileApprovedPayment(ctx, id); err != nil {
 			return fmt.Errorf("hand over payment %s: %w", id, err)
 		}
+		s.alertUnlessRecorded(ctx, check, id)
 	}
 	return nil
+}
+
+// alertUnlessRecorded raises an alert for an approved payment the processing
+// was handed and recorded nothing for. A hand-over succeeds once the event is
+// recorded, whatever the processing then decides: a payment it refuses (the
+// collector or the amount does not check out) leaves no ledger row, and the
+// check closed as answered with the payer's money captured and their spot
+// lost. The processing's own alert names the refusal; this one names what it
+// cost — the registration — and the command that replays the payment once the
+// cause is fixed. Handing it over again on every run would only repeat the
+// refusal, so the check still closes.
+func (s *Service) alertUnlessRecorded(ctx context.Context, check eventstore.PaymentCheck, mpPaymentID string) {
+	_, err := s.payments.GetByMPPaymentID(ctx, mpPaymentID)
+	if err == nil {
+		return
+	}
+	if !errors.Is(err, data.ErrRecordNotFound) {
+		s.logger.Error("event holds: cannot read whether a handed-over payment was recorded",
+			"error", err, "registration_id", check.RegistrationID, "mp_payment_id", mpPaymentID)
+		return
+	}
+	replay := paymentstore.ReplayCommand(mpPaymentID)
+	s.logger.Error("event holds: an approved payment on an expired hold was handed over and recorded by nothing; the spot is lost, manual review",
+		"registration_id", check.RegistrationID, "mp_payment_id", mpPaymentID, "replay", replay)
+	sentry.CaptureMessage(fmt.Sprintf("PAID REGISTRATION NOT RECORDED (manual review): registration_id=%s mp_payment_id=%s replay=%s",
+		check.RegistrationID, mpPaymentID, replay))
 }
 
 // deferPaymentCheck counts a failed attempt and asks again later, or gives up

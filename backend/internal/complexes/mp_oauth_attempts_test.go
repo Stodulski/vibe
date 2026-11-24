@@ -509,3 +509,31 @@ func TestMPOAuthAttemptsRedisCapsEachScope(t *testing.T) {
 		}
 	}
 }
+
+// MercadoPago answering the connect exchange without user_id decoded to 0, and
+// "0" was stored as the venue's seller id, so every payment the venue then took
+// failed the collector check. The connect is refused instead and nothing is
+// stored; the owner is told to start again.
+func TestConnectMercadoPagoWithoutAUserIDIsRefused(t *testing.T) {
+	f := newFixture(t)
+	f.payments.tokens = &mp.OAuthTokens{AccessToken: "AT", RefreshToken: "RT"}
+	complex := &complexstore.Complex{ID: uuid.New()}
+	messages := sentryMessages(t)
+
+	w := httptest.NewRecorder()
+	f.handler.ConnectMercadoPago(w, ownerRequest(t, http.MethodPost, "/", uuid.New(), complex, nil, connectBody))
+
+	if w.Code != http.StatusBadGateway {
+		t.Fatalf("want 502; got %d (%s)", w.Code, w.Body.String())
+	}
+	if f.store.mpCredentials != nil {
+		t.Errorf("nothing may be stored for a connect without a seller id; got %+v", f.store.mpCredentials)
+	}
+	var alerted bool
+	for _, m := range messages() {
+		alerted = alerted || strings.Contains(m, "without user_id")
+	}
+	if !alerted {
+		t.Errorf("a connect without user_id must alert; captured %q", messages())
+	}
+}
