@@ -5,9 +5,7 @@ import { Button } from '@/shared/components/ui/button';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { CourtList } from './court-setup-step/CourtList';
 import { StepNavigation } from './court-setup-step/StepNavigation';
-import type { Court, CourtWithPrices } from '@/shared/types/api.types';
-
-type CourtLike = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'surface' | 'has_lighting'>;
+import type { CourtWithPrices } from '@/shared/types/api.types';
 
 const t = ES_AR;
 
@@ -19,7 +17,7 @@ interface MutationLike<TVariables> {
 
 interface CourtSetupStepProps {
   complexId: string;
-  courts: CourtLike[];
+  courts: CourtWithPrices[];
   hasCourts: boolean;
   deleteCourt: MutationLike<string>;
   onBack: () => void;
@@ -38,6 +36,16 @@ interface CourtSetupStepProps {
  * through `onCreated`, which is the order the owner needs anyway: a court is
  * not bookable until it has a price.
  */
+/**
+ * Owner rule: the step needs a court someone can book, and a court without
+ * prices is not for sale, so only a priced court lets the owner move on.
+ */
+function nextBlockedReason(courts: CourtWithPrices[]): string | null {
+  if (courts.length === 0) return t.complex.onboardingNeedsCourt;
+  if (!courts.some((c) => c.prices.length > 0)) return t.complex.onboardingNeedsPricedCourt;
+  return null;
+}
+
 export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBack, onNext }: CourtSetupStepProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [pricingCourt, setPricingCourt] = useState<CourtWithPrices | null>(null);
@@ -59,6 +67,7 @@ export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBa
               deleteCourt.mutate(courtId);
             }}
             removePending={deleteCourt.isPending}
+            onSetPrices={setPricingCourt}
           />
         )}
 
@@ -78,7 +87,7 @@ export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBa
         </Button>
       </div>
 
-      <StepNavigation onBack={onBack} onNext={onNext} nextDisabled={!hasCourts} />
+      <StepNavigation onBack={onBack} onNext={onNext} blockedReason={nextBlockedReason(courts)} />
 
       <CourtForm
         open={formOpen}

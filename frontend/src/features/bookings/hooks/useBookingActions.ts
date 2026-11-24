@@ -144,8 +144,8 @@ interface UseBookingActionsArgs {
   // Called after cancel/confirm-payment/no-show/attended succeeds, in addition
   // to the handlers above — lets a caller outside the /bookings page (e.g. the
   // dashboard's own detail drawer) refresh its own cache, which the mutation
-  // hooks below don't touch (they only invalidate the bookings-by-date query
-  // the /bookings page itself reads from).
+  // hooks below don't touch (they refresh the calendar day, Caja, Clientes and
+  // the series panel — `invalidateBookingSideEffects` — not the dashboard).
   onActionSuccess?: (() => void) | undefined;
 }
 

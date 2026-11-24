@@ -1,5 +1,5 @@
-import { useRef } from 'react';
-import { useWatch } from 'react-hook-form';
+import { useEffect, useRef } from 'react';
+import { useWatch, type UseFormReturn } from 'react-hook-form';
 import { useAppForm } from '@/shared/lib/form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { createComplexSchema, updateComplexSchema, type CreateComplexDto } from '../../schemas/complex.schema';
@@ -8,6 +8,7 @@ import { useUpdateComplex } from '../../hooks/useUpdateComplex';
 import type { Complex } from '@/shared/types/api.types';
 import { blankToUndefined, slugify } from './utils';
 import { applyServerFieldErrors } from '@/shared/lib/serverFieldErrors';
+import { isVersionConflict } from '@/shared/lib/ApiError';
 
 function buildDefaultValues(complex: Complex | undefined) {
   if (complex) {
@@ -83,6 +84,50 @@ function cleanComplexPayload(data: CreateComplexDto, isEdit: boolean) {
   return { slug, cleaned };
 }
 
+/**
+ * Tracks which copy of the complex the form's fields were filled from.
+ *
+ * `baseVersion` is sent back with every save so the server refuses it if the
+ * row moved since. It is NOT simply `complex.version`: a focus refetch can
+ * bring a newer copy while the owner is typing, and adopting its version would
+ * let this save silently overwrite that other edit.
+ *
+ * A newer copy refills the form when nothing typed would be lost, or right
+ * after a stale-version 409 (`reloadOnNextCopy`), as the conflict toast tells
+ * the owner, so the next save carries a version the server accepts.
+ */
+function useCopyVersion(complex: Complex | undefined, form: UseFormReturn<CreateComplexDto>) {
+  const { isDirty } = form.formState;
+  const baseVersion = useRef(complex?.version);
+  const reloadOnNextCopy = useRef(false);
+
+  useEffect(() => {
+    if (!complex || complex.version === baseVersion.current) return;
+    if (isDirty && !reloadOnNextCopy.current) return;
+    reloadOnNextCopy.current = false;
+    baseVersion.current = complex.version;
+    form.reset(buildDefaultValues(complex));
+  }, [complex, isDirty, form]);
+
+  return {
+    /**
+     * The `version` key to send, or none: a copy without a real row version
+     * (rows start at 1) sends no precondition rather than a 0 the API refuses.
+     */
+    precondition: (): { version?: number } => {
+      const version = baseVersion.current;
+      return version !== undefined && version >= 1 ? { version } : {};
+    },
+    /** The save went through: the server's copy is now the one on screen. */
+    saved: (version: number) => {
+      baseVersion.current = version;
+    },
+    onError: (error: unknown) => {
+      if (isVersionConflict(error)) reloadOnNextCopy.current = true;
+    },
+  };
+}
+
 export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFormArgs) {
   const isEdit = !!complex;
   const slugManuallyEdited = useRef(false);
@@ -95,6 +140,7 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
     defaultValues: buildDefaultValues(complex),
   });
   const { setValue, control } = form;
+  const copyVersion = useCopyVersion(complex, form);
 
   // `useWatch` (a subscription) rather than `watch('slug')` (a render-time
   // call): `watch()` returns a value React Compiler cannot safely memoize —
@@ -125,6 +171,7 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
   // worse than no message: it names a problem and hides the fix. `setError`
   // puts it under the input AND `revealField` opens the group.
   const onMutationError = (error: unknown) => {
+    copyVersion.onError(error);
     applyServerFieldErrors(form, error, { onField: revealField });
   };
 
@@ -139,9 +186,12 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
     // stayed silent through a real payload type change in either mutation.
     if (isEdit) {
       updateMutation.mutate(
-        { slug, ...cleaned },
+        { ...copyVersion.precondition(), slug, ...cleaned },
         {
-          onSuccess: (result) => onSuccess?.(result.complex),
+          onSuccess: (result) => {
+            copyVersion.saved(result.complex.version);
+            onSuccess?.(result.complex);
+          },
           onError: onMutationError,
         },
       );
@@ -149,7 +199,10 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
       createMutation.mutate(
         { slug, ...cleaned },
         {
-          onSuccess: (result) => onSuccess?.(result.complex),
+          onSuccess: (result) => {
+            copyVersion.saved(result.complex.version);
+            onSuccess?.(result.complex);
+          },
           onError: onMutationError,
         },
       );

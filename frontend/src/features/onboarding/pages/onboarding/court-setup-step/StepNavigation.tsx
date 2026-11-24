@@ -8,11 +8,12 @@ const t = ES_AR;
 export function StepNavigation({
   onBack,
   onNext,
-  nextDisabled,
+  blockedReason,
 }: {
   onBack: () => void;
   onNext: () => void;
-  nextDisabled: boolean;
+  /** Why the step cannot be left yet, or `null` once it can. */
+  blockedReason: string | null;
 }) {
   // Shown only after someone actually tries. Announcing "falta una cancha"
   // before they have had a chance to add one is a complaint, not help.
@@ -40,7 +41,7 @@ export function StepNavigation({
       <div className="flex flex-col items-end gap-1.5 sm:flex-row-reverse sm:items-center sm:gap-3">
         <Button
           onClick={() => {
-            if (nextDisabled) setBlocked(true);
+            if (blockedReason) setBlocked(true);
             else onNext();
           }}
           size="lg"
@@ -49,9 +50,9 @@ export function StepNavigation({
           {t.common.next}
           <ArrowRight className="size-4" />
         </Button>
-        {blocked && nextDisabled && (
-          <p role="alert" className="text-error-text text-xs">
-            {t.complex.onboardingNeedsCourt}
+        {blocked && blockedReason && (
+          <p role="alert" className="text-error-text text-xs sm:max-w-xs sm:text-right">
+            {blockedReason}
           </p>
         )}
       </div>

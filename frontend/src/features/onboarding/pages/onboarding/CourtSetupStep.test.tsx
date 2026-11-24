@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import userEvent from '@testing-library/user-event';
 import { act, render, screen } from '@testing-library/react';
+import { makeCourt, makePrice } from '@/test/factories';
+import type { CourtPrice, CourtWithPrices } from '@/shared/types/api.types';
 import { CourtSetupStep } from './CourtSetupStep';
 
 vi.mock('@/shared/components/ui/button', async () => {
@@ -21,6 +23,10 @@ vi.mock('@/features/courts/components/CourtForm', () => ({
 vi.mock('@/features/courts/components/PriceConfig', () => ({
   PriceConfig: () => <div data-testid="price-config" />,
 }));
+
+function court({ name = 'C1', prices = [] }: { name?: string; prices?: CourtPrice[] } = {}): CourtWithPrices {
+  return { ...makeCourt({ id: '1', name }), prices };
+}
 
 const baseProps = {
   complexId: 'c1',
@@ -56,13 +62,7 @@ describe('CourtSetupStep', () => {
   });
 
   it('names the button for what it adds once a court exists', () => {
-    render(
-      <CourtSetupStep
-        {...baseProps}
-        hasCourts={true}
-        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
-      />,
-    );
+    render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'C1' })]} />);
 
     expect(screen.getByRole('button', { name: 'Agregar otra cancha' })).toBeInTheDocument();
   });
@@ -101,13 +101,25 @@ describe('CourtSetupStep navigation', () => {
     expect(baseProps.onNext).not.toHaveBeenCalled();
   });
 
-  it('advances once a court exists', async () => {
+  // Owner rule: a court without prices cannot be booked, so it does not
+  // count as the court this step asks for.
+  it('refuses to advance with only unpriced courts and says why', async () => {
+    const user = userEvent.setup();
+    render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'C1' })]} />);
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cargá los precios de al menos una cancha');
+    expect(baseProps.onNext).not.toHaveBeenCalled();
+  });
+
+  it('advances once a court has prices', async () => {
     const user = userEvent.setup();
     render(
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'C1', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
+        courts={[court({ name: 'C1' }), court({ name: 'C2', prices: [makePrice({ price: 10000 })] })]}
       />,
     );
 
@@ -117,25 +129,42 @@ describe('CourtSetupStep navigation', () => {
   });
 
   it('shows existing courts', () => {
-    render(
-      <CourtSetupStep
-        {...baseProps}
-        hasCourts={true}
-        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
-      />,
-    );
+    render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'Cancha Test' })]} />);
     expect(screen.getByText('Cancha Test')).toBeInTheDocument();
   });
 
   it("names each court's icon-only delete button by the court, for screen readers", () => {
+    render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'Cancha Test' })]} />);
+    expect(screen.getByRole('button', { name: 'Eliminar: Cancha Test' })).toBeInTheDocument();
+  });
+});
+
+describe('CourtSetupStep pricing', () => {
+  // The price dialog opens once, right after creation, and can be dismissed.
+  // The court then has to say it is not bookable yet and offer the way back.
+  it('shows a court without prices as unpriced and reopens its price dialog', async () => {
+    const user = userEvent.setup();
+    render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'Cancha 1' })]} />);
+
+    expect(screen.getByText('Sin precios configurados')).toBeInTheDocument();
+    expect(screen.queryByTestId('price-config')).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole('button', { name: 'Cargar precios: Cancha 1' }));
+
+    expect(screen.getByTestId('price-config')).toBeInTheDocument();
+  });
+
+  it('does not flag a court that has prices', () => {
     render(
       <CourtSetupStep
         {...baseProps}
         hasCourts={true}
-        courts={[{ id: '1', name: 'Cancha Test', sport: 'padel', court_type: 'outdoor', has_lighting: false }]}
+        courts={[court({ name: 'Cancha 1', prices: [makePrice({ price: 10000 })] })]}
       />,
     );
-    expect(screen.getByRole('button', { name: 'Eliminar: Cancha Test' })).toBeInTheDocument();
+
+    expect(screen.queryByText('Sin precios configurados')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Cargar precios: Cancha 1' })).not.toBeInTheDocument();
   });
 });
 
@@ -149,14 +178,19 @@ describe('CourtSetupStep court list', () => {
         hasCourts={true}
         courts={[
           {
-            id: '1',
-            name: 'Cancha 1',
-            sport: 'padel',
-            court_type: 'indoor',
-            surface: 'synthetic_grass',
-            has_lighting: true,
+            ...makeCourt({
+              id: '1',
+              name: 'Cancha 1',
+              court_type: 'indoor',
+              surface: 'synthetic_grass',
+              has_lighting: true,
+            }),
+            prices: [],
           },
-          { id: '2', name: 'Cancha 2', sport: 'padel', court_type: 'outdoor', has_lighting: false },
+          {
+            ...makeCourt({ id: '2', name: 'Cancha 2', court_type: 'outdoor', surface: null, has_lighting: false }),
+            prices: [],
+          },
         ]}
       />,
     );

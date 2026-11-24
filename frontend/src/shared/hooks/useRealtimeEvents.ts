@@ -2,6 +2,7 @@ import { useEffect, useRef, useCallback, type RefObject } from 'react';
 import { useQueryClient, type QueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { queryKeys } from '@/shared/lib/queryKeys';
+import { invalidateBookingSideEffects } from '@/shared/lib/bookingInvalidation';
 import { bootstrapSession, refreshAccessToken } from '@/shared/lib/ky';
 import { env } from '@/shared/lib/env';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -132,6 +133,7 @@ function wireStreamListeners(es: EventSource, complexId: string, queryClient: Qu
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.stats(complexId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.occupancy(complexId) }),
       queryClient.invalidateQueries({ queryKey: queryKeys.dashboard.clients(complexId) }),
+      invalidateBookingSideEffects(queryClient, complexId, ['cash', 'clients', 'series']),
     ]);
   });
 

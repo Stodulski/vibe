@@ -13,9 +13,9 @@ import type {
   BlockSlotRequest,
 } from '@/shared/types/api.types';
 import { parseWith } from '@/shared/lib/apiParse';
+import { listCourts } from '@/shared/api/courts.api';
 import { messageResponseSchema } from '@/shared/schemas/envelope.schema';
 import {
-  courtsListEnvelopeSchema,
   courtEnvelopeSchema,
   pricesEnvelopeSchema,
   blockedSlotEnvelopeSchema,
@@ -23,11 +23,9 @@ import {
 } from '@/shared/schemas/court.schema';
 
 export const courtsApi = {
+  // Delegates to the shared one: see `shared/api/courts.api.ts`.
   list: (complexId: string, signal?: AbortSignal): Promise<{ courts: CourtWithPrices[] }> =>
-    api
-      .get(`complexes/${complexId}/courts`, withSignal(signal))
-      .json()
-      .then(parseWith(courtsListEnvelopeSchema, 'courtsApi.list')),
+    listCourts(complexId, signal),
 
   create: (complexId: string, data: CreateCourtRequest): Promise<{ court: Court }> =>
     api

@@ -90,6 +90,8 @@ export const complex = {
   onboardingStep1Description: 'Cómo se llama tu club, dónde está y qué servicios ofrece. Vas a necesitar la dirección.',
   onboardingStep2: 'Primera cancha',
   onboardingNeedsCourt: 'Creá al menos una cancha para continuar',
+  onboardingNeedsPricedCourt:
+    'Cargá los precios de al menos una cancha para continuar: sin precios no se puede reservar.',
   onboardingStep2Description: 'Sin canchas no hay nada que reservar.',
   onboardingStep3: 'Cobros online',
   onboardingStep3Description: 'Conectá Mercado Pago para cobrar las reservas online.',
@@ -117,6 +119,9 @@ export const complex = {
   closed: 'Cerrado',
   closedAllDay: 'Cerrado todo el día',
   timeRangeJoiner: 'a',
+  priceCoverageTitle: 'Hay horarios sin precio',
+  priceCoverageDescription: 'No se ofrecen para reservar hasta que les cargues un precio.',
+  priceCoverageAction: 'Ir a precios',
   openTime: 'Apertura',
   closeTime: 'Cierre',
   schedulesUpdated: 'Horarios actualizados',

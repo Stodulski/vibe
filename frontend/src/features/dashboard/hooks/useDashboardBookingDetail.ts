@@ -22,7 +22,9 @@ export function useDashboardBookingDetail(complexId: string | null) {
 
   const actions = useBookingActions({
     selectedComplexId: complexId,
-    selectedDate: today,
+    // The booking's own day: "Próximas reservas" lists more than today, and
+    // the calendar day to refresh after cobrar/cancelar is the booking's.
+    selectedDate: modals.selectedBooking?.date ?? today,
     selectedBooking: modals.selectedBooking,
     setSelectedBooking: modals.setSelectedBooking,
     setDetailOpen: modals.setDetailOpen,

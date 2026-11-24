@@ -1,12 +1,10 @@
 import { useDeleteCourt } from '@/features/courts';
 import { CourtSetupStep } from './CourtSetupStep';
-import type { Court } from '@/shared/types/api.types';
-
-type CourtLike = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'surface' | 'has_lighting'>;
+import type { CourtWithPrices } from '@/shared/types/api.types';
 
 interface CourtSetupStepContainerProps {
   complexId: string;
-  courts: CourtLike[];
+  courts: CourtWithPrices[];
   hasCourts: boolean;
   onBack: () => void;
   onNext: () => void;
