@@ -247,19 +247,9 @@ func (s *Service) DispatchRecordedEvent(event *paymentstore.WebhookEvent) {
 // no-op, a slot sold meanwhile is refunded. The error reports only that the
 // event could not be recorded; the processing's own outcome lives on its row.
 func (s *Service) ReconcileApprovedPayment(ctx context.Context, mpPaymentID string) error {
-	payload, err := json.Marshal(map[string]any{
-		"type":   "payment",
-		"action": "payment.reconciled",
-		"data":   map[string]string{"id": mpPaymentID},
-	})
+	event, err := paymentstore.ReplayEvent(mpPaymentID, "payment.reconciled")
 	if err != nil {
-		return fmt.Errorf("encode reconciled payment %s: %w", mpPaymentID, err)
-	}
-	event := &paymentstore.WebhookEvent{
-		Provider:   mercadoPagoProvider,
-		ExternalID: mpPaymentID,
-		EventType:  "payment",
-		Payload:    payload,
+		return err
 	}
 	if err := s.RecordWebhookEvent(ctx, event); err != nil {
 		return err

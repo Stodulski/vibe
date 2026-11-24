@@ -342,7 +342,30 @@ make test/security        # security-focused integration tests
 make e2e                  # run the client's Playwright suite against an isolated stack
 psql $DATABASE_URL -f db/truncate_all.sql   # empty all tables, keep schema/indexes/migrations
 go run ./cmd/mpcredkey seal|rekey ...        # convert MercadoPago OAuth credentials between plaintext and the v1 envelope (dev/E2E databases only)
+go run ./cmd/replaypayment <mp-payment-id>   # have the running API process a MercadoPago payment again (see below)
 ```
+
+### Replaying a payment by hand
+
+A payment the automatic paths refused or gave up on (a collector MercadoPago's
+read did not name, a venue that had to reconnect, an expired booking the
+reconciliation stopped asking about) is processed again with:
+
+```bash
+railway run --service Backend go run ./cmd/replaypayment <mp-payment-id>
+```
+
+It needs only the database (`-db-dsn`, default `DATABASE_URL`; when the
+service's internal database host is not reachable from your machine, pass the
+public connection string with `-db-dsn`) and writes one `webhook_events` row,
+the same row MercadoPago's own notification leaves. The API's webhook sweep
+works it within minutes through the normal path: read the payment from
+MercadoPago, check its collector and amount, then confirm, reopen or refund.
+Replaying a payment already processed changes nothing. The command prints the
+event id and the query that shows its outcome (`status`, `last_error`). The
+alerts that give up on a payment (`EXPIRED BOOKING NOT RECONCILED`,
+`APPROVED PAYMENT NEVER CONFIRMED`, `PAID REGISTRATION NOT RECORDED`) carry
+this command with the payment id filled in.
 
 `make e2e` looks for the client at `../frontend` by default (override with `CLIENT_DIR`), which is where it lives in this repository.
 
