@@ -123,6 +123,30 @@ describe('SeriesConflictsPanel, what to do each day', () => {
     expect(await optionsOf(user, second)).toEqual(['No reservar ese día', 'Cancha 2', 'Cancha 3']);
   });
 
+  it('names each free court with its roof, surface and lighting, so the owner can tell them apart', async () => {
+    const user = userEvent.setup();
+    renderPanel({
+      conflicts: [
+        {
+          date: '2026-12-07',
+          reason: 'overlap',
+          held_by: 'booking',
+          free_courts: [
+            { court_id: 'ct2', court_name: 'Cancha 2', court_type: 'indoor', surface: 'clay', has_lighting: true },
+            { court_id: 'ct3', court_name: 'Cancha 3', court_type: 'outdoor', has_lighting: false },
+          ],
+        },
+      ],
+    });
+
+    const day = screen.getByRole('combobox', { name: named('Ese día: Lunes 7 de diciembre de 2026') });
+    expect(await optionsOf(user, day)).toEqual([
+      'No reservar ese día',
+      'Cancha 2 · Techada · Polvo de ladrillo · Con iluminación',
+      'Cancha 3 · Descubierta',
+    ]);
+  });
+
   it('says so, with no selector, on a day no other court is free', () => {
     renderPanel();
 

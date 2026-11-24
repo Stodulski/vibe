@@ -184,6 +184,63 @@ func (e BookingSeriesConflictReason) Valid() bool {
 	}
 }
 
+// Defines values for BookingSeriesFreeCourtCourtType.
+const (
+	BookingSeriesFreeCourtCourtTypeIndoor      BookingSeriesFreeCourtCourtType = "indoor"
+	BookingSeriesFreeCourtCourtTypeOutdoor     BookingSeriesFreeCourtCourtType = "outdoor"
+	BookingSeriesFreeCourtCourtTypeSemiCovered BookingSeriesFreeCourtCourtType = "semi_covered"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesFreeCourtCourtType enum.
+func (e BookingSeriesFreeCourtCourtType) Valid() bool {
+	switch e {
+	case BookingSeriesFreeCourtCourtTypeIndoor:
+		return true
+	case BookingSeriesFreeCourtCourtTypeOutdoor:
+		return true
+	case BookingSeriesFreeCourtCourtTypeSemiCovered:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BookingSeriesFreeCourtSurface.
+const (
+	BookingSeriesFreeCourtSurfaceClay           BookingSeriesFreeCourtSurface = "clay"
+	BookingSeriesFreeCourtSurfaceConcrete       BookingSeriesFreeCourtSurface = "concrete"
+	BookingSeriesFreeCourtSurfaceNaturalGrass   BookingSeriesFreeCourtSurface = "natural_grass"
+	BookingSeriesFreeCourtSurfaceParquet        BookingSeriesFreeCourtSurface = "parquet"
+	BookingSeriesFreeCourtSurfaceRubber         BookingSeriesFreeCourtSurface = "rubber"
+	BookingSeriesFreeCourtSurfaceSand           BookingSeriesFreeCourtSurface = "sand"
+	BookingSeriesFreeCourtSurfaceSyntheticFloor BookingSeriesFreeCourtSurface = "synthetic_floor"
+	BookingSeriesFreeCourtSurfaceSyntheticGrass BookingSeriesFreeCourtSurface = "synthetic_grass"
+)
+
+// Valid indicates whether the value is a known member of the BookingSeriesFreeCourtSurface enum.
+func (e BookingSeriesFreeCourtSurface) Valid() bool {
+	switch e {
+	case BookingSeriesFreeCourtSurfaceClay:
+		return true
+	case BookingSeriesFreeCourtSurfaceConcrete:
+		return true
+	case BookingSeriesFreeCourtSurfaceNaturalGrass:
+		return true
+	case BookingSeriesFreeCourtSurfaceParquet:
+		return true
+	case BookingSeriesFreeCourtSurfaceRubber:
+		return true
+	case BookingSeriesFreeCourtSurfaceSand:
+		return true
+	case BookingSeriesFreeCourtSurfaceSyntheticFloor:
+		return true
+	case BookingSeriesFreeCourtSurfaceSyntheticGrass:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for BookingSeriesUpcomingReason.
 const (
 	BookingSeriesUpcomingReasonBlocked          BookingSeriesUpcomingReason = "blocked"
@@ -3364,11 +3421,26 @@ type BookingSeriesConflictHeldBy string
 // BookingSeriesConflictReason defines model for BookingSeriesConflict.Reason.
 type BookingSeriesConflictReason string
 
-// BookingSeriesFreeCourt A court that is free on a date of a fixed weekly booking.
+// BookingSeriesFreeCourt A court that is free on a date of a fixed weekly booking, with the facts the ranking compares so the owner can tell the options apart.
 type BookingSeriesFreeCourt struct {
 	CourtId   openapi_types.UUID `json:"court_id"`
 	CourtName string             `json:"court_name"`
+
+	// CourtType Sent by every current server.
+	CourtType *BookingSeriesFreeCourtCourtType `json:"court_type,omitempty"`
+
+	// HasLighting Sent by every current server.
+	HasLighting *bool `json:"has_lighting,omitempty"`
+
+	// Surface Playing surface; omitted when the owner has not said.
+	Surface *BookingSeriesFreeCourtSurface `json:"surface,omitempty"`
 }
+
+// BookingSeriesFreeCourtCourtType Sent by every current server.
+type BookingSeriesFreeCourtCourtType string
+
+// BookingSeriesFreeCourtSurface Playing surface; omitted when the owner has not said.
+type BookingSeriesFreeCourtSurface string
 
 // BookingSeriesUpcoming One upcoming date of a series.
 type BookingSeriesUpcoming struct {
