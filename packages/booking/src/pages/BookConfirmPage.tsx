@@ -51,6 +51,7 @@ function BookConfirmPageContent({ slug, draft, onDraftReplaced }: BookConfirmPag
   const { handleSubmit, isLoading, redirecting, paymentLinkError, retry } = useConfirmBookingSubmit(slug, draft, {
     onExpired: hold.expire,
     onConverted: hold.markConverted,
+    onSubmitting: hold.markSubmitting,
   });
 
   if (redirecting) {

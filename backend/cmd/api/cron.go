@@ -51,6 +51,7 @@ func (app *application) cronJobs() []scheduler.Job {
 		job("threads_keyword_digest", time.Hour, app.cronThreadsKeywordDigest),
 		job("release_expired_payments", 5*time.Minute, app.cronReleaseExpiredPayments),
 		job("keep_paying_holds", bookings.KeepPayingHoldsEvery, app.cronKeepPayingHolds),
+		job("release_left_holds", bookings.ReleaseLeftHoldsEvery, app.bookingsService.ReleaseLeftHolds),
 		job("clean_slot_locks", 5*time.Minute, app.cronCleanSlotLocks),
 		job("report_queue_depth", 5*time.Minute, app.cronReportQueueDepth),
 		job("retry_refunds", 2*time.Minute, app.paymentsService.RetryFailedRefunds),

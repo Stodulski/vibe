@@ -732,6 +732,15 @@ func (s *Service) releaseExpiredHolds(ctx context.Context) {
 		s.logger.Error("cron_release_expired_payments: failed to delete expired slot holds", "error", err)
 		return
 	}
+	s.announceFreedHolds(ctx, freed)
+	if len(freed) > 0 {
+		s.logger.Info("cron_release_expired_payments: deleted expired slot holds", "count", len(freed))
+	}
+}
+
+// announceFreedHolds tells each affected complex's grid once and the waitlist
+// once per venue and day about the slots a sweep of holds freed.
+func (s *Service) announceFreedHolds(ctx context.Context, freed []bookingstore.ReleasedHold) {
 	type venueDay struct {
 		complexID uuid.UUID
 		day       string
@@ -748,9 +757,6 @@ func (s *Service) releaseExpiredHolds(ctx context.Context) {
 			handed[key] = struct{}{}
 			s.freeHeldSlot(ctx, h)
 		}
-	}
-	if len(freed) > 0 {
-		s.logger.Info("cron_release_expired_payments: deleted expired slot holds", "count", len(freed))
 	}
 }
 

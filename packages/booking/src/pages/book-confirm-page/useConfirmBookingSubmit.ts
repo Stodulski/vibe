@@ -15,6 +15,8 @@ export interface ConfirmHoldEvents {
   onExpired: () => void;
   /** The booking converted the hold; leaving the page now must keep it. */
   onConverted: () => void;
+  /** A submit started (`true`) or failed (`false`): while one runs, a reclaim's answer is ignored. */
+  onSubmitting: (active: boolean) => void;
 }
 
 /**
@@ -86,7 +88,11 @@ export function useConfirmBookingSubmit(
   function handleSubmit(formData: PublicBookingFormData) {
     setPaymentLinkError(false);
     setLastFormData(formData);
+    hold.onSubmitting(true);
     mutation.mutate(buildBookingRequest(slotInfo, formData, slotInfo.holdToken), {
+      onError: () => {
+        hold.onSubmitting(false);
+      },
       onSuccess: (data) => {
         hold.onConverted();
         const bookingInfo = buildBookingInfo(slotInfo, formData.client_phone);

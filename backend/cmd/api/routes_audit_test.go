@@ -74,6 +74,8 @@ var publicRoutes = map[string]string{
 	"POST /api/v1/book/checkout/release":      "a visitor whose payment failed gives the slot back, authenticated by the booking's link token",
 	"POST /api/v1/book/holds":                 "the storefront holds the slot a visitor picked, before they have an account or a booking",
 	"POST /api/v1/book/holds/{token}/release": "the visitor lets their slot hold go, authenticated by the hold's own token",
+	"POST /api/v1/book/holds/{token}/leave":   "the visitor left the confirm page; the hold goes a minute later, authenticated by the hold's own token",
+	"POST /api/v1/book/holds/{token}/reclaim": "the visitor came back to the confirm page and takes the hold back, authenticated by the hold's own token",
 
 	"POST /api/v1/webhooks/mercadopago": "authenticated by MercadoPago's signature, not a session",
 

@@ -207,7 +207,8 @@ func (m *Store) GetHold(ctx context.Context, tokenHash []byte) (*Booking, error)
 // untouched hold this token names. A second conversion, a release or the
 // expiry sweep that got there first leaves nothing for it to match, and that
 // is ErrHoldNotFound — so exactly one caller ever converts a hold, and only
-// that caller goes on to create a checkout for it.
+// that caller goes on to create a checkout for it. A release the visitor's
+// leaving asked for (RequestHoldRelease) is called off: the hold is theirs.
 func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) error {
 	ctx, cancel := data.TxContext(ctx)
 	defer cancel()
@@ -235,6 +236,7 @@ func (m *Store) ConvertHold(ctx context.Context, b *Booking, tokenHash []byte) e
 			SET client_first_name = $3, client_last_name = $4, client_phone = $5, client_email = $6,
 			    notes = COALESCE($7, b.notes),
 			    hold_token_hash = NULL,
+			    hold_release_requested_at = NULL,
 			    created_at = GREATEST(b.created_at, NOW() - make_interval(secs => $9))
 			WHERE b.id = $1
 			  AND b.hold_token_hash = $2
@@ -302,6 +304,100 @@ func (m *Store) ReleaseHold(ctx context.Context, tokenHash []byte) (ReleasedHold
 	return out, true, nil
 }
 
+// RequestHoldRelease records that the visitor left the page holding the live
+// untouched hold a token names: ReleaseLeftHolds lets it go once the grace has
+// passed, unless the visitor takes it back first (ReclaimHold). A request
+// already made keeps its instant, so leaving again (a reload left again) never
+// pushes the release later. An unknown, released, converted or run out token
+// is a no-op.
+func (m *Store) RequestHoldRelease(ctx context.Context, tokenHash []byte) error {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	if _, err := m.DB.Exec(ctx, `
+		UPDATE bookings b
+		SET hold_release_requested_at = COALESCE(b.hold_release_requested_at, NOW())
+		WHERE b.hold_token_hash = $1
+		  AND b.status = 'pending'
+		  AND b.created_at > NOW() - make_interval(secs => $2)
+		  AND `+untouchedHold, tokenHash, m.PaymentExpiry.Seconds()); err != nil {
+		return fmt.Errorf("bookings: request slot hold release: %w", err)
+	}
+	return nil
+}
+
+// ReclaimHold takes back the live untouched hold a token names for a visitor
+// who returned to the page: a release their leaving asked for is called off.
+// It answers the hold's created_at, which it never moves, so the window ends
+// exactly when it did before the visitor left. A hold that is no longer live
+// (released, run out, converted, unknown) is ErrHoldNotFound.
+//
+// The UPDATE and ReleaseLeftHolds' cancel lock the same row, so exactly one of
+// them wins: a reclaim that comes second finds the hold cancelled, and a sweep
+// that comes second finds no request left.
+func (m *Store) ReclaimHold(ctx context.Context, tokenHash []byte) (time.Time, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	var createdAt pgtype.Timestamptz
+	err := m.DB.QueryRow(ctx, `
+		UPDATE bookings b
+		SET hold_release_requested_at = NULL
+		WHERE b.hold_token_hash = $1
+		  AND b.status = 'pending'
+		  AND b.created_at > NOW() - make_interval(secs => $2)
+		  AND `+untouchedHold+`
+		RETURNING b.created_at`, tokenHash, m.PaymentExpiry.Seconds()).Scan(&createdAt)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return time.Time{}, ErrHoldNotFound
+		}
+		return time.Time{}, fmt.Errorf("bookings: reclaim slot hold: %w", err)
+	}
+	return data.PgToTime(createdAt), nil
+}
+
+// ReleaseLeftHolds releases every untouched hold whose visitor left more than
+// grace ago and did not come back (RequestHoldRelease), exactly as ReleaseHold
+// releases one, and returns the slot each one freed.
+func (m *Store) ReleaseLeftHolds(ctx context.Context, grace time.Duration) ([]ReleasedHold, error) {
+	ctx, cancel := data.QueryContext(ctx)
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, `
+		UPDATE bookings b
+		SET status = 'cancelled'
+		FROM complexes c
+		WHERE c.id = b.complex_id
+		  AND b.status = 'pending'
+		  AND b.hold_release_requested_at < NOW() - make_interval(secs => $1)
+		  AND `+untouchedHold+`
+		RETURNING b.complex_id, c.name, c.slug, b.date`, grace.Seconds())
+	if err != nil {
+		return nil, fmt.Errorf("bookings: release left slot holds: %w", err)
+	}
+	out, err := pgx.CollectRows(rows, scanReleasedHold)
+	if err != nil {
+		return nil, fmt.Errorf("bookings: release left slot holds: %w", err)
+	}
+	return out, nil
+}
+
+// scanReleasedHold reads one (complex_id, name, slug, date) row of a freed slot.
+func scanReleasedHold(row pgx.CollectableRow) (ReleasedHold, error) {
+	var (
+		complexID pgtype.UUID
+		day       pgtype.Date
+		h         ReleasedHold
+	)
+	if err := row.Scan(&complexID, &h.ComplexName, &h.ComplexSlug, &day); err != nil {
+		return h, fmt.Errorf("scan freed hold: %w", err)
+	}
+	h.ComplexID = data.PgToUUID(complexID)
+	h.Day = data.PgToDate(day)
+	return h, nil
+}
+
 // ReleasedHold is the slot a deleted hold freed: enough for the caller to tell
 // the venue's grid and hand the day to the waitlist (waitlist.Freed).
 type ReleasedHold struct {
@@ -348,19 +444,7 @@ func (m *Store) DeleteExpiredHolds(ctx context.Context, expiry time.Duration) ([
 	if err != nil {
 		return nil, fmt.Errorf("bookings: delete expired slot holds: %w", err)
 	}
-	out, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (ReleasedHold, error) {
-		var (
-			complexID pgtype.UUID
-			day       pgtype.Date
-			h         ReleasedHold
-		)
-		if err := row.Scan(&complexID, &h.ComplexName, &h.ComplexSlug, &day); err != nil {
-			return h, fmt.Errorf("scan freed hold: %w", err)
-		}
-		h.ComplexID = data.PgToUUID(complexID)
-		h.Day = data.PgToDate(day)
-		return h, nil
-	})
+	out, err := pgx.CollectRows(rows, scanReleasedHold)
 	if err != nil {
 		return nil, fmt.Errorf("bookings: delete expired slot holds: %w", err)
 	}

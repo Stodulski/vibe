@@ -15,6 +15,8 @@ const createBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('../api/public-booking.api', () => {
   const publicBookingApi = {
     createBooking: (...args: unknown[]) => createBooking(...args),
+    // The page takes its hold back when it loads (useSlotHold); it is still the visitor's.
+    reclaimHold: () => Promise.resolve(),
   };
   // The page reads this through BookingRoot's createPublicBookingApi.
   return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };

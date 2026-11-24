@@ -1,5 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor } from '@testing-library/react';
+import { http, HttpResponse } from 'msw';
+import { server } from '../test/msw/server';
+import { confirmDraftKey, readConfirmDraft } from '../lib/handoff';
 import { renderBooking } from '../test/booking';
 import userEvent from '@testing-library/user-event';
 import { makeConsumedHttpError } from '../test/factories';
@@ -38,6 +41,35 @@ describe('ComplexPage', () => {
     const Page = (await import('./ComplexPage')).default;
     const { container } = renderBooking(<Page slug="test-club" />);
     expect(container).toBeDefined();
+  });
+});
+
+describe('ComplexPage coming back from the confirm page', () => {
+  it('gives back at once the hold the confirm page left in the draft', async () => {
+    const released: string[] = [];
+    server.use(
+      http.post('*/book/holds/:token/release', ({ params }) => {
+        released.push(String(params.token));
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    window.sessionStorage.setItem(
+      confirmDraftKey('test-club'),
+      JSON.stringify({
+        complexId: 'c1', complexName: 'Club Test', complexPhone: '1155550000', courtId: 'ct1',
+        courtName: 'Cancha 1', date: '2026-03-20', startTime: '10:00', endTime: '11:00',
+        durationMinutes: 60, price: 5000, depositPercentage: 30, cancellationHours: 24,
+        holdToken: 'hold-old', holdExpiresAt: new Date(Date.now() + 9 * 60_000).toISOString(),
+      }),
+    );
+    const Page = (await import('./ComplexPage')).default;
+
+    renderBooking(<Page slug="test-club" />);
+
+    expect(readConfirmDraft('test-club')).toBeNull();
+    await waitFor(() => {
+      expect(released).toEqual(['hold-old']);
+    });
   });
 });
 

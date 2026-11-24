@@ -348,9 +348,49 @@ export interface paths {
     put?: never;
     /**
      * Release a slot hold
-     * @description Public, and a POST so `navigator.sendBeacon` can call it when the page goes away. Releases the hold if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
+     * @description Public, and a POST so `navigator.sendBeacon` can call it. The visitor gives the hold back on purpose ("Cambiar horario"): it is released at once if it is still an untouched hold; a converted or paid booking is never touched. Answers 204 whatever happened, so it says nothing about which tokens exist. Leaving the page uses POST /api/v1/book/holds/{token}/leave instead. Cross-tenant bypass reason `resolves`.
      */
     post: operations['bookingsPublicHoldRelease'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/holds/{token}/leave': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Release a slot hold a minute after the visitor left
+     * @description Public, and a POST so `navigator.sendBeacon` can call it when the confirm page goes away. Records that the visitor left: the hold is released one minute later unless POST /api/v1/book/holds/{token}/reclaim takes it back first, so a reload or a discarded background tab does not lose the slot. A second call keeps the first one's instant. Submitting the booking with the hold calls the release off too. Answers 204 whatever happened, so it says nothing about which tokens exist. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicHoldLeave'];
+    delete?: never;
+    options?: never;
+    head?: never;
+    patch?: never;
+    trace?: never;
+  };
+  '/api/v1/book/holds/{token}/reclaim': {
+    parameters: {
+      query?: never;
+      header?: never;
+      path?: never;
+      cookie?: never;
+    };
+    get?: never;
+    put?: never;
+    /**
+     * Take back a slot hold the visitor left
+     * @description Public, authenticated by the hold token alone, which is a bearer secret. The confirm page loaded again: a release asked for by POST /api/v1/book/holds/{token}/leave is called off and the hold is the visitor's again. It neither takes nor extends a hold, so it answers no expiry: the hold still ends at the instant POST /api/v1/book/holds answered. Cross-tenant bypass reason `resolves`.
+     */
+    post: operations['bookingsPublicHoldReclaim'];
     delete?: never;
     options?: never;
     head?: never;
@@ -5296,6 +5336,59 @@ export interface operations {
           [name: string]: unknown;
         };
         content?: never;
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicHoldLeave: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description Release scheduled, or there was nothing to release. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      429: components['responses']['RateLimited'];
+      500: components['responses']['ServerError'];
+    };
+  };
+  bookingsPublicHoldReclaim: {
+    parameters: {
+      query?: never;
+      header?: never;
+      path: {
+        token: string;
+      };
+      cookie?: never;
+    };
+    requestBody?: never;
+    responses: {
+      /** @description The hold is the visitor's again, ending when it always did. */
+      204: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content?: never;
+      };
+      /** @description The hold is gone (`hold-expired`): released, run out, converted, or never existed. The storefront sends the visitor back to pick a time. */
+      409: {
+        headers: {
+          [name: string]: unknown;
+        };
+        content: {
+          'application/problem+json': components['schemas']['Problem'];
+        };
       };
       429: components['responses']['RateLimited'];
       500: components['responses']['ServerError'];

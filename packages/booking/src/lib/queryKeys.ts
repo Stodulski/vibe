@@ -5,6 +5,8 @@
  */
 export const queryKeys = {
   availability: {
+    /** Every day and duration of one complex's hours, for invalidation. */
+    bySlug: (slug: string) => ['availability', slug] as const,
     bySlugAndDate: (slug: string, date: string, duration: number) => ['availability', slug, date, duration] as const,
   },
   nextAvailable: {

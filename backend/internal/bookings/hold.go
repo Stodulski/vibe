@@ -1,7 +1,9 @@
 // hold.go — the storefront's slot hold. Picking a court on the public page
-// holds the slot for the payment window (owner decision 2026-11-10); leaving
-// releases it; POST /book with the hold's token converts it into the booking
-// the visitor pays for.
+// holds the slot for the payment window (owner decision 2026-11-10); giving it
+// back ("Cambiar horario", a new hold replacing it) releases it at once, and
+// leaving the page releases it LeftHoldGrace later unless the visitor comes
+// back for it (2026-11-24); POST /book with the hold's token converts it into
+// the booking the visitor pays for.
 //
 // The hold IS the pending storefront booking, created when the court is
 // picked instead of when the visitor pays, and before anybody is named
@@ -176,6 +178,67 @@ func (s *Service) ReleaseHold(ctx context.Context, token string) {
 	}
 }
 
+// LeftHoldGrace is how long a hold whose visitor left the confirm page stays
+// theirs before it is released (owner decision 2026-11-24, "liberar con un
+// margen de 1 minuto"): long enough for a reload, or a phone that discarded the
+// background tab while the visitor checked another app, to take it back.
+const LeftHoldGrace = time.Minute
+
+// ReleaseLeftHoldsEvery is how often ReleaseLeftHolds runs (cmd/api schedules
+// it with this value): a left hold frees between LeftHoldGrace and
+// LeftHoldGrace plus this after its visitor left.
+const ReleaseLeftHoldsEvery = 30 * time.Second
+
+// LeaveHold records that the visitor left the page holding the hold a token
+// names: it is released LeftHoldGrace later (ReleaseLeftHolds) unless they come
+// back for it first (ReclaimHold). Like ReleaseHold it never fails the caller;
+// a request that could not be recorded leaves the hold to run out on its own.
+func (s *Service) LeaveHold(ctx context.Context, token string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), checkoutCleanupBudget)
+	defer cancel()
+
+	if err := s.store.RequestHoldRelease(ctx, bookingstore.HashHoldToken(token)); err != nil {
+		s.logger.Error("slot hold: deferred release could not be recorded; it ends with its window", "error", err)
+	}
+}
+
+// ReclaimHold takes back the hold a token names for a visitor who returned to
+// the page, calling off the release their leaving asked for. The hold ends
+// when it always did: nothing here extends it, so the page keeps the deadline
+// it already shows. A hold that is no longer live is ErrHoldExpired, and the
+// storefront sends the visitor back to the hours.
+func (s *Service) ReclaimHold(ctx context.Context, token string) error {
+	if len(token) > maxHoldTokenLength {
+		return ErrHoldExpired
+	}
+	if _, err := s.store.ReclaimHold(ctx, bookingstore.HashHoldToken(token)); err != nil {
+		if errors.Is(err, bookingstore.ErrHoldNotFound) {
+			return ErrHoldExpired
+		}
+		return err
+	}
+	return nil
+}
+
+// ReleaseLeftHolds releases the holds whose visitor left more than
+// LeftHoldGrace ago without coming back, telling the grids and the waitlist as
+// any other release does (announceFreedHolds).
+func (s *Service) ReleaseLeftHolds(ctx context.Context) {
+	freed, err := s.store.ReleaseLeftHolds(ctx, LeftHoldGrace)
+	if err != nil {
+		s.logger.Error("cron_release_left_holds: failed to release left slot holds", "error", err)
+		return
+	}
+	s.announceFreedHolds(ctx, freed)
+	if len(freed) > 0 {
+		s.logger.Info("cron_release_left_holds: released left slot holds", "count", len(freed))
+	}
+}
+
+// maxHoldTokenLength bounds a hold token read from a path: a real one is 43
+// characters (bookingstore.NewHoldToken).
+const maxHoldTokenLength = 256
+
 // freeHeldSlot hands the day a released hold freed to the waitlist. A hold
 // takes a slot from the court pick, so a visitor who found the day full may
 // have joined the waitlist behind it, exactly as behind any unpaid booking
@@ -314,12 +377,37 @@ func (h *Handler) TakeHold(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// ReleaseHold handles POST /api/v1/book/holds/{token}/release. A POST rather
-// than a DELETE so navigator.sendBeacon can call it when the page goes away.
-// It answers 204 whatever happened, so the route says nothing about which
-// tokens exist.
+// ReleaseHold handles POST /api/v1/book/holds/{token}/release: the visitor
+// gives the hold back on purpose ("Cambiar horario"), and it is released at
+// once. A POST rather than a DELETE so navigator.sendBeacon can call it. It
+// answers 204 whatever happened, so the route says nothing about which tokens
+// exist.
 func (h *Handler) ReleaseHold(w http.ResponseWriter, r *http.Request, token string) {
 	h.svc.ReleaseHold(r.Context(), token)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// LeaveHold handles POST /api/v1/book/holds/{token}/leave, the beacon the
+// confirm page sends when it goes away: the hold is released LeftHoldGrace
+// later unless the visitor comes back for it. 204 whatever happened, as
+// ReleaseHold.
+func (h *Handler) LeaveHold(w http.ResponseWriter, r *http.Request, token string) {
+	h.svc.LeaveHold(r.Context(), token)
+	w.Header().Set("Cache-Control", "no-store")
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// ReclaimHold handles POST /api/v1/book/holds/{token}/reclaim: the confirm page
+// loaded again (a reload, a tab the phone discarded) and takes its hold back.
+// 204 when the hold is the visitor's again; 409 hold-expired when it is gone.
+// Authenticated by the token alone, which is a bearer secret; it neither
+// takes nor extends a hold.
+func (h *Handler) ReclaimHold(w http.ResponseWriter, r *http.Request, token string) {
+	if err := h.svc.ReclaimHold(r.Context(), token); err != nil {
+		h.refuse(w, r, err)
+		return
+	}
 	w.Header().Set("Cache-Control", "no-store")
 	w.WriteHeader(http.StatusNoContent)
 }

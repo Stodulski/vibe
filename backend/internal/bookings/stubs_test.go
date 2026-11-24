@@ -117,19 +117,30 @@ type stubStore struct {
 	// GetHold finds for heldHash; convertErr fails ConvertHold and converted
 	// records the conversions. releaseFinds says whether ReleaseHold finds a
 	// hold to delete. holdCalls records "insert"/"release" in call order.
-	holdErr             error
-	holds               []*bookingstore.Booking
-	holdHashes          [][]byte
-	holdIPs             []string
-	holdCaps            []int
-	held                *bookingstore.Booking
-	heldHash            []byte
-	convertErr          error
-	converted           []*bookingstore.Booking
-	releaseFinds        bool
-	releasedHolds       [][]byte
-	holdCalls           []string
-	expiredHolds        []bookingstore.ReleasedHold
+	holdErr       error
+	holds         []*bookingstore.Booking
+	holdHashes    [][]byte
+	holdIPs       []string
+	holdCaps      []int
+	held          *bookingstore.Booking
+	heldHash      []byte
+	convertErr    error
+	converted     []*bookingstore.Booking
+	releaseFinds  bool
+	releasedHolds [][]byte
+	holdCalls     []string
+	expiredHolds  []bookingstore.ReleasedHold
+	// leftHolds records the hashes RequestHoldRelease was handed. reclaimed
+	// is the created_at ReclaimHold answers for heldHash (ErrHoldNotFound for
+	// any other hash, or when reclaimGone), and reclaims records the hashes
+	// asked. leftReleased is what ReleaseLeftHolds answers and leftGraces the
+	// grace each call was handed.
+	leftHolds           [][]byte
+	reclaimed           time.Time
+	reclaimGone         bool
+	reclaims            [][]byte
+	leftReleased        []bookingstore.ReleasedHold
+	leftGraces          []time.Duration
 	expiredHoldWindows  []time.Duration
 	complexHoldsDeleted []uuid.UUID
 
@@ -203,6 +214,25 @@ func (s *stubStore) ReleaseHold(_ context.Context, tokenHash []byte) (bookingsto
 		return bookingstore.ReleasedHold{}, false, nil
 	}
 	return bookingstore.ReleasedHold{ComplexID: uuid.New(), Day: time.Now()}, true, nil
+}
+
+func (s *stubStore) RequestHoldRelease(_ context.Context, tokenHash []byte) error {
+	s.holdCalls = append(s.holdCalls, "leave")
+	s.leftHolds = append(s.leftHolds, tokenHash)
+	return nil
+}
+
+func (s *stubStore) ReclaimHold(_ context.Context, tokenHash []byte) (time.Time, error) {
+	s.reclaims = append(s.reclaims, tokenHash)
+	if s.reclaimGone || !bytes.Equal(tokenHash, s.heldHash) {
+		return time.Time{}, bookingstore.ErrHoldNotFound
+	}
+	return s.reclaimed, nil
+}
+
+func (s *stubStore) ReleaseLeftHolds(_ context.Context, grace time.Duration) ([]bookingstore.ReleasedHold, error) {
+	s.leftGraces = append(s.leftGraces, grace)
+	return s.leftReleased, nil
 }
 
 func (s *stubStore) DeleteExpiredHolds(_ context.Context, expiry time.Duration) ([]bookingstore.ReleasedHold, error) {
