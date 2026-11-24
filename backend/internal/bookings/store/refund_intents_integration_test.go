@@ -150,17 +150,7 @@ func TestARefundIntentCauseLivesAndDiesWithItsMarker(t *testing.T) {
 	f := datatest.Isolated(t)
 	ctx := context.Background()
 
-	withCause := func(start, end string) uuid.UUID {
-		t.Helper()
-		b := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: start, EndTime: end})
-		setRefundIntentAt(f, t, b.ID, time.Now().Add(-10*time.Minute))
-		if err := f.Stores.Bookings.SetRefundIntentCause(ctx, b.ID, "late_payment"); err != nil {
-			t.Fatalf("SetRefundIntentCause: %v", err)
-		}
-		return b.ID
-	}
-
-	swept := withCause("08:00", "09:00")
+	swept := cancelledWithCause(f, t, "08:00", "09:00")
 	orphans, err := f.Stores.Bookings.GetRefundIntentOrphans(ctx, 5*time.Minute, 10)
 	if err != nil {
 		t.Fatalf("GetRefundIntentOrphans: %v", err)
@@ -169,19 +159,19 @@ func TestARefundIntentCauseLivesAndDiesWithItsMarker(t *testing.T) {
 		t.Fatalf("the sweep must read the cause next to the marker; got %+v", orphans)
 	}
 
-	claimed := withCause("10:00", "11:00")
+	claimed := cancelledWithCause(f, t, "10:00", "11:00")
 	mpPaymentID := "mp-" + uuid.NewString()
 	payment := f.CreatePayment(t, claimed, 150_000, 7_500, &mpPaymentID)
 	if _, err := f.Stores.Payments.ClaimRefund(ctx, payment.ID); err != nil {
 		t.Fatalf("ClaimRefund: %v", err)
 	}
 
-	cleared := withCause("12:00", "13:00")
+	cleared := cancelledWithCause(f, t, "12:00", "13:00")
 	if err := f.Stores.Bookings.ClearRefundIntent(ctx, cleared); err != nil {
 		t.Fatalf("ClearRefundIntent: %v", err)
 	}
 
-	updated := withCause("14:00", "15:00")
+	updated := cancelledWithCause(f, t, "14:00", "15:00")
 	booking, err := f.Stores.Bookings.GetByID(f.Scoped(ctx), updated)
 	if err != nil {
 		t.Fatalf("GetByID: %v", err)
@@ -210,6 +200,18 @@ func TestARefundIntentCauseLivesAndDiesWithItsMarker(t *testing.T) {
 	if got := readRefundIntentAt(f, t, cleared); got == nil {
 		t.Error("MarkRefundIntent must stand the marker up again for the sweep")
 	}
+}
+
+// cancelledWithCause creates a cancelled booking whose aged marker carries the
+// late_payment cause, as the webhook leaves it when its claim fails.
+func cancelledWithCause(f *datatest.Fixture, t *testing.T, start, end string) uuid.UUID {
+	t.Helper()
+	b := f.CreateBooking(t, datatest.BookingOptions{Status: "cancelled", StartTime: start, EndTime: end})
+	setRefundIntentAt(f, t, b.ID, time.Now().Add(-10*time.Minute))
+	if err := f.Stores.Bookings.SetRefundIntentCause(context.Background(), b.ID, "late_payment"); err != nil {
+		t.Fatalf("SetRefundIntentCause: %v", err)
+	}
+	return b.ID
 }
 
 // setRefundIntentAt writes a specific refund_intent_at value directly, bypassing
