@@ -372,6 +372,13 @@ func NewHandler(svc *Service, provider Provider, respond *httpx.Responder, logge
 // that only proxies the store is deliberate: the point is that the entry point
 // into this domain is the service, so a rule added later lands in one place.
 
+// GetByMPPaymentID reads the ledger row a MercadoPago payment was recorded
+// as, data.ErrRecordNotFound when none was: what the events sweep checks after
+// handing a payment over, to tell a refused payment from a recorded one.
+func (s *Service) GetByMPPaymentID(ctx context.Context, mpPaymentID string) (*paymentstore.Payment, error) {
+	return s.payments.GetByMPPaymentID(ctx, mpPaymentID)
+}
+
 // Insert records a payment. Exported for bookings, which creates the pending
 // MercadoPago row and the owner's cash/transfer rows.
 func (s *Service) Insert(ctx context.Context, p *paymentstore.Payment) error {
