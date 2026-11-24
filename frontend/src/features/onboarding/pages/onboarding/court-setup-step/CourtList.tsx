@@ -1,5 +1,5 @@
 import { CheckCircle2, CircleDashed, Trash2 } from 'lucide-react';
-import { courtDetailsLine } from '@/features/courts';
+import { courtFactsLine } from '@vibe/booking/court-facts';
 import { ES_AR } from '@/shared/i18n/es_AR';
 import { cn } from '@/shared/lib/utils';
 import type { CourtWithPrices } from '@/shared/types/api.types';
@@ -53,8 +53,10 @@ export function CourtList<T extends CourtLike>({
               <p className="text-text-tertiary text-xs">
                 {t.courts.sportTypes[court.sport]} · {t.courts.courtTypes[court.court_type]}
               </p>
-              {courtDetailsLine(court) && (
-                <p className="text-text-tertiary truncate text-xs">{courtDetailsLine(court)}</p>
+              {courtFactsLine({ surface: court.surface, has_lighting: court.has_lighting }) && (
+                <p className="text-text-tertiary truncate text-xs">
+                  {courtFactsLine({ surface: court.surface, has_lighting: court.has_lighting })}
+                </p>
               )}
             </div>
           </div>

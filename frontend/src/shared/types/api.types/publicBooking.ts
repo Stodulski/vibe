@@ -1,6 +1,6 @@
 import type { Amenity } from './complex';
 import type { CourtWithPrices, DurationMinutes } from './court';
-import type { Body, Ok, Spec } from './spec';
+import type { Body, Ok, Open, Spec } from './spec';
 
 // ─── Public Booking ───
 
@@ -77,11 +77,16 @@ export type BookingStatusCancellation = Spec<'PublicBookingStatus'>['cancellatio
  * server that has not been restarted yet answers with just the three. The
  * page falls back (to a locally cached booking, or to hiding the affected
  * block) rather than assume the rest of the shape is there, and
- * `bookingStatusDetailsSchema` parses them as optional to match.
+ * `bookingStatusDetailsSchema` parses them as optional to match. `surface` is
+ * read through {@link Open}, like the slot grid's: a surface this build
+ * predates costs the ticket that one label, not the whole answer.
  */
 export type BookingStatusDetails = Pick<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status'> &
-  Partial<Omit<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status' | 'duration_minutes'>> & {
+  Partial<
+    Omit<Spec<'PublicBookingStatus'>, 'status' | 'collection_status' | 'refund_status' | 'duration_minutes' | 'surface'>
+  > & {
     duration_minutes?: DurationMinutes;
+    surface?: Open<NonNullable<Spec<'PublicBookingStatus'>['surface']>>;
   };
 
 export type BookingStatusResponse = Omit<Ok<'bookingsPublicStatus'>, 'booking'> & { booking: BookingStatusDetails };
@@ -103,15 +108,18 @@ export type RefundMethod = Spec<'PublicCancelInfo'>['refund_method'];
  * Same treatment as {@link BookingStatusDetails}: the fields the in-flight
  * `cancel-info` extension added are read as optional here even though the
  * document now marks them required, so a server that predates it degrades
- * instead of failing its response schema.
+ * instead of failing its response schema. `surface` is open, as on the status answer.
  */
 type CancelInfoBooking = Spec<'PublicCancelInfo'>['booking'];
 
 export type CancelInfoResponse = Omit<Spec<'PublicCancelInfo'>, 'booking' | 'refund_amount' | 'paid_amount'> & {
   booking: Pick<CancelInfoBooking, 'status' | 'date' | 'start_time' | 'court_name' | 'complex_name'> &
     Partial<
-      Omit<CancelInfoBooking, 'status' | 'date' | 'start_time' | 'court_name' | 'complex_name' | 'duration_minutes'>
-    > & { duration_minutes?: DurationMinutes };
+      Omit<
+        CancelInfoBooking,
+        'status' | 'date' | 'start_time' | 'court_name' | 'complex_name' | 'duration_minutes' | 'surface'
+      >
+    > & { duration_minutes?: DurationMinutes; surface?: Open<NonNullable<CancelInfoBooking['surface']>> };
   /** Centavos. Includes the service fee. */
   refund_amount?: number;
   /** Centavos. */

@@ -8,6 +8,7 @@ import type { APIRoute } from 'astro';
 import { PUBLIC_API_URL } from 'astro:env/server';
 import { publicComplexResponseSchema } from '@vibe/booking/complex-response';
 import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+import { courtFactParts } from '@vibe/booking/court-facts';
 import { formatPrice } from '@vibe/ui';
 import { ApiError, API_TIMEOUT_MS, createPublicApi } from '../lib/api.ts';
 import { GONE_CACHE_CONTROL, loadGoneView, type GoneView } from '../lib/complex-gone.ts';
@@ -25,9 +26,7 @@ const labels: ComplexLabels = {
   sport: (key) => (BOOKING_MESSAGES.courts.sportTypes as Record<string, string>)[key] ?? key,
   weekday: (key) => (BOOKING_MESSAGES.complex.days as Record<string, string>)[key] ?? key,
   amenity: (key) => (BOOKING_MESSAGES.complex.amenities as Record<string, string>)[key] ?? key,
-  courtType: (key) => (BOOKING_MESSAGES.courts.courtTypes as Record<string, string>)[key] ?? key,
-  surface: (key) => (BOOKING_MESSAGES.courts.surfaces as Record<string, string>)[key] ?? key,
-  lighting: BOOKING_MESSAGES.courts.withLighting,
+  courtFacts: courtFactParts,
   price: (cents) => formatPrice(cents),
 };
 

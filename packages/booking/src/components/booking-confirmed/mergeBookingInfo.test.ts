@@ -74,4 +74,10 @@ describe('mergeBookingInfo', () => {
     expect(merged?.startsAt).toBe('2026-03-18T23:00:00-03:00');
     expect(merged?.endsAt).toBe('2026-03-19T01:00:00-03:00');
   });
+
+  it('takes the court surface and lighting from the live answer', () => {
+    const merged = mergeBookingInfo({ ...details, court_type: 'indoor', surface: 'clay', has_lighting: true }, cached);
+
+    expect(merged).toMatchObject({ courtType: 'indoor', surface: 'clay', hasLighting: true });
+  });
 });

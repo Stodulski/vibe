@@ -1,4 +1,5 @@
 import { useId, useState } from 'react';
+import { courtFactsLine } from '@vibe/booking/court-facts';
 import { SectionFooter } from '@/shared/components/common/SectionFooter';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/components/ui/select';
 import { ES_AR } from '@/shared/i18n/es_AR';
@@ -20,7 +21,10 @@ function conflictTag(conflict: BookingSeriesConflict): string {
 /** Radix takes no empty value on an item, so "no reservar ese día" is this stand-in value. */
 const SKIP_DAY = '__skip_day__';
 
-/** The selector of one date: the app's Select, offering "no reservar ese día" and then the courts free that day. */
+/**
+ * The selector of one date: the app's Select, offering "no reservar ese día" and then the courts
+ * free that day, each with its roof, surface and lighting, the facts the server ranked them by.
+ */
 function CourtSelect({
   conflict,
   labelledBy,
@@ -48,11 +52,15 @@ function CourtSelect({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value={SKIP_DAY}>{s.skipDayOption}</SelectItem>
-          {(conflict.free_courts ?? []).map((court) => (
-            <SelectItem key={court.court_id} value={court.court_id}>
-              {keepTogether(court.court_name)}
-            </SelectItem>
-          ))}
+          {(conflict.free_courts ?? []).map((court) => {
+            const facts = courtFactsLine(court);
+            return (
+              <SelectItem key={court.court_id} value={court.court_id}>
+                {keepTogether(court.court_name)}
+                {facts && <span className="text-text-tertiary"> · {facts}</span>}
+              </SelectItem>
+            );
+          })}
         </SelectContent>
       </Select>
     </div>

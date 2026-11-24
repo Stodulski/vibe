@@ -24,6 +24,7 @@ const selection: SelectedSlot = {
   courtName: 'Cancha 1',
   sport: 'padel',
   courtType: 'indoor',
+  hasLighting: false,
   slot: { start_time: '10:00', end_time: '11:00', start_min: 600, duration_minutes: 60, price: 5000, available: true },
   durationMinutes: 60,
   totalPrice: 5000,

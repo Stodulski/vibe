@@ -26,6 +26,9 @@ const sinBuild = !existsSync(DIST) && 'needs `pnpm build` first';
 type Pasos = Extract<Bloque, { tipo: 'pasos' }>;
 const pasosDe = (bloques: Bloque[]) => bloques.filter((b): b is Pasos => b.tipo === 'pasos').flatMap(b => b.pasos);
 const conPasos = () => tutoriales.filter(t => pasosDe(t.bloques).length > 0);
+type Paso = ReturnType<typeof pasosDe>[number];
+/* A step may wait text-only for a new capture (see Paso.imagen); every other check is about the captures. */
+const conCaptura = (p: Paso): p is Paso & { imagen: NonNullable<Paso['imagen']> } => p.imagen !== undefined;
 
 /** Width and height read from the file header, PNG or WebP. */
 function medidas(file: URL): [number, number] {
@@ -57,8 +60,9 @@ test('the rewritten tutorials are told as numbered steps', () => {
 test('every step has a title, a text, an alt and a capture whose files exist at the declared size', () => {
   const pasos = pasosDe(getTutorial(SLUG)?.bloques ?? []);
   assert.equal(pasos.length, 6); // one step per marker in the captures
-  for (const p of pasosDe(tutoriales.flatMap(t => t.bloques))) {
-    assert.ok(p.titulo.trim() && p.texto.trim() && p.imagen.alt.trim(), p.titulo);
+  for (const p of pasosDe(tutoriales.flatMap(t => t.bloques))) assert.ok(p.titulo.trim() && p.texto.trim(), p.titulo);
+  for (const p of pasosDe(tutoriales.flatMap(t => t.bloques)).filter(conCaptura)) {
+    assert.ok(p.imagen.alt.trim(), p.titulo);
     assert.match(p.imagen.src, /^\/tutoriales\/pasos\/[a-z0-9-]+\/[a-z0-9-]+$/);
     for (const ext of ['webp']) {
       const file = new URL(`.${p.imagen.src}.${ext}`, PUBLIC);
@@ -87,7 +91,7 @@ test('a tutorial with steps lists them in its Article, numbered, each with its a
   const pasos = pasosDe(t.bloques);
   assert.deepEqual(
     lista.itemListElement.map((s: Record<string, unknown>) => [s['@type'], s.position, s.name, s.description, s.image]),
-    pasos.map((p, i) => ['ListItem', i + 1, p.titulo, p.texto, `https://vibe.com.ar${p.imagen.src}.webp`]),
+    pasos.map((p, i) => ['ListItem', i + 1, p.titulo, p.texto, p.imagen && `https://vibe.com.ar${p.imagen.src}.webp`]),
     t.slug,
   );
   }
@@ -105,7 +109,7 @@ test('no tutorial ships a HowTo (Google retired it) and one without steps has no
 });
 
 test('each step zooms into its marker with a crop on disk, narrow enough for a phone', () => {
-  for (const p of conPasos().flatMap(t => pasosDe(t.bloques))) {
+  for (const p of conPasos().flatMap(t => pasosDe(t.bloques)).filter(conCaptura)) {
     const r = p.imagen.recorte;
     assert.ok(r, `step without crop: ${p.titulo}`);
     // Shown at up to its natural size in a ~288px phone column: wider crops shrink past legible.
@@ -126,6 +130,7 @@ test('the built page renders each step with its number, title, text and a lazy s
   pasos.forEach((p, i) => {
     assert.ok(html.includes(`Paso ${i + 1}`), `Paso ${i + 1}`);
     assert.ok(html.includes(p.titulo), p.titulo);
+    if (!conCaptura(p)) return;
     // The page shows the zoomed crop around the step's markers; a tap opens the whole capture.
     const vista = p.imagen.recorte ?? p.imagen;
     const img = html.match(new RegExp(`<img[^>]*src="${vista.src}\\.webp"[^>]*>`))?.[0];
@@ -145,7 +150,7 @@ test('the Markdown twin lists each step as a heading with its text and absolute 
   pasosDe(t.bloques).forEach((p, i) => {
     assert.ok(md.includes(`### Paso ${i + 1}. ${p.titulo}`), `heading of step ${i + 1}`);
     assert.ok(md.includes(p.texto), `text of step ${i + 1}`);
-    assert.ok(md.includes(`![${p.imagen.alt}](https://vibe.com.ar${p.imagen.src}.webp)`), `capture of step ${i + 1}`);
+    if (conCaptura(p)) assert.ok(md.includes(`![${p.imagen.alt}](https://vibe.com.ar${p.imagen.src}.webp)`), `capture of step ${i + 1}`);
   });
   }
 });
@@ -171,4 +176,16 @@ test('step captures ship as WebP only, with no PNG copies', () => {
   const dir = new URL('./tutoriales/pasos/', PUBLIC);
   const pngs = readdirSync(dir, { recursive: true }).map(String).filter(f => f.endsWith('.png'));
   assert.deepEqual(pngs, []);
+});
+
+test('a step waiting for a new capture is listed without an image and its page shows no capture for it', () => {
+  const t = getTutorial('agregar-y-editar-canchas');
+  assert.ok(t);
+  const pasos = pasosDe(t.bloques);
+  const sinCaptura = pasos.findIndex(p => !conCaptura(p));
+  assert.ok(sinCaptura >= 0, 'expected the step whose capture showed the removed court description to be text-only');
+  const articulo = tutorialJsonLd(t).map(b => JSON.parse(b)).find(b => b['@type'] === 'Article');
+  const item = articulo.hasPart.itemListElement[sinCaptura];
+  assert.equal(item.name, pasos[sinCaptura]!.titulo);
+  assert.equal('image' in item, false);
 });

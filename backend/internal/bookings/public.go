@@ -297,6 +297,12 @@ func toGenPublicBookingStatus(view StatusView) gen.PublicBookingStatus {
 	}
 	out.CourtName = court.Name
 	out.CourtType = gen.PublicBookingStatusCourtType(court.CourtType)
+	hasLighting := court.HasLighting
+	out.HasLighting = &hasLighting
+	if court.Surface != nil {
+		surface := gen.PublicBookingStatusSurface(*court.Surface)
+		out.Surface = &surface
+	}
 	out.Date = openapi_types.Date{Time: booking.Date}
 	out.DepositAmount = booking.DepositAmount
 	out.DurationMinutes = booking.DurationMinutes
@@ -343,6 +349,7 @@ func publicStatusEnvelope(v gen.PublicBookingStatus) httpx.Envelope {
 		"court_name":        v.CourtName,
 		"sport":             v.Sport,
 		"court_type":        v.CourtType,
+		"has_lighting":      v.HasLighting != nil && *v.HasLighting,
 		"date":              v.Date,
 		"start_time":        v.StartTime,
 		"starts_at":         v.StartsAt.Format(time.RFC3339),
@@ -356,6 +363,9 @@ func publicStatusEnvelope(v gen.PublicBookingStatus) httpx.Envelope {
 	}
 	if v.ComplexPhone != nil {
 		bookingEnvelope["complex_phone"] = *v.ComplexPhone
+	}
+	if v.Surface != nil {
+		bookingEnvelope["surface"] = *v.Surface
 	}
 
 	return httpx.Envelope{"booking": bookingEnvelope}
@@ -392,6 +402,12 @@ func toGenPublicCancelInfo(view CancelInfoView) gen.PublicCancelInfo {
 	out.Booking.ComplexName = complex.Name
 	out.Booking.CourtName = court.Name
 	out.Booking.CourtType = gen.PublicCancelInfoBookingCourtType(court.CourtType)
+	hasLighting := court.HasLighting
+	out.Booking.HasLighting = &hasLighting
+	if court.Surface != nil {
+		surface := gen.PublicCancelInfoBookingSurface(*court.Surface)
+		out.Booking.Surface = &surface
+	}
 	out.Booking.Date = openapi_types.Date{Time: booking.Date}
 	out.Booking.DurationMinutes = booking.DurationMinutes
 	out.Booking.EndsAt = booking.EndsAt
@@ -429,10 +445,14 @@ func publicCancelInfoEnvelope(v gen.PublicCancelInfo) httpx.Envelope {
 		"court_name":       v.Booking.CourtName,
 		"sport":            v.Booking.Sport,
 		"court_type":       v.Booking.CourtType,
+		"has_lighting":     v.Booking.HasLighting != nil && *v.Booking.HasLighting,
 		"complex_name":     v.Booking.ComplexName,
 	}
 	if v.Booking.ComplexAddress != nil {
 		bookingEnvelope["complex_address"] = *v.Booking.ComplexAddress
+	}
+	if v.Booking.Surface != nil {
+		bookingEnvelope["surface"] = *v.Booking.Surface
 	}
 
 	return httpx.Envelope{

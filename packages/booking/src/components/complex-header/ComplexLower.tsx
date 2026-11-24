@@ -1,4 +1,4 @@
-import { lazy, Suspense, useContext } from 'react';
+import { lazy, Suspense, useContext, useId } from 'react';
 import { ErrorBoundary, Skeleton } from '@vibe/ui';
 import { ExternalLink } from 'lucide-react';
 import type { PublicComplex } from '../../api/types';
@@ -16,35 +16,54 @@ function googleMapsSearchUrl(latitude: number, longitude: number) {
   return `https://www.google.com/maps/search/?api=1&query=${String(latitude)},${String(longitude)}`;
 }
 
+/** The owner's description of the club, as plain text with the line breaks they typed. */
+function ComplexAbout({ description, className }: { description: string; className?: string | undefined }) {
+  const aboutId = useId();
+  return (
+    <section aria-labelledby={aboutId} className={className}>
+      <h2 id={aboutId} className="sr-only">
+        {t.complex.aboutSection}
+      </h2>
+      <p className="text-text-secondary text-sm leading-relaxed whitespace-pre-line">{description}</p>
+    </section>
+  );
+}
+
 /**
- * The services and the location of the club: what a visitor checks once the
- * hours are known.
+ * The owner's description of the club, its services and its location: what a
+ * visitor checks once the hours are known. The description is the one the
+ * owner writes in Configuración, which promises it is shown on this page.
  *
  * The page renders it once, after the booking, at every width. Its place in
  * the markup is its place on screen and in the focus order, so no CSS moves it.
  *
- * Renders nothing when the club has neither services nor coordinates.
+ * Renders nothing when the club has no description, no services and no coordinates.
  *
- * `divided` draws a rule above the services: the caller sets it when what
+ * `divided` draws a rule above the first block: the caller sets it when what
  * comes before is not a card.
  */
 export function ComplexLower({ complex, divided = false }: { complex: PublicComplex; divided?: boolean }) {
   const hasAmenities = orderedAmenities(complex.amenities).length > 0;
   const hasMap = complex.latitude != null && complex.longitude != null;
+  const description = complex.description?.trim() ?? '';
   // Optional: this also renders on its own (tests, previews), without a BookingRoot.
   const reportError = useContext(BookingConfigContext)?.reportError;
   // Leaflet touches `window` when it loads, so the map is requested only after
   // mount. The server markup and the first client render both show the skeleton.
   const mapMounted = useHasMounted();
 
-  if (!hasAmenities && !hasMap) return null;
+  if (!description && !hasAmenities && !hasMap) return null;
+
+  // A rule above the first block only when asked: after the hour grid it marks
+  // where the booking ends; after a card, the card's own edge already does.
+  const rule = divided ? 'border-border-subtle border-t pt-5' : undefined;
 
   return (
     <div className="mt-6 sm:mt-10">
+      {description && <ComplexAbout description={description} className={rule} />}
+
       {hasAmenities && (
-        // A rule above only when asked: after the hour grid it marks where the
-        // booking ends; after a card, the card's own edge already does.
-        <section className={divided ? 'border-border-subtle border-t pt-5' : undefined}>
+        <section className={description ? 'mt-6' : rule}>
           <h2 className="sr-only">{t.complex.amenitiesSection}</h2>
           <AmenityList amenities={complex.amenities} />
         </section>

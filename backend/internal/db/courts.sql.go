@@ -145,7 +145,7 @@ type InsertCourtParams struct {
 
 // Every court query names its columns instead of using *: sqlc expands * into
 // the column list at generation time, so a * silently binds the code to
-// whatever columns existed then (034 dropped courts.description this way).
+// whatever columns existed then (035 dropped courts.description this way).
 func (q *Queries) InsertCourt(ctx context.Context, arg InsertCourtParams) (Court, error) {
 	row := q.db.QueryRow(ctx, insertCourt,
 		arg.ComplexID,

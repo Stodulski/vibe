@@ -15,6 +15,8 @@ export function buildConfirmState(
     courtName: selectedSlot.courtName,
     sport: selectedSlot.sport,
     courtType: selectedSlot.courtType,
+    ...(selectedSlot.surface ? { surface: selectedSlot.surface } : {}),
+    hasLighting: selectedSlot.hasLighting,
     date: dateStr,
     startTime: selectedSlot.slot.start_time,
     endTime: selectedSlot.endTime,

@@ -19,4 +19,3 @@ export { isFixedBookingConflict } from './lib/fixedBookingConflict';
 export { isOpenPlayEventConflict } from './lib/openPlayEventConflict';
 export { isTournamentMatchConflict } from './lib/tournamentMatchConflict';
 export { onlineHoldMessage } from './lib/onlineHoldConflict';
-export { courtDetailsLine } from './lib/courtDetails';

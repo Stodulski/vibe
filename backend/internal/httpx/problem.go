@@ -139,10 +139,14 @@ type Problem struct {
 	Conflicts []DateConflict `json:"conflicts,omitempty"`
 }
 
-// FreeCourt is another court that is free on a conflict date.
+// FreeCourt is another court that is free on a conflict date, with the facts
+// the owner compares it by: roof, surface (omitted when unknown) and lighting.
 type FreeCourt struct {
-	CourtID   string `json:"court_id"`
-	CourtName string `json:"court_name"`
+	CourtID     string  `json:"court_id"`
+	CourtName   string  `json:"court_name"`
+	CourtType   string  `json:"court_type"`
+	Surface     *string `json:"surface,omitempty"`
+	HasLighting bool    `json:"has_lighting"`
 }
 
 // DateConflict is one calendar date a request could not be honoured on, and why.

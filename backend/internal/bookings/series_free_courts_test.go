@@ -243,3 +243,50 @@ func TestDateCourtsMustNameAConflictDateAndACourtOfTheSameSport(t *testing.T) {
 		}
 	}
 }
+
+// The owner picks the other court by what it is like, so each free court comes
+// with its roof, surface and lighting, the facts the ranking compared.
+func TestAFreeCourtCarriesItsRoofSurfaceAndLighting(t *testing.T) {
+	f := newSeriesFixture(t)
+	f.courts.court.Sport = "padel"
+	f.courts.all = []*courtstore.Court{f.courts.court}
+	first := f.day(3)
+	clash := first.AddDate(0, 0, 14)
+	f.occupy(clash, "18:30", 60)
+	clay := "clay"
+	lit := f.altCourt("Court 2", func(c *courtstore.Court) {
+		c.CourtType, c.Surface, c.HasLighting = "indoor", &clay, true
+	})
+	dark := f.altCourt("Court 3", func(c *courtstore.Court) {
+		c.CourtType, c.Surface, c.HasLighting = "outdoor", nil, false
+	})
+
+	w := f.create(t, first, "")
+	if w.Code != http.StatusConflict {
+		t.Fatalf("want 409, got %d (%s)", w.Code, w.Body.String())
+	}
+	var problem struct {
+		Conflicts []struct {
+			FreeCourts []map[string]any `json:"free_courts"`
+		} `json:"conflicts"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &problem); err != nil {
+		t.Fatal(err)
+	}
+	if len(problem.Conflicts) != 1 {
+		t.Fatalf("want one conflict; got %s", w.Body.String())
+	}
+	byID := map[string]map[string]any{}
+	for _, c := range problem.Conflicts[0].FreeCourts {
+		id, _ := c["court_id"].(string)
+		byID[id] = c
+	}
+	got := byID[lit.ID.String()]
+	if got["court_type"] != "indoor" || got["surface"] != "clay" || got["has_lighting"] != true {
+		t.Errorf("Court 2: want indoor, clay, lit; got %v", got)
+	}
+	got = byID[dark.ID.String()]
+	if _, hasSurface := got["surface"]; got["court_type"] != "outdoor" || hasSurface || got["has_lighting"] != false {
+		t.Errorf("Court 3: want outdoor, no surface, unlit; got %v", got)
+	}
+}

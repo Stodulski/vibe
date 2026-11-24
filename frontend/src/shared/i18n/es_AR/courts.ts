@@ -1,3 +1,5 @@
+import { BOOKING_MESSAGES } from '@vibe/booking/messages';
+
 export const courts = {
   title: 'Canchas',
   pageDescription: 'Administrá las canchas de tu complejo',
@@ -45,26 +47,15 @@ export const courts = {
     hockey: 'Hockey',
     pickleball: 'Pickleball',
   },
-  courtTypes: {
-    indoor: 'Techada',
-    outdoor: 'Descubierta',
-    semi_covered: 'Semi cubierta',
-  },
+  // The roof, surface and lighting labels are the booking package's, so the panel
+  // names a court's facts exactly as the storefront and the landing do.
+  courtTypes: BOOKING_MESSAGES.courts.courtTypes,
   surface: 'Superficie',
   surfaceUnspecified: 'Sin especificar',
-  surfaces: {
-    synthetic_grass: 'Césped sintético',
-    natural_grass: 'Césped natural',
-    clay: 'Polvo de ladrillo',
-    concrete: 'Cemento',
-    parquet: 'Parquet',
-    synthetic_floor: 'Piso sintético',
-    sand: 'Arena',
-    rubber: 'Goma',
-  },
-  lighting: 'Iluminación',
+  surfaces: BOOKING_MESSAGES.courts.surfaces,
+  lighting: BOOKING_MESSAGES.courts.lighting,
   hasLighting: 'Tiene iluminación',
-  withLighting: 'Con iluminación',
+  withLighting: BOOKING_MESSAGES.courts.withLighting,
   dayTypes: {},
   applyToAll: 'Aplicar a todos',
   pricesAppliedToAll: 'Precios aplicados a todos los días',

@@ -17,6 +17,7 @@
     "./payment-failed": "./src/entries/payment-failed.tsx",
     "./config": "./src/config.ts",
     "./messages": "./src/messages.ts",
+    "./court-facts": "./src/lib/courtFacts.ts",
     "./complex-query": "./src/hooks/useComplexBySlug.ts",
     "./complex-schema": "./src/pages/complex-page/schema.ts",
     "./complex-response": "./src/schemas/publicBooking.schema.ts",

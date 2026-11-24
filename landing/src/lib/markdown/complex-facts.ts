@@ -40,10 +40,12 @@ export interface ComplexLabels {
   sport(key: string): string;
   weekday(key: string): string;
   amenity(key: string): string;
-  courtType(key: string): string;
-  surface(key: string): string;
-  /** The lighting fact as the booking page words it, "Con iluminación". */
-  lighting: string;
+  /**
+   * A court's facts in reading order (roof, surface, lighting), each one only when known.
+   * The endpoint passes the booking package's courtFactParts, the one renderer every
+   * surface uses, so the twin words a court exactly as the booking page does.
+   */
+  courtFacts(court: { court_type?: string; surface?: string | null; has_lighting?: boolean }): string[];
   /** Formats an amount in cents, as the booking page does. */
   price(cents: number): string;
 }
@@ -127,20 +129,11 @@ export function complexFactsOf(slug: string, payload: ComplexPayload, labels: Co
       })),
     prices: priceLines(active, labels),
     courts: active.flatMap((court) => {
-      const facts = courtFacts(court, labels);
+      const facts = labels.courtFacts(court).join(' · ');
       return facts === '' ? [] : [{ name: court.name, sport: labels.sport(court.sport), facts }];
     }),
     amenities: complex.amenities.map((amenity) => labels.amenity(amenity)).filter((label) => label !== ''),
   };
-}
-
-/** The roof type always (when the payload has one), the surface when set, the lighting when true. */
-function courtFacts(court: ComplexPayload['courts'][number], labels: ComplexLabels): string {
-  const parts: string[] = [];
-  if (court.court_type) parts.push(labels.courtType(court.court_type));
-  if (court.surface) parts.push(labels.surface(court.surface));
-  if (court.has_lighting) parts.push(labels.lighting);
-  return parts.filter((part) => part !== '').join(' · ');
 }
 
 /**

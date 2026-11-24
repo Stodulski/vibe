@@ -93,6 +93,8 @@ export interface PublicComplex {
   logo_url?: string;
   cover_url?: string;
   description?: string;
+  /** The city hub the complex lists under, /canchas/<city_slug>; absent when it has none. */
+  city_slug?: string;
   /** The bare Instagram handle, without the `@`. */
   instagram?: string;
   deposit_percentage: number;
@@ -283,6 +285,9 @@ export interface BookingStatusDetails {
   court_name?: string;
   sport?: Sport;
   court_type?: CourtType;
+  /** Absent when the owner has not said, and from a server that predates it. Open: a surface this build predates still renders. */
+  surface?: Open<CourtSurface>;
+  has_lighting?: boolean;
   date?: string;
   start_time?: string;
   starts_at?: string;
@@ -315,6 +320,9 @@ export interface CancelInfoBooking {
   complex_name: string;
   sport?: Sport;
   court_type?: CourtType;
+  /** Absent when the owner has not said, and from a server that predates it. Open: a surface this build predates still renders. */
+  surface?: Open<CourtSurface>;
+  has_lighting?: boolean;
   starts_at?: string;
   ends_at?: string;
   duration_minutes?: DurationMinutes;

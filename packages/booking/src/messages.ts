@@ -110,9 +110,6 @@ export const BOOKING_MESSAGES = {
     cancelInfoLoadErrorDescription: 'Hubo un problema de conexión. Probá de nuevo.',
     selectDate: 'Elegí la fecha',
     dateStripLabel: 'Fecha',
-    indoor: 'Techada',
-    outdoor: 'Descubierta',
-    semi_covered: 'Semi cubierta',
     summary: 'Tu reserva',
     slots: 'Turnos',
     slot: 'turno',
@@ -212,6 +209,7 @@ export const BOOKING_MESSAGES = {
   waitlist: WAITLIST_MESSAGES,
   complex: {
     amenitiesSection: 'Servicios',
+    aboutSection: 'Sobre el complejo',
     amenities: {
       parking: 'Estacionamiento',
       changing_rooms: 'Vestuarios',

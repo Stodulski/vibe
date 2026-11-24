@@ -103,6 +103,7 @@ const selection: SelectedSlot = {
   courtName: 'Cancha 1',
   sport: 'padel',
   courtType: 'indoor',
+  hasLighting: false,
   slot: firstSlot,
   durationMinutes: firstSlot.duration_minutes,
   totalPrice: firstSlot.price,
@@ -187,7 +188,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     const user = userEvent.setup();
     const mixed = [
       court('court-1', 'Cancha 1', 'indoor', [slot('08:00', '09:30', 500000)]),
-      court('court-2', 'Cancha 2', 'outdoor', [slot('08:00', '09:30', 400000)]),
+      { ...court('court-2', 'Cancha 2', 'outdoor', [slot('08:00', '09:30', 400000)]), surface: 'clay', has_lighting: true },
     ];
     render(<Harness {...defaultProps} courts={mixed} />);
 
@@ -200,7 +201,7 @@ describe('CourtSelector — the court is always asked after the hour', () => {
     // One tap brings Cancha 2 to the center, the next books it.
     for (const _tap of [1, 2]) await user.click(screen.getByRole('button', { name: /^Cancha\s2\b/ }));
     expect(defaultProps.onSelect).toHaveBeenCalledWith(
-      expect.objectContaining({ courtId: 'court-2', courtType: 'outdoor' }),
+      expect.objectContaining({ courtId: 'court-2', courtType: 'outdoor', surface: 'clay', hasLighting: true }),
     );
   });
 });

@@ -111,3 +111,27 @@ describe('ComplexLower map', () => {
     expect(screen.getByText(BOOKING_MESSAGES.complex.amenities.parking)).toBeInTheDocument();
   });
 });
+
+describe('ComplexLower description', () => {
+  it("shows the owner's description of the club, line breaks kept, before the services", () => {
+    render(
+      <ComplexLower
+        complex={makeComplex({ description: 'Cuatro canchas de blindex.\nBar con parrilla.', amenities: ['parking'] })}
+      />,
+    );
+
+    const about = screen.getByRole('region', { name: BOOKING_MESSAGES.complex.aboutSection });
+    expect(about).toHaveTextContent('Cuatro canchas de blindex. Bar con parrilla.');
+    expect(about.querySelector('p')?.textContent).toBe('Cuatro canchas de blindex.\nBar con parrilla.');
+    const services = screen.getByRole('heading', { name: BOOKING_MESSAGES.complex.amenitiesSection });
+    expect(about.compareDocumentPosition(services) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('shows the description even when the club lists no services and no map, and nothing for a blank one', () => {
+    const { container, rerender } = render(<ComplexLower complex={makeComplex({ description: 'Pádel en Rosario.' })} />);
+    expect(screen.getByText('Pádel en Rosario.')).toBeInTheDocument();
+
+    rerender(<ComplexLower complex={makeComplex({ description: '   ' })} />);
+    expect(container).toBeEmptyDOMElement();
+  });
+});

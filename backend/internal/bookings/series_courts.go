@@ -99,7 +99,9 @@ func (s *Service) seriesFreeCourts(ctx context.Context, ser *Series, conflicts [
 		}
 		for i := range conflicts {
 			if free[seriesDay(conflicts[i].Date)] {
-				conflicts[i].FreeCourts = append(conflicts[i].FreeCourts, CourtRef{CourtID: c.ID, CourtName: c.Name})
+				conflicts[i].FreeCourts = append(conflicts[i].FreeCourts, CourtRef{
+					CourtID: c.ID, CourtName: c.Name, CourtType: c.CourtType, Surface: c.Surface, HasLighting: c.HasLighting,
+				})
 			}
 		}
 	}

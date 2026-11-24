@@ -284,7 +284,10 @@ func (h *Handler) refuseSeriesConflicts(w http.ResponseWriter, r *http.Request, 
 	for i, c := range conflicts.Conflicts {
 		free := make([]httpx.FreeCourt, len(c.FreeCourts))
 		for j, f := range c.FreeCourts {
-			free[j] = httpx.FreeCourt{CourtID: f.CourtID.String(), CourtName: f.CourtName}
+			free[j] = httpx.FreeCourt{
+				CourtID: f.CourtID.String(), CourtName: f.CourtName,
+				CourtType: f.CourtType, Surface: f.Surface, HasLighting: f.HasLighting,
+			}
 		}
 		out[i] = httpx.DateConflict{Date: c.Date.Format(time.DateOnly), Reason: c.Reason, HeldBy: c.HeldBy, FreeCourts: free}
 	}

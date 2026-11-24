@@ -61,6 +61,9 @@ export const bookingInfoSchema = z.object({
   complexAddress: z.string().optional(),
   sport: z.enum(SPORTS).optional(),
   courtType: z.enum(COURT_TYPES).optional(),
+  /** Loose like the court picker's: a surface this build predates still shows, as sent. */
+  surface: z.string().optional(),
+  hasLighting: z.boolean().optional(),
   /** Centavos. */
   serviceFee: z.number().optional(),
   /** Centavos. */

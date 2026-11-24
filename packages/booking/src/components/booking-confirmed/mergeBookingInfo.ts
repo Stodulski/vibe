@@ -63,6 +63,8 @@ export function mergeBookingInfo(
     complexAddress: details?.complex_address ?? cached?.complexAddress,
     sport: details?.sport ?? cached?.sport,
     courtType: details?.court_type ?? cached?.courtType,
+    surface: details?.surface ?? cached?.surface,
+    hasLighting: details?.has_lighting ?? cached?.hasLighting,
     serviceFee: details?.service_fee ?? cached?.serviceFee,
     remainingAmount: details?.remaining_amount ?? cached?.remainingAmount ?? price - depositAmount,
     cancellation: details?.cancellation

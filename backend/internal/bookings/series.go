@@ -103,10 +103,13 @@ type SeriesConflict struct {
 	FreeCourts []CourtRef
 }
 
-// CourtRef names a court.
+// CourtRef names a court and the facts an owner tells courts apart by.
 type CourtRef struct {
-	CourtID   uuid.UUID
-	CourtName string
+	CourtID     uuid.UUID
+	CourtName   string
+	CourtType   string
+	Surface     *string
+	HasLighting bool
 }
 
 // SeriesDateCourt is a date of the series the owner books on another court:

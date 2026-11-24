@@ -3332,11 +3332,24 @@ export interface components {
       /** @description Present on the `409` that refuses a series: the other active courts of the same complex and sport that are free that date at the series' hours, the most alike the chosen court first (same surface, covered or open, lighting). Empty when none is free. Absent from `skipped`. */
       free_courts?: components['schemas']['BookingSeriesFreeCourt'][];
     };
-    /** @description A court that is free on a date of a fixed weekly booking. */
+    /** @description A court that is free on a date of a fixed weekly booking, with the facts the ranking compares so the owner can tell the options apart. */
     BookingSeriesFreeCourt: {
       /** Format: uuid */
       court_id: string;
       court_name: string;
+      /**
+       * @description Sent by every current server.
+       * @enum {string}
+       */
+      court_type?: 'indoor' | 'outdoor' | 'semi_covered';
+      /** @description Sent by every current server. */
+      has_lighting?: boolean;
+      /**
+       * @description Playing surface; omitted when the owner has not said.
+       * @enum {string}
+       */
+      surface?:
+        'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
     };
     /** @description One upcoming date of a series. */
     BookingSeriesUpcoming: {
@@ -4021,6 +4034,14 @@ export interface components {
       sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
       /** @enum {string} */
       court_type: 'indoor' | 'outdoor' | 'semi_covered';
+      /** @description Whether the court has lights. Sent by every current server. */
+      has_lighting?: boolean;
+      /**
+       * @description Playing surface; omitted when the owner has not said.
+       * @enum {string}
+       */
+      surface?:
+        'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
       /** Format: date */
       date: string;
       start_time: string;
@@ -4061,6 +4082,14 @@ export interface components {
         sport: 'padel' | 'tennis' | 'soccer' | 'basketball' | 'volleyball' | 'hockey' | 'pickleball';
         /** @enum {string} */
         court_type: 'indoor' | 'outdoor' | 'semi_covered';
+        /** @description Whether the court has lights. Sent by every current server. */
+        has_lighting?: boolean;
+        /**
+         * @description Playing surface; omitted when the owner has not said.
+         * @enum {string}
+         */
+        surface?:
+          'synthetic_grass' | 'natural_grass' | 'clay' | 'concrete' | 'parquet' | 'synthetic_floor' | 'sand' | 'rubber';
         complex_name: string;
         complex_address?: string;
       };

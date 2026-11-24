@@ -12,6 +12,7 @@ const selectedSlot: SelectedSlot = {
   courtName: 'Cancha 1',
   sport: 'padel',
   courtType: 'indoor',
+  hasLighting: false,
   slot: {
     start_time: '10:00',
     end_time: '11:00',
