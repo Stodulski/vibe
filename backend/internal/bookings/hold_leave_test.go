@@ -38,27 +38,21 @@ func TestLeaveHoldAsksForADeferredReleaseAndFreesNothingYet(t *testing.T) {
 }
 
 func TestReclaimHold(t *testing.T) {
-	t.Run("hands the hold back with the window it already had", func(t *testing.T) {
+	t.Run("hands the hold back and answers an empty 204", func(t *testing.T) {
 		f := newFixture(t)
-		createdAt := time.Now().Add(-4 * time.Minute).Truncate(time.Second)
 		f.store.heldHash = bookingstore.HashHoldToken("some-token")
-		f.store.reclaimed = createdAt
+		f.store.reclaimed = time.Now().Add(-4 * time.Minute)
 
 		w := httptest.NewRecorder()
 		f.handler.ReclaimHold(w, publicRequest(t, http.MethodPost, "/", ""), "some-token")
 
-		if w.Code != http.StatusOK {
-			t.Fatalf("want 200; got %d (%s)", w.Code, w.Body.String())
+		// The page keeps the deadline it already has: a reclaim never extends
+		// the hold, so there is nothing new to tell it.
+		if w.Code != http.StatusNoContent || w.Body.Len() != 0 {
+			t.Fatalf("want an empty 204; got %d (%s)", w.Code, w.Body.String())
 		}
 		if len(f.store.reclaims) != 1 || !bytes.Equal(f.store.reclaims[0], f.store.heldHash) {
 			t.Fatalf("want the hold reclaimed by hash; got %v", f.store.reclaims)
-		}
-		hold, _ := decode(t, w)["hold"].(map[string]any)
-		// Never extended: the hold ends one payment window after it started,
-		// exactly as it would have had the visitor never left.
-		want := createdAt.Add(15 * time.Minute).UTC().Format(time.RFC3339)
-		if hold["expires_at"] != want {
-			t.Errorf("want expires_at %s; got %v", want, hold["expires_at"])
 		}
 		if w.Header().Get("Cache-Control") != "no-store" {
 			t.Errorf("want Cache-Control no-store; got %q", w.Header().Get("Cache-Control"))

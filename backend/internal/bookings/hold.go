@@ -204,20 +204,20 @@ func (s *Service) LeaveHold(ctx context.Context, token string) {
 
 // ReclaimHold takes back the hold a token names for a visitor who returned to
 // the page, calling off the release their leaving asked for. The hold ends
-// when it always did: nothing here extends it. A hold that is no longer live
-// is ErrHoldExpired, and the storefront sends the visitor back to the hours.
-func (s *Service) ReclaimHold(ctx context.Context, token string) (Hold, error) {
+// when it always did: nothing here extends it, so the page keeps the deadline
+// it already shows. A hold that is no longer live is ErrHoldExpired, and the
+// storefront sends the visitor back to the hours.
+func (s *Service) ReclaimHold(ctx context.Context, token string) error {
 	if len(token) > maxHoldTokenLength {
-		return Hold{}, ErrHoldExpired
+		return ErrHoldExpired
 	}
-	createdAt, err := s.store.ReclaimHold(ctx, bookingstore.HashHoldToken(token))
-	if err != nil {
+	if _, err := s.store.ReclaimHold(ctx, bookingstore.HashHoldToken(token)); err != nil {
 		if errors.Is(err, bookingstore.ErrHoldNotFound) {
-			return Hold{}, ErrHoldExpired
+			return ErrHoldExpired
 		}
-		return Hold{}, err
+		return err
 	}
-	return Hold{Token: token, ExpiresAt: createdAt.Add(s.cfg.PaymentExpiry)}, nil
+	return nil
 }
 
 // ReleaseLeftHolds releases the holds whose visitor left more than
@@ -400,21 +400,16 @@ func (h *Handler) LeaveHold(w http.ResponseWriter, r *http.Request, token string
 
 // ReclaimHold handles POST /api/v1/book/holds/{token}/reclaim: the confirm page
 // loaded again (a reload, a tab the phone discarded) and takes its hold back.
-// 200 with the hold's unchanged expiry; 409 hold-expired when it is gone.
+// 204 when the hold is the visitor's again; 409 hold-expired when it is gone.
 // Authenticated by the token alone, which is a bearer secret; it neither
 // takes nor extends a hold.
 func (h *Handler) ReclaimHold(w http.ResponseWriter, r *http.Request, token string) {
-	hold, err := h.svc.ReclaimHold(r.Context(), token)
-	if err != nil {
+	if err := h.svc.ReclaimHold(r.Context(), token); err != nil {
 		h.refuse(w, r, err)
 		return
 	}
 	w.Header().Set("Cache-Control", "no-store")
-	h.respond.JSON(w, r, http.StatusOK, httpx.Envelope{
-		"hold": httpx.Envelope{
-			"expires_at": hold.ExpiresAt.UTC().Format(time.RFC3339),
-		},
-	})
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // KindHoldCooldown is the Problem kind of a hold refused by the cooldown, so

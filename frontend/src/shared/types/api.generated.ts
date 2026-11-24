@@ -388,7 +388,7 @@ export interface paths {
     put?: never;
     /**
      * Take back a slot hold the visitor left
-     * @description Public, authenticated by the hold token alone, which is a bearer secret. The confirm page loaded again: a release asked for by POST /api/v1/book/holds/{token}/leave is called off and the hold is the visitor's again. It neither takes nor extends a hold: `expires_at` is the same instant POST /api/v1/book/holds answered. Cross-tenant bypass reason `resolves`.
+     * @description Public, authenticated by the hold token alone, which is a bearer secret. The confirm page loaded again: a release asked for by POST /api/v1/book/holds/{token}/leave is called off and the hold is the visitor's again. It neither takes nor extends a hold, so it answers no expiry: the hold still ends at the instant POST /api/v1/book/holds answered. Cross-tenant bypass reason `resolves`.
      */
     post: operations['bookingsPublicHoldReclaim'];
     delete?: never;
@@ -5375,18 +5375,11 @@ export interface operations {
     requestBody?: never;
     responses: {
       /** @description The hold is the visitor's again, ending when it always did. */
-      200: {
+      204: {
         headers: {
           [name: string]: unknown;
         };
-        content: {
-          'application/json': {
-            hold: {
-              /** Format: date-time */
-              expires_at: string;
-            };
-          };
-        };
+        content?: never;
       };
       /** @description The hold is gone (`hold-expired`): released, run out, converted, or never existed. The storefront sends the visitor back to pick a time. */
       409: {
