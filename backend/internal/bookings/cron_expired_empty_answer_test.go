@@ -1,6 +1,7 @@
 package bookings
 
 import (
+	"errors"
 	"slices"
 	"strings"
 	"testing"
@@ -101,5 +102,29 @@ func TestTheGiveUpAlertCarriesThePaymentsReplayCommand(t *testing.T) {
 	want := "railway run --service Backend go run ./cmd/replaypayment 191310158388"
 	if !strings.Contains(alert, want) || !strings.Contains(alert, candidate.ID.String()) {
 		t.Errorf("the give-up alert must name the booking and carry %q; got %q", want, alert)
+	}
+}
+
+// An empty answer that follows a failed attempt already came minutes later
+// than the hold's end, so it is the second ask and is trusted, as the events
+// sweep trusts it: one failure, then one empty answer, settles the booking.
+func TestAnEmptyAnswerAfterAFailedAttemptIsTrusted(t *testing.T) {
+	f := newFixture(t)
+	candidate := expiredWithCheckout(f)
+	f.checkout.searchErr = errors.New("mercadopago unavailable")
+
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+	f.checkout.searchErr = nil
+	f.checkout.searchResults = []mp.Payment{{ID: 41, Status: "rejected", ExternalReference: candidate.ID.String()}}
+	f.service.ReleaseExpiredPayments(t.Context(), f.reconciler)
+
+	if len(f.checkout.searches) != 2 {
+		t.Fatalf("want two searches; got %v", f.checkout.searches)
+	}
+	if !slices.Equal(f.store.holdReconciled, []uuid.UUID{candidate.ID}) {
+		t.Errorf("the empty answer after a failure must settle the booking; got %v", f.store.holdReconciled)
+	}
+	if len(f.notify.cancelled) != 1 {
+		t.Errorf("want the client told it expired once; got %d notices", len(f.notify.cancelled))
 	}
 }

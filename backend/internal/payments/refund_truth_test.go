@@ -360,3 +360,39 @@ func TestAClaimedRefundLeavesNoMarkerBehind(t *testing.T) {
 			"second round trip that can only undo a marker another path has since set; got %v", f.refundIntents.cleared)
 	}
 }
+
+// The payment's refunded total counts every refund made on it, so the claim's
+// share is that total less what the row already records: with 500 recorded, a
+// total of 1000 shows only 500 for this claim of 1000, not the whole of it.
+func TestAnAcceptedRefundThatDoesNotSayItWasMadeCountsOnlyWhatIsNewOnThePayment(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		refunded float64
+		wantMade bool
+	}{
+		{name: "the total only covers the earlier refund and half of this one", refunded: 1_000},
+		{name: "the total covers the earlier refund and this one", refunded: 1_500, wantMade: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			complexID := uuid.New()
+			booking, payment := paidBooking(complexID)
+			booking.Status = "cancelled"
+			payment.RefundAmount = 50_000
+			f.payments.byBooking = payment
+			f.payments.claimAmount = 100_000
+			f.complexes.complex = linkedComplex(complexID, "")
+			f.clients.client = &clientstore.Client{ID: booking.ClientID}
+			f.provider.refundNoStatus = true
+			f.provider.sellerPayment = &mp.Payment{ID: 123, Status: "approved", TransactionAmountRefunded: tt.refunded}
+			withCapturedSentryEvents(t)
+
+			f.service.AutoRefundIfPaid(t.Context(), booking)
+
+			if made := len(f.payments.recordedSuccess) == 1; made != tt.wantMade {
+				t.Errorf("recorded as made = %v, want %v (successes %+v, requeues %d)",
+					made, tt.wantMade, f.payments.recordedSuccess, len(f.payments.recordedFailure))
+			}
+		})
+	}
+}
