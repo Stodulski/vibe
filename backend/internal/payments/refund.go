@@ -620,6 +620,7 @@ func (s *Service) autoRefundIfPaid(ctx context.Context, booking *bookingstore.Bo
 	for _, payment := range auto {
 		rowOutcomes = append(rowOutcomes, s.autoRefundOnePayment(ctx, booking, payment, manualOwed, run))
 	}
+	s.retryFailedClaims(ctx, booking, rowOutcomes, run)
 	outcome := combineRefundOutcomes(rowOutcomes)
 
 	if manualOwed > 0 {
@@ -690,15 +691,16 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 			// hand instead, so a claim that keeps failing alerts rather than
 			// being retried in silence.
 			s.logger.Error("auto-refund: failed to claim the refund", "error", err, "booking_id", booking.ID, "payment_id", payment.ID)
-			if !run.fromSweep && s.standRefundIntentAgain(ctx, booking.ID) {
-				run.retrying = true
+			if !run.fromSweep {
+				// retryFailedClaims stands the marker up once every row is
+				// done: a later row's committed claim clears it.
 				return paymentstore.RefundOutcome{
 					Result:         paymentstore.RefundQueued,
 					AmountCentavos: owed,
-					Reason:         "the refund could not be claimed for a moment, and the sweep retries it",
+					Reason:         claimRetriedBySweep,
 				}
 			}
-			return s.owedManually(booking, owed, "the refund could not be claimed, so nothing was queued")
+			return s.owedManually(booking, owed, claimNotQueued)
 		}
 	}
 	// The claim committed and already cleared the marker in its own transaction.
@@ -741,6 +743,36 @@ func (s *Service) autoRefundOnePayment(ctx context.Context, booking *bookingstor
 			"mercadopago refunded less than was claimed, and the remainder has no queued attempt behind it")
 	}
 	return paymentstore.RefundOutcome{Result: paymentstore.RefundIssued, AmountCentavos: refundTotal}
+}
+
+// The reasons a failed claim answers with: retried by the sweep, or owed by hand.
+const (
+	claimRetriedBySweep = "the refund could not be claimed for a moment, and the sweep retries it"
+	claimNotQueued      = "the refund could not be claimed, so nothing was queued"
+)
+
+// retryFailedClaims stands the refund-intent marker up again for the rows whose
+// claim failed for a moment, once every row of the call is done. Doing it per
+// row lost it: a later row's committed claim clears the marker inside its own
+// transaction. When the marker cannot be written, nothing would come back for
+// those rows, so each is owed by hand instead.
+func (s *Service) retryFailedClaims(ctx context.Context, booking *bookingstore.Booking, rowOutcomes []paymentstore.RefundOutcome, run *refundRun) {
+	failed := false
+	for _, o := range rowOutcomes {
+		failed = failed || o.Reason == claimRetriedBySweep
+	}
+	if !failed {
+		return
+	}
+	if s.standRefundIntentAgain(ctx, booking.ID) {
+		run.retrying = true
+		return
+	}
+	for i, o := range rowOutcomes {
+		if o.Reason == claimRetriedBySweep {
+			rowOutcomes[i] = s.owedManually(booking, o.AmountCentavos, claimNotQueued)
+		}
+	}
 }
 
 // claimRefund claims a payment's refund with the cause it is owed for; a

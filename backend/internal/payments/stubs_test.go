@@ -47,6 +47,11 @@ type stubPayments struct {
 	// claimErr refuses the claim, standing in for a payment another path already
 	// holds or for the database being unavailable.
 	claimErr error
+	// claimErrFor refuses the claim of these payments only.
+	claimErrFor map[uuid.UUID]error
+	// onClaim runs when a claim commits, standing in for what the real claim
+	// does inside its transaction, such as clearing the refund-intent marker.
+	onClaim func()
 	// insertErr fails InsertAndConfirmBooking, standing in for the database being
 	// unavailable — the same condition that makes a refund fail.
 	insertErr error
@@ -333,6 +338,9 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*pay
 	if s.claimErr != nil {
 		return nil, s.claimErr
 	}
+	if err := s.claimErrFor[paymentID]; err != nil {
+		return nil, err
+	}
 	// The real claim is a committed row-level reservation, so a second claim on a
 	// payment this stub already handed out has to be refused here too — otherwise
 	// a caller that double-claims looks correct in tests.
@@ -349,6 +357,9 @@ func (s *stubPayments) ClaimRefund(_ context.Context, paymentID uuid.UUID) (*pay
 		return nil, paymentstore.ErrAlreadyRefunded
 	}
 	s.claimed = append(s.claimed, paymentID)
+	if s.onClaim != nil {
+		s.onClaim()
+	}
 
 	amount := s.claimAmount
 	if amount == 0 {
@@ -685,6 +696,8 @@ type stubRefundIntents struct {
 	// markErr refuses MarkRefundIntent, so a failed claim has nothing to stand
 	// the marker up again with.
 	markErr error
+	// onMark runs when MarkRefundIntent succeeds.
+	onMark func()
 
 	claimed []uuid.UUID
 	cleared []uuid.UUID
@@ -698,6 +711,9 @@ func (s *stubRefundIntents) MarkRefundIntent(_ context.Context, id uuid.UUID) er
 		return s.markErr
 	}
 	s.marked = append(s.marked, id)
+	if s.onMark != nil {
+		s.onMark()
+	}
 	return nil
 }
 
