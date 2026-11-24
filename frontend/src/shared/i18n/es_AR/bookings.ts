@@ -8,6 +8,7 @@ export const bookings = {
   confirmRemainingPayment: 'Confirmar pago restante',
   remainingBalance: 'Saldo restante',
   remainderPayment: 'Resto',
+  repeatedPayment: 'Pago repetido',
   paymentOptionLabel: 'Cobro al crear',
   paymentOptions: {
     unpaid: 'Sin cobro',

@@ -117,6 +117,32 @@ describe('BookingInfoSection', () => {
   });
 });
 
+describe('BookingInfoSection, a booking paid twice online', () => {
+  it('labels a full online payment as the price and a second online payment as repeated', () => {
+    const booking = createBooking({ price: 15000, deposit_amount: 4500, status: 'cancelled' });
+    const paid = createPayment({ id: 'p1', amount: 15000, method: 'mercadopago' });
+    const repeated = createPayment({ id: 'p2', amount: 15000, method: 'mercadopago', refund_amount: 15000 });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[paid, repeated]} />);
+
+    expect(screen.getByText('Precio')).toBeInTheDocument();
+    expect(screen.getByText('Pago repetido')).toBeInTheDocument();
+    expect(screen.getByText('Reembolsado (Pago repetido)')).toBeInTheDocument();
+    expect(screen.queryByText('Seña')).not.toBeInTheDocument();
+    expect(screen.queryByText('Resto')).not.toBeInTheDocument();
+  });
+
+  it('labels a second online deposit as repeated, not as the rest of the price', () => {
+    const booking = createBooking({ price: 15000, deposit_amount: 4500, status: 'cancelled' });
+    const deposit = createPayment({ id: 'p1', amount: 4500, method: 'mercadopago' });
+    const again = createPayment({ id: 'p2', amount: 4500, method: 'mercadopago', refund_amount: 4500 });
+    renderWithProviders(<BookingInfoSection booking={booking} payments={[deposit, again]} />);
+
+    expect(screen.getByText('Seña')).toBeInTheDocument();
+    expect(screen.getByText('Pago repetido')).toBeInTheDocument();
+    expect(screen.queryByText('Resto')).not.toBeInTheDocument();
+  });
+});
+
 describe('BookingInfoSection refund summary', () => {
   it('says how much is still owed back by hand on a cancelled cash booking', () => {
     const booking = createBooking({ status: 'cancelled', refund_status: 'partial', price: 3_600_000 });

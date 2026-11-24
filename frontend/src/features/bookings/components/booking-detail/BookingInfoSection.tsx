@@ -21,8 +21,23 @@ function methodLabel(method: string): string {
   return (t.bookings.paymentMethods as Record<string, string>)[method] ?? method;
 }
 
-function paymentRole(index: number): string {
-  return index === 0 ? t.bookings.deposit : t.bookings.remainderPayment;
+// What each payment in a ledger of several is, read in order. The first one is
+// the price when it covers all of it and the deposit otherwise; a later
+// one is the rest of the price, unless the price was already covered or Mercado
+// Pago charged the client a second time (the online checkout takes one payment,
+// so another online one is the same booking paid twice, and is refunded).
+function paymentRoles(payments: Payment[], price: number): string[] {
+  let covered = 0;
+  let paidOnline = false;
+  return payments.map((payment, index) => {
+    const online = payment.method === 'mercadopago';
+    const repeated = covered >= price || (online && paidOnline);
+    paidOnline ||= online;
+    if (repeated) return t.bookings.repeatedPayment;
+    covered += payment.amount;
+    if (index > 0) return t.bookings.remainderPayment;
+    return payment.amount >= price ? t.bookings.price : t.bookings.deposit;
+  });
 }
 
 function PaymentExtraRows({ payment, prefix }: { payment: Payment; prefix?: string }) {
@@ -83,10 +98,11 @@ function SinglePaymentRows({
 // Each payment on its own line, then the total they add up to — reading
 // top-down like a receipt, instead of the price floating above the parts.
 function MultiPaymentRows({ payments, total }: { payments: Payment[]; total: number }) {
+  const roles = paymentRoles(payments, total);
   return (
     <>
       {payments.map((payment, index) => {
-        const role = paymentRole(index);
+        const role = roles[index] ?? t.bookings.paymentAmount;
         return (
           <Fragment key={payment.id}>
             <InfoRow label={role}>
