@@ -7,7 +7,7 @@ import { CourtList } from './court-setup-step/CourtList';
 import { StepNavigation } from './court-setup-step/StepNavigation';
 import type { Court, CourtWithPrices } from '@/shared/types/api.types';
 
-type CourtLike = Pick<Court, 'id' | 'name' | 'sport' | 'court_type'>;
+type CourtLike = Pick<Court, 'id' | 'name' | 'sport' | 'court_type' | 'surface' | 'has_lighting'>;
 
 const t = ES_AR;
 
@@ -32,9 +32,8 @@ interface CourtSetupStepProps {
  * This step used to carry its own inline form -- a second name input, a second
  * pair of sport/type selects and a second submit, none of which the courts page
  * form did differently. Two forms for one court is two places to change a field
- * and one of them to forget: the inline copy had no description input at all,
- * so a court created during onboarding could not be described until the owner
- * went looking for the edit dialog. Reusing `CourtForm` makes the field list
+ * and one of them to forget, as the inline copy did with fields it never
+ * gained. Reusing `CourtForm` makes the field list
  * the same everywhere by construction, and it already chains into `PriceConfig`
  * through `onCreated`, which is the order the owner needs anyway: a court is
  * not bookable until it has a price.
