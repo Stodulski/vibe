@@ -110,7 +110,14 @@ function useCopyVersion(complex: Complex | undefined, form: UseFormReturn<Create
   }, [complex, isDirty, form]);
 
   return {
-    current: () => baseVersion.current,
+    /**
+     * The `version` key to send, or none: a copy without a real row version
+     * (rows start at 1) sends no precondition rather than a 0 the API refuses.
+     */
+    precondition: (): { version?: number } => {
+      const version = baseVersion.current;
+      return version !== undefined && version >= 1 ? { version } : {};
+    },
     /** The save went through: the server's copy is now the one on screen. */
     saved: (version: number) => {
       baseVersion.current = version;
@@ -179,7 +186,7 @@ export function useComplexForm({ complex, onSuccess, revealField }: UseComplexFo
     // stayed silent through a real payload type change in either mutation.
     if (isEdit) {
       updateMutation.mutate(
-        { version: copyVersion.current(), slug, ...cleaned },
+        { ...copyVersion.precondition(), slug, ...cleaned },
         {
           onSuccess: (result) => {
             copyVersion.saved(result.complex.version);

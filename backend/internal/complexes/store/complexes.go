@@ -236,25 +236,35 @@ func (m *Store) GetByOwner(ctx context.Context, ownerID uuid.UUID) ([]*Complex, 
 	for i, c := range dbComplexes {
 		// The row is the complex plus the aggregate; the shared mapper takes
 		// the complex, and the count is attached after.
-		complex := complexFromDB(db.Complex{
-			ID: c.ID, OwnerID: c.OwnerID, Name: c.Name, Slug: c.Slug,
-			Address: c.Address, City: c.City, Province: c.Province,
-			CountryCode: c.CountryCode, Currency: c.Currency,
-			Phone: c.Phone, Email: c.Email, LogoUrl: c.LogoUrl, CoverUrl: c.CoverUrl,
-			DepositPercentage: c.DepositPercentage, CancellationHours: c.CancellationHours,
-			IsActive: c.IsActive, MpAccessToken: c.MpAccessToken,
-			MpRefreshToken: c.MpRefreshToken, MpUserID: c.MpUserID,
-			Latitude: c.Latitude, Longitude: c.Longitude, Amenities: c.Amenities,
-			Description: c.Description,
-			Instagram:   c.Instagram,
-			DeletedAt:   c.DeletedAt,
-			CreatedAt:   c.CreatedAt, UpdatedAt: c.UpdatedAt,
-		}, m.Keys)
+		complex := complexFromDB(complexFromOwnerRow(c), m.Keys)
 		count := int(c.CourtCount)
 		complex.CourtCount = &count
 		result[i] = complex
 	}
 	return result, nil
+}
+
+// complexFromOwnerRow is a GetComplexesByOwner row without its court_count
+// aggregate. Field by field because the row has one more column than
+// db.Complex, so the plain conversion complexRowFromActive uses does not
+// compile; TestComplexFromOwnerRow_KeepsEveryColumn is the guard instead.
+func complexFromOwnerRow(c db.GetComplexesByOwnerRow) db.Complex {
+	return db.Complex{
+		ID: c.ID, OwnerID: c.OwnerID, Name: c.Name, Slug: c.Slug,
+		Address: c.Address, City: c.City, Province: c.Province,
+		CountryCode: c.CountryCode, Currency: c.Currency,
+		Phone: c.Phone, Email: c.Email, LogoUrl: c.LogoUrl, CoverUrl: c.CoverUrl,
+		DepositPercentage: c.DepositPercentage, CancellationHours: c.CancellationHours,
+		IsActive: c.IsActive, MpAccessToken: c.MpAccessToken,
+		MpRefreshToken: c.MpRefreshToken, MpUserID: c.MpUserID,
+		Latitude: c.Latitude, Longitude: c.Longitude, Amenities: c.Amenities,
+		Description: c.Description,
+		Instagram:   c.Instagram,
+		DeletedAt:   c.DeletedAt,
+		CreatedAt:   c.CreatedAt, UpdatedAt: c.UpdatedAt,
+		MpTokenExpiresAt: c.MpTokenExpiresAt,
+		Version:          c.Version,
+	}
 }
 
 // Update persists changes to an existing complex, returning ErrRecordNotFound

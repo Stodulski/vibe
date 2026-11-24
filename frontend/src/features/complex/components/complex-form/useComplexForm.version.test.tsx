@@ -104,6 +104,29 @@ describe('useComplexForm — version of the copy on screen', () => {
   });
 });
 
+describe('useComplexForm — a copy without a real version', () => {
+  // The list endpoint used to drop `version`, so every complex read 0 and the
+  // form sent 0 — below the API's minimum of 1, refused before the handler ran.
+  // Unknown is sent as no precondition, never as 0.
+  it('leaves version out instead of sending 0', async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.put('*/complexes/:complexId', async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return HttpResponse.json({ complex: makeComplex({ version: 1 }) });
+      }),
+    );
+
+    const { result } = renderSettingsForm(makeComplex({ version: 0 }));
+    submit(result);
+
+    await waitFor(() => {
+      expect(bodies).toHaveLength(1);
+    });
+    expect(bodies[0]).not.toHaveProperty('version');
+  });
+});
+
 describe('useComplexForm — a newer copy mid-edit', () => {
   // A focus refetch can bring a copy someone else saved while this owner is
   // typing. Adopting its version silently would let this save overwrite that
