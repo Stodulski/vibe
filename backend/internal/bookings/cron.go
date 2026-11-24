@@ -644,21 +644,29 @@ func (s *Service) reconcileExpiredHold(ctx context.Context, b *bookingstore.Cron
 	if outcome != expiredHoldSettled || moneyMoved {
 		return outcome, unsettled
 	}
-	// Nothing was paid, by this answer.
+	return s.settleNobodyPaid(b, caller), nil
+}
+
+// settleNobodyPaid decides an expired booking MercadoPago's answer holds no
+// payment for, and tells its client it expired once that answer can be
+// trusted: not when it came from the platform's search, which does not answer
+// for the seller's payments, and not on the first ask, which is asked again
+// (search lag). Both of those count as a failed attempt.
+func (s *Service) settleNobodyPaid(b *bookingstore.CronBooking, caller mp.Caller) expiredHoldOutcome {
 	if caller == mp.AsPlatform() {
 		s.logger.Error("cron_release_expired_payments: an expired booking's venue has no seller credential, and the platform's empty search cannot prove nobody paid; asked again",
 			"booking_id", b.ID, "complex_id", b.ComplexID)
-		return expiredHoldFailed, nil
+		return expiredHoldFailed
 	}
 	if b.HoldReconcileFailures == 0 {
 		s.logger.Info("cron_release_expired_payments: MercadoPago holds no payment for an expired booking on the first ask; asking once more before trusting it",
 			"booking_id", b.ID)
-		return expiredHoldFailed, nil
+		return expiredHoldFailed
 	}
 	if expiredUnpaid(b) {
 		s.queueExpiredNotice(b)
 	}
-	return outcome, nil
+	return expiredHoldSettled
 }
 
 // reconcileExpiredPayment hands the approved payment mpPaymentID on the expired

@@ -146,7 +146,7 @@ func stop(ctx context.Context, store inbox, eventID string) error {
 	}
 	stopped, err := store.StopReplay(ctx, id)
 	if err != nil {
-		return err
+		return fmt.Errorf("stop replay %s: %w", id, err)
 	}
 	if !stopped {
 		return fmt.Errorf("event %s is not an open replay: already processed or stopped, or not written by this command", id)
