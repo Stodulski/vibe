@@ -8,6 +8,7 @@ import { useFilteredCourts } from './complex-page/useFilteredCourts';
 import { useEmptyDay } from './complex-page/useEmptyDay';
 import { useHandleContinue } from './complex-page/useHandleContinue';
 import { useHoldChallenge } from './complex-page/useHoldChallenge';
+import { useReleaseLeftHold } from './complex-page/useReleaseLeftHold';
 import { TurnstileField } from '../components/booking-form/TurnstileField';
 import { NotFoundState } from './complex-page/NotFoundState';
 import { ComplexErrorState } from './complex-page/ComplexErrorState';
@@ -187,6 +188,7 @@ function ComplexPageBody({
 
 export default function ComplexPage({ slug }: { slug: string }) {
   const { data: complexData, isLoading, error, refetch: refetchComplex } = useComplexBySlug(slug);
+  useReleaseLeftHold(slug);
   const state = useComplexPageState(complexData?.schedules);
   const availableSports = useAvailableSports(complexData);
 

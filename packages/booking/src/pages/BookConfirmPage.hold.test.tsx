@@ -24,7 +24,7 @@ const t = BOOKING_MESSAGES;
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
 const createBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
-const reclaimHold = vi.fn<(token: string) => Promise<unknown>>();
+const reclaimHold = vi.fn<(token: string) => Promise<void>>();
 vi.mock('../api/public-booking.api', () => {
   const publicBookingApi = {
     createBooking: (...args: unknown[]) => createBooking(...args),

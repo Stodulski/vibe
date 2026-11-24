@@ -21,41 +21,73 @@ export function hoursPath(slug: string, draft: ConfirmDraft): string {
   return `${publicComplexPath(slug)}?${query.toString()}${HOURS_ANCHOR}`;
 }
 
-/** Whether a failed reclaim says the hold is gone, rather than that it could not be asked about. */
+/**
+ * Whether a failed reclaim says the hold is gone, rather than that it could not
+ * be asked about. Only the server's `hold-expired`: a 404 is a server without
+ * the reclaim route yet, which must not send a visitor with a live hold away.
+ */
 function isHoldGone(error: unknown): boolean {
   const problem = getProblem(error);
-  if (!problem) return false;
-  return (problem.status === 409 && problem.kind === HOLD_EXPIRED_KIND) || problem.status === 404 || problem.status === 410;
+  return problem?.status === 409 && problem.kind === HOLD_EXPIRED_KIND;
 }
 
 /**
- * Takes the hold back from a release the page's leaving asked for, once when
- * the page loads with its draft (a first visit, a reload, a tab the phone
- * discarded) and again whenever the returned function is called. A hold that is
- * gone settles the page and sends the visitor to the hours; one that could not
- * be asked about (offline, a server error) leaves the page as it is, and the
- * submit says so if the hold is gone after all.
+ * How long after taking the hold back the page asks again. The leave beacon of
+ * the document a reload replaced (or of a duplicated tab closing) can reach the
+ * server after this page's first reclaim and ask for the release once more;
+ * the second ask calls it off well within the minute's grace.
  */
-function useReclaimHold(
-  slug: string,
-  holdToken: string,
-  hours: string,
-  settledRef: RefObject<boolean>,
-  leftOnHideRef: RefObject<boolean>,
-) {
+export const REASSERT_HOLD_AFTER_MS = 10_000;
+
+interface HoldRefs {
+  settledRef: RefObject<boolean>;
+  leftOnHideRef: RefObject<boolean>;
+  submittingRef: RefObject<boolean>;
+}
+
+/**
+ * Takes the hold back from a release the page's leaving asked for: when the
+ * page loads with its draft (a first visit, a reload, a tab the phone
+ * discarded), when the visitor returns to the tab, whenever the returned
+ * function is called, and once more `REASSERT_HOLD_AFTER_MS` after each of
+ * those. A hold that is gone settles the page and sends the visitor to the
+ * hours; one that could not be asked about (offline, a server error) leaves
+ * the page as it is, and the submit says so if the hold is gone after all.
+ * Nothing is asked once the hold is settled or while the booking is being
+ * submitted, whose answer is the one that counts.
+ */
+function useReclaimHold(slug: string, holdToken: string, hours: string, refs: HoldRefs) {
+  const { settledRef, leftOnHideRef, submittingRef } = refs;
   const api = usePublicBookingApi();
-  const reclaim = useCallback(() => {
-    leftOnHideRef.current = false;
+  const reassertRef = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  const ask = useCallback(() => {
+    if (settledRef.current || submittingRef.current) return;
     api.reclaimHold(holdToken).catch((error: unknown) => {
-      if (settledRef.current || !isHoldGone(error)) return;
+      if (settledRef.current || submittingRef.current || !isHoldGone(error)) return;
       settledRef.current = true;
       clearConfirmDraft(slug);
       navigateTo(hours, { replace: true });
     });
-  }, [api, holdToken, slug, hours, settledRef, leftOnHideRef]);
+  }, [api, holdToken, slug, hours, settledRef, submittingRef]);
+
+  const reclaim = useCallback(() => {
+    leftOnHideRef.current = false;
+    ask();
+    clearTimeout(reassertRef.current);
+    reassertRef.current = setTimeout(ask, REASSERT_HOLD_AFTER_MS);
+  }, [ask, leftOnHideRef]);
 
   useEffect(() => {
     reclaim();
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') reclaim();
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      clearTimeout(reassertRef.current);
+    };
   }, [reclaim]);
 
   return reclaim;
@@ -88,6 +120,7 @@ export function useSlotHold(slug: string, draft: ConfirmDraft, onDraftReplaced: 
   const settled = useRef(false);
   const leftOnHide = useRef(false);
   const converted = useRef(false);
+  const submitting = useRef(false);
   const hours = hoursPath(slug, draft);
 
   const release = useCallback(() => {
@@ -97,7 +130,8 @@ export function useSlotHold(slug: string, draft: ConfirmDraft, onDraftReplaced: 
     clearConfirmDraft(slug);
   }, [apiBaseUrl, draft.holdToken, slug]);
 
-  const reclaim = useReclaimHold(slug, draft.holdToken, hours, settled, leftOnHide);
+  const refs = { settledRef: settled, leftOnHideRef: leftOnHide, submittingRef: submitting };
+  const reclaim = useReclaimHold(slug, draft.holdToken, hours, refs);
 
   useEffect(() => {
     const onPageHide = () => {
@@ -145,5 +179,10 @@ export function useSlotHold(slug: string, draft: ConfirmDraft, onDraftReplaced: 
     converted.current = true;
   }, []);
 
-  return { changeTime, expire, markConverted };
+  /** The booking is being submitted, or no longer is: meanwhile its answer, not a reclaim's, decides. */
+  const markSubmitting = useCallback((active: boolean) => {
+    submitting.current = active;
+  }, []);
+
+  return { changeTime, expire, markConverted, markSubmitting };
 }

@@ -169,12 +169,13 @@ describe('ComplexPage slot hold', () => {
 
   it('takes a hold on court pick with the Turnstile token and the previous hold, then moves to confirm', async () => {
     const bodies = captureHolds();
-    // A hold left behind by an earlier pick in this tab.
+    await renderPage(TURNSTILE_CONFIG);
+    // A hold in the draft while this page is open (one found when it loaded
+    // was given back then, useReleaseLeftHold): the new hold replaces it.
     window.sessionStorage.setItem(
       confirmDraftKey('test-club'),
       JSON.stringify({ ...oldDraft(), holdToken: 'hold-old', holdExpiresAt: EXPIRES_AT }),
     );
-    await renderPage(TURNSTILE_CONFIG);
     solveChallenge('tok-1');
 
     await pickCourt();

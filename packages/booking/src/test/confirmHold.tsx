@@ -54,11 +54,11 @@ export interface ConfirmHoldEnvironment {
  * answers every reclaim with a hold still the visitor's unless a test says
  * otherwise.
  */
-export function setUpConfirmHold(reclaimHold: Mock<(token: string) => Promise<unknown>>): ConfirmHoldEnvironment {
+export function setUpConfirmHold(reclaimHold: Mock<(token: string) => Promise<void>>): ConfirmHoldEnvironment {
   const env = {} as ConfirmHoldEnvironment;
   beforeEach(() => {
     vi.clearAllMocks();
-    reclaimHold.mockResolvedValue({ expiresAt: inSeconds(9 * 60) });
+    reclaimHold.mockResolvedValue(undefined);
     env.replaceSpy = vi.spyOn(window.location, 'replace').mockImplementation(() => undefined);
     env.beacon = vi.fn<(url: string | URL, data?: BodyInit | null) => boolean>(() => true);
     Object.defineProperty(navigator, 'sendBeacon', { configurable: true, writable: true, value: env.beacon });

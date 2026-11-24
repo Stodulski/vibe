@@ -1,7 +1,7 @@
 import type { KyInstance } from 'ky';
 import type { PublicHoldRequest } from './types';
 import { parseWith, type ErrorReporter } from '../lib/apiParse';
-import { holdReclaimResponseSchema, holdResponseSchema } from '../schemas/publicBooking.schema';
+import { holdResponseSchema } from '../schemas/publicBooking.schema';
 
 /**
  * The storefront's slot hold, taken on the complex page and kept by the confirm
@@ -24,12 +24,10 @@ export function createPublicHoldsApi(client: KyInstance, report?: ErrorReporter)
     /**
      * Takes back a hold the page asked to let go when it went away
      * (`leaveHold`): a reload or a discarded tab loading again. It neither
-     * takes nor extends a hold; a hold that is gone answers 409 `hold-expired`.
+     * takes nor extends a hold, so the answer is an empty `204` and the page
+     * keeps the deadline it has; a hold that is gone answers 409 `hold-expired`.
      */
-    reclaimHold: (token: string) =>
-      client
-        .post(`book/holds/${encodeURIComponent(token)}/reclaim`)
-        .json()
-        .then(parseWith(holdReclaimResponseSchema, 'publicBookingApi.reclaimHold', report)),
+    reclaimHold: (token: string): Promise<void> =>
+      client.post(`book/holds/${encodeURIComponent(token)}/reclaim`).then(() => undefined),
   };
 }

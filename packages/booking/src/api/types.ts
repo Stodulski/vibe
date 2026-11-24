@@ -235,12 +235,6 @@ export interface PublicHold {
   expiresAt: string;
 }
 
-/** A hold taken back by the page it was left from: when it still ends, never later than before. */
-export interface PublicHoldReclaim {
-  /** RFC 3339 instant, the same one the hold was taken with. */
-  expiresAt: string;
-}
-
 /** The confirmation projection of a booking. No primary key is sent. */
 export interface PublicBookingEnvelope {
   status: BookingStatus;

@@ -1,11 +1,13 @@
-import { describe, it, expect, vi } from 'vitest';
-import { screen, waitFor } from '@testing-library/react';
+import { afterEach, describe, it, expect, vi } from 'vitest';
+import { act, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { makeConsumedHttpError } from '../test/factories';
 import {
   HOURS_URL,
+  fillAndPay,
   firePagehide,
   fireRestore,
   holdGone,
-  inSeconds,
   renderHeld,
   setUpConfirmHold,
 } from '../test/confirmHold';
@@ -13,10 +15,11 @@ import { readConfirmDraft } from '../lib/handoff';
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }));
 
-const reclaimHold = vi.fn<(token: string) => Promise<unknown>>();
+const reclaimHold = vi.fn<(token: string) => Promise<void>>();
+const createBooking = vi.fn<(...args: unknown[]) => Promise<unknown>>();
 vi.mock('../api/public-booking.api', () => {
   const publicBookingApi = {
-    createBooking: vi.fn(),
+    createBooking: (...args: unknown[]) => createBooking(...args),
     reclaimHold: (token: string) => reclaimHold(token),
   };
   return { publicBookingApi, createPublicBookingApi: () => publicBookingApi };
@@ -33,10 +36,6 @@ const env = setUpConfirmHold(reclaimHold);
 
 describe('BookConfirmPage loaded again (a reload, a discarded tab)', () => {
   it('takes the hold back and keeps the countdown where it was', async () => {
-    // The server answers the same instant; the page keeps its own deadline
-    // (clientHoldDeadline), so a different answer must not move the countdown.
-    reclaimHold.mockResolvedValue({ expiresAt: inSeconds(14 * 60) });
-
     await renderHeld(6 * 60);
 
     await waitFor(() => {
@@ -75,6 +74,21 @@ describe('BookConfirmPage loaded again (a reload, a discarded tab)', () => {
 });
 
 describe('BookConfirmPage restored from the back/forward cache within the grace', () => {
+  it('sends the visitor to the hours when the complex page gave the hold back meanwhile', async () => {
+    await renderHeld();
+    firePagehide();
+    // Back on the complex page, which released the hold and cleared the draft.
+    window.sessionStorage.clear();
+    reclaimHold.mockClear();
+
+    fireRestore();
+
+    await waitFor(() => {
+      expect(env.replaceSpy).toHaveBeenCalledWith(HOURS_URL);
+    });
+    expect(reclaimHold).not.toHaveBeenCalled();
+  });
+
   it('takes the hold back when the visitor returns within the grace', async () => {
     await renderHeld(5 * 60);
     firePagehide();
@@ -87,5 +101,105 @@ describe('BookConfirmPage restored from the back/forward cache within the grace'
     expect(reclaimHold).toHaveBeenLastCalledWith('hold-abc');
     expect(env.replaceSpy).not.toHaveBeenCalled();
     expect(screen.getByRole('timer')).toHaveTextContent(/^0[45]:\d\d$/);
+  });
+});
+
+function setVisibility(state: DocumentVisibilityState) {
+  Object.defineProperty(document, 'visibilityState', { configurable: true, value: state });
+  document.dispatchEvent(new Event('visibilitychange'));
+}
+
+describe('BookConfirmPage asserting its hold again', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('reclaims the hold again a few seconds after loading, so a late leave beacon cannot release it', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await renderHeld();
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledTimes(1);
+    });
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledTimes(2);
+    });
+    expect(reclaimHold).toHaveBeenLastCalledWith('hold-abc');
+    expect(env.replaceSpy).not.toHaveBeenCalled();
+  });
+
+  it('sends the visitor to the hours when the hold is gone by the second reclaim', async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    await renderHeld();
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledTimes(1);
+    });
+    reclaimHold.mockReturnValueOnce(holdGone());
+
+    act(() => {
+      vi.advanceTimersByTime(10_000);
+    });
+
+    await waitFor(() => {
+      expect(env.replaceSpy).toHaveBeenCalledWith(HOURS_URL);
+    });
+    expect(readConfirmDraft('club-norte')).toBeNull();
+  });
+
+});
+
+describe('BookConfirmPage reclaiming at other moments', () => {
+  it('reclaims the hold when the visitor returns to the tab', async () => {
+    await renderHeld();
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledTimes(1);
+    });
+
+    setVisibility('hidden');
+    setVisibility('visible');
+
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it('stays on the page when the reclaim route is not there (404)', async () => {
+    reclaimHold.mockImplementation(async () => {
+      throw await makeConsumedHttpError(404, { type: 'about:blank', title: 'Not Found', status: 404 });
+    });
+
+    await renderHeld();
+
+    await waitFor(() => {
+      expect(reclaimHold).toHaveBeenCalledWith('hold-abc');
+    });
+    expect(env.replaceSpy).not.toHaveBeenCalled();
+    expect(readConfirmDraft('club-norte')?.holdToken).toBe('hold-abc');
+  });
+
+  it('never leaves a booking being submitted for a late reclaim answer', async () => {
+    let answerReclaim: (error: unknown) => void = () => undefined;
+    reclaimHold.mockImplementationOnce(
+      () =>
+        new Promise<void>((_, reject) => {
+          answerReclaim = reject;
+        }),
+    );
+    createBooking.mockImplementation(() => new Promise(() => undefined));
+    const user = userEvent.setup();
+    await renderHeld();
+
+    await fillAndPay(user);
+    await waitFor(() => {
+      expect(createBooking).toHaveBeenCalledTimes(1);
+    });
+    answerReclaim(await holdGone().catch((error: unknown) => error));
+
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(env.replaceSpy).not.toHaveBeenCalled();
   });
 });
