@@ -36,6 +36,16 @@ interface CourtSetupStepProps {
  * through `onCreated`, which is the order the owner needs anyway: a court is
  * not bookable until it has a price.
  */
+/**
+ * Owner rule: the step needs a court someone can book, and a court without
+ * prices is not for sale, so only a priced court lets the owner move on.
+ */
+function nextBlockedReason(courts: CourtWithPrices[]): string | null {
+  if (courts.length === 0) return t.complex.onboardingNeedsCourt;
+  if (!courts.some((c) => c.prices.length > 0)) return t.complex.onboardingNeedsPricedCourt;
+  return null;
+}
+
 export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBack, onNext }: CourtSetupStepProps) {
   const [formOpen, setFormOpen] = useState(false);
   const [pricingCourt, setPricingCourt] = useState<CourtWithPrices | null>(null);
@@ -77,7 +87,7 @@ export function CourtSetupStep({ complexId, courts, hasCourts, deleteCourt, onBa
         </Button>
       </div>
 
-      <StepNavigation onBack={onBack} onNext={onNext} nextDisabled={!hasCourts} />
+      <StepNavigation onBack={onBack} onNext={onNext} blockedReason={nextBlockedReason(courts)} />
 
       <CourtForm
         open={formOpen}

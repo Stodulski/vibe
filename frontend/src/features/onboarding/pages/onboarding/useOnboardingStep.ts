@@ -7,7 +7,7 @@ export type OnboardingStep = 1 | 2 | 3;
 interface UseOnboardingStepArgs {
   complexId: string | null;
   currentComplex: Complex | null;
-  courts: unknown[] | undefined;
+  courts: { prices: readonly unknown[] }[] | undefined;
   complexesLoading: boolean;
   courtsLoading: boolean;
 }
@@ -23,7 +23,9 @@ function deriveStep({
   if (complexesLoading) return null;
   if (!complexId) return 1;
   if (courtsLoading) return null;
-  if (!courts || courts.length === 0) return 2;
+  // Step 2 is done only with a priced court (see CourtSetupStep), so resuming
+  // with unpriced courts reopens it rather than skipping past the rule.
+  if (!courts?.some((c) => c.prices.length > 0)) return 2;
   if (!currentComplex?.mp_user_id) return 3;
   return null; // Fully onboarded — no step to show, `completeOnboarding` takes over.
 }

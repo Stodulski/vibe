@@ -45,12 +45,20 @@ describe('useOnboardingStep — deriving the step from server data', () => {
     expect(result.current.step).toBe(2);
   });
 
-  it('opens step 3 once a complex has courts but no MercadoPago connection', () => {
+  // Resuming must not skip past the priced-court rule step 2 enforces.
+  it('reopens step 2 when the courts exist but none has prices', () => {
+    const { result } = renderHook(() =>
+      useOnboardingStep(baseArgs({ complexId: 'c1', courts: [{ prices: [] }], currentComplex: complex })),
+    );
+    expect(result.current.step).toBe(2);
+  });
+
+  it('opens step 3 once a complex has a priced court but no MercadoPago connection', () => {
     const { result } = renderHook(() =>
       useOnboardingStep(
         baseArgs({
           complexId: 'c1',
-          courts: [{}],
+          courts: [{ prices: [{}] }],
           currentComplex: complex,
         }),
       ),
@@ -63,7 +71,7 @@ describe('useOnboardingStep — deriving the step from server data', () => {
       useOnboardingStep(
         baseArgs({
           complexId: 'c1',
-          courts: [{}],
+          courts: [{ prices: [{}] }],
           currentComplex: connectedComplex,
         }),
       ),
@@ -86,7 +94,7 @@ describe('useOnboardingStep — pinning the step within a session', () => {
     // court, which on its own would derive step 3. The owner never asked to
     // move on (that's the "Siguiente" button, tested via `changeStep`), so
     // the page must stay on step 2.
-    rerender(baseArgs({ complexId: 'c1', courts: [{}], currentComplex: complex }));
+    rerender(baseArgs({ complexId: 'c1', courts: [{ prices: [{}] }], currentComplex: complex }));
     expect(result.current.step).toBe(2);
   });
 });
@@ -96,7 +104,7 @@ describe('useOnboardingStep — manual overrides', () => {
     const { result, rerender } = renderHook(
       (props: Parameters<typeof useOnboardingStep>[0]) => useOnboardingStep(props),
       {
-        initialProps: baseArgs({ complexId: 'c1', courts: [{}], currentComplex: complex }),
+        initialProps: baseArgs({ complexId: 'c1', courts: [{ prices: [{}] }], currentComplex: complex }),
       },
     );
     expect(result.current.step).toBe(3);
@@ -106,7 +114,7 @@ describe('useOnboardingStep — manual overrides', () => {
     });
     // Re-render with the exact same (still step-3-implying) server data —
     // the manual "back" to step 1 must not be overwritten by the derivation.
-    rerender(baseArgs({ complexId: 'c1', courts: [{}], currentComplex: complex }));
+    rerender(baseArgs({ complexId: 'c1', courts: [{ prices: [{}] }], currentComplex: complex }));
     expect(result.current.step).toBe(1);
   });
 
@@ -114,7 +122,7 @@ describe('useOnboardingStep — manual overrides', () => {
     const { result, rerender } = renderHook(
       (props: Parameters<typeof useOnboardingStep>[0]) => useOnboardingStep(props),
       {
-        initialProps: baseArgs({ complexId: 'c1', courts: [{}], currentComplex: complex }),
+        initialProps: baseArgs({ complexId: 'c1', courts: [{ prices: [{}] }], currentComplex: complex }),
       },
     );
 

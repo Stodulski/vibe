@@ -101,9 +101,27 @@ describe('CourtSetupStep navigation', () => {
     expect(baseProps.onNext).not.toHaveBeenCalled();
   });
 
-  it('advances once a court exists', async () => {
+  // Owner rule: a court without prices cannot be booked, so it does not
+  // count as the court this step asks for.
+  it('refuses to advance with only unpriced courts and says why', async () => {
     const user = userEvent.setup();
     render(<CourtSetupStep {...baseProps} hasCourts={true} courts={[court({ name: 'C1' })]} />);
+
+    await user.click(screen.getByRole('button', { name: /siguiente/i }));
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Cargá los precios de al menos una cancha');
+    expect(baseProps.onNext).not.toHaveBeenCalled();
+  });
+
+  it('advances once a court has prices', async () => {
+    const user = userEvent.setup();
+    render(
+      <CourtSetupStep
+        {...baseProps}
+        hasCourts={true}
+        courts={[court({ name: 'C1' }), court({ name: 'C2', prices: [makePrice({ price: 10000 })] })]}
+      />,
+    );
 
     await user.click(screen.getByRole('button', { name: /siguiente/i }));
 
