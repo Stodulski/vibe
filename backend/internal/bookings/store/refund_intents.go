@@ -111,7 +111,9 @@ func (m *Store) ClaimRefundIntent(ctx context.Context, id uuid.UUID, seen time.T
 
 // ClearRefundIntent clears a booking's refund-intent marker.
 //
-// AutoRefundIfPaid calls it on every exit that commits no ClaimRefund; a
+// AutoRefundIfPaid calls it on every exit that commits no ClaimRefund, and
+// refundCancelledBookingPayment on the exits where another claim already owns
+// the money (a transient claim failure there leaves the marker for the sweep); a
 // committed ClaimRefund already cleared the marker inside its own
 // transaction (refunds.go), so nothing on that path calls this again. The
 // sweep itself clears nothing — it only claims and then calls

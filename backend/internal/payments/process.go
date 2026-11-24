@@ -644,8 +644,10 @@ func (s *Service) refundBookingWhoseSlotIsGone(ctx context.Context, booking *boo
 // moment the payment is recorded (refund-intent-durability spec), so the
 // window between that commit and ClaimRefund's is covered by the same sweep
 // that covers the two cancel paths. ClaimRefund clears the marker inside its
-// own transaction and moves the payment to 'refund_pending'; every exit that
-// commits no claim clears it here, exactly as AutoRefundIfPaid does.
+// own transaction and moves the payment to 'refund_pending'. A claim that
+// failed for a moment leaves it standing for that sweep, because nothing else
+// will come back for this money (see below); the exits where another claim
+// already owns the refund clear it here, as AutoRefundIfPaid does.
 //
 // Two things it now refuses to invent. It takes the MercadoPago payment rather
 // than only its id, because the amount to record is what the client was actually
@@ -682,13 +684,22 @@ func (s *Service) refundCancelledBookingPayment(ctx context.Context, booking *bo
 		return fmt.Errorf("record the payment owed a refund for booking %s: %w", booking.ID, err)
 	}
 
-	// From here the refund-intent marker is committed on the booking. Whichever
-	// way this returns without a committed claim, it is cleared — and the window
-	// in between is the sweep's, not a hole.
+	// From here the refund-intent marker is committed on the booking, and the
+	// window until the claim commits is the sweep's, not a hole.
+	//
+	// A claim that failed for a moment leaves the marker standing: the payment
+	// row now carries this MercadoPago id, so the redelivered event stops at
+	// "payment already processed" and never claims again, and the marker is the
+	// only thing that still leads anything back to this money. The sweep claims
+	// it after its grace period, under the same row lock every claim takes, so
+	// it cannot be refunded twice. Every other exit without a committed claim
+	// (ErrAlreadyRefunded, ErrRefundInFlight: another claim owns the money)
+	// clears it, exactly as AutoRefundIfPaid does.
 	committed := false
-	defer s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &committed)
-
-	return s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+	err = s.refundRecordedPayment(ctx, booking, payment.ID, mpPaymentID, cause, &committed)
+	keepMarker := committed || err != nil
+	s.clearRefundIntentUnlessClaimed(ctx, booking.ID, &keepMarker)
+	return err
 }
 
 // refundAnotherPaymentOnCancelledBooking refunds an approved payment that landed on

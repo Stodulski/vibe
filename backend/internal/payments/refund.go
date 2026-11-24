@@ -1505,7 +1505,9 @@ const refundIntentBatch = 12
 
 // SweepOrphanedRefundIntents finds cancellations whose refund-intent marker
 // has stood past its grace period — the crash window between a cancel commit
-// and AutoRefundIfPaid's ClaimRefund — claims each one exclusively, and
+// and AutoRefundIfPaid's ClaimRefund, or a payment on a cancelled booking whose
+// claim failed for a moment (refundCancelledBookingPayment leaves the marker
+// standing for exactly this) — claims each one exclusively, and
 // drives it through the same AutoRefundIfPaid path an ordinary cancellation
 // uses.
 //
