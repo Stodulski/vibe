@@ -29,7 +29,7 @@ minimumReleaseAgeExclude:
 overrides:
   '@puppeteer/browsers@2': '>=3.2.2 <4'
   'qs@<6.16.0': '>=6.16.0 <7'
-  'fast-uri@3': '>=3.1.6 <4'
+  'fast-uri@3': '>=3.1.9 <4'
   'brace-expansion@2': '>=2.1.2 <3'
   # Reached through @astrojs/vercel (high): brace-expansion recursion DoS, path-to-regexp backtracking.
   'brace-expansion@5': '>=5.0.11 <6'
@@ -49,6 +49,15 @@ overrides:
   'zod@>=4 <4.6.6': '>=4.6.6 <5'
   # GHSA-4528-x5fx-h6hg (high): joi email split DoS, reached through @hookform/resolvers.
   'joi@17': '>=17.13.9 <18'
+  # satori pins fflate 0.7.3 (moderate); the patch release keeps the 0.7 API the OG cards use.
+  'fflate@0.7': '>=0.7.5 <0.8'
+  # Build-time only, reached through vite-plugin-pwa's workbox-build (low).
+  'serialize-javascript@7': '>=7.1.3 <8'
+  # Reached through Lighthouse CI's proxy agent (high); Lighthouse CI never opens an FTP URL.
+  'basic-ftp@5': '>=6.2.4 <7'
+  # Build and lint tooling (moderate): @sentry/bundler-plugins, workbox-build, @vercel/nft and eslint.
+  'glob@>=11 <14': '>=14.0.2 <15'
+  'minimatch@10': '>=11.0.1 <12'
 
 # Advisories with no fixed release, waived so `pnpm audit --audit-level high`
 # (frontend.yml) keeps blocking on everything else. Drop an entry once a fixed
@@ -59,3 +68,8 @@ auditConfig:
     # latest release. Every pattern it compiles here comes from code and build
     # config (vite, tinyglobby, astro, unstorage), never from a request.
     - GHSA-fc5q-39xc-vjpf
+    # zod <4.6.6, memory exhaustion validating oversized constrained collections.
+    # Only zod 3 is left, pinned (^3.24.1) by the shadcn CLI, a dev tool run by
+    # hand to add components; it validates its own registry files. Every zod 4
+    # copy the app loads is held at >=4.6.6 by the override above.
+    - GHSA-mrhx-c7xc-m3w5
