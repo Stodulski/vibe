@@ -5,9 +5,8 @@
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import astroIslandScript from 'astro/runtime/server/astro-island.prebuilt.js';
-import loadDirectiveScript from 'astro/runtime/client/load.prebuilt.js';
-import onlyDirectiveScript from 'astro/runtime/client/only.prebuilt.js';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import {
   ASTRO_INLINE_SCRIPT_HASHES,
   isBookPath,
@@ -126,6 +125,15 @@ test('the storefront CSP allows the Turnstile script and frame the confirm step 
   assert.ok(scriptSrc?.split(' ').includes('https://challenges.cloudflare.com'));
   assert.ok(directives.includes('frame-src https://challenges.cloudflare.com'));
 });
+
+// Astro 7.4 moved its runtime into @astrojs/runtime. Resolved from astro itself, so the
+// hashes are checked against the copy astro renders, whatever version it depends on.
+const astroRequire = createRequire(import.meta.resolve('astro'));
+const astroRuntimeScript = async (path: string): Promise<string> =>
+  (await import(pathToFileURL(astroRequire.resolve(`@astrojs/runtime/_internal/${path}`)).href)).default;
+const astroIslandScript = await astroRuntimeScript('server/astro-island.prebuilt.js');
+const loadDirectiveScript = await astroRuntimeScript('client/load.prebuilt.js');
+const onlyDirectiveScript = await astroRuntimeScript('client/only.prebuilt.js');
 
 // The islands on /c/<slug> need Astro's inline scripts. Hashed from Astro's own copies,
 // so an upgrade that changes them fails here instead of in the browser.
