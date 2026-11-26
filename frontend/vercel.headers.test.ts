@@ -132,6 +132,10 @@ describe('vercel.json CSP third-party origins', () => {
     // packages/booking/src/components/ComplexHeader.tsx.
     ['img-src', 'https://*.r2.dev'],
     ['img-src', 'https://*.vibe.com.ar'],
+    // Social kit previews: the landing renders each complex's share images
+    // at https://vibe.com.ar/kit/c/<slug>/*.png (src/shared/lib/publicPaths.ts),
+    // shown on /kit. The apex host is not covered by `*.vibe.com.ar`.
+    ['img-src', 'https://vibe.com.ar'],
     // The app's own API, on a different origin than the SPA in production
     // (VITE_API_URL is absolute there) — src/shared/lib/ky.ts.
     ['connect-src', 'https://api.vibe.com.ar'],
