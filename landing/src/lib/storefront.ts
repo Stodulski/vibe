@@ -74,9 +74,9 @@ export function storefrontBookingConfig(apiBaseUrl: string, turnstileSiteKey?: s
  * and fails until these are updated.
  */
 export const ASTRO_INLINE_SCRIPT_HASHES = [
-  "'sha256-QzWFZi+FLIx23tnm9SBU4aEgx4x8DsuASP07mfqol/c='",
-  "'sha256-eIXWvAmxkr251LJZkjniEK5LcPF3NkapbJepohwYRIc='",
-  "'sha256-Ya0pUYrC7nM5Cn/056TyVuEiz6dFGrzmkWzgON0pF0U='",
+  "'sha256-1BvDVWLr3QCC20uHhUDi27eDFVJpk1uMQJGIWKUks2I='",
+  "'sha256-Y8t0ntteBwH+PqGKUyjWW3CAk+BNJKSoQc0xZ68FjhM='",
+  "'sha256-xKBggZ2csD5Lp4tQr9izOLUTCZc1Nf4gged/rUHQ2+Y='",
 ];
 
 /**
